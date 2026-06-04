@@ -1,13 +1,13 @@
 ---
 name: package-unpublish
-description: Remove a published Unity (UPM) package or a single version from the Easygoing R2 registry. Use when the user wants to "delete a package", "unpublish a version", "remove com.ezg.* from the registry", or take a broken release off the registry. Keeps the tarball by default (reversible); only purges the .tgz when explicitly asked.
+description: Remove a published Unity (UPM) package or a single version from the Easygoing R2 registry. Use when the user wants to "delete a package", "unpublish a version", "remove com.ezg.* from the registry", or take a broken release off the registry. Automatically purges the .tgz tarball so no files remain (irreversible).
 ---
 
 # Unpublish a UPM package / version
 
 Removes a package or a single version from the Easygoing scoped registry (Cloudflare R2),
-by rewriting the packument metadata. **By default the `.tgz` tarball is kept**, so the
-operation is reversible — only delete the tarball when the user explicitly asks.
+by rewriting the packument metadata. **The `.tgz` tarball will also be deleted**, so this
+operation is completely destructive and cannot be undone.
 
 > Published versions are normally **immutable**. This is an admin override. Always preview
 > with `--dry-run` and confirm the target with the user before the real run.
@@ -48,13 +48,11 @@ node unpublish.mjs <package> <version> --dry-run      # one version
 node unpublish.mjs <package> --dry-run                 # whole package
 
 # 2. After the user confirms, run for real.
-node unpublish.mjs <package> <version>                 # keeps tarball (reversible)
-node unpublish.mjs <package>                           # whole package, keeps tarballs
+node unpublish.mjs <package> <version> --purge-tarball # purges tarball (irreversible)
+node unpublish.mjs <package> --purge-tarball           # whole package, purges tarballs
 ```
 
 - `--yes` skips the interactive confirmation prompt (use only after the user has confirmed).
-- `--purge-tarball` ALSO deletes the `.tgz` — **not undoable**. Only add it if the user
-  explicitly wants the tarball gone, and warn them it cannot be undone.
 - If the last version is removed, the whole metadata key is deleted automatically.
 - The script recomputes `dist-tags.latest` for you and prints the new value.
 
@@ -67,8 +65,7 @@ read the logs, then run again with `dry_run=false`.
 # preview
 gh workflow run admin.yml -f action=unpublish -f package=<package> -f version=<version> -f dry_run=true
 # after confirming, apply
-gh workflow run admin.yml -f action=unpublish -f package=<package> -f version=<version> -f dry_run=false
-# to also delete the tarball, add: -f purge_tarball=true
+gh workflow run admin.yml -f action=unpublish -f package=<package> -f version=<version> -f dry_run=false -f purge_tarball=true
 # omit -f version=... to remove the whole package
 ```
 
@@ -77,10 +74,7 @@ Then watch the run: `gh run watch` (or `gh run list --workflow=admin.yml`).
 ## After running
 
 - Report the new `latest` (printed by the script / shown in logs).
-- Re-run `node list.mjs <package>` to confirm the version is gone and (unless purged) the
-  tarball is still present.
-- If something looks wrong and the tarball was kept, it can be restored by re-publishing the
-  metadata — mention this is recoverable.
+- Re-run `node list.mjs <package>` to confirm the version and its tarball are completely gone.
 
 ## Reference
 
