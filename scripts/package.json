@@ -1,0 +1,15 @@
+{
+  "name": "ezg-upm-publish-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Publish tooling: pack UPM packages from packages/* and upload tarball + metadata to Cloudflare R2 for the Easygoing scoped registry.",
+  "scripts": {
+    "publish-all": "node publish.mjs",
+    "dry-run": "node publish.mjs --dry-run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "semver": "^7.6.3"
+  }
+}
