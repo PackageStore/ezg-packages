@@ -13,76 +13,24 @@
  * Run:  node publish.mjs            real publish; needs R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
  *       node publish.mjs --dry-run  pack + build metadata only, no R2 calls (no AWS creds needed)
  */
-import semver from "semver";
 import { execSync } from "node:child_process";
-import { readFileSync, readdirSync, existsSync, mkdtempSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFileSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import semver from "semver";
+import {
+  REGISTRY_URL,
+  makeClient,
+  listPackageDirs,
+  objectExists,
+  getJson,
+  putObject,
+  tarballKey,
+  recomputeLatest,
+  hasFlag,
+} from "./registry-lib.mjs";
 
-const DRY_RUN = process.argv.includes("--dry-run");
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = join(HERE, "..");
-const PACKAGES_DIR = join(REPO_ROOT, "packages");
-
-const REGISTRY_URL = (process.env.REGISTRY_URL ||
-  "https://upm-registry-worker.developer-a1f.workers.dev").replace(/\/+$/, "");
-const BUCKET = process.env.R2_BUCKET || "company-upm-registry";
-
-function requireEnv(name) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var: ${name}`);
-  return v;
-}
-
-// AWS SDK is imported lazily so --dry-run runs with zero cloud deps installed.
-async function makeClient() {
-  const { S3Client } = await import("@aws-sdk/client-s3");
-  const accountId = requireEnv("R2_ACCOUNT_ID");
-  return new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
-      secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
-    },
-  });
-}
-
-function listPackageDirs() {
-  if (!existsSync(PACKAGES_DIR)) return [];
-  return readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => join(PACKAGES_DIR, d.name))
-    .filter((dir) => existsSync(join(dir, "package.json")));
-}
-
-async function objectExists(client, key) {
-  const { HeadObjectCommand } = await import("@aws-sdk/client-s3");
-  try {
-    await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
-    return true;
-  } catch (err) {
-    if (err?.$metadata?.httpStatusCode === 404 || err?.name === "NotFound") return false;
-    throw err;
-  }
-}
-
-async function getJson(client, key) {
-  const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-  try {
-    const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    return JSON.parse(await res.Body.transformToString());
-  } catch (err) {
-    if (err?.$metadata?.httpStatusCode === 404 || err?.name === "NoSuchKey") return null;
-    throw err;
-  }
-}
-
-async function putObject(client, key, body, contentType) {
-  const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-  await client.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }));
-}
+const DRY_RUN = hasFlag("--dry-run");
 
 function npmPack(pkgDir, destDir) {
   // Run through the shell so `npm` resolves to npm.cmd on Windows (execFile of a
@@ -124,8 +72,7 @@ function mergeMetadata(existing, name, version, versionEntry, iso) {
   meta.time[version] = iso;
   if (!meta.time.created) meta.time.created = iso;
   meta.time.modified = iso;
-  const latest = Object.keys(meta.versions).filter((v) => semver.valid(v)).sort(semver.rcompare)[0] || version;
-  meta["dist-tags"].latest = latest;
+  const latest = recomputeLatest(meta) || version;
   const latestEntry = meta.versions[latest];
   meta.description = latestEntry.description || meta.description || "";
   meta.author = latestEntry.author || meta.author || "EZG Studio";
@@ -152,9 +99,9 @@ async function main() {
       if (!name || !version) throw new Error("package.json missing name or version");
       if (!semver.valid(version)) throw new Error(`invalid semver version: ${version}`);
 
-      const tarballKey = `${name}/-/${name}-${version}.tgz`;
+      const key = tarballKey(name, version);
 
-      if (!DRY_RUN && (await objectExists(client, tarballKey))) {
+      if (!DRY_RUN && (await objectExists(client, key))) {
         console.log(`= skip ${label} (already published, immutable)`);
         summary.push(`skip    ${label}`);
         continue;
@@ -168,7 +115,7 @@ async function main() {
 
       if (DRY_RUN) {
         console.log(`~ dry-run ${label}`);
-        console.log(`    tarball key : ${tarballKey}`);
+        console.log(`    tarball key : ${key}`);
         console.log(`    tarball url : ${tarballUrl}`);
         console.log(`    integrity   : ${packed.integrity}`);
         console.log(`    shasum      : ${packed.shasum}`);
@@ -177,7 +124,7 @@ async function main() {
         continue;
       }
 
-      await putObject(client, tarballKey, readFileSync(join(tmp, packed.filename)), "application/octet-stream");
+      await putObject(client, key, readFileSync(join(tmp, packed.filename)), "application/octet-stream");
       await putObject(client, name, JSON.stringify(meta, null, 2), "application/json");
       console.log(`+ published ${label}`);
       summary.push(`publish ${label}`);

@@ -3,3 +3,8 @@ node_modules/
 .DS_Store
 *.log
 scripts/package-lock.json
+
+# Skills live in .agents/skills/ (committed). `.claude/skills` is a per-machine
+# junction/symlink into it (git can't represent a Windows junction) — recreate it
+# locally with: node scripts/link-skills.mjs
+.claude/skills

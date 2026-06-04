@@ -27,6 +27,9 @@ jobs:
         working-directory: scripts
         run: npm install
 
+      - name: Validate packages
+        run: node scripts/validate.mjs
+
       - name: Publish new package versions to R2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}

@@ -1,0 +1,116 @@
+name: Registry admin
+
+# Manual registry administration: list / validate / unpublish / rollback / deprecate.
+# These operations can mutate or remove published metadata, so they are run by hand
+# via the Actions "Run workflow" button, never automatically on push.
+# Defaults to dry-run; flip dry_run off to actually apply.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operation to run
+        type: choice
+        required: true
+        options: [ list, validate, unpublish, rollback, deprecate ]
+      package:
+        description: 'Package name (e.g. com.ezg.foo). Required except for validate/list-all.'
+        type: string
+        required: false
+      version:
+        description: 'Version. unpublish: omit to remove whole package. rollback/deprecate: required.'
+        type: string
+        required: false
+      message:
+        description: 'Deprecation message (deprecate only).'
+        type: string
+        required: false
+      purge_tarball:
+        description: 'unpublish only: also delete the .tgz (NOT undoable).'
+        type: boolean
+        default: false
+      undo:
+        description: 'deprecate only: clear the deprecation instead of setting it.'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Preview only — do not write to R2.'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # Share the publish lane so admin ops never race an in-flight publish.
+  group: publish-upm
+  cancel-in-progress: false
+
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tooling
+        working-directory: scripts
+        run: npm install
+
+      - name: Run ${{ inputs.action }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: company-upm-registry
+          REGISTRY_URL: https://upm-registry-worker.developer-a1f.workers.dev
+          ACTION: ${{ inputs.action }}
+          PKG: ${{ inputs.package }}
+          VERSION: ${{ inputs.version }}
+          MESSAGE: ${{ inputs.message }}
+          PURGE: ${{ inputs.purge_tarball }}
+          UNDO: ${{ inputs.undo }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=()
+          [ "$DRY" = "true" ] && args+=("--dry-run")
+          # CI confirms automatically; confirm() also auto-passes on CI, but be explicit.
+          args+=("--yes")
+
+          case "$ACTION" in
+            list)
+              [ -n "$PKG" ] && node scripts/list.mjs "$PKG" || node scripts/list.mjs
+              ;;
+            validate)
+              node scripts/validate.mjs
+              ;;
+            unpublish)
+              [ -n "$PKG" ] || { echo "::error::package is required for unpublish"; exit 1; }
+              [ "$PURGE" = "true" ] && args+=("--purge-tarball")
+              if [ -n "$VERSION" ]; then
+                node scripts/unpublish.mjs "$PKG" "$VERSION" "${args[@]}"
+              else
+                node scripts/unpublish.mjs "$PKG" "${args[@]}"
+              fi
+              ;;
+            rollback)
+              [ -n "$PKG" ] && [ -n "$VERSION" ] || { echo "::error::package and version are required for rollback"; exit 1; }
+              node scripts/rollback.mjs "$PKG" "$VERSION" "${args[@]}"
+              ;;
+            deprecate)
+              [ -n "$PKG" ] && [ -n "$VERSION" ] || { echo "::error::package and version are required for deprecate"; exit 1; }
+              [ "$UNDO" = "true" ] && args+=("--undo")
+              if [ -n "$MESSAGE" ]; then
+                node scripts/deprecate.mjs "$PKG" "$VERSION" "$MESSAGE" "${args[@]}"
+              else
+                node scripts/deprecate.mjs "$PKG" "$VERSION" "${args[@]}"
+              fi
+              ;;
+            *)
+              echo "::error::unknown action $ACTION"; exit 1
+              ;;
+          esac

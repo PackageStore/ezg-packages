@@ -15,9 +15,16 @@ packages/
     Runtime/Ezg.Sample.asmdef
   com.ezg.core/              # do skill /package-module đẩy vào
 scripts/
+  registry-lib.mjs           # helper R2/util dùng chung
   publish.mjs                # pack + gen metadata + upload R2
+  validate.mjs               # lint package.json trước publish (gác cổng CI)
+  list.mjs                   # xem package/version trên registry
+  unpublish.mjs              # gỡ version/package khỏi metadata (mặc định giữ tarball)
+  rollback.mjs               # hạ dist-tags.latest về version cũ (không xóa gì)
+  deprecate.mjs              # đánh dấu version deprecated
   package.json
-.github/workflows/publish.yml
+.github/workflows/publish.yml   # tự publish khi push packages/**
+.github/workflows/admin.yml     # quản trị thủ công (workflow_dispatch)
 ```
 
 ## Thêm / cập nhật một package
@@ -60,6 +67,49 @@ Dry-run chỉ pack + dựng metadata rồi in ra, không gọi R2.
 `R2_BUCKET` và `REGISTRY_URL` cấu hình thẳng trong `.github/workflows/publish.yml`.
 
 > Tạo R2 S3 token: Cloudflare → R2 → *Manage R2 API Tokens* → *Create API Token* (Object Read & Write trên bucket `company-upm-registry`). Token này khác với Worker token.
+
+## Quản trị registry (xóa / hạ version / deprecate)
+
+> ⚠️ Version đã publish bình thường **immutable**. Các lệnh dưới là **thao tác admin** ghi đè quy ước đó.
+> Luôn chạy `--dry-run` trước. Mặc định **giữ tarball** (undo được). Chạy được local (cần R2 credentials)
+> hoặc qua GitHub Actions → workflow **Registry admin** (`workflow_dispatch`, mặc định dry-run).
+
+Local: `cd scripts && npm install`, đặt sẵn `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`.
+
+| Lệnh | Tác dụng |
+|---|---|
+| `node list.mjs` | Bảng mọi package local + trạng thái trên R2 (`latest`, số version, tarball) |
+| `node list.mjs <pkg>` | Lịch sử version chi tiết của 1 package |
+| `node list.mjs --remote` | Liệt kê package bằng cách quét R2 (bỏ qua thư mục local) |
+| `node validate.mjs` | Lint mọi `package.json` theo chuẩn UPM (CI chạy trước publish) |
+| `node rollback.mjs <pkg> <version>` | **An toàn nhất** khi bản mới lỗi: trỏ `latest` về version cũ, không xóa gì, undo được |
+| `node deprecate.mjs <pkg> <version> "lý do"` | Đánh dấu deprecated; consumer vẫn cài được, có cảnh báo (`--undo` để gỡ) |
+| `node unpublish.mjs <pkg> <version>` | Gỡ 1 version khỏi metadata, **giữ tarball**; tự tính lại `latest` |
+| `node unpublish.mjs <pkg>` | Gỡ cả package (xóa metadata), tarball vẫn giữ |
+| `… --purge-tarball` | Thêm bước **xóa cứng** `.tgz` — **không undo được** |
+
+Mọi lệnh ghi đều có `--dry-run` (xem trước, không ghi) và `--yes` (bỏ qua xác nhận, CI dùng).
+
+**Khi nào dùng gì:**
+- Bản mới lỗi, cần consumer quay về bản cũ ngay → `rollback` (nhanh, an toàn, undo được).
+- Muốn ngăn dùng bản cũ nhưng không xóa → `deprecate`.
+- Thật sự muốn gỡ version/package → `unpublish` (mặc định vẫn giữ `.tgz` để cứu vãn).
+
+CI: vào **Actions → Registry admin → Run workflow**, chọn `action`, nhập `package`/`version`,
+để `dry_run = true` xem trước rồi chạy lại với `dry_run = false`.
+
+### Skill cho AI agent
+
+`.agents/skills/` chứa skill để Claude Code tự thực hiện thao tác registry:
+
+- `package-unpublish` — xóa package/version (gọi `unpublish.mjs`, hoặc `gh` qua `admin.yml`).
+- `package-rollback` — hạ `latest` về version cũ (gọi `rollback.mjs`, hoặc `gh`).
+
+Skill ưu tiên chạy script local (cần R2 creds), fallback sang GitHub Actions khi không có creds.
+
+> Skill **nguồn** nằm ở `.agents/skills/` (commit vào repo). `.claude/skills` chỉ là **junction**
+> (Windows) / symlink (mac/Linux) trỏ vào đó — git không biểu diễn được nên đã gitignore. Sau khi
+> clone, tạo lại link bằng: `node scripts/link-skills.mjs` (hoặc `npm run link-skills` trong `scripts/`).
 
 ## Dùng package trong Unity (consumer)
 
