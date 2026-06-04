@@ -1,0 +1,26 @@
+{
+    "autoReferenced":  true,
+    "includePlatforms":  [
+                             "Editor"
+                         ],
+    "references":  [
+                       "Ezg.SerializableDictionary"
+                   ],
+    "excludePlatforms":  [
+
+                         ],
+    "overrideReferences":  false,
+    "allowUnsafeCode":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "name":  "Ezg.SerializableDictionary.Editor",
+    "rootNamespace":  "",
+    "versionDefines":  [
+
+                       ],
+    "defineConstraints":  [
+
+                          ],
+    "noEngineReferences":  false
+}
