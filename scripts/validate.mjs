@@ -4,7 +4,7 @@
  * Runs as a CI gate: exits non-zero on any error so a bad package never reaches R2.
  *
  * Checks per package.json:
- *   - name matches ^com\.ezg\.[a-z0-9-]+$
+ *   - name matches com.ezg.* or com.google.* scopes
  *   - version is valid semver
  *   - `unity` field present
  *   - at least one .asmdef somewhere in the package
@@ -19,7 +19,7 @@ import { join } from "node:path";
 import semver from "semver";
 import { makeClient, listPackageDirs, getJson } from "./registry-lib.mjs";
 
-const NAME_RE = /^com\.ezg\.[a-z0-9-]+$/;
+const NAME_RE = /^(com\.ezg\.[a-z0-9-]+|com\.google\.[a-z0-9.-]+|com\.google\.android\.[a-z0-9.-]+)$/;
 
 function hasAsmdef(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
