@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.dictionary",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Serializable Dictionary",
   "description": "Generic SerializableDictionary<K,V> with Unity serialization support and Editor property drawers.",
   "unity": "6000.2",
