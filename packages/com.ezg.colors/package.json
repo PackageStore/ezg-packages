@@ -1,9 +1,0 @@
-{
-  "name": "com.ezg.colors",
-  "version": "0.1.0",
-  "displayName": "EZG Colors",
-  "description": "HTML/X11 color enum, hex/Color32 conversion utilities, and Unity rich-text color tagging helpers.",
-  "unity": "6000.3",
-  "author": { "name": "EZG Studio" },
-  "keywords": ["color", "hex", "utility", "rich-text"]
-}
