@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.easy-event-manager",
+  "version": "2.3.0",
+  "displayName": "TigerForge Easy Event Manager",
+  "description": "TigerForge EasyEventManager — a lightweight static event bus for Unity. Supports typed data, delayed emit, sender tracking, event groups, and auto-unsubscribe via MonoBehaviour extension.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "events",
+    "eventbus",
+    "tigerforge",
+    "messaging"
+  ]
+}
