@@ -118,8 +118,19 @@ Skill ưu tiên chạy script local (cần R2 creds), fallback sang GitHub Actio
 ```json
 {
   "scopedRegistries": [
-    { "name": "Easygoing code base", "url": "https://upm-registry-worker.developer-a1f.workers.dev", "scopes": [ "com.ezg" ] }
+    {
+      "name": "Easygoing code base",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev",
+      "scopes": [
+        "com.ezg",
+        "com.cysharp",
+        "com.google",
+        "com.coffee"
+      ]
+    }
   ],
-  "dependencies": { "com.ezg.sample": "0.0.1" }
+  "dependencies": {
+    "com.ezg.sample": "0.0.1"
+  }
 }
 ```
