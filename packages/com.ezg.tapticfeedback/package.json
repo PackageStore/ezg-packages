@@ -1,0 +1,9 @@
+{
+  "name": "com.ezg.tapticfeedback",
+  "version": "0.1.0",
+  "displayName": "EZG Taptic Feedback",
+  "description": "Cross-platform haptic/taptic feedback for iOS and Android (success, warning, failure, light/medium/heavy impact, selection). Static Taptic API backed by native iOS Taptic Engine and Android Vibrator.",
+  "unity": "2022.3",
+  "author": { "name": "EZG Studio" },
+  "keywords": ["haptic", "taptic", "vibration", "feedback"]
+}
