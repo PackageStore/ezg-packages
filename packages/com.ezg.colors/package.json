@@ -1,9 +1,0 @@
-{
-  "name": "com.ezg.colors",
-  "version": "0.1.1",
-  "displayName": "EZG Colors",
-  "description": "Standard HTML/X11 color enum, model, and utility extensions for hex conversion, Unity UI text styling, and color manipulation.",
-  "unity": "2022.3",
-  "author": { "name": "EZG Studio" },
-  "keywords": ["colors", "hex", "color-utility", "ui"]
-}
