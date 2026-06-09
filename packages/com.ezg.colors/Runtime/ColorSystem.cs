@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace BlackFace.Libraries.Modules.Colors
 {
@@ -309,6 +310,147 @@ namespace BlackFace.Libraries.Modules.Colors
         public static string SetColor(this string str, ColorEnum clr)
         {
             return $"<color=#{ColorsDefault.Find(x => x.Name == clr).ClrHex}>{str}</color>";
+        }
+
+        // --- Rich Text Styling ---
+
+        /// <summary>Wraps string in Unity bold rich-text tags</summary>
+        public static string SetBold(this string str) => $"<b>{str}</b>";
+
+        /// <summary>Wraps string in Unity italic rich-text tags</summary>
+        public static string SetItalic(this string str) => $"<i>{str}</i>";
+
+        /// <summary>Wraps string in Unity size rich-text tags</summary>
+        public static string SetSize(this string str, int size) => $"<size={size}>{str}</size>";
+
+        // --- Alpha ---
+
+        /// <summary>Returns a copy of the color with the given alpha (0–1)</summary>
+        public static Color WithAlpha(this Color color, float alpha)
+        {
+            return new Color(color.r, color.g, color.b, Mathf.Clamp01(alpha));
+        }
+
+        /// <summary>Returns a copy of Color32 with the given alpha (0–255)</summary>
+        public static Color32 WithAlpha(this Color32 color, byte alpha)
+        {
+            return new Color32(color.r, color.g, color.b, alpha);
+        }
+
+        // --- Lighten / Darken ---
+
+        /// <summary>Lightens a color by the given factor (0–1)</summary>
+        public static Color Lighten(this Color color, float factor)
+        {
+            factor = Mathf.Clamp01(factor);
+            return new Color(
+                Mathf.Clamp01(color.r + (1f - color.r) * factor),
+                Mathf.Clamp01(color.g + (1f - color.g) * factor),
+                Mathf.Clamp01(color.b + (1f - color.b) * factor),
+                color.a);
+        }
+
+        /// <summary>Darkens a color by the given factor (0–1)</summary>
+        public static Color Darken(this Color color, float factor)
+        {
+            factor = Mathf.Clamp01(factor);
+            return new Color(
+                Mathf.Clamp01(color.r * (1f - factor)),
+                Mathf.Clamp01(color.g * (1f - factor)),
+                Mathf.Clamp01(color.b * (1f - factor)),
+                color.a);
+        }
+
+        // --- Lerp / Gradient ---
+
+        /// <summary>Linearly interpolates between two colors</summary>
+        public static Color LerpTo(this Color from, Color to, float t) => Color.Lerp(from, to, t);
+
+        /// <summary>
+        /// Generates a gradient array of n colors between start and end
+        /// </summary>
+        public static Color[] Gradient(Color start, Color end, int steps)
+        {
+            if (steps <= 1) return new[] { start };
+            var result = new Color[steps];
+            for (int i = 0; i < steps; i++)
+                result[i] = Color.Lerp(start, end, i / (float)(steps - 1));
+            return result;
+        }
+
+        // --- HSV Conversion ---
+
+        /// <summary>Converts a Color to HSV components (h, s, v each 0–1)</summary>
+        public static void ToHSV(this Color color, out float h, out float s, out float v)
+        {
+            Color.RGBToHSV(color, out h, out s, out v);
+        }
+
+        /// <summary>Creates a Color from HSV components (h, s, v each 0–1)</summary>
+        public static Color FromHSV(float h, float s, float v, float a = 1f)
+        {
+            Color c = Color.HSVToRGB(h, s, v);
+            c.a = Mathf.Clamp01(a);
+            return c;
+        }
+
+        // --- Color Harmony ---
+
+        /// <summary>Returns the complementary color (hue rotated 180°)</summary>
+        public static Color Complementary(this Color color)
+        {
+            Color.RGBToHSV(color, out float h, out float s, out float v);
+            return Color.HSVToRGB((h + 0.5f) % 1f, s, v).WithAlpha(color.a);
+        }
+
+        /// <summary>Returns two analogous colors (hue ±30°)</summary>
+        public static (Color left, Color right) Analogous(this Color color, float angle = 30f)
+        {
+            Color.RGBToHSV(color, out float h, out float s, out float v);
+            float step = angle / 360f;
+            return (
+                Color.HSVToRGB((h - step + 1f) % 1f, s, v).WithAlpha(color.a),
+                Color.HSVToRGB((h + step) % 1f, s, v).WithAlpha(color.a)
+            );
+        }
+
+        /// <summary>Returns the two triadic colors (hue ±120°)</summary>
+        public static (Color second, Color third) Triadic(this Color color)
+        {
+            Color.RGBToHSV(color, out float h, out float s, out float v);
+            return (
+                Color.HSVToRGB((h + 1f / 3f) % 1f, s, v).WithAlpha(color.a),
+                Color.HSVToRGB((h + 2f / 3f) % 1f, s, v).WithAlpha(color.a)
+            );
+        }
+
+        // --- Random ---
+
+        /// <summary>Returns a random color from the default palette</summary>
+        public static Color32 RandomColor()
+        {
+            var list = ColorsDefault;
+            return list[Random.Range(0, list.Count)].Color;
+        }
+
+        /// <summary>Returns a random fully-saturated vivid color</summary>
+        public static Color RandomVividColor(float saturation = 1f, float value = 1f)
+        {
+            return Color.HSVToRGB(Random.value, saturation, value);
+        }
+
+        // --- Luminance / Contrast ---
+
+        /// <summary>Returns perceived relative luminance (0 = black, 1 = white)</summary>
+        public static float Luminance(this Color color)
+        {
+            return 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b;
+        }
+
+        /// <summary>Returns black or white, whichever has better contrast against this color</summary>
+        public static Color ContrastColor(this Color color)
+        {
+            return color.Luminance() > 0.179f ? Color.black : Color.white;
         }
 
         #endregion
