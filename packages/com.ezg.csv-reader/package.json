@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.csv-reader",
+  "version": "0.1.0",
+  "displayName": "EZG CSV Reader",
+  "description": "Reflection-based CSV → C# / ScriptableObject deserializer and editor import pipeline for Unity. Parses CSV text into typed model arrays (including nested objects and arrays), supports ID-value sheets, and auto-imports feature-local CsvConfig CSVs into ScriptableObject collection assets via an AssetPostprocessor. Project-specific paths, suffixes and shared-model prefixes are externalized to a CsvReaderConfig asset, so the package has no hardcoded dependency on any game's data layer. No third-party dependencies (Unity built-ins only).",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "csv",
+    "import",
+    "scriptableobject",
+    "deserialize"
+  ]
+}
