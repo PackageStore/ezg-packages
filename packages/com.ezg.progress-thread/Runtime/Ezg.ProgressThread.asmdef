@@ -1,0 +1,31 @@
+{
+    "name":  "Ezg.ProgressThread",
+    "rootNamespace":  "Ezg.Package.ProgressThread",
+    "references":  [
+                       "DOTween.Modules",
+                       "UnityEngine.UI"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+                           {
+                               "name":  "com.demigiant.dotween",
+                               "expression":  "",
+                               "define":  "DOTWEEN_ENABLED"
+                           }
+                       ],
+    "noEngineReferences":  false
+}
