@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.package.progress-thread",
+  "version": "0.1.0",
+  "displayName": "EZG Progress Thread",
+  "description": "DOTween-backed timeline, stopwatch, and observable progress-thread utilities for Unity runtime code.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "thread",
+    "progress",
+    "timer",
+    "timeline"
+  ]
+}
