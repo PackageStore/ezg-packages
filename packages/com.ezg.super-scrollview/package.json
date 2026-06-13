@@ -1,14 +1,14 @@
 {
-    "name":  "com.ezg.super-scrollview",
-    "version":  "0.1.2",
-    "displayName":  "EZG Super ScrollView",
-    "description":  "Super ScrollView module",
-    "unity":  "6000.2",
-    "author":  {
-                   "name":  "EZG Studio"
-               },
-    "keywords":  [
-                     "ui",
-                     "scrollview"
-                 ]
+  "name": "com.ezg.super-scrollview",
+  "version": "0.1.3",
+  "displayName": "EZG Super ScrollView",
+  "description": "Super ScrollView module",
+  "unity": "6000.2",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "ui",
+    "scrollview"
+  ]
 }

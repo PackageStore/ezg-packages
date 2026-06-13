@@ -1,3 +1,8 @@
+## [2.3.1] - 2026-06-14
+
+- Add missing .meta files for README.md, CHANGELOG.md, package.json to fix Unity "immutable folder" import errors
+
+
 # Changelog
 
 ## [2.3.0] - 2026-06-09

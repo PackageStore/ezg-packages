@@ -1,16 +1,16 @@
 {
-    "name":  "com.ezg.progress-thread",
-    "version":  "0.1.0",
-    "displayName":  "EZG Progress Thread",
-    "description":  "Reusable Unity progress-thread and timeline helpers built on DOTween, with observable cooldown progress and lifecycle update hooks.",
-    "unity":  "2022.3",
-    "author":  {
-                   "name":  "EZG Studio"
-               },
-    "keywords":  [
-                     "progress",
-                     "thread",
-                     "timeline",
-                     "cooldown"
-                 ]
+  "name": "com.ezg.progress-thread",
+  "version": "0.1.1",
+  "displayName": "EZG Progress Thread",
+  "description": "Reusable Unity progress-thread and timeline helpers built on DOTween, with observable cooldown progress and lifecycle update hooks.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "progress",
+    "thread",
+    "timeline",
+    "cooldown"
+  ]
 }

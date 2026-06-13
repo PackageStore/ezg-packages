@@ -1,9 +1,16 @@
 {
   "name": "com.ezg.singleton",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Singleton",
   "description": "Thread-safe MonoBehaviour Singleton<T> and plain SingletonNormal<T> base classes.",
   "unity": "2022.3",
-  "author": { "name": "EZG Studio" },
-  "keywords": ["singleton", "pattern", "core", "ezg"]
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "singleton",
+    "pattern",
+    "core",
+    "ezg"
+  ]
 }

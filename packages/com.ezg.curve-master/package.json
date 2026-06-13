@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.curve-master",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Curve Master",
   "description": "Editor tooling for advanced AnimationCurve manipulation: a dedicated curve-editing window, bezier editing, curve presets/library, and the EditWithCurveMaster property attribute.",
   "unity": "6000.2",
