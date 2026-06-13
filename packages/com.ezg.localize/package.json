@@ -1,0 +1,14 @@
+{
+  "name": "com.ezg.localize",
+  "version": "0.1.0",
+  "displayName": "EZG Localize",
+  "description": "Lightweight localization system: singleton Localization service, LanguageData ScriptableObjects loaded from Resources, Google Sheets CSV downloader, and asset generation editor tools.",
+  "unity": "2022.3",
+  "author": { "name": "EZG Studio" },
+  "keywords": ["localize", "localization", "i18n", "language"],
+  "dependencies": {
+    "com.ezg.csv-reader": "0.1.0",
+    "com.ezg.dictionary": "0.1.2",
+    "com.ezg.easy-event-manager": "2.3.0"
+  }
+}

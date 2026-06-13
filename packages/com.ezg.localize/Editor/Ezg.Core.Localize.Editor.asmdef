@@ -1,0 +1,21 @@
+{
+  "name": "Ezg.Core.Localize.Editor",
+  "rootNamespace": "",
+  "references": [
+    "Ezg.Core.Localize",
+    "Ezg.Package.CsvReader",
+    "Ezg.Package.CsvReader.Editor",
+    "UniTask"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
