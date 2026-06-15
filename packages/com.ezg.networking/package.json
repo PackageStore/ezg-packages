@@ -1,0 +1,20 @@
+{
+  "name": "com.ezg.networking",
+  "version": "0.1.0",
+  "displayName": "EZG Networking",
+  "description": "Networking infrastructure for Unity games — a Cloudflare Worker REST/key-value client with a LINQ-expression query builder, plus a Supabase client wrapper (auth, realtime, and database) with local session persistence. Endpoints and keys load from Resources ScriptableObjects so they can change without rebuilding the app.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "networking",
+    "cloudflare",
+    "supabase",
+    "backend"
+  ],
+  "dependencies": {
+    "com.ezg.singleton": "0.1.1",
+    "com.ezg.supabase": "0.1.0"
+  }
+}
