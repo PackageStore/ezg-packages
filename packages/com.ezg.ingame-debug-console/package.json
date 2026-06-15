@@ -1,0 +1,15 @@
+{
+  "name": "com.ezg.ingame-debug-console",
+  "version": "0.1.0",
+  "displayName": "EZG Ingame Debug Console",
+  "description": "Runtime debug console for viewing logs and executing commands in-game (based on yasirkula's In-game Debug Console).",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "debug",
+    "console",
+    "logging"
+  ]
+}
