@@ -1,0 +1,16 @@
+{
+  "name": "Ezg.RpgStats",
+  "rootNamespace": "",
+  "references": [
+    "Ezg.InstanceFactory"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
