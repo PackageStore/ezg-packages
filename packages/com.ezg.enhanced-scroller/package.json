@@ -1,0 +1,9 @@
+{
+  "name": "com.ezg.enhanced-scroller",
+  "version": "0.1.0",
+  "displayName": "EZG Enhanced Scroller",
+  "description": "High-performance virtual scroller for Unity UI. Recycles cell views to support massive lists with minimal memory overhead.",
+  "unity": "2022.3",
+  "author": { "name": "EZG Studio" },
+  "keywords": ["scroller", "ui", "list", "virtual-scroll"]
+}
