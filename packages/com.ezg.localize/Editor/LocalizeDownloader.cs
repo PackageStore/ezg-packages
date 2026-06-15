@@ -14,15 +14,82 @@ namespace Ezg.Package.Localize.Editor
     /// <summary>
     /// ScriptableObject configuration for Google Sheets localization download settings.
     /// </summary>
-    [CreateAssetMenu(fileName = "Language", menuName = "Localization/Google Sheet", order = 1)]
+    [CreateAssetMenu(fileName = "LocalizeDownloader", menuName = "Localization/Google Sheet", order = 1)]
     public class LocalizeDownloader : ScriptableObject
     {
         #region Fields
 
-        public string downloadPath;
-        public string saveFilePath;
-        public List<string> codeList;
-        public List<LanguageItem> itemList;
+        public const string DefaultConfigAssetPath = "Assets/_Project/Localize/LocalizeDownloader.asset";
+        public const string DefaultDownloadPath = "https://docs.google.com/spreadsheets/d/1JDChbnV93bYxYP7ulX4X6KYZk9XAS4kHQDihaEnD-3c";
+        public const string DefaultSaveFilePath = "Assets/_Project/Localize/LocalizationData";
+
+        public string downloadPath = DefaultDownloadPath;
+        public string saveFilePath = DefaultSaveFilePath;
+        public List<string> codeList = CreateDefaultCodeList();
+        public List<LanguageItem> itemList = CreateDefaultItemList();
+
+        #endregion
+
+        #region Public Methods
+
+        public static LocalizeDownloader CreateWithDefaultValues()
+        {
+            var downloader = CreateInstance<LocalizeDownloader>();
+            downloader.ApplyDefaultValues();
+            return downloader;
+        }
+
+        public void ApplyDefaultValues()
+        {
+            downloadPath = DefaultDownloadPath;
+            saveFilePath = DefaultSaveFilePath;
+            codeList = CreateDefaultCodeList();
+            itemList = CreateDefaultItemList();
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private static List<string> CreateDefaultCodeList()
+        {
+            return new List<string>
+            {
+                "en",
+                "vi",
+                "pt",
+                "id",
+                "ru",
+                "th",
+                "es",
+                "ko",
+                "ja",
+                "zhcn",
+                "zhtw",
+                "fr",
+                "de",
+                "it",
+                "pl",
+                "nl",
+                "tr"
+            };
+        }
+
+        private static List<LanguageItem> CreateDefaultItemList()
+        {
+            return new List<LanguageItem>
+            {
+                new() { sheetName = "common", sheetId = "1569151554", download = true },
+                new() { sheetName = "item", sheetId = "448968395", download = true },
+                new() { sheetName = "shop", sheetId = "838166083", download = true },
+                new() { sheetName = "tutorial", sheetId = "2087979143", download = true },
+                new() { sheetName = "scene", sheetId = "1285180064", download = true },
+                new() { sheetName = "settings", sheetId = "694454083", download = true },
+                new() { sheetName = "email", sheetId = "1762021964", download = true },
+                new() { sheetName = "event", sheetId = "1357569831", download = true },
+                new() { sheetName = "notification", sheetId = "1012864280", download = true }
+            };
+        }
 
         #endregion
     }
@@ -43,6 +110,57 @@ namespace Ezg.Package.Localize.Editor
     }
 
 #if UNITY_EDITOR
+
+    public static class LocalizeDownloaderAssetMenu
+    {
+        #region Fields
+
+        private const string CreateConfigMenuName = "Tools/Localization/Create Downloader Config";
+
+        #endregion
+
+        #region Public Methods
+
+        [MenuItem(CreateConfigMenuName, false, 0)]
+        public static void CreateDownloaderConfig()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<LocalizeDownloader>(LocalizeDownloader.DefaultConfigAssetPath);
+            if (existing != null)
+            {
+                Selection.activeObject = existing;
+                EditorGUIUtility.PingObject(existing);
+                return;
+            }
+
+            var existingObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(LocalizeDownloader.DefaultConfigAssetPath);
+            if (existingObject != null)
+            {
+                Selection.activeObject = existingObject;
+                EditorGUIUtility.PingObject(existingObject);
+                EditorUtility.DisplayDialog("Create Localize Downloader",
+                    $"An asset already exists at:\n{LocalizeDownloader.DefaultConfigAssetPath}", "OK");
+                return;
+            }
+
+            var folderPath = Path.GetDirectoryName(LocalizeDownloader.DefaultConfigAssetPath);
+            if (!string.IsNullOrEmpty(folderPath) && !Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+                AssetDatabase.Refresh();
+            }
+
+            var config = LocalizeDownloader.CreateWithDefaultValues();
+            AssetDatabase.CreateAsset(config, LocalizeDownloader.DefaultConfigAssetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = config;
+            EditorGUIUtility.PingObject(config);
+            Debug.Log($"[LocalizeDownloader] Created default config: {LocalizeDownloader.DefaultConfigAssetPath}");
+        }
+
+        #endregion
+    }
 
     /// <summary>
     /// Custom property drawer for the LanguageItem class.
@@ -132,6 +250,14 @@ namespace Ezg.Package.Localize.Editor
                     GenerateLanguageAssets(data.saveFilePath);
                     EditorUtility.DisplayDialog("Generate Assets", "Done!", "OK");
                 }
+
+                EditorGUILayout.Space(4);
+                if (GUILayout.Button("Reset Default Values"))
+                {
+                    Undo.RecordObject(data, "Reset Localize Downloader Defaults");
+                    data.ApplyDefaultValues();
+                    EditorUtility.SetDirty(data);
+                }
             }
             else
             {
@@ -157,6 +283,8 @@ namespace Ezg.Package.Localize.Editor
         /// </summary>
         public void SelectAllLanguage()
         {
+            if (data.itemList == null) return;
+
             bool selectAll = false;
             for (int i = 0; i < data.itemList.Count; i++)
             {
@@ -183,9 +311,12 @@ namespace Ezg.Package.Localize.Editor
         /// <returns>A UniTaskVoid task representation.</returns>
         private async UniTaskVoid DownloadLanguage()
         {
-            if (Directory.Exists(data.saveFilePath))
-                Directory.Delete(data.saveFilePath, true);
-            Directory.CreateDirectory(data.saveFilePath);
+            var saveFilePath = NormalizeProjectPath(data.saveFilePath);
+            data.saveFilePath = saveFilePath;
+
+            if (Directory.Exists(saveFilePath))
+                Directory.Delete(saveFilePath, true);
+            Directory.CreateDirectory(saveFilePath);
 
             await UniTask.SwitchToMainThread();
 
@@ -230,7 +361,7 @@ namespace Ezg.Package.Localize.Editor
             contentDownloading = string.Empty;
 
             AssetDatabase.Refresh();
-            GenerateLanguageAssets(data.saveFilePath);
+            GenerateLanguageAssets(saveFilePath);
 
             EditorUtility.DisplayDialog("Download language",
                 "Download language finish", "OK");
@@ -254,7 +385,7 @@ namespace Ezg.Package.Localize.Editor
                 }
             }
 
-            var url = $"{data.saveFilePath}\\{languageCode}\\{popup}.csv";
+            var url = Path.Combine(NormalizeProjectPath(data.saveFilePath), languageCode, popup + ".csv");
             SafeWriteAllText(url, contentWrite);
         }
 
@@ -317,6 +448,8 @@ namespace Ezg.Package.Localize.Editor
         /// <param name="csvRootPath">The root directory path of the CSV files.</param>
         public static void GenerateLanguageAssets(string csvRootPath)
         {
+            csvRootPath = NormalizeProjectPath(csvRootPath);
+
             if (string.IsNullOrEmpty(csvRootPath) || !Directory.Exists(csvRootPath))
             {
                 Debug.LogError($"[LocalizeDownloader] GenerateLanguageAssets: path not found: {csvRootPath}");
@@ -380,7 +513,7 @@ namespace Ezg.Package.Localize.Editor
                     data.codeList.Contains(languageCode[1]))
                 {
                     langList.Add(new Language(i, languageCode[1]));
-                    var folderPath = data.saveFilePath + "\\" + languageCode[1];
+                    var folderPath = Path.Combine(NormalizeProjectPath(data.saveFilePath), languageCode[1]);
                     if (Directory.Exists(folderPath) == false)
                     {
                         Directory.CreateDirectory(folderPath);
@@ -433,6 +566,11 @@ namespace Ezg.Package.Localize.Editor
             }
         }
 
+        private static string NormalizeProjectPath(string path)
+        {
+            return string.IsNullOrEmpty(path) ? path : path.Replace('\\', '/');
+        }
+
         #endregion
     }
 
@@ -466,4 +604,4 @@ namespace Ezg.Package.Localize.Editor
         #endregion
     }
 #endif
-}
+}
