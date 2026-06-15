@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.supabase",
+  "version": "0.1.0",
+  "displayName": "EZG Supabase",
+  "description": "Supabase C# client for Unity, vendored as a self-contained DLL bundle (Supabase, GoTrue auth, PostgREST, Realtime, Storage, Functions) plus its transitive dependencies (Websocket.Client, System.Reactive, JWTDecoder, MimeMapping, System.Threading.*). No first-party source — the assemblies are the original NuGet builds (netstandard2.0). PEER REQUIREMENT: the consuming project must provide Newtonsoft.Json 13.x (e.g. com.unity.nuget.newtonsoft-json) — it is NOT bundled. See README for the full peer list and IL2CPP notes.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "supabase",
+    "backend",
+    "postgrest",
+    "realtime"
+  ]
+}
