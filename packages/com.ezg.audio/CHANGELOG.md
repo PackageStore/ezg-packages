@@ -1,3 +1,8 @@
+## [0.1.2] - 2026-06-15
+
+- Add "Bootstrap" sample (`Samples~/Bootstrap`) exposed via Package Manager "Import Sample": a minimal `AudioService` bootstrap plus a PlayerPrefs-backed `ISoundSettings` example
+
+
 ## [0.1.1] - 2026-06-14
 
 - Add missing .meta files for README.md, CHANGELOG.md, package.json to fix Unity "immutable folder" import errors

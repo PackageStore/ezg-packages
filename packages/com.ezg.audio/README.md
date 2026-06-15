@@ -22,6 +22,11 @@ them in the consuming project yourself:
 
 ## Getting started
 
+> **Tip:** the fastest start is **Package Manager → EZG Audio → Samples → "Bootstrap" → Import**.
+> It drops a ready-to-run `SampleAudioBootstrap` + a PlayerPrefs-backed `SampleSoundSettings`
+> into your project — press Play and `AudioService.Default` is wired up. Then swap
+> `SampleSoundSettings` for your own data layer. The manual steps below do the same thing.
+
 The audio service is a plain C# class — you bootstrap it once at startup.
 
 1. Implement `ISoundSettings` to read/persist volumes from your own data layer:
