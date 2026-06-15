@@ -2,10 +2,14 @@
 
 UPM package for the Spine Unity runtime and editor integration copied from `Assets/Spine`.
 
+This package version follows the upstream `spine-unity` version from `Assets/Spine/package.json`.
+
 ## Source Mapping
 
 - Source repo folder: `Assets/Spine`
 - Package folder: `packages/com.ezg.spine`
+- Upstream `spine-unity` version: `4.2.110`
+- Bundled `spine-csharp` version: `4.2.37`
 - Runtime assemblies: `spine-csharp`, `spine-unity`
 - Editor assembly: `spine-unity-editor`
 
@@ -26,4 +30,3 @@ This package does not declare registry package dependencies. It expects the cons
 - This package preserves the Spine source `.meta` files from the game repo.
 - No project-specific business code or SDK integration was found in `Assets/Spine` during packaging.
 - Spine runtime licensing remains governed by Esoteric Software's Spine Runtimes License terms referenced in the source headers.
-
