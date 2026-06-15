@@ -1,0 +1,16 @@
+{
+    "name": "Ezg.Core.RedDot.Editor",
+    "rootNamespace": "Ezg.Core.RedDot.Editor",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

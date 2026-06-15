@@ -1,0 +1,19 @@
+{
+  "name": "com.ezg.reddot",
+  "version": "0.1.0",
+  "displayName": "EZG RedDot",
+  "description": "Reusable event-driven red-dot / badge indicator system. BaseRedDot toggles a target GameObject when a TigerForge event key fires, keeping the core free of game-specific data. An Editor menu scaffolds the project-side RedDotId/RedDotBadge classes into a consuming project with pinned GUIDs so reused UI prefabs keep their script references.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "reddot",
+    "badge",
+    "notification",
+    "ui"
+  ],
+  "dependencies": {
+    "com.ezg.easy-event-manager": "2.3.1"
+  }
+}

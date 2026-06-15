@@ -1,0 +1,16 @@
+{
+    "name": "Ezg.Core.RedDot",
+    "rootNamespace": "Ezg.Core.RedDot",
+    "references": [
+        "TigerForge.EasyEventManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
