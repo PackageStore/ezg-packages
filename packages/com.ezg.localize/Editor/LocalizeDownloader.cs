@@ -14,7 +14,7 @@ namespace Ezg.Package.Localize.Editor
     /// <summary>
     /// ScriptableObject configuration for Google Sheets localization download settings.
     /// </summary>
-    [CreateAssetMenu(fileName = "LocalizeDownloader", menuName = "Localization/Google Sheet", order = 1)]
+    [CreateAssetMenu(fileName = "LocalizeDownloader", menuName = "Ezg/Localization/Config", order = 1)]
     public class LocalizeDownloader : ScriptableObject
     {
         #region Fields

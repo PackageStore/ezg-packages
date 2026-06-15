@@ -87,7 +87,7 @@ with default values:
 You can also create a config manually:
 
 ```text
-Create > Localization > Google Sheet
+Create > Ezg > Localization > Config
 ```
 
 Manual creation now uses the same default values. Existing or empty configs can be reset from the inspector with `Reset Default Values`.
