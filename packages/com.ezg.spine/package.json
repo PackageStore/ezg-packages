@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.spine",
+  "version": "0.1.0",
+  "displayName": "EZG Spine",
+  "description": "Packaged Spine Unity runtime and editor integration copied from the game's Assets/Spine folder. Host projects must provide Unity UI, animation, physics, and 2D modules used by Spine.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "spine",
+    "animation",
+    "skeletal",
+    "runtime"
+  ]
+}
