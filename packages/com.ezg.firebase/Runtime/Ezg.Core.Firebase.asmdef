@@ -2,7 +2,9 @@
     "name": "Ezg.Core.Firebase",
     "rootNamespace": "",
     "references": [
-        "UniTask"
+        "UniTask",
+        "Google.Play.Games",
+        "Apple.GameKit"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

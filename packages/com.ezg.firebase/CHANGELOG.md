@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1] - 2026-06-16
+### Fixed
+- Added asmdef references `Google.Play.Games` and `Apple.GameKit` so the platform-guarded login providers compile in consumer projects. Without them, a project that defines `GPG_LOGIN` failed with `CS0246: 'GooglePlayGames' could not be found` because the standalone `Ezg.Core.Firebase` assembly did not reference the Google Play Games assembly (previously resolved implicitly when the code lived in a host assembly).
+
+### Notes
+- The Sign in with Apple provider (`FirebaseAppleLoginProvider`) still requires the **AppleAuth** plugin (lupidan/apple-signin-unity) to expose an assembly the package can reference; it is not referenced here because the plugin is not installed and ships without an asmdef. Only relevant for iOS builds.
+
 ## [0.1.0] - 2026-06-16
 ### Added
 - Initial release extracted from `Assets/_Project/Core/Infrastructure/Firebase`.

@@ -40,11 +40,11 @@ Các lib sau **không** nằm trong `package.json.dependencies`; project tiêu t
 | **UniTask** (Cysharp) | async toàn module | khai báo trong asmdef `references` (`UniTask`). |
 | **Firebase SDK** (DLL) | tất cả manager | `Firebase.App`, `Firebase.Auth`, `Firebase.Firestore`, `Firebase.Functions`, `Firebase.RemoteConfig`, `Firebase.Storage`, `Firebase.TaskExtension` — auto-referenced. |
 | **Newtonsoft.Json** | serialize save (`FirebaseStorageManager`) | auto-referenced. |
-| **Google.Play.Games** | đăng nhập Google | chỉ compile khi bật define `GPG_LOGIN`. |
-| **AppleAuth** (lupidan/apple-signin-unity) | Sign in with Apple (iOS) | chỉ compile dưới `#if UNITY_IOS`. |
-| **Apple.GameKit** (`com.apple.unityplugin.gamekit`) | đăng nhập Game Center (iOS) | chỉ compile dưới `#if UNITY_IOS`. |
+| **Google.Play.Games** (`com.google.play.games`, assembly `Google.Play.Games`) | đăng nhập Google | asmdef đã reference sẵn; code chỉ compile khi bật define `GPG_LOGIN`. |
+| **Apple.GameKit** (`com.apple.unityplugin.gamekit`, assembly `Apple.GameKit`) | đăng nhập Game Center (iOS) | asmdef đã reference sẵn; code chỉ compile dưới `#if UNITY_IOS`. |
+| **AppleAuth** (lupidan/apple-signin-unity) | Sign in with Apple (iOS) | ⚠️ KHÔNG reference được vì plugin ship không có asmdef; consumer phải cài plugin (kèm asmdef) khi build iOS. Chỉ compile dưới `#if UNITY_IOS`. |
 
-> Khi build iOS hoặc bật `GPG_LOGIN`, đảm bảo các lib tương ứng đã được cài và auto-referenced trong project (vì asmdef của package là immutable, các provider có guard sẽ chỉ biên dịch khi assembly liên quan hiện diện).
+> asmdef `Ezg.Core.Firebase` đã reference `Google.Play.Games` + `Apple.GameKit` theo tên — nếu consumer không cài các package này thì reference chỉ là warning (vô hại) miễn là define/platform tương ứng không bật. Khi bật `GPG_LOGIN` hoặc build iOS, package liên quan phải hiện diện.
 
 ### Cấu hình Firebase phía app (bắt buộc khi tích hợp)
 
