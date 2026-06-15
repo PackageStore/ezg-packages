@@ -1,0 +1,19 @@
+{
+    "name": "Ezg.Tracking",
+    "rootNamespace": "Ezg.Tracking",
+    "references": [
+        "UniTask",
+        "AppsFlyer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Firebase.Analytics.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

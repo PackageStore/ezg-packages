@@ -1,0 +1,25 @@
+{
+  "name": "com.ezg.tracking",
+  "version": "0.1.0",
+  "displayName": "EZG Tracking",
+  "description": "Game-agnostic analytics engine. Forwards events and user properties to Firebase Analytics and AppsFlyer through typed configs, plain dictionaries, or any enum. The consuming project supplies its own events and a user-property provider via the engine's extension points — the package itself knows nothing about any specific game. Requires Firebase Analytics, AppsFlyer and UniTask. Import the 'Integration Demo' sample for a runnable starting point.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "firebase",
+    "appsflyer",
+    "ezg"
+  ],
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Integration Demo (Firebase + AppsFlyer)",
+      "description": "Self-contained starter: event enum + typed config, a user-property provider, .Send() extensions, copy-paste call sites, and a runnable demo scene. Import it, then rename the events/fields and replace the provider body with your own player data.",
+      "path": "Samples~/IntegrationDemo"
+    }
+  ]
+}
