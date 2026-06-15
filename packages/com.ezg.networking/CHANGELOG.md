@@ -2,6 +2,14 @@
 
 All notable changes to **com.ezg.networking** are documented here.
 
+## [0.1.1] - 2026-06-16
+
+### Changed
+- **Editor** — the **Create ▸ Ezg ▸ Networking ▸ Project setup** menu now also creates the default
+  `Cloudflare.asset` and `Supabase.asset` settings at the exact path `Assets/_Project/Resources`,
+  in addition to generating `GameNetworkManager`. Each target checks for an existing file/asset and
+  prompts before overwriting (skipping keeps current values).
+
 ## [0.1.0] - 2026-06-16
 
 ### Added

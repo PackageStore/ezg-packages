@@ -71,7 +71,7 @@ Cả 2 service đều load asset theo **tên cố định** trong thư mục `Re
 
 > ⚠️ Tên file asset phải đúng `Cloudflare` và `Supabase` (không đuôi). Đổi tên = `Resources.Load` trả `null`.
 
-Tạo asset: chuột phải Project window → **Create ▸ Ezg ▸ Networking ▸ Cloudflare ▸ Cloudflare Settings** (hoặc **… ▸ Supabase ▸ Supabase Settings**), đặt vào `Assets/Resources/`.
+Tạo asset nhanh nhất bằng **Create ▸ Ezg ▸ Networking ▸ Project setup** (xem mục 4) — sinh sẵn cả hai asset đúng path. Hoặc tạo tay: chuột phải Project window → **Create ▸ Ezg ▸ Networking ▸ Cloudflare ▸ Cloudflare Settings** (hoặc **… ▸ Supabase ▸ Supabase Settings**), đặt vào thư mục `Resources/`.
 
 > 🔐 **Bảo mật:** asset nằm trong `Resources/` nên được đóng gói vào build và **có thể bị trích xuất**. Chỉ để key dạng public/anon. Kiểm soát quyền phải ở phía server (Worker auth, Supabase Row Level Security).
 
@@ -127,6 +127,11 @@ if (GameSupabase.Instance.IsOnline)
 
 ## 4. Project setup — sinh `GameNetworkManager`
 
-**Create ▸ Ezg ▸ Networking ▸ Project setup** sinh file facade `GameNetworkManager` (`Ezg.Feature.Networking`) kế thừa `SupabaseManager<GameNetworkManager>` và expose `Endpoint<T>` của Cloudflare. Hỏi xác nhận trước khi ghi đè file đã tồn tại.
+**Create ▸ Ezg ▸ Networking ▸ Project setup** làm 2 việc:
+
+1. Sinh file facade `GameNetworkManager` (`Ezg.Feature.Networking`) kế thừa `SupabaseManager<GameNetworkManager>` và expose `Endpoint<T>` của Cloudflare.
+2. Tạo sẵn 2 asset config mặc định **đúng path** `Assets/_Project/Resources/Cloudflare.asset` và `Assets/_Project/Resources/Supabase.asset`.
+
+Mỗi mục đều kiểm tra file/asset đã tồn tại và **hỏi xác nhận trước khi ghi đè** (chọn giữ nguyên thì giá trị hiện tại không bị đụng tới).
 
 > ⚠️ **Known assumption / debt:** tool ghi ra path cố định `Assets/_Project/Features/_Shared/GameNetworkManager.cs` — giả định cấu trúc thư mục của project gốc. Tool chỉ sinh code (không phụ thuộc runtime vào singleton/CSV game-specific); đổi project khác có thể cần sửa path trong `NetworkingProjectSetup.cs`.
