@@ -1,5 +1,9 @@
 # Changelog
 
+## [4.2.111] - 2026-06-15
+
+- Added root `Editor.meta` and `Runtime.meta` files so Unity can import the immutable package folders without console errors.
+
 ## [4.2.110] - 2026-06-15
 
 - Republished the package using the upstream `spine-unity` version from `Assets/Spine/package.json`.

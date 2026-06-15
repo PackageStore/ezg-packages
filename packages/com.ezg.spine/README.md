@@ -9,6 +9,7 @@ This package version follows the upstream `spine-unity` version from `Assets/Spi
 - Source repo folder: `Assets/Spine`
 - Package folder: `packages/com.ezg.spine`
 - Upstream `spine-unity` version: `4.2.110`
+- EZG package version: `4.2.111` includes packaging metadata fixes for Unity immutable package import.
 - Bundled `spine-csharp` version: `4.2.37`
 - Runtime assemblies: `spine-csharp`, `spine-unity`
 - Editor assembly: `spine-unity-editor`
