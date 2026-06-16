@@ -82,7 +82,18 @@ async function main() {
   for (const { kind, entry } of entries) {
     const fileName = entry.fileName;
     const sourcePath = join(PACKAGE_TEMPLATE_DIR, fileName);
-    if (!existsSync(sourcePath)) throw new Error(`Missing local template file: ${sourcePath}`);
+    const hasLocalFile = existsSync(sourcePath);
+
+    // If the file is missing locally but already has an external URL, skip R2 upload
+    // and keep the entry as-is in the manifest (external URL used at install time).
+    if (!hasLocalFile) {
+      if (entry.url) {
+        console.log(`~ external ${kind}: ${fileName} (no local file, keeping external url)`);
+        summary.push(`external ${fileName}`);
+        continue;
+      }
+      throw new Error(`Missing local template file and no url set: ${sourcePath}`);
+    }
 
     const actualSha = sha256(sourcePath);
     if (entry.sha256 && entry.sha256.toLowerCase() !== actualSha) {

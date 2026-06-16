@@ -6,8 +6,8 @@
     "com.anklebreaker.unity-mcp": "https://github.com/AnkleBreaker-Studio/unity-mcp-plugin.git",
     "com.apple.unityplugin.core": "file:com.apple.unityplugin.core-3.2.0.tgz",
     "com.apple.unityplugin.gamekit": "file:com.apple.unityplugin.gamekit-4.0.1.tgz",
-    "com.coffee.softmask-for-ugui": "https://github.com/mob-sakai/SoftMaskForUGUI.git",
-    "com.coffee.ui-effect": "https://github.com/mob-sakai/UIEffect.git",
+    "com.coffee.softmask-for-ugui": "https://github.com/mob-sakai/SoftMaskForUGUI.git?path=Packages/src",
+    "com.coffee.ui-effect": "https://github.com/mob-sakai/UIEffect.git#upm",
     "com.coffee.ui-particle": "https://github.com/mob-sakai/ParticleEffectForUGUI.git#4.11.2",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.ezg.ads": "0.1.0",
@@ -39,6 +39,7 @@
     "com.ezg.tapticfeedback": "0.1.0",
     "com.ezg.tracking": "0.1.0",
     "com.google.android.appbundle": "1.10.0",
+    "com.google.firebase.app": "file:com.google.firebase.app-13.3.0.tgz",
     "com.google.external-dependency-manager": "https://github.com/googlesamples/unity-jar-resolver.git?path=upm",
     "com.google.play.assetdelivery": "1.9.6",
     "com.google.play.common": "1.9.2",
@@ -113,6 +114,11 @@
         "fileName": "com.apple.unityplugin.gamekit-4.0.1.tgz",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.apple.unityplugin.gamekit-4.0.1.tgz",
         "sha256": "85f79ad870f28c534f51bacf082d6d6fa1db3bad82d8f7820788777aaa149e87"
+      },
+      {
+        "fileName": "com.google.firebase.app-13.3.0.tgz",
+        "url": "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.3.0.tgz",
+        "sha256": ""
       }
     ],
     "unityPackages": [
@@ -135,6 +141,46 @@
         "fileName": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
         "sha256": "f78889aa92fb32671b1fa0aa44460bc2645fde8a7195213e173c1490a11f0e0b"
+      },
+      {
+        "fileName": "FirebaseAnalytics_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseAnalytics_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseAuth_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseAuth_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseCrashlytics_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseCrashlytics_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseFirestore_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseFirestore_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseFunctions_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseFunctions_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseMessaging_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseMessaging_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseRemoteConfig_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseRemoteConfig_13.3.0.unitypackage",
+        "sha256": ""
+      },
+      {
+        "fileName": "FirebaseStorage_13.3.0.unitypackage",
+        "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseStorage_13.3.0.unitypackage",
+        "sha256": ""
       }
     ]
   },

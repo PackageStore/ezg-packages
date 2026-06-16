@@ -28,6 +28,10 @@ MANIFEST_PACKAGE_COUNT=0
 UNITYPACKAGE_COUNT=0
 PROGRESS_BAR_WIDTH=30
 
+# Persistent transcript so the messages survive after the window scrolls or closes.
+BUILD_RUN_LOG="${BUILD_RUN_LOG:-$SCRIPT_DIR/build_unity_template.last-run.log}"
+: >"$BUILD_RUN_LOG" 2>/dev/null || true
+
 usage() {
   cat <<USAGE
 Usage:
@@ -64,7 +68,10 @@ USAGE
 }
 
 log() {
-  printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >&2
+  local line
+  line="$(printf '[%s] %s' "$(date '+%H:%M:%S')" "$*")"
+  printf '%s\n' "$line" >&2
+  printf '%s\n' "$line" >>"$BUILD_RUN_LOG" 2>/dev/null || true
 }
 
 repeat_char() {
@@ -141,11 +148,13 @@ dump_unity_log() {
   [ -n "$log_file" ] || return 0
 
   if [ -f "$log_file" ]; then
-    printf '\n----- Last 60 lines of Unity log: %s -----\n' "$log_file" >&2
-    tail -n 60 "$log_file" >&2 || true
-    printf '----- End of Unity log -----\n' >&2
+    {
+      printf '\n----- Last 60 lines of Unity log: %s -----\n' "$log_file"
+      tail -n 60 "$log_file" || true
+      printf '----- End of Unity log -----\n'
+    } | tee -a "$BUILD_RUN_LOG" >&2 || true
   else
-    printf '\nUnity log not found (Unity may have crashed before writing it): %s\n' "$log_file" >&2
+    printf '\nUnity log not found (Unity may have crashed before writing it): %s\n' "$log_file" | tee -a "$BUILD_RUN_LOG" >&2 || true
   fi
 }
 
@@ -182,7 +191,7 @@ pause_before_close() {
   if [ "$SCRIPT_SUCCEEDED" -eq 1 ] && [ "$status" -eq 0 ]; then
     printf '\nDone. Press Enter to close this window...' >&2
   else
-    printf '\nScript stopped before finishing. Read the message above, then press Enter to close this window...' >&2
+    printf '\nScript stopped before finishing. The full output was saved to:\n  %s\nRead it (or the message above), then press Enter to close this window...' "$BUILD_RUN_LOG" >&2
   fi
 
   if [ -r /dev/tty ]; then
@@ -200,6 +209,7 @@ trap pause_before_close EXIT
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
+  printf 'ERROR: %s\n' "$*" >>"$BUILD_RUN_LOG" 2>/dev/null || true
   exit 1
 }
 
