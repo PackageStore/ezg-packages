@@ -12,6 +12,7 @@
     "unpublish": "node unpublish.mjs",
     "rollback": "node rollback.mjs",
     "deprecate": "node deprecate.mjs",
+    "upload-unity-template-assets": "node upload-unity-template-assets.mjs",
     "link-skills": "node link-skills.mjs"
   },
   "dependencies": {
