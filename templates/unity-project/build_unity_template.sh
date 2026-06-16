@@ -89,7 +89,7 @@ render_step_progress_bar() {
   empty=$((PROGRESS_BAR_WIDTH - filled))
   bar="$(repeat_char "#" "$filled")$(repeat_char "." "$empty")"
 
-  printf '\r\033[K[%s/%s] %s [%s]' "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "$label" "$bar" >&2
+  printf '\r\033[K[%s/%s] %s [%s] %ss' "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "$label" "$bar" "$tick" >&2
 }
 
 begin_install_step() {
@@ -133,6 +133,35 @@ run_install_step_with_progress() {
 
   begin_install_step "$label"
   run_with_progress_bar "$label" "$@"
+}
+
+dump_unity_log() {
+  local log_file="$1"
+
+  [ -n "$log_file" ] || return 0
+
+  if [ -f "$log_file" ]; then
+    printf '\n----- Last 60 lines of Unity log: %s -----\n' "$log_file" >&2
+    tail -n 60 "$log_file" >&2 || true
+    printf '----- End of Unity log -----\n' >&2
+  else
+    printf '\nUnity log not found (Unity may have crashed before writing it): %s\n' "$log_file" >&2
+  fi
+}
+
+# Run a Unity batch step and, on failure, print the tail of its log so the
+# error is visible instead of being hidden inside the project folder.
+run_install_unity_step() {
+  local label="$1"
+  local log_file="$2"
+  local status
+  shift 2
+
+  run_install_step_with_progress "$label" "$@" && status=0 || status=$?
+  if [ "$status" -ne 0 ]; then
+    dump_unity_log "$log_file"
+  fi
+  return "$status"
 }
 
 pause_before_close() {
@@ -1045,6 +1074,22 @@ merge_manifest() {
   die "Cannot merge Packages/manifest.json because neither Python nor PowerShell is available."
 }
 
+resolve_packages() {
+  local resolve_log project_arg log_arg
+
+  resolve_log="$PROJECT_PATH/unity-resolve-packages.log"
+  project_arg="$(to_unity_arg_path "$PROJECT_PATH")"
+  log_arg="$(to_unity_arg_path "$resolve_log")"
+
+  log "Resolving Unity packages and compiling. On the first run this can take"
+  log "several minutes (git packages are downloaded). Watch progress in: $resolve_log"
+
+  if ! run_install_unity_step "Resolving Unity packages" "$resolve_log" \
+    "$UNITY_EXECUTABLE" -quit -batchmode -nographics -projectPath "$project_arg" -logFile "$log_arg"; then
+    die "Unity failed while resolving packages. Open the log above to see which package could not be resolved or compiled."
+  fi
+}
+
 import_unitypackages() {
   local package count log_file project_arg package_arg log_arg package_name file_name url sha256
   count=0
@@ -1062,8 +1107,11 @@ import_unitypackages() {
     package_arg="$(to_unity_arg_path "$package")"
     log_arg="$(to_unity_arg_path "$log_file")"
 
-    run_install_step_with_progress "Importing .unitypackage: $package_name" \
-      "$UNITY_EXECUTABLE" -quit -batchmode -projectPath "$project_arg" -importPackage "$package_arg" -logFile "$log_arg"
+    log "Importing $package_name. Watch progress in: $log_file"
+    if ! run_install_unity_step "Importing .unitypackage: $package_name" "$log_file" \
+      "$UNITY_EXECUTABLE" -quit -batchmode -projectPath "$project_arg" -importPackage "$package_arg" -logFile "$log_arg"; then
+      die "Unity failed while importing $package_name. Open the log above to see the error."
+    fi
   done < <(list_template_files "unityPackages")
 
   if [ "$count" -eq 0 ]; then
@@ -1111,6 +1159,12 @@ INSTALL_TOTAL_STEPS=$((MANIFEST_PACKAGE_COUNT + UNITYPACKAGE_COUNT))
 if [ ! -f "$PROJECT_PATH/ProjectSettings/ProjectVersion.txt" ]; then
   INSTALL_TOTAL_STEPS=$((INSTALL_TOTAL_STEPS + 1))
 fi
+if [ "$SKIP_IMPORT" -eq 0 ]; then
+  # Extra step: resolve/compile all packages once before importing, so the heavy
+  # first project reopen is its own clearly-labelled step instead of stalling the
+  # first .unitypackage import.
+  INSTALL_TOTAL_STEPS=$((INSTALL_TOTAL_STEPS + 1))
+fi
 
 log "Install progress: 0/$INSTALL_TOTAL_STEPS"
 
@@ -1118,8 +1172,10 @@ mkdir -p "$PROJECT_PATH"
 
 if [ ! -f "$PROJECT_PATH/ProjectSettings/ProjectVersion.txt" ]; then
   create_log="$PROJECT_PATH/unity-create-project.log"
-  run_install_step_with_progress "Creating Unity project" \
-    "$UNITY_EXECUTABLE" -quit -batchmode -createProject "$(to_unity_arg_path "$PROJECT_PATH")" -logFile "$(to_unity_arg_path "$create_log")"
+  if ! run_install_unity_step "Creating Unity project" "$create_log" \
+    "$UNITY_EXECUTABLE" -quit -batchmode -createProject "$(to_unity_arg_path "$PROJECT_PATH")" -logFile "$(to_unity_arg_path "$create_log")"; then
+    die "Unity failed while creating the project. Open the log above to see the error."
+  fi
 else
   log "Existing Unity project detected. It will be updated."
 fi
@@ -1128,6 +1184,7 @@ log "Updating Packages/manifest.json with $MANIFEST_PACKAGE_COUNT package(s)..."
 merge_manifest
 
 if [ "$SKIP_IMPORT" -eq 0 ]; then
+  resolve_packages
   import_unitypackages
 else
   log "Skipping .unitypackage import because --skip-import was provided."

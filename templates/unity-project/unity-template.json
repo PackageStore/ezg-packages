@@ -130,6 +130,11 @@
         "fileName": "facebook-unity-sdk-18.0.0.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/facebook-unity-sdk-18.0.0.unitypackage",
         "sha256": "d9eb52c56191f67f5e2eca6d715ab9d789e9aee5657cd14c95e0fed5ffe7ea54"
+      },
+      {
+        "fileName": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
+        "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
+        "sha256": "f78889aa92fb32671b1fa0aa44460bc2645fde8a7195213e173c1490a11f0e0b"
       }
     ]
   },
