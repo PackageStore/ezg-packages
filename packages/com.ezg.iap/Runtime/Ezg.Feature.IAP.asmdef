@@ -1,0 +1,24 @@
+{
+    "name": "Ezg.Feature.IAP",
+    "rootNamespace": "Ezg.Feature.IAP",
+    "references": [
+        "Ezg.Singleton",
+        "UnityEngine.Purchasing",
+        "UnityEngine.Purchasing.Stores",
+        "UnityEngine.Purchasing.Security",
+        "UnityEngine.Purchasing.SecurityStub",
+        "UnityEngine.Purchasing.SecurityCore",
+        "Unity.Services.Core",
+        "Unity.Services.Core.Environments",
+        "AppsFlyer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

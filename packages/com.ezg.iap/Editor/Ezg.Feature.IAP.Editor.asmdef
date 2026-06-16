@@ -1,0 +1,18 @@
+{
+    "name": "Ezg.Feature.IAP.Editor",
+    "rootNamespace": "Ezg.Feature.IAP.Editor",
+    "references": [
+        "Ezg.Feature.IAP"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
