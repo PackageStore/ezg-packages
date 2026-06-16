@@ -22,10 +22,17 @@ them in the consuming project yourself:
 
 ## Getting started
 
-> **Tip:** the fastest start is **Package Manager → EZG Audio → Samples → "Bootstrap" → Import**.
-> It drops a ready-to-run `SampleAudioBootstrap` + a PlayerPrefs-backed `SampleSoundSettings`
-> into your project — press Play and `AudioService.Default` is wired up. Then swap
-> `SampleSoundSettings` for your own data layer. The manual steps below do the same thing.
+> **Fastest start (editor menu):** **Create → Ezg → Audio → Project setup** (top `Assets`
+> menu or right-click in the Project window). It scaffolds three portable, ready-to-edit glue
+> scripts — `GameAudioBootstrap`, `GameSoundSettings`, `SoundConfig` — into
+> `Assets/_Project/Features/_Shared/AudioGame`, backed by PlayerPrefs with `// TODO` markers
+> showing where to plug in your own save layer. It checks for existing files and asks before
+> overwriting.
+>
+> **Alternative (sample):** **Package Manager → EZG Audio → Samples → "Bootstrap" → Import**
+> drops a ready-to-run `SampleAudioBootstrap` + a PlayerPrefs-backed `SampleSoundSettings`.
+> Either way, press Play and `AudioService.Default` is wired up; then swap the settings class
+> for your own data layer. The manual steps below do the same thing.
 
 The audio service is a plain C# class — you bootstrap it once at startup.
 
@@ -47,6 +54,7 @@ public sealed class MySoundSettings : ISoundSettings
 ```csharp
 var audio = new AudioService(new MySoundSettings());
 audio.Initialize();          // creates DontDestroyOnLoad music/sound AudioSources
+audio.UpdateVolumes();       // apply persisted volumes to the live sources
 AudioService.Default = audio; // service-locator used by PlaySound / SoundPlayController
 ```
 

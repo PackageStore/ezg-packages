@@ -1,3 +1,8 @@
+## [0.2.0] - 2026-06-16
+
+- Add **Create > Ezg > Audio > Project setup** editor menu: scaffolds the three game-side glue scripts (`GameAudioBootstrap`, `GameSoundSettings`, `SoundConfig`) into `Assets/_Project/Features/_Shared/AudioGame` as portable, PlayerPrefs-backed templates with TODO markers. Checks for existing files and asks to confirm before overwriting. Adds a new Editor-only `Ezg.Package.Audio.Editor` assembly.
+
+
 ## [0.1.2] - 2026-06-15
 
 - Add "Bootstrap" sample (`Samples~/Bootstrap`) exposed via Package Manager "Import Sample": a minimal `AudioService` bootstrap plus a PlayerPrefs-backed `ISoundSettings` example
