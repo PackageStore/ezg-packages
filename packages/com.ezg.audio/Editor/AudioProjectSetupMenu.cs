@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Callbacks;
 using UnityEngine;
 
 namespace Ezg.Package.Audio.EditorTools
@@ -14,6 +16,11 @@ namespace Ezg.Package.Audio.EditorTools
     /// <c>SoundConfig</c> clip catalog — so a developer dropping the package into a new project
     /// gets a working starting point. Existing files are detected and the user is asked to
     /// confirm before any of them is overwritten.
+    ///
+    /// After the generated scripts compile, it also creates a ready-to-fill
+    /// <c>SoundConfig.asset</c> next to them (only if one does not already exist), so there is no
+    /// separate "Create asset" step. The <c>SoundConfig</c> template therefore carries no
+    /// <c>[CreateAssetMenu]</c> of its own.
     /// </summary>
     public static class AudioProjectSetupMenu
     {
@@ -22,6 +29,14 @@ namespace Ezg.Package.Audio.EditorTools
         private const string MENU_PATH = "Assets/Create/Ezg/Audio/Project setup";
         private const string TARGET_DIR = "Assets/_Project/Features/_Shared/AudioGame";
         private const int MENU_PRIORITY = 80;
+
+        // The generated SoundConfig type lives in this namespace (see SOUND_CONFIG_TEMPLATE).
+        private const string SOUND_CONFIG_TYPE = "Ezg.Game.Audio.SoundConfig";
+        private const string SOUND_CONFIG_ASSET_PATH = TARGET_DIR + "/SoundConfig.asset";
+
+        // SessionState survives the domain reload triggered by importing the new scripts, so we
+        // can defer asset creation until the SoundConfig type is actually compiled and loadable.
+        private const string PENDING_ASSET_KEY = "Ezg.Package.Audio.PendingSoundConfigAsset";
 
         private struct TemplateFile
         {
@@ -74,10 +89,75 @@ namespace Ezg.Package.Audio.EditorTools
                 File.WriteAllText(Path.Combine(TARGET_DIR, file.Name), file.Content);
             }
 
+            // Queue the SoundConfig asset for creation once the freshly written scripts compile.
+            // The SoundConfig type does not exist in the current domain yet, so we cannot
+            // instantiate it here — OnScriptsReloaded picks this up after the reload.
+            SessionState.SetString(PENDING_ASSET_KEY, SOUND_CONFIG_ASSET_PATH);
+
             AssetDatabase.Refresh();
             Debug.Log("[EZG Audio] Project setup generated " + files.Count +
                       " template script(s) in " + TARGET_DIR +
-                      ". Next: edit GameSoundSettings to read/persist volumes from your own save system.");
+                      ". A SoundConfig.asset will be created automatically after scripts compile. " +
+                      "Next: edit GameSoundSettings to read/persist volumes from your own save system.");
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        /// Runs after every script compilation. If <see cref="GenerateProjectSetup"/> queued a
+        /// SoundConfig asset, the type is now compiled, so create the asset and clear the flag.
+        /// </summary>
+        [DidReloadScripts]
+        private static void OnScriptsReloaded()
+        {
+            var assetPath = SessionState.GetString(PENDING_ASSET_KEY, string.Empty);
+            if (string.IsNullOrEmpty(assetPath))
+                return;
+
+            // Clear first so a later failure cannot trap us in a retry loop on every reload.
+            SessionState.EraseString(PENDING_ASSET_KEY);
+            TryCreateSoundConfigAsset(assetPath);
+        }
+
+        private static void TryCreateSoundConfigAsset(string assetPath)
+        {
+            if (File.Exists(assetPath))
+                return; // Respect an existing, possibly customized, asset.
+
+            var type = FindLoadedType(SOUND_CONFIG_TYPE);
+            if (type == null)
+            {
+                Debug.LogWarning("[EZG Audio] Generated scripts compiled but type '" + SOUND_CONFIG_TYPE +
+                                 "' was not found — skipping SoundConfig.asset creation.");
+                return;
+            }
+
+            var instance = ScriptableObject.CreateInstance(type);
+            if (instance == null)
+                return;
+
+            var dir = Path.GetDirectoryName(assetPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            AssetDatabase.CreateAsset(instance, assetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[EZG Audio] Created " + assetPath + " — fill in the clips in the Inspector.");
+        }
+
+        private static Type FindLoadedType(string fullName)
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var type = assembly.GetType(fullName, false);
+                if (type != null)
+                    return type;
+            }
+
+            return null;
         }
 
         #endregion
@@ -151,13 +231,12 @@ namespace Ezg.Game.Audio
 namespace Ezg.Game.Audio
 {
     /// <summary>
-    /// Central catalog of this game's AudioClips. Create an asset via
-    /// Assets > Create > Game > Sound Config, fill in the clips in the Inspector, then reference
-    /// it wherever you call <c>AudioService.Default.PlayMusic / PlaySound</c>.
+    /// Central catalog of this game's AudioClips. A SoundConfig.asset is created automatically by
+    /// Create > Ezg > Audio > Project setup; fill in the clips in the Inspector, then reference it
+    /// wherever you call <c>AudioService.Default.PlayMusic / PlaySound</c>.
     ///
     /// Generated template — add, rename, or remove fields to match your game's sounds.
     /// </summary>
-    [CreateAssetMenu(fileName = ""SoundConfig"", menuName = ""Game/Sound Config"")]
     public class SoundConfig : ScriptableObject
     {
         [Header(""Music"")]

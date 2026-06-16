@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.audio",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "EZG Audio",
   "description": "Game-agnostic audio service for Unity — background music with fade in/out, one-shot SFX with optional non-overlap lock, and volume control. Volume persistence is delegated to the host game via an ISoundSettings interface, so the package has no dependency on any game's data layer. Requires UniTask. Odin Inspector attributes are optional (guarded by ODIN_INSPECTOR).",
   "unity": "2022.3",
