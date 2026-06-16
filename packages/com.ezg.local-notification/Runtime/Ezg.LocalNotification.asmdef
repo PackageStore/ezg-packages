@@ -1,0 +1,21 @@
+{
+    "name": "Ezg.LocalNotification",
+    "rootNamespace": "Ezg.Feature.LocalNotification",
+    "references": [
+        "Ezg.Core.Localize",
+        "TigerForge.EasyEventManager",
+        "UniTask",
+        "Unity.Notifications.Unified",
+        "Unity.Notifications.Android",
+        "Unity.Notifications.iOS"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
