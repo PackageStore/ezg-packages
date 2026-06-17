@@ -16,7 +16,7 @@ namespace Ezg.Package.RpgStats.EditorTools
     {
         #region Constants
 
-        internal const string ROOT_FOLDER = "Assets/_Project/Features/_Shared";
+        internal const string ROOT_FOLDER = "Assets/_Project/Features/_Shared/RpgStats";
 
         // Asset config phải nằm trong Resources để load runtime bằng Resources.Load.
         internal const string ASSET_FOLDER = ROOT_FOLDER + "/Resources";

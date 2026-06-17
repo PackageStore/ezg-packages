@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.rpg-stats",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG RPG Stats",
   "description": "Generic, reusable RPG stat system for Unity: stacking modifiers, vitals, stat linkers, level scaling, min/max limits, and a level/exp system. Parameterized by a project-defined stat key (TKey).",
   "unity": "2022.3",
