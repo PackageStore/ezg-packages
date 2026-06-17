@@ -1118,9 +1118,13 @@ import_unitypackages() {
     log_arg="$(to_unity_arg_path "$log_file")"
 
     log "Importing $package_name. Watch progress in: $log_file"
-    if ! run_install_unity_step "Importing .unitypackage: $package_name" "$log_file" \
+    # Tolerate a non-zero exit here: Unity returns 1 whenever the project still has compiler
+    # errors at shutdown, which is expected mid-import because other SDKs/packages are not in
+    # place yet. The final resolve_packages pass is what decides overall success/failure.
+    if ! run_install_step_with_progress "Importing .unitypackage: $package_name" \
       "$UNITY_EXECUTABLE" -quit -batchmode -projectPath "$project_arg" -importPackage "$package_arg" -logFile "$log_arg"; then
-      die "Unity failed while importing $package_name. Open the log above to see the error."
+      log "Note: Unity reported errors while importing $package_name (usually just compiler"
+      log "errors because other packages are not imported yet). Continuing. Log: $log_file"
     fi
   done < <(list_template_files "unityPackages")
 
@@ -1190,12 +1194,21 @@ else
   log "Existing Unity project detected. It will be updated."
 fi
 
+# Add every UPM package to the manifest first so engine modules the imported SDKs need
+# (com.unity.ugui for DOTween's UI module, etc.) are present before anything compiles.
 log "Updating Packages/manifest.json with $MANIFEST_PACKAGE_COUNT package(s)..."
 merge_manifest
 
+# Then import the .unitypackage SDKs (DOTween, Firebase, AppLovin, ...). There is no import
+# order in which every intermediate compile is clean: the SDKs need UPM modules, and the
+# com.ezg.* packages need code from SDKs that are imported later. So each import tolerates
+# Unity's "compiler errors" exit until everything is in place; the final pass below is the
+# real gate.
 if [ "$SKIP_IMPORT" -eq 0 ]; then
-  resolve_packages
   import_unitypackages
+  # Final pass: now that all UPM packages and SDK assets are present, compile everything
+  # together and fail loudly on any error that actually remains.
+  resolve_packages
 else
   log "Skipping .unitypackage import because --skip-import was provided."
 fi

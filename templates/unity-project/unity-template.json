@@ -123,6 +123,11 @@
     ],
     "unityPackages": [
       {
+        "fileName": "DOTweenPro_1.0.381_core_1.2.825.unitypackage",
+        "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/DOTweenPro_1.0.381_core_1.2.825.unitypackage",
+        "sha256": "5760b6a0e7787e8399f933598fc6a85f086bf2d48c6063379f63ad7db5ba0dfa"
+      },
+      {
         "fileName": "Odin Inspector 4.0.1.3.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Odin%20Inspector%204.0.1.3.unitypackage",
         "sha256": "d7cea1c6e769a28e6573bb9593bd39187ff6272c303920bce90bc6011b9b67d2"
