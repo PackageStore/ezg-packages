@@ -1,0 +1,4 @@
+# Shell scripts must stay LF even when checked out on Windows (Git Bash/MSYS fails on CRLF
+# with "$'\r': command not found"). This matters for the Unity template bootstrap that end
+# users run directly. Keep .sh as LF regardless of core.autocrlf.
+*.sh text eol=lf
