@@ -11,7 +11,11 @@ PROJECT_PATH="$SCRIPT_DIR/$DEFAULT_PROJECT_NAME"
 PROJECT_PATH_PROVIDED=0
 PACKAGE_TEMPLATE_DIR="$SCRIPT_DIR/PackageTemplate"
 TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
-TEMPLATE_URL="${UNITY_TEMPLATE_URL:-}"
+TEMPLATE_FILE_PROVIDED=0
+# By default the script fetches the latest published manifest from the server every run. Pass
+# --template-file <path> (or --template-url "") to build from the local unity-template.json.
+DEFAULT_TEMPLATE_URL="https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
+TEMPLATE_URL="${UNITY_TEMPLATE_URL:-$DEFAULT_TEMPLATE_URL}"
 DOWNLOAD_CACHE_DIR="$SCRIPT_DIR/.ezg-cache"
 DOWNLOAD_CACHE_DIR_CUSTOM=0
 DOWNLOAD_CACHE_DIR_PREEXISTED=0
@@ -44,8 +48,8 @@ Options:
   --project-path <path>          Unity project path to create/update.
   --unity-path <path>            Exact Unity executable to use.
   --unity-version <version>      Prefer an installed Unity version, for example 2022.3.62f1.
-  --template-file <path>         Unity template JSON with dependencies and scoped registries.
-  --template-url <url>           Download Unity template JSON from server before installing.
+  --template-file <path>         Build from this local Unity template JSON (forces local; skips the server).
+  --template-url <url>           Download Unity template JSON from this URL (default: published latest.json).
   --package-template-dir <path>  Folder containing .unitypackage and local .tgz files.
   --download-cache-dir <path>    Folder used for downloaded template files.
   --keep-cache                   Keep downloaded cache files after a successful run.
@@ -245,6 +249,7 @@ while [ "$#" -gt 0 ]; do
     --template-file)
       [ "$#" -ge 2 ] || die "--template-file requires a value"
       TEMPLATE_FILE="$2"
+      TEMPLATE_FILE_PROVIDED=1
       shift 2
       ;;
     --template-url)
@@ -794,6 +799,12 @@ download_template_file() {
 download_remote_template() {
   local remote_template_file
 
+  # An explicit --template-file always wins: build from that local file, never the server.
+  if [ "$TEMPLATE_FILE_PROVIDED" -eq 1 ]; then
+    log "Using local template file (--template-file): $TEMPLATE_FILE"
+    return 0
+  fi
+
   [ -n "$TEMPLATE_URL" ] || return 0
 
   remote_template_file="$DOWNLOAD_CACHE_DIR/unity-template.remote.json"
@@ -848,7 +859,8 @@ merge_manifest_with_python() {
   local python_bin="$1"
   local start_step="$2"
   local total_steps="$3"
-  "$python_bin" - "$PROJECT_PATH" "$TEMPLATE_FILE" "$PACKAGE_TEMPLATE_DIR" "$DOWNLOAD_CACHE_DIR" "$start_step" "$total_steps" <<'PY'
+  local dep_filter="$4"
+  "$python_bin" - "$PROJECT_PATH" "$TEMPLATE_FILE" "$PACKAGE_TEMPLATE_DIR" "$DOWNLOAD_CACHE_DIR" "$start_step" "$total_steps" "$dep_filter" <<'PY'
 import json
 import os
 import shutil
@@ -857,8 +869,18 @@ import sys
 project_path, template_file, template_dir, cache_dir = sys.argv[1:5]
 current_step = int(sys.argv[5])
 total_steps = int(sys.argv[6])
+dep_filter = sys.argv[7] if len(sys.argv) > 7 else "all"
 packages_dir = os.path.join(project_path, "Packages")
 manifest_path = os.path.join(packages_dir, "manifest.json")
+
+EZG_PREFIX = "com.ezg."
+
+def is_included(name):
+    if dep_filter == "exclude-ezg":
+        return not name.startswith(EZG_PREFIX)
+    if dep_filter == "only-ezg":
+        return name.startswith(EZG_PREFIX)
+    return True
 
 def log_step(message):
     global current_step
@@ -919,6 +941,8 @@ else:
 
 manifest.setdefault("dependencies", {})
 for name, value in dependencies.items():
+    if not is_included(name):
+        continue
     log_step(f"Adding manifest package: {name}")
     manifest["dependencies"][name] = value
     copy_local_file_dependency(value)
@@ -948,6 +972,7 @@ PY
 merge_manifest_with_powershell() {
   local start_step="$1"
   local total_steps="$2"
+  local dep_filter="$3"
   local temp_script
   temp_script="$(mktemp "${TMPDIR:-/tmp}/unity-manifest-merge.XXXXXX.ps1")"
   cat >"$temp_script" <<'PS1'
@@ -957,13 +982,21 @@ param(
   [string]$TemplateDir,
   [string]$CacheDir,
   [int]$StartStep,
-  [int]$TotalSteps
+  [int]$TotalSteps,
+  [string]$DepFilter = "all"
 )
 
 $ErrorActionPreference = "Stop"
 $packagesDir = Join-Path $ProjectPath "Packages"
 $manifestPath = Join-Path $packagesDir "manifest.json"
 $currentStep = $StartStep
+$ezgPrefix = "com.ezg."
+
+function Test-Included([string]$Name) {
+  if ($DepFilter -eq "exclude-ezg") { return -not $Name.StartsWith($ezgPrefix) }
+  if ($DepFilter -eq "only-ezg") { return $Name.StartsWith($ezgPrefix) }
+  return $true
+}
 
 function Write-Step([string]$Message) {
   $script:currentStep++
@@ -1004,6 +1037,7 @@ if (Test-Path $manifestPath) {
 Ensure-Property $manifest "dependencies" ([pscustomobject]@{})
 
 foreach ($property in $dependencies.PSObject.Properties) {
+  if (-not (Test-Included $property.Name)) { continue }
   Write-Step "Adding manifest package: $($property.Name)"
   Set-Property $manifest.dependencies $property.Name $property.Value
 
@@ -1063,21 +1097,28 @@ PS1
     -TemplateDir "$(to_unity_arg_path "$PACKAGE_TEMPLATE_DIR")" \
     -CacheDir "$(to_unity_arg_path "$DOWNLOAD_CACHE_DIR")" \
     -StartStep "$start_step" \
-    -TotalSteps "$total_steps"
+    -TotalSteps "$total_steps" \
+    -DepFilter "$dep_filter"
   rm -f "$temp_script"
 }
 
+# merge_manifest <filter> <step_count>
+#   filter: all | exclude-ezg | only-ezg  (com.ezg.* packages are split into a second pass)
+#   step_count: how many packages this pass writes, used to advance the progress counter
 merge_manifest() {
+  local dep_filter="${1:-all}"
+  local step_count="${2:-$MANIFEST_PACKAGE_COUNT}"
   local python_bin
+
   if python_bin="$(find_python)"; then
-    merge_manifest_with_python "$python_bin" "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS"
-    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + MANIFEST_PACKAGE_COUNT))
+    merge_manifest_with_python "$python_bin" "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "$dep_filter"
+    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + step_count))
     return 0
   fi
 
   if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
-    merge_manifest_with_powershell "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS"
-    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + MANIFEST_PACKAGE_COUNT))
+    merge_manifest_with_powershell "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "$dep_filter"
+    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + step_count))
     return 0
   fi
 
@@ -1100,37 +1141,304 @@ resolve_packages() {
   fi
 }
 
-import_unitypackages() {
-  local package count log_file project_arg package_arg log_arg package_name file_name url sha256
-  count=0
+# A .unitypackage is a gzip tar of <guid>/{asset,asset.meta,pathname,preview.png} entries.
+# We reconstruct Assets/ ourselves so we do not pay a full Unity launch per package and so the
+# copy works even while the project does not compile. The asset.meta files are copied byte for
+# byte (no re-encoding) so every GUID is preserved exactly.
+extract_unitypackages_with_python() {
+  local python_bin="$1"
+  local start_step="$2"
+  local total_steps="$3"
+  shift 3
+  "$python_bin" - "$PROJECT_PATH" "$start_step" "$total_steps" "$@" <<'PY'
+import os
+import shutil
+import sys
+import tarfile
+
+project_path = sys.argv[1]
+start_step = int(sys.argv[2])
+total_steps = int(sys.argv[3])
+packages = sys.argv[4:]
+
+ALLOWED = ("asset", "asset.meta", "pathname", "preview.png")
+seen = {}
+step = start_step
+
+def safe(rel):
+    norm = os.path.normpath(rel)
+    if norm.startswith("..") or os.path.isabs(norm):
+        return None
+    if len(norm) > 1 and norm[1] == ":":
+        return None
+    return norm
+
+for pkg in packages:
+    step += 1
+    print(f"[{step}/{total_steps}] Extracting .unitypackage: {os.path.basename(pkg)}", file=sys.stderr)
+    with tarfile.open(pkg, "r:gz") as tf:
+        groups = {}
+        for member in tf.getmembers():
+            if not member.isfile():
+                continue
+            parts = member.name.split("/")
+            if len(parts) != 2 or parts[1] not in ALLOWED:
+                continue
+            groups.setdefault(parts[0], {})[parts[1]] = member
+
+        for guid, files in groups.items():
+            if "pathname" not in files:
+                continue
+            raw = tf.extractfile(files["pathname"]).read().decode("utf-8", "replace").splitlines()
+            rel = raw[0].strip().replace("\\", "/") if raw else ""
+            if not rel:
+                continue
+            norm = safe(rel)
+            if norm is None:
+                print(f"  WARNING: skipping suspicious path: {rel}", file=sys.stderr)
+                continue
+
+            target = os.path.join(project_path, norm)
+            if "asset" in files:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with tf.extractfile(files["asset"]) as src, open(target, "wb") as out:
+                    shutil.copyfileobj(src, out)
+            else:
+                os.makedirs(target, exist_ok=True)
+
+            if "asset.meta" in files:
+                with tf.extractfile(files["asset.meta"]) as src, open(target + ".meta", "wb") as out:
+                    shutil.copyfileobj(src, out)
+
+            if guid in seen and seen[guid] != norm:
+                print(f"  WARNING: GUID {guid} maps to two paths: '{seen[guid]}' and '{norm}'", file=sys.stderr)
+            seen[guid] = norm
+
+print(f"Extracted {len(packages)} .unitypackage file(s).", file=sys.stderr)
+PY
+}
+
+extract_unitypackages_with_powershell() {
+  local start_step="$1"
+  local total_steps="$2"
+  shift 2
+  local temp_script list_file project_arg p
+  list_file="$(mktemp "${TMPDIR:-/tmp}/unity-unitypackages.XXXXXX.txt")"
+  : >"$list_file"
+  for p in "$@"; do
+    to_unity_arg_path "$p" >>"$list_file"
+  done
+  project_arg="$(to_unity_arg_path "$PROJECT_PATH")"
+
+  temp_script="$(mktemp "${TMPDIR:-/tmp}/unity-unitypackages.XXXXXX.ps1")"
+  cat >"$temp_script" <<'PS1'
+param(
+  [string]$ProjectPath,
+  [int]$StartStep,
+  [int]$TotalSteps,
+  [string]$PackageListFile
+)
+
+$ErrorActionPreference = "Stop"
+$tarExe = Join-Path $env:SystemRoot "System32\tar.exe"
+if (-not (Test-Path -LiteralPath $tarExe)) { $tarExe = "tar" }
+
+$seen = @{}
+$step = $StartStep
+$packages = @(Get-Content -LiteralPath $PackageListFile | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+foreach ($pkg in $packages) {
+  $step++
+  [Console]::Error.WriteLine("[$step/$TotalSteps] Extracting .unitypackage: $([System.IO.Path]::GetFileName($pkg))")
+
+  $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("ezg-upkg-" + [System.IO.Path]::GetRandomFileName())
+  New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+  try {
+    & $tarExe -xzf $pkg -C $tmp
+    if ($LASTEXITCODE -ne 0) { throw "tar failed to extract $pkg" }
+
+    foreach ($guidDir in (Get-ChildItem -LiteralPath $tmp -Directory)) {
+      $pathnameFile = Join-Path $guidDir.FullName "pathname"
+      if (-not (Test-Path -LiteralPath $pathnameFile)) { continue }
+
+      $rel = Get-Content -LiteralPath $pathnameFile -TotalCount 1 -Encoding UTF8
+      if ([string]::IsNullOrWhiteSpace($rel)) { continue }
+      $rel = $rel.Trim().Replace("\", "/")
+      if ($rel.StartsWith("/") -or $rel.Contains("..") -or ($rel -match '^[A-Za-z]:')) {
+        [Console]::Error.WriteLine("  WARNING: skipping suspicious path: $rel")
+        continue
+      }
+
+      $target = Join-Path $ProjectPath ($rel -replace '/', '\')
+      $assetFile = Join-Path $guidDir.FullName "asset"
+      $metaFile = Join-Path $guidDir.FullName "asset.meta"
+      $targetParent = Split-Path -Parent $target
+      if ($targetParent) { New-Item -ItemType Directory -Force -Path $targetParent | Out-Null }
+
+      if (Test-Path -LiteralPath $assetFile) {
+        Copy-Item -LiteralPath $assetFile -Destination $target -Force
+      } else {
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+      }
+
+      if (Test-Path -LiteralPath $metaFile) {
+        Copy-Item -LiteralPath $metaFile -Destination ($target + ".meta") -Force
+      }
+
+      $guid = $guidDir.Name
+      if ($seen.ContainsKey($guid) -and $seen[$guid] -ne $rel) {
+        [Console]::Error.WriteLine("  WARNING: GUID $guid maps to two paths: '$($seen[$guid])' and '$rel'")
+      }
+      $seen[$guid] = $rel
+    }
+  } finally {
+    Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+[Console]::Error.WriteLine("Extracted $($packages.Count) .unitypackage file(s).")
+PS1
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$temp_script" \
+    -ProjectPath "$project_arg" \
+    -StartStep "$start_step" \
+    -TotalSteps "$total_steps" \
+    -PackageListFile "$(to_unity_arg_path "$list_file")"
+  rm -f "$temp_script" "$list_file"
+}
+
+extract_unitypackages() {
+  local file_name url sha256 package
+  local -a packages=()
 
   while IFS='|' read -r file_name url sha256; do
     [ -n "$file_name" ] || continue
-    count=$((count + 1))
     if ! package="$(resolve_template_file "$file_name")"; then
       die "Declared .unitypackage file was not found after preparation: $file_name"
     fi
-
-    package_name="$(basename "$package")"
-    log_file="$PROJECT_PATH/unity-import-${package_name}.log"
-    project_arg="$(to_unity_arg_path "$PROJECT_PATH")"
-    package_arg="$(to_unity_arg_path "$package")"
-    log_arg="$(to_unity_arg_path "$log_file")"
-
-    log "Importing $package_name. Watch progress in: $log_file"
-    # Tolerate a non-zero exit here: Unity returns 1 whenever the project still has compiler
-    # errors at shutdown, which is expected mid-import because other SDKs/packages are not in
-    # place yet. The final resolve_packages pass is what decides overall success/failure.
-    if ! run_install_step_with_progress "Importing .unitypackage: $package_name" \
-      "$UNITY_EXECUTABLE" -quit -batchmode -projectPath "$project_arg" -importPackage "$package_arg" -logFile "$log_arg"; then
-      log "Note: Unity reported errors while importing $package_name (usually just compiler"
-      log "errors because other packages are not imported yet). Continuing. Log: $log_file"
-    fi
+    packages+=("$package")
   done < <(list_template_files "unityPackages")
 
-  if [ "$count" -eq 0 ]; then
+  if [ "${#packages[@]}" -eq 0 ]; then
     log "No .unitypackage files declared in: $TEMPLATE_FILE"
+    return 0
   fi
+
+  log "Extracting ${#packages[@]} .unitypackage file(s) into Assets/ (preserving .meta GUIDs)..."
+
+  local python_bin
+  if python_bin="$(find_python)"; then
+    extract_unitypackages_with_python "$python_bin" "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "${packages[@]}"
+    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + ${#packages[@]}))
+    return 0
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    extract_unitypackages_with_powershell "$INSTALL_CURRENT_STEP" "$INSTALL_TOTAL_STEPS" "${packages[@]}"
+    INSTALL_CURRENT_STEP=$((INSTALL_CURRENT_STEP + ${#packages[@]}))
+    return 0
+  fi
+
+  die "Cannot extract .unitypackage files because neither Python nor PowerShell is available."
+}
+
+list_remove_paths_with_python() {
+  local python_bin="$1"
+  "$python_bin" - "$TEMPLATE_FILE" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8-sig") as handle:
+    template = json.load(handle)
+
+paths = template.get("removePaths", [])
+if paths is None:
+    paths = []
+if not isinstance(paths, list):
+    raise SystemExit("unity-template.json field 'removePaths' must be an array")
+
+for entry in paths:
+    if isinstance(entry, str) and entry.strip():
+        print(entry.strip())
+PY
+}
+
+list_remove_paths_with_powershell() {
+  local template_arg
+  template_arg="$(to_unity_arg_path "$TEMPLATE_FILE")"
+
+  TEMPLATE_FILE_FOR_REMOVE="$template_arg" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\
+    \$template = Get-Content -Raw \$env:TEMPLATE_FILE_FOR_REMOVE | ConvertFrom-Json;\
+    if (\$null -eq \$template.removePaths) { exit 0 }\
+    foreach (\$entry in @(\$template.removePaths)) {\
+      if (-not [string]::IsNullOrWhiteSpace([string]\$entry)) { Write-Output ([string]\$entry).Trim() }\
+    }" | tr -d '\r'
+}
+
+list_remove_paths() {
+  local python_bin
+  if python_bin="$(find_python)"; then
+    list_remove_paths_with_python "$python_bin"
+    return 0
+  fi
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    list_remove_paths_with_powershell
+    return 0
+  fi
+  return 0
+}
+
+# Delete project-relative paths declared in template "removePaths" (e.g. SDK Example/Demo
+# folders that ship broken sample scripts). Runs after extraction so the single resolve pass
+# never sees them.
+apply_remove_paths() {
+  local rel target removed=0
+
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    rel="${rel//\\//}"
+    rel="${rel#/}"
+    case "$rel" in
+      ""|*..*|*:*)
+        log "Skipping unsafe removePaths entry: $rel"
+        continue
+        ;;
+    esac
+
+    target="$PROJECT_PATH/$rel"
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      rm -rf -- "$target"
+      rm -f -- "$target.meta"
+      log "Removed declared path: $rel"
+      removed=$((removed + 1))
+    fi
+  done < <(list_remove_paths)
+
+  [ "$removed" -eq 0 ] || log "Removed $removed declared path(s) before compiling."
+}
+
+# A Unity project is just a folder with Assets/ and ProjectSettings/ProjectVersion.txt. We
+# create that skeleton ourselves instead of launching Unity with -createProject, because
+# -createProject -quit races the Package Manager (it tries to resolve before manifest.json
+# exists, then -quit cancels it -> exit 1 and a half-written project). Writing the skeleton is
+# deterministic and lets the single resolve pass later be the only Unity launch.
+project_needs_creation() {
+  local version_file="$PROJECT_PATH/ProjectSettings/ProjectVersion.txt"
+  [ -f "$version_file" ] || return 0
+  grep -q "UnknownUnityVersion" "$version_file" 2>/dev/null && return 0
+  return 1
+}
+
+create_project_skeleton() {
+  local version_file="$PROJECT_PATH/ProjectSettings/ProjectVersion.txt"
+
+  begin_install_step "Creating Unity project ($UNITY_SELECTED_VERSION)"
+  mkdir -p "$PROJECT_PATH/Assets" "$PROJECT_PATH/Packages" "$PROJECT_PATH/ProjectSettings"
+  {
+    printf 'm_EditorVersion: %s\n' "$UNITY_SELECTED_VERSION"
+    printf 'm_EditorVersionWithRevision: %s\n' "$UNITY_SELECTED_VERSION"
+  } >"$version_file"
+  log "Created Unity project skeleton at: $PROJECT_PATH"
 }
 
 prompt_project_name
@@ -1169,14 +1477,17 @@ else
   UNITYPACKAGE_COUNT=0
 fi
 
+NEED_CREATE=0
+if project_needs_creation; then
+  NEED_CREATE=1
+fi
+
 INSTALL_TOTAL_STEPS=$((MANIFEST_PACKAGE_COUNT + UNITYPACKAGE_COUNT))
-if [ ! -f "$PROJECT_PATH/ProjectSettings/ProjectVersion.txt" ]; then
+if [ "$NEED_CREATE" -eq 1 ]; then
   INSTALL_TOTAL_STEPS=$((INSTALL_TOTAL_STEPS + 1))
 fi
 if [ "$SKIP_IMPORT" -eq 0 ]; then
-  # Extra step: resolve/compile all packages once before importing, so the heavy
-  # first project reopen is its own clearly-labelled step instead of stalling the
-  # first .unitypackage import.
+  # Extra step: the single Unity pass that resolves UPM packages and compiles everything.
   INSTALL_TOTAL_STEPS=$((INSTALL_TOTAL_STEPS + 1))
 fi
 
@@ -1184,33 +1495,27 @@ log "Install progress: 0/$INSTALL_TOTAL_STEPS"
 
 mkdir -p "$PROJECT_PATH"
 
-if [ ! -f "$PROJECT_PATH/ProjectSettings/ProjectVersion.txt" ]; then
-  create_log="$PROJECT_PATH/unity-create-project.log"
-  if ! run_install_unity_step "Creating Unity project" "$create_log" \
-    "$UNITY_EXECUTABLE" -quit -batchmode -createProject "$(to_unity_arg_path "$PROJECT_PATH")" -logFile "$(to_unity_arg_path "$create_log")"; then
-    die "Unity failed while creating the project. Open the log above to see the error."
-  fi
+if [ "$NEED_CREATE" -eq 1 ]; then
+  create_project_skeleton
 else
   log "Existing Unity project detected. It will be updated."
 fi
 
-# Add every UPM package to the manifest first so engine modules the imported SDKs need
-# (com.unity.ugui for DOTween's UI module, etc.) are present before anything compiles.
+# Write the full manifest in one pass. Order no longer matters: extraction (below) drops SDK
+# assets into Assets/ without launching Unity, so the project never needs to compile until the
+# single final resolve pass when everything is already in place.
 log "Updating Packages/manifest.json with $MANIFEST_PACKAGE_COUNT package(s)..."
-merge_manifest
+merge_manifest "all" "$MANIFEST_PACKAGE_COUNT"
 
-# Then import the .unitypackage SDKs (DOTween, Firebase, AppLovin, ...). There is no import
-# order in which every intermediate compile is clean: the SDKs need UPM modules, and the
-# com.ezg.* packages need code from SDKs that are imported later. So each import tolerates
-# Unity's "compiler errors" exit until everything is in place; the final pass below is the
-# real gate.
 if [ "$SKIP_IMPORT" -eq 0 ]; then
-  import_unitypackages
-  # Final pass: now that all UPM packages and SDK assets are present, compile everything
-  # together and fail loudly on any error that actually remains.
+  # Extract the .unitypackage SDKs straight into Assets/ (no per-package Unity launch), drop any
+  # declared sample/demo paths, then do one Unity pass that resolves UPM packages and compiles
+  # everything together.
+  extract_unitypackages
+  apply_remove_paths
   resolve_packages
 else
-  log "Skipping .unitypackage import because --skip-import was provided."
+  log "Skipping .unitypackage extraction because --skip-import was provided."
 fi
 
 cleanup_download_cache

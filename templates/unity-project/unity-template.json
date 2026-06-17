@@ -135,7 +135,7 @@
       {
         "fileName": "Ultimate Editor Enhancer.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Ultimate%20Editor%20Enhancer.unitypackage",
-        "sha256": "7754807033791f91cc22bce978ff52065fc3ac514b698bd98e2a0be8ce806092"
+        "sha256": "d1f718bc99908e772e5806434a7f0817b1ac012963c46dd751e87e05c0dba279"
       },
       {
         "fileName": "facebook-unity-sdk-18.0.0.unitypackage",
@@ -186,6 +186,11 @@
         "fileName": "FirebaseStorage_13.3.0.unitypackage",
         "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseStorage_13.3.0.unitypackage",
         "sha256": ""
+      },
+      {
+        "fileName": "I2_TextAnimation.unitypackage",
+        "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/I2_TextAnimation.unitypackage",
+        "sha256": "52712bfb0bd244674edde22c3186ae7f207390096a8c9480a26090f654614530"
       }
     ]
   },
@@ -200,5 +205,8 @@
         "com.coffee"
       ]
     }
+  ],
+  "removePaths": [
+    "Assets/FacebookSDK/Examples"
   ]
 }
