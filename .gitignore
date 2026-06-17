@@ -11,8 +11,11 @@ scripts/.env.*
 
 # Unity project template local assets/output. Binary template assets are stored in
 # R2 and described by the versioned template manifest, not committed to git.
-templates/unity-project/PackageTemplate/
-templates/unity-project/UnityTemplateProject/
+templates/unity-project/*/
+!templates/unity-project/PackageTemplate/
+
+# Temporary extraction dir
+temp_extract/
 
 # Skills live in .agents/skills/ (committed). `.claude/skills` is a per-machine
 # junction/symlink into it (git can't represent a Windows junction) — recreate it
