@@ -8,7 +8,6 @@ namespace Ezg.Package.CsvReader
     ///     <see cref="CsvReaderConfig" /> riêng để custom path/suffix mà không phải sửa code module.
     ///     Resolver: <see cref="CsvReaderSettings" /> (editor-only lookup + fallback default).
     /// </summary>
-    [CreateAssetMenu(fileName = "CsvReaderConfig", menuName = "Ezg/CsvReader/Config")]
     public class CsvReaderConfig : ScriptableObject
     {
         [Header("Feature-local CsvConfig pattern")]
@@ -40,5 +39,13 @@ namespace Ezg.Package.CsvReader
 
         [Tooltip("Tên class hằng số sinh ra.")]
         public string generatedClassName = "CsvAssetDir";
+
+        [Header("DataManager generation (Project setup)")]
+        [Tooltip("Thư mục (tương đối Application.dataPath / thư mục Assets) chứa GenDataManager.cs + " +
+                 "DataManager.Generated.cs. Phải bắt đầu và kết thúc bằng '/'.")]
+        public string dataManagerDirectory = "/_Project/Features/_Shared/GameData/";
+
+        [Tooltip("Namespace gán cho file GenDataManager.cs sinh ra bởi menu Project setup.")]
+        public string dataManagerNamespace = "Ezg.Feature.DataConfig";
     }
 }

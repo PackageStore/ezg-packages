@@ -1,0 +1,108 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text;
+using UnityEngine;
+
+namespace __NAMESPACE__
+{
+    /// <summary>
+    ///     Handles generating data manager classes from configurations.
+    /// </summary>
+    public static class GenDataManager
+    {
+        #region Public Methods
+
+        /// <summary>
+        ///     Runs the full generation process to generate and write the DataManager file.
+        /// </summary>
+        public static void GenFullProcess()
+        {
+            var code = Generate();
+
+            WriteFile(code);
+        }
+
+        #endregion
+
+        #region Fields
+
+        // File output (DataManager.Generated.cs) phải nằm cùng GameData/ trong Features —
+        // nó reference Collection types thuộc Gameplay assembly nên phải ở Ezg.Features,
+        // Core không được phép depend vào Gameplay khi dùng asmdef.
+        // Path tương đối so với Application.dataPath (thư mục Assets).
+        private const string ScriptPath = "__SCRIPTPATH__";
+        private const string DefaultClassName = "DataManager";
+        private const string GeneratedFileName = "DataManager.Generated";
+
+        private static readonly List<string> ExceptionsList = new()
+        {
+            "Passive_",
+            "Skill_"
+        };
+
+        // Template chỉ sinh accessor properties — infrastructure (Get<T>, cacheConfig) nằm trong
+        // Features/_Shared/GameData/DataManager.cs (partial thủ công) để tránh duplicate khi regenerate.
+        private static readonly string template =
+            "#region CSV Collection Accessors\r\n// AUTO-GENERATED — do not edit manually. Re-run via Tools/CSV Import.\r\n\r\npublic partial class ${name}\r\n{\r\n${properties}\r\n}\r\n\r\n#endregion";
+
+        private static readonly string format =
+            "\r\n\tpublic static ${collection} ${nameField} => Get<${collection}>();";
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        ///     Generates the source code for the DataManager class based on CsvAssetDir fields.
+        /// </summary>
+        /// <returns>The generated source code string.</returns>
+        private static string Generate()
+        {
+            var propertiesBuf = new StringBuilder();
+
+            var fields = typeof(CsvAssetDir).GetFields(BindingFlags.Public | BindingFlags.Static);
+
+            foreach (var field in fields)
+            {
+                if (ExceptionsList.Any(x => field.Name.StartsWith(x)))
+                    continue;
+
+                propertiesBuf.Append(SetUpClass(field.Name));
+            }
+
+            var code = template.Replace("${name}", DefaultClassName);
+            code = code.Replace("${properties}", propertiesBuf.ToString());
+            return code;
+        }
+
+        /// <summary>
+        ///     Sets up the properties block for a specific field name.
+        /// </summary>
+        /// <param name="fieldName">The name of the CSV asset field.</param>
+        /// <returns>The generated property string.</returns>
+        private static string SetUpClass(string fieldName)
+        {
+            var collection = fieldName + "Collection";
+            var code = format.Replace("${nameField}", fieldName).Replace("${collection}", collection);
+            return code;
+        }
+
+        /// <summary>
+        ///     Writes the generated code string to the target DataManager file.
+        /// </summary>
+        /// <param name="code">The generated code string to write.</param>
+        private static void WriteFile(string code)
+        {
+            // path to write code
+            var writeFolder = Application.dataPath + ScriptPath;
+            if (!Directory.Exists(writeFolder))
+                Directory.CreateDirectory(writeFolder);
+
+            File.WriteAllText(writeFolder + GeneratedFileName + ".cs", code);
+        }
+
+        #endregion
+    }
+}

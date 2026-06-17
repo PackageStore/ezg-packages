@@ -1,3 +1,17 @@
+## [0.2.0] - 2026-06-18
+
+### Added
+- `Ezg/CsvReader/Project setup` editor menu (`ProjectSetup`) that bootstraps a `CsvReaderConfig`
+  asset (lets the user pick its location) and generates `GenDataManager.cs` into the configured
+  directory from a bundled `Editor/Templates/GenDataManager.cs.txt` template, prompting to confirm
+  before overwriting an existing file.
+- `CsvReaderConfig.dataManagerDirectory` and `CsvReaderConfig.dataManagerNamespace` fields so the
+  generated DataManager output path and namespace are externalized (config-driven).
+
+### Removed
+- The old `[CreateAssetMenu] Ezg/CsvReader/Config` create-asset menu on `CsvReaderConfig`, replaced
+  by the `Project setup` menu above.
+
 ## [0.1.1] - 2026-06-14
 
 - Add missing .meta files for README.md, CHANGELOG.md, package.json to fix Unity "immutable folder" import errors
