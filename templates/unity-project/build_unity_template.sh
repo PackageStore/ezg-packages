@@ -1181,7 +1181,13 @@ for pkg in packages:
         for member in tf.getmembers():
             if not member.isfile():
                 continue
-            parts = member.name.split("/")
+            # Some exporters prefix every entry with "./" (AppLovin, Facebook, the
+            # com.google.play.* plugins), others do not (Odin, Firebase). Normalize the
+            # leading "./" so "<guid>/asset" and "./<guid>/asset" are treated the same.
+            name = member.name
+            while name.startswith("./"):
+                name = name[2:]
+            parts = name.split("/")
             if len(parts) != 2 or parts[1] not in ALLOWED:
                 continue
             groups.setdefault(parts[0], {})[parts[1]] = member
@@ -1499,7 +1505,10 @@ TEMPLATE_FILE="$(abspath "$TEMPLATE_FILE")"
 DOWNLOAD_CACHE_DIR="$(abspath "$DOWNLOAD_CACHE_DIR")"
 mark_download_cache_state
 
-[ -d "$PACKAGE_TEMPLATE_DIR" ] || die "Package template folder not found: $PACKAGE_TEMPLATE_DIR"
+if [ ! -d "$PACKAGE_TEMPLATE_DIR" ]; then
+  mkdir -p "$PACKAGE_TEMPLATE_DIR"
+  log "Created missing package template folder: $PACKAGE_TEMPLATE_DIR"
+fi
 download_remote_template
 [ -f "$TEMPLATE_FILE" ] || die "Unity template file not found: $TEMPLATE_FILE"
 
