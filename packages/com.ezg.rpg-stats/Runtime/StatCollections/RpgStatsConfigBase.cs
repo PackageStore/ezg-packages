@@ -22,6 +22,10 @@ namespace Ezg.Package.RpgStats
         [Tooltip("Các stat chỉ áp dụng dạng % (luôn cộng tổng %)")] [SerializeField]
         private List<TKey> _listStatsPercentOnly = new();
 
+        [Tooltip("Các stat dạng Vital (có current/max, vd: Health). Khởi tạo bằng RPGVital và set current = max.")]
+        [SerializeField]
+        private List<TKey> _listVitalStats = new();
+
         [Tooltip("Giới hạn min/max cho từng stat")] [SerializeField]
         private StatLimitModel<TKey>[] _statLimits = System.Array.Empty<StatLimitModel<TKey>>();
 
@@ -32,6 +36,7 @@ namespace Ezg.Package.RpgStats
         public bool IsCompactPercent => _isCompactPercent;
         public bool ForceLimitStat => _forceLimitStat;
         public List<TKey> ListStatsPercentOnly => _listStatsPercentOnly;
+        public List<TKey> ListVitalStats => _listVitalStats;
         public StatLimitModel<TKey>[] StatLimits => _statLimits;
 
         #endregion

@@ -55,6 +55,11 @@ namespace Ezg.Package.RpgStats
         public static List<TKey> ListStatsPercentOnly = new();
 
         /// <summary>
+        ///     Danh sách các stat dạng Vital (có current/max, vd: Health)
+        /// </summary>
+        public static List<TKey> ListVitalStats = new();
+
+        /// <summary>
         ///     Stat limit data
         /// </summary>
         public static Dictionary<TKey, StatLimitModel<TKey>> StatLimitData;
@@ -102,6 +107,10 @@ namespace Ezg.Package.RpgStats
 
             ListStatsPercentOnly = config.ListStatsPercentOnly != null
                 ? new List<TKey>(config.ListStatsPercentOnly)
+                : new List<TKey>();
+
+            ListVitalStats = config.ListVitalStats != null
+                ? new List<TKey>(config.ListVitalStats)
                 : new List<TKey>();
 
             InitStatLimit(config.StatLimits ?? Array.Empty<StatLimitModel<TKey>>());
