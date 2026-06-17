@@ -1342,47 +1342,55 @@ extract_unitypackages() {
   die "Cannot extract .unitypackage files because neither Python nor PowerShell is available."
 }
 
-list_remove_paths_with_python() {
+# Read a top-level array-of-strings field (e.g. removePaths, embedPackages) from the template.
+list_template_string_array_with_python() {
   local python_bin="$1"
-  "$python_bin" - "$TEMPLATE_FILE" <<'PY'
+  local field="$2"
+  "$python_bin" - "$TEMPLATE_FILE" "$field" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], "r", encoding="utf-8-sig") as handle:
+template_file, field = sys.argv[1:3]
+
+with open(template_file, "r", encoding="utf-8-sig") as handle:
     template = json.load(handle)
 
-paths = template.get("removePaths", [])
-if paths is None:
-    paths = []
-if not isinstance(paths, list):
-    raise SystemExit("unity-template.json field 'removePaths' must be an array")
+values = template.get(field, [])
+if values is None:
+    values = []
+if not isinstance(values, list):
+    raise SystemExit(f"unity-template.json field '{field}' must be an array")
 
-for entry in paths:
+for entry in values:
     if isinstance(entry, str) and entry.strip():
         print(entry.strip())
 PY
 }
 
-list_remove_paths_with_powershell() {
+list_template_string_array_with_powershell() {
+  local field="$1"
   local template_arg
   template_arg="$(to_unity_arg_path "$TEMPLATE_FILE")"
 
-  TEMPLATE_FILE_FOR_REMOVE="$template_arg" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\
-    \$template = Get-Content -Raw \$env:TEMPLATE_FILE_FOR_REMOVE | ConvertFrom-Json;\
-    if (\$null -eq \$template.removePaths) { exit 0 }\
-    foreach (\$entry in @(\$template.removePaths)) {\
+  TEMPLATE_FILE_FOR_ARRAY="$template_arg" TEMPLATE_ARRAY_FIELD="$field" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\
+    \$template = Get-Content -Raw \$env:TEMPLATE_FILE_FOR_ARRAY | ConvertFrom-Json;\
+    \$field = \$env:TEMPLATE_ARRAY_FIELD;\
+    \$prop = \$template.PSObject.Properties[\$field];\
+    if (\$null -eq \$prop -or \$null -eq \$prop.Value) { exit 0 }\
+    foreach (\$entry in @(\$prop.Value)) {\
       if (-not [string]::IsNullOrWhiteSpace([string]\$entry)) { Write-Output ([string]\$entry).Trim() }\
     }" | tr -d '\r'
 }
 
-list_remove_paths() {
+list_template_string_array() {
+  local field="$1"
   local python_bin
   if python_bin="$(find_python)"; then
-    list_remove_paths_with_python "$python_bin"
+    list_template_string_array_with_python "$python_bin" "$field"
     return 0
   fi
   if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
-    list_remove_paths_with_powershell
+    list_template_string_array_with_powershell "$field"
     return 0
   fi
   return 0
@@ -1412,9 +1420,44 @@ apply_remove_paths() {
       log "Removed declared path: $rel"
       removed=$((removed + 1))
     fi
-  done < <(list_remove_paths)
+  done < <(list_template_string_array "removePaths")
 
   [ "$removed" -eq 0 ] || log "Removed $removed declared path(s) before compiling."
+}
+
+# Some packages (e.g. com.google.play.games / GPGS) refuse to run from the immutable PackageCache
+# because their editor code hard-requires a real Packages/<name> folder. For each name in the
+# template "embedPackages", copy the package Unity resolved into Library/PackageCache out to
+# Packages/<name> so it becomes an embedded package. Runs AFTER resolve_packages populated the cache.
+apply_embed_packages() {
+  local name dst embedded=0
+  local -a matches
+
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    case "$name" in
+      */*|*\\*|*..*|*:*)
+        log "Skipping unsafe embedPackages entry: $name"
+        continue
+        ;;
+    esac
+
+    dst="$PROJECT_PATH/Packages/$name"
+    matches=( "$PROJECT_PATH/Library/PackageCache/${name}@"* )
+
+    if [ -d "${matches[0]}" ]; then
+      rm -rf -- "$dst"
+      cp -r -- "${matches[0]}" "$dst"
+      log "Embedded package into Packages/: $name (from $(basename "${matches[0]}"))"
+      embedded=$((embedded + 1))
+    elif [ -d "$dst" ]; then
+      log "Package already embedded: $name"
+    else
+      log "WARNING: could not find resolved '$name' in Library/PackageCache to embed."
+    fi
+  done < <(list_template_string_array "embedPackages")
+
+  [ "$embedded" -eq 0 ] || log "Embedded $embedded package(s) into Packages/."
 }
 
 # A Unity project is just a folder with Assets/ and ProjectSettings/ProjectVersion.txt. We
@@ -1514,6 +1557,7 @@ if [ "$SKIP_IMPORT" -eq 0 ]; then
   extract_unitypackages
   apply_remove_paths
   resolve_packages
+  apply_embed_packages
 else
   log "Skipping .unitypackage extraction because --skip-import was provided."
 fi

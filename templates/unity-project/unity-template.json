@@ -208,5 +208,8 @@
   ],
   "removePaths": [
     "Assets/FacebookSDK/Examples"
+  ],
+  "embedPackages": [
+    "com.google.play.games"
   ]
 }
