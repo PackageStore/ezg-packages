@@ -1,3 +1,12 @@
+## [0.2.1] - 2026-06-18
+
+### Changed
+- Default `CsvReaderConfig.generatedClassDirectory` now points to
+  `/Assets/_Project/Features/_Shared/GameData/` so the generated `CsvAssetDir.cs` constant class
+  lands alongside the generated `GenDataManager.cs`/`DataManager.Generated.cs` (same GameData folder)
+  instead of `_Shared/`. Projects with an existing `CsvReaderConfig` asset must update that asset's
+  field to take effect (the asset overrides this default).
+
 ## [0.2.0] - 2026-06-18
 
 ### Added

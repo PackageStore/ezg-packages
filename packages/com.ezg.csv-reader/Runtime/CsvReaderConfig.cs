@@ -35,7 +35,7 @@ namespace Ezg.Package.CsvReader
 
         [Header("Generated CsvAssetDir class")]
         [Tooltip("Thư mục (tương đối project root) ghi file class hằng số sinh ra.")]
-        public string generatedClassDirectory = "/Assets/_Project/Features/_Shared/";
+        public string generatedClassDirectory = "/Assets/_Project/Features/_Shared/GameData/";
 
         [Tooltip("Tên class hằng số sinh ra.")]
         public string generatedClassName = "CsvAssetDir";
