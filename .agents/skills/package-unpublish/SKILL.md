@@ -69,6 +69,16 @@ gh workflow run admin.yml -f action=unpublish -f package=<package> -f version=<v
 # omit -f version=... to remove the whole package
 ```
 
+### Path C — Direct API / curl (xoá sạch trên Cloudflare R2)
+
+Sử dụng trực tiếp lệnh `curl` với token key để gọi API xoá sạch package trên Cloudflare R2:
+
+```bash
+# Thay <package> bằng tên package cần xoá (ví dụ: com.ezg.sample)
+curl -X DELETE "https://upm-registry-worker.developer-a1f.workers.dev/<package>" \
+  -H "Authorization: Bearer cfk_bFJA6pUkYCWtl86uHimDMKI5RkTeAtNBxyjg5wFDce6da55e"
+```
+
 Then watch the run: `gh run watch` (or `gh run list --workflow=admin.yml`).
 
 ## After running
