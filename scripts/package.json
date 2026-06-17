@@ -13,6 +13,7 @@
     "rollback": "node rollback.mjs",
     "deprecate": "node deprecate.mjs",
     "upload-unity-template-assets": "node upload-unity-template-assets.mjs",
+    "upload-unity-template-script": "node upload-unity-template-script.mjs",
     "link-skills": "node link-skills.mjs"
   },
   "dependencies": {
