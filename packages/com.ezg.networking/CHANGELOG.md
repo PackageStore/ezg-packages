@@ -2,6 +2,13 @@
 
 All notable changes to **com.ezg.networking** are documented here.
 
+## [0.1.2] - 2026-06-18
+
+### Changed
+- **Editor** — the **Create ▸ Ezg ▸ Networking ▸ Project setup** menu now generates
+  `GameNetworkManager.cs` under `Assets/_Project/Features/_Shared/Networking` (previously
+  `Assets/_Project/Features/_Shared`).
+
 ## [0.1.1] - 2026-06-16
 
 ### Changed

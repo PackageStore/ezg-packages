@@ -15,7 +15,7 @@ namespace Ezg.Core.Networking.Editor
     {
         #region Fields
 
-        private const string TARGET_DIR = "Assets/_Project/Features/_Shared";
+        private const string TARGET_DIR = "Assets/_Project/Features/_Shared/Networking";
         private const string TARGET_FILE = TARGET_DIR + "/GameNetworkManager.cs";
 
         // Settings assets must live exactly here so Resources.Load("Cloudflare"/"Supabase") resolves.
@@ -83,7 +83,7 @@ namespace Ezg.Feature.Networking
         #region Private Methods
 
         /// <summary>
-        ///     Generates <c>GameNetworkManager.cs</c> in Assets/_Project/Features/_Shared.
+        ///     Generates <c>GameNetworkManager.cs</c> in Assets/_Project/Features/_Shared/Networking.
         ///     Prompts before overwriting an existing file.
         /// </summary>
         private static void GenerateGameNetworkManager()
