@@ -220,6 +220,11 @@
         "fileName": "ezg.base.features.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
         "sha256": "8207bb0b3cf62e05acb18536202cc3fab41982114e1e2083ef1c6f5d5834f70c"
+      },
+      {
+        "fileName": "Epic Toon FX.unitypackage",
+        "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Epic%20Toon%20FX.unitypackage",
+        "sha256": "a003a2b2326f5cadb2a963fd22114f927ed8a2f2c6b21e015befb1e7ec0da803"
       }
     ]
   },

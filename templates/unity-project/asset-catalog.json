@@ -171,6 +171,14 @@
       "installedByDefault": true
     },
     {
+      "name": "Epic Toon FX",
+      "fileName": "Epic Toon FX.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Epic%20Toon%20FX.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "a003a2b2326f5cadb2a963fd22114f927ed8a2f2c6b21e015befb1e7ec0da803",
+      "installedByDefault": true
+    },
+    {
       "name": "AllIn1Bundle",
       "fileName": "AllIn1Bundle.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
@@ -264,6 +272,14 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-LifeGame.unitypackage",
       "category": "GUI",
       "sha256": "feb31a24e1d44f48fd81709430f066e4f8760a74e51712c4bf670b35dcef030a",
+      "installedByDefault": false
+    },
+    {
+      "name": "A_Pathfinding_Project_Pro_v4.2.17",
+      "fileName": "A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
+      "category": "AI Pathfinding",
+      "sha256": "99092d7405df39443a80cbcefcaa8947154b701c6495b9b4648b6fa7e1f6808b",
       "installedByDefault": false
     }
   ]
