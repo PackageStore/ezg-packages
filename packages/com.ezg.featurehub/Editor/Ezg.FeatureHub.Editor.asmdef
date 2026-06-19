@@ -1,0 +1,19 @@
+{
+    "name": "Ezg.FeatureHub.Editor",
+    "rootNamespace": "Ezg.FeatureHub.Editor",
+    "references": [
+        "LottiePlugin.Runtime",
+        "Newtonsoft.Json"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
