@@ -595,7 +595,8 @@ PY
 
 count_manifest_dependencies_with_python() {
   local python_bin="$1"
-  "$python_bin" - "$TEMPLATE_FILE" <<'PY'
+  # `tr -d '\r'` so the count never keeps a trailing \r on Windows (Python text-mode print ends \r\n).
+  "$python_bin" - "$TEMPLATE_FILE" <<'PY' | tr -d '\r'
 import json
 import sys
 
@@ -643,7 +644,9 @@ count_manifest_dependencies() {
 list_template_files_with_python() {
   local python_bin="$1"
   local file_kind="$2"
-  "$python_bin" - "$TEMPLATE_FILE" "$file_kind" <<'PY'
+  # Pipe through `tr -d '\r'` so the trailing sha256 field never keeps a \r on Windows (Python prints
+  # in text mode, so each line ends \r\n). Matches the PowerShell branch below.
+  "$python_bin" - "$TEMPLATE_FILE" "$file_kind" <<'PY' | tr -d '\r'
 import json
 import sys
 
@@ -1380,7 +1383,8 @@ extract_unitypackages() {
 list_template_string_array_with_python() {
   local python_bin="$1"
   local field="$2"
-  "$python_bin" - "$TEMPLATE_FILE" "$field" <<'PY'
+  # `tr -d '\r'` so emitted paths never keep a trailing \r on Windows (Python text-mode print ends \r\n).
+  "$python_bin" - "$TEMPLATE_FILE" "$field" <<'PY' | tr -d '\r'
 import json
 import sys
 
