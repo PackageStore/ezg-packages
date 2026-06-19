@@ -215,6 +215,11 @@
         "fileName": "play-games-plugin-for-unity-2.1.0.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
         "sha256": "2c9dc68f17ae5d30e42b68b07d422d9f62bc8ca4b87cc01e27cebcca807130e6"
+      },
+      {
+        "fileName": "ezg.base.features.unitypackage",
+        "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
+        "sha256": "8207bb0b3cf62e05acb18536202cc3fab41982114e1e2083ef1c6f5d5834f70c"
       }
     ]
   },
