@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "description": "Catalog các .unitypackage cài qua EZG Asset Installer. installedByDefault=true là bộ bootstrap cài sẵn (khai báo trong unity-template.json); false là optional chọn lúc cần (nguồn PackageTemplate/).",
+  "assets": [
+    {
+      "name": "DOTweenPro_1.0.381_core_1.2.825",
+      "fileName": "DOTweenPro_1.0.381_core_1.2.825.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/DOTweenPro_1.0.381_core_1.2.825.unitypackage",
+      "category": "Tween & Animation",
+      "sha256": "5760b6a0e7787e8399f933598fc6a85f086bf2d48c6063379f63ad7db5ba0dfa",
+      "installedByDefault": true
+    },
+    {
+      "name": "Odin Inspector 4.0.1.3",
+      "fileName": "Odin Inspector 4.0.1.3.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Odin%20Inspector%204.0.1.3.unitypackage",
+      "category": "Editor",
+      "sha256": "d7cea1c6e769a28e6573bb9593bd39187ff6272c303920bce90bc6011b9b67d2",
+      "installedByDefault": true
+    },
+    {
+      "name": "Ultimate Editor Enhancer",
+      "fileName": "Ultimate Editor Enhancer.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Ultimate%20Editor%20Enhancer.unitypackage",
+      "category": "Editor",
+      "sha256": "d1f718bc99908e772e5806434a7f0817b1ac012963c46dd751e87e05c0dba279",
+      "installedByDefault": true
+    },
+    {
+      "name": "facebook-unity-sdk-18.0.0",
+      "fileName": "facebook-unity-sdk-18.0.0.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/facebook-unity-sdk-18.0.0.unitypackage",
+      "category": "SDK",
+      "sha256": "d9eb52c56191f67f5e2eca6d715ab9d789e9aee5657cd14c95e0fed5ffe7ea54",
+      "installedByDefault": true
+    },
+    {
+      "name": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3",
+      "fileName": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
+      "category": "Ads",
+      "sha256": "f78889aa92fb32671b1fa0aa44460bc2645fde8a7195213e173c1490a11f0e0b",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseAnalytics_13.3.0",
+      "fileName": "FirebaseAnalytics_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseAnalytics_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseAuth_13.3.0",
+      "fileName": "FirebaseAuth_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseAuth_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseCrashlytics_13.3.0",
+      "fileName": "FirebaseCrashlytics_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseCrashlytics_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseFirestore_13.3.0",
+      "fileName": "FirebaseFirestore_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseFirestore_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseFunctions_13.3.0",
+      "fileName": "FirebaseFunctions_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseFunctions_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseMessaging_13.3.0",
+      "fileName": "FirebaseMessaging_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseMessaging_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseRemoteConfig_13.3.0",
+      "fileName": "FirebaseRemoteConfig_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseRemoteConfig_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "FirebaseStorage_13.3.0",
+      "fileName": "FirebaseStorage_13.3.0.unitypackage",
+      "url": "https://dl.google.com/firebase/sdk/unity/dotnet4/FirebaseStorage_13.3.0.unitypackage",
+      "category": "Firebase",
+      "sha256": "",
+      "installedByDefault": true
+    },
+    {
+      "name": "I2_TextAnimation",
+      "fileName": "I2_TextAnimation.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/I2_TextAnimation.unitypackage",
+      "category": "Tween & Animation",
+      "sha256": "52712bfb0bd244674edde22c3186ae7f207390096a8c9480a26090f654614530",
+      "installedByDefault": true
+    },
+    {
+      "name": "com.google.android.appbundle-1.10.0",
+      "fileName": "com.google.android.appbundle-1.10.0.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.android.appbundle-1.10.0.unitypackage",
+      "category": "Google Play",
+      "sha256": "cc43150006c81ccfa0a80ddbe8f068165a267ae19f8bf3999d88ede928f3cfc5",
+      "installedByDefault": true
+    },
+    {
+      "name": "com.google.play.common-1.9.2",
+      "fileName": "com.google.play.common-1.9.2.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.common-1.9.2.unitypackage",
+      "category": "Google Play",
+      "sha256": "e029098b721c0088a4cb22d8a09e56b7c4b69174fda5e37eeec404182d02ab67",
+      "installedByDefault": true
+    },
+    {
+      "name": "com.google.play.core-1.8.6",
+      "fileName": "com.google.play.core-1.8.6.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.core-1.8.6.unitypackage",
+      "category": "Google Play",
+      "sha256": "2cef5bf19e3a6691fcc635002c500796f1a3e9194e1580107ef84867486781b7",
+      "installedByDefault": true
+    },
+    {
+      "name": "com.google.play.assetdelivery-1.9.5",
+      "fileName": "com.google.play.assetdelivery-1.9.5.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.assetdelivery-1.9.5.unitypackage",
+      "category": "Google Play",
+      "sha256": "f540919f9d68025d15d1dd8d26a98a1c49e19798f4d9ba8314e13074161e69e4",
+      "installedByDefault": true
+    },
+    {
+      "name": "com.google.play.review-1.8.4",
+      "fileName": "com.google.play.review-1.8.4.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.review-1.8.4.unitypackage",
+      "category": "Google Play",
+      "sha256": "ee008a6f06b9d527f00f4e6a202777ac9b58977bad6389dfa244f2ba258efded",
+      "installedByDefault": true
+    },
+    {
+      "name": "play-games-plugin-for-unity-2.1.0",
+      "fileName": "play-games-plugin-for-unity-2.1.0.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
+      "category": "Google Play",
+      "sha256": "2c9dc68f17ae5d30e42b68b07d422d9f62bc8ca4b87cc01e27cebcca807130e6",
+      "installedByDefault": true
+    },
+    {
+      "name": "ezg.base.features",
+      "fileName": "ezg.base.features.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
+      "category": "EZG Base",
+      "sha256": "8207bb0b3cf62e05acb18536202cc3fab41982114e1e2083ef1c6f5d5834f70c",
+      "installedByDefault": true
+    },
+    {
+      "name": "AllIn1Bundle",
+      "fileName": "AllIn1Bundle.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "7d50f3bbe207816b39ec28bd00002c4b74f8f395253462173948c82bb2247014",
+      "installedByDefault": false
+    },
+    {
+      "name": "AllIn13DShader",
+      "fileName": "AllIn13DShader.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn13DShader.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "4a972e48b34507508d1ab26eecbf7c1e7e593333f390784480c261af2627ed43",
+      "installedByDefault": false
+    },
+    {
+      "name": "AllIn1SpriteShader",
+      "fileName": "AllIn1SpriteShader.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteShader.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "8c11e489cc7edffab53fa6a8d020d5f7ecfc351ef84dd6d476c222af5798105d",
+      "installedByDefault": false
+    },
+    {
+      "name": "AllIn1SpriteLighting",
+      "fileName": "AllIn1SpriteLighting.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteLighting.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "4c7c60ff4aeca13a408b274345ccf6863ea1ed536d4313b23450620e4bd1d1ae",
+      "installedByDefault": false
+    },
+    {
+      "name": "AllIn1VfxToolkit",
+      "fileName": "AllIn1VfxToolkit.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1VfxToolkit.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "e7413415977c5b17c089f625f3050ac99554c5736f15e818ea75f03846e6bf51",
+      "installedByDefault": false
+    },
+    {
+      "name": "Amazing Assets",
+      "fileName": "Amazing Assets.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Amazing%20Assets.unitypackage",
+      "category": "VFX & Shader",
+      "sha256": "a27795b018874edafe5ebc5522d2b1b5f9a60b3fe7dfff57f09ac56ea543b4ae",
+      "installedByDefault": false
+    },
+    {
+      "name": "Feel",
+      "fileName": "Feel.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Feel.unitypackage",
+      "category": "Feedback",
+      "sha256": "2b08df85ef8b34d5f982c8cb9b5fa8e857039d8443aedd046643e6d3e9556e1b",
+      "installedByDefault": false
+    },
+    {
+      "name": "GUI Pro-CasualGame",
+      "fileName": "GUI Pro-CasualGame.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-CasualGame.unitypackage",
+      "category": "GUI",
+      "sha256": "494549e23f017064b8f9c0aa77674c9417ac80fd2675442ffe84ebe9802f4c3b",
+      "installedByDefault": false
+    },
+    {
+      "name": "GUI Pro-FantasyHero",
+      "fileName": "GUI Pro-FantasyHero.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-FantasyHero.unitypackage",
+      "category": "GUI",
+      "sha256": "0bed5bd4699a566de7457b482cf974af7c44c3906f9915d3fc0b5ead824bbc36",
+      "installedByDefault": false
+    },
+    {
+      "name": "GUI Pro-SuperCasual",
+      "fileName": "GUI Pro-SuperCasual.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-SuperCasual.unitypackage",
+      "category": "GUI",
+      "sha256": "36387079d4cc5f9eff44527ec31f6b53ddb59b40dc73e70b1e35fb03ed6f080e",
+      "installedByDefault": false
+    },
+    {
+      "name": "GUI-CasualFantasy",
+      "fileName": "GUI-CasualFantasy.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-CasualFantasy.unitypackage",
+      "category": "GUI",
+      "sha256": "5f5072b9ca9cb71cc40db31e78b68c20ae16254b629f15c23ba35f75478b1e9f",
+      "installedByDefault": false
+    },
+    {
+      "name": "GUI-LifeGame",
+      "fileName": "GUI-LifeGame.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-LifeGame.unitypackage",
+      "category": "GUI",
+      "sha256": "feb31a24e1d44f48fd81709430f066e4f8760a74e51712c4bf670b35dcef030a",
+      "installedByDefault": false
+    }
+  ]
+}

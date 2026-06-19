@@ -423,6 +423,60 @@ Sau khi upload, lệnh install remote chuẩn là:
 
 Không commit R2 credentials vào repo. Nếu credentials từng bị paste ra ngoài, hãy rotate token trong Cloudflare.
 
+## Asset catalog (asset optional)
+
+Ngoài bộ asset bootstrap khai báo trong `unity-template.json`, repo còn có `asset-catalog.json`
+— danh sách **mọi `.unitypackage`** dùng được, kèm `category`, để một Unity Editor tool nội bộ
+hiển thị và cài lẻ khi cần (không phải lúc nào cũng cài hết như bootstrap).
+
+Mỗi entry:
+
+```json
+{
+  "name": "AllIn1Bundle",
+  "fileName": "AllIn1Bundle.unitypackage",
+  "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
+  "category": "VFX & Shader",
+  "sha256": "7d50f3bb…",
+  "installedByDefault": false
+}
+```
+
+- `installedByDefault: true` — file đã khai báo trong `unity-template.json`, bootstrap cài sẵn
+  (Firebase, Google Play, AppLovin, DOTween, Odin…). Đa số host sẵn trên R2/server ngoài.
+- `installedByDefault: false` — asset optional nằm trong `PackageTemplate/` (AllIn1*, Feel, GUI*…),
+  chỉ cài khi chọn. `installedByDefault` **chỉ là metadata phân loại**, không điều khiển logic
+  bootstrap; bootstrap vẫn chạy theo `unity-template.json`.
+
+Catalog được publish trên R2 tại:
+
+```text
+https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/asset-catalog.json
+```
+
+### Thêm asset optional + publish catalog
+
+1. Đặt file `.unitypackage` vào `PackageTemplate/`.
+2. Thêm entry vào `asset-catalog.json` (đặt `url` theo `unity-template/files/<fileName>` đã URL-encode;
+   `sha256` để trống cũng được — script tự verify từ file local).
+3. Upload file + catalog lên R2:
+
+```bash
+cd ../../scripts
+node --env-file=.env upload-unity-template-catalog.mjs --dry-run   # xem trước
+node --env-file=.env upload-unity-template-catalog.mjs              # upload thật
+```
+
+Script `upload-unity-template-catalog.mjs` sẽ:
+
+- Đọc `templates/unity-project/asset-catalog.json`.
+- Với asset có file local trong `PackageTemplate/`: verify `sha256` rồi upload lên
+  `unity-template/files/<fileName>` (đã tồn tại thì skip; `--force` để ghi đè).
+- Asset không có file local (đã host ngoài như Firebase) → bỏ qua, giữ nguyên `url`.
+- Upload chính `asset-catalog.json` lên key `unity-template/asset-catalog.json` (`--skip-catalog` để bỏ).
+
+Dùng chung `scripts/.env` với các script publish khác.
+
 ## Publish logic build lên R2
 
 Khi sửa logic build (`build_unity_template.logic.sh`), publish lại để mọi end user nhận bản mới ở lần chạy kế tiếp — **không cần** họ tải lại `build_unity_template.sh`.
