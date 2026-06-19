@@ -27,6 +27,10 @@ UNITY_PATH_OVERRIDE="${UNITY_PATH:-}"
 UNITY_VERSION_OVERRIDE="${UNITY_VERSION:-}"
 SELECT_UNITY=0
 SKIP_IMPORT=0
+# Unity build target baked into the generated project launcher (.command/.bat). When left empty it
+# defaults per host OS below (Windows -> Android, macOS -> iOS). Override with --build-target or
+# BUILD_TARGET to force a specific target regardless of host.
+BUILD_TARGET="${BUILD_TARGET:-}"
 PAUSE_ON_EXIT="${PAUSE_ON_EXIT:-auto}"
 SCRIPT_SUCCEEDED=0
 INSTALL_CURRENT_STEP=0
@@ -58,12 +62,14 @@ Options:
   --keep-cache                   Keep downloaded cache files after a successful run.
   --select-unity                 Force Unity version selection even in non-interactive runs.
   --skip-import                  Only create/update project and manifest; skip .unitypackage import.
+  --build-target <target>        Unity build target for the generated launcher (default by host OS: Windows=Android, macOS=iOS).
   --no-pause                     Do not wait for Enter before the window closes.
   -h, --help                     Show this help.
 
 Environment overrides:
   UNITY_PATH=<path>              Same as --unity-path.
   UNITY_VERSION=<version>        Same as --unity-version.
+  BUILD_TARGET=<target>          Same as --build-target.
   UNITY_TEMPLATE_URL=<url>       Same as --template-url.
   KEEP_DOWNLOAD_CACHE=1          Same as --keep-cache.
   UNITY_HUB_EDITORS_DIR=<path>   Extra Unity Hub Editor folder to scan.
@@ -278,6 +284,11 @@ while [ "$#" -gt 0 ]; do
       SKIP_IMPORT=1
       shift
       ;;
+    --build-target)
+      [ "$#" -ge 2 ] || die "--build-target requires a value"
+      BUILD_TARGET="$2"
+      shift 2
+      ;;
     --no-pause)
       PAUSE_ON_EXIT="never"
       shift
@@ -307,6 +318,20 @@ detect_os() {
 }
 
 OS_NAME="$(detect_os)"
+
+# Pick the default launcher build target from the host OS unless one was given explicitly.
+if [ -z "$BUILD_TARGET" ]; then
+  case "$OS_NAME" in
+    windows) BUILD_TARGET="Android" ;;
+    macos) BUILD_TARGET="iOS" ;;
+  esac
+fi
+
+case "$BUILD_TARGET" in
+  *[!A-Za-z0-9]*|"")
+    die "Invalid --build-target '$BUILD_TARGET'. Use a Unity build target name like Android, iOS, StandaloneOSX, StandaloneWindows64, or WebGL."
+    ;;
+esac
 
 to_unix_path() {
   if [ "$OS_NAME" = "windows" ] && command -v cygpath >/dev/null 2>&1; then
@@ -1493,6 +1518,95 @@ create_project_skeleton() {
   log "Created Unity project skeleton at: $PROJECT_PATH"
 }
 
+# Write a double-clickable launcher inside the project folder so the user can re-open it in Unity
+# (with the right -buildTarget) without re-running this whole build. On macOS we emit a .command
+# that mirrors the hand-written launchers; on Windows a .bat. Both re-detect the Unity version from
+# ProjectSettings/ProjectVersion.txt at run time, so they keep working after Unity Hub updates the
+# editor. The __BUILD_TARGET__ placeholder is substituted with $BUILD_TARGET after the heredoc so the
+# heredoc body itself stays unexpanded (its $... refer to the launcher's own runtime, not this build).
+generate_launcher() {
+  local project_name launcher tmp
+
+  project_name="$(basename "$PROJECT_PATH")"
+
+  if [ "$OS_NAME" = "windows" ]; then
+    launcher="$PROJECT_PATH/${project_name}.bat"
+    tmp="${launcher}.tmp"
+    cat >"$tmp" <<'LAUNCHER'
+@echo off
+setlocal
+cd /d "%~dp0"
+
+set "UNITY_VERSION="
+for /f "tokens=2" %%i in ('findstr /b "m_EditorVersion:" "ProjectSettings\ProjectVersion.txt"') do set "UNITY_VERSION=%%i"
+if not defined UNITY_VERSION (
+  echo Could not determine Unity version from ProjectSettings\ProjectVersion.txt
+  pause
+  exit /b 1
+)
+echo Detected Unity version: %UNITY_VERSION%
+
+set "UNITY_EXE=%ProgramFiles%\Unity\Hub\Editor\%UNITY_VERSION%\Editor\Unity.exe"
+if not exist "%UNITY_EXE%" set "UNITY_EXE=%ProgramFiles(x86)%\Unity\Hub\Editor\%UNITY_VERSION%\Editor\Unity.exe"
+if not exist "%UNITY_EXE%" set "UNITY_EXE=%LOCALAPPDATA%\Programs\Unity\Hub\Editor\%UNITY_VERSION%\Editor\Unity.exe"
+if not exist "%UNITY_EXE%" (
+  echo Unity application not found for version %UNITY_VERSION%.
+  echo Please ensure Unity %UNITY_VERSION% is installed via Unity Hub.
+  pause
+  exit /b 1
+)
+
+echo Opening Unity Editor...
+start "" "%UNITY_EXE%" -projectPath "%CD%" -buildTarget __BUILD_TARGET__
+endlocal
+LAUNCHER
+    # .bat files want CRLF line endings to run reliably from a Windows double-click.
+    sed "s|__BUILD_TARGET__|${BUILD_TARGET}|g" "$tmp" | awk 'BEGIN { ORS = "\r\n" } { print }' >"$launcher"
+    rm -f "$tmp"
+  else
+    launcher="$PROJECT_PATH/${project_name}.command"
+    tmp="${launcher}.tmp"
+    cat >"$tmp" <<'LAUNCHER'
+#!/bin/bash
+# Auto-generated launcher: re-open this project in Unity with the chosen build target.
+cd "$(dirname "$0")" || exit
+
+UNITY_VERSION=$(awk '/m_EditorVersion:/ {print $2}' ProjectSettings/ProjectVersion.txt)
+if [ -z "$UNITY_VERSION" ]; then
+    echo "Could not determine Unity version from ProjectSettings/ProjectVersion.txt"
+    exit 1
+fi
+echo "Detected Unity version: $UNITY_VERSION"
+
+UNITY_APP_PATH="/Applications/Unity/Hub/Editor/$UNITY_VERSION/Unity.app"
+if [ ! -d "$UNITY_APP_PATH" ] && [ -d "$HOME/Applications/Unity/Hub/Editor/$UNITY_VERSION/Unity.app" ]; then
+    UNITY_APP_PATH="$HOME/Applications/Unity/Hub/Editor/$UNITY_VERSION/Unity.app"
+fi
+if [ ! -d "$UNITY_APP_PATH" ]; then
+    echo "Unity application not found at: $UNITY_APP_PATH"
+    echo "Please ensure Unity $UNITY_VERSION is installed via Unity Hub."
+    exit 1
+fi
+
+# Check if Unity Hub is already running
+HUB_WAS_RUNNING=$(pgrep -x "Unity Hub")
+
+echo "Opening Unity Editor..."
+"$UNITY_APP_PATH/Contents/MacOS/Unity" -projectPath "$(pwd)" -buildTarget __BUILD_TARGET__ > /dev/null 2>&1 &
+
+# If Unity Hub was not running before, quit it after a delay to allow licensing to complete
+if [ -z "$HUB_WAS_RUNNING" ]; then
+    (sleep 20 && osascript -e 'tell application "System Events" to if process "Unity Hub" exists then tell application "Unity Hub" to quit') &
+fi
+LAUNCHER
+    sed "s|__BUILD_TARGET__|${BUILD_TARGET}|g" "$tmp" >"$launcher"
+    rm -f "$tmp"
+    chmod +x "$launcher"
+  fi
+
+  log "Created project launcher: $launcher (build target: $BUILD_TARGET)"
+}
+
 prompt_project_name
 
 if [ "$OS_NAME" = "windows" ]; then
@@ -1575,5 +1689,6 @@ else
 fi
 
 cleanup_download_cache
+generate_launcher
 log "Done. Open the project in Unity: $PROJECT_PATH"
 SCRIPT_SUCCEEDED=1
