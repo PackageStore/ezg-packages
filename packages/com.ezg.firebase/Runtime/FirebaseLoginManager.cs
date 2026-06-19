@@ -125,56 +125,6 @@ namespace Ezg.Core.Firebase
             Debug.Log("[LoginFlow][FirebaseLoginManager] OnGameCenterLogout called.");
             FirebaseGameCenterLoginProvider.Logout(successAction);
         }
-
-        /// <summary>
-        /// Initializes the Apple authentication manager.
-        /// </summary>
-        public static void InitAppleAuthManager()
-        {
-            Debug.Log("[LoginFlow][FirebaseLoginManager] InitAppleAuthManager called.");
-            FirebaseAppleLoginProvider.Initialize();
-        }
-
-        /// <summary>
-        /// Updates the Apple authentication manager tick cycle.
-        /// </summary>
-        public static void TickAppleAuthManager()
-        {
-            FirebaseAppleLoginProvider.Tick();
-        }
-
-        /// <summary>
-        /// Checks if Apple authentication manager is initialized, and initializes it if not.
-        /// </summary>
-        public static void CheckInitApple()
-        {
-            Debug.Log("[LoginFlow][FirebaseLoginManager] CheckInitApple called.");
-            FirebaseAppleLoginProvider.CheckInit();
-        }
-
-        /// <summary>
-        /// Initiates the Apple sign-in flow.
-        /// </summary>
-        /// <param name="onSuccess">Callback executed on successful sign-in.</param>
-        /// <param name="onFail">Callback executed on sign-in failure.</param>
-        /// <param name="timeoutSeconds">The timeout duration in seconds.</param>
-        /// <returns>A UniTask representing the asynchronous sign-in operation.</returns>
-        public static UniTask SignInWithApple(UnityAction onSuccess, UnityAction onFail, float timeoutSeconds = -1f)
-        {
-            timeoutSeconds = ResolveTimeout(timeoutSeconds);
-            Debug.Log($"[LoginFlow][FirebaseLoginManager] SignInWithApple called. timeoutSeconds={timeoutSeconds}, onSuccess={(onSuccess != null)}, onFail={(onFail != null)}");
-            return FirebaseAppleLoginProvider.SignIn(onSuccess, onFail, timeoutSeconds);
-        }
-
-        /// <summary>
-        /// Logs out the current Apple user.
-        /// </summary>
-        /// <param name="successAction">Callback executed after successful logout.</param>
-        public static void OnAppleLogout(UnityAction successAction)
-        {
-            Debug.Log("[LoginFlow][FirebaseLoginManager] OnAppleLogout called.");
-            FirebaseAppleLoginProvider.Logout(successAction);
-        }
 #endif
 
         #endregion

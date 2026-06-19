@@ -31,9 +31,6 @@ namespace Ezg.Core.Firebase
         [Tooltip("Thời gian chờ tối đa (giây) cho một lần đăng nhập.")]
         [SerializeField] private float signInTimeoutSeconds = 30f;
 
-        [Tooltip("Key PlayerPrefs lưu Apple user id.")]
-        [SerializeField] private string appleUserIdPrefsKey = "AppleUserId";
-
         [Header("Game Center (iOS)")]
         [SerializeField] private int maxCredentialAttempts = 6;
         [SerializeField] private int credentialRetryDelayMs = 1000;
@@ -83,7 +80,6 @@ namespace Ezg.Core.Firebase
 
         // Auth
         public float SignInTimeoutSeconds => signInTimeoutSeconds;
-        public string AppleUserIdPrefsKey => appleUserIdPrefsKey;
 
         // Game Center (iOS)
         public int MaxCredentialAttempts => maxCredentialAttempts;

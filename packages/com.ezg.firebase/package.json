@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.firebase",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Firebase",
-  "description": "Reusable Firebase infrastructure for Unity games — authentication (Google / Apple / Game Center), Firestore, Cloud Functions, Remote Config, and Storage-based save-data sync. All tunables load from a FirebaseConfig ScriptableObject in Resources so projects can reconfigure without editing the package. Game-specific Remote Config mapping stays outside the package via a generic FirebaseRemoteManager.",
+  "description": "Reusable Firebase infrastructure for Unity games — authentication (Google / Game Center), Firestore, Cloud Functions, Remote Config, and Storage-based save-data sync. All tunables load from a FirebaseConfig ScriptableObject in Resources so projects can reconfigure without editing the package. Game-specific Remote Config mapping stays outside the package via a generic FirebaseRemoteManager.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
