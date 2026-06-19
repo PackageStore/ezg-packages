@@ -1670,6 +1670,12 @@ else
   log "Existing Unity project detected. It will be updated."
 fi
 
+# Write the launcher now, right after the project skeleton exists, BEFORE the import/compile pass.
+# resolve_packages can die on script compile errors (common when SDKs first land), so creating the
+# launcher here guarantees the user still gets a double-clickable .command/.bat even if compilation
+# fails. The launcher reads the Unity version at its own run time, so it does not need a compiled project.
+generate_launcher
+
 # Write the full manifest in one pass. Order no longer matters: extraction (below) drops SDK
 # assets into Assets/ without launching Unity, so the project never needs to compile until the
 # single final resolve pass when everything is already in place.
@@ -1689,6 +1695,5 @@ else
 fi
 
 cleanup_download_cache
-generate_launcher
 log "Done. Open the project in Unity: $PROJECT_PATH"
 SCRIPT_SUCCEEDED=1
