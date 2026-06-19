@@ -1607,6 +1607,70 @@ LAUNCHER
   log "Created project launcher: $launcher (build target: $BUILD_TARGET)"
 }
 
+# Unity pops a "Missing Signature" dialog on every editor open when a project pulls packages from a
+# self-hosted scoped registry (ours is unsigned). Pre-set oneTimeWarningShown=1 in
+# ProjectSettings/PackageManagerSettings.asset so the dialog never appears. When the asset already
+# exists (Unity recreates it during the resolve pass) we flip just that flag in place to preserve any
+# other settings; otherwise we write a minimal valid asset so the value is in place before the first
+# editor launch. Idempotent: re-flipping an already-1 flag is a no-op.
+suppress_missing_signature_warning() {
+  local settings_file="$PROJECT_PATH/ProjectSettings/PackageManagerSettings.asset"
+
+  if [ -f "$settings_file" ]; then
+    if grep -q "oneTimeWarningShown:" "$settings_file"; then
+      sed "s/oneTimeWarningShown: [0-9]*/oneTimeWarningShown: 1/" "$settings_file" >"${settings_file}.tmp" \
+        && mv "${settings_file}.tmp" "$settings_file"
+      log "Suppressed Missing Signature warning (oneTimeWarningShown=1) in existing PackageManagerSettings.asset"
+    fi
+    return
+  fi
+
+  mkdir -p "$PROJECT_PATH/ProjectSettings"
+  cat >"$settings_file" <<'PMSETTINGS'
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &1
+MonoBehaviour:
+  m_ObjectHideFlags: 53
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13964, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_EnablePreReleasePackages: 0
+  m_AdvancedSettingsExpanded: 1
+  m_ScopedRegistriesSettingsExpanded: 1
+  m_SeeAllPackageVersions: 0
+  m_DismissPreviewPackagesInUse: 0
+  oneTimeWarningShown: 1
+  oneTimeDeprecatedPopUpShown: 0
+  m_Registries:
+  - m_Id: main
+    m_Name:
+    m_Url: https://packages.unity.com
+    m_Scopes: []
+    m_IsDefault: 1
+    m_Capabilities: 7
+    m_ConfigSource: 0
+    m_Compliance:
+      m_Status: 0
+      m_Violations: []
+  m_UserSelectedRegistryName:
+  m_UserAddingNewScopedRegistry: 0
+  m_RegistryInfoDraft:
+    m_Modified: 0
+    m_ErrorMessage:
+    m_UserModificationsInstanceId: 0
+    m_OriginalInstanceId: 0
+  m_LoadAssets: 0
+PMSETTINGS
+  log "Wrote PackageManagerSettings.asset with Missing Signature warning suppressed (oneTimeWarningShown=1)"
+}
+
 prompt_project_name
 
 if [ "$OS_NAME" = "windows" ]; then
@@ -1681,6 +1745,9 @@ generate_launcher
 # single final resolve pass when everything is already in place.
 log "Updating Packages/manifest.json with $MANIFEST_PACKAGE_COUNT package(s)..."
 merge_manifest "all" "$MANIFEST_PACKAGE_COUNT"
+
+# Pre-suppress the "Missing Signature" dialog before Unity ever opens (our scoped registry is unsigned).
+suppress_missing_signature_warning
 
 if [ "$SKIP_IMPORT" -eq 0 ]; then
   # Extract the .unitypackage SDKs straight into Assets/ (no per-package Unity launch), drop any
