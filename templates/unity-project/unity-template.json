@@ -38,6 +38,7 @@
     "com.ezg.super-scrollview": "0.1.3",
     "com.ezg.tapticfeedback": "0.1.0",
     "com.ezg.tracking": "0.1.0",
+    "com.gindemit.rlottie": "https://github.com/gindemit/unity-rlottie.git?path=/unity/RLottieUnity/Assets/LottiePlugin#d692157d134918d63cdbfa11c16ade7212145ab1",
     "com.google.firebase.app": "file:com.google.firebase.app-13.3.0.tgz",
     "com.google.external-dependency-manager": "https://github.com/googlesamples/unity-jar-resolver.git?path=upm",
     "com.olegknyazev.softmask": "https://github.com/olegknyazev/SoftMask.git?path=/Packages/com.olegknyazev.softmask#1.7.0",
