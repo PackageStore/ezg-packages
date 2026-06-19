@@ -35,9 +35,10 @@ There are no `package.json` dependencies and no third-party libraries to install
 
 ## Configuration (`CsvReaderConfig`)
 
-Create one asset per project: **Assets → Create → Ezg/CsvReader/Config**. The resolver
-(`CsvReaderSettings.Current`) auto-discovers it; call `CsvReaderSettings.Invalidate()` after
-creating or editing it.
+Create one asset per project via the Project window right-click menu
+**Create → Ezg/Csv Reader/Project config** (bootstraps the `CsvReaderConfig` asset and generates
+`GenDataManager.cs`). The resolver (`CsvReaderSettings.Current`) auto-discovers it; call
+`CsvReaderSettings.Invalidate()` after creating or editing it.
 
 | Field | Default | Purpose |
 |-------|---------|---------|

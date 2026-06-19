@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Ezg.Package.CsvReader
 {
     /// <summary>
-    ///     One-shot project bootstrap cho CSV Reader pipeline. Menu <c>Ezg/CsvReader/Project setup</c>:
+    ///     One-shot project bootstrap cho CSV Reader pipeline. Menu chuột phải <c>Create/Ezg/Csv Reader/Project config</c>:
     ///     (1) tạo asset <see cref="CsvReaderConfig" /> nếu project chưa có, và
     ///     (2) sinh file <c>GenDataManager.cs</c> vào thư mục cấu hình (<see cref="CsvReaderConfig.dataManagerDirectory" />)
     ///     với namespace lấy từ <see cref="CsvReaderConfig.dataManagerNamespace" />.
@@ -16,7 +16,7 @@ namespace Ezg.Package.CsvReader
     {
         #region Fields
 
-        private const string MENU_PATH = "Ezg/CsvReader/Project setup";
+        private const string MENU_PATH = "Assets/Create/Ezg/Csv Reader/Project config";
         private const string GEN_DATA_MANAGER_FILE = "GenDataManager.cs";
 
         private const string TEMPLATE_RELATIVE_PATH =
@@ -30,7 +30,7 @@ namespace Ezg.Package.CsvReader
         #region Public Methods
 
         /// <summary>
-        ///     Entry point của menu Project setup.
+        ///     Entry point của menu chuột phải Create/Ezg/Csv Reader/Project config.
         /// </summary>
         [MenuItem(MENU_PATH)]
         public static void RunProjectSetup()

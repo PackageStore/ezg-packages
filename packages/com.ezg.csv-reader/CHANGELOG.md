@@ -1,3 +1,10 @@
+## [0.2.2] - 2026-06-19
+
+### Changed
+- Moved the project bootstrap menu from the top menu bar `Ezg/CsvReader/Project setup` to the
+  Project window right-click menu **Create/Ezg/Csv Reader/Project config** (same `ProjectSetup` action,
+  new `MenuItem` path). No behavior change — only the menu location/label.
+
 ## [0.2.1] - 2026-06-18
 
 ### Changed
