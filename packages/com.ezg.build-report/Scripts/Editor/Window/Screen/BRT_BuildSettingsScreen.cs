@@ -949,7 +949,8 @@ namespace BuildReportTool.Window.Screen
 			DrawSetting("Use GPU skinning:", settings.UseGPUSkinning);
 			DrawSetting("Enable Virtual Reality Support:", settings.EnableVirtualRealitySupport);
 
-#if UNITY_2020_2_OR_NEWER
+#if UNITY_2020_2_OR_NEWER && !UNITY_6000_3_OR_NEWER
+			// BuildOptions.ShaderLivelinkSupport was removed in Unity 6.3 ("Shader LiveLink is no longer supported.").
 			if (unityBuildReport != null)
 			{
 				DrawSetting("Enable Shader Livelink Support:",

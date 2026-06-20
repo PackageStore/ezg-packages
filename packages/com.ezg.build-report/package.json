@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.build-report",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Build Report Tool",
   "description": "Editor tool that generates a detailed report of a Unity build — used vs unused assets, per-asset imported sizes, a size breakdown by category, script DLLs, scenes, and project settings — to help track down what is bloating the build. Vendored distribution of Anomalous Underdog's Build Report Tool (v3.9.6).",
   "unity": "2022.3",
