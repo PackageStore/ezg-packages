@@ -15,7 +15,7 @@
       "fileName": "Odin Inspector 4.0.1.3.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Odin%20Inspector%204.0.1.3.unitypackage",
       "category": "Editor",
-      "sha256": "d7cea1c6e769a28e6573bb9593bd39187ff6272c303920bce90bc6011b9b67d2",
+      "sha256": "bd9ab9ebee087159cdc1265155211d0d5cc9fb1b9a0df157d43e1923535c85b0",
       "installedByDefault": true
     },
     {
@@ -23,7 +23,7 @@
       "fileName": "Ultimate Editor Enhancer.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Ultimate%20Editor%20Enhancer.unitypackage",
       "category": "Editor",
-      "sha256": "d1f718bc99908e772e5806434a7f0817b1ac012963c46dd751e87e05c0dba279",
+      "sha256": "881cf853909e365e6f1e8ef5af446a4dd53c075d5c42092649851ae563ca8655",
       "installedByDefault": true
     },
     {
@@ -31,7 +31,7 @@
       "fileName": "facebook-unity-sdk-18.0.0.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/facebook-unity-sdk-18.0.0.unitypackage",
       "category": "SDK",
-      "sha256": "d9eb52c56191f67f5e2eca6d715ab9d789e9aee5657cd14c95e0fed5ffe7ea54",
+      "sha256": "7d920b551caee39b9b55208fd6d8e2e913d5782d11733c4fcc281a2407745c6a",
       "installedByDefault": true
     },
     {
@@ -39,7 +39,7 @@
       "fileName": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
       "category": "Ads",
-      "sha256": "f78889aa92fb32671b1fa0aa44460bc2645fde8a7195213e173c1490a11f0e0b",
+      "sha256": "88ff216a199579def1bbf50d9186a6525e4d49b2f8322c9a9746a002e944addc",
       "installedByDefault": true
     },
     {
@@ -119,7 +119,7 @@
       "fileName": "com.google.android.appbundle-1.10.0.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.android.appbundle-1.10.0.unitypackage",
       "category": "Google Play",
-      "sha256": "cc43150006c81ccfa0a80ddbe8f068165a267ae19f8bf3999d88ede928f3cfc5",
+      "sha256": "9c99e49c1f6144276429f729cb0c21ac94b4f2b9e548ce16d1154cb650e4960e",
       "installedByDefault": true
     },
     {
@@ -127,7 +127,7 @@
       "fileName": "com.google.play.common-1.9.2.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.common-1.9.2.unitypackage",
       "category": "Google Play",
-      "sha256": "e029098b721c0088a4cb22d8a09e56b7c4b69174fda5e37eeec404182d02ab67",
+      "sha256": "3d8a625f3caff396b2a939b6c3e18dfa7556425a279531ad75388005125b78f1",
       "installedByDefault": true
     },
     {
@@ -135,7 +135,7 @@
       "fileName": "com.google.play.core-1.8.6.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.core-1.8.6.unitypackage",
       "category": "Google Play",
-      "sha256": "2cef5bf19e3a6691fcc635002c500796f1a3e9194e1580107ef84867486781b7",
+      "sha256": "401427ea7817e1f01b1e0ecc687432d166b617a3ca77023148ba06ee8e559085",
       "installedByDefault": true
     },
     {
@@ -143,7 +143,7 @@
       "fileName": "com.google.play.assetdelivery-1.9.5.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.assetdelivery-1.9.5.unitypackage",
       "category": "Google Play",
-      "sha256": "f540919f9d68025d15d1dd8d26a98a1c49e19798f4d9ba8314e13074161e69e4",
+      "sha256": "48634213d50afb92e7a663ab57b0b6e222cf9aa4bff8f57db4d6f1b0efce34ac",
       "installedByDefault": true
     },
     {
@@ -151,7 +151,7 @@
       "fileName": "com.google.play.review-1.8.4.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.review-1.8.4.unitypackage",
       "category": "Google Play",
-      "sha256": "ee008a6f06b9d527f00f4e6a202777ac9b58977bad6389dfa244f2ba258efded",
+      "sha256": "a819c77ec2d639c9655f0b11d29408a88bb3f6ece7f6da31dab8c4a3371b7864",
       "installedByDefault": true
     },
     {
@@ -159,7 +159,7 @@
       "fileName": "play-games-plugin-for-unity-2.1.0.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
       "category": "Google Play",
-      "sha256": "2c9dc68f17ae5d30e42b68b07d422d9f62bc8ca4b87cc01e27cebcca807130e6",
+      "sha256": "8386a3e9a96e30ec16454cdef900a1cede7c1cf9e0c30a5827ebe9c93cb9d687",
       "installedByDefault": true
     },
     {
@@ -167,7 +167,7 @@
       "fileName": "ezg.base.features.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
       "category": "EZG Base",
-      "sha256": "8207bb0b3cf62e05acb18536202cc3fab41982114e1e2083ef1c6f5d5834f70c",
+      "sha256": "0781b06bbd7448f877eeb52f4434f15189d2c42c407300af8561895b20dc4145",
       "installedByDefault": true
     },
     {
@@ -175,7 +175,7 @@
       "fileName": "Epic Toon FX.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Epic%20Toon%20FX.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "a003a2b2326f5cadb2a963fd22114f927ed8a2f2c6b21e015befb1e7ec0da803",
+      "sha256": "fb3aa356ff82a51a008927357e43c2f2040899c4618841989ed2250c9c0eba3d",
       "installedByDefault": true
     },
     {
@@ -183,7 +183,7 @@
       "fileName": "AllIn1Bundle.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "7d50f3bbe207816b39ec28bd00002c4b74f8f395253462173948c82bb2247014",
+      "sha256": "47ab5a290c212f6baf76eda0d4a0322df5f3c9b42f3659771550eeba25e07007",
       "installedByDefault": false
     },
     {
@@ -191,7 +191,7 @@
       "fileName": "AllIn13DShader.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn13DShader.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "4a972e48b34507508d1ab26eecbf7c1e7e593333f390784480c261af2627ed43",
+      "sha256": "4e4760b27b3146ecc64c2f1dce9801d427f995b4d60ee0b585768075189ca519",
       "installedByDefault": false
     },
     {
@@ -199,7 +199,7 @@
       "fileName": "AllIn1SpriteShader.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteShader.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "8c11e489cc7edffab53fa6a8d020d5f7ecfc351ef84dd6d476c222af5798105d",
+      "sha256": "5657d0cc0594d0ec13e07437e16b5bf598c3b653397ec50c331e44ac9a0907da",
       "installedByDefault": false
     },
     {
@@ -207,7 +207,7 @@
       "fileName": "AllIn1SpriteLighting.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteLighting.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "4c7c60ff4aeca13a408b274345ccf6863ea1ed536d4313b23450620e4bd1d1ae",
+      "sha256": "4b9858c31795ac6f927e277bd30c87b0dd1333111d00ea57fb7ea44e3e575b12",
       "installedByDefault": false
     },
     {
@@ -215,7 +215,7 @@
       "fileName": "AllIn1VfxToolkit.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1VfxToolkit.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "e7413415977c5b17c089f625f3050ac99554c5736f15e818ea75f03846e6bf51",
+      "sha256": "00a7d40101b3a6d07a83697177c975843e6c9acd9033394b0587dc75b13ab615",
       "installedByDefault": false
     },
     {
@@ -223,7 +223,7 @@
       "fileName": "Amazing Assets.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Amazing%20Assets.unitypackage",
       "category": "VFX & Shader",
-      "sha256": "a27795b018874edafe5ebc5522d2b1b5f9a60b3fe7dfff57f09ac56ea543b4ae",
+      "sha256": "4a7a43bb069c3580f43948f5cda4cea21fc7437aae898deb3633b7acbf4ce395",
       "installedByDefault": false
     },
     {
@@ -231,7 +231,7 @@
       "fileName": "Feel.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Feel.unitypackage",
       "category": "Feedback",
-      "sha256": "2b08df85ef8b34d5f982c8cb9b5fa8e857039d8443aedd046643e6d3e9556e1b",
+      "sha256": "784dd0f870b348f85b103c527ea9403fcaf7990cf513c3fc10e77b5855fa7941",
       "installedByDefault": false
     },
     {
@@ -239,7 +239,7 @@
       "fileName": "GUI Pro-CasualGame.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-CasualGame.unitypackage",
       "category": "GUI",
-      "sha256": "494549e23f017064b8f9c0aa77674c9417ac80fd2675442ffe84ebe9802f4c3b",
+      "sha256": "7c9720c5b120e54e324673a1c3ba3a5df1ec899140ef97484a12a97dc0203576",
       "installedByDefault": false
     },
     {
@@ -247,7 +247,7 @@
       "fileName": "GUI Pro-FantasyHero.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-FantasyHero.unitypackage",
       "category": "GUI",
-      "sha256": "0bed5bd4699a566de7457b482cf974af7c44c3906f9915d3fc0b5ead824bbc36",
+      "sha256": "a1934b3ac5efe4ba4f2010e6c30b517a25ae8c2a183fbc467553f6fa29d72449",
       "installedByDefault": false
     },
     {
@@ -255,7 +255,7 @@
       "fileName": "GUI Pro-SuperCasual.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-SuperCasual.unitypackage",
       "category": "GUI",
-      "sha256": "36387079d4cc5f9eff44527ec31f6b53ddb59b40dc73e70b1e35fb03ed6f080e",
+      "sha256": "a0878b6b3afb414566d89c2badb165ab666ee31891bce71b752d2c9d98ca22bd",
       "installedByDefault": false
     },
     {
@@ -263,7 +263,7 @@
       "fileName": "GUI-CasualFantasy.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-CasualFantasy.unitypackage",
       "category": "GUI",
-      "sha256": "5f5072b9ca9cb71cc40db31e78b68c20ae16254b629f15c23ba35f75478b1e9f",
+      "sha256": "dd2e9fbfd49f8021e9bd8802c9ad8318b6bb3ad6d9f44ba51b9a20f9a97d91cd",
       "installedByDefault": false
     },
     {
@@ -271,7 +271,7 @@
       "fileName": "GUI-LifeGame.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-LifeGame.unitypackage",
       "category": "GUI",
-      "sha256": "feb31a24e1d44f48fd81709430f066e4f8760a74e51712c4bf670b35dcef030a",
+      "sha256": "36b5233664a1b6969d2ab82e73e7c9b572fc6956f79860c778e2b4c569ae5203",
       "installedByDefault": false
     },
     {
@@ -279,7 +279,7 @@
       "fileName": "A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
       "category": "AI Pathfinding",
-      "sha256": "99092d7405df39443a80cbcefcaa8947154b701c6495b9b4648b6fa7e1f6808b",
+      "sha256": "a04afb68a68c5eedd86bc68108ccb6e675e3b4c4e9477da8af3cff2e554bd688",
       "installedByDefault": false
     }
   ]
