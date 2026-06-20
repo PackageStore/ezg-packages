@@ -48,6 +48,7 @@ namespace Ezg.FeatureHub.Editor
         private string _search = string.Empty;
         private bool _busy;
         private bool _loading;
+        private bool _registryChecked;
 
         private VisualElement _content;
         private ScrollView _listContainer;
@@ -65,7 +66,7 @@ namespace Ezg.FeatureHub.Editor
 
         #region Initialize
 
-        [MenuItem("Ezg/Feature Hub %#f")] // %#f = Ctrl/Cmd + Shift + F
+        [MenuItem("Ezg/Feature Hub %#u")] // %#u = Ctrl/Cmd + Shift + U
         public static void Open()
         {
             var window = GetWindow<FeatureHubWindow>();
@@ -311,6 +312,55 @@ namespace Ezg.FeatureHub.Editor
                 .Count(kv => !kv.Key.StartsWith(FeatureHubConstants.UNITY_MODULE_PREFIX)) ?? 0;
             SetStatus($"Sẵn sàng — {_catalog.assets.Count} unitypackage · {upmCount} UPM package.");
             RebuildList();
+
+            MaybePromptScopedRegistry();
+        }
+
+        /// <summary>
+        /// Khi mở Feature Hub: validate project đã có Scoped Registry chưa. Nếu thiếu thì show popup
+        /// confirm, đồng ý thì đăng ký vào Packages/manifest.json rồi resolve. Chỉ tự hỏi 1 lần / lần mở.
+        /// </summary>
+        private void MaybePromptScopedRegistry()
+        {
+            if (_registryChecked)
+                return;
+            _registryChecked = true;
+
+            if (FeatureHubService.ValidateScopedRegistries(_template, out var missing))
+                return;
+
+            string detail = string.Join("\n", missing.Select(r =>
+                $"• {r.name} ({r.url})\n   scopes: {string.Join(", ", r.scopes)}"));
+
+            bool agree = EditorUtility.DisplayDialog(
+                "Thiếu Scoped Registry",
+                "Project chưa khai báo đủ Scoped Registry để tải UPM package của EZG.\n\n" +
+                "Cần đăng ký:\n" + detail + "\n\nĐăng ký ngay vào Packages/manifest.json?",
+                "Đăng ký", "Để sau");
+
+            if (!agree)
+            {
+                SetStatus("Bỏ qua đăng ký Scoped Registry — một số UPM package có thể không tải được.");
+                return;
+            }
+
+            SetBusy(true);
+            SetStatus("Đang đăng ký Scoped Registry...");
+            FeatureHubService.EnsureScopedRegistries(_template, resolveNow: true, (ok, error) =>
+            {
+                SetBusy(false);
+                if (ok)
+                {
+                    SetStatus("Đã đăng ký Scoped Registry vào manifest.");
+                    FlashCheck();
+                    RefreshState();
+                }
+                else
+                {
+                    Debug.LogWarning($"[FeatureHub] {error}");
+                    SetStatus($"Đăng ký Scoped Registry lỗi: {error}");
+                }
+            });
         }
 
         #endregion

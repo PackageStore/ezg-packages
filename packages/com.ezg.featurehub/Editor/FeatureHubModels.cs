@@ -25,6 +25,13 @@ namespace Ezg.FeatureHub.Editor
 
         // Prefix các package module hệ thống Unity (ẩn khỏi tab UPM cho đỡ nhiễu).
         public const string UNITY_MODULE_PREFIX = "com.unity.modules.";
+
+        // Scoped registry mặc định của EZG — khớp Packages/manifest.json của dự án hiện tại.
+        // Dùng làm fallback khi template từ server chưa khai báo scopedRegistries.
+        public const string EZG_REGISTRY_NAME = "Easygoing code base";
+        public const string EZG_REGISTRY_URL = "https://upm-registry-worker.developer-a1f.workers.dev";
+        public static readonly string[] EZG_REGISTRY_SCOPES =
+            { "com.ezg", "com.cysharp", "com.google", "com.coffee" };
     }
 
     /// <summary>Cách import .unitypackage. Ask = hỏi user mỗi lần.</summary>
@@ -105,6 +112,27 @@ namespace Ezg.FeatureHub.Editor
         public Dictionary<string, string> dependencies = new Dictionary<string, string>();
         public TemplateFiles files = new TemplateFiles();
         public List<ScopedRegistry> scopedRegistries = new List<ScopedRegistry>();
+    }
+
+    // ---- pending install (SessionState, sống sót qua domain reload) ----
+
+    /// <summary>
+    /// Một .unitypackage đang được import. Lưu trước khi gọi ImportPackage để nếu gói chứa
+    /// script gây domain reload (xóa closure trong RAM) thì finalizer vẫn ghi được record.
+    /// </summary>
+    [System.Serializable]
+    public class PendingInstall
+    {
+        public string name;
+        public string fileName;
+        public string sha256;
+        public string tempPath;
+    }
+
+    [System.Serializable]
+    public class PendingInstallList
+    {
+        public List<PendingInstall> items = new List<PendingInstall>();
     }
 
     // ---- install-record.json (local) ----

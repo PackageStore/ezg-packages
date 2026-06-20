@@ -97,6 +97,93 @@ namespace Ezg.FeatureHub.Editor
 
         #endregion
 
+        #region Public Methods — Scoped Registry
+
+        /// <summary>
+        /// Registry cần có cho project: ưu tiên lấy từ template (server), nếu rỗng dùng
+        /// fallback default EZG (khớp manifest dự án hiện tại).
+        /// </summary>
+        public static List<ScopedRegistry> GetRequiredRegistries(UnityTemplate template)
+        {
+            if (template?.scopedRegistries != null && template.scopedRegistries.Count > 0)
+                return template.scopedRegistries;
+
+            return new List<ScopedRegistry>
+            {
+                new ScopedRegistry
+                {
+                    name = FeatureHubConstants.EZG_REGISTRY_NAME,
+                    url = FeatureHubConstants.EZG_REGISTRY_URL,
+                    scopes = new List<string>(FeatureHubConstants.EZG_REGISTRY_SCOPES),
+                },
+            };
+        }
+
+        /// <summary>
+        /// Kiểm tra project đã khai báo đủ scoped registry (match theo url + đủ scopes) chưa.
+        /// Trả về true nếu đủ; <paramref name="missing"/> chứa các registry/scope còn thiếu.
+        /// </summary>
+        public static bool ValidateScopedRegistries(UnityTemplate template, out List<ScopedRegistry> missing)
+        {
+            missing = new List<ScopedRegistry>();
+            var required = GetRequiredRegistries(template);
+            if (required.Count == 0)
+                return true;
+
+            JArray registries = ReadManifestRegistries();
+
+            foreach (var reg in required)
+            {
+                JObject existing = FindRegistryByUrl(registries, reg.url);
+                var missingScopes = new List<string>();
+
+                if (existing == null)
+                {
+                    missingScopes.AddRange(reg.scopes);
+                }
+                else
+                {
+                    var current = new HashSet<string>();
+                    if (existing["scopes"] is JArray scopes)
+                        foreach (var s in scopes)
+                            current.Add(s.ToString());
+
+                    foreach (var scope in reg.scopes)
+                        if (!current.Contains(scope))
+                            missingScopes.Add(scope);
+                }
+
+                if (missingScopes.Count > 0)
+                    missing.Add(new ScopedRegistry { name = reg.name, url = reg.url, scopes = missingScopes });
+            }
+
+            return missing.Count == 0;
+        }
+
+        /// <summary>Merge các scoped registry cần có vào manifest. KHÔNG đụng tới dependencies.</summary>
+        public static void EnsureScopedRegistries(UnityTemplate template, bool resolveNow, Action<bool, string> onDone)
+        {
+            try
+            {
+                var required = GetRequiredRegistries(template);
+                string path = ManifestPath();
+                var root = JObject.Parse(File.ReadAllText(path));
+                MergeRegistries(root, required);
+                File.WriteAllText(path, root.ToString(Formatting.Indented));
+
+                if (resolveNow)
+                    ResolveNow();
+
+                onDone?.Invoke(true, null);
+            }
+            catch (Exception e)
+            {
+                onDone?.Invoke(false, $"Ghi scoped registry lỗi: {e.Message}");
+            }
+        }
+
+        #endregion
+
         #region Public Methods — Install .unitypackage
 
         /// <summary>Tải + import một .unitypackage. onDone(success, errorOrNull).</summary>
@@ -209,13 +296,27 @@ namespace Ezg.FeatureHub.Editor
             // một import tại một thời điểm (window khóa _busy; batch queue chạy tuần tự), nên
             // terminal-event đầu tiên sau khi subscribe CHÍNH là import của ta.
             //
+            // Việc GHI install-record + xóa file tạm do FeatureHubImportFinalizer đảm nhận (qua
+            // event + recovery sau domain reload). Lý do: gói .unitypackage CÓ SCRIPT làm Unity
+            // recompile + domain reload, xóa sạch các closure ở đây trước khi MarkInstalled kịp
+            // chạy -> record trống -> trạng thái "Chưa cài" dù đã import. Finalizer sống sót qua
+            // reload nên luôn ghi được record. Các closure dưới chỉ còn lo gọi onDone cho window.
+            //
             // KHÔNG được lọc theo tên gói để quyết định teardown: ở chế độ Dialog, Unity báo về
             // tên gói "nhúng" bên trong .unitypackage (tên lúc đóng gói gốc), KHÁC tên file tạm ta
-            // tải về -> so tên sẽ luôn fail -> onDone không bao giờ gọi -> SetBusy(false) không chạy
-            // -> cửa sổ kẹt 'deactivate' vĩnh viễn dù gói đã import xong và dialog đã đóng.
-            // Dùng cờ một-lần (_handled) + luôn Unsubscribe ở event đầu để tránh rò rỉ handler.
+            // tải về. Dùng cờ một-lần (_handled) + luôn Unsubscribe ở event đầu để tránh rò rỉ handler.
             string expectedName = Path.GetFileNameWithoutExtension(tempPath);
             bool handled = false;
+
+            // Ghi pending TRƯỚC khi import: nếu domain reload xảy ra, finalizer sẽ finalize từ đây.
+            string sha = !string.IsNullOrEmpty(asset.sha256) ? asset.sha256 : Sha256File(tempPath);
+            FeatureHubImportFinalizer.AddPending(new PendingInstall
+            {
+                name = asset.name,
+                fileName = asset.fileName,
+                sha256 = sha,
+                tempPath = tempPath,
+            });
 
             AssetDatabase.ImportPackageCallback onCompleted = null;
             AssetDatabase.ImportPackageCallback onCancelled = null;
@@ -236,9 +337,7 @@ namespace Ezg.FeatureHub.Editor
                 Unsubscribe();
                 if (!IsExpected(packageName, expectedName))
                     Debug.Log($"[FeatureHub] Import hoàn tất '{packageName}' (khác tên file tạm '{expectedName}') — vẫn ghi nhận cho '{asset.name}'.");
-                string sha = !string.IsNullOrEmpty(asset.sha256) ? asset.sha256 : Sha256File(tempPath);
-                TryDelete(tempPath);
-                FeatureHubInstallRecord.MarkInstalled(asset, sha);
+                // Record + xóa temp do finalizer xử lý (đã subscribe trước nên chạy trước callback này).
                 onDone?.Invoke(true, null);
             };
 
@@ -248,7 +347,7 @@ namespace Ezg.FeatureHub.Editor
                     return;
                 handled = true;
                 Unsubscribe();
-                TryDelete(tempPath);
+                FeatureHubImportFinalizer.Drop(asset.name);
                 onDone?.Invoke(false, "Đã hủy import.");
             };
 
@@ -258,7 +357,7 @@ namespace Ezg.FeatureHub.Editor
                     return;
                 handled = true;
                 Unsubscribe();
-                TryDelete(tempPath);
+                FeatureHubImportFinalizer.Drop(asset.name);
                 onDone?.Invoke(false, $"Import lỗi: {errorMessage}");
             };
 
@@ -283,7 +382,7 @@ namespace Ezg.FeatureHub.Editor
                             return;
                         handled = true;
                         Unsubscribe();
-                        TryDelete(tempPath);
+                        FeatureHubImportFinalizer.Drop(asset.name);
                         onDone?.Invoke(false, "Đã đóng hộp thoại import.");
                     });
             }
@@ -386,7 +485,13 @@ namespace Ezg.FeatureHub.Editor
         /// <summary>Merge scopedRegistries của template vào manifest (match theo url, union scopes).</summary>
         private static void EnsureRegistries(JObject root, UnityTemplate template)
         {
-            if (template?.scopedRegistries == null || template.scopedRegistries.Count == 0)
+            MergeRegistries(root, template?.scopedRegistries);
+        }
+
+        /// <summary>Merge danh sách registry vào manifest root (match theo url, union scopes). Idempotent.</summary>
+        private static void MergeRegistries(JObject root, List<ScopedRegistry> registriesToAdd)
+        {
+            if (registriesToAdd == null || registriesToAdd.Count == 0)
                 return;
 
             if (!(root[REGISTRIES_KEY] is JArray registries))
@@ -395,19 +500,9 @@ namespace Ezg.FeatureHub.Editor
                 root[REGISTRIES_KEY] = registries;
             }
 
-            foreach (var reg in template.scopedRegistries)
+            foreach (var reg in registriesToAdd)
             {
-                JObject existing = null;
-                foreach (var item in registries)
-                {
-                    if (item is JObject obj &&
-                        string.Equals(obj["url"]?.ToString(), reg.url, StringComparison.OrdinalIgnoreCase))
-                    {
-                        existing = obj;
-                        break;
-                    }
-                }
-
+                JObject existing = FindRegistryByUrl(registries, reg.url);
                 if (existing == null)
                 {
                     registries.Add(new JObject
@@ -436,6 +531,40 @@ namespace Ezg.FeatureHub.Editor
                         scopes.Add(scope);
                 }
             }
+        }
+
+        /// <summary>Đọc mảng scopedRegistries hiện có trong manifest (rỗng nếu chưa có/đọc lỗi).</summary>
+        private static JArray ReadManifestRegistries()
+        {
+            try
+            {
+                string path = ManifestPath();
+                if (!File.Exists(path))
+                    return new JArray();
+
+                var root = JObject.Parse(File.ReadAllText(path));
+                return root[REGISTRIES_KEY] as JArray ?? new JArray();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[FeatureHub] Đọc scopedRegistries lỗi: {e.Message}");
+                return new JArray();
+            }
+        }
+
+        private static JObject FindRegistryByUrl(JArray registries, string url)
+        {
+            if (registries == null)
+                return null;
+
+            foreach (var item in registries)
+            {
+                if (item is JObject obj &&
+                    string.Equals(obj["url"]?.ToString(), url, StringComparison.OrdinalIgnoreCase))
+                    return obj;
+            }
+
+            return null;
         }
 
         #endregion
