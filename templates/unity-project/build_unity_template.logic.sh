@@ -32,6 +32,10 @@ SKIP_IMPORT=0
 # BUILD_TARGET to force a specific target regardless of host.
 BUILD_TARGET="${BUILD_TARGET:-}"
 PAUSE_ON_EXIT="${PAUSE_ON_EXIT:-auto}"
+# After a successful build, auto-run the generated launcher (.command on macOS, .bat on Windows) to
+# open the freshly created project in Unity. Disable with --no-launch or AUTO_LAUNCH=0 (CI/headless).
+AUTO_LAUNCH="${AUTO_LAUNCH:-1}"
+LAUNCHER_PATH=""
 SCRIPT_SUCCEEDED=0
 INSTALL_CURRENT_STEP=0
 INSTALL_TOTAL_STEPS=0
@@ -64,6 +68,7 @@ Options:
   --skip-import                  Only create/update project and manifest; skip .unitypackage import.
   --build-target <target>        Unity build target for the generated launcher (default by host OS: Windows=Android, macOS=iOS).
   --no-pause                     Do not wait for Enter before the window closes.
+  --no-launch                    Do not auto-open the project in Unity after a successful build.
   -h, --help                     Show this help.
 
 Environment overrides:
@@ -73,6 +78,7 @@ Environment overrides:
   UNITY_TEMPLATE_URL=<url>       Same as --template-url.
   KEEP_DOWNLOAD_CACHE=1          Same as --keep-cache.
   UNITY_HUB_EDITORS_DIR=<path>   Extra Unity Hub Editor folder to scan.
+  AUTO_LAUNCH=0                  Same as --no-launch (default 1: open Unity after build).
   PAUSE_ON_EXIT=always|auto|never
 
 Default interactive project folder:
@@ -291,6 +297,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --no-pause)
       PAUSE_ON_EXIT="never"
+      shift
+      ;;
+    --no-launch)
+      AUTO_LAUNCH=0
       shift
       ;;
     -h|--help)
@@ -1604,7 +1614,36 @@ LAUNCHER
     chmod +x "$launcher"
   fi
 
+  LAUNCHER_PATH="$launcher"
   log "Created project launcher: $launcher (build target: $BUILD_TARGET)"
+}
+
+# Auto-open the freshly built project in Unity by running the launcher generate_launcher just wrote
+# (.command on macOS, .bat on Windows). Both launchers start Unity in the background and return
+# immediately, so this never blocks the script's own exit/pause. A launcher failure is logged as a
+# warning, not fatal: the project is already built and can be opened by hand. Disable with
+# --no-launch or AUTO_LAUNCH=0.
+run_launcher() {
+  if [ "$AUTO_LAUNCH" != "1" ]; then
+    log "Auto-launch disabled (--no-launch / AUTO_LAUNCH=0); skipping opening Unity."
+    return 0
+  fi
+  if [ -z "$LAUNCHER_PATH" ] || [ ! -f "$LAUNCHER_PATH" ]; then
+    log "No launcher found to auto-run; skipping opening Unity."
+    return 0
+  fi
+
+  log "Auto-opening the project in Unity via launcher: $LAUNCHER_PATH"
+  if [ "$OS_NAME" = "windows" ]; then
+    if command -v cmd.exe >/dev/null 2>&1; then
+      MSYS2_ARG_CONV_EXCL="*" cmd.exe //c "$(to_unity_arg_path "$LAUNCHER_PATH")" \
+        || log "WARNING: launcher did not start cleanly: $LAUNCHER_PATH"
+    else
+      log "WARNING: cmd.exe is unavailable; open the project manually with: $LAUNCHER_PATH"
+    fi
+  else
+    bash "$LAUNCHER_PATH" || log "WARNING: launcher did not start cleanly: $LAUNCHER_PATH"
+  fi
 }
 
 # Unity pops a "Missing Signature" dialog on every editor open when a project pulls packages from a
@@ -1764,3 +1803,6 @@ fi
 cleanup_download_cache
 log "Done. Open the project in Unity: $PROJECT_PATH"
 SCRIPT_SUCCEEDED=1
+
+# Project is fully built; auto-open it in Unity by running the generated launcher.
+run_launcher

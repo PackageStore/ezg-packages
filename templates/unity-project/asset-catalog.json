@@ -179,7 +179,15 @@
       "fileName": "ezg.base.features.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
       "category": "EZG Base",
-      "sha256": "0781b06bbd7448f877eeb52f4434f15189d2c42c407300af8561895b20dc4145",
+      "sha256": "483fb75c3277546161e5d41db9708dae2c450e806ef154541a7351e304d9245f",
+      "installedByDefault": true
+    },
+    {
+      "name": "ezg.base.visuals",
+      "fileName": "ezg.base.visuals.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.visuals.unitypackage",
+      "category": "EZG Base",
+      "sha256": "021d7e59ebf542dd478a91e05795e1930e0a38c48343bbdc0f173c5c5625e209",
       "installedByDefault": true
     },
     {

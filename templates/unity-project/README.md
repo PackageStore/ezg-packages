@@ -208,6 +208,13 @@ Không giữ cửa sổ lại sau khi chạy:
 ./build_unity_template.sh --no-pause
 ```
 
+Mặc định, sau khi build xong script sẽ tự động mở project trong Unity bằng cách chạy launcher vừa tạo
+(`<ProjectName>.command` trên macOS, `<ProjectName>.bat` trên Windows). Tắt hành vi này (ví dụ CI/headless):
+
+```bash
+./build_unity_template.sh --no-launch
+```
+
 Xem help:
 
 ```bash
@@ -531,6 +538,7 @@ UNITY_VERSION="6000.3.16f1"
 UNITY_TEMPLATE_URL="https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
 KEEP_DOWNLOAD_CACHE=1
 UNITY_HUB_EDITORS_DIR="/path/to/Unity/Hub/Editor"
+AUTO_LAUNCH=0
 PAUSE_ON_EXIT="always"
 ```
 
@@ -541,6 +549,7 @@ PAUSE_ON_EXIT="always"
 - `UNITY_TEMPLATE_URL`: URL remote `unity-template.json`, tương đương `--template-url`.
 - `KEEP_DOWNLOAD_CACHE`: đặt `1` để giữ lại `.ezg-cache` sau khi chạy thành công, tương đương `--keep-cache`.
 - `UNITY_HUB_EDITORS_DIR`: thư mục Unity Hub Editor custom.
+- `AUTO_LAUNCH`: đặt `0` để không tự động mở project trong Unity sau khi build, tương đương `--no-launch` (mặc định `1`).
 - `PAUSE_ON_EXIT`: điều khiển việc giữ cửa sổ lại sau khi chạy. Giá trị hỗ trợ: `always`, `auto`, `never`.
 
 ## Troubleshooting
