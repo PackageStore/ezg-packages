@@ -21,18 +21,23 @@ import { makeClient, listPackageDirs, getJson } from "./registry-lib.mjs";
 
 const NAME_RE = /^(com\.ezg\.[a-z0-9-]+|com\.google\.[a-z0-9.-]+|com\.google\.android\.[a-z0-9.-]+)$/;
 
-function hasAsmdef(dir) {
+// Walk a package tree looking for any file whose name ends with `suffix`.
+// Used to detect .asmdef (assembly definitions) and .cs (C# source).
+function hasFileWithSuffix(dir, suffix) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (hasAsmdef(full)) return true;
-    } else if (entry.name.endsWith(".asmdef")) {
+      if (hasFileWithSuffix(full, suffix)) return true;
+    } else if (entry.name.endsWith(suffix)) {
       return true;
     }
   }
   return false;
 }
+
+const hasAsmdef = (dir) => hasFileWithSuffix(dir, ".asmdef");
+const hasCsharp = (dir) => hasFileWithSuffix(dir, ".cs");
 
 async function main() {
   const dirs = listPackageDirs();
@@ -70,7 +75,9 @@ async function main() {
     if (!name || !NAME_RE.test(name)) problems.push(`name must match ${NAME_RE} (got ${JSON.stringify(name)})`);
     if (!version || !semver.valid(version)) problems.push(`invalid semver version: ${JSON.stringify(version)}`);
     if (!pkgJson.unity) problems.push("missing `unity` field");
-    if (!hasAsmdef(dir)) problems.push("no .asmdef found in package");
+    // Only code packages need an .asmdef; asset-only packages (fonts, shaders,
+    // resources) legitimately ship no C# and must not be blocked by this gate.
+    if (hasCsharp(dir) && !hasAsmdef(dir)) problems.push("package has C# (.cs) but no .asmdef");
     if (!pkgJson.displayName) warns.push("missing displayName");
     if (!pkgJson.description) warns.push("missing description");
 
