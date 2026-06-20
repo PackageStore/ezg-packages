@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.uiparticlesystem",
+  "version": "0.1.0",
+  "displayName": "EZG UI Particle System",
+  "description": "Renders Unity's built-in Particle Systems inside a uGUI Canvas with correct UI sorting, soft-particle depth masking, mask culling, RectTransform size-following, and an optional distortion shader. URP-compatible.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "ui",
+    "particle-system",
+    "ugui",
+    "vfx"
+  ]
+}
