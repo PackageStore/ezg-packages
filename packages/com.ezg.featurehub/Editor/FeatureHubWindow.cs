@@ -65,7 +65,7 @@ namespace Ezg.FeatureHub.Editor
 
         #region Initialize
 
-        [MenuItem("Ezg/Feature Hub")]
+        [MenuItem("Ezg/Feature Hub %#f")] // %#f = Ctrl/Cmd + Shift + F
         public static void Open()
         {
             var window = GetWindow<FeatureHubWindow>();
@@ -76,7 +76,10 @@ namespace Ezg.FeatureHub.Editor
 
         private void CreateGUI()
         {
-            _importMode = (ImportMode)EditorPrefs.GetInt(PREF_IMPORT_MODE, (int)ImportMode.Ask);
+            // Mặc định Silent: chế độ Dialog dựng PackageImportTreeView của Unity — với một số
+            // .unitypackage (repack), tree-view này ném NullReferenceException khiến import treo
+            // và KHÔNG ghi file nào. Silent bỏ qua dialog nên cài ổn định.
+            _importMode = (ImportMode)EditorPrefs.GetInt(PREF_IMPORT_MODE, (int)ImportMode.Silent);
             _tab = EditorPrefs.GetInt(PREF_TAB, 0);
 
             var root = rootVisualElement;
@@ -167,7 +170,8 @@ namespace Ezg.FeatureHub.Editor
             var modeOptions = new List<string> { "Hỏi mỗi lần", "Silent", "Dialog" };
             var modePopup = new PopupField<string>(modeOptions, (int)_importMode)
             {
-                tooltip = "Cách import .unitypackage: hỏi mỗi lần / tự động / hiện hộp thoại Unity.",
+                tooltip = "Cách import .unitypackage: hỏi mỗi lần / tự động (khuyên dùng) / hiện hộp thoại Unity.\n" +
+                          "Lưu ý: chế độ Dialog có thể treo (NullReferenceException) với một số gói repack — dùng Silent nếu gặp lỗi.",
             };
             modePopup.RegisterValueChangedCallback(evt =>
             {

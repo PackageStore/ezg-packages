@@ -1,3 +1,20 @@
+## [0.2.3] - 2026-06-20
+
+### Added
+- `Ezg/Csv Manager` editor window (`CsvManagerWindow`) that browses the project's CSV
+  files grouped by feature/category, with search, category filter and Ping/Open/Copy
+  actions. Extracted from the Merge Two game project into this package.
+
+### Changed
+- The CSV Manager window now lives under namespace `Ezg.Package.CsvReader.Editor`.
+- Added a scoped dependency on `com.ezg.editor-ui@0.1.0` for the shared editor styling
+  (`EditorBaseStyle`) used by the CSV Manager window.
+
+### Notes
+- Known debt: `CsvManagerWindow` scans the host project's `Assets/_Project` tree directly
+  (game-specific) instead of `CsvPathUtility`. In a project without that folder it simply
+  lists nothing.
+
 ## [0.2.2] - 2026-06-19
 
 ### Changed
