@@ -751,6 +751,20 @@ calculate_sha256() {
   die "Cannot calculate SHA-256 because sha256sum, shasum, and PowerShell are unavailable."
 }
 
+# Soft check: returns 0 when the file matches (or no checksum is expected), non-zero on
+# mismatch -- without dying. Used for the FIRST check of a resolved local file so a stale
+# copy can be healed by a single redownload instead of aborting the whole run.
+checksum_matches() {
+  local path="$1"
+  local expected="$2"
+  local actual
+
+  [ -n "$expected" ] || return 0
+
+  actual="$(calculate_sha256 "$path")"
+  [ "$actual" = "$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')" ]
+}
+
 verify_file_checksum() {
   local path="$1"
   local expected="$2"
@@ -882,6 +896,18 @@ prepare_template_files() {
       [ -n "$file_name" ] || continue
 
       if path="$(resolve_template_file "$file_name")"; then
+        if checksum_matches "$path" "$sha256"; then
+          continue
+        fi
+
+        # Stale local copy (e.g. an older version still in PackageTemplate or .ezg-cache after
+        # the published checksum changed). Heal it with a SINGLE redownload that overwrites the
+        # exact path that resolved -- so a stale PackageTemplate copy can't keep shadowing a fresh
+        # cache download on later runs -- then verify hard. No loop: if it still mismatches we die.
+        [ -n "$url" ] || die "SHA-256 mismatch for $file_name and no download URL to refresh it. Replace the file in PackageTemplate with the matching version."
+        log "Checksum mismatch for $file_name; redownloading once to refresh the stale copy."
+        rm -f "$path"
+        download_template_file "$url" "$path"
         verify_file_checksum "$path" "$sha256"
         continue
       fi
