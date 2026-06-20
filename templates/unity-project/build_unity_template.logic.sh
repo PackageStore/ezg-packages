@@ -605,7 +605,9 @@ PY
 
 count_manifest_dependencies_with_python() {
   local python_bin="$1"
-  "$python_bin" - "$TEMPLATE_FILE" <<'PY'
+  # tr -d '\r': Python print() emits CRLF on Windows; strip the CR so callers (read / $(...) /
+  # arithmetic) never see a trailing carriage return, mirroring the PowerShell helpers below.
+  "$python_bin" - "$TEMPLATE_FILE" <<'PY' | tr -d '\r'
 import json
 import sys
 
@@ -653,7 +655,9 @@ count_manifest_dependencies() {
 list_template_files_with_python() {
   local python_bin="$1"
   local file_kind="$2"
-  "$python_bin" - "$TEMPLATE_FILE" "$file_kind" <<'PY'
+  # tr -d '\r': strip Windows CRLF so the trailing field (sha256) never carries a CR into the
+  # fileName|url|sha256 split, which would break checksum verification.
+  "$python_bin" - "$TEMPLATE_FILE" "$file_kind" <<'PY' | tr -d '\r'
 import json
 import sys
 
@@ -1390,7 +1394,8 @@ extract_unitypackages() {
 list_template_string_array_with_python() {
   local python_bin="$1"
   local field="$2"
-  "$python_bin" - "$TEMPLATE_FILE" "$field" <<'PY'
+  # tr -d '\r': strip Windows CRLF so values feeding `read` never carry a trailing CR.
+  "$python_bin" - "$TEMPLATE_FILE" "$field" <<'PY' | tr -d '\r'
 import json
 import sys
 
