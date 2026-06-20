@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 namespace Ezg.FeatureHub.Editor
@@ -93,6 +94,53 @@ namespace Ezg.FeatureHub.Editor
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Liệt kê MỌI package đã resolve trong project qua PackageManager (direct + transitive +
+        /// embedded + local + built-in module) -> Dictionary&lt;name, resolvedVersion&gt;. Đây là cách
+        /// duy nhất bắt được package "đã có sẵn" mà KHÔNG phải dependency trực tiếp trong manifest.json
+        /// (vd kéo theo bởi gói khác, hoặc cài bằng tay). Client.List là async nên trả về qua callback;
+        /// offlineMode=true để khỏi gọi mạng (chỉ đọc trạng thái đã resolve), includeIndirect=true để
+        /// lấy cả dependency gián tiếp.
+        /// </summary>
+        public static void LoadResolvedPackages(Action<Dictionary<string, string>> onDone)
+        {
+            ListRequest request;
+            try
+            {
+                request = Client.List(offlineMode: true, includeIndirectDependencies: true);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[FeatureHub] Client.List khởi tạo lỗi: {e.Message}");
+                onDone?.Invoke(new Dictionary<string, string>());
+                return;
+            }
+
+            void Tick()
+            {
+                if (!request.IsCompleted)
+                    return;
+
+                EditorApplication.update -= Tick;
+
+                var map = new Dictionary<string, string>();
+                if (request.Status == StatusCode.Success && request.Result != null)
+                {
+                    foreach (var pkg in request.Result)
+                        if (pkg != null && !string.IsNullOrEmpty(pkg.name))
+                            map[pkg.name] = pkg.version;
+                }
+                else if (request.Status >= StatusCode.Failure)
+                {
+                    Debug.LogWarning($"[FeatureHub] Client.List lỗi: {request.Error?.message}");
+                }
+
+                onDone?.Invoke(map);
+            }
+
+            EditorApplication.update += Tick;
         }
 
         #endregion

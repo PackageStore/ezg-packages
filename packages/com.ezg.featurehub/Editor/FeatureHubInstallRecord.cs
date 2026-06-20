@@ -2,6 +2,7 @@
 // .unitypackage không để lại dấu vết trong manifest nên phải tự track tên + sha256 để biết trạng thái.
 using System;
 using System.IO;
+using UnityEditor;
 using UnityEngine;
 
 namespace Ezg.FeatureHub.Editor
@@ -27,15 +28,53 @@ namespace Ezg.FeatureHub.Editor
         public static UnityPackageStatus GetStatus(CatalogAsset asset)
         {
             var installed = Get(asset.name);
-            if (installed == null)
-                return UnityPackageStatus.NotInstalled;
+            if (installed != null)
+            {
+                // Catalog có sha256 và khác với bản đã cài -> có bản mới.
+                if (!string.IsNullOrEmpty(asset.sha256) &&
+                    !string.Equals(installed.sha256, asset.sha256, StringComparison.OrdinalIgnoreCase))
+                    return UnityPackageStatus.UpdateAvailable;
 
-            // Catalog có sha256 và khác với bản đã cài -> có bản mới.
-            if (!string.IsNullOrEmpty(asset.sha256) &&
-                !string.Equals(installed.sha256, asset.sha256, StringComparison.OrdinalIgnoreCase))
-                return UnityPackageStatus.UpdateAvailable;
+                return UnityPackageStatus.Installed;
+            }
 
-            return UnityPackageStatus.Installed;
+            // Chưa có record -> thử nhận diện "đã có sẵn" qua dấu chân asset trong project
+            // (import thủ công / trước khi có Feature Hub / máy khác). Tính sống mỗi lần gọi để
+            // không bị kẹt trạng thái nếu user xóa asset sau đó. KHÔNG so sha vì không biết version thật.
+            return DetectByMarker(asset) ? UnityPackageStatus.Installed : UnityPackageStatus.NotInstalled;
+        }
+
+        /// <summary>
+        /// True nếu bất kỳ markerPath/markerGuid của asset trỏ tới asset đang tồn tại trong project.
+        /// Asset không khai báo marker -> luôn false (giữ hành vi cũ: chỉ dựa vào install-record).
+        /// </summary>
+        public static bool DetectByMarker(CatalogAsset asset)
+        {
+            if (asset == null)
+                return false;
+
+            if (asset.markerGuids != null)
+            {
+                foreach (var guid in asset.markerGuids)
+                {
+                    if (string.IsNullOrEmpty(guid))
+                        continue;
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!string.IsNullOrEmpty(path) && ProjectPathExists(path))
+                        return true;
+                }
+            }
+
+            if (asset.markerPaths != null)
+            {
+                foreach (var rel in asset.markerPaths)
+                {
+                    if (!string.IsNullOrEmpty(rel) && ProjectPathExists(rel))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Ghi nhận một asset vừa cài thành công.</summary>
@@ -67,6 +106,17 @@ namespace Ezg.FeatureHub.Editor
         #endregion
 
         #region Private Methods
+
+        /// <summary>True nếu path tương đối project (vd "Assets/...") tồn tại trên đĩa, là file hoặc folder.</summary>
+        private static bool ProjectPathExists(string projectRelative)
+        {
+            if (string.IsNullOrEmpty(projectRelative))
+                return false;
+
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string full = Path.Combine(projectRoot, projectRelative);
+            return File.Exists(full) || Directory.Exists(full);
+        }
 
         private static string RecordPath()
         {

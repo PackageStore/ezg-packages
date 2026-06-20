@@ -69,6 +69,13 @@ namespace Ezg.FeatureHub.Editor
         public string category;
         public string sha256;
         public bool installedByDefault;
+
+        // Dấu chân nhận diện "đã có sẵn" cho .unitypackage (không để lại vết trong manifest).
+        // Nếu BẤT KỲ path/guid nào dưới đây trỏ tới asset đang tồn tại trong project thì coi là đã cài,
+        // kể cả khi import thủ công / trước khi có Feature Hub / trên máy khác (không có install-record).
+        // Tùy chọn — entry không khai báo marker giữ nguyên hành vi cũ (chỉ dựa vào install-record).
+        public string[] markerPaths;   // path tương đối project, vd "Assets/Plugins/Sirenix" (file hoặc folder)
+        public string[] markerGuids;   // GUID asset đại diện (ổn định theo .meta của asset gốc)
     }
 
     [System.Serializable]

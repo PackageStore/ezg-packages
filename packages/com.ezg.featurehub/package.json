@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.featurehub",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "displayName": "EZG Feature Hub",
   "description": "Editor tool (menu \"Ezg > Feature Hub\") that installs Unity packages into a project from a remote catalog. It downloads and imports .unitypackage files with SHA-256 verification, and writes UPM dependencies plus scoped registries into Packages/manifest.json. The UI Toolkit window shows animated Lottie icons rendered in-editor via rlottie.",
   "unity": "2022.3",

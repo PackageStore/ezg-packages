@@ -43,6 +43,11 @@ namespace Ezg.FeatureHub.Editor
         private UnityTemplate _template;
         private Dictionary<string, string> _projectDeps = new Dictionary<string, string>();
 
+        // Mọi package đã RESOLVE trong project (name -> version) lấy từ PackageManager.Client.List —
+        // gồm cả dependency gián tiếp/embedded/built-in mà manifest.json không khai báo trực tiếp.
+        // Nạp async sau khi mở; dùng để biết UPM nào "đã có sẵn" dù không nằm trong _projectDeps.
+        private Dictionary<string, string> _resolvedPackages = new Dictionary<string, string>();
+
         private int _tab;
         private ImportMode _importMode = ImportMode.Ask;
         private string _search = string.Empty;
@@ -280,6 +285,7 @@ namespace Ezg.FeatureHub.Editor
             _catalog = null;
             _template = null;
             _projectDeps = FeatureHubService.LoadProjectDependencies();
+            LoadResolvedPackagesAsync();
             SetStatus("Đang tải dữ liệu từ server...");
             ShowSpinner();
             RebuildList();
@@ -494,17 +500,17 @@ namespace Ezg.FeatureHub.Editor
 
         private VisualElement BuildUpmCard(string id, string value)
         {
-            _projectDeps.TryGetValue(id, out string current);
-            UpmStatus status = current == null
-                ? UpmStatus.NotInstalled
-                : (current == value ? UpmStatus.Installed : UpmStatus.Different);
+            UpmStatus status = ResolveUpmStatus(id, value);
+            _resolvedPackages.TryGetValue(id, out string resolvedVer);
+            _projectDeps.TryGetValue(id, out string manifestVal);
+            string current = !string.IsNullOrEmpty(resolvedVer) ? resolvedVer : manifestVal;
             Color statusColor = UpmStatusColor(status);
 
             var detail = DetailContainer();
             detail.Add(DetailRow("Trạng thái", UpmStatusText(status)));
             detail.Add(DetailRow("Loại", UpmSourceType(value)));
             detail.Add(DetailRow("Target", value));
-            detail.Add(DetailRow("Hiện tại", string.IsNullOrEmpty(current) ? "— (chưa có trong manifest)" : current));
+            detail.Add(DetailRow("Hiện tại", string.IsNullOrEmpty(current) ? "— (chưa có trong project)" : current));
 
             Color btnColor = status == UpmStatus.Installed ? C_PILL_OFF : C_ACCENT;
             Color btnText = status == UpmStatus.Installed ? C_TEXT : Color.white;
@@ -720,7 +726,7 @@ namespace Ezg.FeatureHub.Editor
 
             var queue = _template.dependencies
                 .Where(kv => !kv.Key.StartsWith(FeatureHubConstants.UNITY_MODULE_PREFIX))
-                .Where(kv => !_projectDeps.TryGetValue(kv.Key, out string cur) || cur != kv.Value)
+                .Where(kv => !IsUpmSatisfied(kv.Key, kv.Value))
                 .ToList();
 
             if (queue.Count == 0)
@@ -799,7 +805,60 @@ namespace Ezg.FeatureHub.Editor
         private void RefreshState()
         {
             _projectDeps = FeatureHubService.LoadProjectDependencies();
+            LoadResolvedPackagesAsync();
             RebuildList();
+        }
+
+        /// <summary>Nạp danh sách package đã resolve (async) rồi vẽ lại để cập nhật trạng thái UPM.</summary>
+        private void LoadResolvedPackagesAsync()
+        {
+            FeatureHubService.LoadResolvedPackages(map =>
+            {
+                _resolvedPackages = map ?? new Dictionary<string, string>();
+                RebuildList();
+            });
+        }
+
+        /// <summary>
+        /// UPM dependency coi như "đủ" (không cần cài) khi đã resolve trong project. Match theo id;
+        /// chỉ báo cần-cập-nhật khi cả template lẫn bản resolve đều là version cụ thể và lệch nhau.
+        /// </summary>
+        private bool IsUpmSatisfied(string id, string value)
+        {
+            return ResolveUpmStatus(id, value) == UpmStatus.Installed;
+        }
+
+        /// <summary>
+        /// Tính trạng thái UPM: ưu tiên bản đã resolve (Client.List) — bắt được cả package "đã có sẵn"
+        /// không nằm trực tiếp trong manifest; fallback về manifest dependency nếu chưa nạp xong resolve.
+        /// </summary>
+        private UpmStatus ResolveUpmStatus(string id, string value)
+        {
+            bool resolved = _resolvedPackages.TryGetValue(id, out string resolvedVer);
+            bool inManifest = _projectDeps.TryGetValue(id, out string manifestVal);
+
+            if (!resolved && !inManifest)
+                return UpmStatus.NotInstalled;
+
+            // Có mặt trong project. Chỉ đánh "Khác bản" khi so được 2 version cụ thể và lệch nhau —
+            // tránh báo nhầm cho dep dạng "file:"/git/range mà chuỗi target không phải semver.
+            string current = resolved ? resolvedVer : manifestVal;
+            if (IsConcreteVersion(value) && IsConcreteVersion(current) &&
+                !string.Equals(value, current, StringComparison.OrdinalIgnoreCase))
+                return UpmStatus.Different;
+
+            return UpmStatus.Installed;
+        }
+
+        /// <summary>Version cụ thể = chuỗi semver thuần (không phải "file:", git url, "*", range...).</summary>
+        private static bool IsConcreteVersion(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            char c = value[0];
+            if (c < '0' || c > '9')
+                return false;
+            return value.IndexOf("://", StringComparison.Ordinal) < 0;
         }
 
         private void SetStatus(string message)

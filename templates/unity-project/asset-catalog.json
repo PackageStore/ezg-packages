@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Catalog các .unitypackage cài qua EZG Asset Installer. installedByDefault=true là bộ bootstrap cài sẵn (khai báo trong unity-template.json); false là optional chọn lúc cần (nguồn PackageTemplate/).",
+  "description": "Catalog các .unitypackage cài qua EZG Asset Installer. installedByDefault=true là bộ bootstrap cài sẵn (khai báo trong unity-template.json); false là optional chọn lúc cần (nguồn PackageTemplate/). markerPaths (tùy chọn): path tương đối project (file/folder), nếu tồn tại thì Feature Hub coi asset là 'đã có sẵn' kể cả khi không có install-record (import tay / trước khi có Hub / máy khác).",
   "assets": [
     {
       "name": "DOTweenPro_1.0.381_core_1.2.825",
@@ -8,7 +8,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/DOTweenPro_1.0.381_core_1.2.825.unitypackage",
       "category": "Tween & Animation",
       "sha256": "5760b6a0e7787e8399f933598fc6a85f086bf2d48c6063379f63ad7db5ba0dfa",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/Plugins/Demigiant/DOTweenPro" ]
     },
     {
       "name": "Odin Inspector 4.0.1.3",
@@ -16,7 +17,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Odin%20Inspector%204.0.1.3.unitypackage",
       "category": "Editor",
       "sha256": "bd9ab9ebee087159cdc1265155211d0d5cc9fb1b9a0df157d43e1923535c85b0",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/Plugins/Sirenix" ]
     },
     {
       "name": "Ultimate Editor Enhancer",
@@ -24,7 +26,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Ultimate%20Editor%20Enhancer.unitypackage",
       "category": "Editor",
       "sha256": "881cf853909e365e6f1e8ef5af446a4dd53c075d5c42092649851ae563ca8655",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/Plugins/Infinity Code/Ultimate Editor Enhancer" ]
     },
     {
       "name": "facebook-unity-sdk-18.0.0",
@@ -32,7 +35,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/facebook-unity-sdk-18.0.0.unitypackage",
       "category": "SDK",
       "sha256": "7d920b551caee39b9b55208fd6d8e2e913d5782d11733c4fcc281a2407745c6a",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/FacebookSDK" ]
     },
     {
       "name": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3",
@@ -40,7 +44,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
       "category": "Ads",
       "sha256": "88ff216a199579def1bbf50d9186a6525e4d49b2f8322c9a9746a002e944addc",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/MaxSdk" ]
     },
     {
       "name": "FirebaseAnalytics_13.3.0",
@@ -112,7 +117,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/I2_TextAnimation.unitypackage",
       "category": "Tween & Animation",
       "sha256": "52712bfb0bd244674edde22c3186ae7f207390096a8c9480a26090f654614530",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/Plugins/I2/Text Animation" ]
     },
     {
       "name": "com.google.android.appbundle-1.10.0",
@@ -120,7 +126,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.android.appbundle-1.10.0.unitypackage",
       "category": "Google Play",
       "sha256": "9c99e49c1f6144276429f729cb0c21ac94b4f2b9e548ce16d1154cb650e4960e",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayPlugins/com.google.android.appbundle" ]
     },
     {
       "name": "com.google.play.common-1.9.2",
@@ -128,7 +135,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.common-1.9.2.unitypackage",
       "category": "Google Play",
       "sha256": "3d8a625f3caff396b2a939b6c3e18dfa7556425a279531ad75388005125b78f1",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayPlugins/com.google.play.common" ]
     },
     {
       "name": "com.google.play.core-1.8.6",
@@ -136,7 +144,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.core-1.8.6.unitypackage",
       "category": "Google Play",
       "sha256": "401427ea7817e1f01b1e0ecc687432d166b617a3ca77023148ba06ee8e559085",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayPlugins/com.google.play.core" ]
     },
     {
       "name": "com.google.play.assetdelivery-1.9.5",
@@ -144,7 +153,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.assetdelivery-1.9.5.unitypackage",
       "category": "Google Play",
       "sha256": "48634213d50afb92e7a663ab57b0b6e222cf9aa4bff8f57db4d6f1b0efce34ac",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayPlugins/com.google.play.assetdelivery" ]
     },
     {
       "name": "com.google.play.review-1.8.4",
@@ -152,7 +162,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.review-1.8.4.unitypackage",
       "category": "Google Play",
       "sha256": "a819c77ec2d639c9655f0b11d29408a88bb3f6ece7f6da31dab8c4a3371b7864",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayPlugins/com.google.play.review" ]
     },
     {
       "name": "play-games-plugin-for-unity-2.1.0",
@@ -160,7 +171,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
       "category": "Google Play",
       "sha256": "8386a3e9a96e30ec16454cdef900a1cede7c1cf9e0c30a5827ebe9c93cb9d687",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/GooglePlayGames" ]
     },
     {
       "name": "ezg.base.features",
@@ -176,7 +188,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Epic%20Toon%20FX.unitypackage",
       "category": "VFX & Shader",
       "sha256": "fb3aa356ff82a51a008927357e43c2f2040899c4618841989ed2250c9c0eba3d",
-      "installedByDefault": true
+      "installedByDefault": true,
+      "markerPaths": [ "Assets/Epic Toon FX" ]
     },
     {
       "name": "AllIn1Bundle",
@@ -184,7 +197,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
       "category": "VFX & Shader",
       "sha256": "47ab5a290c212f6baf76eda0d4a0322df5f3c9b42f3659771550eeba25e07007",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AllIn1Bundle" ]
     },
     {
       "name": "AllIn13DShader",
@@ -192,7 +206,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn13DShader.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4e4760b27b3146ecc64c2f1dce9801d427f995b4d60ee0b585768075189ca519",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AllIn13DShader" ]
     },
     {
       "name": "AllIn1SpriteShader",
@@ -200,7 +215,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteShader.unitypackage",
       "category": "VFX & Shader",
       "sha256": "5657d0cc0594d0ec13e07437e16b5bf598c3b653397ec50c331e44ac9a0907da",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AllIn1SpriteShader" ]
     },
     {
       "name": "AllIn1SpriteLighting",
@@ -208,7 +224,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteLighting.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4b9858c31795ac6f927e277bd30c87b0dd1333111d00ea57fb7ea44e3e575b12",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AllIn1SpriteLighting" ]
     },
     {
       "name": "AllIn1VfxToolkit",
@@ -216,7 +233,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1VfxToolkit.unitypackage",
       "category": "VFX & Shader",
       "sha256": "00a7d40101b3a6d07a83697177c975843e6c9acd9033394b0587dc75b13ab615",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AllIn1VfxToolkit" ]
     },
     {
       "name": "Amazing Assets",
@@ -224,7 +242,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Amazing%20Assets.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4a7a43bb069c3580f43948f5cda4cea21fc7437aae898deb3633b7acbf4ce395",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/Amazing Assets" ]
     },
     {
       "name": "Feel",
@@ -232,7 +251,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Feel.unitypackage",
       "category": "Feedback",
       "sha256": "784dd0f870b348f85b103c527ea9403fcaf7990cf513c3fc10e77b5855fa7941",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/Feel" ]
     },
     {
       "name": "GUI Pro-CasualGame",
@@ -280,7 +300,8 @@
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
       "category": "AI Pathfinding",
       "sha256": "a04afb68a68c5eedd86bc68108ccb6e675e3b4c4e9477da8af3cff2e554bd688",
-      "installedByDefault": false
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/AstarPathfindingProject" ]
     }
   ]
 }
