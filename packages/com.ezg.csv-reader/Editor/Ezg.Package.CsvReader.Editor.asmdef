@@ -2,7 +2,8 @@
     "name": "Ezg.Package.CsvReader.Editor",
     "rootNamespace": "Ezg.Package.CsvReader",
     "references": [
-        "Ezg.Package.CsvReader"
+        "Ezg.Package.CsvReader",
+        "Ezg.EditorUI"
     ],
     "includePlatforms": [
         "Editor"
