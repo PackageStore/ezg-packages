@@ -205,6 +205,18 @@ namespace Ezg.FeatureHub.Editor
             bool interactive,
             Action<bool, string> onDone)
         {
+            // importPackageCompleted/Cancelled/Failed là event GLOBAL. Tool này chỉ chạy DUY NHẤT
+            // một import tại một thời điểm (window khóa _busy; batch queue chạy tuần tự), nên
+            // terminal-event đầu tiên sau khi subscribe CHÍNH là import của ta.
+            //
+            // KHÔNG được lọc theo tên gói để quyết định teardown: ở chế độ Dialog, Unity báo về
+            // tên gói "nhúng" bên trong .unitypackage (tên lúc đóng gói gốc), KHÁC tên file tạm ta
+            // tải về -> so tên sẽ luôn fail -> onDone không bao giờ gọi -> SetBusy(false) không chạy
+            // -> cửa sổ kẹt 'deactivate' vĩnh viễn dù gói đã import xong và dialog đã đóng.
+            // Dùng cờ một-lần (_handled) + luôn Unsubscribe ở event đầu để tránh rò rỉ handler.
+            string expectedName = Path.GetFileNameWithoutExtension(tempPath);
+            bool handled = false;
+
             AssetDatabase.ImportPackageCallback onCompleted = null;
             AssetDatabase.ImportPackageCallback onCancelled = null;
             AssetDatabase.ImportPackageFailedCallback onFailed = null;
@@ -216,24 +228,35 @@ namespace Ezg.FeatureHub.Editor
                 AssetDatabase.importPackageFailed -= onFailed;
             }
 
-            onCompleted = _ =>
+            onCompleted = packageName =>
             {
+                if (handled)
+                    return;
+                handled = true;
                 Unsubscribe();
+                if (!IsExpected(packageName, expectedName))
+                    Debug.Log($"[FeatureHub] Import hoàn tất '{packageName}' (khác tên file tạm '{expectedName}') — vẫn ghi nhận cho '{asset.name}'.");
                 string sha = !string.IsNullOrEmpty(asset.sha256) ? asset.sha256 : Sha256File(tempPath);
                 TryDelete(tempPath);
                 FeatureHubInstallRecord.MarkInstalled(asset, sha);
                 onDone?.Invoke(true, null);
             };
 
-            onCancelled = _ =>
+            onCancelled = packageName =>
             {
+                if (handled)
+                    return;
+                handled = true;
                 Unsubscribe();
                 TryDelete(tempPath);
                 onDone?.Invoke(false, "Đã hủy import.");
             };
 
-            onFailed = (_, errorMessage) =>
+            onFailed = (packageName, errorMessage) =>
             {
+                if (handled)
+                    return;
+                handled = true;
                 Unsubscribe();
                 TryDelete(tempPath);
                 onDone?.Invoke(false, $"Import lỗi: {errorMessage}");
@@ -245,6 +268,81 @@ namespace Ezg.FeatureHub.Editor
 
             // interactive=false: import toàn bộ không hỏi; true: mở hộp thoại Import của Unity.
             AssetDatabase.ImportPackage(tempPath, interactive);
+
+            // Chế độ Dialog: nếu user ĐÓNG/CANCEL hộp thoại bằng nút X, Unity KHÔNG luôn fire
+            // importPackageCancelled -> không có terminal-event nào -> onDone không chạy -> window
+            // kẹt 'busy'. Watchdog theo dõi cửa sổ PackageImport: khi nó đã hiện rồi biến mất mà
+            // vẫn chưa có event, coi như hủy để gỡ kẹt UI.
+            if (interactive)
+            {
+                WatchInteractiveDialog(
+                    () => handled,
+                    () =>
+                    {
+                        if (handled)
+                            return;
+                        handled = true;
+                        Unsubscribe();
+                        TryDelete(tempPath);
+                        onDone?.Invoke(false, "Đã đóng hộp thoại import.");
+                    });
+            }
+        }
+
+        /// <summary>So tên gói Unity báo về với tên file tạm (chỉ để log; KHÔNG dùng để teardown).</summary>
+        private static bool IsExpected(string reported, string expectedName) =>
+            !string.IsNullOrEmpty(reported) &&
+            string.Equals(Path.GetFileName(reported), expectedName, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Poll cửa sổ PackageImport của Unity. Khi nó đã mở rồi đóng mà chưa có terminal-event,
+        /// gọi onClosedWithoutResult (user bấm X/Cancel mà Unity không fire callback).
+        /// </summary>
+        private static void WatchInteractiveDialog(Func<bool> isHandled, Action onClosedWithoutResult)
+        {
+            bool sawDialog = false;
+            int grace = 0;
+
+            void Tick()
+            {
+                if (isHandled())
+                {
+                    EditorApplication.update -= Tick;
+                    return;
+                }
+
+                if (IsPackageImportOpen())
+                {
+                    sawDialog = true;
+                    grace = 0;
+                    return;
+                }
+
+                if (!sawDialog)
+                    return; // dialog chưa kịp hiện — chờ tiếp.
+
+                // Dialog đã đóng: chờ vài tick cho importPackageCompleted kịp fire (bấm Import cũng
+                // đóng dialog) trước khi kết luận là hủy.
+                if (++grace < 30)
+                    return;
+
+                EditorApplication.update -= Tick;
+                if (!isHandled())
+                    onClosedWithoutResult();
+            }
+
+            EditorApplication.update += Tick;
+        }
+
+        private static bool IsPackageImportOpen()
+        {
+            foreach (var w in Resources.FindObjectsOfTypeAll<EditorWindow>())
+            {
+                if (w != null && w.GetType().Name == "PackageImport")
+                    return true;
+            }
+
+            return false;
         }
 
         #endregion
