@@ -13,6 +13,7 @@ scripts/.env.*
 # R2 and described by the versioned template manifest, not committed to git.
 templates/unity-project/*/
 !templates/unity-project/PackageTemplate/
+!templates/unity-project/DefaultSetup/
 
 # Temporary extraction dir
 temp_extract/

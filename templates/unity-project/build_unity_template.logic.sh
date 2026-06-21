@@ -13,6 +13,14 @@ PROJECT_NAME_OVERRIDE=""
 PROJECT_PATH="$SCRIPT_DIR/$DEFAULT_PROJECT_NAME"
 PROJECT_PATH_PROVIDED=0
 PACKAGE_TEMPLATE_DIR="$SCRIPT_DIR/PackageTemplate"
+# Folder whose contents are force-copied on top of the freshly built project after the hidden Unity
+# validate pass (resolve_packages). DefaultSetup/ProjectSettings overwrites the project's
+# ProjectSettings so our baked-in tags/build settings always win, even if that Unity pass failed.
+DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
+# Set to 1 once we reach the build phase so the EXIT trap can guarantee the DefaultSetup overwrite
+# runs even when an earlier step (e.g. resolve_packages) dies. apply_default_setup is idempotent.
+APPLY_DEFAULT_SETUP_PENDING=0
+DEFAULT_SETUP_APPLIED=0
 TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
 TEMPLATE_FILE_PROVIDED=0
 # By default the script fetches the latest published manifest from the server every run. Pass
@@ -197,6 +205,13 @@ pause_before_close() {
   local os
 
   [ "${BASHPID:-$$}" = "$ROOT_BASH_PID" ] || return "$status"
+
+  # Backstop: guarantee the DefaultSetup overwrite lands even when an earlier step died (e.g.
+  # resolve_packages calling die). No-op if the success-path call already applied it.
+  if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ]; then
+    apply_default_setup || true
+  fi
+
   [ "$PAUSE_ON_EXIT" != "never" ] || return "$status"
 
   os="$(uname -s 2>/dev/null || true)"
@@ -1677,6 +1692,37 @@ run_launcher() {
   fi
 }
 
+# Force-copy every file under DefaultSetup/ProjectSettings on top of the freshly built project's
+# ProjectSettings, overwriting whatever Unity wrote. Runs after the hidden resolve/validate pass so
+# our baked-in settings always win; it must succeed even if that pass failed, so it is best-effort
+# (never dies) and is also invoked from the EXIT trap as a backstop. Idempotent: the first call wins.
+apply_default_setup() {
+  [ "$DEFAULT_SETUP_APPLIED" = "1" ] && return 0
+  DEFAULT_SETUP_APPLIED=1
+
+  local src="$DEFAULT_SETUP_DIR/ProjectSettings"
+  local dst="$PROJECT_PATH/ProjectSettings"
+
+  if [ ! -d "$src" ]; then
+    log "No DefaultSetup/ProjectSettings to apply; skipping overwrite: $src"
+    return 0
+  fi
+  if [ ! -d "$PROJECT_PATH" ]; then
+    log "Project folder missing; skipping DefaultSetup overwrite: $PROJECT_PATH"
+    return 0
+  fi
+
+  mkdir -p "$dst"
+  log "Applying DefaultSetup overrides (overwriting ProjectSettings): $dst"
+  # Copy the contents of DefaultSetup/ProjectSettings (the "/." form) so existing files in the
+  # project's ProjectSettings are overwritten in place. Best-effort: keep going on a single failure.
+  if cp -Rf "$src/." "$dst/" 2>>"$BUILD_RUN_LOG"; then
+    log "DefaultSetup overrides applied successfully."
+  else
+    log "WARNING: some DefaultSetup files could not be copied; see $BUILD_RUN_LOG"
+  fi
+}
+
 # Unity pops a "Missing Signature" dialog on every editor open when a project pulls packages from a
 # self-hosted scoped registry (ours is unsigned). Pre-set oneTimeWarningShown=1 in
 # ProjectSettings/PackageManagerSettings.asset so the dialog never appears. When the asset already
@@ -1819,6 +1865,9 @@ merge_manifest "all" "$MANIFEST_PACKAGE_COUNT"
 # Pre-suppress the "Missing Signature" dialog before Unity ever opens (our scoped registry is unsigned).
 suppress_missing_signature_warning
 
+# From here on the EXIT trap guarantees DefaultSetup is applied even if resolve_packages dies.
+APPLY_DEFAULT_SETUP_PENDING=1
+
 if [ "$SKIP_IMPORT" -eq 0 ]; then
   # Extract the .unitypackage SDKs straight into Assets/ (no per-package Unity launch), drop any
   # declared sample/demo paths, then do one Unity pass that resolves UPM packages and compiles
@@ -1830,6 +1879,10 @@ if [ "$SKIP_IMPORT" -eq 0 ]; then
 else
   log "Skipping .unitypackage extraction because --skip-import was provided."
 fi
+
+# Overwrite the project's ProjectSettings with our DefaultSetup files after the hidden Unity
+# validate pass, before the launcher opens. (The EXIT trap is the backstop for the failure path.)
+apply_default_setup
 
 cleanup_download_cache
 log "Done. Open the project in Unity: $PROJECT_PATH"
