@@ -46,7 +46,6 @@
     "com.ezg.uiparticlesystem": "0.1.0",
     "com.ezg.unmask": "0.1.0",
     "com.gindemit.rlottie": "https://github.com/gindemit/unity-rlottie.git?path=/unity/RLottieUnity/Assets/LottiePlugin#d692157d134918d63cdbfa11c16ade7212145ab1",
-    "com.google.firebase.app": "file:com.google.firebase.app-13.3.0.tgz",
     "com.google.external-dependency-manager": "https://github.com/googlesamples/unity-jar-resolver.git?path=upm",
     "com.olegknyazev.softmask": "https://github.com/olegknyazev/SoftMask.git?path=/Packages/com.olegknyazev.softmask#1.7.0",
     "com.unity.2d.psdimporter": "11.0.2",
@@ -116,11 +115,6 @@
         "fileName": "com.apple.unityplugin.gamekit-4.0.1.tgz",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.apple.unityplugin.gamekit-4.0.1.tgz",
         "sha256": "85f79ad870f28c534f51bacf082d6d6fa1db3bad82d8f7820788777aaa149e87"
-      },
-      {
-        "fileName": "com.google.firebase.app-13.3.0.tgz",
-        "url": "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.3.0.tgz",
-        "sha256": ""
       }
     ],
     "unityPackages": [
