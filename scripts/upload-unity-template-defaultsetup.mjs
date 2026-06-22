@@ -40,9 +40,17 @@ function buildTarball() {
   }
   const work = mkdtempSync(join(tmpdir(), "ezg-defaultsetup-"));
   const out = join(work, "defaultsetup.tgz");
-  // Archive root is the DefaultSetup/ folder itself, so the logic extracts DefaultSetup/ProjectSettings/.
-  // COPYFILE_DISABLE + --no-xattrs keep macOS resource forks (._*) out of the tarball.
-  execFileSync("tar", ["--no-xattrs", "-czf", out, "-C", TEMPLATE_DIR, "DefaultSetup"], {
+  // Archive root is the DefaultSetup/ folder itself, so the logic extracts DefaultSetup/ (ProjectSettings/
+  // plus the baked-in tooling like .claude/, .agents/, .mcp.json).
+  //   --no-xattrs + COPYFILE_DISABLE : keep macOS resource forks (._*) out of the tarball.
+  //   --dereference                  : resolve .agents/ symlinks into real files so the tarball works on
+  //                                     Windows (where symlinks don't reliably extract).
+  //   --exclude                      : drop junk / per-developer files that must not be distributed.
+  execFileSync("tar", [
+    "--no-xattrs", "--dereference",
+    "--exclude=.DS_Store", "--exclude=settings.local.json",
+    "-czf", out, "-C", TEMPLATE_DIR, "DefaultSetup",
+  ], {
     env: { ...process.env, COPYFILE_DISABLE: "1" },
     stdio: ["ignore", "ignore", "inherit"],
   });

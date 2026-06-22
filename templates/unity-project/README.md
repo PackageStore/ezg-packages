@@ -68,8 +68,10 @@ Pass headless này được xử lý như **resolver/warm-up, không phải cổ
   Nếu sau cả 3 pass vẫn còn thì **chỉ cảnh báo + in dòng lỗi, KHÔNG dừng**: lần auto-mở Unity ở cuối
   (`run_launcher`) sẽ biên dịch lại cho sạch. Nhờ vậy end user luôn nhận được project + Unity tự mở.
 
-`DefaultSetup/ProjectSettings/` (tags/layers/build settings baked-in) được **force-copy đè** lên
-`ProjectSettings` của project. Thứ tự ưu tiên nguồn:
+`DefaultSetup/` được **force-copy** vào project mới: `DefaultSetup/ProjectSettings/` (tags/layers/build
+settings baked-in) đè lên `ProjectSettings`, còn các mục còn lại ở gốc `DefaultSetup/` (`.claude/`,
+`.agents/`, `.mcp.json`…) được copy thẳng vào **root project** để project mới có sẵn bộ tooling. Thứ tự
+ưu tiên nguồn:
 
 1. `DefaultSetup/` đặt cạnh bootstrap (dev override) — dùng nếu có.
 2. Nếu không có → tải `defaultsetup.tgz` từ R2 vào `.ezg-cache`, verify SHA-256, giải nén (xem
@@ -569,10 +571,10 @@ Hai giá trị phải khớp nhau.
 
 ## Publish DefaultSetup lên R2
 
-`DefaultSetup/ProjectSettings/` chứa tags/layers/build settings được **force-copy đè** lên `ProjectSettings`
-của mọi project tạo ra (để cấu hình baked-in luôn thắng). End user chỉ giữ bootstrap mỏng + manifest, nên
-folder này **phải tự đến được mọi máy**: logic build sẽ tải `defaultsetup.tgz` từ R2 khi máy không có
-`DefaultSetup/` local cạnh bootstrap.
+`DefaultSetup/` chứa cấu hình baked-in được **force-copy** vào mọi project tạo ra: `ProjectSettings/`
+(tags/layers/build settings) đè lên `ProjectSettings` của project, còn `.claude/`, `.agents/`, `.mcp.json`…
+được copy vào root project. End user chỉ giữ bootstrap mỏng + manifest, nên folder này **phải tự đến được
+mọi máy**: logic build sẽ tải `defaultsetup.tgz` từ R2 khi máy không có `DefaultSetup/` local cạnh bootstrap.
 
 > Thứ tự ưu tiên trong logic: nếu có `DefaultSetup/` cạnh bootstrap (dev override) thì dùng nó; nếu không,
 > tải `defaultsetup.tgz` từ R2 vào `.ezg-cache`, verify SHA-256, giải nén rồi áp dụng.
@@ -588,7 +590,9 @@ node --env-file=.env upload-unity-template-defaultsetup.mjs              # uploa
 
 Script này sẽ:
 
-- Đóng gói `templates/unity-project/DefaultSetup/` thành tarball (gốc archive là folder `DefaultSetup/`).
+- Đóng gói `templates/unity-project/DefaultSetup/` thành tarball (gốc archive là folder `DefaultSetup/`),
+  **dereference symlink** (`.agents/` → file thật để chạy được trên Windows) và **loại** `.DS_Store` +
+  `settings.local.json` (rác/cá nhân, không phân phối).
 - Upload tarball lên key `unity-template/defaultsetup.tgz`.
 - Upload SHA-256 lên key `unity-template/defaultsetup.tgz.sha256` (logic dùng file này để verify).
 

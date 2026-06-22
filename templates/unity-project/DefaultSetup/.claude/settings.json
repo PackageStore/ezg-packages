@@ -1,0 +1,3 @@
+{
+  "enabledMcpjsonServers": ["unity", "codegraph", "gitlab"]
+}

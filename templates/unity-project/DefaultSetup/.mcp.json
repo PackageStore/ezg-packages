@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "unity": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "anklebreaker-unity-mcp"
+      ]
+    },
+    "codegraph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph",
+        "serve",
+        "--mcp"
+      ]
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_PERSONAL_ACCESS_TOKEN}",
+        "GITLAB_API_URL": "https://gitlab.com/api/v4",
+        "GITLAB_PROJECT_ID": "ezg-puzzle-space/m1"
+      }
+    }
+  }
+}
+

@@ -13,9 +13,11 @@ PROJECT_NAME_OVERRIDE=""
 PROJECT_PATH="$SCRIPT_DIR/$DEFAULT_PROJECT_NAME"
 PROJECT_PATH_PROVIDED=0
 PACKAGE_TEMPLATE_DIR="$SCRIPT_DIR/PackageTemplate"
-# Folder whose contents are force-copied on top of the project's ProjectSettings so our baked-in
-# tags/build settings always win. ensure_default_setup() repoints this to a server copy when there is
-# no local DefaultSetup/ beside the bootstrap (a fresh machine only has the bootstrap + manifest).
+# Folder whose contents are force-copied into the new project so our baked-in defaults always win:
+# DefaultSetup/ProjectSettings/ overwrites the project's ProjectSettings (tags/build settings), and
+# any other top-level entries (.claude/, .agents/, .mcp.json, ...) are copied into the project root.
+# ensure_default_setup() repoints this to a server copy when there is no local DefaultSetup/ beside the
+# bootstrap (a fresh machine only has the bootstrap + manifest).
 DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
 # Set to 1 once we reach the build phase so the EXIT trap can guarantee the DefaultSetup overwrite
 # runs even when an earlier step (e.g. resolve_packages) dies. apply_default_setup is safe to call
@@ -1786,8 +1788,9 @@ run_launcher() {
   fi
 }
 
-# Force-copy every file under DefaultSetup/ProjectSettings on top of the freshly built project's
-# ProjectSettings, overwriting whatever Unity wrote. Runs after the hidden resolve/validate pass so
+# Force-copy DefaultSetup into the freshly built project: ProjectSettings overrides the project's
+# ProjectSettings, and the rest (.claude/, .agents/, .mcp.json) lands in the project root. Runs after
+# the hidden resolve/validate pass so
 # our baked-in settings always win; it must succeed even if that pass failed, so it is best-effort
 # (never dies) and is also invoked from the EXIT trap as a backstop. Idempotent: the first call wins.
 # Guarantee DEFAULT_SETUP_DIR points at a folder that actually has a ProjectSettings/ to copy.
@@ -1849,29 +1852,55 @@ ensure_default_setup() {
   fi
 }
 
+# Copy everything at the DefaultSetup root EXCEPT ProjectSettings (handled separately) into the project
+# root -- i.e. the baked-in tooling like .claude/, .agents/ and .mcp.json -- so a freshly created project
+# ships with it. Best-effort and force-overwriting, consistent with the ProjectSettings overwrite.
+apply_default_setup_extras() {
+  local root="$DEFAULT_SETUP_DIR" entry name copied=0
+  [ -d "$root" ] || return 0
+  # dotglob: include dotfiles (.claude, .agents, .mcp.json). nullglob: skip the loop when empty.
+  shopt -s dotglob nullglob 2>/dev/null || true
+  for entry in "$root"/*; do
+    name="$(basename "$entry")"
+    [ "$name" = "ProjectSettings" ] && continue
+    if cp -Rf "$entry" "$PROJECT_PATH/" 2>>"$BUILD_RUN_LOG"; then
+      copied=1
+    else
+      log "WARNING: could not copy DefaultSetup extra into project: $name"
+    fi
+  done
+  shopt -u dotglob nullglob 2>/dev/null || true
+  [ "$copied" = "1" ] && log "Applied DefaultSetup extras (.claude, .agents, .mcp.json, ...) into: $PROJECT_PATH"
+  return 0
+}
+
 apply_default_setup() {
   local src="$DEFAULT_SETUP_DIR/ProjectSettings"
   local dst="$PROJECT_PATH/ProjectSettings"
 
-  if [ ! -d "$src" ]; then
-    log "WARNING: no DefaultSetup/ProjectSettings available to overwrite (source missing): $src"
-    return 0
-  fi
   if [ ! -d "$PROJECT_PATH" ]; then
     log "Project folder missing; skipping DefaultSetup overwrite: $PROJECT_PATH"
     return 0
   fi
 
-  mkdir -p "$dst"
-  log "Applying DefaultSetup overrides (overwriting ProjectSettings): $dst"
-  # Copy the contents of DefaultSetup/ProjectSettings (the "/." form) so existing files in the
-  # project's ProjectSettings are overwritten in place. Best-effort: keep going on a single failure.
-  if cp -Rf "$src/." "$dst/" 2>>"$BUILD_RUN_LOG"; then
-    DEFAULT_SETUP_OK=1
-    log "DefaultSetup overrides applied successfully."
+  # 1) ProjectSettings overrides (the guaranteed bit -- baked-in tags/layers/build settings must win).
+  if [ -d "$src" ]; then
+    mkdir -p "$dst"
+    log "Applying DefaultSetup overrides (overwriting ProjectSettings): $dst"
+    # Copy the contents of DefaultSetup/ProjectSettings (the "/." form) so existing files in the
+    # project's ProjectSettings are overwritten in place. Best-effort: keep going on a single failure.
+    if cp -Rf "$src/." "$dst/" 2>>"$BUILD_RUN_LOG"; then
+      DEFAULT_SETUP_OK=1
+      log "DefaultSetup overrides applied successfully."
+    else
+      log "WARNING: some DefaultSetup files could not be copied; see $BUILD_RUN_LOG"
+    fi
   else
-    log "WARNING: some DefaultSetup files could not be copied; see $BUILD_RUN_LOG"
+    log "WARNING: no DefaultSetup/ProjectSettings available to overwrite (source missing): $src"
   fi
+
+  # 2) Everything else at the DefaultSetup root (.claude/, .agents/, .mcp.json, ...) -> project root.
+  apply_default_setup_extras
 }
 
 # Unity pops a "Missing Signature" dialog on every editor open when a project pulls packages from a

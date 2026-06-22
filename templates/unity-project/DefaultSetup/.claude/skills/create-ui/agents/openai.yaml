@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create UI"
+  short_description: "Build Unity UI from shared prefab templates"
+  default_prompt: "Use $create-ui to build or extend a Unity UI using the shared templates catalog."
