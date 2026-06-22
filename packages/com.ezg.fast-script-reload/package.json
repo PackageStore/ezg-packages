@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.fast-script-reload",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Fast Script Reload",
   "description": "Hot-reloads C# script edits into the running Unity Editor (and optionally into builds) without exiting Play mode or triggering a full domain reload. Vendored distribution of Immersive VR Tools' Fast Script Reload, bundling its own Harmony and Roslyn DLLs — no extra packages required.",
   "unity": "2022.3",

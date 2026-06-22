@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.iap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG In-App Purchase",
   "description": "Standalone in-app purchase module wrapping Unity IAP and AppsFlyer receipt validation. All game-specific concerns (shop, player data, analytics, secrets) are pushed behind interfaces (IPurchasing, IIapProfile, IIapReporter) and an injected IapSecurityConfig, so the module references no game code and is reusable across projects. Ships an editor menu that generates the integration template for a new project.",
   "unity": "2022.3",

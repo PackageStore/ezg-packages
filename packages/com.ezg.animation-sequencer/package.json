@@ -1,7 +1,7 @@
 {
   "name": "com.ezg.animation-sequencer",
   "displayName": "EZG Animation Sequencer",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "unity": "6000.2",
   "description": "Animation Sequencer is a way to create complex animations as a sequence of events through a friendly editor UI. Vendored from brunomikoski/Animation-Sequencer and republished under the com.ezg scope. Requires DOTween.",
   "keywords": [

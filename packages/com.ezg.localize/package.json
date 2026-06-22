@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.localize",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "displayName": "EZG Localize",
   "description": "Unity localization runtime and editor workflow: load LanguageData from Resources, create a default LocalizeDownloader config, download Google Sheets CSVs, and generate consumer-owned Resources/LocalizationData assets.",
   "unity": "2022.3",

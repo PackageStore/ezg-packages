@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.unmask",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Unmask",
   "description": "Reverse-mask (unmask) UI component for Unity uGUI. Cuts a visible hole through a parent UI Mask to spotlight a target RectTransform, with edge smoothing, fit-to-target, and a raycast filter so input passes through the unmasked area. Useful for tutorial spotlights and focus overlays.",
   "unity": "2022.3",

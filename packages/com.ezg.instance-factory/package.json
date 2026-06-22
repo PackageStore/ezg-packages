@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.instance-factory",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "displayName": "EZG Instance Factory",
   "description": "High-performance object instantiation utilities using compiled expression trees. Provides InstanceFactory (cached constructor delegates) and InstanceManager (type-hierarchy enumeration) with zero Unity dependency.",
   "unity": "2022.3",

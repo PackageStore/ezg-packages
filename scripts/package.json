@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Publish tooling: pack UPM packages from packages/* and upload tarball + metadata to Cloudflare R2 for the Easygoing scoped registry.",
   "scripts": {
-    "publish-all": "node publish.mjs",
+    "publish-all": "node --env-file=.env publish.mjs",
+    "publish-unsigned": "node --env-file=.env publish.mjs --no-sign",
     "dry-run": "node publish.mjs --dry-run",
     "validate": "node validate.mjs",
     "list": "node list.mjs",

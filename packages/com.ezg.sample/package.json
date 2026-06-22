@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.sample",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "EZG Sample",
   "description": "Smoke-test package for the Easygoing UPM scoped registry pipeline. Safe to delete once the registry is verified end-to-end.",
   "unity": "6000.2",

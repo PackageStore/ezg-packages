@@ -4,17 +4,23 @@
  *
  * For each packages/<dir>/package.json:
  *   1. If the version's tarball already exists in R2 -> skip (immutable, idempotent).
- *   2. `npm pack --json` -> .tgz + integrity (sha512) + shasum (sha1).
+ *   2. `upm pack` -> signed .tgz (Unity 6.3+ signature, embeds .attestation.p7m),
+ *      then compute integrity (sha512) + shasum (sha1) from the signed tarball.
+ *      `--no-sign` falls back to plain `npm pack` (unsigned).
  *   3. Merge the new version into the package's packument metadata (full history kept).
  *   4. Upload tarball + metadata to R2 with the exact keys the Worker expects:
  *        metadata -> key `<name>`                 (content-type application/json)
  *        tarball  -> key `<name>/-/<file>.tgz`     (content-type application/octet-stream)
  *
- * Run:  node publish.mjs            real publish; needs R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
- *       node publish.mjs --dry-run  pack + build metadata only, no R2 calls (no AWS creds needed)
+ * Run:  node --env-file=.env publish.mjs            real publish + sign; needs R2_* creds
+ *                                                    and UPM_SERVICE_ACCOUNT_KEY_ID /
+ *                                                    UPM_SERVICE_ACCOUNT_KEY_SECRET / ORGANIZATION_ID
+ *       node --env-file=.env publish.mjs --no-sign   real publish, unsigned (npm pack)
+ *       node publish.mjs --dry-run                   pack + build metadata only, no R2/signing
  */
 import { execSync } from "node:child_process";
-import { readFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, mkdtempSync, existsSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import semver from "semver";
@@ -31,6 +37,19 @@ import {
 } from "./registry-lib.mjs";
 
 const DRY_RUN = hasFlag("--dry-run");
+// Sign with the Unity Package Manager CLI by default (Unity 6.3+ flags unsigned
+// packages). `--no-sign` falls back to plain `npm pack`; dry-runs never sign so
+// they stay dependency-free (no upm CLI / service-account creds needed).
+const SIGN = !hasFlag("--no-sign");
+const USE_SIGN = SIGN && !DRY_RUN;
+
+// SRI integrity (sha512 base64) + npm shasum (sha1 hex), computed from tarball bytes.
+function hashesFor(buf) {
+  return {
+    integrity: "sha512-" + createHash("sha512").update(buf).digest("base64"),
+    shasum: createHash("sha1").update(buf).digest("hex"),
+  };
+}
 
 function npmPack(pkgDir, destDir) {
   // Run through the shell so `npm` resolves to npm.cmd on Windows (execFile of a
@@ -41,11 +60,54 @@ function npmPack(pkgDir, destDir) {
   const info = JSON.parse(out.slice(out.indexOf("[")))[0];
   return {
     filename: info.filename,
+    path: join(destDir, info.filename),
     integrity: info.integrity,
     shasum: info.shasum,
     unpackedSize: info.unpackedSize,
     fileCount: info.entryCount ?? info.fileCount,
   };
+}
+
+// Verify the upm CLI and signing credentials are present before the publish loop.
+function ensureSigningReady() {
+  try {
+    execSync("upm --version", { stdio: "ignore" });
+  } catch {
+    throw new Error(
+      "upm CLI not found on PATH. Install it once with:\n" +
+      "  curl -fsSL https://cdn.packages.unity.com/upm-cli/install.sh | bash   (macOS/Linux)\n" +
+      "  irm https://cdn.packages.unity.com/upm-cli/install.ps1 | iex          (Windows)\n" +
+      "then restart your terminal. Or run with --no-sign to skip signing."
+    );
+  }
+  for (const v of ["UPM_SERVICE_ACCOUNT_KEY_ID", "UPM_SERVICE_ACCOUNT_KEY_SECRET", "ORGANIZATION_ID"]) {
+    if (!process.env[v]) throw new Error(`Missing env var for signing: ${v} (set it in scripts/.env)`);
+  }
+}
+
+// Pack + sign with the Unity Package Manager CLI -> signed .tgz (embeds the
+// .attestation.p7m signature). Credentials are read by upm from the inherited
+// UPM_SERVICE_ACCOUNT_KEY_ID / UPM_SERVICE_ACCOUNT_KEY_SECRET env vars.
+function upmPack(pkgDir, destDir, pkgJson) {
+  const orgId = process.env.ORGANIZATION_ID;
+  execSync(`upm pack "${pkgDir}" --organization-id "${orgId}" --destination "${destDir}"`, {
+    stdio: "inherit", // surface upm's own progress / signing errors
+  });
+  const filename = `${pkgJson.name}-${pkgJson.version}.tgz`;
+  let path = join(destDir, filename);
+  if (!existsSync(path)) {
+    // Fall back to whatever signed .tgz upm produced, in case its naming differs.
+    const match = readdirSync(destDir).find(
+      (f) => f.endsWith(".tgz") && f.includes(pkgJson.version) && f.startsWith(pkgJson.name)
+    );
+    if (!match) throw new Error(`upm pack produced no tarball for ${filename} in ${destDir}`);
+    path = join(destDir, match);
+  }
+  return { filename: path.split(/[\\/]/).pop(), path, ...hashesFor(readFileSync(path)) };
+}
+
+function packPackage(pkgDir, destDir, pkgJson) {
+  return USE_SIGN ? upmPack(pkgDir, destDir, pkgJson) : npmPack(pkgDir, destDir);
 }
 
 function buildVersionEntry(pkgJson, tarballUrl, packed) {
@@ -86,6 +148,7 @@ async function main() {
     return;
   }
 
+  if (USE_SIGN) ensureSigningReady();
   const client = DRY_RUN ? null : await makeClient();
   const tmp = mkdtempSync(join(tmpdir(), "ezg-upm-"));
   const summary = [];
@@ -107,14 +170,14 @@ async function main() {
         continue;
       }
 
-      const packed = npmPack(dir, tmp);
+      const packed = packPackage(dir, tmp, pkgJson);
       const tarballUrl = `${REGISTRY_URL}/${name}/-/${packed.filename}`;
       const versionEntry = buildVersionEntry(pkgJson, tarballUrl, packed);
       const existing = DRY_RUN ? null : await getJson(client, name);
       const meta = mergeMetadata(existing, name, version, versionEntry, new Date().toISOString());
 
       if (DRY_RUN) {
-        console.log(`~ dry-run ${label}`);
+        console.log(`~ dry-run ${label} (unsigned preview; real publish signs via upm)`);
         console.log(`    tarball key : ${key}`);
         console.log(`    tarball url : ${tarballUrl}`);
         console.log(`    integrity   : ${packed.integrity}`);
@@ -124,9 +187,9 @@ async function main() {
         continue;
       }
 
-      await putObject(client, key, readFileSync(join(tmp, packed.filename)), "application/octet-stream");
+      await putObject(client, key, readFileSync(packed.path), "application/octet-stream");
       await putObject(client, name, JSON.stringify(meta, null, 2), "application/json");
-      console.log(`+ published ${label}`);
+      console.log(`+ published ${label}${USE_SIGN ? " (signed)" : ""}`);
       summary.push(`publish ${label}`);
     } catch (err) {
       failures++;

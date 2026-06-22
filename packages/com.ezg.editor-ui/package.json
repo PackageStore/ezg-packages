@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.editor-ui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Editor UI",
   "description": "Shared Unity editor UI toolkit for building consistent custom EditorWindow interfaces. Provides a theme-aware palette and GUIStyle set that adapts to the light and dark (pro-skin) editor themes, plus immediate-mode drawer helpers — cards, chips, search fields, panel backgrounds and rounded borders. Editor-only, no runtime code, and no third-party dependencies (Unity built-ins only).",
   "unity": "2022.3",

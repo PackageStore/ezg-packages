@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.radial-layout",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Radial Layout",
   "description": "Radial UI LayoutGroup that arranges child RectTransforms evenly around a circular arc. Configurable radius, min/max/start angle, visible-only layout, and per-child rotation (face-center or fixed).",
   "unity": "2022.3",

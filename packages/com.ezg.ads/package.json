@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.ads",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Ads",
   "description": "Ads mediation module (AppLovin MAX adapter) with injectable analytics tracker and level-based gating. Game-specific analytics, player data and SDK keys are injected from the host project.",
   "unity": "2022.3",

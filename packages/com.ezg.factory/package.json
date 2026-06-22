@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.factory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Factory",
   "description": "Generic factory and cache-factory patterns for enum/string-keyed module registries, plus DataPlayer base classes for PlayerPrefs-backed player data modules with JSON serialization.",
   "unity": "2022.3",

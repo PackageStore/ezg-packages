@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.local-notification",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Local Notification",
   "description": "Cross-platform local notification scheduling for Unity mobile games. Provides a platform-agnostic service that registers, refreshes, and cancels Android/iOS local notifications driven by TigerForge events and an app-pause hook, with permission handling and launch-payload capture. Game-specific scheduling rules stay in the consuming project; an Editor menu scaffolds the project-side rule template.",
   "unity": "2022.3",

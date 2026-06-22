@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.pooling",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Pooling",
   "description": "Game-agnostic GameObject pooling for Unity. Spawn/despawn pooled prefabs by reference or by resource path, with generic component pools, delayed despawn, and a static PoolService facade. Self-contained: vendors its own MonoBehaviour singleton and resolves prefabs through Resources by default (override PoolResources.Loader to route through AssetBundles/Addressables). Requires UniTask for delayed despawn.",
   "unity": "2022.3",

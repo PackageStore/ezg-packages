@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.singleton",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Singleton",
   "description": "Thread-safe MonoBehaviour Singleton<T> and plain SingletonNormal<T> base classes.",
   "unity": "2022.3",
