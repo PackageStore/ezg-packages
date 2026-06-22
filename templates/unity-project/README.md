@@ -50,6 +50,45 @@ exec bash .ezg-bootstrap/build_unity_template.logic.sh  (toàn bộ công việc
 
 > Muốn chỉnh logic build? Sửa `build_unity_template.logic.sh` rồi publish lại (xem mục [Publish logic build lên R2](#publish-logic-build-lên-r2)). Không cần đụng tới `build_unity_template.sh`.
 
+## Quy trình resolve package & DefaultSetup
+
+Sau khi dựng skeleton, ghi `manifest.json` và extract toàn bộ `.unitypackage` thẳng vào `Assets/`
+(không khởi động Unity), logic mới gọi Unity **một lần ở chế độ headless** để resolve UPM package
+(scoped registry + git) + import asset + compile. Vì mọi thứ phụ thuộc lẫn nhau (UPM ↔ asset trong
+unitypackage) nên buộc phải có mặt cùng lúc và compile chung một pass.
+
+Pass headless này được xử lý như **resolver/warm-up, không phải cổng compile cứng**:
+
+- Chạy lại tối đa **3 pass** (`RESOLVE_MAX_PASSES`). Verify bằng cách grep `: error CS` trong log,
+  **không tin exit code** (Unity batch đôi khi exit 0 dù có compiler error).
+- **Lỗi resolve package** (thiếu package / sai version / registry / không có `git`) → **fatal**, dừng
+  kèm chẩn đoán. Đây là lỗi mở Editor cũng không tự chữa được.
+- **Compiler error (CS)** → coi là **race import lần đầu** (Unity compile trước khi AssetDatabase đăng
+  ký xong asmdef từ các unitypackage). Pass kế tiếp — đúng bằng việc "mở Editor lần 2" — thường sạch.
+  Nếu sau cả 3 pass vẫn còn thì **chỉ cảnh báo + in dòng lỗi, KHÔNG dừng**: lần auto-mở Unity ở cuối
+  (`run_launcher`) sẽ biên dịch lại cho sạch. Nhờ vậy end user luôn nhận được project + Unity tự mở.
+
+`DefaultSetup/ProjectSettings/` (tags/layers/build settings baked-in) được **force-copy đè** lên
+`ProjectSettings` của project. Thứ tự ưu tiên nguồn:
+
+1. `DefaultSetup/` đặt cạnh bootstrap (dev override) — dùng nếu có.
+2. Nếu không có → tải `defaultsetup.tgz` từ R2 vào `.ezg-cache`, verify SHA-256, giải nén (xem
+   [Publish DefaultSetup lên R2](#publish-defaultsetup-lên-r2)). Đây là cách máy fresh (chỉ có
+   bootstrap + manifest) vẫn nhận được DefaultSetup.
+
+Việc overwrite được áp dụng **cả trước và sau** pass resolve (cộng backstop ở EXIT trap), nên baked-in
+settings luôn thắng kể cả khi Unity ghi lại ProjectSettings trong lúc resolve.
+
+Khi script thoát (qua EXIT trap, áp dụng cho mọi đường thoát kể cả khi compile lỗi):
+
+- **Auto-mở project:** chỉ cần file launcher (`<ProjectName>.command`/`.bat`) tồn tại là chạy luôn —
+  không phụ thuộc compile có sạch hay không (Editor là trình biên dịch cuối). Tắt bằng `--no-launch`
+  / `AUTO_LAUNCH=0`.
+- **Dọn cache:** `.ezg-cache` bị xoá ở **mọi** lần thoát, **trừ** khi resolve thất bại vì lỗi package
+  (giữ lại để lần chạy sau không phải tải lại). Tắt dọn bằng `--keep-cache` / `KEEP_DOWNLOAD_CACHE=1`.
+
+Cả hai có cờ one-shot nên không chạy lặp; khi thành công đường chính đã làm thì backstop bỏ qua.
+
 ## Cấu trúc thư mục
 
 ```text
@@ -544,11 +583,8 @@ curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/de
 
 Hai giá trị phải khớp nhau.
 
-> **Lưu ý hành vi resolve:** logic chạy pass Unity headless tối đa 3 lần. Lỗi **resolve package**
-> (thiếu package/registry/git) là fatal kèm chẩn đoán. Lỗi **compile (CS)** được coi là race import
-> lần đầu: retry, và nếu vẫn còn thì chỉ cảnh báo (không fail) — để lần auto-mở Unity ở cuối biên dịch
-> lại cho sạch. ProjectSettings được overwrite **cả trước và sau** pass resolve để chắc chắn baked-in
-> settings luôn thắng.
+> Chi tiết logic chọn nguồn DefaultSetup, thứ tự overwrite, và hành vi retry/verify của pass resolve:
+> xem mục [Quy trình resolve package & DefaultSetup](#quy-trình-resolve-package--defaultsetup).
 
 ## Kết quả sau khi chạy
 

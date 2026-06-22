@@ -21,6 +21,15 @@ DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
 # runs even when an earlier step (e.g. resolve_packages) dies. apply_default_setup is safe to call
 # repeatedly (best-effort cp), so we apply it both before and after the Unity pass.
 APPLY_DEFAULT_SETUP_PENDING=0
+# Set to 1 only when resolve_packages aborts on a real package-resolution failure. In that case we
+# KEEP the download cache (so a retry does not re-fetch); every other exit path clears it.
+PACKAGE_RESOLUTION_FAILED=0
+# One-shot guards so the EXIT-trap backstops do not repeat work the success path already did.
+LAUNCHER_RAN=0
+CACHE_CLEANED=0
+# Set to 1 once a DefaultSetup overwrite has copied successfully, so the EXIT-trap backstop does not
+# re-run apply_default_setup after the cache (its source on a fresh machine) was already cleaned.
+DEFAULT_SETUP_OK=0
 TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
 TEMPLATE_FILE_PROVIDED=0
 # By default the script fetches the latest published manifest from the server every run. Pass
@@ -209,8 +218,18 @@ pause_before_close() {
   # Backstop: guarantee the DefaultSetup overwrite lands even when an earlier step died (e.g.
   # resolve_packages hitting a fatal package-resolution failure). Safe to repeat the copy if the
   # success path already applied it.
-  if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ]; then
+  if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ] && [ "$DEFAULT_SETUP_OK" != "1" ]; then
     apply_default_setup || true
+  fi
+
+  # Backstop: open the project as long as its launcher exists, even if an earlier step failed (compile
+  # errors clear when the Editor opens). One-shot guarded, so this no-ops if the success path ran it.
+  run_launcher || true
+
+  # Backstop: clear the download cache on every exit EXCEPT a package-resolution failure (there we keep
+  # it so a retry can reuse what already downloaded). One-shot guarded; respects KEEP_DOWNLOAD_CACHE.
+  if [ "$PACKAGE_RESOLUTION_FAILED" != "1" ]; then
+    cleanup_download_cache || true
   fi
 
   [ "$PAUSE_ON_EXIT" != "never" ] || return "$status"
@@ -822,6 +841,8 @@ mark_download_cache_state() {
 }
 
 cleanup_download_cache() {
+  [ "$CACHE_CLEANED" = "1" ] && return 0
+  CACHE_CLEANED=1
   [ "$KEEP_DOWNLOAD_CACHE" != "1" ] || return 0
   [ -d "$DOWNLOAD_CACHE_DIR" ] || return 0
 
@@ -1254,8 +1275,10 @@ resolve_packages() {
       return 0
     fi
 
-    # A real package-resolution failure will not fix itself on reopen -- abort with the log.
+    # A real package-resolution failure will not fix itself on reopen -- abort with the log. Flag it so
+    # the EXIT trap keeps the cache (a retry can reuse what already downloaded) instead of wiping it.
     if resolve_log_has_package_failure "$resolve_log"; then
+      PACKAGE_RESOLUTION_FAILED=1
       dump_unity_log "$resolve_log"
       die "Unity could not resolve one or more packages (network/registry/version/git issue). See the log above."
     fi
@@ -1724,10 +1747,14 @@ LAUNCHER
 # warning, not fatal: the project is already built and can be opened by hand. Disable with
 # --no-launch or AUTO_LAUNCH=0.
 run_launcher() {
+  [ "$LAUNCHER_RAN" = "1" ] && return 0
+  LAUNCHER_RAN=1
   if [ "$AUTO_LAUNCH" != "1" ]; then
     log "Auto-launch disabled (--no-launch / AUTO_LAUNCH=0); skipping opening Unity."
     return 0
   fi
+  # Only requirement to launch: the launcher file exists. We open it regardless of whether the resolve
+  # pass reported compile errors -- the Editor is the final compiler and clears the first-import race.
   if [ -z "$LAUNCHER_PATH" ] || [ ! -f "$LAUNCHER_PATH" ]; then
     log "No launcher found to auto-run; skipping opening Unity."
     return 0
@@ -1827,6 +1854,7 @@ apply_default_setup() {
   # Copy the contents of DefaultSetup/ProjectSettings (the "/." form) so existing files in the
   # project's ProjectSettings are overwritten in place. Best-effort: keep going on a single failure.
   if cp -Rf "$src/." "$dst/" 2>>"$BUILD_RUN_LOG"; then
+    DEFAULT_SETUP_OK=1
     log "DefaultSetup overrides applied successfully."
   else
     log "WARNING: some DefaultSetup files could not be copied; see $BUILD_RUN_LOG"
