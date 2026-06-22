@@ -1266,8 +1266,13 @@ resolve_packages() {
 
   attempt=1
   while [ "$attempt" -le "$RESOLVE_MAX_PASSES" ]; do
+    # -accept-apiupdate: run the API Updater here (headless), so the GUI never shows the "Script
+    #   updating consent" dialog -- the scripts are already migrated by the time the Editor opens.
+    # -buildTarget: compile for the SAME target the launcher will open with, so the GUI does not switch
+    #   target and re-trigger a full recompile (which would re-surface the first-import race -> Safe Mode).
     run_with_progress_bar "Resolving Unity packages (pass $attempt/$RESOLVE_MAX_PASSES)" \
-      "$UNITY_EXECUTABLE" -quit -batchmode -nographics -projectPath "$project_arg" -logFile "$log_arg"
+      "$UNITY_EXECUTABLE" -quit -batchmode -nographics -accept-apiupdate \
+      -buildTarget "$BUILD_TARGET" -projectPath "$project_arg" -logFile "$log_arg"
     status=$?
 
     if [ "$status" -eq 0 ] && ! grep -q ": error CS" "$resolve_log" 2>/dev/null; then
@@ -1690,7 +1695,7 @@ if not exist "%UNITY_EXE%" (
 )
 
 echo Opening Unity Editor...
-start "" "%UNITY_EXE%" -projectPath "%CD%" -buildTarget __BUILD_TARGET__
+start "" "%UNITY_EXE%" -projectPath "%CD%" -buildTarget __BUILD_TARGET__ -accept-apiupdate -ignoreCompilerErrors
 endlocal
 LAUNCHER
     # .bat files want CRLF line endings to run reliably from a Windows double-click.
@@ -1725,7 +1730,7 @@ fi
 HUB_WAS_RUNNING=$(pgrep -x "Unity Hub")
 
 echo "Opening Unity Editor..."
-"$UNITY_APP_PATH/Contents/MacOS/Unity" -projectPath "$(pwd)" -buildTarget __BUILD_TARGET__ > /dev/null 2>&1 &
+"$UNITY_APP_PATH/Contents/MacOS/Unity" -projectPath "$(pwd)" -buildTarget __BUILD_TARGET__ -accept-apiupdate -ignoreCompilerErrors > /dev/null 2>&1 &
 
 # If Unity Hub was not running before, quit it after a delay to allow licensing to complete
 if [ -z "$HUB_WAS_RUNNING" ]; then
@@ -1760,15 +1765,23 @@ run_launcher() {
     return 0
   fi
 
-  log "Auto-opening the project in Unity via launcher: $LAUNCHER_PATH"
   if [ "$OS_NAME" = "windows" ]; then
-    if command -v cmd.exe >/dev/null 2>&1; then
+    # Open the Unity we already resolved & validated, directly in the background. The generated .bat
+    # re-detects Unity from a few fixed Hub paths and misses custom install dirs (e.g. D:\Unity Hub) --
+    # which is why the auto-open silently failed on Windows. Reusing $UNITY_EXECUTABLE always works.
+    if [ -n "${UNITY_EXECUTABLE:-}" ]; then
+      log "Auto-opening the project in Unity: $UNITY_EXECUTABLE"
+      ( "$UNITY_EXECUTABLE" -projectPath "$(to_unity_arg_path "$PROJECT_PATH")" \
+          -buildTarget "$BUILD_TARGET" -accept-apiupdate -ignoreCompilerErrors </dev/null >/dev/null 2>&1 & )
+    elif command -v cmd.exe >/dev/null 2>&1; then
+      log "Auto-opening the project in Unity via launcher: $LAUNCHER_PATH"
       MSYS2_ARG_CONV_EXCL="*" cmd.exe //c "$(to_unity_arg_path "$LAUNCHER_PATH")" \
         || log "WARNING: launcher did not start cleanly: $LAUNCHER_PATH"
     else
-      log "WARNING: cmd.exe is unavailable; open the project manually with: $LAUNCHER_PATH"
+      log "WARNING: cannot auto-open Unity; run the launcher manually: $LAUNCHER_PATH"
     fi
   else
+    log "Auto-opening the project in Unity via launcher: $LAUNCHER_PATH"
     bash "$LAUNCHER_PATH" || log "WARNING: launcher did not start cleanly: $LAUNCHER_PATH"
   fi
 }
