@@ -510,6 +510,46 @@ curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/bu
 
 Hai giá trị phải khớp nhau.
 
+## Publish DefaultSetup lên R2
+
+`DefaultSetup/ProjectSettings/` chứa tags/layers/build settings được **force-copy đè** lên `ProjectSettings`
+của mọi project tạo ra (để cấu hình baked-in luôn thắng). End user chỉ giữ bootstrap mỏng + manifest, nên
+folder này **phải tự đến được mọi máy**: logic build sẽ tải `defaultsetup.tgz` từ R2 khi máy không có
+`DefaultSetup/` local cạnh bootstrap.
+
+> Thứ tự ưu tiên trong logic: nếu có `DefaultSetup/` cạnh bootstrap (dev override) thì dùng nó; nếu không,
+> tải `defaultsetup.tgz` từ R2 vào `.ezg-cache`, verify SHA-256, giải nén rồi áp dụng.
+
+Mỗi khi sửa file trong `DefaultSetup/`, publish lại:
+
+```bash
+cd ../../scripts
+npm install
+node --env-file=.env upload-unity-template-defaultsetup.mjs --dry-run   # xem trước
+node --env-file=.env upload-unity-template-defaultsetup.mjs              # upload thật
+```
+
+Script này sẽ:
+
+- Đóng gói `templates/unity-project/DefaultSetup/` thành tarball (gốc archive là folder `DefaultSetup/`).
+- Upload tarball lên key `unity-template/defaultsetup.tgz`.
+- Upload SHA-256 lên key `unity-template/defaultsetup.tgz.sha256` (logic dùng file này để verify).
+
+Dùng chung file `scripts/.env` với các script publish khác. Sau khi upload, kiểm tra nhanh:
+
+```bash
+curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz | shasum -a 256
+curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz.sha256
+```
+
+Hai giá trị phải khớp nhau.
+
+> **Lưu ý hành vi resolve:** logic chạy pass Unity headless tối đa 3 lần. Lỗi **resolve package**
+> (thiếu package/registry/git) là fatal kèm chẩn đoán. Lỗi **compile (CS)** được coi là race import
+> lần đầu: retry, và nếu vẫn còn thì chỉ cảnh báo (không fail) — để lần auto-mở Unity ở cuối biên dịch
+> lại cho sạch. ProjectSettings được overwrite **cả trước và sau** pass resolve để chắc chắn baked-in
+> settings luôn thắng.
+
 ## Kết quả sau khi chạy
 
 Sau khi chạy thành công, project Unity sẽ có cấu trúc cơ bản:

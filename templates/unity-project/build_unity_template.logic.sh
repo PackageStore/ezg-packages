@@ -13,14 +13,14 @@ PROJECT_NAME_OVERRIDE=""
 PROJECT_PATH="$SCRIPT_DIR/$DEFAULT_PROJECT_NAME"
 PROJECT_PATH_PROVIDED=0
 PACKAGE_TEMPLATE_DIR="$SCRIPT_DIR/PackageTemplate"
-# Folder whose contents are force-copied on top of the freshly built project after the hidden Unity
-# validate pass (resolve_packages). DefaultSetup/ProjectSettings overwrites the project's
-# ProjectSettings so our baked-in tags/build settings always win, even if that Unity pass failed.
+# Folder whose contents are force-copied on top of the project's ProjectSettings so our baked-in
+# tags/build settings always win. ensure_default_setup() repoints this to a server copy when there is
+# no local DefaultSetup/ beside the bootstrap (a fresh machine only has the bootstrap + manifest).
 DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
 # Set to 1 once we reach the build phase so the EXIT trap can guarantee the DefaultSetup overwrite
-# runs even when an earlier step (e.g. resolve_packages) dies. apply_default_setup is idempotent.
+# runs even when an earlier step (e.g. resolve_packages) dies. apply_default_setup is safe to call
+# repeatedly (best-effort cp), so we apply it both before and after the Unity pass.
 APPLY_DEFAULT_SETUP_PENDING=0
-DEFAULT_SETUP_APPLIED=0
 TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
 TEMPLATE_FILE_PROVIDED=0
 # By default the script fetches the latest published manifest from the server every run. Pass
@@ -207,7 +207,8 @@ pause_before_close() {
   [ "${BASHPID:-$$}" = "$ROOT_BASH_PID" ] || return "$status"
 
   # Backstop: guarantee the DefaultSetup overwrite lands even when an earlier step died (e.g.
-  # resolve_packages calling die). No-op if the success-path call already applied it.
+  # resolve_packages hitting a fatal package-resolution failure). Safe to repeat the copy if the
+  # success path already applied it.
   if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ]; then
     apply_default_setup || true
   fi
@@ -1208,8 +1209,29 @@ merge_manifest() {
   die "Cannot merge Packages/manifest.json because neither Python nor PowerShell is available."
 }
 
+# How many headless Unity passes to try before giving up on a clean compile. The first pass on a
+# fresh machine downloads git/scoped packages and imports every extracted asset, then compiles -- and
+# Unity sometimes fires that compile before the AssetDatabase has finished registering the asmdefs the
+# .unitypackage files just added, yielding spurious CS errors. A second pass (identical to opening the
+# Editor a second time) almost always clears them; the third is a safety net for very cold caches.
+RESOLVE_MAX_PASSES=3
+
+# True when the resolve log shows a package-resolution failure the Editor cannot heal on its own
+# (missing package, bad version, no git, unreachable registry). These are real -- worth aborting for.
+# Deliberately PM/network-specific so it never matches a CS compile error (those say "could not be
+# found", handled separately as the recoverable first-import race).
+resolve_log_has_package_failure() {
+  grep -qiE "error occurred while resolving packages|cannot resolve packages|cannot perform upm operation|unable to (add|update) package|no .?git.? (executable|command) was found|enotfound|eai_again|connection (refused|timed out)|request to .+ failed, reason" "$1" 2>/dev/null
+}
+
+# Open the project headless so Unity resolves UPM packages (scoped registry + git), imports the
+# extracted assets, and compiles. This is a resolver/warm-up pass, NOT a strict compile gate:
+#   - a genuine package-resolution failure is fatal (the Editor cannot conjure a missing package);
+#   - compiler errors are treated as the known first-import asmdef race -- retried, and if they still
+#     persist we keep going so the auto-launch (run_launcher) opens the Editor as the final compiler.
+# Either way the steps after this (embed/default-setup/launcher) always get to run.
 resolve_packages() {
-  local resolve_log project_arg log_arg
+  local resolve_log project_arg log_arg status attempt
 
   resolve_log="$PROJECT_PATH/unity-resolve-packages.log"
   project_arg="$(to_unity_arg_path "$PROJECT_PATH")"
@@ -1218,10 +1240,42 @@ resolve_packages() {
   log "Resolving Unity packages and compiling. On the first run this can take"
   log "several minutes (git packages are downloaded). Watch progress in: $resolve_log"
 
-  if ! run_install_unity_step "Resolving Unity packages" "$resolve_log" \
-    "$UNITY_EXECUTABLE" -quit -batchmode -nographics -projectPath "$project_arg" -logFile "$log_arg"; then
-    die "Unity failed while resolving packages. Open the log above to see which package could not be resolved or compiled."
-  fi
+  # One logical install step, even though we may launch Unity more than once below.
+  begin_install_step "Resolving Unity packages"
+
+  attempt=1
+  while [ "$attempt" -le "$RESOLVE_MAX_PASSES" ]; do
+    run_with_progress_bar "Resolving Unity packages (pass $attempt/$RESOLVE_MAX_PASSES)" \
+      "$UNITY_EXECUTABLE" -quit -batchmode -nographics -projectPath "$project_arg" -logFile "$log_arg"
+    status=$?
+
+    if [ "$status" -eq 0 ] && ! grep -q ": error CS" "$resolve_log" 2>/dev/null; then
+      [ "$attempt" -gt 1 ] && log "Packages resolved and compiled cleanly on pass $attempt."
+      return 0
+    fi
+
+    # A real package-resolution failure will not fix itself on reopen -- abort with the log.
+    if resolve_log_has_package_failure "$resolve_log"; then
+      dump_unity_log "$resolve_log"
+      die "Unity could not resolve one or more packages (network/registry/version/git issue). See the log above."
+    fi
+
+    if [ "$attempt" -lt "$RESOLVE_MAX_PASSES" ]; then
+      log "Pass $attempt reported compile errors (likely a first-import asmdef race); retrying like reopening the Editor..."
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  # Still not clean after every pass. This is almost always the harmless first-import race that clears
+  # the moment the Editor opens, so do NOT abort: let run_launcher be the final compiler. Surface the
+  # errors loudly so a genuine code bug is not hidden.
+  log "WARNING: compile errors persisted after $RESOLVE_MAX_PASSES headless pass(es)."
+  log "         Usually the first-import asmdef race -- it clears when the Editor opens."
+  log "         If the Editor still shows red errors, they are real. Offending lines:"
+  grep -n ": error CS" "$resolve_log" 2>/dev/null | head -20 | while IFS= read -r line; do
+    log "         $line"
+  done
+  return 0
 }
 
 # A .unitypackage is a gzip tar of <guid>/{asset,asset.meta,pathname,preview.png} entries.
@@ -1696,15 +1750,71 @@ run_launcher() {
 # ProjectSettings, overwriting whatever Unity wrote. Runs after the hidden resolve/validate pass so
 # our baked-in settings always win; it must succeed even if that pass failed, so it is best-effort
 # (never dies) and is also invoked from the EXIT trap as a backstop. Idempotent: the first call wins.
-apply_default_setup() {
-  [ "$DEFAULT_SETUP_APPLIED" = "1" ] && return 0
-  DEFAULT_SETUP_APPLIED=1
+# Guarantee DEFAULT_SETUP_DIR points at a folder that actually has a ProjectSettings/ to copy.
+# Priority:
+#   1. A DefaultSetup/ next to the bootstrap -- lets you dev-override locally without republishing.
+#   2. defaultsetup.tgz fetched from R2 -- so a fresh machine (bootstrap + manifest only) still gets it.
+# Fully best-effort: a download/extract hiccup or a SHA mismatch only WARNS and leaves DEFAULT_SETUP_DIR
+# pointing at the (absent) local path, so it never blocks project creation and never applies a corrupt
+# settings folder.
+ensure_default_setup() {
+  if [ -d "$SCRIPT_DIR/DefaultSetup/ProjectSettings" ]; then
+    DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
+    return 0
+  fi
 
+  local base url tgz sha_url sha_file expected extract_dir
+  base="${TEMPLATE_URL:-$DEFAULT_TEMPLATE_URL}"
+  base="${base%/*}"                       # strip the trailing /<file>.json -> .../unity-template
+  url="${UNITY_TEMPLATE_DEFAULT_SETUP_URL:-$base/defaultsetup.tgz}"
+  tgz="$DOWNLOAD_CACHE_DIR/defaultsetup.tgz"
+  extract_dir="$DOWNLOAD_CACHE_DIR/defaultsetup"
+
+  if ! command -v tar >/dev/null 2>&1; then
+    log "WARNING: 'tar' is unavailable; cannot unpack DefaultSetup from the server."
+    return 0
+  fi
+
+  log "Fetching DefaultSetup overrides from: $url"
+  if ! download_template_file "$url" "$tgz" 2>>"$BUILD_RUN_LOG"; then
+    log "WARNING: could not download DefaultSetup ($url); ProjectSettings overrides may be unavailable."
+    return 0
+  fi
+
+  # Verify against the published sidecar when present. Soft check: a mismatch warns and skips applying
+  # rather than aborting the whole build.
+  sha_url="${url}.sha256"
+  sha_file="${tgz}.sha256"
+  if download_template_file "$sha_url" "$sha_file" 2>>"$BUILD_RUN_LOG"; then
+    expected="$(awk '{ print tolower($1); exit }' "$sha_file" 2>/dev/null)"
+    if ! checksum_matches "$tgz" "$expected"; then
+      log "WARNING: DefaultSetup tarball failed SHA-256 verification; skipping overrides ($url)."
+      return 0
+    fi
+  fi
+
+  rm -rf "$extract_dir"
+  mkdir -p "$extract_dir"
+  if ! tar xzf "$tgz" -C "$extract_dir" 2>>"$BUILD_RUN_LOG"; then
+    log "WARNING: could not unpack DefaultSetup tarball: $tgz"
+    return 0
+  fi
+
+  if [ -d "$extract_dir/DefaultSetup/ProjectSettings" ]; then
+    DEFAULT_SETUP_DIR="$extract_dir/DefaultSetup"
+  elif [ -d "$extract_dir/ProjectSettings" ]; then
+    DEFAULT_SETUP_DIR="$extract_dir"
+  else
+    log "WARNING: downloaded DefaultSetup has no ProjectSettings/ folder; nothing to apply."
+  fi
+}
+
+apply_default_setup() {
   local src="$DEFAULT_SETUP_DIR/ProjectSettings"
   local dst="$PROJECT_PATH/ProjectSettings"
 
   if [ ! -d "$src" ]; then
-    log "No DefaultSetup/ProjectSettings to apply; skipping overwrite: $src"
+    log "WARNING: no DefaultSetup/ProjectSettings available to overwrite (source missing): $src"
     return 0
   fi
   if [ ! -d "$PROJECT_PATH" ]; then
@@ -1865,6 +1975,9 @@ merge_manifest "all" "$MANIFEST_PACKAGE_COUNT"
 # Pre-suppress the "Missing Signature" dialog before Unity ever opens (our scoped registry is unsigned).
 suppress_missing_signature_warning
 
+# Make sure DefaultSetup is on disk (local copy or fetched from R2) before we apply it below.
+ensure_default_setup
+
 # From here on the EXIT trap guarantees DefaultSetup is applied even if resolve_packages dies.
 APPLY_DEFAULT_SETUP_PENDING=1
 
@@ -1874,14 +1987,17 @@ if [ "$SKIP_IMPORT" -eq 0 ]; then
   # everything together.
   extract_unitypackages
   apply_remove_paths
+  # Overwrite ProjectSettings BEFORE Unity opens so the very first compile already sees our baked-in
+  # tags/layers/build settings (apply_default_setup is best-effort and safe to call repeatedly).
+  apply_default_setup
   resolve_packages
   apply_embed_packages
 else
   log "Skipping .unitypackage extraction because --skip-import was provided."
 fi
 
-# Overwrite the project's ProjectSettings with our DefaultSetup files after the hidden Unity
-# validate pass, before the launcher opens. (The EXIT trap is the backstop for the failure path.)
+# Re-apply after the Unity pass in case it rewrote any ProjectSettings file, before the launcher
+# opens. (The EXIT trap is the backstop for the failure path.)
 apply_default_setup
 
 cleanup_download_cache
