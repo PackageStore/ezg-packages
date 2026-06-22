@@ -1,6 +1,6 @@
 # ezg-packages — Easygoing UPM Monorepo
 
-Nguồn sự thật cho mọi Unity package nội bộ (`com.ezg.*`). Mỗi thư mục con trong `packages/` là một UPM package hợp lệ. Khi merge vào `main`, GitHub Actions tự đóng gói `.tgz` + sinh metadata và đẩy lên **Cloudflare R2**; Unity project cài qua scoped registry `com.ezg`.
+Nguồn sự thật cho mọi Unity package nội bộ (`com.ezg.*`). Mỗi thư mục con trong `packages/` là một UPM package hợp lệ. Khi merge vào `main`, GitHub Actions tự đóng gói `.tgz` **đã ký** (Unity 6.3+) + sinh metadata và đẩy lên **Cloudflare R2**; Unity project cài qua scoped registry `com.ezg`.
 
 - **Registry:** https://upm-registry-worker.developer-a1f.workers.dev
 - **Storage:** Cloudflare R2 bucket `company-upm-registry`
@@ -16,7 +16,7 @@ packages/
   com.ezg.core/              # do skill /package-module đẩy vào
 scripts/
   registry-lib.mjs           # helper R2/util dùng chung
-  publish.mjs                # pack + gen metadata + upload R2
+  publish.mjs                # pack + ký (upm) + gen metadata + upload R2
   validate.mjs               # lint package.json trước publish (gác cổng CI)
   list.mjs                   # xem package/version trên registry
   unpublish.mjs              # gỡ version/package khỏi metadata (mặc định giữ tarball)
@@ -40,11 +40,49 @@ scripts/
 `scripts/publish.mjs` duyệt mọi `packages/*/package.json`:
 
 1. Tarball version đó đã có trên R2 → skip.
-2. `npm pack --json` → `.tgz` + `integrity` (sha512) + `shasum` (sha1).
+2. `upm pack` → `.tgz` **đã ký** (nhúng `package/.attestation.p7m`), rồi tự tính
+   `integrity` (sha512) + `shasum` (sha1) từ tarball đã ký. Cờ `--no-sign` quay về
+   `npm pack` (không ký). Xem [Ký package (Unity 6.3+)](#ký-package-unity-63).
 3. Tải metadata cũ từ R2 (chưa có → tạo mới), merge version mới, set `dist-tags.latest`.
 4. Upload `.tgz` (key `<name>/-/<file>.tgz`) + metadata (key `<name>`) lên R2.
 
 `dist.tarball` trong metadata trỏ về URL Worker, nên UPM tải `.tgz` qua Worker.
+
+## Ký package (Unity 6.3+)
+
+Từ **Unity 6.3**, Package Manager kiểm tra chữ ký số trên mọi tarball; package
+chưa ký từ scoped registry bị gắn cảnh báo ⚠️ *"doesn't have a signature"*. Vì vậy
+`publish.mjs` **mặc định ký** mỗi package bằng **Unity Package Manager CLI** (`upm pack`).
+
+**Cần gì:**
+
+- **upm CLI** trên PATH — cài 1 lần:
+  ```bash
+  curl -fsSL https://cdn.packages.unity.com/upm-cli/install.sh | bash   # macOS/Linux
+  irm https://cdn.packages.unity.com/upm-cli/install.ps1 | iex          # Windows
+  ```
+- **Service account credentials** của Unity org (Unity Cloud Dashboard → Administration →
+  Service Accounts), đặt trong `scripts/.env` (đã gitignore — **không commit**):
+  ```bash
+  UPM_SERVICE_ACCOUNT_KEY_ID=...
+  UPM_SERVICE_ACCOUNT_KEY_SECRET=...
+  ORGANIZATION_ID=18968450812585        # Administration → Settings (KHÔNG phải key id)
+  ```
+
+**Publish có ký (local):**
+
+```bash
+cd scripts && npm install
+node --env-file=.env publish.mjs           # ký + upload R2 (cần upm + 3 biến trên)
+node --env-file=.env publish.mjs --no-sign # publish KHÔNG ký (fallback npm pack)
+```
+
+`publish.mjs` preflight kiểm tra `upm` + 3 biến env trước khi chạy; thiếu thì dừng kèm
+hướng dẫn. `--dry-run` không bao giờ ký (không cần upm/creds).
+
+> **Lưu ý:** chỉ version **mới publish** mới có chữ ký — version cũ trên registry vẫn
+> unsigned. Muốn xoá cảnh báo cho consumer thì bump + republish (đã ký) rồi cập nhật version
+> mà họ pin. Bug Unity 6.3 đời đầu báo nhầm "invalid signature" đã fix ở **`6000.3.5f2`**+.
 
 ## Chạy local (dry-run, không cần R2 credentials)
 
@@ -54,7 +92,8 @@ npm install
 node publish.mjs --dry-run
 ```
 
-Dry-run chỉ pack + dựng metadata rồi in ra, không gọi R2.
+Dry-run chỉ pack (không ký) + dựng metadata rồi in ra, không gọi R2 và không cần upm CLI.
+Publish thật có ký xem [Ký package (Unity 6.3+)](#ký-package-unity-63).
 
 ## CI secrets (GitHub repo → Settings → Secrets → Actions)
 
@@ -63,8 +102,14 @@ Dry-run chỉ pack + dựng metadata rồi in ra, không gọi R2.
 | `R2_ACCOUNT_ID` | Cloudflare account id (endpoint S3 của R2) |
 | `R2_ACCESS_KEY_ID` | R2 **S3 API** access key id |
 | `R2_SECRET_ACCESS_KEY` | R2 **S3 API** secret |
+| `UPM_SERVICE_ACCOUNT_KEY_ID` | Unity service account key id (ký package — [xem trên](#ký-package-unity-63)) |
+| `UPM_SERVICE_ACCOUNT_KEY_SECRET` | Unity service account secret |
 
-`R2_BUCKET` và `REGISTRY_URL` cấu hình thẳng trong `.github/workflows/publish.yml`.
+`R2_BUCKET`, `REGISTRY_URL` và `ORGANIZATION_ID` cấu hình thẳng trong `.github/workflows/publish.yml`
+(`ORGANIZATION_ID` không phải secret). Workflow tự cài upm CLI rồi chạy `publish.mjs` (mặc định ký).
+
+> ⚠️ **Bắt buộc thêm 2 secret `UPM_SERVICE_ACCOUNT_KEY_*`** ở GitHub repo → Settings → Secrets →
+> Actions. Thiếu chúng, CI publish sẽ **fail** ở preflight ký (hoặc phải đổi workflow sang `--no-sign`).
 
 > Tạo R2 S3 token: Cloudflare → R2 → *Manage R2 API Tokens* → *Create API Token* (Object Read & Write trên bucket `company-upm-registry`). Token này khác với Worker token.
 

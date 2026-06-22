@@ -27,14 +27,24 @@ jobs:
         working-directory: scripts
         run: npm install
 
+      - name: Install Unity Package Manager CLI (for signing)
+        run: |
+          curl -fsSL https://cdn.packages.unity.com/upm-cli/install.sh | bash
+          echo "$HOME/.upm/bin" >> "$GITHUB_PATH"
+
       - name: Validate packages
         run: node scripts/validate.mjs
 
-      - name: Publish new package versions to R2
+      - name: Publish new package versions to R2 (signed)
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: company-upm-registry
           REGISTRY_URL: https://upm-registry-worker.developer-a1f.workers.dev
+          # Unity service account for `upm pack` signing (Unity 6.3+).
+          # Add the two keys as repo secrets; ORGANIZATION_ID is not secret.
+          UPM_SERVICE_ACCOUNT_KEY_ID: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_ID }}
+          UPM_SERVICE_ACCOUNT_KEY_SECRET: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_SECRET }}
+          ORGANIZATION_ID: '18968450812585'
         run: node scripts/publish.mjs
