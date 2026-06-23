@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "project": "M001",
+  "description": "M001 game features — install per-feature via EZG Feature Hub.",
+  "assets": [
+    {
+      "name": "IAPIntegration",
+      "fileName": "IAPIntegration.unitypackage",
+      "category": "_Shared",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/_Shared/IAPIntegration.unitypackage",
+      "sha256": "0fd98e0b0f1f9a9598d98b4bfe562f751dbad70d83ef5f011481142e58c551e3",
+      "markerPaths": [
+        "Assets/_Project/Features/_Shared/IAPIntegration"
+      ]
+    },
+    {
+      "name": "_Shared",
+      "fileName": "_Shared.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/_Shared.unitypackage",
+      "sha256": "5ce0a75093b38bbbd618f94a07c40234b43bb35f0c2a94984d8b5253104551c8",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/_Shared"
+      ]
+    },
+    {
+      "name": "BattleRoyale",
+      "fileName": "BattleRoyale.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/BattleRoyale.unitypackage",
+      "sha256": "f84f3b96a20c58f2b95937ebe7f9b4bd9bba06b88ce461237a00549cc5a0885c",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/BattleRoyale"
+      ]
+    },
+    {
+      "name": "FortuneMeetsCookie",
+      "fileName": "FortuneMeetsCookie.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/FortuneMeetsCookie.unitypackage",
+      "sha256": "bc4d96ed21914f782a4299d3f658457ce8613a42847585b6eda44754bfc31f8e",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/FortuneMeetsCookie"
+      ]
+    },
+    {
+      "name": "HappinessExpress",
+      "fileName": "HappinessExpress.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/HappinessExpress.unitypackage",
+      "sha256": "0a4f672087d79c80c8803c3ea470c0e3fb7d2086568f4e33dcc1a6329b44720f",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/HappinessExpress"
+      ]
+    },
+    {
+      "name": "PetalPlateParty",
+      "fileName": "PetalPlateParty.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/PetalPlateParty.unitypackage",
+      "sha256": "9589571538e562a32c2f2ec5075e37671fa63be626ae372562223590692495f4",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/PetalPlateParty"
+      ]
+    },
+    {
+      "name": "PizzaTowerRace",
+      "fileName": "PizzaTowerRace.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/PizzaTowerRace.unitypackage",
+      "sha256": "c6e3004932979e510c66716d2fe28f816e67cb53d279f50a3200b4c8fa48941c",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/PizzaTowerRace"
+      ]
+    },
+    {
+      "name": "SpeedFeastRace",
+      "fileName": "SpeedFeastRace.unitypackage",
+      "category": "Events",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Events/SpeedFeastRace.unitypackage",
+      "sha256": "6c9a77e84d9b0834c4bac6851cf8691a715df264ea656ec052db7c3341263d4b",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/SpeedFeastRace"
+      ]
+    },
+    {
+      "name": "ChefsBook",
+      "fileName": "ChefsBook.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/ChefsBook.unitypackage",
+      "sha256": "6708197df31289b28c3e5d16cac4f76be2b72a27b3c69f05c29451d271c1e99b",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/ChefsBook"
+      ]
+    },
+    {
+      "name": "Inventory",
+      "fileName": "Inventory.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/Inventory.unitypackage",
+      "sha256": "f58d9c636402f9d5af38477150d7730b158277ac972134fb0e5295aacceb639c",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Inventory"
+      ]
+    },
+    {
+      "name": "ItemInfo",
+      "fileName": "ItemInfo.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/ItemInfo.unitypackage",
+      "sha256": "4dab76daedf877d16df02d720639839449da23a10e46fc0d4f0d0ddd5b9e5217",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/ItemInfo"
+      ]
+    },
+    {
+      "name": "LevelUp",
+      "fileName": "LevelUp.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/LevelUp.unitypackage",
+      "sha256": "c339c576c9127de4a6fda9f832fc3651e6d3d41caed13556268c13c970aa1d9a",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/LevelUp"
+      ]
+    },
+    {
+      "name": "MapEditor",
+      "fileName": "MapEditor.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/MapEditor.unitypackage",
+      "sha256": "8fc001a1f5d96d4867bf89ed1d0519f4f1c87faf9c5207283af78c55b9787c89",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/MapEditor"
+      ]
+    },
+    {
+      "name": "NewEquipment",
+      "fileName": "NewEquipment.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/NewEquipment.unitypackage",
+      "sha256": "c37492caf20bb5b12cd4f19f1f09669e2b4333950bc228ab6dd64329beca99ac",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/NewEquipment"
+      ]
+    },
+    {
+      "name": "OpenZoneBuildUpGoal",
+      "fileName": "OpenZoneBuildUpGoal.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/OpenZoneBuildUpGoal.unitypackage",
+      "sha256": "bc13bb9a51b7ce7d8202cc9109160658317b5b67e7eab454777ba2356cb7b5d1",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OpenZoneBuildUpGoal"
+      ]
+    },
+    {
+      "name": "OrderMania",
+      "fileName": "OrderMania.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/OrderMania.unitypackage",
+      "sha256": "ceec9e12cbba9d3663dea26a28941678287fb9153f46383ddb7958a3f5fc6373",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OrderMania"
+      ]
+    },
+    {
+      "name": "OrderManiaReward",
+      "fileName": "OrderManiaReward.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/OrderManiaReward.unitypackage",
+      "sha256": "ec25a6aab67b80e2e65c9c87a129e4352ce09ee1bff710dd3f4740440beb0e58",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OrderManiaReward"
+      ]
+    },
+    {
+      "name": "RenovationCompleted",
+      "fileName": "RenovationCompleted.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/RenovationCompleted.unitypackage",
+      "sha256": "09b9760c8d1925e089f93370e534eb63b56d2c7915a65f859c5466bfc8a699b2",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/RenovationCompleted"
+      ]
+    },
+    {
+      "name": "SelectTheme",
+      "fileName": "SelectTheme.unitypackage",
+      "category": "Meta",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Meta/SelectTheme.unitypackage",
+      "sha256": "6bb98bf675398a2387973ae9a987de764019b61c68a92eb02abac18c3660f8d0",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/SelectTheme"
+      ]
+    },
+    {
+      "name": "BattlePass",
+      "fileName": "BattlePass.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/BattlePass.unitypackage",
+      "sha256": "c1f757d1531c59c0a0ef0658dcf4a66a7f0c4b08731282606df71ea71188cbc0",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BattlePass"
+      ]
+    },
+    {
+      "name": "BattlePassPackage",
+      "fileName": "BattlePassPackage.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/BattlePassPackage.unitypackage",
+      "sha256": "951b70722f4f8c0fb2da2e908e67e162545eef971bfb5dbe769f98123e3cf1ab",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BattlePassPackage"
+      ]
+    },
+    {
+      "name": "BigFlashSale",
+      "fileName": "BigFlashSale.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/BigFlashSale.unitypackage",
+      "sha256": "2105785c262bcf97967c59f2d6e47d9674c3a126ce53d1184b3b7dffbe88d53c",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BigFlashSale"
+      ]
+    },
+    {
+      "name": "BuyCurrency",
+      "fileName": "BuyCurrency.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/BuyCurrency.unitypackage",
+      "sha256": "775d539eac1666a716632cc1de9347e01278194fffca8410c9b6259e1e40c350",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BuyCurrency"
+      ]
+    },
+    {
+      "name": "ChainPack",
+      "fileName": "ChainPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/ChainPack.unitypackage",
+      "sha256": "5cfc3742d1ae5affd946b3b150d25a553d62df1b261d083c1a0b546c48e29028",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/ChainPack"
+      ]
+    },
+    {
+      "name": "ChoiceChest",
+      "fileName": "ChoiceChest.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/ChoiceChest.unitypackage",
+      "sha256": "8f66aff3b0ad9d46de64f245ac83101cb28058c961001fb1e2f49e0d46aaed8e",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/ChoiceChest"
+      ]
+    },
+    {
+      "name": "DiscountGemRaw",
+      "fileName": "DiscountGemRaw.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/DiscountGemRaw.unitypackage",
+      "sha256": "463c2a29d51c3917c54addefd57b6e660412da54e1f0bc3dc61e88fa63304b80",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/DiscountGemRaw"
+      ]
+    },
+    {
+      "name": "EnergyPack",
+      "fileName": "EnergyPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/EnergyPack.unitypackage",
+      "sha256": "b8a9bbc867a0ced31e1ecb1485e8361495b91f5d647e4c28680450149fb8b69f",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/EnergyPack"
+      ]
+    },
+    {
+      "name": "EnergyTrilogy",
+      "fileName": "EnergyTrilogy.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/EnergyTrilogy.unitypackage",
+      "sha256": "797498bc3a500c220ae9ec241854a2ac16d2c797329a1badf00a27d6fb4999d1",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/EnergyTrilogy"
+      ]
+    },
+    {
+      "name": "InfinityPack",
+      "fileName": "InfinityPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/InfinityPack.unitypackage",
+      "sha256": "f0db9ef1d429ee8408707da4748dd4e43e7a6f61b7745b8f3d9765560fbc9b71",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/InfinityPack"
+      ]
+    },
+    {
+      "name": "LuckySpin",
+      "fileName": "LuckySpin.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/LuckySpin.unitypackage",
+      "sha256": "037e1eae966d60d3d06cd657dcb1c41eb6284c4f822aefdc23dc6d68a40b7401",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/LuckySpin"
+      ]
+    },
+    {
+      "name": "OpenningPack",
+      "fileName": "OpenningPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/OpenningPack.unitypackage",
+      "sha256": "adebcd14a9c1fe3beeb1f9c4e90ee3f0a8b20f2d2bedc75079a88d4e8eccc11d",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/OpenningPack"
+      ]
+    },
+    {
+      "name": "OpenStarChest",
+      "fileName": "OpenStarChest.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/OpenStarChest.unitypackage",
+      "sha256": "adefc38653e903c045147c48b2f9f1119011da84d437c3e93dabc777cd11716a",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/OpenStarChest"
+      ]
+    },
+    {
+      "name": "PiggyBank",
+      "fileName": "PiggyBank.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/PiggyBank.unitypackage",
+      "sha256": "675c10ce42b7dba743ddd2ae492327a7cc8fc9f2cbe50683670d050ac3a00a79",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/PiggyBank"
+      ]
+    },
+    {
+      "name": "QuickBreak",
+      "fileName": "QuickBreak.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/QuickBreak.unitypackage",
+      "sha256": "dc199bd42f962a853e984d4e5cdae271229bfff0097ea160fc37144cef0f4d9d",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/QuickBreak"
+      ]
+    },
+    {
+      "name": "SpeedPackage",
+      "fileName": "SpeedPackage.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/SpeedPackage.unitypackage",
+      "sha256": "04bcb39da02889ca0afb2c896d32e2772cd6ccc9f921c039c2f4d7eea862eb8e",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/SpeedPackage"
+      ]
+    },
+    {
+      "name": "StarterPack",
+      "fileName": "StarterPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/StarterPack.unitypackage",
+      "sha256": "e75399707fb2313abfc15c9a77152d9f4ce8e1f815b20ed0b46fc9a65f12a061",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/StarterPack"
+      ]
+    },
+    {
+      "name": "WatchRateItemGen",
+      "fileName": "WatchRateItemGen.unitypackage",
+      "category": "Monetization",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Monetization/WatchRateItemGen.unitypackage",
+      "sha256": "480295ed96f0b33bf9f1c1187df4ced4bdfe84e73ef60eaf41e47afa8ae10844",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/WatchRateItemGen"
+      ]
+    },
+    {
+      "name": "VideoIntro",
+      "fileName": "VideoIntro.unitypackage",
+      "category": "Onboarding",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/Onboarding/VideoIntro.unitypackage",
+      "sha256": "bb9b318210f8d2184fd564d1cf52a0857bfea4252aa797c8a4ddca5a5a0bb181",
+      "markerPaths": [
+        "Assets/_Project/Features/Onboarding/VideoIntro"
+      ]
+    },
+    {
+      "name": "ConfirmExpandItem",
+      "fileName": "ConfirmExpandItem.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/ConfirmExpandItem.unitypackage",
+      "sha256": "0165cf994185187be862ebafb74421fc419c47581aa7c9281eb143eae7a7876b",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ConfirmExpandItem"
+      ]
+    },
+    {
+      "name": "ConfirmSellRareItem",
+      "fileName": "ConfirmSellRareItem.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/ConfirmSellRareItem.unitypackage",
+      "sha256": "27b30838ab83bb03be40f2bae471c05fac069deb441a5b6b0d99ce8e3faac1e8",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ConfirmSellRareItem"
+      ]
+    },
+    {
+      "name": "DailyReward",
+      "fileName": "DailyReward.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/DailyReward.unitypackage",
+      "sha256": "cbc65bd81c1abc95863be151cfe88f75a389f5bf0febc7b96f9af07072427f1d",
+      "markerPaths": [
+        "Assets/_Project/Features/System/DailyReward"
+      ]
+    },
+    {
+      "name": "NotEnoughCurrency",
+      "fileName": "NotEnoughCurrency.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/NotEnoughCurrency.unitypackage",
+      "sha256": "3a7e9f269a0676a134885e80534e878d4678438ad0610c68ceb4c5ca14c6cc86",
+      "markerPaths": [
+        "Assets/_Project/Features/System/NotEnoughCurrency"
+      ]
+    },
+    {
+      "name": "PopupConfirm",
+      "fileName": "PopupConfirm.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/PopupConfirm.unitypackage",
+      "sha256": "bcc5192e39efa3b4882dd5d570e1c2d89e6a667cb0a352a64ee776e74a2cd083",
+      "markerPaths": [
+        "Assets/_Project/Features/System/PopupConfirm"
+      ]
+    },
+    {
+      "name": "PopupNextTheme",
+      "fileName": "PopupNextTheme.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/PopupNextTheme.unitypackage",
+      "sha256": "43842949fae2d021bbf43e04bf44f963a304f3f1b5f926779feb98a8d7b380da",
+      "markerPaths": [
+        "Assets/_Project/Features/System/PopupNextTheme"
+      ]
+    },
+    {
+      "name": "RewardEventPopup",
+      "fileName": "RewardEventPopup.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/RewardEventPopup.unitypackage",
+      "sha256": "7afc440efccbb5eb41b1ed7e7f1af71f74e4261880aecfecdc7dc0088e9132ae",
+      "markerPaths": [
+        "Assets/_Project/Features/System/RewardEventPopup"
+      ]
+    },
+    {
+      "name": "ScreenMaskChangeScene",
+      "fileName": "ScreenMaskChangeScene.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/ScreenMaskChangeScene.unitypackage",
+      "sha256": "db1f86871a8ccaad0ad392208c45bb2f5e380e016b37a9a50918f62f98819312",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ScreenMaskChangeScene"
+      ]
+    },
+    {
+      "name": "VideoBonuses",
+      "fileName": "VideoBonuses.unitypackage",
+      "category": "System",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/files/System/VideoBonuses.unitypackage",
+      "sha256": "e14c25644f5f9a5722b3c4b438f833c7585d54c4f37988b5d43a10d50214f870",
+      "markerPaths": [
+        "Assets/_Project/Features/System/VideoBonuses"
+      ]
+    }
+  ]
+}

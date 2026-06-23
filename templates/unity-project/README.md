@@ -543,6 +543,150 @@ Script `upload-unity-template-catalog.mjs` sẽ:
 
 Dùng chung `scripts/.env` với các script publish khác.
 
+## Feature catalog (tính năng game theo dự án)
+
+Khác với `asset-catalog.json` (asset bên thứ ba: Odin, DOTween, Firebase…), **feature catalog**
+chứa **tính năng game do mình tự làm**, gom theo **dự án** (M001, M002, …). Mỗi tính năng là một
+folder tự chứa trong project gốc, được export thành **một `.unitypackage`** để cài lẻ qua EZG Feature Hub.
+
+Mô hình **"manifest of manifests"**: một `index.json` liệt kê các dự án, mỗi dự án có `catalog.json`
+riêng. Tool đọc `index.json` trước (nhỏ), người dùng chọn dự án → mới tải `catalog.json` của dự án đó
+(lazy). Publish dự án này không đụng dự án khác.
+
+### Nguồn trên đĩa & layout R2
+
+Nguồn nằm trong `templates/Features/<PROJECT>/<Category>/<Feature>.unitypackage`. `category` = **tên
+thư mục con** (`Events`, `Meta`, `Monetization`, `Onboarding`, `System`, `_Shared`…). Ví dụ M001:
+
+```text
+templates/Features/M001/
+├─ Events/        BattleRoyale.unitypackage, FortuneMeetsCookie.unitypackage, …
+├─ Meta/          ChefsBook.unitypackage, Inventory.unitypackage, …
+├─ Monetization/  BattlePass.unitypackage, LuckySpin.unitypackage, …
+├─ Onboarding/    VideoIntro.unitypackage
+├─ System/        DailyReward.unitypackage, PopupConfirm.unitypackage, …
+└─ _Shared/       IAPIntegration.unitypackage
+```
+
+Sau publish, cấu trúc trên R2:
+
+```text
+unity-template/features/
+├─ index.json                                  # registry các dự án
+└─ M001/
+   ├─ catalog.json                             # catalog của M001
+   └─ files/<Category>/<Feature>.unitypackage  # payload, namespace theo category
+```
+
+URL công khai:
+
+```text
+https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/index.json
+https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/catalog.json
+```
+
+### Publish feature catalog lên R2
+
+```bash
+cd ../../scripts
+node --env-file=.env upload-unity-template-features.mjs --dry-run        # xem trước (mọi dự án)
+node --env-file=.env upload-unity-template-features.mjs                  # upload tất cả dự án
+node --env-file=.env upload-unity-template-features.mjs --project M001   # chỉ 1 dự án
+```
+
+Script `upload-unity-template-features.mjs` sẽ:
+
+- Quét `templates/Features/<PROJECT>/<Category>/*.unitypackage`.
+- Tính `sha256` từng file.
+- **Tự suy ra `markerPaths`** = folder gốc của feature trong package (đọc các member `pathname`,
+  vd `Assets/_Project/Features/Events/BattleRoyale`) → Feature Hub biết feature "đã cài" kể cả
+  trên máy khác (không cần install-record).
+- Upload payload lên `unity-template/features/<PROJECT>/files/<Category>/<file>` (đã tồn tại thì
+  **skip**; `--force` để ghi đè; `--skip-files` chỉ đẩy catalog/index).
+- **Tự sinh + upload** `catalog.json` cho từng dự án và `index.json` tổng (index luôn quét **mọi**
+  dự án trên đĩa nên không bao giờ lệch). Bản local cũng được ghi vào `templates/Features/` để xem/commit.
+
+Cờ: `--dry-run`, `--force`, `--skip-files`, `--project <ID>`. Dùng chung `scripts/.env`.
+
+Thêm dự án/tính năng mới: bỏ `.unitypackage` vào `templates/Features/<PROJECT>/<Category>/` rồi chạy lại
+script — không cần sửa JSON tay.
+
+### Đọc data từ server (triển khai Feature Hub ở project khác)
+
+Một consumer (Editor tool ở project Unity bất kỳ) chỉ cần 3 bước, đều là HTTP GET công khai (không
+cần credential):
+
+1. **GET `index.json`** → danh sách dự án + `catalogUrl` từng dự án.
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "description": "EZG Feature Hub — registry of per-project feature catalogs.",
+  "projects": [
+    {
+      "id": "M001",
+      "name": "M001",
+      "catalogUrl": "https://pub-….r2.dev/unity-template/features/M001/catalog.json",
+      "featureCount": 47,
+      "categories": ["Events", "Meta", "Monetization", "Onboarding", "System", "_Shared"]
+    }
+  ]
+}
+```
+
+2. **GET `catalogUrl`** của dự án người dùng chọn → danh sách feature.
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "project": "M001",
+  "description": "M001 game features — install per-feature via EZG Feature Hub.",
+  "assets": [
+    {
+      "name": "BattleRoyale",
+      "fileName": "BattleRoyale.unitypackage",
+      "category": "Events",
+      "url": "https://pub-….r2.dev/unity-template/features/M001/files/Events/BattleRoyale.unitypackage",
+      "sha256": "f84f3b96…",
+      "markerPaths": ["Assets/_Project/Features/Events/BattleRoyale"]
+    }
+  ]
+}
+```
+
+3. **GET `url`** của feature được chọn → verify `sha256` → `AssetDatabase.ImportPackage`.
+   Dùng `markerPaths[]`: nếu path đã tồn tại trong project thì coi như **đã cài** (đổi `sha256` →
+   *update available*).
+
+Schema này **tương thích** `CatalogAsset`/`AssetCatalog` sẵn có trong `com.ezg.featurehub`
+(`FeatureHubModels.cs`) — chỉ cần thêm model `index.json` và một bước chọn dự án. Code mẫu C# tối thiểu:
+
+```csharp
+// 1) index
+var index = JsonUtility.FromJson<FeatureIndex>(await Get(INDEX_URL));
+// 2) catalog của dự án người dùng chọn
+var catalog = JsonUtility.FromJson<AssetCatalog>(await Get(index.projects[i].catalogUrl));
+// 3) tải + verify + import 1 feature
+var bytes = await GetBytes(asset.url);
+if (Sha256Hex(bytes) != asset.sha256) throw new Exception("SHA-256 mismatch");
+var tmp = Path.Combine("Temp/EzgFeatureHub", asset.fileName);
+File.WriteAllBytes(tmp, bytes);
+AssetDatabase.ImportPackage(tmp, interactive: false);
+
+[Serializable] public class FeatureProject {
+    public string id, name, catalogUrl; public int featureCount; public string[] categories;
+}
+[Serializable] public class FeatureIndex {
+    public int schemaVersion; public string description; public List<FeatureProject> projects;
+}
+// AssetCatalog/CatalogAsset: tái dùng nguyên từ FeatureHubModels.cs
+// (đã có name, fileName, url, category, sha256, markerPaths).
+```
+
+> Lưu ý: `JsonUtility` không parse được Dictionary; index/catalog ở đây cố tình chỉ dùng array nên
+> `JsonUtility.FromJson` chạy thẳng. Nếu cần `unity-template.json` (có `dependencies` dạng map) thì
+> mới phải dùng parser khác (xem `FeatureHubService` cách hiện tại đang đọc template).
+
 ## Publish logic build lên R2
 
 Khi sửa logic build (`build_unity_template.logic.sh`), publish lại để mọi end user nhận bản mới ở lần chạy kế tiếp — **không cần** họ tải lại `build_unity_template.sh`.

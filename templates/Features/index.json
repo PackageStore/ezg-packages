@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "description": "EZG Feature Hub — registry of per-project feature catalogs.",
+  "projects": [
+    {
+      "id": "M001",
+      "name": "M001",
+      "catalogUrl": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/catalog.json",
+      "featureCount": 47,
+      "categories": [
+        "Events",
+        "Meta",
+        "Monetization",
+        "Onboarding",
+        "System",
+        "_Shared"
+      ]
+    }
+  ]
+}
