@@ -43,8 +43,8 @@ jobs:
           R2_BUCKET: company-upm-registry
           REGISTRY_URL: https://upm-registry-worker.developer-a1f.workers.dev
           # Unity service account for `upm pack` signing (Unity 6.3+).
-          # Add the two keys as repo secrets; ORGANIZATION_ID is not secret.
+          # All three values are pulled from repo secrets.
           UPM_SERVICE_ACCOUNT_KEY_ID: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_ID }}
           UPM_SERVICE_ACCOUNT_KEY_SECRET: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_SECRET }}
-          ORGANIZATION_ID: '18968450812585'
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
         run: node scripts/publish.mjs
