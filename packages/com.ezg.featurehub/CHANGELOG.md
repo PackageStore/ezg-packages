@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5] - 2026-06-23
+### Fixed
+- Installing Feature Hub on a machine that did not already have `com.gindemit.rlottie` failed to compile with `CS0246: The type or namespace name 'LottiePlugin' could not be found`. UPM cannot resolve a git dependency declared transitively in a package's `package.json`, so the rlottie runtime that powers the in-editor Lottie icons was never pulled in automatically.
+  - The only file touching `LottiePlugin` (`LottieElement.cs`) is now guarded by the `EZG_HAS_RLOTTIE` define (added via asmdef `versionDefines` keyed on `com.gindemit.rlottie`). Feature Hub therefore **compiles whether or not rlottie is present** — when absent, Lottie elements degrade to an empty box instead of breaking the build.
+  - A new `[InitializeOnLoad]` bootstrap (`FeatureHubRuntimeDependency`) **self-heals** the project: on editor load it ensures `com.gindemit.rlottie` (git url) is present in `Packages/manifest.json`, adding it once if missing and resolving. After Unity resolves, `EZG_HAS_RLOTTIE` switches on and the animated icons light up automatically — no manual manifest editing required. It never overwrites an existing entry.
+
 ## [0.1.3] - 2026-06-21
 ### Fixed
 - Packages that are already present in the project are no longer reported as "not installed".

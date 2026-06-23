@@ -230,6 +230,43 @@ namespace Ezg.FeatureHub.Editor
             }
         }
 
+        /// <summary>
+        /// Đảm bảo manifest.json có một dependency (name -> version/url). Trả về true nếu vừa THÊM
+        /// mới (chưa từng có), false nếu đã tồn tại sẵn (không ghi đè để tôn trọng lựa chọn của project).
+        /// Dùng cho git-dependency mà UPM không thể resolve gián tiếp qua package.json (vd rlottie).
+        /// </summary>
+        public static bool EnsureDependency(string name, string versionOrUrl)
+        {
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(versionOrUrl))
+                return false;
+
+            try
+            {
+                string path = ManifestPath();
+                if (!File.Exists(path))
+                    return false;
+
+                var root = JObject.Parse(File.ReadAllText(path));
+                if (!(root[DEPENDENCIES_KEY] is JObject deps))
+                {
+                    deps = new JObject();
+                    root[DEPENDENCIES_KEY] = deps;
+                }
+
+                if (deps[name] != null)
+                    return false; // đã có (bất kể version/url) -> không đụng vào
+
+                deps[name] = versionOrUrl;
+                File.WriteAllText(path, root.ToString(Formatting.Indented));
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[FeatureHub] Ghi dependency '{name}' lỗi: {e.Message}");
+                return false;
+            }
+        }
+
         #endregion
 
         #region Public Methods — Install .unitypackage

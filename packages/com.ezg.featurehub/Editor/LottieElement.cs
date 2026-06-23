@@ -4,11 +4,18 @@
 //   Loop : lặp vô hạn (spinner, brand).
 //   Once : phát 0->cuối một lần (check, confetti).
 //   Idle : đứng yên ở frame cuối (icon đã thành hình); gọi Play() để phát micro-animation khi hover.
+//
+// EZG_HAS_RLOTTIE: define do asmdef versionDefines bật khi project có com.gindemit.rlottie.
+// Khi CHƯA có gói (vd vừa cài Feature Hub trên máy mới), file vẫn compile nhờ bản stub bên dưới
+// — element chỉ là khung trống, không animation. Feature Hub tự thêm rlottie vào manifest khi load
+// (FeatureHubRuntimeDependency); sau khi Unity resolve, define bật lên và icon động hoạt động.
+using UnityEngine.UIElements;
+#if EZG_HAS_RLOTTIE
 using System;
 using LottiePlugin;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
+#endif
 
 namespace Ezg.FeatureHub.Editor
 {
@@ -19,6 +26,7 @@ namespace Ezg.FeatureHub.Editor
         Idle,
     }
 
+#if EZG_HAS_RLOTTIE
     public sealed class LottieElement : VisualElement
     {
         #region Fields
@@ -232,4 +240,24 @@ namespace Ezg.FeatureHub.Editor
 
         #endregion
     }
+#else
+    // Stub khi project chưa có com.gindemit.rlottie: giữ nguyên public API để FeatureHubWindow
+    // compile, hiển thị khung trống (graceful degrade). Animation bật lại tự động sau khi
+    // FeatureHubRuntimeDependency thêm rlottie vào manifest và Unity resolve xong.
+    public sealed class LottieElement : VisualElement
+    {
+        public LottieElement(string json, int displaySize, LottiePlay mode = LottiePlay.Loop, uint renderSize = 0)
+        {
+            style.width = displaySize;
+            style.height = displaySize;
+            style.flexShrink = 0;
+        }
+
+        public void Play() { }
+
+        public void PlayOnce() { }
+
+        public void PlayLoop() { }
+    }
+#endif
 }

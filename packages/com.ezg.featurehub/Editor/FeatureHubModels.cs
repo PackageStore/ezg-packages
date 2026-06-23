@@ -26,6 +26,15 @@ namespace Ezg.FeatureHub.Editor
         // Prefix các package module hệ thống Unity (ẩn khỏi tab UPM cho đỡ nhiễu).
         public const string UNITY_MODULE_PREFIX = "com.unity.modules.";
 
+        // Runtime dependency của chính Feature Hub: rlottie (cung cấp assembly LottiePlugin.Runtime),
+        // dùng để render icon Lottie động trong editor. UPM KHÔNG resolve git-dependency gián tiếp khai
+        // báo trong package.json -> không thể đưa vào "dependencies". Vì vậy Feature Hub tự ghi git-url
+        // này vào Packages/manifest.json của project khi load (xem FeatureHubRuntimeDependency); code
+        // dùng LottiePlugin được guard bằng define EZG_HAS_RLOTTIE nên vẫn compile khi gói chưa có.
+        public const string RLOTTIE_PACKAGE_NAME = "com.gindemit.rlottie";
+        public const string RLOTTIE_PACKAGE_URL =
+            "https://github.com/gindemit/unity-rlottie.git?path=/unity/RLottieUnity/Assets/LottiePlugin#d692157d134918d63cdbfa11c16ade7212145ab1";
+
         // Scoped registry mặc định của EZG — khớp Packages/manifest.json của dự án hiện tại.
         // Dùng làm fallback khi template từ server chưa khai báo scopedRegistries.
         public const string EZG_REGISTRY_NAME = "Easygoing code base";
