@@ -19,6 +19,7 @@ namespace Ezg.FeatureHub.Editor
 
         private const string PREF_IMPORT_MODE = "Ezg.FeatureHub.ImportMode";
         private const string PREF_TAB = "Ezg.FeatureHub.Tab";
+        private const string PREF_FEATURE_PROJECT = "Ezg.FeatureHub.FeatureProject";
 
         // Palette.
         private static readonly Color C_BG = new Color32(30, 33, 41, 255);
@@ -48,6 +49,13 @@ namespace Ezg.FeatureHub.Editor
         // Nạp async sau khi mở; dùng để biết UPM nào "đã có sẵn" dù không nằm trong _projectDeps.
         private Dictionary<string, string> _resolvedPackages = new Dictionary<string, string>();
 
+        // Tab "Features": index các dự án feature + catalog của project đang chọn (lazy-load, cache theo id).
+        private FeaturesIndex _featuresIndex;
+        private string _selectedProjectId;
+        private AssetCatalog _featureCatalog;
+        private bool _featuresLoading;
+        private readonly Dictionary<string, AssetCatalog> _featureCatalogCache = new Dictionary<string, AssetCatalog>();
+
         private int _tab;
         private ImportMode _importMode = ImportMode.Ask;
         private string _search = string.Empty;
@@ -62,10 +70,13 @@ namespace Ezg.FeatureHub.Editor
 
         private VisualElement _tabUnity;
         private VisualElement _tabUpm;
+        private VisualElement _tabFeatures;
         private LottieElement _tabUnityIcon;
         private LottieElement _tabUpmIcon;
+        private LottieElement _tabFeaturesIcon;
         private Label _tabUnityLabel;
         private Label _tabUpmLabel;
+        private Label _tabFeaturesLabel;
 
         #endregion
 
@@ -87,6 +98,7 @@ namespace Ezg.FeatureHub.Editor
             // và KHÔNG ghi file nào. Silent bỏ qua dialog nên cài ổn định.
             _importMode = (ImportMode)EditorPrefs.GetInt(PREF_IMPORT_MODE, (int)ImportMode.Silent);
             _tab = EditorPrefs.GetInt(PREF_TAB, 0);
+            _selectedProjectId = EditorPrefs.GetString(PREF_FEATURE_PROJECT, null);
 
             var root = rootVisualElement;
             root.style.flexDirection = FlexDirection.Column;
@@ -157,8 +169,10 @@ namespace Ezg.FeatureHub.Editor
 
             _tabUnity = BuildTabPill("Unity Packages", LottieLibrary.ARCHIVE, 0, out _tabUnityIcon, out _tabUnityLabel);
             _tabUpm = BuildTabPill("UPM Packages", LottieLibrary.SETTINGS, 1, out _tabUpmIcon, out _tabUpmLabel);
+            _tabFeatures = BuildTabPill("Features", LottieLibrary.STAR, 2, out _tabFeaturesIcon, out _tabFeaturesLabel);
             bar.Add(_tabUnity);
             bar.Add(_tabUpm);
+            bar.Add(_tabFeatures);
 
             bar.Add(new VisualElement { style = { flexGrow = 1, minWidth = 8 } }); // spacer
 
@@ -259,6 +273,7 @@ namespace Ezg.FeatureHub.Editor
         {
             ApplyPillStyle(_tabUnity, _tabUnityLabel, _tabUnityIcon, _tab == 0);
             ApplyPillStyle(_tabUpm, _tabUpmLabel, _tabUpmIcon, _tab == 1);
+            ApplyPillStyle(_tabFeatures, _tabFeaturesLabel, _tabFeaturesIcon, _tab == 2);
         }
 
         private static void ApplyPillStyle(VisualElement pill, Label label, LottieElement icon, bool active)
@@ -304,6 +319,16 @@ namespace Ezg.FeatureHub.Editor
                 if (error != null)
                     Debug.LogWarning($"[FeatureHub] {error}");
                 CheckLoaded();
+            });
+
+            // Index feature tải độc lập: KHÔNG gate vào CheckLoaded để index chậm/lỗi không chặn 2 tab kia.
+            FeatureHubService.LoadFeaturesIndex((index, error) =>
+            {
+                _featuresIndex = index ?? new FeaturesIndex();
+                if (error != null)
+                    Debug.LogWarning($"[FeatureHub] {error}");
+                if (_tab == 2)
+                    RebuildList();
             });
         }
 
@@ -386,10 +411,12 @@ namespace Ezg.FeatureHub.Editor
                 return;
             }
 
-            if (_tab == 0)
-                BuildUnityTab();
-            else
-                BuildUpmTab();
+            switch (_tab)
+            {
+                case 0: BuildUnityTab(); break;
+                case 1: BuildUpmTab(); break;
+                default: BuildFeaturesTab(); break;
+            }
 
             StaggerAppear();
         }
@@ -445,7 +472,7 @@ namespace Ezg.FeatureHub.Editor
                 return;
             }
 
-            _listContainer.Add(SectionActionBar("Cài/cập nhật tất cả còn thiếu", InstallAllUpm));
+            _listContainer.Add(SectionActionBar("Cập nhật tất cả còn thiếu", InstallAllUpm));
 
             var deps = _template.dependencies
                 .Where(kv => !kv.Key.StartsWith(FeatureHubConstants.UNITY_MODULE_PREFIX))
@@ -462,6 +489,164 @@ namespace Ezg.FeatureHub.Editor
             _listContainer.Add(CategoryHeader("Dependencies", deps.Count));
             foreach (var kv in deps)
                 _listContainer.Add(BuildUpmCard(kv.Key, kv.Value));
+        }
+
+        private void BuildFeaturesTab()
+        {
+            // Index chưa về (tải độc lập với gate "ready") -> hiện loading.
+            if (_featuresIndex == null)
+            {
+                _listContainer.Add(LoadingCard());
+                return;
+            }
+
+            if (_featuresIndex.projects == null || _featuresIndex.projects.Count == 0)
+            {
+                _listContainer.Add(InfoCard("Chưa có dự án feature nào."));
+                return;
+            }
+
+            // Chốt project đang chọn: nếu chưa chọn / id không còn trong index -> mặc định project đầu.
+            FeatureProject selected = _featuresIndex.projects
+                .FirstOrDefault(p => p != null && p.id == _selectedProjectId);
+            if (selected == null)
+            {
+                selected = _featuresIndex.projects[0];
+                _selectedProjectId = selected.id;
+                EditorPrefs.SetString(PREF_FEATURE_PROJECT, _selectedProjectId);
+            }
+
+            _listContainer.Add(BuildProjectSelectorRow(selected));
+
+            // Catalog chưa sẵn sàng và chưa đang tải -> kick off load (sẽ tự RebuildList khi xong).
+            // KHÔNG add LoadingCard ở đây: LoadSelectedProjectCatalog gọi RebuildList ngay (set
+            // _featuresLoading) nên vẽ lại sẽ rơi vào nhánh loading bên dưới — tránh add trùng.
+            if (_featureCatalog == null && !_featuresLoading)
+            {
+                LoadSelectedProjectCatalog(selected);
+                return;
+            }
+
+            // Đang tải catalog của project -> loading.
+            if (_featuresLoading || _featureCatalog == null)
+            {
+                _listContainer.Add(LoadingCard());
+                return;
+            }
+
+            if (_featureCatalog.assets == null || _featureCatalog.assets.Count == 0)
+            {
+                _listContainer.Add(InfoCard($"Dự án {ProjectDisplayName(selected)} chưa có feature nào."));
+                return;
+            }
+
+            _listContainer.Add(SectionActionBar("Cài tất cả feature còn thiếu", InstallAllFeatures));
+
+            var filtered = _featureCatalog.assets.Where(MatchSearchAsset).ToList();
+            if (filtered.Count == 0)
+            {
+                _listContainer.Add(InfoCard("Không khớp từ khóa tìm kiếm."));
+                return;
+            }
+
+            foreach (var group in filtered
+                         .GroupBy(a => string.IsNullOrEmpty(a.category) ? "Khác" : a.category)
+                         .OrderBy(g => g.Key))
+            {
+                _listContainer.Add(CategoryHeader(group.Key, group.Count()));
+                foreach (var asset in group.OrderBy(a => a.name))
+                    _listContainer.Add(BuildAssetCard(asset));
+            }
+        }
+
+        /// <summary>Header row: popup chọn dự án + số feature của dự án đang chọn.</summary>
+        private VisualElement BuildProjectSelectorRow(FeatureProject selected)
+        {
+            var row = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row, alignItems = Align.Center,
+                    paddingLeft = 2, paddingRight = 10, paddingTop = 4, paddingBottom = 4,
+                },
+            };
+
+            var names = _featuresIndex.projects.Select(ProjectDisplayName).ToList();
+            int selectedIndex = Mathf.Max(0, _featuresIndex.projects.IndexOf(selected));
+            var popup = new PopupField<string>(names, selectedIndex);
+            popup.RegisterValueChangedCallback(evt =>
+            {
+                int idx = names.IndexOf(evt.newValue);
+                if (idx < 0 || idx >= _featuresIndex.projects.Count)
+                    return;
+                var project = _featuresIndex.projects[idx];
+                if (project == null || project.id == _selectedProjectId)
+                    return;
+
+                _selectedProjectId = project.id;
+                EditorPrefs.SetString(PREF_FEATURE_PROJECT, _selectedProjectId);
+                _featureCatalog = null;
+                LoadSelectedProjectCatalog(project);
+            });
+            row.Add(LabeledField("Dự án", popup));
+
+            if (selected.featureCount > 0)
+                row.Add(new Label($"· {selected.featureCount} feature")
+                {
+                    style = { marginLeft = 8, color = C_MUTED, fontSize = 11 },
+                });
+
+            return row;
+        }
+
+        /// <summary>Tên hiển thị của project: ưu tiên name, fallback id.</summary>
+        private static string ProjectDisplayName(FeatureProject project)
+        {
+            if (project == null)
+                return "—";
+            return string.IsNullOrEmpty(project.name) ? project.id : project.name;
+        }
+
+        /// <summary>Lấy catalog của project đang chọn: ưu tiên cache, không có thì tải lazy.</summary>
+        private void LoadSelectedProjectCatalog(FeatureProject project)
+        {
+            if (project == null)
+                return;
+
+            if (_featureCatalogCache.TryGetValue(project.id, out var cached))
+            {
+                _featureCatalog = cached;
+                _featuresLoading = false;
+                RebuildList();
+                return;
+            }
+
+            _featuresLoading = true;
+            SetStatus($"Đang tải feature của {ProjectDisplayName(project)}...");
+            ShowSpinner();
+            RebuildList();
+
+            FeatureHubService.LoadFeatureCatalog(project.catalogUrl, (catalog, error) =>
+            {
+                _featuresLoading = false;
+                HideStatusIcon();
+                if (error != null)
+                {
+                    Debug.LogWarning($"[FeatureHub] {error}");
+                    SetStatus($"Lỗi tải feature {ProjectDisplayName(project)}: {error}");
+                    _featureCatalog = new AssetCatalog();
+                }
+                else
+                {
+                    _featureCatalog = catalog ?? new AssetCatalog();
+                    _featureCatalogCache[project.id] = _featureCatalog;
+                    SetStatus($"{ProjectDisplayName(project)} — {_featureCatalog.assets.Count} feature.");
+                }
+
+                // Chỉ vẽ lại nếu user vẫn đang ở đúng project này.
+                if (_selectedProjectId == project.id)
+                    RebuildList();
+            });
         }
 
         #endregion
@@ -719,26 +904,55 @@ namespace Ezg.FeatureHub.Editor
                 });
         }
 
+        private void InstallAllFeatures()
+        {
+            if (_busy || _featureCatalog == null)
+                return;
+
+            string projectName = ProjectDisplayName(
+                _featuresIndex?.projects?.FirstOrDefault(p => p != null && p.id == _selectedProjectId));
+
+            var queue = _featureCatalog.assets
+                .Where(a => FeatureHubInstallRecord.GetStatus(a) != UnityPackageStatus.Installed)
+                .ToList();
+
+            if (queue.Count == 0)
+            {
+                SetStatus($"Tất cả feature của {projectName} đã được cài.");
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog(
+                    "Cài tất cả feature còn thiếu",
+                    $"Sẽ tải & import {queue.Count} feature của {projectName} (chế độ silent). Tiếp tục?",
+                    "Cài", "Hủy"))
+                return;
+
+            SetBusy(true);
+            RunUnityQueue(queue, 0);
+        }
+
         private void InstallAllUpm()
         {
             if (_busy || _template?.dependencies == null)
                 return;
 
+            // Chỉ nâng cấp package ĐÃ cài lên bản mới hơn — bỏ qua package chưa cài, không bao giờ hạ bản.
             var queue = _template.dependencies
                 .Where(kv => !kv.Key.StartsWith(FeatureHubConstants.UNITY_MODULE_PREFIX))
-                .Where(kv => !IsUpmSatisfied(kv.Key, kv.Value))
+                .Where(kv => ResolveUpmStatus(kv.Key, kv.Value) == UpmStatus.UpdateAvailable)
                 .ToList();
 
             if (queue.Count == 0)
             {
-                SetStatus("Tất cả UPM package đã khớp template.");
+                SetStatus("Tất cả UPM package đã ở bản mới nhất.");
                 return;
             }
 
             if (!EditorUtility.DisplayDialog(
-                    "Cài/cập nhật UPM",
-                    $"Sẽ ghi {queue.Count} dependency vào Packages/manifest.json rồi resolve. Tiếp tục?",
-                    "Cài", "Hủy"))
+                    "Cập nhật UPM",
+                    $"Sẽ cập nhật {queue.Count} package lên bản mới hơn rồi resolve. Tiếp tục?",
+                    "Cập nhật", "Hủy"))
                 return;
 
             SetBusy(true);
@@ -840,14 +1054,79 @@ namespace Ezg.FeatureHub.Editor
             if (!resolved && !inManifest)
                 return UpmStatus.NotInstalled;
 
-            // Có mặt trong project. Chỉ đánh "Khác bản" khi so được 2 version cụ thể và lệch nhau —
-            // tránh báo nhầm cho dep dạng "file:"/git/range mà chuỗi target không phải semver.
+            // Có mặt trong project. Chỉ đánh "Có bản mới" khi cả target lẫn bản hiện tại là version cụ thể
+            // VÀ target mới hơn hẳn — tránh báo nhầm cho dep dạng "file:"/git/range, và KHÔNG bao giờ đề
+            // xuất hạ bản (current >= target -> Installed).
             string current = resolved ? resolvedVer : manifestVal;
             if (IsConcreteVersion(value) && IsConcreteVersion(current) &&
-                !string.Equals(value, current, StringComparison.OrdinalIgnoreCase))
-                return UpmStatus.Different;
+                CompareSemver(value, current) > 0)
+                return UpmStatus.UpdateAvailable;
 
             return UpmStatus.Installed;
+        }
+
+        /// <summary>
+        /// So sánh 2 chuỗi semver cụ thể: trả về &lt;0 nếu a cũ hơn b, 0 nếu bằng, &gt;0 nếu a mới hơn b.
+        /// So phần lõi số ("1.2.3") theo từng thành phần (thiếu = 0). Bỏ qua suffix sau '-'/'+' khi so lõi;
+        /// nếu lõi bằng nhau thì bản CÓ pre-release ('-') xếp THẤP hơn bản không có (chuẩn semver). Gặp
+        /// thành phần không phải số (malformed) -> fallback so sánh chuỗi OrdinalIgnoreCase, bằng thì trả 0.
+        /// </summary>
+        private static int CompareSemver(string a, string b)
+        {
+            // Không phải version cụ thể -> không so được, coi như bằng (không đề xuất update).
+            if (!IsConcreteVersion(a) || !IsConcreteVersion(b))
+                return 0;
+
+            string coreA = SemverCore(a, out bool preA);
+            string coreB = SemverCore(b, out bool preB);
+
+            string[] partsA = coreA.Split('.');
+            string[] partsB = coreB.Split('.');
+            int len = Mathf.Max(partsA.Length, partsB.Length);
+            for (int i = 0; i < len; i++)
+            {
+                if (!TryParseComponent(partsA, i, out int na) || !TryParseComponent(partsB, i, out int nb))
+                    return 0; // malformed component -> ambiguous, không đề xuất update
+                if (na != nb)
+                    return na < nb ? -1 : 1;
+            }
+
+            // Lõi bằng nhau: bản có pre-release xếp thấp hơn bản không có.
+            if (preA == preB)
+                return 0;
+            return preA ? -1 : 1;
+        }
+
+        /// <summary>Tách phần lõi số của semver (bỏ suffix sau '-' hoặc '+'); báo có pre-release ('-') không.</summary>
+        private static string SemverCore(string value, out bool hasPreRelease)
+        {
+            hasPreRelease = false;
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+            int dash = value.IndexOf('-');
+            int plus = value.IndexOf('+');
+            int cut = -1;
+            if (dash >= 0)
+            {
+                cut = dash;
+                hasPreRelease = true;
+            }
+            if (plus >= 0 && (cut < 0 || plus < cut))
+            {
+                cut = plus;
+                hasPreRelease = dash >= 0 && dash < plus; // '+' build metadata, '-' trước nó mới là pre-release
+            }
+            return cut < 0 ? value : value.Substring(0, cut);
+        }
+
+        private static bool TryParseComponent(string[] parts, int index, out int number)
+        {
+            if (index >= parts.Length)
+            {
+                number = 0; // thành phần thiếu = 0
+                return true;
+            }
+            return int.TryParse(parts[index], out number);
         }
 
         /// <summary>Version cụ thể = chuỗi semver thuần (không phải "file:", git url, "*", range...).</summary>
@@ -1201,7 +1480,7 @@ namespace Ezg.FeatureHub.Editor
         private static string UpmStatusIcon(UpmStatus s) => s switch
         {
             UpmStatus.Installed => LottieLibrary.CHECK2,
-            UpmStatus.Different => LottieLibrary.UPDATE,
+            UpmStatus.UpdateAvailable => LottieLibrary.UPDATE,
             _ => LottieLibrary.DOWNLOAD,
         };
 
@@ -1233,21 +1512,21 @@ namespace Ezg.FeatureHub.Editor
         private static string UpmStatusText(UpmStatus s) => s switch
         {
             UpmStatus.Installed => "Đã cài",
-            UpmStatus.Different => "Khác bản",
+            UpmStatus.UpdateAvailable => "Có bản mới",
             _ => "Chưa cài",
         };
 
         private static Color UpmStatusColor(UpmStatus s) => s switch
         {
             UpmStatus.Installed => C_SUCCESS,
-            UpmStatus.Different => C_WARN,
+            UpmStatus.UpdateAvailable => C_WARN,
             _ => C_MUTED,
         };
 
         private static string UpmActionText(UpmStatus s) => s switch
         {
             UpmStatus.Installed => "Cài lại",
-            UpmStatus.Different => "Cập nhật",
+            UpmStatus.UpdateAvailable => "Cập nhật",
             _ => "Cài",
         };
 

@@ -16,6 +16,11 @@ namespace Ezg.FeatureHub.Editor
         public const string TEMPLATE_URL =
             "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json";
 
+        // Index các dự án feature đã làm (A002, ST001, R001, M001...). Mỗi project trỏ tới một
+        // catalog.json riêng (shape giống asset-catalog.json) — tải lazy khi user chọn project.
+        public const string FEATURES_INDEX_URL =
+            "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/index.json";
+
         // Thư mục temp tải file về (nằm trong Temp/ của project — đã gitignore).
         public const string TEMP_DIR_NAME = "EzgFeatureHub";
 
@@ -59,12 +64,13 @@ namespace Ezg.FeatureHub.Editor
         UpdateAvailable,
     }
 
-    /// <summary>Trạng thái một UPM dependency so với Packages/manifest.json hiện tại.</summary>
+    /// <summary>Trạng thái một UPM dependency so với Packages/manifest.json hiện tại.
+    /// UpdateAvailable = đã cài nhưng target của template mới hơn bản hiện tại (chỉ nâng cấp, không hạ).</summary>
     public enum UpmStatus
     {
         NotInstalled,
         Installed,
-        Different,
+        UpdateAvailable,
     }
 
     // ---- asset-catalog.json ----
@@ -93,6 +99,28 @@ namespace Ezg.FeatureHub.Editor
         public int schemaVersion;
         public string description;
         public List<CatalogAsset> assets = new List<CatalogAsset>();
+    }
+
+    // ---- features/index.json ----
+
+    /// <summary>Một dự án feature trong index (vd M001). catalogUrl trỏ tới catalog.json riêng của project.</summary>
+    [System.Serializable]
+    public class FeatureProject
+    {
+        public string id;                              // mã dự án, vd "M001"
+        public string name;                            // tên hiển thị (fallback về id nếu rỗng)
+        public string catalogUrl;                      // URL catalog.json của project (shape = asset-catalog.json)
+        public int featureCount;                       // số feature trong project (để hiển thị nhanh)
+        public List<string> categories = new List<string>(); // các danh mục có trong project
+    }
+
+    /// <summary>Index liệt kê mọi dự án feature. Data-driven: thêm project ở server là tự hiện lên UI.</summary>
+    [System.Serializable]
+    public class FeaturesIndex
+    {
+        public int schemaVersion;
+        public string description;
+        public List<FeatureProject> projects = new List<FeatureProject>();
     }
 
     // ---- unity-template.json (latest.json) ----

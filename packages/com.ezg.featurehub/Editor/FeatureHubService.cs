@@ -71,6 +71,53 @@ namespace Ezg.FeatureHub.Editor
             });
         }
 
+        /// <summary>Tải index các dự án feature (features/index.json). onDone(index, errorOrNull).</summary>
+        public static void LoadFeaturesIndex(Action<FeaturesIndex, string> onDone)
+        {
+            EditorDownloader.DownloadText(FeatureHubConstants.FEATURES_INDEX_URL, (ok, text, error) =>
+            {
+                if (!ok)
+                {
+                    onDone?.Invoke(null, $"Tải features index lỗi: {error}");
+                    return;
+                }
+
+                try
+                {
+                    var index = JsonConvert.DeserializeObject<FeaturesIndex>(text);
+                    onDone?.Invoke(index ?? new FeaturesIndex(), null);
+                }
+                catch (Exception e)
+                {
+                    onDone?.Invoke(null, $"Parse features index lỗi: {e.Message}");
+                }
+            });
+        }
+
+        /// <summary>Tải catalog.json của một dự án feature. Shape giống asset-catalog.json nên
+        /// deserialize thẳng vào AssetCatalog (field "project" thừa được Newtonsoft bỏ qua).</summary>
+        public static void LoadFeatureCatalog(string catalogUrl, Action<AssetCatalog, string> onDone)
+        {
+            EditorDownloader.DownloadText(catalogUrl, (ok, text, error) =>
+            {
+                if (!ok)
+                {
+                    onDone?.Invoke(null, $"Tải feature catalog lỗi: {error}");
+                    return;
+                }
+
+                try
+                {
+                    var catalog = JsonConvert.DeserializeObject<AssetCatalog>(text);
+                    onDone?.Invoke(catalog ?? new AssetCatalog(), null);
+                }
+                catch (Exception e)
+                {
+                    onDone?.Invoke(null, $"Parse feature catalog lỗi: {e.Message}");
+                }
+            });
+        }
+
         /// <summary>Đọc dependencies hiện có trong Packages/manifest.json để so trạng thái.</summary>
         public static Dictionary<string, string> LoadProjectDependencies()
         {

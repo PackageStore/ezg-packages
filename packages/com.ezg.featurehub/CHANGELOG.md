@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6] - 2026-06-23
+### Added
+- New **"Features"** tab (right of "UPM Packages") listing per-project features published as `.unitypackage`. Data-driven from a remote index (`features/index.json` → `projects[]`), with a project selector popup (A002 / ST001 / R001 / M001 / … appear automatically as they are added remotely — nothing hardcoded). Each project's catalog reuses the existing `.unitypackage` download → SHA-256 verify → import → marker/record status flow, plus a **"Cài tất cả feature còn thiếu"** batch button. Project catalogs are lazy-loaded and cached per project.
+### Fixed
+- **UPM tab no longer downgrades.** When the project already had a version *newer* than the template target, the card still showed an "update" button and clicking it wrote the older target version into `Packages/manifest.json` (a downgrade). Status now uses a proper semver comparison and only offers an update when the template target is strictly newer than the resolved version (`UpmStatus.Different` → `UpmStatus.UpdateAvailable`, labeled "Có bản mới").
+- Renamed the UPM batch button **"Cài/cập nhật tất cả còn thiếu" → "Cập nhật tất cả còn thiếu"**; it now only upgrades already-installed packages to a newer version and skips packages that are not installed at all (never downgrades).
+
 ## [0.1.5] - 2026-06-23
 ### Fixed
 - Installing Feature Hub on a machine that did not already have `com.gindemit.rlottie` failed to compile with `CS0246: The type or namespace name 'LottiePlugin' could not be found`. UPM cannot resolve a git dependency declared transitively in a package's `package.json`, so the rlottie runtime that powers the in-editor Lottie icons was never pulled in automatically.
