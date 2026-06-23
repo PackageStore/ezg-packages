@@ -354,6 +354,108 @@ namespace Ezg.FeatureHub.Editor
 
         #endregion
 
+        #region Public Methods — Uninstall .unitypackage
+
+        /// <summary>
+        /// Gỡ một asset/feature đã cài: XÓA các markerPaths/markerGuids (thư mục/asset gốc) khỏi project
+        /// rồi xóa install-record. Chỉ áp dụng cho asset CÓ khai báo marker (mỗi feature = 1 folder gốc
+        /// dạng "Assets/_Project/Features/.../<Name>"), nên xóa marker = gỡ trọn feature.
+        /// onDone(success, errorOrNull). Lưu ý: gói chứa script bị xóa sẽ gây recompile + domain reload,
+        /// nên record được xóa TRƯỚC khi xóa asset để trạng thái luôn nhất quán dù closure bị nuốt.
+        /// </summary>
+        public static void UninstallUnityPackage(CatalogAsset asset, Action<bool, string> onDone)
+        {
+            if (asset == null)
+            {
+                onDone?.Invoke(false, "Asset rỗng.");
+                return;
+            }
+
+            var targets = ResolveMarkerAssetPaths(asset);
+
+            // Không có marker / không còn asset nào trên đĩa -> không biết xóa gì. Vẫn xóa record để
+            // gỡ trạng thái "đã cài" (vd user đã xóa thủ công, chỉ còn kẹt record).
+            if (targets.Count == 0)
+            {
+                bool hadRecord = FeatureHubInstallRecord.Get(asset.name) != null;
+                FeatureHubInstallRecord.Remove(asset.name);
+                onDone?.Invoke(
+                    hadRecord,
+                    hadRecord
+                        ? null
+                        : "Không xác định được file để gỡ (asset thiếu markerPaths hoặc đã bị xóa).");
+                return;
+            }
+
+            // Xóa record trước (xem chú thích trên).
+            FeatureHubInstallRecord.Remove(asset.name);
+
+            var failed = new List<string>();
+            int deleted = 0;
+            foreach (var path in targets)
+            {
+                try
+                {
+                    if (AssetDatabase.DeleteAsset(path))
+                        deleted++;
+                    else
+                        failed.Add(path);
+                }
+                catch (Exception e)
+                {
+                    failed.Add($"{path} ({e.Message})");
+                }
+            }
+
+            AssetDatabase.Refresh();
+
+            if (failed.Count > 0)
+                onDone?.Invoke(deleted > 0,
+                    $"Đã xóa {deleted} mục, lỗi {failed.Count}: {string.Join("; ", failed)}");
+            else
+                onDone?.Invoke(true, null);
+        }
+
+        /// <summary>
+        /// Gom các path đích để gỡ: markerGuids (resolve ra path) + markerPaths (path tương đối project),
+        /// khử trùng lặp và chỉ giữ lại path còn TỒN TẠI trên đĩa (file hoặc folder). Path luôn ở dạng
+        /// "Assets/..." để AssetDatabase.DeleteAsset xử lý (xóa luôn .meta đi kèm).
+        /// </summary>
+        private static List<string> ResolveMarkerAssetPaths(CatalogAsset asset)
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void TryAdd(string path)
+            {
+                if (string.IsNullOrEmpty(path) || !seen.Add(path))
+                    return;
+                string full = Path.Combine(ProjectRoot(), path);
+                if (File.Exists(full) || Directory.Exists(full))
+                    result.Add(path);
+            }
+
+            if (asset.markerGuids != null)
+            {
+                foreach (var guid in asset.markerGuids)
+                {
+                    if (string.IsNullOrEmpty(guid))
+                        continue;
+                    TryAdd(AssetDatabase.GUIDToAssetPath(guid));
+                }
+            }
+
+            if (asset.markerPaths != null)
+            {
+                foreach (var rel in asset.markerPaths)
+                    TryAdd(rel);
+            }
+
+            return result;
+        }
+
+        #endregion
+
         #region Public Methods — Install UPM
 
         /// <summary>

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.7] - 2026-06-23
+### Added
+- **Uninstall for the "Features" tab.** Each feature card now shows a **"Gỡ"** (uninstall) button next to the install button whenever the feature is present in the project. It removes the feature by deleting the folders/assets declared in the catalog entry's `markerPaths`/`markerGuids` (each feature is a self-contained folder such as `Assets/_Project/Features/<Category>/<Name>`) and clearing the local install record, after a confirm dialog that lists exactly what will be deleted. Status reverts to "Chưa cài" on the next refresh. Uninstall is intentionally limited to the Features tab; the Unity Packages tab (third-party plugins whose markers are only partial) is unchanged.
+- `FeatureHubService.UninstallUnityPackage(asset, onDone)` — resolves marker paths/guids to existing project assets, deletes them via `AssetDatabase.DeleteAsset`, refreshes, then removes the install record (record cleared first so a script-triggered domain reload cannot leave a stale "installed" state).
+
 ## [0.1.6] - 2026-06-23
 ### Added
 - New **"Features"** tab (right of "UPM Packages") listing per-project features published as `.unitypackage`. Data-driven from a remote index (`features/index.json` → `projects[]`), with a project selector popup (A002 / ST001 / R001 / M001 / … appear automatically as they are added remotely — nothing hardcoded). Each project's catalog reuses the existing `.unitypackage` download → SHA-256 verify → import → marker/record status flow, plus a **"Cài tất cả feature còn thiếu"** batch button. Project catalogs are lazy-loaded and cached per project.

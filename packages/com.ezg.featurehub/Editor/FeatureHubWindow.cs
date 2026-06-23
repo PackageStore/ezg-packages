@@ -35,6 +35,8 @@ namespace Ezg.FeatureHub.Editor
         private static readonly Color C_CARD_OPEN = new Color(0.34f, 0.55f, 1f, 0.10f);
         private static readonly Color C_BORDER = new Color(0f, 0f, 0f, 0.22f);
         private static readonly Color C_PILL_OFF = new Color(1f, 1f, 1f, 0.07f);
+        private static readonly Color C_DANGER = new Color32(232, 102, 102, 255);
+        private static readonly Color C_DANGER_BG = new Color(0.91f, 0.40f, 0.40f, 0.14f);
 
         #endregion
 
@@ -555,7 +557,7 @@ namespace Ezg.FeatureHub.Editor
             {
                 _listContainer.Add(CategoryHeader(group.Key, group.Count()));
                 foreach (var asset in group.OrderBy(a => a.name))
-                    _listContainer.Add(BuildAssetCard(asset));
+                    _listContainer.Add(BuildAssetCard(asset, allowUninstall: true));
             }
         }
 
@@ -653,7 +655,7 @@ namespace Ezg.FeatureHub.Editor
 
         #region UI — Expandable cards
 
-        private VisualElement BuildAssetCard(CatalogAsset asset)
+        private VisualElement BuildAssetCard(CatalogAsset asset, bool allowUninstall = false)
         {
             var status = FeatureHubInstallRecord.GetStatus(asset);
             Color statusColor = UnityStatusColor(status);
@@ -672,15 +674,19 @@ namespace Ezg.FeatureHub.Editor
 
             Color btnColor = status == UnityPackageStatus.Installed ? C_PILL_OFF : C_ACCENT;
             Color btnText = status == UnityPackageStatus.Installed ? C_TEXT : Color.white;
-            var action = StyledButton(UnityActionText(status), btnColor, btnText,
-                () => RunUnityInstall(asset), 88);
+            var actions = ActionRow();
+            // Cho phép gỡ (tab Features): hiện nút "Gỡ" khi asset đã có mặt trong project.
+            if (allowUninstall && status != UnityPackageStatus.NotInstalled)
+                actions.Add(StyledButton("Gỡ", C_DANGER_BG, C_DANGER, () => RunUnityUninstall(asset), 56));
+            actions.Add(StyledButton(UnityActionText(status), btnColor, btnText,
+                () => RunUnityInstall(asset), 88));
 
             return ExpandableCard(
                 asset.name,
                 asset.category + (asset.installedByDefault ? "  ·  mặc định" : string.Empty),
                 UnityStatusIcon(status), statusColor,
                 StatusPill(UnityStatusText(status), statusColor, status == UnityPackageStatus.Installed),
-                action, detail);
+                actions, detail);
         }
 
         private VisualElement BuildUpmCard(string id, string value)
@@ -706,13 +712,13 @@ namespace Ezg.FeatureHub.Editor
                 id, UpmSourceType(value),
                 UpmStatusIcon(status), statusColor,
                 StatusPill(UpmStatusText(status), statusColor, status == UpmStatus.Installed),
-                action, detail);
+                ActionRow(action), detail);
         }
 
         /// <summary>Card có header bấm để expand + panel detail. Icon trái phát animation khi hover.</summary>
         private VisualElement ExpandableCard(
             string title, string subtitle, string iconKey, Color accentColor,
-            VisualElement statusPill, Button action, VisualElement detail)
+            VisualElement statusPill, VisualElement actions, VisualElement detail)
         {
             var card = new VisualElement
             {
@@ -765,7 +771,8 @@ namespace Ezg.FeatureHub.Editor
 
             header.Add(clickArea);
             header.Add(statusPill);
-            header.Add(action);
+            if (actions != null)
+                header.Add(actions);
             card.Add(header);
 
             detail.style.display = DisplayStyle.None;
@@ -827,6 +834,57 @@ namespace Ezg.FeatureHub.Editor
                         FlashCheck();
                     RefreshState();
                 });
+        }
+
+        private void RunUnityUninstall(CatalogAsset asset)
+        {
+            if (_busy)
+                return;
+
+            if (!EditorUtility.DisplayDialog(
+                    "Gỡ cài đặt",
+                    $"Gỡ '{asset.name}' khỏi project?\n\n" +
+                    "Sẽ XÓA các thư mục/asset sau khỏi dự án:\n" + MarkerSummary(asset) +
+                    "\n\nHành động này KHÔNG thể hoàn tác.",
+                    "Gỡ", "Hủy"))
+                return;
+
+            SetBusy(true);
+            SetStatus($"Đang gỡ {asset.name}...");
+            FeatureHubService.UninstallUnityPackage(asset, (ok, error) =>
+            {
+                SetBusy(false);
+                if (!ok && error != null)
+                    Debug.LogWarning($"[FeatureHub] {asset.name}: {error}");
+                SetStatus(ok ? $"Đã gỡ {asset.name}" : $"Gỡ {asset.name} lỗi: {error}");
+                if (ok)
+                    FlashCheck();
+                RefreshState();
+            });
+        }
+
+        /// <summary>Liệt kê các marker (path/guid→path) sẽ bị xóa, để hiện trong popup xác nhận gỡ.</summary>
+        private static string MarkerSummary(CatalogAsset asset)
+        {
+            var lines = new List<string>();
+            if (asset.markerPaths != null)
+                foreach (var p in asset.markerPaths)
+                    if (!string.IsNullOrEmpty(p))
+                        lines.Add("• " + p);
+
+            if (asset.markerGuids != null)
+                foreach (var g in asset.markerGuids)
+                {
+                    if (string.IsNullOrEmpty(g))
+                        continue;
+                    string p = AssetDatabase.GUIDToAssetPath(g);
+                    if (!string.IsNullOrEmpty(p))
+                        lines.Add("• " + p);
+                }
+
+            return lines.Count > 0
+                ? string.Join("\n", lines)
+                : "(không xác định được — chỉ xóa trạng thái đã cài)";
         }
 
         private void RunUpmInstall(string id, string value)
@@ -1346,6 +1404,20 @@ namespace Ezg.FeatureHub.Editor
                 btn.style.minWidth = minWidth;
             Round(btn, 6);
             return btn;
+        }
+
+        /// <summary>Hàng chứa các nút hành động bên phải header card (gỡ + cài/cập nhật...).</summary>
+        private static VisualElement ActionRow(params VisualElement[] items)
+        {
+            var row = new VisualElement
+            {
+                style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexShrink = 0 },
+            };
+            if (items != null)
+                foreach (var item in items)
+                    if (item != null)
+                        row.Add(item);
+            return row;
         }
 
         private VisualElement CategoryHeader(string text, int count)
