@@ -12,8 +12,9 @@ Tasks live as **individual files** in `backlog/{todo,in-progress,done}/`. This f
 
 ## Quy tắc thứ tự trong TODO
 
-- **HIGH** ở trên cùng, **MEDIUM** ở giữa, **LOW** ở cuối
-- Trong cùng priority: giữ thứ tự insert (task cũ hơn ở trên)
+- Task xếp theo **thứ tự thêm vào** (FIFO): task thêm trước ở trên, task thêm sau ở dưới — **KHÔNG** sắp xếp theo priority/rarity
+- Nhãn `[PRIORITY]` (HIGH/MEDIUM/LOW) chỉ để **tham khảo**, KHÔNG ảnh hưởng vị trí trong hàng đợi
+- NNN tăng dần theo thứ tự thêm; agent luôn lấy task **đầu tiên** (trên cùng) trong `## TODO`
 - Filename `NNN-slug.md` chỉ để sort hiển thị trong file explorer; **thứ tự thực sự là thứ tự trong file này**
 
 ---

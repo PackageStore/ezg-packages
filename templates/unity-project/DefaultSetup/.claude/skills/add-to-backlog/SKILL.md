@@ -30,7 +30,7 @@ The layout you operate on:
 [4] OVERRIDE         → optional per-task priority override (tier CANNOT be changed)
 [5] ASSIGN_NNN       → scan todo/ + in-progress/ + done/, assign consecutive NNNs
 [6] MOVE             → git mv each picked file from planning/ → todo/<NNN>-<slug>.md
-[7] UPDATE_BACKLOG   → single write to BACKLOG.md inserting all new bullets
+[7] UPDATE_BACKLOG   → single write to BACKLOG.md appending all new bullets to end of TODO (by order, not priority)
 [8] REPORT           → summarize what was picked and where
 ```
 
@@ -107,6 +107,8 @@ Preserve the user's pick order for NNN assignment in STEP 5.
 
 ## STEP 4 — Override priority (optional)
 
+> **Note:** priority is an **informational label only** — it does NOT affect queue position. Tasks always run in order of addition (see STEP 7). Overriding a priority just changes the label shown in the bullet.
+
 Ask once for the batch:
 > *"Keep current priorities for all picked tasks, or would you like to override any?"*
 
@@ -150,20 +152,17 @@ git mv backlog/planning/<original-filename>.md backlog/todo/<NNN>-<slug>.md
 
 1. Read `BACKLOG.md` once.
 2. Find the `## TODO` section.
-3. For each successfully moved task, build a bullet using the **final** priority (post-override) and the **original** tier:
+3. For each successfully moved task, build a bullet using the **final** priority (post-override, kept as a label only) and the **original** tier:
    ```
    - [PRIORITY] [Tier] [Title](backlog/todo/<NNN>-<slug>.md)
    ```
    Example: `- [HIGH] [M] [New shop popup feature](backlog/todo/011-new-shop-popup-feature.md)`
-4. Insert bullets into the correct priority bucket in `## TODO`:
-   - **HIGH** → after existing HIGH bullets, before any MEDIUM/LOW
-   - **MEDIUM** → after all HIGH, before all LOW
-   - **LOW** → end of TODO
-5. Preserve all existing bullets and the ordering of non-picked items.
+4. **Append** the bullets to the **end** of `## TODO`, in the pick order (ascending NNN). The queue is **strictly order-of-addition (FIFO)** — do **NOT** sort or bucket by priority/rarity. The `[PRIORITY]` label is informational only and has no effect on queue position.
+5. Preserve all existing bullets and their existing order. New bullets always go **after** the last existing TODO bullet.
 6. If there is a `- (none)` line in `## TODO`, delete it when inserting.
 7. Write `BACKLOG.md` ONCE (single atomic Write call).
 
-If the picked batch contains mixed priorities (e.g. 1 HIGH + 2 MEDIUM), insert each into its respective bucket — do not group them.
+If the picked batch has mixed priorities (e.g. 1 HIGH + 2 MEDIUM), still append them all in pick order — do NOT regroup by priority. The earliest-assigned NNN sits above the later ones.
 
 ---
 
@@ -177,7 +176,7 @@ Notify the user, in order:
    [012] [MEDIUM] Fix notification badge   → backlog/todo/012-notification-badge-stale.md
    ```
 3. **Priority overrides applied** (if any).
-4. **Position in queue**: e.g., *"Task #011 is at the top of the HIGH group."*
+4. **Position in queue**: e.g., *"Task #011 appended to the end of TODO (will run after all currently-queued tasks)."* The queue runs strictly in order of addition.
 5. **Remaining planning tasks**: e.g., *"2 planning tasks remaining."*
 6. **Skipped tasks** (if any move failed): name + reason.
 
