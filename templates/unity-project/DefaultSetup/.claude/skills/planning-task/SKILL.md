@@ -21,6 +21,8 @@ You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLO
 
 **A planning task is an implementation contract, not a rough idea.** Prioritize understanding the correct intent over saving tokens. Do not run a full M/L pipeline for a CSV tweak, but also do not guess decisions that could lead `run-backlog` to implement in the wrong direction.
 
+**Spec against REAL code, not a void (just-in-time).** A spec is only as accurate as the code it references. Spec a task when its dependencies already exist as real code — so `codegraph` returns real paths/class names and there is nothing to guess. **Do NOT batch-spec a whole future phase on an empty/stub codebase**: parallel planners that can't see each other will independently invent paths, duplicate each other's deliverables, and reference configs/classes that nobody creates. Spec one phase at a time, only after the prior phase ships. If you must draft ahead of the code, mark assumed paths/classes explicitly as `[ASSUMED]` and add an `open_question` so they get re-validated before promotion. See the phase-revalidation playbook (`backlog/_REVALIDATION-PLAYBOOK.md`) for fixing specs that were drafted ahead of their dependencies.
+
 ```
 [0] TRIAGE       → classify XS / S / M / L (≤500 tokens)
 [1] EXTRACT      → parse user intent + clarify until contract is clear
@@ -114,6 +116,10 @@ Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 > Steps:
 > 1. Read `CLAUDE.md` and files in `.agents/rules/` (core-system, code-style, data-persistence, third-party). Read relevant SKILL.md files in `.agents/skills/` if the task touches those systems.
 > 2. Use `codegraph_explore` with the key symbols/files from the user intent to locate and understand what will be modified. Fall back to Grep/Glob only for paths or string literals codegraph doesn't cover. Locate files likely to be modified (controllers, prefabs, CSV configs, save data, events, scenes) under `Assets/_Project/`.
+> 2a. **No-collision / no-phantom checks (mandatory):**
+>    - **De-dup:** before declaring a NEW file/class/CSV as a deliverable, confirm it does not already exist (search the codebase) AND is not already owned by another task — skim `backlog/done/`, `backlog/todo/`, and other `backlog/planning/` files for the same artifact. If it already exists or another task owns it, this task must REFERENCE it, not recreate it (recreating a class = CS0101 duplicate-type → `run-backlog` blocks). Put any overlap in `open_questions`.
+>    - **Real paths only:** every path in `files_to_touch` / `related_files` must either already exist in the repo, or follow the project's established folder convention for that epic (match where sibling/dependency code actually lives — do NOT invent a parallel tree). If the dependency code does not exist yet, mark the path `[ASSUMED]` and add an `open_question`.
+>    - **No phantom references:** every config/class/accessor the spec tells the implementer to READ (e.g. `DataManager.X`, a CSV, a helper method) must actually exist or be created by a named upstream task. Never reference an artifact that no task produces. Verify method/accessor NAMES against the real API (don't invent `GetFoo()` that isn't there).
 > 3. Identify existing patterns that the implementer must follow (`FeatureBaseController`, `RedDotBadge`, `UIManager`, `TigerForge`, DOTween, `UniTask`, `PlayerDataManager.[Module]`, `DataManager` read-only).
 > 4. Surface risks → acceptance criteria.
 > 5. Apply the scope-control gate: if proposing broad changes, explain why/impact/migration/tests/checkpoints/rollback; if you cannot explain, narrow the scope or put it under `open_questions`.
@@ -233,6 +239,9 @@ Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 - [ ] At least 1 regression criterion names the related feature.
 - [ ] No remaining ambiguity affecting behavior, completion criteria, or verification steps.
 - [ ] Does not expand beyond the scope provided by the user; if expansion is needed, the task must be bumped to M/L or ask the user.
+- [ ] **No duplicate deliverable** — no NEW file/class/CSV that already exists or is owned by another task (else `run-backlog` blocks on a duplicate-type / re-author conflict).
+- [ ] **No phantom reference** — every config/class/accessor the spec says to READ exists or is created by a named upstream task; referenced API method names are real.
+- [ ] **Paths real or conventional** — every path exists or matches the epic's actual folder tree; anything assumed-ahead-of-code is marked `[ASSUMED]` + raised as an `open_question`.
 - [ ] If there is user input, include the [BOUNDARY] guardrail.
 - [ ] If there is a user-facing mutation, include [DOUBLE-SUBMIT] + [LOADING/COOLDOWN].
 
