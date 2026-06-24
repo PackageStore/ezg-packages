@@ -151,14 +151,14 @@ string name = Utils.GetNameItems(type, numericId, true);  // with "Lv X" suffix
 
 ## Autonomous Backlog System
 
-Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào). Index `BACKLOG.md` ở repo root; chi tiết từng task nằm trong `backlog/{pending,todo,in-progress,done}/`. Format task: dùng tier-specific template (`backlog/_TEMPLATE_XS/S/M/L.md`) — xem index tại `backlog/_TEMPLATE.md`.
+Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào). Index `BACKLOG.md` ở repo root; chi tiết từng task nằm trong `backlog/{planning,todo,in-progress,done}/`. Format task: dùng tier-specific template (`backlog/_TEMPLATE_XS/S/M/L.md`) — xem index tại `backlog/_TEMPLATE.md`.
 
-**Task lifecycle:** `pending → todo → in-progress → done`
+**Task lifecycle:** `planning → todo → in-progress → done`
 
 | Command | Skill File | Description |
 |---------|-----------|-------------|
-| `/pending-task [intent]` | [.agents/skills/pending-task/SKILL.md](.agents/skills/pending-task/SKILL.md) | Triage XS/S/M/L → spawn Plan subagent (M/L only) → ghi `backlog/pending/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
-| `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List pending tasks → user pick 1/nhiều/all → git mv pending→todo, assign NNN, update BACKLOG.md. Serial operation. |
+| `/planning-task [intent]` | [.agents/skills/planning-task/SKILL.md](.agents/skills/planning-task/SKILL.md) | Triage XS/S/M/L → spawn Plan subagent (M/L only) → ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
+| `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick 1/nhiều/all → git mv planning→todo, assign NNN, update BACKLOG.md. Serial operation. |
 | `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick task TODO đầu → branch `agent/dev` (từ `develop`) → implement → deterministic preflight → quality gates (code review + performance review song song, + security khi sensitive; verify) với auto-fix max 2 rounds mỗi gate → mark DONE → commit + push (KHÔNG tạo PR). Khi TODO rỗng → ghi `PAUSED` vào `.agents/state`. |
 
 **Subagents dùng cho `/run-backlog`:**

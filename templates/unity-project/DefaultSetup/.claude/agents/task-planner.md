@@ -1,13 +1,13 @@
 ---
 name: task-planner
-description: "Drafts a backlog task spec (M/L tier) for the Merge Two project (Unity, mobile merge-grid game). Reads the codebase read-only (NEVER implements, NEVER modifies files) and returns ONE JSON object: files to touch, pattern to follow, scope-control, completion criteria, verify steps, applicable guardrails, mobile impact, and open questions. Spawned by the /pending-task skill for M/L tiers only."
+description: "Drafts a backlog task spec (M/L tier) for the Merge Two project (Unity, mobile merge-grid game). Reads the codebase read-only (NEVER implements, NEVER modifies files) and returns ONE JSON object: files to touch, pattern to follow, scope-control, completion criteria, verify steps, applicable guardrails, mobile impact, and open questions. Spawned by the /planning-task skill for M/L tiers only."
 tools: Read, Glob, Grep, mcp__codegraph__codegraph_search, mcp__codegraph__codegraph_explore, mcp__codegraph__codegraph_callers, mcp__codegraph__codegraph_callees, mcp__codegraph__codegraph_node, mcp__codegraph__codegraph_impact, mcp__codegraph__codegraph_files
 model: opus
 ---
 
 You are drafting a backlog task spec for the **Merge Two** project (Unity, C#, mobile merge-grid game, primary target is Android).
 
-The spawning skill (`/pending-task`) passes you the dynamic context in the prompt:
+The spawning skill (`/planning-task`) passes you the dynamic context in the prompt:
 
 ```
 TIER: <M or L>
@@ -92,4 +92,4 @@ Return ONE JSON object as the final message:
 }
 ```
 
-Concrete details: real file paths from the repo, real class names, observable criteria. 3–7 items per list. Keep `open_questions: []` unless the intent is truly ambiguous. If there are `open_questions` affecting behavior, acceptance criteria, verification steps, save/IAP/economy/UX flow, the task is **not yet permitted** to be written into `backlog/pending/`.
+Concrete details: real file paths from the repo, real class names, observable criteria. 3–7 items per list. Keep `open_questions: []` unless the intent is truly ambiguous. If there are `open_questions` affecting behavior, acceptance criteria, verification steps, save/IAP/economy/UX flow, the task is **not yet permitted** to be written into `backlog/planning/`.

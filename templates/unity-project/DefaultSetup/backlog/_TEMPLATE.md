@@ -1,6 +1,6 @@
 # Backlog Task Templates — Index
 
-Tasks use **tier-specific templates**. Pick the one matching the task size (the `pending-task` skill triages this automatically at STEP 0).
+Tasks use **tier-specific templates**. Pick the one matching the task size (the `planning-task` skill triages this automatically at STEP 0).
 
 | Tier | Template | Use when |
 |---|---|---|
@@ -17,8 +17,8 @@ Tasks use **tier-specific templates**. Pick the one matching the task size (the 
 - Touches >2 feature modules or >8 files → L.
 
 **Lifecycle:**
-- `backlog/pending/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (`/pending-task` writes here)
-- `backlog/todo/NNN-<slug>.md` = queued for `run-backlog` (`/add-to-backlog` picks from pending)
+- `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (`/planning-task` writes here)
+- `backlog/todo/NNN-<slug>.md` = queued for `run-backlog` (`/add-to-backlog` picks from planning)
 - `backlog/in-progress/` and `backlog/done/` = managed by `run-backlog`
 
 **Filename convention for todo/:** `NNN-short-slug.md` where `NNN` = next sequential number across all of `todo/`, `in-progress/`, `done/`.

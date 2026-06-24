@@ -1,25 +1,25 @@
 ---
-name: pending-task
-description: Capture a new task into backlog/pending/ with full triage + spec (DO NOT touch BACKLOG.md). Used when the user says "create pending task" / "draft task" / "create task X". Multiple agents can run in parallel — the filename uses a timestamp, so it is unique. To PICK a pending task into BACKLOG.md, use /add-to-backlog. When intent is unclear between the two skills, confirm with the user first.
+name: planning-task
+description: Capture a new task into backlog/planning/ with full triage + spec (DO NOT touch BACKLOG.md). Used when the user says "create planning task" / "draft task" / "create task X". Multiple agents can run in parallel — the filename uses a timestamp, so it is unique. To PICK a planning task into BACKLOG.md, use /add-to-backlog. When intent is unclear between the two skills, confirm with the user first.
 ---
 
-# Pending Task — Capture Agent
+# Planning Task — Capture Agent
 
-Turn a user request into a fully specified task file in `backlog/pending/`, allowing multiple Claude windows to capture tasks in parallel without overwriting each other. The task is NOT yet queued for `run-backlog` — that only happens when the user selects the task via `/add-to-backlog`.
+Turn a user request into a fully specified task file in `backlog/planning/`, allowing multiple Claude windows to capture tasks in parallel without overwriting each other. The task is NOT yet queued for `run-backlog` — that only happens when the user selects the task via `/add-to-backlog`.
 
 The backlog uses a **split-file layout**:
-- `backlog/pending/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (this skill writes here)
+- `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (this skill writes here)
 - `BACKLOG.md` = index of queued tasks (only `/add-to-backlog` modifies this)
-- `backlog/todo/NNN-<slug>.md` = queued task (created by `/add-to-backlog` when picking from pending)
+- `backlog/todo/NNN-<slug>.md` = queued task (created by `/add-to-backlog` when picking from planning)
 - `backlog/in-progress/`, `backlog/done/` = managed by `run-backlog`
 
-You create **one new file** in `backlog/pending/`. You **DO NOT** touch `BACKLOG.md` and **DO NOT** create files in `backlog/todo/`.
+You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLOG.md` and **DO NOT** create files in `backlog/todo/`.
 
 ---
 
 ## Core principle: clarity-first, right-size the pipeline
 
-**A pending task is an implementation contract, not a rough idea.** Prioritize understanding the correct intent over saving tokens. Do not run a full M/L pipeline for a CSV tweak, but also do not guess decisions that could lead `run-backlog` to implement in the wrong direction.
+**A planning task is an implementation contract, not a rough idea.** Prioritize understanding the correct intent over saving tokens. Do not run a full M/L pipeline for a CSV tweak, but also do not guess decisions that could lead `run-backlog` to implement in the wrong direction.
 
 ```
 [0] TRIAGE       → classify XS / S / M / L (≤500 tokens)
@@ -55,7 +55,7 @@ Classify the task into one of the four tiers using **concrete signals**, not gut
 - If the task is small (`XS/S`) but the draft needs to touch modules outside the scope provided by the user, you must ask the user or split the task. Do not expand it on your own for refactoring/cleanup/pattern rewrite.
 - Do not add abstractions, change patterns, change dependencies, change schema/save formats, or modify related registration/feature flows unless the user requests it or there is a compelling reason documented in the task.
 - If broad changes are necessary, the task must explicitly document: why broad changes are needed, the affected areas, migration plan (if there is data/schema/config/save), test/regression plan, checkpoints, and rollback/fallback paths.
-- If you cannot adequately explain the above points, do not create a broad pending task. Ask the user to narrow the scope or split it into multiple small tasks.
+- If you cannot adequately explain the above points, do not create a broad planning task. Ask the user to narrow the scope or split it into multiple small tasks.
 - Plans must prioritize the smallest change that correctly resolves the acceptance criteria. Do not pass the current task by breaking the contract of a future task or existing behavior.
 
 Record your tier choice in your reasoning and explain it to the user in STEP 6. Do not skip this step.
@@ -77,7 +77,7 @@ Do not guess decisions belonging to the following groups:
 
 You may only assume low-risk details that do not change the outcome (e.g., slug name, title phrasing, expected file paths after grep/read). All other assumptions must be documented clearly in the task, but **assumptions must not be used to replace questions** when ambiguity affects behavior or completion criteria.
 
-For **XS/S**, you can stop clarifying once the small change is clear and the rest is implementation detail. For **M/L**, do not create a pending task if there are remaining `open_questions` affecting the contract; continue asking the user or state clearly that the task is blocked due to missing decisions.
+For **XS/S**, you can stop clarifying once the small change is clear and the rest is implementation detail. For **M/L**, do not create a planning task if there are remaining `open_questions` affecting the contract; continue asking the user or state clearly that the task is blocked due to missing decisions.
 
 Do not ask questions that can be answered by grepping/reading the codebase or querying codegraph.
 
@@ -154,7 +154,7 @@ Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 > }
 > ```
 >
-> Concrete details: real file paths from the repo, real class names, observable criteria. 3–7 items per list. Keep `open_questions: []` unless the intent is truly ambiguous. If there are `open_questions` affecting behavior, acceptance criteria, verification steps, save/IAP/economy/UX flow, the task is not yet permitted to be written into `backlog/pending/`.
+> Concrete details: real file paths from the repo, real class names, observable criteria. 3–7 items per list. Keep `open_questions: []` unless the intent is truly ambiguous. If there are `open_questions` affecting behavior, acceptance criteria, verification steps, save/IAP/economy/UX flow, the task is not yet permitted to be written into `backlog/planning/`.
 
 **Re-spawn cap: max 1**. If the user rejects the first and second drafts, commit the second draft with the user's last refinements applied + assumption notes.
 
@@ -193,7 +193,7 @@ Accept user edits on file lists / criteria / verify steps. Update the draft in p
 
 **Edge case** (clock skew or agent retry in the same ms): if the filename already exists, append `-r1`, `-r2`, etc.
 
-The file goes into `backlog/pending/`, **never** `backlog/todo/`.
+The file goes into `backlog/planning/`, **never** `backlog/todo/`.
 
 ---
 
@@ -216,7 +216,7 @@ Pick template based on tier:
   ```
 - If `applicable_guardrails` is missing or the reason is empty / <10 chars → include that guardrail by default. Safer to over-include.
 
-Write the file to `backlog/pending/<filename-from-STEP-3>.md`.
+Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 
 ---
 
@@ -261,8 +261,8 @@ If any check fails, fix the draft before STEP 6.
 
 Report to the user, in order:
 1. **Selected tier** + reason (which signal triggered it).
-2. Task title, priority, and created file path (in `backlog/pending/`).
-3. **Pointer**: *"This task is in pending. When you want to queue it for `run-backlog` to run, use `/add-to-backlog` (or say 'add task to backlog')."*
+2. Task title, priority, and created file path (in `backlog/planning/`).
+3. **Pointer**: *"This task is in planning. When you want to queue it for `run-backlog` to run, use `/add-to-backlog` (or say 'add task to backlog')."*
 4. **Guardrails skipped** (if any) + reason.
 5. **Assumptions made** (if any) so the user can correct them now.
 6. **Scope-control summary**: broad/not broad, affected areas, out_of_scope, rollback/fallback if any.

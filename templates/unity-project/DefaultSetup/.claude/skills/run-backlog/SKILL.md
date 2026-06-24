@@ -11,7 +11,7 @@ Follow these steps **precisely**.
 
 The backlog uses a **split-file layout** to keep token usage flat:
 - `BACKLOG.md` = short index (the only file you read for the "directory")
-- `backlog/pending/` = drafted-but-not-queued tasks; **ignore**
+- `backlog/planning/` = drafted-but-not-queued tasks; **ignore**
 - `backlog/todo/NNN-slug.md` = one file per queued task (full details)
 - `backlog/in-progress/NNN-slug.md` = task currently in progress
 - `backlog/done/NNN-slug.md` = completed tasks (summary)
@@ -48,7 +48,7 @@ Read `BACKLOG.md` only. Then:
      git commit -m "chore: pause agent — TODO is empty"
      [ "$HAS_REMOTE" = "1" ] && git push origin agent/dev   # skipped when no origin
      ```
-  3. Stop and output: `TODO is empty — agent paused. Add tasks via /pending-task then /add-to-backlog, then re-run.`
+  3. Stop and output: `TODO is empty — agent paused. Add tasks via /planning-task then /add-to-backlog, then re-run.`
 
 Then read **exactly one** identified task file. DO NOT read other task files.
 
