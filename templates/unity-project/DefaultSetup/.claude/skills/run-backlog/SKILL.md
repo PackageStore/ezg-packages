@@ -65,11 +65,11 @@ Extract from the task file:
 
 ## STEP 2 — Switch to agent/dev branch
 
-> **LOCAL-ONLY MODE.** If this checkout has **no `origin` remote** (e.g. a fresh project generated from this template, not yet connected to GitLab), detect it once:
+> **REMOTE DETECTION.** Detect once whether an `origin` remote exists:
 > ```bash
 > git remote | grep -q . && HAS_REMOTE=1 || HAS_REMOTE=0
 > ```
-> When `HAS_REMOTE=0`: **skip every `git fetch/pull/push origin`** below and in STEP 1/STEP 9. Determine whether `agent/dev` exists with `git branch --list agent/dev` (local) instead of `git branch -r`. Everything else runs unchanged on the local `agent/dev` branch.
+> When `HAS_REMOTE=1` (the normal case — the project is connected to a remote): run `git fetch/pull/push origin` normally and **push `agent/dev` to origin** after each commit (STEP 1/STEP 9). When `HAS_REMOTE=0` (e.g. a fresh project generated from this template, not yet connected to GitLab): skip every `git fetch/pull/push origin` and determine whether `agent/dev` exists with `git branch --list agent/dev` (local) instead of `git branch -r`. Everything else runs unchanged on the `agent/dev` branch.
 
 Before touching code, record the current branch (this is the base branch to use if `agent/dev` doesn't exist yet):
 
@@ -524,7 +524,7 @@ Push to `agent/dev`:
 git push -u origin agent/dev
 ```
 
-> **LOCAL-ONLY MODE:** if `HAS_REMOTE=0` (no `origin`), **skip the push** — the commit stays on the local `agent/dev` branch. Report it as `committed locally (no remote — push skipped)` in STEP 10.
+> **REMOTE DETECTION:** when `HAS_REMOTE=1` (the normal case — a remote is connected), the `git push -u origin agent/dev` above is **required** so the task lands on the remote. Only skip the push when `HAS_REMOTE=0` (no remote at all); in that case report `committed locally (no remote — push skipped)` in STEP 10.
 
 **DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. This is a Merge Two convention.
 
