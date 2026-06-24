@@ -170,14 +170,20 @@ Cơ chế thực thi task tự động dựa trên backlog split-file (token usa
 | `security-auditor` | [.agents/agents/security-auditor.md](.agents/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | opus | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
 | `qa-verifier` | [.agents/agents/qa-verifier.md](.agents/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |
 
-**Loop chạy thủ công khi muốn:**
+**Loop chạy thủ công khi muốn (Windows):**
 ```powershell
 powershell -ExecutionPolicy Bypass -File .agents/scripts/run-backlog-loop.ps1
 ```
+> **macOS / Linux:** chưa có loop runner `.sh`. Chạy trực tiếp skill `/run-backlog` trong Claude Code, lặp lại khi cần — pipeline tự pause (`PAUSED`) khi TODO rỗng.
 
 **Deterministic preflight:**
 ```powershell
+# Windows
 powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
+```
+```bash
+# macOS / Linux — bản port Python, JSON output giống hệt bản .ps1
+python3 .agents/scripts/backlog-preflight.py -Pretty
 ```
 
 **Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file):

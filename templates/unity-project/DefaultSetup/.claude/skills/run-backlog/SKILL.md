@@ -42,11 +42,11 @@ Read `BACKLOG.md` only. Then:
 - Else if there is at least one entry under `## TODO` → pick the **first entry** (topmost). Note the file path.
 - Else (no IN PROGRESS, no TODO) → backlog is empty. Run the **self-pause flow**:
   1. Write the string `PAUSED` into `.agents/state`
-  2. Commit and push this file to `agent/dev`:
+  2. Commit this file to `agent/dev` (push only if a remote exists — see LOCAL-ONLY MODE in STEP 2):
      ```bash
      git add .agents/state
      git commit -m "chore: pause agent — TODO is empty"
-     git push origin agent/dev
+     [ "$HAS_REMOTE" = "1" ] && git push origin agent/dev   # skipped when no origin
      ```
   3. Stop and output: `TODO is empty — agent paused. Add tasks via /pending-task then /add-to-backlog, then re-run.`
 
@@ -64,6 +64,12 @@ Extract from the task file:
 ---
 
 ## STEP 2 — Switch to agent/dev branch
+
+> **LOCAL-ONLY MODE.** If this checkout has **no `origin` remote** (e.g. a fresh project generated from this template, not yet connected to GitLab), detect it once:
+> ```bash
+> git remote | grep -q . && HAS_REMOTE=1 || HAS_REMOTE=0
+> ```
+> When `HAS_REMOTE=0`: **skip every `git fetch/pull/push origin`** below and in STEP 1/STEP 9. Determine whether `agent/dev` exists with `git branch --list agent/dev` (local) instead of `git branch -r`. Everything else runs unchanged on the local `agent/dev` branch.
 
 Before touching code, record the current branch (this is the base branch to use if `agent/dev` doesn't exist yet):
 
@@ -205,7 +211,7 @@ mcp__unity__unity_get_compilation_errors
 **Tier 2 — dotnet build (~10–40 s)**
 
 ```powershell
-dotnet build m1.sln --nologo -v q 2>&1
+dotnet build --nologo -v q 2>&1   # auto-detects the project's single .sln in repo root
 ```
 
 Parse stdout/stderr for lines containing `error CS`.
@@ -274,8 +280,11 @@ If the diff is empty:
 
 ### 6b. Run deterministic preflight before LLM reviewers
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
+```bash
+# macOS / Linux (no PowerShell) — Python port, identical JSON output:
+python3 .agents/scripts/backlog-preflight.py -Pretty
+# Windows (PowerShell):
+# powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 The preflight output is a JSON containing:
@@ -351,7 +360,7 @@ Prompt body (same for all):
 > <paste full content of backlog/in-progress/<NNN-slug>.md>
 > ```
 >
-> PREFLIGHT JSON (`.agents/scripts/backlog-preflight.ps1 -Pretty` after all preflight-fix rounds):
+> PREFLIGHT JSON (`backlog-preflight.py` on macOS/Linux, `backlog-preflight.ps1` on Windows; `-Pretty`, after all preflight-fix rounds):
 > ```json
 > <paste full preflight JSON>
 > ```
@@ -455,8 +464,11 @@ The QA-verifier output has a `manual_verify_steps` field — copy this list exac
 
 ### 7d. Final deterministic preflight before DONE
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
+```bash
+# macOS / Linux (no PowerShell) — Python port, identical JSON output:
+python3 .agents/scripts/backlog-preflight.py -Pretty
+# Windows (PowerShell):
+# powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 - If `summary.has_blocking_definite = false` → proceed to STEP 8.
@@ -511,6 +523,8 @@ Push to `agent/dev`:
 ```bash
 git push -u origin agent/dev
 ```
+
+> **LOCAL-ONLY MODE:** if `HAS_REMOTE=0` (no `origin`), **skip the push** — the commit stays on the local `agent/dev` branch. Report it as `committed locally (no remote — push skipped)` in STEP 10.
 
 **DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. This is a Merge Two convention.
 
