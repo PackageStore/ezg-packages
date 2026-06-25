@@ -219,7 +219,7 @@ function Send-Notify {
 
 function New-RunBacklogAdapterPrompt {
     return @"
-You are running the [Project Name] backlog workflow through a non-Claude CLI adapter.
+You are running the Merge Two backlog workflow through a non-Claude CLI adapter.
 
 Goal: execute exactly one backlog task iteration with behavior equivalent to the Claude Code slash command /run-backlog.
 
@@ -239,7 +239,7 @@ Start now.
 
 function New-ClaudeRunBacklogPrompt {
     return @"
-Execute exactly one iteration of the [Project Name] run-backlog workflow.
+Execute exactly one iteration of the Merge Two run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
@@ -546,12 +546,21 @@ function Finish-TextLine {
 function Normalize-ToolLabel {
     param([string]$ToolName)
 
-    switch ($ToolName) {
-        "Bash" { return "exec" }
-        "PowerShell" { return "exec" }
-        "run_shell_command" { return "exec" }
-        default { return $ToolName.ToLowerInvariant() }
+    if ($null -eq $ToolName) { $ToolName = "" }
+
+    if ($ToolName -in "Bash", "PowerShell", "run_shell_command") {
+        return "exec"
     }
+
+    if ($ToolName.StartsWith("mcp__")) {
+        $parts = $ToolName -split "__"
+        if ($parts.Count -ge 3) {
+            return $parts[2]
+        }
+        return $ToolName.Substring(5)
+    }
+
+    return $ToolName.ToLowerInvariant()
 }
 
 function Get-ToolBody {
@@ -564,12 +573,15 @@ function Get-ToolBody {
         return ""
     }
 
+    $props = $Payload.PSObject.Properties.Name
+
+    # 1. Command Execution (Bash / PowerShell)
     $command = $null
     $description = $null
-    if ($Payload.PSObject.Properties.Name -contains "command") {
+    if ($props -contains "command") {
         $command = [string]$Payload.command
     }
-    if ($Payload.PSObject.Properties.Name -contains "description") {
+    if ($props -contains "description") {
         $description = [string]$Payload.description
     }
 
@@ -579,6 +591,70 @@ function Get-ToolBody {
             $body = "{0}`n# {1}" -f $body, $description
         }
         return $body
+    }
+
+    # 2. File Write Tool
+    $hasFilePath = $props -contains "file_path"
+    $hasContent = $props -contains "content"
+    if ($hasFilePath -and $hasContent) {
+        $fp = [string]$Payload.file_path
+        $len = if ($Payload.content) { [string]$Payload.content.Length } else { "0" }
+        return "Write {0} ({1} chars)" -f $fp, $len
+    }
+
+    # 3. File Edit Tool (Edit)
+    $hasNewText = $props -contains "new_text"
+    $hasNewString = $props -contains "new_string"
+    $hasReplaceAll = $props -contains "replace_all"
+    if ($hasFilePath -and ($hasNewText -or $hasNewString -or $hasReplaceAll)) {
+        $fp = [string]$Payload.file_path
+        $replaceAll = if ($hasReplaceAll) { [string]$Payload.replace_all } else { "false" }
+        return "Edit {0} (replace_all={1})" -f $fp, $replaceAll
+    }
+
+    # 4. File Read Tool (Read)
+    if ($hasFilePath) {
+        $fp = [string]$Payload.file_path
+        $offset = if ($props -contains "offset") { [string]$Payload.offset } else { "0" }
+        $limit = if ($props -contains "limit") { [string]$Payload.limit } else { "0" }
+        return "Read {0} (offset={1}, limit={2})" -f $fp, $offset, $limit
+    }
+
+    # 5. Agent Tool (Agent)
+    $hasSubagentType = $props -contains "subagent_type"
+    if ($hasSubagentType) {
+        $sat = [string]$Payload.subagent_type
+        $desc = if ($props -contains "description") { [string]$Payload.description } else { "" }
+        return "Agent ({0}): {1}" -f $sat, $desc
+    }
+
+    # 6. ToolSearch Tool
+    $hasQuery = $props -contains "query"
+    $hasMaxResults = $props -contains "max_results"
+    if ($hasQuery -and $hasMaxResults) {
+        return "Search Tools: {0}" -f [string]$Payload.query
+    }
+
+    # 7. MCP Codegraph/Search queries
+    if ($hasQuery) {
+        return "Query: {0}" -f [string]$Payload.query
+    }
+
+    # 8. MCP Unity Exec Code
+    $hasCode = $props -contains "code"
+    if ($hasCode) {
+        return "Execute code: {0}" -f [string]$Payload.code
+    }
+
+    # 9. MCP Unity Menu Item
+    $hasMenuPath = $props -contains "menuPath"
+    if ($hasMenuPath) {
+        return "Menu: {0}" -f [string]$Payload.menuPath
+    }
+
+    # 10. General MCP port payload
+    if ($Payload.PSObject.Properties.Count -eq 1 -and ($props -contains "port")) {
+        return "port={0}" -f [string]$Payload.port
     }
 
     return Format-CompactValue $Payload

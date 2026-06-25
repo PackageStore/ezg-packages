@@ -69,18 +69,72 @@ def session_header(workdir, model, provider, effort, approval, sandbox, session_
 
 
 def normalize_tool(name):
+    name = name or ""
     if name in ("Bash", "PowerShell", "run_shell_command"):
         return "exec"
-    return (name or "").lower()
+    if name.startswith("mcp__"):
+        parts = name.split("__")
+        if len(parts) >= 3:
+            return parts[2]
+        return name[5:]
+    return name.lower()
 
 
 def tool_body(payload):
     if not isinstance(payload, dict):
         return "" if payload is None else json.dumps(payload, ensure_ascii=False)
+    
+    # 1. Command Execution (Bash / PowerShell)
     cmd = payload.get("command")
     desc = payload.get("description")
     if cmd:
         return f"{cmd}\n# {desc}" if desc else str(cmd)
+        
+    # 2. File Write Tool
+    if "file_path" in payload and "content" in payload:
+        fp = payload.get("file_path")
+        content_len = len(payload.get("content", ""))
+        return f"Write {fp} ({content_len} chars)"
+        
+    # 3. File Edit Tool (Edit)
+    if "file_path" in payload and ("new_string" in payload or "replace_all" in payload or "new_text" in payload):
+        fp = payload.get("file_path")
+        replace_all = payload.get("replace_all", False)
+        return f"Edit {fp} (replace_all={replace_all})"
+        
+    # 4. File Read Tool (Read)
+    if "file_path" in payload:
+        fp = payload.get("file_path")
+        offset = payload.get("offset", 0)
+        limit = payload.get("limit", 0)
+        return f"Read {fp} (offset={offset}, limit={limit})"
+        
+    # 5. Agent Tool (Agent)
+    if "subagent_type" in payload:
+        sat = payload.get("subagent_type")
+        desc = payload.get("description", "")
+        return f"Agent ({sat}): {desc}"
+        
+    # 6. ToolSearch Tool
+    if "query" in payload and "max_results" in payload:
+        return f"Search Tools: {payload.get('query')}"
+        
+    # 7. MCP Codegraph/Search queries
+    if "query" in payload:
+        return f"Query: {payload.get('query')}"
+        
+    # 8. MCP Unity Exec Code
+    if "code" in payload:
+        return f"Execute code: {payload.get('code')}"
+        
+    # 9. MCP Unity Menu Item
+    if "menuPath" in payload:
+        return f"Menu: {payload.get('menuPath')}"
+        
+    # 10. General MCP port payload
+    if len(payload) == 1 and "port" in payload:
+        return f"port={payload.get('port')}"
+        
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
