@@ -521,7 +521,7 @@ Make **two** updates (will go into the same commit in STEP 9):
 
 2. **Edit the moved file**: replace the long task body with a short completion summary. Keep the heading `### [PRIORITY] Title`. Add:
    ```
-   **Completed on:** YYYY-MM-DD (commit `<short-sha>` — fill after commit if needed)
+   **Completed on:** YYYY-MM-DD
 
    **Fix Summary:** 1–3 sentences summarizing what changed and why.
 
@@ -548,7 +548,10 @@ Stage and commit all changed files (including `git mv` moves):
 ```bash
 git add -A
 git commit -m "<concise commit message max 50 chars>"
+SHORT_SHA=$(git rev-parse --short HEAD)
 ```
+
+Use `$SHORT_SHA` only in the STEP 10 user report. Do NOT edit `backlog/done/*.md` after committing just to fill the commit SHA; that creates a second metadata-only `chore` commit for every task.
 
 Commit message format:
 - `feat: new shop popup with daily deals`
@@ -571,7 +574,7 @@ git push -u origin agent/dev
 Notify the user:
 - Task completed (link to the file in `backlog/done/`)
 - Files changed
-- Commit message used
+- Commit message + short SHA used
 - Branch + remote pushed (`agent/dev`)
 - **Pipeline summary**: all 3 gate verdicts + rounds used in auto-fix
 - **MANUAL VERIFY REMINDER**: specific verification steps from the qa-verifier output, numbered clearly
