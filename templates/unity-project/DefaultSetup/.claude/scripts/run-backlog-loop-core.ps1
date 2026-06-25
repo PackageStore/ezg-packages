@@ -157,10 +157,64 @@ function Test-Blocked {
         try { $obj = $line | ConvertFrom-Json -ErrorAction Stop } catch { continue }
         if ($obj.type -ne 'result') { continue }
         $resultText = [string]$obj.result
-        if ($resultText -match '\b(PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED)\b') { return $true }
+        if ($resultText -match '\b(COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED)\b') { return $true }
         if ($resultText -match 'manual intervention required') { return $true }
     }
     return $false
+}
+
+# Resolve the current task's title + file URL for notifications (mirrors the bash loop).
+function Get-NotifyTaskInfo {
+    $result = @{ Title = "Unknown Task"; Url = "" }
+    if (-not (Test-Path "BACKLOG.md")) { return $result }
+    $content = Get-Content "BACKLOG.md" -Raw
+    foreach ($name in @("IN PROGRESS", "TODO")) {
+        $escaped = [regex]::Escape($name)
+        if ($content -notmatch "(?ms)^## $escaped\s*\r?\n(.*?)(?=^## )") { continue }
+        $section = $matches[1]
+        foreach ($line in ($section -split "`r?`n")) {
+            if ($line -match '^\s*-\s*\[(HIGH|MEDIUM|LOW)\]\s+(?:\[(XS|S|M|L)\]\s+)?\[([^\]]+)\]') {
+                $result.Title = [string]$matches[3]
+                if ($line -match '\]\((backlog/[^)]+)\)') {
+                    $result.Url = "file://$RepoRoot/$($matches[1])"
+                }
+                return $result
+            }
+        }
+    }
+    return $result
+}
+
+# Classify which blocker fired from the iteration log (mirrors the bash loop).
+function Get-BlockClassification {
+    param([string]$LogPath)
+    $result = @{ Event = "VERIFY_BLOCKED"; Details = "Manual intervention required." }
+    if (-not (Test-Path $LogPath)) { return $result }
+    $content = Get-Content $LogPath -Raw -ErrorAction SilentlyContinue
+    if (-not $content) { return $result }
+    foreach ($token in @("COMPILE_BLOCKED", "PREFLIGHT_BLOCKED", "REVIEW_BLOCKED", "VERIFY_BLOCKED")) {
+        if ($content -match $token) {
+            $result.Event = $token
+            $m = [regex]::Match($content, "$token.*")
+            if ($m.Success) { $result.Details = $m.Value }
+            return $result
+        }
+    }
+    $m = [regex]::Match($content, "(?i)manual intervention.*")
+    if ($m.Success) { $result.Details = $m.Value } else { $result.Details = "Automation paused. Manual intervention required." }
+    return $result
+}
+
+# Fire a Discord notification via notify.ps1 (gracefully no-ops if not configured).
+function Send-Notify {
+    param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "")
+    $notifyScript = Join-Path $PSScriptRoot "notify.ps1"
+    if (-not (Test-Path $notifyScript)) { return }
+    try {
+        & $notifyScript -Event $EventType -Task $Task -Url $Url -Details $Details
+    } catch {
+        Write-Log "Notify failed: $($_.Exception.Message)" "Yellow"
+    }
 }
 
 function New-RunBacklogAdapterPrompt {
@@ -847,8 +901,12 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     if ($status.TodoCount -eq 0 -and $status.InProgressCount -eq 0) {
         $stopReason = "Backlog empty (no TODO, no IN PROGRESS)"
         Write-Log $stopReason "Green"
+        Send-Notify -EventType "BACKLOG_EMPTY" -Task "N/A" -Details "All backlog tasks have been processed successfully."
         break
     }
+
+    # Resolve current task info for notifications
+    $notifyInfo = Get-NotifyTaskInfo
 
     $selectedThinkingBudget = $ThinkingTokens
     if ($AutoThinkingByTier) {
@@ -892,15 +950,28 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
         } else {
             $stopReason = "$Provider exited non-zero (exit code: $exitCode). See $iterLog"
             Write-Log $stopReason "Red"
+            Send-Notify -EventType "CLI_ERROR" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $stopReason
             break
         }
     }
 
     if (Test-Blocked -LogPath $iterLog) {
-        $stopReason = "Detected PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or manual intervention required. See $iterLog"
+        $stopReason = "Detected COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or manual intervention required. See $iterLog"
         Write-Log $stopReason "Red"
+        $block = Get-BlockClassification -LogPath $iterLog
+        Send-Notify -EventType $block.Event -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $block.Details
         break
     }
+
+    # Task passed all gates this iteration — notify success.
+    $statusAfter = Get-BacklogStatus
+    $doneCount = 0
+    if (Test-Path "backlog/done") {
+        $doneCount = (Get-ChildItem -Path "backlog/done" -Filter "*.md" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
+    }
+    $totalCount = $statusAfter.TodoCount + $statusAfter.InProgressCount + $doneCount
+    $completedDetails = "Progress: Task $doneCount of $totalCount completed successfully.`nCommitted & pushed to agent/dev. Ready for manual verify + merge."
+    Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails
 }
 
 $totalDuration = (Get-Date) - $startTime

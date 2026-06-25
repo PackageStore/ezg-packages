@@ -95,3 +95,6 @@ Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/SceneHistory.asse
 # macOS Finder metadata
 .DS_Store
 **/.DS_Store
+
+# Local environment variables containing credentials
+.env

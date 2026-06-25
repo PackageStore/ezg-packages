@@ -129,7 +129,7 @@ is_blocked() {
   [ -f "$log" ] || return 1
   result_line="$(grep '"type":"result"' "$log" | tail -n1)"
   [ -n "$result_line" ] || return 1
-  printf '%s' "$result_line" | grep -Eq 'PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|manual intervention required'
+  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|manual intervention required'
 }
 
 # --- backlog status -------------------------------------------------------------
@@ -263,7 +263,35 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   echo "--- Iteration $i/$MAX_ITERATIONS — backlog: TODO=$TODO, IN_PROGRESS=$IP ---"
   if [ "$TODO" -eq 0 ] && [ "$IP" -eq 0 ]; then
     STOP_REASON="Backlog empty (no TODO, no IN PROGRESS)"
+    bash "$SCRIPT_DIR/notify.sh" \
+      --event "BACKLOG_EMPTY" \
+      --task "N/A" \
+      --details "All backlog tasks have been processed successfully."
     break
+  fi
+
+  # Resolve current task info for notifications
+  CURRENT_TASK_LINE="$(task_line_for_section "IN PROGRESS")"
+  if [ -z "$CURRENT_TASK_LINE" ]; then
+    CURRENT_TASK_LINE="$(task_line_for_section "TODO")"
+  fi
+
+  if [ -n "$CURRENT_TASK_LINE" ]; then
+    TASK_TIER_NOTIF="$(printf '%s\n' "$CURRENT_TASK_LINE" | sed -nE 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[(XS|S|M|L)\].*/\1/p')"
+    if [ -n "$TASK_TIER_NOTIF" ]; then
+      TASK_TITLE_NOTIF="$(printf '%s\n' "$CURRENT_TASK_LINE" | sed -E 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[[^]]+\][[:space:]]+\[([^]]+)\].*/\1/')"
+    else
+      TASK_TITLE_NOTIF="$(printf '%s\n' "$CURRENT_TASK_LINE" | sed -E 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[([^]]+)\].*/\1/')"
+    fi
+    TASK_FILE_PATH_NOTIF="$(printf '%s\n' "$CURRENT_TASK_LINE" | sed -nE 's/.*\]\((backlog\/[^)]+)\).*/\1/p')"
+    if [ -n "$TASK_FILE_PATH_NOTIF" ]; then
+      TASK_URL_NOTIF="file://$REPO_ROOT/$TASK_FILE_PATH_NOTIF"
+    else
+      TASK_URL_NOTIF=""
+    fi
+  else
+    TASK_TITLE_NOTIF="Unknown Task"
+    TASK_URL_NOTIF=""
   fi
 
   if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
@@ -320,13 +348,59 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
 
   if [ "$exit_code" -ne 0 ]; then
     STOP_REASON="claude exited non-zero ($exit_code) on iteration $i (see $log_file)"
+    bash "$SCRIPT_DIR/notify.sh" \
+      --event "CLI_ERROR" \
+      --task "$TASK_TITLE_NOTIF" \
+      --url "$TASK_URL_NOTIF" \
+      --details "$STOP_REASON"
     break
   fi
 
   if is_blocked "$log_file"; then
     STOP_REASON="Blocker sentinel detected on iteration $i (see $log_file)"
+
+    # Classify the block type
+    block_event="VERIFY_BLOCKED"
+    block_details="Manual intervention required."
+
+    if grep -q "COMPILE_BLOCKED" "$log_file"; then
+      block_event="COMPILE_BLOCKED"
+      block_details=$(grep -o "COMPILE_BLOCKED.*" "$log_file" | head -n 1)
+    elif grep -q "PREFLIGHT_BLOCKED" "$log_file"; then
+      block_event="PREFLIGHT_BLOCKED"
+      block_details=$(grep -o "PREFLIGHT_BLOCKED.*" "$log_file" | head -n 1)
+    elif grep -q "REVIEW_BLOCKED" "$log_file"; then
+      block_event="REVIEW_BLOCKED"
+      block_details=$(grep -o "REVIEW_BLOCKED.*" "$log_file" | head -n 1)
+    elif grep -q "VERIFY_BLOCKED" "$log_file"; then
+      block_event="VERIFY_BLOCKED"
+      block_details=$(grep -o "VERIFY_BLOCKED.*" "$log_file" | head -n 1)
+    else
+      block_details=$(grep -i "manual intervention.*" "$log_file" | head -n 1)
+      if [ -z "$block_details" ]; then
+        block_details="Automation paused. Manual intervention required."
+      fi
+    fi
+
+    bash "$SCRIPT_DIR/notify.sh" \
+      --event "$block_event" \
+      --task "$TASK_TITLE_NOTIF" \
+      --url "$TASK_URL_NOTIF" \
+      --details "$block_details"
     break
   fi
+
+  # Task passed all gates this iteration — notify success.
+  read -r TODO_NEW IP_NEW <<<"$(backlog_counts)"
+  DONE_NEW=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
+  TOTAL_NEW=$((TODO_NEW + IP_NEW + DONE_NEW))
+
+  bash "$SCRIPT_DIR/notify.sh" \
+    --event "TASK_COMPLETED" \
+    --task "$TASK_TITLE_NOTIF" \
+    --url "$TASK_URL_NOTIF" \
+    --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
+Committed & pushed to agent/dev. Ready for manual verify + merge."
 done
 
 [ -z "$STOP_REASON" ] && STOP_REASON="Reached MaxIterations ($MAX_ITERATIONS)"
