@@ -31,7 +31,13 @@ param(
     # Codex reasoning effort tier. Empty = leave the CLI/model default untouched.
     # Ignored by claude/gemini (they use -ThinkingTokens).
     [ValidateSet("", "minimal", "low", "medium", "high")]
-    [string]$ReasoningEffort = ""
+    [string]$ReasoningEffort = "",
+
+    [switch]$AutoThinkingByTier,
+    [int]$XsThinkingTokens = 3000,
+    [int]$SThinkingTokens = 6000,
+    [int]$MThinkingTokens = 10000,
+    [int]$LThinkingTokens = 10000
 )
 
 $ErrorActionPreference = "Continue"
@@ -94,6 +100,48 @@ function Get-BacklogStatus {
     }
 
     return $result
+}
+
+function Get-NextBacklogTaskProfile {
+    $result = @{ Tier = ""; Title = ""; State = "" }
+    if (-not (Test-Path "BACKLOG.md")) { return $result }
+
+    $content = Get-Content "BACKLOG.md" -Raw
+    $sections = @(
+        @{ Name = "IN PROGRESS"; State = "in-progress" },
+        @{ Name = "TODO"; State = "todo" }
+    )
+
+    foreach ($entry in $sections) {
+        $sectionName = [regex]::Escape($entry.Name)
+        if ($content -notmatch "(?ms)^## $sectionName\s*\r?\n(.*?)(?=^## )") {
+            continue
+        }
+
+        $section = $matches[1]
+        foreach ($line in ($section -split "`r?`n")) {
+            if ($line -match '^\s*-\s*\[(HIGH|MEDIUM|LOW)\]\s+(?:\[(XS|S|M|L)\]\s+)?\[([^\]]+)\]') {
+                $result.Tier = [string]$matches[2]
+                $result.Title = [string]$matches[3]
+                $result.State = [string]$entry.State
+                return $result
+            }
+        }
+    }
+
+    return $result
+}
+
+function Get-ThinkingBudgetForTier {
+    param([AllowEmptyString()][string]$Tier)
+
+    switch ($Tier) {
+        "XS" { return $XsThinkingTokens }
+        "S"  { return $SThinkingTokens }
+        "M"  { return $MThinkingTokens }
+        "L"  { return $LThinkingTokens }
+        default { return $MThinkingTokens }
+    }
 }
 
 function Test-Blocked {
@@ -764,6 +812,13 @@ Write-Log "Repo:            $RepoRoot" "Gray"
 Write-Log "Max iterations:  $MaxIterations" "Gray"
 Write-Log "Log dir:         $LogDir" "Gray"
 Write-Log "Summary log:     $summaryLog" "Gray"
+if ($AutoThinkingByTier) {
+    Write-Log "Thinking:        auto by tier (XS=$XsThinkingTokens, S=$SThinkingTokens, M=$MThinkingTokens, L=$LThinkingTokens)" "Gray"
+} elseif ($ThinkingTokens -gt 0) {
+    Write-Log "Thinking:        $ThinkingTokens tokens" "Gray"
+} else {
+    Write-Log "Thinking:        off" "Gray"
+}
 
 $cli = Get-Command $Provider -ErrorAction SilentlyContinue
 if (-not $cli) {
@@ -776,22 +831,7 @@ if (-not $cli) {
 Write-Log "CLI:             $($cli.Source)" "Gray"
 
 $promptFile = Join-Path $LogDir "prompt-$Provider-$timestamp.md"
-$invocation = New-AgentInvocation `
-    -ProviderName $Provider `
-    -RepoRootPath $RepoRoot `
-    -SelectedModel $Model `
-    -PromptFile $promptFile `
-    -DisableSkipPermissions:$NoSkipPermissions `
-    -ThinkingBudget $ThinkingTokens `
-    -ReasoningEffortTier $ReasoningEffort
-
-Write-Log "Agent args:      $($invocation.Args -join ' ')" "Gray"
-if ($invocation.ContainsKey('HeaderThinking')) {
-    Write-Log "Thinking:        $($invocation.HeaderThinking)" "Gray"
-}
-if ($invocation.PromptFile) {
-    Write-Log "Adapter prompt:  $($invocation.PromptFile)" "Gray"
-}
+Write-Log "Adapter prompt:  $promptFile" "Gray"
 
 $iter = 0
 $completedIterations = 0
@@ -809,6 +849,24 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
         Write-Log $stopReason "Green"
         break
     }
+
+    $selectedThinkingBudget = $ThinkingTokens
+    if ($AutoThinkingByTier) {
+        $taskProfile = Get-NextBacklogTaskProfile
+        $selectedThinkingBudget = Get-ThinkingBudgetForTier -Tier $taskProfile.Tier
+        Write-Log "Task profile: [$($taskProfile.Tier)] $($taskProfile.Title) ($($taskProfile.State)); thinking=$selectedThinkingBudget" "Gray"
+    }
+
+    $invocation = New-AgentInvocation `
+        -ProviderName $Provider `
+        -RepoRootPath $RepoRoot `
+        -SelectedModel $Model `
+        -PromptFile $promptFile `
+        -DisableSkipPermissions:$NoSkipPermissions `
+        -ThinkingBudget $selectedThinkingBudget `
+        -ReasoningEffortTier $ReasoningEffort
+
+    Write-Log "Agent args:      $($invocation.Args -join ' ')" "Gray"
 
     $iterLog = Join-Path $LogDir "iter-$Provider-$timestamp-$($iter.ToString('000')).log"
     Write-Log "Starting $Provider (iter log: $iterLog)" "Gray"

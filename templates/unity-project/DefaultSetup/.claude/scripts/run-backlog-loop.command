@@ -19,20 +19,30 @@ MODEL="claude-opus-4-8"     # "" = CLI default; e.g. claude-sonnet-4-6 / claude-
 EFFORT="xhigh"              # low | medium | high | xhigh; "" = CLI default
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000
+XS_THINKING_TOKENS=3000
+S_THINKING_TOKENS=6000
+M_THINKING_TOKENS=10000
+L_THINKING_TOKENS=10000
 # --------------------------------------------------------------------------------
 
 echo "Starting [Project Name] backlog loop..."
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
-    echo "  model=<auto by task tier>  max-iterations=$MAX_ITERATIONS  thinking=$THINKING_TOKENS"
+    echo "  model=<auto by task tier>  max-iterations=$MAX_ITERATIONS"
+    echo "  thinking: XS=$XS_THINKING_TOKENS S=$S_THINKING_TOKENS M=$M_THINKING_TOKENS L=$L_THINKING_TOKENS"
 else
     echo "  model=${MODEL:-<default>}  effort=${EFFORT:-<default>}  max-iterations=$MAX_ITERATIONS  thinking=$THINKING_TOKENS"
 fi
 echo ""
 
-ARGS=(--max-iterations "$MAX_ITERATIONS" --thinking-tokens "$THINKING_TOKENS")
+ARGS=(--max-iterations "$MAX_ITERATIONS")
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     ARGS+=(--auto-model-by-tier)
+    ARGS+=(--xs-thinking-tokens "$XS_THINKING_TOKENS")
+    ARGS+=(--s-thinking-tokens "$S_THINKING_TOKENS")
+    ARGS+=(--m-thinking-tokens "$M_THINKING_TOKENS")
+    ARGS+=(--l-thinking-tokens "$L_THINKING_TOKENS")
 else
+    ARGS+=(--thinking-tokens "$THINKING_TOKENS")
     [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
     [ -n "$EFFORT" ] && ARGS+=(--effort "$EFFORT")
 fi

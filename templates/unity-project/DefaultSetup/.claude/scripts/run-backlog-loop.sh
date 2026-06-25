@@ -24,7 +24,11 @@
 #   --m-model/--m-effort     Override M profile (default: claude-opus-4-8/xhigh).
 #   --l-model/--l-effort     Override L profile (default: claude-opus-4-8/xhigh).
 #   --max-iterations <n>     Max task iterations (default: 100).
-#   --thinking-tokens <n>    MAX_THINKING_TOKENS for orchestrator + subagents (default: 10000; 0 = off).
+#   --thinking-tokens <n>    Legacy/global MAX_THINKING_TOKENS override (default: 10000; 0 = off).
+#   --xs-thinking-tokens <n> Override XS thinking budget (default: 3000; 0 = off).
+#   --s-thinking-tokens <n>  Override S thinking budget (default: 6000; 0 = off).
+#   --m-thinking-tokens <n>  Override M thinking budget (default: 10000; 0 = off).
+#   --l-thinking-tokens <n>  Override L thinking budget (default: 10000; 0 = off).
 #   --inline                 Run each task in the current window instead of a new one.
 #   --no-skip-permissions    Do NOT pass --dangerously-skip-permissions (will prompt).
 #   -h | --help              Show this help.
@@ -49,6 +53,10 @@ L_MODEL="claude-opus-4-8"
 L_EFFORT="xhigh"
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000
+XS_THINKING_TOKENS=3000
+S_THINKING_TOKENS=6000
+M_THINKING_TOKENS=10000
+L_THINKING_TOKENS=10000
 SKIP_PERMISSIONS=1
 INLINE=0
 LOG_DIR="logs/backlog-loop"
@@ -68,11 +76,21 @@ while [ $# -gt 0 ]; do
     --l-model)          L_MODEL="${2:-}"; shift 2 ;;
     --l-effort)         L_EFFORT="${2:-}"; shift 2 ;;
     --max-iterations)   MAX_ITERATIONS="${2:-}"; shift 2 ;;
-    --thinking-tokens)  THINKING_TOKENS="${2:-}"; shift 2 ;;
+    --thinking-tokens)
+      THINKING_TOKENS="${2:-}"
+      XS_THINKING_TOKENS="$THINKING_TOKENS"
+      S_THINKING_TOKENS="$THINKING_TOKENS"
+      M_THINKING_TOKENS="$THINKING_TOKENS"
+      L_THINKING_TOKENS="$THINKING_TOKENS"
+      shift 2 ;;
+    --xs-thinking-tokens|--xs-thinking) XS_THINKING_TOKENS="${2:-}"; shift 2 ;;
+    --s-thinking-tokens|--s-thinking)   S_THINKING_TOKENS="${2:-}"; shift 2 ;;
+    --m-thinking-tokens|--m-thinking)   M_THINKING_TOKENS="${2:-}"; shift 2 ;;
+    --l-thinking-tokens|--l-thinking)   L_THINKING_TOKENS="${2:-}"; shift 2 ;;
     --inline)           INLINE=1; shift ;;
     --no-skip-permissions) SKIP_PERMISSIONS=0; shift ;;
     -h|--help)
-      sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
@@ -155,6 +173,7 @@ next_task_profile() {
     TASK_STATE=""
     SELECTED_MODEL="$MODEL"
     SELECTED_EFFORT="$EFFORT"
+    SELECTED_THINKING_TOKENS="$THINKING_TOKENS"
     return
   fi
 
@@ -169,11 +188,11 @@ next_task_profile() {
   TASK_STATE="$state"
 
   case "$tier" in
-    XS) SELECTED_MODEL="$XS_MODEL"; SELECTED_EFFORT="$XS_EFFORT" ;;
-    S)  SELECTED_MODEL="$S_MODEL";  SELECTED_EFFORT="$S_EFFORT" ;;
-    M)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT" ;;
-    L)  SELECTED_MODEL="$L_MODEL";  SELECTED_EFFORT="$L_EFFORT" ;;
-    *)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT" ;;
+    XS) SELECTED_MODEL="$XS_MODEL"; SELECTED_EFFORT="$XS_EFFORT"; SELECTED_THINKING_TOKENS="$XS_THINKING_TOKENS" ;;
+    S)  SELECTED_MODEL="$S_MODEL";  SELECTED_EFFORT="$S_EFFORT";  SELECTED_THINKING_TOKENS="$S_THINKING_TOKENS" ;;
+    M)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT";  SELECTED_THINKING_TOKENS="$M_THINKING_TOKENS" ;;
+    L)  SELECTED_MODEL="$L_MODEL";  SELECTED_EFFORT="$L_EFFORT";  SELECTED_THINKING_TOKENS="$L_THINKING_TOKENS" ;;
+    *)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT";  SELECTED_THINKING_TOKENS="$M_THINKING_TOKENS" ;;
   esac
 }
 
@@ -191,13 +210,6 @@ build_cli_args() {
   fi
 }
 
-# --- claude args ----------------------------------------------------------------
-if [ "${THINKING_TOKENS:-0}" -gt 0 ] 2>/dev/null; then
-  export MAX_THINKING_TOKENS="$THINKING_TOKENS"
-else
-  unset MAX_THINKING_TOKENS
-fi
-
 echo
 echo "=========================================="
 echo "  [Project Name] — Run Backlog Loop (controller)"
@@ -205,11 +217,12 @@ echo "=========================================="
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
   echo "  Model:           auto by task tier"
   echo "  Tier map:        XS=$XS_MODEL/$XS_EFFORT, S=$S_MODEL/$S_EFFORT, M=$M_MODEL/$M_EFFORT, L=$L_MODEL/$L_EFFORT"
+  echo "  Thinking map:    XS=$XS_THINKING_TOKENS, S=$S_THINKING_TOKENS, M=$M_THINKING_TOKENS, L=$L_THINKING_TOKENS"
 else
   echo "  Model:           ${MODEL:-<CLI default>}"
   echo "  Effort:          ${EFFORT:-<CLI default>}"
+  echo "  Thinking tokens: $THINKING_TOKENS"
 fi
-echo "  Thinking tokens: ${MAX_THINKING_TOKENS:-off}"
 echo "  Window mode:     $([ "$INLINE" -eq 1 ] && echo 'inline (this window)' || echo 'new window per task')"
 echo "  Max iterations:  $MAX_ITERATIONS"
 echo "  Log dir:         $LOG_DIR_ABS"
@@ -222,8 +235,10 @@ write_runner() {
   cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
 cd $(printf '%q' "$REPO_ROOT") || exit 9
-export MAX_THINKING_TOKENS=$(printf '%q' "${MAX_THINKING_TOKENS:-}")
-[ -z "\$MAX_THINKING_TOKENS" ] && unset MAX_THINKING_TOKENS
+export MAX_THINKING_TOKENS=$(printf '%q' "${SELECTED_THINKING_TOKENS:-}")
+if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
+  unset MAX_THINKING_TOKENS
+fi
 code=0
 trap 'echo "\$code" > $(printf '%q' "$flag")' EXIT
 echo "=== [Project Name] backlog task — iteration $idx ==="
@@ -259,12 +274,13 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     TASK_STATE=""
     SELECTED_MODEL="$MODEL"
     SELECTED_EFFORT="$EFFORT"
+    SELECTED_THINKING_TOKENS="$THINKING_TOKENS"
   fi
   build_cli_args
 
   if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     echo "  Next task: [${TASK_TIER:-unknown}] $TASK_TITLE ($TASK_STATE)"
-    echo "  Profile: model=${SELECTED_MODEL:-<CLI default>} effort=${SELECTED_EFFORT:-<CLI default>}"
+    echo "  Profile: model=${SELECTED_MODEL:-<CLI default>} effort=${SELECTED_EFFORT:-<CLI default>} thinking=${SELECTED_THINKING_TOKENS:-off}"
   fi
 
   ts="$(date +%Y%m%d-%H%M%S)"
@@ -278,6 +294,11 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
 
   if [ "$INLINE" -eq 1 ]; then
     # Same-window execution.
+    if [ "${SELECTED_THINKING_TOKENS:-0}" -gt 0 ] 2>/dev/null; then
+      export MAX_THINKING_TOKENS="$SELECTED_THINKING_TOKENS"
+    else
+      unset MAX_THINKING_TOKENS
+    fi
     if [ "$HAS_RENDER" -eq 1 ]; then
       printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file" | python3 "$RENDER" --provider claude --effort "${SELECTED_EFFORT:-default}"
     else

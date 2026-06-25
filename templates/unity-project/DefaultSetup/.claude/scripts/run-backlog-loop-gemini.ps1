@@ -12,7 +12,12 @@ param(
     [switch]$NoSkipPermissions,
     # Gemini thinking budget (tokens), exported as GEMINI_THINKING_BUDGET.
     # Pass 0 to disable thinking.
-    [int]$ThinkingTokens = 10000
+    [int]$ThinkingTokens = 10000,
+    [int]$XsThinkingTokens = 3000,
+    [int]$SThinkingTokens = 6000,
+    [int]$MThinkingTokens = 10000,
+    [int]$LThinkingTokens = 10000,
+    [switch]$NoAutoThinkingByTier
 )
 
 $coreArgs = @{
@@ -21,6 +26,14 @@ $coreArgs = @{
     LogDir = $LogDir
     Model = $Model
     ThinkingTokens = $ThinkingTokens
+}
+
+if (-not $NoAutoThinkingByTier) {
+    $coreArgs.AutoThinkingByTier = $true
+    $coreArgs.XsThinkingTokens = $XsThinkingTokens
+    $coreArgs.SThinkingTokens = $SThinkingTokens
+    $coreArgs.MThinkingTokens = $MThinkingTokens
+    $coreArgs.LThinkingTokens = $LThinkingTokens
 }
 
 if ($NoSkipPermissions) {

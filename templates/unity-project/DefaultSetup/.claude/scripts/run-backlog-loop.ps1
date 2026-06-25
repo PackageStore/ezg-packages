@@ -11,6 +11,12 @@ param(
     [string]$Model = "claude-sonnet-4-6",
     [AllowEmptyString()]
     [string]$Effort = "",
+    [int]$ThinkingTokens = 10000,
+    [int]$XsThinkingTokens = 3000,
+    [int]$SThinkingTokens = 6000,
+    [int]$MThinkingTokens = 10000,
+    [int]$LThinkingTokens = 10000,
+    [switch]$NoAutoThinkingByTier,
     [switch]$NoSkipPermissions
 )
 
@@ -19,6 +25,15 @@ $argsForClaude = @{
     LogDir = $LogDir
     Model = $Model
     Effort = $Effort
+    ThinkingTokens = $ThinkingTokens
+    XsThinkingTokens = $XsThinkingTokens
+    SThinkingTokens = $SThinkingTokens
+    MThinkingTokens = $MThinkingTokens
+    LThinkingTokens = $LThinkingTokens
+}
+
+if ($NoAutoThinkingByTier) {
+    $argsForClaude.NoAutoThinkingByTier = $true
 }
 
 if ($NoSkipPermissions) {
