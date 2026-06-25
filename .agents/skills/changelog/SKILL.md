@@ -28,7 +28,7 @@ Quy tắc:
 - Header in đậm `**Added**` / `**Changed**` / `**Fixed**` (KHÔNG dùng `### Added`).
 - Bỏ hẳn section nào không có mục (không in header rỗng).
 - Mỗi thay đổi 1 bullet; dùng em-dash `—` ngăn giữa chủ thể và phần giải thích.
-- Mô tả theo **ý đồ thay đổi (WHAT + WHY)**, KHÔNG liệt kê "đã sửa file X.md".
+- Mô tả **thật ngắn gọn, súc tích (tối đa 1 câu duy nhất)** theo ý đồ thay đổi (WHAT + WHY). Tuyệt đối không viết dài dòng. KHÔNG liệt kê "đã sửa file X.md".
 - Gộp các edit nhỏ cùng mục đích thành 1 bullet.
 - Trả lời cùng ngôn ngữ với request của user (mặc định tiếng Việt cho repo này).
 
@@ -47,6 +47,7 @@ Phân loại:
 [3] CLASSIFY  → quy mỗi thay đổi về Added / Changed / Fixed
 [4] SHOW      → in changelog theo đúng định dạng trên
 [5] PERSIST   → (hỏi trước) prepend entry có ngày vào CHANGELOG.md phù hợp
+[6] DISCORD   → Tự động gửi changelog lên Discord thread
 ```
 
 ---
@@ -118,3 +119,23 @@ Nếu đồng ý:
 Nếu CHANGELOG.md đích nằm trong `DefaultSetup/` (sẽ deploy R2) thì nhắc user là cần deploy lại; còn `templates/unity-project/CHANGELOG.md` và CHANGELOG của package thì không cần.
 
 KHÔNG tự commit/push trừ khi user yêu cầu.
+
+---
+
+## STEP 6 — Discord
+
+Sau khi xuất changelog (bước SHOW), **TỰ ĐỘNG** gửi nội dung changelog đó vào Discord thread bằng lệnh `curl`.
+Không cần hỏi ý kiến user cho bước này, luôn tự động thực thi.
+
+**Thông tin kết nối**:
+- **Bot Token**: `MTQ5NjA0OTY4NzIwMTg0MTI5NA.GKpzOO.c1zKiGAvjwsuzJpK2nBDIX9w_Lr6m2hahgYCdM`
+- **Thread ID (Channel ID)**: `1518955197345435809`
+
+**Lệnh thi hành**:
+Dùng công cụ `run_command` để gọi API Discord. Hãy dùng `jq` để escape JSON an toàn, ví dụ:
+```bash
+jq -n --arg content "NỘI DUNG CHANGELOG" '{content: $content}' | curl -X POST "https://discord.com/api/v10/channels/1518955197345435809/messages" \
+     -H "Authorization: Bot MTQ5NjA0OTY4NzIwMTg0MTI5NA.GKpzOO.c1zKiGAvjwsuzJpK2nBDIX9w_Lr6m2hahgYCdM" \
+     -H "Content-Type: application/json" \
+     -d @-
+```
