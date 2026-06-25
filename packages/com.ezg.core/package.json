@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "EZG Core",
-  "description": "Shared runtime foundation for EZG Unity projects: an asset-loading adapter (Resources / AssetBundle / Play Asset Delivery), reusable UI helper components (safe area, layout adjusters, scroll-snap, tween-move, curved/circle layouts, button extensions, jump-in/out animation), device/security helpers, common MonoBehaviour and Unity extension utilities, and shared color/enum/update-loop utilities.",
+  "description": "Shared runtime foundation for EZG Unity projects: an asset-loading adapter (Resources / AssetBundle / Play Asset Delivery), reusable UI helper components (safe area, layout adjusters, scroll-snap, tween-move, curved/circle layouts, button extensions, jump-in/out animation), device/security helpers, common MonoBehaviour and Unity extension utilities, and shared color/update-loop utilities.",
   "unity": "6000.2",
   "author": {
     "name": "EZG Studio"

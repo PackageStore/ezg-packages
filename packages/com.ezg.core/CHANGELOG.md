@@ -4,6 +4,14 @@ All notable changes to `com.ezg.core` will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-06-25
+
+### Removed
+- Moved the game-specific `EnumBase` enum collection out of the package into the consuming game project (`Assets/_Project/Features/_Shared/Systems/EnumBase.Shared.cs`, namespace `Ezg.Feature.Shared.Systems`). These enums were not referenced by any core package code. `Runtime/Utils/EnumBase.cs` remains as a comment-only placeholder to preserve its import path.
+
+### Changed
+- Dropped the now-removed `enum` utilities mention from the package description.
+
 ## [0.1.0] - 2026-06-16
 
 ### Added
