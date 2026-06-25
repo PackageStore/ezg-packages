@@ -126,31 +126,48 @@ Do this **before** writing any code.
 ## STEP 4 — Understand context
 
 Before writing code:
+
+### 4a. Probe CodeGraph availability (ONCE — determines exploration method for the entire task)
+
+```
+mcp__codegraph__codegraph_search(query="FeatureBaseController", limit=1)
+```
+
+- **Success** → set `CODEGRAPH_UP = true`. ALL code exploration in this step MUST use CodeGraph (see table below). Grep/Read for symbol lookups when CodeGraph is available = **wasted tokens**.
+- **Error / timeout / tool not found** → set `CODEGRAPH_UP = false`. Fall back to Grep/Read efficiently (precise patterns, minimal reads).
+
+### 4b. Read project context
+
 1. Read `CLAUDE.md` — understand project rules, skills, and workflows.
 2. Read the files in `.agents/rules/` — `code-style.md`, `core-system.md`, `data-persistence.md`, `third-party.md`. (`output-format.md` is only for text responses, do not apply it in this autonomous loop.)
 3. Read `SKILL.md` files in `.agents/skills/` that correspond to the system being touched (see mapping in `.agents/agents/code-reviewer.md` under "Skill-specific conventions").
 4. Read the files listed in the **Related files** of the task (for any detail `codegraph_explore` trimmed).
 5. Read other necessary files to understand the surrounding context.
 
-### CodeGraph — use BEFORE Grep/Read for code exploration
-
-This project has a CodeGraph MCP index (`mcp__codegraph__*` tools) pre-indexing the codebase. Use it **instead of** Grep or Read loops whenever you need structural information:
+### 4c. CodeGraph exploration (when CODEGRAPH_UP = true)
 
 | What you need | Tool |
 |---|---|
 | How does X work / survey an area / read several related files at once | `codegraph_explore` (primary — usually the only call needed) |
 | Find where a class/method is defined (location only) | `codegraph_search` |
 | What calls this method? | `codegraph_callers` |
-| What does this method call? (detect missing dependency, wrong call) | `codegraph_callees` |
-| What would break if I change X? | `codegraph_impact` |
-| List files under a directory | `codegraph_files` |
+| What does this method call? (detect missing dependency, wrong call) | `codegraph_node` with `includeCode=true` |
+| What would break if I change X? | `codegraph_callers`, then `codegraph_explore` for the wider flow |
+| Read an indexed source file | `codegraph_node` with `file=<path>` |
+| List files under a directory | `Glob` (file listing is not a symbol lookup) |
 
-**Rules:**
+**Rules (enforced — violations waste 40-60% more tokens):**
 - NEVER Grep for a class/method name — `codegraph_explore` / `codegraph_search` is faster and returns kind + location + signature.
 - NEVER chain multiple Read calls across different files when `codegraph_explore` returns them grouped.
-- Use `codegraph_impact` before modifying a widely-used class/method to know what could break.
+- Use `codegraph_callers` before modifying a widely-used class/method to see direct call sites; use `codegraph_explore` on the returned names when the wider flow matters.
 - Only fall back to Grep for **literal string content**: hardcoded text, localize key strings, CSV values, log messages.
 - **New files** (created in this same implementation) are not yet indexed (~1s file-watcher lag) — Read them directly instead of querying CodeGraph.
+
+### 4d. Grep/Read fallback (when CODEGRAPH_UP = false)
+
+- Prefer `Grep` with precise patterns over blind reads.
+- Read files only after Grep confirms the symbol exists there.
+- Minimize Read calls — read only the relevant section.
 
 DO NOT skip this step. [Project Name] conventions are strict — violations will be blocked by the code-reviewer in STEP 5.
 
@@ -373,11 +390,20 @@ Prompt body (same for all):
 > <paste full diff>
 > ```
 >
+> CODEGRAPH STATUS:
+> ```
+> CODEGRAPH_UP=<true|false from STEP 4a>
+> ```
+>
 > Review according to the instructions in the agent definition and return a JSON verdict.
 
 **NOTE:** Spawn all reviewer subagents (`code-reviewer`, `performance-reviewer`, and `security-auditor` when sensitive) in **one tool-use block** to run them in parallel. DO NOT run sequentially.
 
 ### 6e. Read verdicts and decide
+
+Record each reviewer's `tool_method` field from their verdict JSON (e.g. `code-reviewer: codegraph, perf-reviewer: grep-fallback`). `tool_method=codegraph` means CodeGraph was used for structural symbol/flow lookups; it may still include Grep for literal string scans. Include this in the DONE summary (STEP 8) so you can track token efficiency over time.
+
+If `CODEGRAPH_UP=true` but any reviewer returns `tool_method="grep-fallback"` without reporting a CodeGraph tool error, re-spawn that reviewer once with this extra instruction: "CodeGraph is available. Re-run structural lookups with CodeGraph; use Grep only for literal text scans." Treat the second verdict as authoritative.
 
 - **All are `pass` or `warn`** → proceed to STEP 7 (Verify).
 - **Any is `block`** → enter the **auto-fix loop**:
@@ -444,9 +470,16 @@ Prompt body:
 > <paste full diff>
 > ```
 >
+> CODEGRAPH STATUS:
+> ```
+> CODEGRAPH_UP=<true|false from STEP 4a>
+> ```
+>
 > Run verification according to the instructions in the agent definition and return a JSON verdict + criteria_check + manual_verify_steps.
 
 ### 7b. Read verdict and decide
+
+Record qa-verifier's `tool_method` field for the DONE summary. If `CODEGRAPH_UP=true` but qa-verifier returns `tool_method="grep-fallback"` without reporting a CodeGraph tool error, re-spawn qa-verifier once with this extra instruction: "CodeGraph is available. Re-run structural lookups with CodeGraph; use Grep only for literal text scans." Treat the second verdict as authoritative.
 
 - **`pass`** → proceed to STEP 8 (Mark DONE).
 - **`warn`** → proceed to STEP 8 but note `warn` findings in the DONE summary.
@@ -493,10 +526,10 @@ Make **two** updates (will go into the same commit in STEP 9):
    **Fix Summary:** 1–3 sentences summarizing what changed and why.
 
    **Quality gates:**
-   - Code review: <pass|warn|skipped (XS tier)> (rounds used: 1|2)
-   - Performance review: <pass|warn|skipped (XS tier)> (rounds used: 1|2)
-   - Security review: <pass|warn|skipped — no sensitive files|skipped (XS/S tier)> (rounds used if spawned)
-   - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2)
+   - Code review: <pass|warn|skipped (XS tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
+   - Performance review: <pass|warn|skipped (XS tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
+   - Security review: <pass|warn|skipped — no sensitive files|skipped (XS/S tier)> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
+   - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
 
    **Manual verify steps (USER MUST RUN before merging agent/dev → develop):**
    <M/L: copy exact `manual_verify_steps` from qa-verifier output>
@@ -551,10 +584,11 @@ Commit: feat: new shop popup with daily deals (a1b2c3d)
 Branch: agent/dev (pushed to origin)
 
 Pipeline:
-  - Code review: pass (1 round)
-  - Performance review: pass (1 round)
+  - Code review: pass (1 round) [codegraph]
+  - Performance review: pass (1 round) [codegraph]
   - Security review: skipped (no sensitive files)
-  - QA verify: pass (1 round)
+  - QA verify: pass (1 round) [codegraph]
+  - Tool efficiency: 3/3 codegraph — optimal ✅
 
 ⚠️ MANUAL VERIFY REQUIRED before merging agent/dev → develop:
   1. Open MainScene, open Shop popup, confirm daily deals display correctly
@@ -563,6 +597,11 @@ Pipeline:
   4. Build Android APK to test on real device
 
 After verification passes: `git checkout $BASE_BRANCH && git merge agent/dev`
+```
+
+If any gate agent used grep-fallback, add a warning:
+```
+  ⚠️ Tool efficiency: perf-reviewer used grep-fallback (CodeGraph MCP unavailable or errored)
 ```
 
 ---
