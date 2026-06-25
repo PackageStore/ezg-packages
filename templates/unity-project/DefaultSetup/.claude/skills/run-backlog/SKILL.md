@@ -138,7 +138,7 @@ mcp__codegraph__codegraph_search(query="FeatureBaseController", limit=1)
 
 ### 4b. Read project context
 
-1. Read `CLAUDE.md` — understand project rules, skills, and workflows.
+1. `CLAUDE.md` is already auto-injected into your context by the Claude Code CLI at session start — DO NOT Read it again (redundant read = wasted tokens). Just apply its rules.
 2. Read the files in `.agents/rules/` — `code-style.md`, `core-system.md`, `data-persistence.md`, `third-party.md`. (`output-format.md` is only for text responses, do not apply it in this autonomous loop.)
 3. Read `SKILL.md` files in `.agents/skills/` that correspond to the system being touched (see mapping in `.agents/agents/code-reviewer.md` under "Skill-specific conventions").
 4. Read the files listed in the **Related files** of the task (for any detail `codegraph_explore` trimmed).
