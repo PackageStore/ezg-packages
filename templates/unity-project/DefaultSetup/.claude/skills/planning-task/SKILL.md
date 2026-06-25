@@ -28,7 +28,7 @@ You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLO
 [1] EXTRACT      → parse user intent + clarify until contract is clear
 [2] DRAFT        → tier-specific (skip Plan subagent for XS/S)
 [3] FILENAME     → timestamp + tier + slug (no NNN, no race check)
-[4] WRITE        → fill tier-specific template + conditional guardrails
+[4] WRITE        → fill tier-specific template + required skills + conditional guardrails
 [5] CHECK        → tier-aware quality check
 [6] REPORT       → summarize for user, point to /add-to-backlog
 ```
@@ -45,6 +45,14 @@ Classify the task into one of the four tiers using **concrete signals**, not gut
 | **S** | Single-file logic tweak. No new UI screen / new save field / new event. ≤2 files. | ~3K tokens, no subagent |
 | **M** | Multi-file feature. New UI screen/popup, new controller, new save field, new TigerForge event. 3–8 files. | ~15K tokens, Plan subagent |
 | **L** | Cross-cutting: new IAP/purchase flow, save data migration, new system integration, or 9+ files. | ~25K tokens, Plan subagent + risk pass |
+
+**UI skill routing rule** (applies before drafting):
+- A task is UI-scoped if it creates or edits a Unity feature screen, popup, persistent HUD widget, reusable UI child prefab, prefab variant, serialized UI references, tab/list/slider/resource preview composition, or screen registration.
+- UI-scoped tasks are at least **M**, except a pure code-only tweak to an existing controller in <=2 files with no prefab or serialized-reference work.
+- Every UI-scoped task must include `**Required skills:** /create-ui` near the title. Add `/compile-check` when that UI task creates or edits `.cs` files.
+- UI-scoped acceptance criteria must explicitly require the `/create-ui` workflow: read `.claude/skills/create-ui/SKILL.md`, follow `references/prefab-templates.md` and `references/mcp-playbook.md`, reuse shared prefab templates, screenshot-verify, and self-correct layout issues before done.
+- For a root feature screen or popup, criteria must require a `Popup_Template/screen_template` prefab variant, the correct `FeatureBaseController` subclass on the root, preserved root child order (`child[0]` background, `child[1]` MainUI), wired serialized references, and `UIManager.Show(...)` verification.
+- If the requested work is mostly service/gameplay code and UI prefab authoring should happen after the controller/service exists, keep prefab authoring out of scope and create a separate UI follow-up planning task when requested. Do not modify existing planning files just to add the split unless the user explicitly asks.
 
 **Auto-bump rules** (override to a higher tier if any signal matches):
 - Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M.
@@ -66,7 +74,9 @@ Record your tier choice in your reasoning and explain it to the user in STEP 6. 
 
 ## STEP 1 — Extract intent (compact)
 
-Parse the user's message for: **What**, **Why** (if any), **Scope**, **Priority** (default `MEDIUM`), and **Constraints**.
+Parse the user's message for: **What**, **Why** (if any), **Scope**, **Priority** (default `MEDIUM`), **Constraints**, and **Required skills**.
+
+If the request mentions a screen, popup, HUD, prefab, UI controller, visual layout, UI list/tab/slider/resource preview, or manual Editor authoring for UI, mark the task UI-scoped and apply the UI skill routing rule from STEP 0.
 
 If the intent is ambiguous regarding **what**, **scope**, **priority**, **constraints**, or any decision affecting **acceptance criteria / verify steps / product behavior**, you must ask for clarification before writing the file. Ask in small batches, maximum **3 questions per turn**, and continue clarifying until the task is clear enough to implement as a contract.
 
@@ -121,6 +131,7 @@ Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 >    - **Real paths only:** every path in `files_to_touch` / `related_files` must either already exist in the repo, or follow the project's established folder convention for that epic (match where sibling/dependency code actually lives — do NOT invent a parallel tree). If the dependency code does not exist yet, mark the path `[ASSUMED]` and add an `open_question`.
 >    - **No phantom references:** every config/class/accessor the spec tells the implementer to READ (e.g. `DataManager.X`, a CSV, a helper method) must actually exist or be created by a named upstream task. Never reference an artifact that no task produces. Verify method/accessor NAMES against the real API (don't invent `GetFoo()` that isn't there).
 > 3. Identify existing patterns that the implementer must follow (`FeatureBaseController`, `RedDotBadge`, `UIManager`, `TigerForge`, DOTween, `UniTask`, `PlayerDataManager.[Module]`, `DataManager` read-only).
+> 3a. If the task is UI-scoped, set `required_skills` to include `/create-ui` (and `/compile-check` if that UI task touches `.cs` files). Include the exact `/create-ui` workflow constraints in completion criteria and verify steps. If UI should be split from a non-UI implementation, document that split in `ui_task_split` and keep the current task's out-of-scope clear.
 > 4. Surface risks → acceptance criteria.
 > 5. Apply the scope-control gate: if proposing broad changes, explain why/impact/migration/tests/checkpoints/rollback; if you cannot explain, narrow the scope or put it under `open_questions`.
 > 6. Decide which guardrails apply (see `applicable_guardrails` below). For each guardrail you exclude, provide a concrete reason of ≥10 chars.
@@ -129,6 +140,12 @@ Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 > ```json
 > {
 >   "summary": "one-sentence restatement",
+>   "required_skills": [],
+>   "ui_task_split": {
+>     "needed": false,
+>     "reason": "none | UI prefab authoring depends on controller/service from this task",
+>     "suggested_followup_title": "none | Build <feature> screen prefab"
+>   },
 >   "files_to_touch": [{ "path": "Assets/_Project/...", "why": "..." }],
 >   "pattern_to_follow": "...",
 >   "scope_control": {
@@ -168,6 +185,8 @@ Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 
 Show a **condensed** view, not raw JSON:
 - One-line summary
+- Required skills (especially `/create-ui` for UI-scoped tasks)
+- UI split decision (same task vs separate follow-up, if relevant)
 - File list (paths + one-line why)
 - Scope-control summary (broad change? why, affected areas, rollback/fallback if any)
 - Top 3–5 completion criteria
@@ -214,6 +233,11 @@ Pick template based on tier:
 | M  | `backlog/_TEMPLATE_M.md` |
 | L  | `backlog/_TEMPLATE_L.md` |
 
+**Required skills rule**:
+- If the draft has `required_skills`, write them directly under the title as `**Required skills:** ...`.
+- If the task is UI-scoped but `required_skills` omits `/create-ui`, fix the draft before writing.
+- If a UI-scoped task creates or edits `.cs` files but `required_skills` omits `/compile-check`, either add `/compile-check` or document why no compile check is needed.
+
 **Conditional guardrail rule** (applied to M/L using `applicable_guardrails` from Plan subagent):
 - Include guardrail blocks ONLY WHEN the guardrail appears in `applicable_guardrails`.
 - For each excluded guardrail, the Plan subagent must provide a `not_applicable` reason of ≥10 chars. Append these reasons at the end of the task file:
@@ -250,6 +274,7 @@ Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 - [ ] `open_questions` is empty or only contains low-risk implementation details that do not change the outcome.
 - [ ] `scope_control` has all fields: broad/not broad, affected areas, out_of_scope, test/regression plan, checkpoints, rollback/fallback.
 - [ ] If `scope_control.is_broad_change = true`, there must be a compelling reason, a migration plan if touching data/schema/config/save, and a specific rollback/fallback.
+- [ ] UI-scoped task includes `**Required skills:** /create-ui` and concrete `/create-ui` acceptance criteria.
 - [ ] `applicable_guardrails` list exists and matches the included blocks.
 - [ ] Each excluded guardrail has a `not_applicable` reason of ≥10 chars.
 - [ ] Mobile impact — GC alloc / APK size / draw call / save data / localize / CSV: each axis is evaluated, included, or justified.
@@ -271,10 +296,12 @@ If any check fails, fix the draft before STEP 6.
 Report to the user, in order:
 1. **Selected tier** + reason (which signal triggered it).
 2. Task title, priority, and created file path (in `backlog/planning/`).
-3. **Pointer**: *"This task is in planning. When you want to queue it for `run-backlog` to run, use `/add-to-backlog` (or say 'add task to backlog')."*
-4. **Guardrails skipped** (if any) + reason.
-5. **Assumptions made** (if any) so the user can correct them now.
-6. **Scope-control summary**: broad/not broad, affected areas, out_of_scope, rollback/fallback if any.
-7. Top 3 acceptance criteria so the user can sanity-check the scope.
+3. Required skills (if any), calling out `/create-ui` for UI-scoped tasks.
+4. UI split decision (if relevant): whether this task owns prefab authoring or a separate follow-up UI task should be created.
+5. **Pointer**: *"This task is in planning. When you want to queue it for `run-backlog` to run, use `/add-to-backlog` (or say 'add task to backlog')."*
+6. **Guardrails skipped** (if any) + reason.
+7. **Assumptions made** (if any) so the user can correct them now.
+8. **Scope-control summary**: broad/not broad, affected areas, out_of_scope, rollback/fallback if any.
+9. Top 3 acceptance criteria so the user can sanity-check the scope.
 
 DO NOT commit. DO NOT modify `BACKLOG.md`. DO NOT create anything in `backlog/todo/`.

@@ -8,6 +8,8 @@ Filename: `backlog/todo/NNN-short-slug.md`
 
 ### [PRIORITY] Short output-focused title (≤10 words)
 
+**Required skills:** <none, or `/create-ui`, `/compile-check`>
+
 **Description:**
 2–5 sentences explaining CLEARLY what needs to be done and why. State important business rules / gameplay rules here.
 
@@ -28,6 +30,14 @@ Filename: `backlog/todo/NNN-short-slug.md`
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] No violations of rules in `.agents/rules/` | Verify: quick manual code review
 - [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings during the full flow | Verify: Play scene end-to-end, check Console
+
+**UI criteria — include only when `Required skills` contains `/create-ui`:**
+- [ ] Follow `/create-ui`: read `.claude/skills/create-ui/SKILL.md`, `references/prefab-templates.md`, and `references/mcp-playbook.md` before prefab work | Verify: task summary names the template and MCP playbook path used
+- [ ] Reuse shared prefab templates; do not build production UI from blank raw GameObjects when a matching template exists | Verify: inspect prefab hierarchy for nested template instances
+- [ ] For root screens/popups, create a variant from `Popup_Template/screen_template`, attach the correct `FeatureBaseController` subclass, and preserve child order (`child[0]` background, `child[1]` MainUI) | Verify: inspect prefab root and first two children
+- [ ] Wire serialized references (close buttons, labels, content containers, tab lists, preview controllers) | Verify: reopen prefab, no missing references in Inspector
+- [ ] Register/open through `UIManager.Show(...)` when the UI is a feature screen | Verify: open in Play Mode through the real feature enum and capture a screenshot
+- [ ] Screenshot-verify and self-correct after meaningful layout chunks | Verify: final report includes the screenshot check result and any corrections made
 
 **Guardrails — include only the applicable_guardrails blocks from the Plan subagent:**
 - [ ] [PATTERN] New UI extends `FeatureBaseController`; new Notification extends `RedDotBadge` | Verify: check class declaration
