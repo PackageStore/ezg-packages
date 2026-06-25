@@ -23,7 +23,7 @@ Workflow này nhận một file Concept GDD (hoặc ý tưởng ban đầu) làm
 3. **Phase 2 – Full GDD Generation (Tạo GDD hoàn chỉnh):**
    - Dựa trên nền tảng của Phase 1, tạo Production GDD hoàn chỉnh với đầy đủ **16 phần cụ thể (từ I. OVERVIEW đến XVI. CONFIG TABLE)**.
    - Yêu cầu bắt buộc:
-     - Phải có số liệu, bảng biểu và công thức cụ thể cho phần Economy & Monetization (Merge Two có IAP).
+     - Phải có số liệu, bảng biểu và công thức cụ thể cho phần Economy & Monetization ([Project Name] có IAP).
      - Đảm bảo economy được kiểm soát tốt (không runaway).
      - Tuyệt đối không phá Design Invariants đã chốt.
      - Mọi con số tag nguồn gốc (`[DERIVED]`/`[BENCHMARK]`/`[ASSUMED]`), output audit-ready, không narrative dư thừa.

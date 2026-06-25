@@ -4,7 +4,7 @@ description: Bước 3 - Tạo ánh xạ triển khai (Implementation Mapping) v
 
 # Workflow: Ánh Xạ Triển Khai (03-implementation-mapping)
 
-Bước cuối trong luồng thiết kế. Nhận Technical Spec (từ Workflow 02) và sinh `Implementation Mapping` tuân thủ chuẩn xác ràng buộc hệ thống của Merge Two, dựa trên `.agents/docs/feature-spec-prompt/03-implementation-mapping-prompt.md`.
+Bước cuối trong luồng thiết kế. Nhận Technical Spec (từ Workflow 02) và sinh `Implementation Mapping` tuân thủ chuẩn xác ràng buộc hệ thống của [Project Name], dựa trên `.agents/docs/feature-spec-prompt/03-implementation-mapping-prompt.md`.
 
 ## Các bước thực hiện:
 
@@ -25,7 +25,7 @@ Bước cuối trong luồng thiết kế. Nhận Technical Spec (từ Workflow 
    - Sub-feature ↔ Collection: mỗi sub-feature "Cần Model/Collection? = Có" phải có dòng tương ứng trong bảng ScriptableObject Collections.
    - Dependency Graph: nếu ≥ 2 feature con, phải có thứ tự build rõ ràng.
 
-5. **Registration Points (model Merge Two — KHÔNG dùng CsvAssetDir/DataManagerAutoGenerate):**
+5. **Registration Points (model [Project Name] — KHÔNG dùng CsvAssetDir/DataManagerAutoGenerate):**
    - **PlayerData** (chỉ khi module lưu data): đăng ký trong `Assets/_Project/Features/_Shared/GameData/PlayerDataManager.cs` theo pattern `??= DataPlayer.GetModule<T>()`; class kế thừa `DataPlayerBaseGeneric<T>`.
    - **Collection config**: expose trên facade `DataManager` (`Assets/_Project/Features/_Shared/GameData/DataManager.cs`), đọc qua `DataManager.<CollectionName>`.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Merge Two** — Unity mobile game with merge-grid gameplay, cooking recipes, shop/IAP, events, and progression systems. C# codebase, ~11,000+ scripts. Primary working directory: `Assets/_Project/`.
+**[Project Name]** — Unity mobile game with merge-grid gameplay, cooking recipes, shop/IAP, events, and progression systems. C# codebase, ~11,000+ scripts. Primary working directory: `Assets/_Project/`.
 
 ## Architecture
 
@@ -165,7 +165,7 @@ Cơ chế thực thi task tự động dựa trên backlog split-file (token usa
 
 | Agent | File | Role | Model | Spawn khi |
 |-------|------|------|-------|-----------|
-| `code-reviewer` | [.agents/agents/code-reviewer.md](.agents/agents/code-reviewer.md) | Review diff theo conventions Merge Two (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | opus | Mọi task |
+| `code-reviewer` | [.agents/agents/code-reviewer.md](.agents/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | opus | Mọi task |
 | `performance-reviewer` | [.agents/agents/performance-reviewer.md](.agents/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | opus | Mọi task (song song với code-reviewer) |
 | `security-auditor` | [.agents/agents/security-auditor.md](.agents/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | opus | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
 | `qa-verifier` | [.agents/agents/qa-verifier.md](.agents/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |

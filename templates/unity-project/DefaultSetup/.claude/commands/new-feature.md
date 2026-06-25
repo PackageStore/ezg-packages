@@ -1,10 +1,10 @@
 ---
-description: Create a new Feature structure in the Merge Two project
+description: Create a new Feature structure in the [Project Name] project
 ---
 
 // turbo-all
 # Create New Feature Workflow
-As a Unity Senior Developer, create a new feature structure following Merge Two conventions. This workflow aligns with `/feature-development` and the `.agents/rules/` — read those for the full rules.
+As a Unity Senior Developer, create a new feature structure following [Project Name] conventions. This workflow aligns with `/feature-development` and the `.agents/rules/` — read those for the full rules.
 
 ## 1. ARGUMENT PARSING
 Parse `{{args}}` with format: `FeatureName: Description`

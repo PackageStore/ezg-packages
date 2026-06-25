@@ -1,4 +1,4 @@
-Dựa vào tài liệu trong "Docs" của game Merge Two, hãy đề xuất 1 mini-game limited-time event hoàn toàn mới.
+Dựa vào tài liệu trong "Docs" của game [Project Name], hãy đề xuất 1 mini-game limited-time event hoàn toàn mới.
 
 MỤC TIÊU:
 

@@ -9,7 +9,10 @@ param(
     [switch]$NoSkipPermissions,
     # Extended thinking budget (output tokens reserved for reasoning) for the
     # orchestrator and the subagents it spawns. Pass 0 to disable thinking.
-    [int]$ThinkingTokens = 10000
+    [int]$ThinkingTokens = 10000,
+    # Claude reasoning effort tier. Empty = leave the CLI default untouched.
+    [AllowEmptyString()]
+    [string]$Effort = ""
 )
 
 $coreArgs = @{
@@ -18,6 +21,7 @@ $coreArgs = @{
     LogDir = $LogDir
     Model = $Model
     ThinkingTokens = $ThinkingTokens
+    ReasoningEffort = $Effort
 }
 
 if ($NoSkipPermissions) {

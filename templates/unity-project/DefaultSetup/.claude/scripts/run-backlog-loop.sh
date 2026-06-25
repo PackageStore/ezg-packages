@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Merge Two — Run Backlog Loop (macOS), per-task new Terminal window.
+# [Project Name] — Run Backlog Loop (macOS), per-task new Terminal window.
 #
 # This script is the CONTROLLER. For each iteration it spawns a SEPARATE Terminal
 # window that runs exactly one /run-backlog task, then waits (via a flag file) for
@@ -12,11 +12,17 @@
 # Usage:
 #   .claude/scripts/run-backlog-loop.sh
 #   .claude/scripts/run-backlog-loop.sh --model claude-opus-4-8 --effort xhigh --max-iterations 5
+#   .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --max-iterations 5
 #   .claude/scripts/run-backlog-loop.sh --inline        # run in THIS window (no new windows)
 #
 # Options:
 #   --model <id>             Claude model id (default: empty = CLI default).
 #   --effort <level>         Reasoning effort: low|medium|high|xhigh (default: empty = CLI default).
+#   --auto-model-by-tier     Pick model/effort per iteration from BACKLOG.md task tier.
+#   --xs-model/--xs-effort   Override XS profile (default: claude-sonnet-4-6/medium).
+#   --s-model/--s-effort     Override S profile (default: claude-sonnet-4-6/high).
+#   --m-model/--m-effort     Override M profile (default: claude-opus-4-8/xhigh).
+#   --l-model/--l-effort     Override L profile (default: claude-opus-4-8/xhigh).
 #   --max-iterations <n>     Max task iterations (default: 100).
 #   --thinking-tokens <n>    MAX_THINKING_TOKENS for orchestrator + subagents (default: 10000; 0 = off).
 #   --inline                 Run each task in the current window instead of a new one.
@@ -32,6 +38,15 @@ cd "$REPO_ROOT" || { echo "Cannot cd to repo root: $REPO_ROOT" >&2; exit 1; }
 # --- defaults -------------------------------------------------------------------
 MODEL=""
 EFFORT=""
+AUTO_MODEL_BY_TIER=0
+XS_MODEL="claude-sonnet-4-6"
+XS_EFFORT="medium"
+S_MODEL="claude-sonnet-4-6"
+S_EFFORT="high"
+M_MODEL="claude-opus-4-8"
+M_EFFORT="xhigh"
+L_MODEL="claude-opus-4-8"
+L_EFFORT="xhigh"
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000
 SKIP_PERMISSIONS=1
@@ -43,12 +58,21 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --model)            MODEL="${2:-}"; shift 2 ;;
     --effort)           EFFORT="${2:-}"; shift 2 ;;
+    --auto-model-by-tier) AUTO_MODEL_BY_TIER=1; shift ;;
+    --xs-model)         XS_MODEL="${2:-}"; shift 2 ;;
+    --xs-effort)        XS_EFFORT="${2:-}"; shift 2 ;;
+    --s-model)          S_MODEL="${2:-}"; shift 2 ;;
+    --s-effort)         S_EFFORT="${2:-}"; shift 2 ;;
+    --m-model)          M_MODEL="${2:-}"; shift 2 ;;
+    --m-effort)         M_EFFORT="${2:-}"; shift 2 ;;
+    --l-model)          L_MODEL="${2:-}"; shift 2 ;;
+    --l-effort)         L_EFFORT="${2:-}"; shift 2 ;;
     --max-iterations)   MAX_ITERATIONS="${2:-}"; shift 2 ;;
     --thinking-tokens)  THINKING_TOKENS="${2:-}"; shift 2 ;;
     --inline)           INLINE=1; shift ;;
     --no-skip-permissions) SKIP_PERMISSIONS=0; shift ;;
     -h|--help)
-      sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
@@ -64,7 +88,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RENDER" ]; then HAS_RENDER=1; el
 
 # --- per-task prompt ------------------------------------------------------------
 read -r -d '' PROMPT <<'EOF'
-Execute exactly one iteration of the Merge Two run-backlog workflow.
+Execute exactly one iteration of the [Project Name] run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
@@ -101,34 +125,90 @@ backlog_counts() {
   ' BACKLOG.md
 }
 
-# --- claude args ----------------------------------------------------------------
-CLI_ARGS=(--verbose --output-format stream-json --include-partial-messages)
-[ "$SKIP_PERMISSIONS" -eq 1 ] && CLI_ARGS+=(--dangerously-skip-permissions)
-[ -n "$MODEL" ] && CLI_ARGS+=(--model "$MODEL")
-[ -n "$EFFORT" ] && CLI_ARGS+=(--effort "$EFFORT")
+task_line_for_section() {
+  local section="$1"
+  awk -v wanted="$section" '
+    /^## / {
+      sec="";
+      if ($0 == "## " wanted) sec=wanted;
+      next;
+    }
+    sec==wanted && /^[[:space:]]*-[[:space:]]*\[(HIGH|MEDIUM|LOW)\]/ {
+      print;
+      exit;
+    }
+  ' BACKLOG.md
+}
 
+next_task_profile() {
+  local line tier title state
+  line="$(task_line_for_section "IN PROGRESS")"
+  state="in-progress"
+  if [ -z "$line" ]; then
+    line="$(task_line_for_section "TODO")"
+    state="todo"
+  fi
+
+  if [ -z "$line" ]; then
+    TASK_TIER=""
+    TASK_TITLE=""
+    TASK_STATE=""
+    SELECTED_MODEL="$MODEL"
+    SELECTED_EFFORT="$EFFORT"
+    return
+  fi
+
+  tier="$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[(XS|S|M|L)\].*/\1/p')"
+  if [ -n "$tier" ]; then
+    title="$(printf '%s\n' "$line" | sed -E 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[[^]]+\][[:space:]]+\[([^]]+)\].*/\1/')"
+  else
+    title="$(printf '%s\n' "$line" | sed -E 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[([^]]+)\].*/\1/')"
+  fi
+  TASK_TIER="$tier"
+  TASK_TITLE="$title"
+  TASK_STATE="$state"
+
+  case "$tier" in
+    XS) SELECTED_MODEL="$XS_MODEL"; SELECTED_EFFORT="$XS_EFFORT" ;;
+    S)  SELECTED_MODEL="$S_MODEL";  SELECTED_EFFORT="$S_EFFORT" ;;
+    M)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT" ;;
+    L)  SELECTED_MODEL="$L_MODEL";  SELECTED_EFFORT="$L_EFFORT" ;;
+    *)  SELECTED_MODEL="$M_MODEL";  SELECTED_EFFORT="$M_EFFORT" ;;
+  esac
+}
+
+build_cli_args() {
+  CLI_ARGS=(--verbose --output-format stream-json --include-partial-messages)
+  [ "$SKIP_PERMISSIONS" -eq 1 ] && CLI_ARGS+=(--dangerously-skip-permissions)
+  [ -n "${SELECTED_MODEL:-}" ] && CLI_ARGS+=(--model "$SELECTED_MODEL")
+  [ -n "${SELECTED_EFFORT:-}" ] && CLI_ARGS+=(--effort "$SELECTED_EFFORT")
+  CLI_ARGS_Q="$(printf '%q ' "${CLI_ARGS[@]}")"
+
+  if [ "$HAS_RENDER" -eq 1 ]; then
+    RENDER_PIPE="| python3 $(printf '%q' "$RENDER") --provider claude --effort $(printf '%q' "${SELECTED_EFFORT:-default}")"
+  else
+    RENDER_PIPE=""
+  fi
+}
+
+# --- claude args ----------------------------------------------------------------
 if [ "${THINKING_TOKENS:-0}" -gt 0 ] 2>/dev/null; then
   export MAX_THINKING_TOKENS="$THINKING_TOKENS"
 else
   unset MAX_THINKING_TOKENS
 fi
 
-# printf %q-quote the claude argv so it can be embedded safely in the runner script.
-CLI_ARGS_Q="$(printf '%q ' "${CLI_ARGS[@]}")"
-
-# Pipe suffix that routes console output through the pretty renderer (empty if unavailable).
-if [ "$HAS_RENDER" -eq 1 ]; then
-  RENDER_PIPE="| python3 $(printf '%q' "$RENDER") --provider claude"
-else
-  RENDER_PIPE=""
-fi
-
 echo
 echo "=========================================="
-echo "  Merge Two — Run Backlog Loop (controller)"
+echo "  [Project Name] — Run Backlog Loop (controller)"
 echo "=========================================="
-echo "  Model:           ${MODEL:-<CLI default>}"
-echo "  Effort:          ${EFFORT:-<CLI default>}"
+if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
+  echo "  Model:           auto by task tier"
+  echo "  Tier map:        XS=$XS_MODEL/$XS_EFFORT, S=$S_MODEL/$S_EFFORT, M=$M_MODEL/$M_EFFORT, L=$L_MODEL/$L_EFFORT"
+else
+  echo "  Model:           ${MODEL:-<CLI default>}"
+  echo "  Effort:          ${EFFORT:-<CLI default>}"
+fi
 echo "  Thinking tokens: ${MAX_THINKING_TOKENS:-off}"
 echo "  Window mode:     $([ "$INLINE" -eq 1 ] && echo 'inline (this window)' || echo 'new window per task')"
 echo "  Max iterations:  $MAX_ITERATIONS"
@@ -146,7 +226,7 @@ export MAX_THINKING_TOKENS=$(printf '%q' "${MAX_THINKING_TOKENS:-}")
 [ -z "\$MAX_THINKING_TOKENS" ] && unset MAX_THINKING_TOKENS
 code=0
 trap 'echo "\$code" > $(printf '%q' "$flag")' EXIT
-echo "=== Merge Two backlog task — iteration $idx ==="
+echo "=== [Project Name] backlog task — iteration $idx ==="
 cat $(printf '%q' "$promptfile") | claude $CLI_ARGS_Q 2>&1 | tee $(printf '%q' "$log") $RENDER_PIPE
 code=\${PIPESTATUS[1]}
 if [ "\$code" -ne 0 ]; then
@@ -171,6 +251,22 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     break
   fi
 
+  if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
+    next_task_profile
+  else
+    TASK_TIER=""
+    TASK_TITLE=""
+    TASK_STATE=""
+    SELECTED_MODEL="$MODEL"
+    SELECTED_EFFORT="$EFFORT"
+  fi
+  build_cli_args
+
+  if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
+    echo "  Next task: [${TASK_TIER:-unknown}] $TASK_TITLE ($TASK_STATE)"
+    echo "  Profile: model=${SELECTED_MODEL:-<CLI default>} effort=${SELECTED_EFFORT:-<CLI default>}"
+  fi
+
   ts="$(date +%Y%m%d-%H%M%S)"
   base="$LOG_DIR_ABS/iter-$i-$ts"
   log_file="$base.log"
@@ -183,7 +279,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   if [ "$INLINE" -eq 1 ]; then
     # Same-window execution.
     if [ "$HAS_RENDER" -eq 1 ]; then
-      printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file" | python3 "$RENDER" --provider claude
+      printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file" | python3 "$RENDER" --provider claude --effort "${SELECTED_EFFORT:-default}"
     else
       printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file"
     fi

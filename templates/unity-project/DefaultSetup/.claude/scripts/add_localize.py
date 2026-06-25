@@ -1,5 +1,5 @@
 """
-Add a single localization key to the Merge Two Google Sheet.
+Add a single localization key to the [Project Name] Google Sheet.
 Writes key/en/vi directly + GOOGLETRANSLATE formulas for the other languages.
 Does NOT clone the previous row.
 
@@ -81,7 +81,7 @@ def resolve_sheet(spreadsheet, name):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Add a localization key to the Merge Two Google Sheet')
+    parser = argparse.ArgumentParser(description='Add a localization key to the [Project Name] Google Sheet')
     parser.add_argument('--key', required=True)
     parser.add_argument('--en', default='', help='English source text (column B)')
     parser.add_argument('--vi', default='', help='Vietnamese text (column C)')

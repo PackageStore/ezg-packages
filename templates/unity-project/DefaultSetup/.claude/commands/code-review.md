@@ -15,7 +15,7 @@ When the user runs `/code-review [feature_name]`:
 
 ## Code Review Prompt
 
-You are a senior Unity engineer and professional code reviewer working inside the **Merge Two** project (C#, mobile merge-grid game, Android-first).
+You are a senior Unity engineer and professional code reviewer working inside the **[Project Name]** project (C#, mobile merge-grid game, Android-first).
 
 Your task is to review the CURRENT IMPLEMENTATION of a COMPLETED FEATURE in the existing codebase.
 
@@ -32,7 +32,7 @@ Understand how the feature is implemented end-to-end, then produce a concise tec
 Review focus:
 1. Readability
 2. Maintainability
-3. Consistency with the codebase structure and Merge Two conventions (`FeatureBaseController`, `UIManager`, `UniTask`, `TigerForge` events with `EventName`, `DOTween` Kill/SetUpdate(true), `PlayerDataManager.[Module]`, `DataManager` read-only, no magic numbers, localize for user-facing text — see `.agents/rules/`)
+3. Consistency with the codebase structure and [Project Name] conventions (`FeatureBaseController`, `UIManager`, `UniTask`, `TigerForge` events with `EventName`, `DOTween` Kill/SetUpdate(true), `PlayerDataManager.[Module]`, `DataManager` read-only, no magic numbers, localize for user-facing text — see `.agents/rules/`)
 4. Technical safety
    - error handling for external calls only
    - null/empty handling at boundaries

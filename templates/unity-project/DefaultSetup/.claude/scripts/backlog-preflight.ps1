@@ -110,7 +110,7 @@ if ($IncludeDiffStat -and $changedFiles.Count -gt 0) {
 $findings = [System.Collections.Generic.List[object]]::new()
 $sensitiveReasons = [System.Collections.Generic.List[object]]::new()
 
-# Sensitive file patterns for Merge Two (no backend/supabase/cloudflare)
+# Sensitive file patterns for [Project Name] (no backend/supabase/cloudflare)
 $sensitiveFilePatterns = @(
     "*Purchase*",
     "*IAP*",

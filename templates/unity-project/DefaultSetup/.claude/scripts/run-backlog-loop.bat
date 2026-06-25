@@ -1,5 +1,5 @@
 @echo off
-REM Merge Two - Run Backlog Loop entrypoint.
+REM [Project Name] - Run Backlog Loop entrypoint.
 REM Interactive: pick a provider, then a model. Forwards any extra args to the wrapper.
 REM Autonomous (redirected/empty stdin, e.g. spawned by /execute-backlog-tasks): every
 REM prompt falls back to its pre-set default (Claude + wrapper default model), so it
@@ -15,7 +15,7 @@ set "EXTRA_ARGS=%*"
 
 echo.
 echo  ==========================================
-echo   Merge Two - Run Backlog Loop
+echo   [Project Name] - Run Backlog Loop
 echo  ==========================================
 echo.
 echo  [1] Claude   (default)

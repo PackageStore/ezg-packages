@@ -21,7 +21,7 @@ function Add-Using([string]$content, [string]$ns, [string]$eol) {
 
 $cntMergeUsing=0; $cntRtUsing=0; $cntSupa=0; $cntShadow=0
 
-# ---- Pass over scope files: add using MergeTwo / Game.Runtime based on OLD ns ----
+# ---- Pass over scope files: add using ProjectNamespace / Game.Runtime based on OLD ns ----
 foreach ($t in $targets) {
   $dir = Join-Path $scopeRoot $t; if (-not (Test-Path $dir)) { continue }
   Get-ChildItem -Path $dir -Recurse -Filter *.cs | ForEach-Object {
@@ -35,11 +35,11 @@ foreach ($t in $targets) {
     if (-not $oldNs) { return }
     $eol = if ($content.Contains("`r`n")) {"`r`n"} else {"`n"}
     $orig = $content
-    if ($oldNs -eq "MergeTwo" -or $oldNs -like "MergeTwo.*") { $content = Add-Using $content "MergeTwo" $eol }
+    if ($oldNs -eq "ProjectNamespace" -or $oldNs -like "ProjectNamespace.*") { $content = Add-Using $content "ProjectNamespace" $eol }
     if ($oldNs -eq "Game.Runtime" -or $oldNs -like "Game.Runtime.*") { $content = Add-Using $content "Game.Runtime" $eol }
     if ($content -ne $orig) {
       if ($Apply) { Write-Text $f $content (Get-Bom $f) }
-      if ($content -match "using MergeTwo;") { $script:cntMergeUsing++ }
+      if ($content -match "using ProjectNamespace;") { $script:cntMergeUsing++ }
     }
   }
 }
@@ -49,9 +49,9 @@ Get-ChildItem -Path $projectRoot -Recurse -Filter *.cs | ForEach-Object {
   $f=$_.FullName; $content = Read-Text $f; $orig = $content
   $ns = Get-Ns $content
 
-  # (5) MergeTwo.SupabaseHandleEvent -> fully qualified new location
-  if ($content.Contains("MergeTwo.SupabaseHandleEvent")) {
-    $content = $content.Replace("MergeTwo.SupabaseHandleEvent","Ezg.Feature.Events._Core.SupabaseHandleEvent")
+  # (5) ProjectNamespace.SupabaseHandleEvent -> fully qualified new location
+  if ($content.Contains("ProjectNamespace.SupabaseHandleEvent")) {
+    $content = $content.Replace("ProjectNamespace.SupabaseHandleEvent","Ezg.Feature.Events._Core.SupabaseHandleEvent")
     $script:cntSupa++
   }
 
@@ -85,7 +85,7 @@ Get-ChildItem -Path $projectRoot -Recurse -Filter *.cs | ForEach-Object {
   if ($content -ne $orig -and $Apply) { Write-Text $f $content (Get-Bom $f) }
 }
 
-"using MergeTwo/Game.Runtime added to scope files (approx): $cntMergeUsing"
+"using ProjectNamespace/Game.Runtime added to scope files (approx): $cntMergeUsing"
 "Files with SupabaseHandleEvent requalified: $cntSupa"
 "Files with System/Firebase shadow fixed: $cntShadow"
 if (-not $Apply) { "(dry-run)" }

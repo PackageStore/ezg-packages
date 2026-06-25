@@ -9,6 +9,8 @@ param(
     [string]$LogDir = "logs/backlog-loop",
     [AllowEmptyString()]
     [string]$Model = "claude-sonnet-4-6",
+    [AllowEmptyString()]
+    [string]$Effort = "",
     [switch]$NoSkipPermissions
 )
 
@@ -16,6 +18,7 @@ $argsForClaude = @{
     MaxIterations = $MaxIterations
     LogDir = $LogDir
     Model = $Model
+    Effort = $Effort
 }
 
 if ($NoSkipPermissions) {

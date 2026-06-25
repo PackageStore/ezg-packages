@@ -70,7 +70,7 @@ Với mỗi sub-feature cần Model/Collection hoặc PlayerData, liệt kê cá
 
 > Mục tiêu: Developer biết rõ side-effect ngoài folder feature khi chạy `/new-feature`.
 
-**Mô hình đăng ký của Merge Two (KHÔNG có `CsvAssetDir.cs`, KHÔNG có `DataManagerAutoGenerate.cs`):**
+**Mô hình đăng ký của [Project Name] (KHÔNG có `CsvAssetDir.cs`, KHÔNG có `DataManagerAutoGenerate.cs`):**
 
 1. **PlayerData** — chỉ khi Manager/module có persist data. PlayerData class kế thừa `DataPlayerBaseGeneric<T>`. Đăng ký trong `Assets/_Project/Features/_Shared/GameData/PlayerDataManager.cs` theo property pattern:
    ```csharp

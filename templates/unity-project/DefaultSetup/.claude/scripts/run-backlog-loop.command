@@ -8,19 +8,34 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- defaults (change these to taste) -------------------------------------------
+# Auto mode picks the next task's [XS]/[S]/[M]/[L] tier from BACKLOG.md before
+# opening each task window:
+#   XS/S -> claude-sonnet-4-6
+#   M/L  -> claude-opus-4-8
+AUTO_MODEL_BY_TIER=1
+
+# Used only when AUTO_MODEL_BY_TIER=0.
 MODEL="claude-opus-4-8"     # "" = CLI default; e.g. claude-sonnet-4-6 / claude-opus-4-8
 EFFORT="xhigh"              # low | medium | high | xhigh; "" = CLI default
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000
 # --------------------------------------------------------------------------------
 
-echo "Starting Merge Two backlog loop..."
-echo "  model=${MODEL:-<default>}  effort=${EFFORT:-<default>}  max-iterations=$MAX_ITERATIONS  thinking=$THINKING_TOKENS"
+echo "Starting [Project Name] backlog loop..."
+if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
+    echo "  model=<auto by task tier>  max-iterations=$MAX_ITERATIONS  thinking=$THINKING_TOKENS"
+else
+    echo "  model=${MODEL:-<default>}  effort=${EFFORT:-<default>}  max-iterations=$MAX_ITERATIONS  thinking=$THINKING_TOKENS"
+fi
 echo ""
 
 ARGS=(--max-iterations "$MAX_ITERATIONS" --thinking-tokens "$THINKING_TOKENS")
-[ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
-[ -n "$EFFORT" ] && ARGS+=(--effort "$EFFORT")
+if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
+    ARGS+=(--auto-model-by-tier)
+else
+    [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
+    [ -n "$EFFORT" ] && ARGS+=(--effort "$EFFORT")
+fi
 
 bash "$DIR/run-backlog-loop.sh" "${ARGS[@]}"
 status=$?

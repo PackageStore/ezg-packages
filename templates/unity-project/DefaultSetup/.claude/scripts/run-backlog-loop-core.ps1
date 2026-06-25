@@ -117,7 +117,7 @@ function Test-Blocked {
 
 function New-RunBacklogAdapterPrompt {
     return @"
-You are running the Merge Two backlog workflow through a non-Claude CLI adapter.
+You are running the [Project Name] backlog workflow through a non-Claude CLI adapter.
 
 Goal: execute exactly one backlog task iteration with behavior equivalent to the Claude Code slash command /run-backlog.
 
@@ -137,7 +137,7 @@ Start now.
 
 function New-ClaudeRunBacklogPrompt {
     return @"
-Execute exactly one iteration of the Merge Two run-backlog workflow.
+Execute exactly one iteration of the [Project Name] run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
@@ -174,6 +174,9 @@ function New-AgentInvocation {
             if ($SelectedModel) {
                 $cliArgs += @("--model", $SelectedModel)
             }
+            if ($ReasoningEffortTier) {
+                $cliArgs += @("--effort", $ReasoningEffortTier)
+            }
             # Enable extended thinking via env var. claude (and its spawned subagents)
             # inherit MAX_THINKING_TOKENS from this process through Start-Process.
             # 0 = thinking off; clear any stale value so it never leaks across runs.
@@ -191,6 +194,7 @@ function New-AgentInvocation {
                 OutputMode = "claude-stream-json"
                 HeaderProvider = "claude"
                 HeaderModel = if ($SelectedModel) { $SelectedModel } else { "default" }
+                HeaderEffort = if ($ReasoningEffortTier) { $ReasoningEffortTier } else { "default" }
                 HeaderApproval = if ($DisableSkipPermissions) { "default" } else { "bypassPermissions" }
                 HeaderSandbox = "n/a"
                 HeaderThinking = if ($ThinkingBudget -gt 0) { "$ThinkingBudget tokens" } else { "off" }
@@ -221,6 +225,7 @@ function New-AgentInvocation {
                 UseNullStdin = $false
                 PromptFile = $PromptFile
                 OutputMode = "raw"
+                HeaderEffort = if ($ReasoningEffortTier) { $ReasoningEffortTier } else { "default" }
                 HeaderThinking = if ($ReasoningEffortTier) { "effort=$ReasoningEffortTier" } else { "default" }
             }
         }
@@ -254,6 +259,7 @@ function New-AgentInvocation {
                 OutputMode = "gemini-stream-json"
                 HeaderProvider = "gemini"
                 HeaderModel = if ($SelectedModel) { $SelectedModel } else { "default" }
+                HeaderEffort = "n/a"
                 HeaderApproval = if ($DisableSkipPermissions) { "default" } else { "yolo" }
                 HeaderSandbox = "n/a"
                 HeaderThinking = if ($ThinkingBudget -gt 0) { "$ThinkingBudget tokens" } else { "off" }
@@ -298,6 +304,11 @@ function Invoke-AgentInvocation {
     }
     $headerModel = if ($Invocation.ContainsKey('HeaderModel') -and $Invocation.HeaderModel) {
         [string]$Invocation.HeaderModel
+    } else {
+        "default"
+    }
+    $headerEffort = if ($Invocation.ContainsKey('HeaderEffort') -and $Invocation.HeaderEffort) {
+        [string]$Invocation.HeaderEffort
     } else {
         "default"
     }
@@ -350,6 +361,7 @@ $filterPattern = '__FILTER_PATTERN__'
 $headerProvider = '__HEADER_PROVIDER__'
 $headerWorkdir = '__HEADER_WORKDIR__'
 $headerModel = '__HEADER_MODEL__'
+$headerEffort = '__HEADER_EFFORT__'
 $headerApproval = '__HEADER_APPROVAL__'
 $headerSandbox = '__HEADER_SANDBOX__'
 $script:OpenTextLine = $false
@@ -397,6 +409,7 @@ function Write-SessionHeader {
         [string]$Workdir,
         [string]$Model,
         [string]$Provider,
+        [string]$Effort,
         [string]$Approval,
         [string]$Sandbox,
         [string]$SessionId
@@ -412,6 +425,7 @@ function Write-SessionHeader {
     Write-Host ("workdir: {0}" -f $Workdir) -ForegroundColor Gray
     Write-Host ("model: {0}" -f $Model) -ForegroundColor Gray
     Write-Host ("provider: {0}" -f $Provider) -ForegroundColor Gray
+    Write-Host ("effort: {0}" -f $Effort) -ForegroundColor Gray
     Write-Host ("approval: {0}" -f $Approval) -ForegroundColor Gray
     Write-Host ("sandbox: {0}" -f $Sandbox) -ForegroundColor Gray
     if ($SessionId) {
@@ -571,7 +585,7 @@ function Render-ClaudeStreamLine {
                 $workdir = if ($obj.cwd) { [string]$obj.cwd } else { $headerWorkdir }
                 $sessionId = if ($obj.session_id) { [string]$obj.session_id } else { "" }
                 $approval = if ($obj.permissionMode) { [string]$obj.permissionMode } else { $headerApproval }
-                Write-SessionHeader $workdir $model $headerProvider $approval $headerSandbox $sessionId
+                Write-SessionHeader $workdir $model $headerProvider $headerEffort $approval $headerSandbox $sessionId
             }
         }
 
@@ -640,7 +654,7 @@ function Render-GeminiStreamLine {
         "init" {
             $model = if ($obj.model) { [string]$obj.model } else { $headerModel }
             $sessionId = if ($obj.session_id) { [string]$obj.session_id } else { "" }
-            Write-SessionHeader $headerWorkdir $model $headerProvider $headerApproval $headerSandbox $sessionId
+            Write-SessionHeader $headerWorkdir $model $headerProvider $headerEffort $headerApproval $headerSandbox $sessionId
         }
 
         "tool_use" {
@@ -705,6 +719,7 @@ try {
     $escapedHeaderProvider = $headerProvider.Replace("'", "''")
     $escapedHeaderWorkdir = $RepoRoot.Replace("'", "''")
     $escapedHeaderModel = $headerModel.Replace("'", "''")
+    $escapedHeaderEffort = $headerEffort.Replace("'", "''")
     $escapedHeaderApproval = $headerApproval.Replace("'", "''")
     $escapedHeaderSandbox = $headerSandbox.Replace("'", "''")
     $scriptToRun = $scriptTemplate.Replace('__LOG_PATH__', $escapedLogPath)
@@ -714,6 +729,7 @@ try {
     $scriptToRun = $scriptToRun.Replace('__HEADER_PROVIDER__', $escapedHeaderProvider)
     $scriptToRun = $scriptToRun.Replace('__HEADER_WORKDIR__', $escapedHeaderWorkdir)
     $scriptToRun = $scriptToRun.Replace('__HEADER_MODEL__', $escapedHeaderModel)
+    $scriptToRun = $scriptToRun.Replace('__HEADER_EFFORT__', $escapedHeaderEffort)
     $scriptToRun = $scriptToRun.Replace('__HEADER_APPROVAL__', $escapedHeaderApproval)
     $scriptToRun = $scriptToRun.Replace('__HEADER_SANDBOX__', $escapedHeaderSandbox)
     $scriptToRun = $scriptToRun.Replace('__RUN_LINE__', $runLine)

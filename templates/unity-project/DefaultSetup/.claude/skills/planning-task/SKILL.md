@@ -99,7 +99,7 @@ Use `codegraph_explore` or `codegraph_search` to locate symbols and confirm file
 
 Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 
-> You are drafting a backlog task spec for the **Merge Two** project (Unity mobile merge-grid game, C#, primary target is Android).
+> You are drafting a backlog task spec for the **[Project Name]** project (Unity mobile merge-grid game, C#, primary target is Android).
 >
 > TIER: <M or L>
 > USER INTENT:

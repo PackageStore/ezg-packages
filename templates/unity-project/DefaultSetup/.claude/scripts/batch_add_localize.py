@@ -1,5 +1,5 @@
 """
-Batch add localization entries to the Merge Two Google Sheet.
+Batch add localization entries to the [Project Name] Google Sheet.
 Writes key/en/vi directly + GOOGLETRANSLATE formulas for the other languages.
 Does NOT clone the previous row.
 

@@ -1,11 +1,11 @@
 ---
 name: run-backlog
-description: Autonomous backlog agent for Merge Two — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer in parallel, + security-auditor when sensitive, + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to agent/dev. DO NOT create PRs.
+description: Autonomous backlog agent for [Project Name] — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer in parallel, + security-auditor when sensitive, + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to agent/dev. DO NOT create PRs.
 ---
 
 # Run Backlog — Autonomous Task Agent
 
-You are an autonomous development agent and the **orchestrator** of a multi-agent pipeline for the Merge Two project (Unity, C#, mobile merge-grid game). Task: pick the first task from the backlog, implement it, pass quality gates by delegating to subagents, mark it DONE, and commit + push to the `agent/dev` branch.
+You are an autonomous development agent and the **orchestrator** of a multi-agent pipeline for the [Project Name] project (Unity, C#, mobile merge-grid game). Task: pick the first task from the backlog, implement it, pass quality gates by delegating to subagents, mark it DONE, and commit + push to the `agent/dev` branch.
 
 Follow these steps **precisely**.
 
@@ -101,7 +101,7 @@ git branch -r | grep origin/agent/dev
   git checkout -b agent/dev
   ```
 
-> Merge Two branch model: `agent/dev` is branched from whatever branch was active when the loop started (captured as `$BASE_BRANCH` above). The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never branch from `main` directly.
+> [Project Name] branch model: `agent/dev` is branched from whatever branch was active when the loop started (captured as `$BASE_BRANCH` above). The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never branch from `main` directly.
 
 ---
 
@@ -114,7 +114,10 @@ Make **two** updates (will go into the same commit in STEP 8):
 
 2. **Edit `BACKLOG.md`**:
    - Remove the picked entry from `## TODO`.
-   - Under `## IN PROGRESS`, replace `- (none)` with: `- [PRIORITY] [Title](backlog/in-progress/<NNN-slug>.md)`
+   - Under `## IN PROGRESS`, replace `- (none)` with: `- [PRIORITY] [TIER] [Title](backlog/in-progress/<NNN-slug>.md)`
+     - Substitute **real values**, not the placeholder words: `[PRIORITY]` -> `[HIGH]`/`[MEDIUM]`/`[LOW]`, `[TIER]` -> the bracketed `$TASK_TIER` from STEP 1 (`[XS]`/`[S]`/`[M]`/`[L]`), `[Title]` -> the task title.
+     - **Keep the `[TIER]` bracket** — the loop runner (`run-backlog-loop.sh --auto-model-by-tier`) reads this exact token to pick the model/effort for the next task window. Dropping it or mangling the brackets makes a resumed task fall back to the M/opus profile.
+     - Example: `- [HIGH] [S] [Author CurrencyConfig CSVs](backlog/in-progress/022-author-currencyconfig-csv-collection-model.md)`
 
 Do this **before** writing any code.
 
@@ -149,7 +152,7 @@ This project has a CodeGraph MCP index (`mcp__codegraph__*` tools) pre-indexing 
 - Only fall back to Grep for **literal string content**: hardcoded text, localize key strings, CSV values, log messages.
 - **New files** (created in this same implementation) are not yet indexed (~1s file-watcher lag) — Read them directly instead of querying CodeGraph.
 
-DO NOT skip this step. Merge Two conventions are strict — violations will be blocked by the code-reviewer in STEP 5.
+DO NOT skip this step. [Project Name] conventions are strict — violations will be blocked by the code-reviewer in STEP 5.
 
 ---
 
@@ -526,7 +529,7 @@ git push -u origin agent/dev
 
 > **REMOTE DETECTION:** when `HAS_REMOTE=1` (the normal case — a remote is connected), the `git push -u origin agent/dev` above is **required** so the task lands on the remote. Only skip the push when `HAS_REMOTE=0` (no remote at all); in that case report `committed locally (no remote — push skipped)` in STEP 10.
 
-**DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. This is a Merge Two convention.
+**DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. This is a [Project Name] convention.
 
 ---
 
@@ -578,7 +581,7 @@ After verification passes: `git checkout $BASE_BRANCH && git merge agent/dev`
   - `REVIEW_BLOCKED` after Round 2 in STEP 6.
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
 - **No `--ship-anyway` mode.** If the user wants to force-ship a blocked task, they manually resolve the block and re-run the skill.
-- **No PR creation.** Merge Two only pushes to `agent/dev`; the user merges manually after manual verification.
+- **No PR creation.** [Project Name] only pushes to `agent/dev`; the user merges manually after manual verification.
 - **No deploy step.** Mobile game builds are done via Unity Editor, no CLI deploy exists.
 - **No `npm run lint` equivalent.** Unity projects lack a CLI compilation check. Rely on the 3 quality gates + manual verification.
 - **Verifier limitation:** qa-verifier is primarily a static check. It does not exercise the game runtime. The manual verification steps in the task spec + DONE summary are the ultimate safety net — the user MUST run them.

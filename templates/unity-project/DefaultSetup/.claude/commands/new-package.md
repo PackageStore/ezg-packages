@@ -8,7 +8,7 @@ When the user runs `/new-package [ModulePath]` (or asks to "đóng module X thà
 
 This workflow is a thin entry point — the full, deterministic procedure lives in the **`package-module` skill** (`.agents/skills/package-module/SKILL.md`). Invoke that skill and follow its steps. Do NOT reinvent the packing/publish flow.
 
-## Summary of what `package-module` does (Merge Two)
+## Summary of what `package-module` does ([Project Name])
 
 - Takes one **specified module folder** (e.g. `Assets/_Project/Features/_Shared/<Module>`) and builds a clean, standards-compliant **UPM package** from it.
 - **Non-destructive**: the module stays in `Assets/` and keeps compiling.

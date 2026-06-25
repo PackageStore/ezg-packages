@@ -6,7 +6,7 @@ stream-json firehose into readable, colored console output (session header,
 assistant prose, tool calls, tool output, done line). The raw JSON is still
 written to the log file by `tee` upstream; this only affects what humans see.
 
-Usage:  claude ... | tee raw.log | stream-render.py [--provider claude] [--no-color]
+Usage:  claude ... | tee raw.log | stream-render.py [--provider claude] [--effort high] [--no-color]
 """
 import sys
 import json
@@ -14,6 +14,7 @@ import argparse
 
 p = argparse.ArgumentParser()
 p.add_argument("--provider", default="claude")
+p.add_argument("--effort", default="")
 p.add_argument("--no-color", action="store_true")
 args = p.parse_args()
 
@@ -53,14 +54,14 @@ def speaker_block(label, body, label_c="cyan", body_c="white"):
         print(col(ln, body_c))
 
 
-def session_header(workdir, model, provider, approval, sandbox, session_id):
+def session_header(workdir, model, provider, effort, approval, sandbox, session_id):
     if state["header_printed"]:
         return
     state["header_printed"] = True
     print()
     print(col("--------", "dim"))
     for lbl, v in (("workdir", workdir), ("model", model), ("provider", provider),
-                   ("approval", approval), ("sandbox", sandbox)):
+                   ("effort", effort), ("approval", approval), ("sandbox", sandbox)):
         print(col(f"{lbl}: {v}", "gray"))
     if session_id:
         print(col(f"session id: {session_id}", "gray"))
@@ -97,7 +98,8 @@ def render(obj):
     if t == "system":
         if obj.get("subtype") == "init":
             session_header(obj.get("cwd", ""), obj.get("model", ""), args.provider,
-                           obj.get("permissionMode", ""), "n/a", obj.get("session_id", ""))
+                           args.effort or "default", obj.get("permissionMode", ""),
+                           "n/a", obj.get("session_id", ""))
     elif t == "assistant":
         msg = obj.get("message") or {}
         for block in (msg.get("content") or []):
