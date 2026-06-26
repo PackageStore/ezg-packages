@@ -9,6 +9,7 @@ EVENT_TYPE=""
 TASK_NAME=""
 DETAILS=""
 TASK_URL=""
+TOKENS=""
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -17,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
     -t|--task) TASK_NAME="$2"; shift ;;
     -d|--details) DETAILS="$2"; shift ;;
     -u|--url) TASK_URL="$2"; shift ;;
+    -k|--tokens) TOKENS="$2"; shift ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
   shift
@@ -25,6 +27,11 @@ done
 if [ -z "$EVENT_TYPE" ]; then
   echo "Error: --event parameter is required."
   exit 1
+fi
+
+# Truncate details to prevent Discord API errors (max 1024 character value limit, 6000 total embed limit)
+if [ ${#DETAILS} -gt 900 ]; then
+  DETAILS="${DETAILS:0:900}..."
 fi
 
 # Define embed colors (decimal values)
@@ -99,6 +106,7 @@ ESC_DESC=$(escape_json "$DESCRIPTION")
 ESC_DETAILS=$(escape_json "$DETAILS")
 ESC_TASK_NAME=$(escape_json "$TASK_NAME")
 ESC_TASK_URL=$(escape_json "$TASK_URL")
+ESC_TOKENS=$(escape_json "$TOKENS")
 
 # Build Markdown for Task field (incorporate URL if present)
 if [ -n "$ESC_TASK_URL" ]; then
@@ -127,6 +135,11 @@ EMBED_JSON=$(cat <<EOF
     {
       "name": "Task",
       "value": "$TASK_FIELD_VAL",
+      "inline": true
+    },
+    {
+      "name": "Token Usage",
+      "value": "${ESC_TOKENS:-N/A}",
       "inline": true
     },
     {

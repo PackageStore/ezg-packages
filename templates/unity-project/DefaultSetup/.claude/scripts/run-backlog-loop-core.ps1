@@ -205,13 +205,62 @@ function Get-BlockClassification {
     return $result
 }
 
+function Get-TokenUsage {
+    param([string]$LogFile)
+    if (-not (Test-Path $LogFile)) { return "" }
+    try {
+        $lines = Get-Content $LogFile -ErrorAction SilentlyContinue
+        if ($null -eq $lines) { return "" }
+        $usages = @()
+        foreach ($line in $lines) {
+            if (-not $line.Trim()) { continue }
+            $obj = ConvertFrom-Json $line -ErrorAction SilentlyContinue
+            if ($obj -and $obj.type -eq "assistant" -and $obj.message -and $obj.message.id -and $obj.message.usage) {
+                $usages += $obj.message
+            }
+        }
+        if ($usages.Count -eq 0) { return "" }
+        $grouped = $usages | Group-Object -Property id
+        $uniqueUsages = @()
+        foreach ($g in $grouped) {
+            $maxUsage = $g.Group | Sort-Object -Property { $_.usage.output_tokens } -Descending | Select-Object -First 1
+            $uniqueUsages += $maxUsage.usage
+        }
+        
+        $in = 0; $out = 0; $cr = 0
+        foreach ($u in $uniqueUsages) {
+            $in += $u.input_tokens
+            if ($u.cache_creation_input_tokens) { $in += $u.cache_creation_input_tokens }
+            if ($u.output_tokens) { $out += $u.output_tokens }
+            if ($u.cache_read_input_tokens) { $cr += $u.cache_read_input_tokens }
+        }
+        
+        function Format-N($n) {
+            if ($n -ge 1000000) { 
+                $val = [Math]::Round($n / 100000) / 10
+                return "$val`M"
+            }
+            if ($n -ge 1000) { 
+                $val = [Math]::Round($n / 100) / 10
+                return "$val`K"
+            }
+            return "$n"
+        }
+        
+        $total = $in + $out
+        return "$(Format-N $total) ($(Format-N $in) In, $(Format-N $out) Out, $(Format-N $cr) Cache Read)"
+    } catch {
+        return ""
+    }
+}
+
 # Fire a Discord notification via notify.ps1 (gracefully no-ops if not configured).
 function Send-Notify {
-    param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "")
+    param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "", [string]$Tokens = "")
     $notifyScript = Join-Path $PSScriptRoot "notify.ps1"
     if (-not (Test-Path $notifyScript)) { return }
     try {
-        & $notifyScript -Event $EventType -Task $Task -Url $Url -Details $Details
+        & $notifyScript -Event $EventType -Task $Task -Url $Url -Details $Details -Tokens $Tokens
     } catch {
         Write-Log "Notify failed: $($_.Exception.Message)" "Yellow"
     }
@@ -1026,7 +1075,8 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
         } else {
             $stopReason = "$Provider exited non-zero (exit code: $exitCode). See $iterLog"
             Write-Log $stopReason "Red"
-            Send-Notify -EventType "CLI_ERROR" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $stopReason
+            $tokens = Get-TokenUsage -LogFile $iterLog
+            Send-Notify -EventType "CLI_ERROR" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $stopReason -Tokens $tokens
             break
         }
     }
@@ -1035,7 +1085,8 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
         $stopReason = "Detected COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or manual intervention required. See $iterLog"
         Write-Log $stopReason "Red"
         $block = Get-BlockClassification -LogPath $iterLog
-        Send-Notify -EventType $block.Event -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $block.Details
+        $tokens = Get-TokenUsage -LogFile $iterLog
+        Send-Notify -EventType $block.Event -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $block.Details -Tokens $tokens
         break
     }
 
@@ -1047,7 +1098,8 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     }
     $totalCount = $statusAfter.TodoCount + $statusAfter.InProgressCount + $doneCount
     $completedDetails = "Progress: Task $doneCount of $totalCount completed successfully.`nCommitted & pushed to agent/dev. Ready for manual verify + merge."
-    Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails
+    $tokens = Get-TokenUsage -LogFile $iterLog
+    Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails -Tokens $tokens
 }
 
 $totalDuration = (Get-Date) - $startTime

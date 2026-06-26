@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# [Project Name] — Run Backlog Loop (macOS), per-task new Terminal window.
+# QUIVER — Run Backlog Loop (macOS), per-task new Terminal window.
 #
-# This script is the CONTROLLER. For each iteration it spawns a SEPARATE Terminal
-# window that runs exactly one /run-backlog task, then waits (via a flag file) for
-# that window to finish before spawning the next. A failed task keeps its window
-# open so you can read the error. Stops when the backlog is empty, a blocker
-# sentinel is printed, the CLI exits non-zero, or MaxIterations is reached.
+# Mirrors BlazeSurvivor's loop model: this script is the CONTROLLER. For each
+# iteration it spawns a SEPARATE Terminal window that runs exactly one
+# /run-backlog task, then waits (via a flag file) for that window to finish
+# before spawning the next. A failed task keeps its window open so you can read
+# the error. Stops when the backlog is empty, a blocker sentinel is printed, the
+# CLI exits non-zero, or MaxIterations is reached.
 #
-# The run-backlog skill itself handles git (branch agent/dev) per its own spec.
+# The run-backlog skill commits AND pushes each done task to agent/dev on origin.
 #
 # Usage:
 #   .claude/scripts/run-backlog-loop.sh
@@ -106,7 +107,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RENDER" ]; then HAS_RENDER=1; el
 
 # --- per-task prompt ------------------------------------------------------------
 read -r -d '' PROMPT <<'EOF'
-Execute exactly one iteration of the [Project Name] run-backlog workflow.
+Execute exactly one iteration of the QUIVER (Merge Two repo) run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
@@ -114,7 +115,7 @@ Required contract:
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, performance-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
 5. Print exactly these tokens when blocked: PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or "manual intervention required".
-6. Commit/push to agent/dev only when the skill marks the task DONE. Do not create a PR.
+6. Commit/push to agent/dev (origin) only when the skill marks the task DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
 
@@ -212,7 +213,7 @@ build_cli_args() {
 
 echo
 echo "=========================================="
-echo "  [Project Name] — Run Backlog Loop (controller)"
+echo "  QUIVER — Run Backlog Loop (controller)"
 echo "=========================================="
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
   echo "  Model:           auto by task tier"
@@ -228,6 +229,34 @@ echo "  Max iterations:  $MAX_ITERATIONS"
 echo "  Log dir:         $LOG_DIR_ABS"
 echo
 
+# Get formatted token usage from log file
+get_token_usage() {
+  local log="$1"
+  if [ -f "$log" ]; then
+    jq -s -r '
+      def format_n(n):
+        if n >= 1000000 then ((n / 100000 | round) / 10 | tostring) + "M"
+        elif n >= 1000 then ((n / 100 | round) / 10 | tostring) + "K"
+        else n | tostring
+        end;
+      [ .[] | select(.type == "assistant" and .message.id != null and .message.usage != null) ]
+      | group_by(.message.id)
+      | map(max_by(.message.usage.output_tokens))
+      | map(.message.usage)
+      | if length == 0 then ""
+        else
+          {
+            in: map(.input_tokens + (.cache_creation_input_tokens // 0)) | add,
+            out: map(.output_tokens) | add,
+            cr: map(.cache_read_input_tokens // 0) | add
+          }
+          | .total = .in + .out
+          | "\(format_n(.total)) (\(format_n(.in)) In, \(format_n(.out)) Out, \(format_n(.cr)) Cache Read)"
+        end
+    ' "$log" 2>/dev/null
+  fi
+}
+
 # Write one runner script for iteration $1; runs claude, tees log, writes exit
 # code to the flag file (via EXIT trap so it's ALWAYS written), keeps window open on failure.
 write_runner() {
@@ -241,9 +270,10 @@ if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
 fi
 code=0
 trap 'echo "\$code" > $(printf '%q' "$flag")' EXIT
-echo "=== [Project Name] backlog task — iteration $idx ==="
+echo "=== QUIVER backlog task — iteration $idx ==="
 cat $(printf '%q' "$promptfile") | claude $CLI_ARGS_Q 2>&1 | tee $(printf '%q' "$log") $RENDER_PIPE
 code=\${PIPESTATUS[1]}
+echo "\$code" > $(printf '%q' "$flag")
 if [ "\$code" -ne 0 ]; then
   echo ""
   echo "Task FAILED (exit \$code) — this window is kept open so you can read the error above."
@@ -275,7 +305,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   if [ -z "$CURRENT_TASK_LINE" ]; then
     CURRENT_TASK_LINE="$(task_line_for_section "TODO")"
   fi
-
+  
   if [ -n "$CURRENT_TASK_LINE" ]; then
     TASK_TIER_NOTIF="$(printf '%s\n' "$CURRENT_TASK_LINE" | sed -nE 's/^[[:space:]]*-[[:space:]]*\[[^]]+\][[:space:]]+\[(XS|S|M|L)\].*/\1/p')"
     if [ -n "$TASK_TIER_NOTIF" ]; then
@@ -334,7 +364,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     fi
     exit_code="${PIPESTATUS[1]}"
   else
-    # New Terminal window per task.
+    # New Terminal window per task (BlazeSurvivor model).
     write_runner "$i" "$log_file" "$flag_file" "$prompt_file" "$runner_file"
     osascript -e "tell application \"Terminal\" to do script \"bash '$runner_file'\"" >/dev/null 2>&1 \
       || { STOP_REASON="Failed to open Terminal window (grant Automation permission to Terminal)"; break; }
@@ -348,21 +378,26 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
 
   if [ "$exit_code" -ne 0 ]; then
     STOP_REASON="claude exited non-zero ($exit_code) on iteration $i (see $log_file)"
+    local tokens_val=""
+    if command -v jq >/dev/null 2>&1; then
+      tokens_val=$(get_token_usage "$log_file")
+    fi
     bash "$SCRIPT_DIR/notify.sh" \
       --event "CLI_ERROR" \
       --task "$TASK_TITLE_NOTIF" \
       --url "$TASK_URL_NOTIF" \
+      --tokens "$tokens_val" \
       --details "$STOP_REASON"
     break
   fi
 
   if is_blocked "$log_file"; then
     STOP_REASON="Blocker sentinel detected on iteration $i (see $log_file)"
-
+    
     # Classify the block type
     block_event="VERIFY_BLOCKED"
     block_details="Manual intervention required."
-
+    
     if grep -q "COMPILE_BLOCKED" "$log_file"; then
       block_event="COMPILE_BLOCKED"
       block_details=$(grep -o "COMPILE_BLOCKED.*" "$log_file" | head -n 1)
@@ -382,10 +417,15 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       fi
     fi
 
+    local tokens_val=""
+    if command -v jq >/dev/null 2>&1; then
+      tokens_val=$(get_token_usage "$log_file")
+    fi
     bash "$SCRIPT_DIR/notify.sh" \
       --event "$block_event" \
       --task "$TASK_TITLE_NOTIF" \
       --url "$TASK_URL_NOTIF" \
+      --tokens "$tokens_val" \
       --details "$block_details"
     break
   fi
@@ -395,10 +435,15 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   DONE_NEW=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
   TOTAL_NEW=$((TODO_NEW + IP_NEW + DONE_NEW))
 
+  local tokens_val=""
+  if command -v jq >/dev/null 2>&1; then
+    tokens_val=$(get_token_usage "$log_file")
+  fi
   bash "$SCRIPT_DIR/notify.sh" \
     --event "TASK_COMPLETED" \
     --task "$TASK_TITLE_NOTIF" \
     --url "$TASK_URL_NOTIF" \
+    --tokens "$tokens_val" \
     --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
 Committed & pushed to agent/dev. Ready for manual verify + merge."
 done

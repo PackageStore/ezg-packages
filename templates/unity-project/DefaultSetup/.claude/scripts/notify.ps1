@@ -1,4 +1,4 @@
-﻿# Notification classification and routing script (PowerShell port of notify.sh).
+# Notification classification and routing script (PowerShell port of notify.sh).
 # Translates automation stop conditions and events into structured Discord Embeds.
 #
 # Usage: powershell -File notify.ps1 -Event TASK_COMPLETED -Task "..." [-Url "..."] [-Details "..."]
@@ -8,7 +8,8 @@ param(
     [string]$Event,
     [string]$Task = "",
     [string]$Details = "",
-    [string]$Url = ""
+    [string]$Url = "",
+    [string]$Tokens = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -81,6 +82,7 @@ $fence = '```'   # triple backtick code fence (literal in single quotes)
 $detailsValue = "$fence`n$detailsText`n$fence"
 
 # Construct the embed object, then serialize. ConvertTo-Json handles all escaping.
+$tokenVal = if ($Tokens) { $Tokens } else { "N/A" }
 $embed = [ordered]@{
     title       = $title
     description = $description
@@ -88,6 +90,7 @@ $embed = [ordered]@{
     timestamp   = $timestamp
     fields      = @(
         [ordered]@{ name = "Task"; value = $taskFieldVal; inline = $true }
+        [ordered]@{ name = "Token Usage"; value = $tokenVal; inline = $true }
         [ordered]@{ name = "Details / Error Log"; value = $detailsValue; inline = $false }
     )
 }
