@@ -24,7 +24,7 @@ Pipeline orchestration:
 [2] BRANCH   → switch to agent/dev (branch from develop if it doesn't exist yet)
 [3] CONTEXT  → read CLAUDE.md + .agents/rules/* + task file + relevant code
 [4] IMPLEMENT→ write code, git add (DO NOT commit yet)
-[5] REVIEW   → run deterministic preflight, then spawn code-reviewer + performance-reviewer + (security-auditor IF sensitive files) in parallel
+[5] REVIEW   → run deterministic preflight, then spawn code-reviewer + (performance-reviewer IF perf-sensitive) + (security-auditor IF sensitive files) in parallel
              → auto-fix max 2 rounds if blocked; fix rounds use preflight + delta diff when enough context is provided
 [6] VERIFY   → spawn qa-verifier; auto-fix max 2 rounds if failed; final preflight before DONE
 [7] DONE     → move in-progress → done, write summary with all 3 gate verdicts
@@ -276,7 +276,7 @@ Use `$TASK_TIER` extracted in STEP 1 from the BACKLOG.md bullet (the tier is `[X
 | Tier | Action |
 |------|--------|
 | **XS** | Run preflight (STEP 6b). If `has_blocking_definite = false` → skip STEP 6c/6d/6e and STEP 7 entirely. Go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". DONE summary records all three gates as `skipped (XS tier)`. |
-| **S** | Run preflight (STEP 6b). Then spawn **`code-reviewer` + `performance-reviewer`** in parallel. Do NOT spawn security-auditor (unless `$SENSITIVE = true`). Do NOT spawn qa-verifier. On `pass`/`warn` from both → go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". |
+| **S** | Run preflight (STEP 6b). Then spawn **`code-reviewer`** (always) + **`performance-reviewer`** (only if `$PERF_SENSITIVE = true`, see STEP 6c-bis) in parallel. Do NOT spawn security-auditor (unless `$SENSITIVE = true`). Do NOT spawn qa-verifier. On `pass`/`warn` from the spawned reviewers → go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". |
 | **M** / **L** | Full pipeline — proceed normally through STEP 6 and STEP 7. |
 
 **XS preflight-blocked rule:** if preflight returns `has_blocking_definite = true` for an XS task, apply the same 2-round fix loop as M/L. If still blocked after 2 rounds → `PREFLIGHT_BLOCKED`. Do not skip to DONE with unresolved definite findings.
@@ -333,19 +333,37 @@ git diff --staged
 
 ### 6c. Detect sensitive files
 
-Check if any file in the diff matches the patterns below (case-insensitive):
+Security review is for **value-bearing / trust-boundary** surfaces, NOT for plain progress save. Check if any file in the diff matches the patterns below (case-insensitive):
 
 - `Assets/_Project/**/Purchase*`, `*IAP*`, `*Receipt*`, `*Payment*`
-- `Assets/_Project/**/Player*Data*`, `*DataPlayer*`, `*SaveData*`, `*PlayerPrefs*`, `*Persistence*`
 - `Assets/_Project/**/Auth*`, `*Login*`, `*Token*`, `*Session*`, `Assets/_Project/Features/Social/Account/**`
 - New files containing credential patterns (regex `[A-Z0-9_]{3,}_(KEY|SECRET|TOKEN|PASSWORD)`)
 - `*.env*`, `*.config`, `*Secrets*`, `*Credential*`
+- **Value-bearing writes** (inspect the diff content, not just filename): code that **grants or spends currency**, **grants owned items**, **writes to the server** (Cloudflare Worker / Supabase upsert/delete, `GameNetworkManager`), or writes **leaderboard / competitive** values.
+
+> **NOT security-sensitive by itself:** plain progress save (depth, level, unlock flags, settings) through `PlayerDataManager.[Module]`. Save-tampering of non-value progress data is low-impact and is already covered by the deterministic preflight save rules (`PlayerPrefs`, `Save()` in Update, `DataManager` write) + qa-verifier's `[PERSIST-RESTART]` check — it does NOT warrant spawning the security-auditor. Only escalate a save task to security review when it grants/spends a value-bearing resource per the list above.
 
 Set `$SENSITIVE = true` if any pattern matches OR if the preflight JSON has `sensitive.value = true`, else `false`.
 
+### 6c-bis. Detect performance-sensitive diff
+
+The performance-reviewer only earns its tokens when the diff can actually regress mobile perf. Set `$PERF_SENSITIVE = true` if **any** of these hold (inspect the staged `*.cs` diff + preflight findings); else `false`:
+
+- The diff adds/edits a per-frame method: `Update`, `FixedUpdate`, `LateUpdate`, or a `while`/`for` loop over a gameplay collection.
+- Spawn/despawn or instantiation: `Instantiate(`, `Destroy(`, pooling calls (`PoolingManager`, `Spawn`/`Despawn`/`Get`/`Release`).
+- List/scroll/UI binding or layout: `ScrollRect`, list/grid item binding, `LayoutRebuilder`, `Canvas`/`SetActive` churn, instantiating UI rows.
+- Allocation on a hot path: `new List/Dictionary/StringBuilder`, LINQ (`.Where/.Select/.ToList`), or string concatenation inside any of the above.
+- The preflight JSON already raised a `rule: "mobile-performance"` finding.
+
+If the diff is **only** non-`.cs` (prefab/scene/CSV/`.md`/art) OR is pure data POCO / event-constant / read-only accessor code with none of the above → `$PERF_SENSITIVE = false`.
+
 ### 6d. Spawn reviewer subagent(s) — in parallel
 
-Always spawn the **`code-reviewer`** and the **`performance-reviewer`** subagents. If `$SENSITIVE = true`, also spawn the **`security-auditor`**. Spawn all of them in the **same message** (one parallel tool-use block) so they run concurrently.
+Always spawn the **`code-reviewer`**. Additionally:
+- Spawn the **`performance-reviewer`** ONLY when `$PERF_SENSITIVE = true`. When skipped, record `Performance review: skipped (no perf-sensitive change)` in the DONE summary.
+- Spawn the **`security-auditor`** ONLY when `$SENSITIVE = true`.
+
+Spawn all selected reviewers in the **same message** (one parallel tool-use block) so they run concurrently.
 
 **Code Reviewer:**
 ```
@@ -374,30 +392,42 @@ Agent({
 })
 ```
 
-Prompt body (same for all):
-> TASK SPEC (the contract the implementer must fulfill):
+**Prompt packets — give each reviewer only what its lens needs (token discipline):**
+
+Build the shared blocks ONCE:
+- `TASK_PACKET` = the task's **title + Description + Context & Constraints + Acceptance criteria + Guardrails tag line** only. Do NOT paste the full task file boilerplate or the guardrail catalog text (tags resolve to `backlog/_GUARDRAILS.md`).
+- `PREFLIGHT_PACKET` = the preflight `findings[]` array + `summary`. If `findings` is empty, write `preflight: clean (no findings)` instead of pasting the whole JSON.
+- `FULL_DIFF` = `git diff --staged`. `SCOPED_DIFF(globs)` = `git diff --staged -- <globs>` for the files relevant to that reviewer.
+
+Per-reviewer prompt body:
+
+> TASK:
 > ```
-> <paste full content of backlog/in-progress/<NNN-slug>.md>
+> <TASK_PACKET>
 > ```
->
-> PREFLIGHT JSON (`backlog-preflight.py` on macOS/Linux, `backlog-preflight.ps1` on Windows; `-Pretty`, after all preflight-fix rounds):
-> ```json
-> <paste full preflight JSON>
+> PREFLIGHT:
 > ```
->
-> STAGED DIFF (`git diff --staged`):
+> <PREFLIGHT_PACKET>
 > ```
-> <paste full diff>
+> DIFF:
 > ```
->
-> CODEGRAPH STATUS:
+> <diff per the table below>
 > ```
 > CODEGRAPH_UP=<true|false from STEP 4a>
-> ```
+>
+> NOTES:
+> - Guardrail tags in the task line (e.g. `[SAVE]`, `[ASYNC]`) are defined in `backlog/_GUARDRAILS.md` — read that file for the exact check + verify recipe before judging a tag.
+> - Your DIFF may be scoped to your lens (see table below). If you need surrounding context, read it directly via Read/Grep/codegraph — do not treat the scoped diff as the entire change.
 >
 > Review according to the instructions in the agent definition and return a JSON verdict.
 
-**NOTE:** Spawn all reviewer subagents (`code-reviewer`, `performance-reviewer`, and `security-auditor` when sensitive) in **one tool-use block** to run them in parallel. DO NOT run sequentially.
+| Reviewer | Diff to pass |
+|---|---|
+| `code-reviewer` | `FULL_DIFF` (needs every changed file). |
+| `performance-reviewer` | `SCOPED_DIFF` of `*.cs` only — skip prefab/scene/asset/CSV/`.md` files (no perf signal there). If only non-`.cs` files changed, you should not have spawned it (see STEP 6c-bis). |
+| `security-auditor` | `SCOPED_DIFF` of the sensitive files that set `$SENSITIVE` + any `*.cs` that grants/spends value — skip prefab/scene/art diffs. |
+
+**NOTE:** Spawn all reviewer subagents (`code-reviewer`, `performance-reviewer` when perf-sensitive, and `security-auditor` when `$SENSITIVE`) in **one tool-use block** to run them in parallel. DO NOT run sequentially.
 
 ### 6e. Read verdicts and decide
 
@@ -454,26 +484,23 @@ Agent({
 })
 ```
 
-Prompt body:
-> TASK SPEC (focus especially on "Acceptance criteria" with tags [PATTERN], [UI], [TIME], [SAVE], [ASYNC], [LOCALIZE], [EVENT], [DOTWEEN], [DOUBLE-SUBMIT], [LOADING/COOLDOWN], [BOUNDARY], [PERSIST-RESTART], [MOBILE-PERF], [CSV-CONFIG], [VERIFY]; and the section "Manual verify steps"):
+Prompt body (qa-verifier cross-checks every criterion, so it gets the full task spec + full diff — but still the trimmed preflight packet):
+> TASK SPEC (focus especially on "Acceptance criteria" and "Manual verify steps"; guardrail tags resolve to `backlog/_GUARDRAILS.md`):
 > ```
 > <paste full content of backlog/in-progress/<NNN-slug>.md>
 > ```
 >
-> PREFLIGHT JSON:
-> ```json
-> <paste latest preflight JSON>
+> PREFLIGHT:
+> ```
+> <PREFLIGHT_PACKET — findings[] + summary; if empty, `preflight: clean (no findings)`>
 > ```
 >
-> STAGED DIFF:
+> STAGED DIFF (`git diff --staged`):
 > ```
-> <paste full diff>
+> <FULL_DIFF>
 > ```
 >
-> CODEGRAPH STATUS:
-> ```
 > CODEGRAPH_UP=<true|false from STEP 4a>
-> ```
 >
 > Run verification according to the instructions in the agent definition and return a JSON verdict + criteria_check + manual_verify_steps.
 
@@ -527,7 +554,7 @@ Make **two** updates (will go into the same commit in STEP 9):
 
    **Quality gates:**
    - Code review: <pass|warn|skipped (XS tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
-   - Performance review: <pass|warn|skipped (XS tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
+   - Performance review: <pass|warn|skipped (XS tier)|skipped (no perf-sensitive change)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
    - Security review: <pass|warn|skipped — no sensitive files|skipped (XS/S tier)> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
    - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
 
@@ -615,7 +642,7 @@ If any gate agent used grep-fallback, add a warning:
 - **Subagents are stateless across invocations.** Each spawn receives a fresh prompt with the diff and task spec.
 - **Preflight is a deterministic guard, not a replacement for reviewers.** Only auto-fix findings with `confidence=definite`; findings with `confidence=contextual` must go into the reviewer/qa prompt.
 - **Delta diff is only used for fix rounds.** The initial review and final QA/preflight must still have the full staged context.
-- **Spawn reviewers in parallel** — code-reviewer + performance-reviewer always, plus security-auditor when sensitive — one tool-use block, multiple Agent calls. DO NOT run sequentially.
+- **Spawn reviewers in parallel** — code-reviewer always; performance-reviewer only when `$PERF_SENSITIVE` (STEP 6c-bis); security-auditor only when `$SENSITIVE` — one tool-use block, multiple Agent calls. DO NOT run sequentially.
 - **Hard stop conditions** (never bypass):
   - `BACKLOG EMPTY` — no tasks available.
   - `NO_CHANGES` — implementer did not produce a diff.

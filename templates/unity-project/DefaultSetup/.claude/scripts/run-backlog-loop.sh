@@ -22,8 +22,11 @@
 #   --auto-model-by-tier     Pick model/effort per iteration from BACKLOG.md task tier.
 #   --xs-model/--xs-effort   Override XS profile (default: claude-sonnet-4-6/medium).
 #   --s-model/--s-effort     Override S profile (default: claude-sonnet-4-6/high).
-#   --m-model/--m-effort     Override M profile (default: claude-opus-4-8/xhigh).
+#   --m-model/--m-effort     Override M profile (default: claude-sonnet-4-6/high).
 #   --l-model/--l-effort     Override L profile (default: claude-opus-4-8/xhigh).
+#                            (Opus is reserved for L; M runs on sonnet/high. There is NO
+#                             auto-escalation: if an M task hits REVIEW_BLOCKED the loop
+#                             stops — rerun that one task with --m-model claude-opus-4-8.)
 #   --max-iterations <n>     Max task iterations (default: 100).
 #   --thinking-tokens <n>    Legacy/global MAX_THINKING_TOKENS override (default: 10000; 0 = off).
 #   --xs-thinking-tokens <n> Override XS thinking budget (default: 3000; 0 = off).
@@ -48,8 +51,8 @@ XS_MODEL="claude-sonnet-4-6"
 XS_EFFORT="medium"
 S_MODEL="claude-sonnet-4-6"
 S_EFFORT="high"
-M_MODEL="claude-opus-4-8"
-M_EFFORT="xhigh"
+M_MODEL="claude-sonnet-4-6"
+M_EFFORT="high"
 L_MODEL="claude-opus-4-8"
 L_EFFORT="xhigh"
 MAX_ITERATIONS=100
@@ -260,7 +263,7 @@ get_token_usage() {
 # Write one runner script for iteration $1; runs claude, tees log, writes exit
 # code to the flag file (via EXIT trap so it's ALWAYS written), keeps window open on failure.
 write_runner() {
-  local idx="$1" log="$2" flag="$3" promptfile="$4" runner="$5"
+  local idx="$1" log="$2" flag="$3" promptfile="$4" runner="$5" pidfile="$6"
   cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
 cd $(printf '%q' "$REPO_ROOT") || exit 9
@@ -268,8 +271,10 @@ export MAX_THINKING_TOKENS=$(printf '%q' "${SELECTED_THINKING_TOKENS:-}")
 if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
   unset MAX_THINKING_TOKENS
 fi
+echo \$\$ > $(printf '%q' "$pidfile")
 code=0
-trap 'echo "\$code" > $(printf '%q' "$flag")' EXIT
+# Idempotent: do not clobber a flag the controller already wrote (e.g. "124" on watchdog kill).
+trap '[ -f $(printf '%q' "$flag") ] || echo "\$code" > $(printf '%q' "$flag")' EXIT
 echo "=== [Project Name] backlog task — iteration $idx ==="
 cat $(printf '%q' "$promptfile") | claude $CLI_ARGS_Q 2>&1 | tee $(printf '%q' "$log") $RENDER_PIPE
 code=\${PIPESTATUS[1]}
@@ -347,6 +352,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   flag_file="$base.flag"
   prompt_file="$base.prompt"
   runner_file="$base.run.sh"
+  pid_file="$base.pid"
   printf '%s\n' "$PROMPT" > "$prompt_file"
   rm -f "$flag_file"
 
@@ -365,15 +371,57 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     exit_code="${PIPESTATUS[1]}"
   else
     # New Terminal window per task (BlazeSurvivor model).
-    write_runner "$i" "$log_file" "$flag_file" "$prompt_file" "$runner_file"
-    osascript -e "tell application \"Terminal\" to do script \"bash '$runner_file'\"" >/dev/null 2>&1 \
+    write_runner "$i" "$log_file" "$flag_file" "$prompt_file" "$runner_file" "$pid_file"
+    win_id="$(osascript -e "tell application \"Terminal\"" -e "do script \"bash '$runner_file'\"" -e "return id of front window" -e "end tell" 2>/dev/null)" \
       || { STOP_REASON="Failed to open Terminal window (grant Automation permission to Terminal)"; break; }
-    echo "  Spawned task window; waiting for it to finish..."
-    # Wait for the flag file (always written by the runner's EXIT trap).
-    while [ ! -f "$flag_file" ]; do sleep 0.5; done
+    echo "  Spawned task window; waiting for it to finish (monitoring inactivity)..."
+    # Wait for the flag file with a timeout / inactivity check to prevent hanging on token limit errors.
+    elapsed=0
+    last_size=0
+    inactive_seconds=0
+    check_interval=5
+    while [ ! -f "$flag_file" ]; do
+      sleep $check_interval
+      elapsed=$((elapsed + check_interval))
+      
+      if [ -f "$log_file" ]; then
+        current_size=$(stat -f%z "$log_file" 2>/dev/null || echo 0)
+        if [ "$current_size" -eq "$last_size" ]; then
+          inactive_seconds=$((inactive_seconds + check_interval))
+        else
+          inactive_seconds=0
+          last_size="$current_size"
+        fi
+      else
+        inactive_seconds=$((inactive_seconds + check_interval))
+      fi
+
+      # 900 seconds (15 minutes) of absolute inactivity, or 3600 seconds (60 minutes) max execution time
+      if [ "$inactive_seconds" -ge 900 ] || [ "$elapsed" -ge 3600 ]; then
+        if [ "$inactive_seconds" -ge 900 ]; then
+          STOP_REASON="Task hung or stopped due to token exhaustion/inactivity (no log updates for 15m)"
+        else
+          STOP_REASON="Task timed out (exceeded 60m limit)"
+        fi
+        echo "  ⚠️ $STOP_REASON. Killing task window so it stops consuming tokens." >&2
+        echo "124" > "$flag_file"   # claim the result first so the runner's EXIT trap won't clobber it
+        # Kill the spawned task's process tree (claude + pipeline) so a hung/slow window
+        # does not keep burning tokens after the controller moves on.
+        if [ -f "$pid_file" ]; then
+          runner_pid="$(tr -dc '0-9' < "$pid_file")"
+          if [ -n "$runner_pid" ]; then
+            pkill -TERM -P "$runner_pid" 2>/dev/null || true
+            kill -TERM "$runner_pid" 2>/dev/null || true
+          fi
+        fi
+        # Process is dead now, so closing the window won't prompt about a running process.
+        [ -n "${win_id:-}" ] && osascript -e "tell application \"Terminal\" to close (every window whose id is $win_id) saving no" >/dev/null 2>&1 || true
+        break
+      fi
+    done
     exit_code="$(tr -dc '0-9' < "$flag_file")"
     [ -z "$exit_code" ] && exit_code=0
-    rm -f "$runner_file"
+    rm -f "$runner_file" "$pid_file"
   fi
 
   if [ "$exit_code" -ne 0 ]; then

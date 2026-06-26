@@ -110,16 +110,16 @@ if ($IncludeDiffStat -and $changedFiles.Count -gt 0) {
 $findings = [System.Collections.Generic.List[object]]::new()
 $sensitiveReasons = [System.Collections.Generic.List[object]]::new()
 
-# Sensitive file patterns for [Project Name] (no backend/supabase/cloudflare)
+# Value-bearing / trust-boundary surfaces only. Plain progress-save files
+# (*DataPlayer*, *SaveData*, *PlayerPrefs*, *Persistence*) were removed: tampering of
+# non-value progress data is low-impact and is covered by the deterministic save rules
+# + qa-verifier, so it should NOT auto-spawn the security-auditor. Genuine secrets still
+# flag via the credential content regexes during the diff scan.
 $sensitiveFilePatterns = @(
     "*Purchase*",
     "*IAP*",
     "*Receipt*",
     "*Payment*",
-    "*DataPlayer*",
-    "*SaveData*",
-    "*PlayerPrefs*",
-    "*Persistence*",
     "*Auth*",
     "*Token*",
     "*Session*",
@@ -285,6 +285,20 @@ foreach ($rawLine in ($diff -split "`n")) {
                 Add-Finding $findings "credential" "critical" "definite" $currentFile $lineNumber $trimmed "Potential secret/JWT/Bearer token in staged diff. Remove from client/repo."
                 $sensitiveReasons.Add([PSCustomObject]@{
                     type = "credential-pattern"
+                    file = $currentFile
+                    line = $lineNumber
+                }) | Out-Null
+            }
+
+            # Value-bearing currency/resource mutation — deterministic backstop so a currency
+            # write inside a save-named file (e.g. PlayerDungeonData.cs) still routes to the
+            # security-auditor even though save-file globs were removed. major/contextual:
+            # flags sensitivity, never blocks the task (has_blocking_definite stays false).
+            if ($trimmed -match '\b(AddCurrency|SetCurrency|AddResource|GrantCurrency|DeductCurrency|(Spend|Grant|Earn|Deduct|Consume)(Gold|Gem|Currency|Resource|Money|Coin|Cash))\b' -or `
+                $trimmed -match '\bCurrencyService\.(Spend|Grant|Earn|Add|Set|Deduct)') {
+                Add-Finding $findings "value-write" "major" "contextual" $currentFile $lineNumber $trimmed "Grants/spends a value-bearing currency or resource — verify amount/source is non-exploitable and (if applicable) server-validated."
+                $sensitiveReasons.Add([PSCustomObject]@{
+                    type = "value-write"
                     file = $currentFile
                     line = $lineNumber
                 }) | Out-Null

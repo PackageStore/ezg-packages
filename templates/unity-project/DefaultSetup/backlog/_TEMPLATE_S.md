@@ -25,10 +25,4 @@ Pattern to follow / files that must not be changed / behavior that must be prese
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] No violations of rules in `.agents/rules/` | Verify: quick manual code review
 
-**Conditional guardrails** (include only the blocks that apply to this task):
-- [ ] [DOUBLE-SUBMIT] Tapping the action button twice fast → only 1 result produced | Verify: tap fast in Play Mode
-- [ ] [LOADING/COOLDOWN] Button is disabled or has cooldown while async is running | Verify: tap fast, confirm no second submission
-- [ ] [BOUNDARY] Empty input / extreme values / missing data key → no crash, falls back to safe default | Verify: enter boundary values
-- [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings during the flow | Verify: Play scene, check Console
-
-**Guardrails skipped:** <list skipped guardrails + reason ≥10 chars each, or "none">
+**Guardrails:** <list ONLY the applicable tags — definitions + verify recipes in `backlog/_GUARDRAILS.md`. Common for S: `[BOUNDARY] [CONSOLE]`, plus `[DOUBLE-SUBMIT] [LOADING/COOLDOWN]` if there is a user-facing mutation. "none" if the change is purely internal.>

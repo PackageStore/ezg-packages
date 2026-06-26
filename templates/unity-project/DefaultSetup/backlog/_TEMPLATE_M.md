@@ -39,23 +39,9 @@ Filename: `backlog/todo/NNN-short-slug.md`
 - [ ] Register/open through `UIManager.Show(...)` when the UI is a feature screen | Verify: open in Play Mode through the real feature enum and capture a screenshot
 - [ ] Screenshot-verify and self-correct after meaningful layout chunks | Verify: final report includes the screenshot check result and any corrections made
 
-**Guardrails — include only the applicable_guardrails blocks from the Plan subagent:**
-- [ ] [PATTERN] New UI extends `FeatureBaseController`; new Notification extends `RedDotBadge` | Verify: check class declaration
-- [ ] [UI] Uses `UIManager.Show/Hide`, NOT `gameObject.SetActive()` directly | Verify: grep `SetActive` in new files
-- [ ] [TIME] All time operations use `TimeManager`, NOT `DateTime.Now` | Verify: grep `DateTime.Now` in new files
-- [ ] [SAVE] Save data goes through `PlayerDataManager.[Module]`; has `SetupDefaultData()` fallback; no `Save()` in Update | Verify: check data class + fallback
-- [ ] [ASYNC] Uses `UniTask` (no Coroutine, no async void, no plain Task) | Verify: grep `Coroutine\|async void` in new files
-- [ ] [LOCALIZE] All user-facing text goes through the localize system — no hardcoded strings | Verify: grep hardcoded strings in new files
-- [ ] [EVENT] Cross-system communication via `TigerForge` with `EventName` constants | Verify: grep direct method calls between features
-- [ ] [DOTWEEN] New tweens have `OnComplete`/`Kill`; UI tweens use `SetUpdate(true)` | Verify: inspect tween calls
-- [ ] [DOUBLE-SUBMIT] Tapping action button twice fast → only 1 result | Verify: tap fast in Play Mode
-- [ ] [LOADING/COOLDOWN] Button is disabled while async is running | Verify: tap fast, confirm no second submission
-- [ ] [BOUNDARY] Empty input / extreme values / missing data key → no crash | Verify: enter boundary values
-- [ ] [PERSIST-RESTART] Kill app → reopen → saved state restored correctly | Verify: Play, save, Stop, Play again
-- [ ] [MOBILE-PERF] No significant GC alloc increase (>1KB) in the gameplay loop | Verify: Profiler in Play Mode
-- [ ] [CSV-CONFIG] New balance numbers / formulas placed in CSV, no hardcoded magic numbers | Verify: grep magic numbers in new code
+**Guardrails:** <list ONLY the applicable tags, space-separated — definitions + verify recipes in `backlog/_GUARDRAILS.md`. e.g. `[SAVE] [ASYNC] [LOCALIZE]`. Available tags: PATTERN, UI, TIME, SAVE, ASYNC, LOCALIZE, EVENT, DOTWEEN, DOUBLE-SUBMIT, LOADING/COOLDOWN, BOUNDARY, PERSIST-RESTART, MOBILE-PERF, CSV-CONFIG, CONSOLE.>
 
-**Guardrails skipped:** <list skipped guardrails + reason ≥10 chars each, or "none">
+**Guardrails skipped:** <only call out a guardrail you deliberately excluded that a reader might expect, + reason ≥10 chars; else "none">
 
 **Manual verify steps (required after the loop stops):**
 1. <Step 1 — happy path: open scene X, do Y, confirm Z>

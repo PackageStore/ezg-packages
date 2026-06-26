@@ -4,6 +4,15 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-06-27
+
+**Added**
+- backlog/_GUARDRAILS.md — Thêm tài liệu định nghĩa chi tiết và cách kiểm thử cho các thẻ guardrails để chuẩn hóa quy trình review.
+
+**Changed**
+- Tối ưu hóa backlog review loop — Chỉ chạy performance-reviewer khi phát hiện thay đổi nhạy cảm về hiệu năng, đồng thời tinh gọn prompt gửi cho reviewer để tiết kiệm token.
+- Cập nhật các template task — Thay đổi các file mẫu L, M, S để tham chiếu tới danh sách guardrails chung trong _GUARDRAILS.md thay vì liệt kê inline.
+
 ## 2026-06-25
 
 **Changed**

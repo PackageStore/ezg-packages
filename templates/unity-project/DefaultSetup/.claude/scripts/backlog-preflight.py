@@ -69,6 +69,10 @@ def add_finding(findings, rule, severity, confidence, file, line, evidence, sugg
 
 
 def test_file_usings(file, added_usings, needed_usings, findings):
+    # The missing-using rule only applies to C# source. Asset YAML (.prefab/.asset/.unity/.meta)
+    # serialize type names like "UnityEngine.UI.Button" that wrongly trip the namespace regex.
+    if not file.lower().endswith(".cs"):
+        return
     for ns, occ in needed_usings.items():
         if ns in added_usings:
             continue
@@ -86,9 +90,14 @@ def test_file_usings(file, added_usings, needed_usings, findings):
                     "Add 'using {};' at the top of the file.".format(ns))
 
 
+# Value-bearing / trust-boundary surfaces only. Plain progress-save files
+# (*DataPlayer*, *SaveData*, *PlayerPrefs*, *Persistence*) were removed: tampering
+# of non-value progress data is low-impact and is covered by the deterministic save
+# rules below + qa-verifier, so it should NOT auto-spawn the security-auditor.
+# Genuine secrets still flag via the credential content regexes during the diff scan.
 SENSITIVE_FILE_PATTERNS = [
-    "*Purchase*", "*IAP*", "*Receipt*", "*Payment*", "*DataPlayer*", "*SaveData*",
-    "*PlayerPrefs*", "*Persistence*", "*Auth*", "*Token*", "*Session*",
+    "*Purchase*", "*IAP*", "*Receipt*", "*Payment*",
+    "*Auth*", "*Token*", "*Session*",
     "*.env*", "*.config", "*Secrets*", "*Credential*",
 ]
 
@@ -250,6 +259,16 @@ def main():
                     add_finding(findings, "credential", "critical", "definite", current_file, line_number, trimmed,
                                 "Potential secret/JWT/Bearer token in staged diff. Remove from client/repo.")
                     sensitive_reasons.append({"type": "credential-pattern", "file": current_file, "line": line_number})
+
+                # Value-bearing currency/resource mutation — deterministic backstop so a
+                # currency write inside a save-named file (e.g. PlayerDungeonData.cs) still
+                # routes to the security-auditor even though save-file globs were removed.
+                # major/contextual: flags sensitivity, never blocks (has_blocking_definite stays false).
+                if (search(r"\b(AddCurrency|SetCurrency|AddResource|GrantCurrency|DeductCurrency|(Spend|Grant|Earn|Deduct|Consume)(Gold|Gem|Currency|Resource|Money|Coin|Cash))\b", trimmed)
+                        or search(r"\bCurrencyService\.(Spend|Grant|Earn|Add|Set|Deduct)", trimmed)):
+                    add_finding(findings, "value-write", "major", "contextual", current_file, line_number, trimmed,
+                                "Grants/spends a value-bearing currency or resource — verify amount/source is non-exploitable and (if applicable) server-validated.")
+                    sensitive_reasons.append({"type": "value-write", "file": current_file, "line": line_number})
 
                 mu = re.match(r"^using\s+([\w\.]+(?:\.[\w]+)*)\s*;", trimmed, IC)
                 if mu:

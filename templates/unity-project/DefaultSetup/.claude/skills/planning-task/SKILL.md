@@ -41,10 +41,12 @@ Classify the task into one of the four tiers using **concrete signals**, not gut
 
 | Tier | Signals (any single match) | Pipeline cost |
 |---|---|---|
-| **XS** | CSV tweak / constant adjust / dead-code removal / rename variable in 1 file. No new logic. | ~1K tokens, no subagent |
-| **S** | Single-file logic tweak. No new UI screen / new save field / new event. ≤2 files. | ~3K tokens, no subagent |
-| **M** | Multi-file feature. New UI screen/popup, new controller, new save field, new TigerForge event. 3–8 files. | ~15K tokens, Plan subagent |
-| **L** | Cross-cutting: new IAP/purchase flow, save data migration, new system integration, or 9+ files. | ~25K tokens, Plan subagent + risk pass |
+| **XS** | CSV tweak / constant adjust / dead-code removal / rename in 1 file / **add an `EventName` constant**. No new logic. | ~1K tokens, no subagent |
+| **S** | Single-file logic tweak, OR a **small self-contained save field/module** (≤2 files, `SetupDefaultData()` fallback, no reshaping of existing saved data). No new UI screen. | ~3K tokens, no subagent |
+| **M** | Multi-file feature: new UI screen/popup, new controller, OR a save change that **migrates/reshapes existing player data** or spans 3–8 files. | ~10K tokens, Plan subagent only if complex (see STEP 2) |
+| **L** | Cross-cutting: new IAP/purchase flow, save-data **migration across modules**, auth/session, new system integration, or 9+ files. | ~25K tokens, Plan subagent + risk pass |
+
+> **Tier = implementation scope, NOT risk.** Tier drives the template + model/effort. Risk (save / security / hot-path) drives which quality gates run, and that is decided at `run-backlog` time from the actual diff — not by inflating the tier. Do not bump a small task to M just because it touches a save or event file; bump only when the *scope* (file count) or *migration risk* is real (see auto-bump below).
 
 **UI skill routing rule** (applies before drafting):
 - A task is UI-scoped if it creates or edits a Unity feature screen, popup, persistent HUD widget, reusable UI child prefab, prefab variant, serialized UI references, tab/list/slider/resource preview composition, or screen registration.
@@ -54,11 +56,11 @@ Classify the task into one of the four tiers using **concrete signals**, not gut
 - For a root feature screen or popup, criteria must require a `Popup_Template/screen_template` prefab variant, the correct `FeatureBaseController` subclass on the root, preserved root child order (`child[0]` background, `child[1]` MainUI), wired serialized references, and `UIManager.Show(...)` verification.
 - If the requested work is mostly service/gameplay code and UI prefab authoring should happen after the controller/service exists, keep prefab authoring out of scope and create a separate UI follow-up planning task when requested. Do not modify existing planning files just to add the split unless the user explicitly asks.
 
-**Auto-bump rules** (override to a higher tier if any signal matches):
-- Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M.
-- Adds new `DataPlayer` field or save module → at least M.
-- Adds new TigerForge event cross-system → at least M.
-- Touches `Auth*`, `Token*`, `Session*` → at least M.
+**Auto-bump rules** (risk-driven — bump only when the risk is real, not merely because a task "touches a save/event file"):
+- Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M (L if it is a NEW purchase/IAP flow).
+- Touches `Auth*`, `Token*`, `Session*`, OR grants/spends currency, grants owned items, writes to the server, or writes leaderboard/competitive values → at least M.
+- **New save field/module:** keep at **S** when self-contained (≤2 files, `SetupDefaultData()` fallback, no reshaping of existing saved data). Bump to **M** only when it spans 3–8 files OR migrates/reshapes existing player data. Bump to **L** only when that migration spans multiple modules.
+- **New `EventName` constant only** → stays **XS/S**. Bump to **M** only when the event wires a genuinely NEW cross-system runtime flow (≥2 feature modules coordinating through it) — not for adding a constant that existing code happens to listen to.
 - Touches >2 feature modules or >8 files → L.
 
 **Scope-control gate** (prevent uncontrolled sprawling edits):
@@ -105,7 +107,21 @@ Write the task directly from the user's message + your knowledge of the repo. No
 
 Use `codegraph_explore` or `codegraph_search` to locate symbols and confirm file paths — one call replaces multiple Grep + Read calls. Only fall back to Grep/Read for string literals or details codegraph didn't cover. **DO NOT** spawn a Plan subagent. Then draft directly.
 
-### Tier M / L — Plan subagent
+### Tier M (simple) — main-context draft, NO Plan subagent
+
+Spawn the opus Plan subagent **only when the M task is genuinely complex**. Many M tasks are bumped up purely for scope (3–8 files) but are mechanically simple — a Plan subagent (opus) is wasted tokens for those.
+
+Draft in the **main context** (1–2 `codegraph_explore` calls, then write the spec yourself) when the M task is **simple**, i.e. ALL of:
+- A single new save field/module, OR a single new controller/screen, OR a localized set of edits in 3–8 files following one obvious existing pattern.
+- No cross-module runtime flow being newly wired.
+- No migration/reshaping of existing saved data.
+- No open questions affecting the contract.
+
+Escalate to the **Plan subagent** (next section) when the M task is **complex**: multiple subsystems interact, a non-obvious pattern decision is needed, the dependency graph is unclear, or you cannot confidently list `files_to_touch` after 1–2 codegraph calls.
+
+When drafting in the main context, produce the same JSON fields the Plan subagent would (see below) so STEP 4 can fill the template identically.
+
+### Tier M (complex) / L — Plan subagent
 
 Spawn a Plan subagent with `subagent_type: "Plan"`. Brief as follows:
 
@@ -238,13 +254,11 @@ Pick template based on tier:
 - If the task is UI-scoped but `required_skills` omits `/create-ui`, fix the draft before writing.
 - If a UI-scoped task creates or edits `.cs` files but `required_skills` omits `/compile-check`, either add `/compile-check` or document why no compile check is needed.
 
-**Conditional guardrail rule** (applied to M/L using `applicable_guardrails` from Plan subagent):
-- Include guardrail blocks ONLY WHEN the guardrail appears in `applicable_guardrails`.
-- For each excluded guardrail, the Plan subagent must provide a `not_applicable` reason of ≥10 chars. Append these reasons at the end of the task file:
-  ```
-  **Guardrails skipped:** csv_config (no balance numbers), mobile_perf (no hot path changes).
-  ```
-- If `applicable_guardrails` is missing or the reason is empty / <10 chars → include that guardrail by default. Safer to over-include.
+**Conditional guardrail rule** (tag-based — definitions live in `backlog/_GUARDRAILS.md`, NOT pasted into the task):
+- Write a single `**Guardrails:**` line listing ONLY the applicable tags (uppercase, bracketed, space-separated), derived from `applicable_guardrails`. Example: `**Guardrails:** [SAVE] [ASYNC] [LOCALIZE]`.
+- DO NOT paste the full guardrail blocks/verify recipes into the task file — they are duplicated in every reviewer prompt and bloat tokens. The tag is enough; reviewers look it up in `backlog/_GUARDRAILS.md`.
+- `**Guardrails skipped:**` should only call out a guardrail a reader might *expect* to apply but you deliberately excluded, with a `not_applicable` reason of ≥10 chars. If nothing is surprising, write `none`. Do NOT enumerate every unused tag.
+- When in doubt whether a tag applies, include the tag (cheap — one word) rather than over-explaining its exclusion.
 
 Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 
