@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QUIVER — Run Backlog Loop (macOS), per-task new Terminal window.
+# [Project Name] — Run Backlog Loop (macOS), per-task new Terminal window.
 #
 # Mirrors BlazeSurvivor's loop model: this script is the CONTROLLER. For each
 # iteration it spawns a SEPARATE Terminal window that runs exactly one
@@ -107,7 +107,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RENDER" ]; then HAS_RENDER=1; el
 
 # --- per-task prompt ------------------------------------------------------------
 read -r -d '' PROMPT <<'EOF'
-Execute exactly one iteration of the QUIVER (Merge Two repo) run-backlog workflow.
+Execute exactly one iteration of the [Project Name] run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
@@ -213,7 +213,7 @@ build_cli_args() {
 
 echo
 echo "=========================================="
-echo "  QUIVER — Run Backlog Loop (controller)"
+echo "  [Project Name] — Run Backlog Loop (controller)"
 echo "=========================================="
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
   echo "  Model:           auto by task tier"
@@ -270,7 +270,7 @@ if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
 fi
 code=0
 trap 'echo "\$code" > $(printf '%q' "$flag")' EXIT
-echo "=== QUIVER backlog task — iteration $idx ==="
+echo "=== [Project Name] backlog task — iteration $idx ==="
 cat $(printf '%q' "$promptfile") | claude $CLI_ARGS_Q 2>&1 | tee $(printf '%q' "$log") $RENDER_PIPE
 code=\${PIPESTATUS[1]}
 echo "\$code" > $(printf '%q' "$flag")
