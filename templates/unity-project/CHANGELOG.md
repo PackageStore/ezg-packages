@@ -10,6 +10,7 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 - backlog/_GUARDRAILS.md — Thêm tài liệu định nghĩa chi tiết và cách kiểm thử cho các thẻ guardrails để chuẩn hóa quy trình review.
 
 **Changed**
+- unity-template.json — Cập nhật com.ezg.core lên 0.1.2 và com.ezg.featurehub lên 0.1.7.
 - Tối ưu hóa backlog review loop — Chỉ chạy performance-reviewer khi phát hiện thay đổi nhạy cảm về hiệu năng, đồng thời tinh gọn prompt gửi cho reviewer để tiết kiệm token.
 - Cập nhật các template task — Thay đổi các file mẫu L, M, S để tham chiếu tới danh sách guardrails chung trong _GUARDRAILS.md thay vì liệt kê inline.
 
