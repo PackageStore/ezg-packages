@@ -7,13 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Unity.Services.Core;
 using Unity.Services.Core.Environments;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
 using AppsFlyerSDK;
-using UnityEngine.Purchasing.Extension;
 
 
 namespace Ezg.Feature.IAP
@@ -54,15 +54,20 @@ namespace Ezg.Feature.IAP
         }
     }
 
-    public class InAppManager : Singleton<InAppManager>, IDetailedStoreListener// IStoreListener
+    /// <summary>
+    /// In-app purchase manager built on Unity Purchasing v5 (UnityIAPServices / StoreController,
+    /// event-driven Order flow). Migrated from the v4 IStoreListener API. The v5 flow is:
+    /// Connect() -> OnStoreConnected -> FetchProducts -> OnProductsFetched ->
+    /// PurchaseProduct -> OnPurchasePending (validate + grant + ConfirmPurchase) -> OnPurchaseConfirmed.
+    /// Calling ConfirmPurchase is mandatory to finalize the transaction (this is what the legacy
+    /// bridge failed to do on iOS).
+    /// </summary>
+    public class InAppManager : Singleton<InAppManager>
     {
         public List<string> nonConsume = new List<string>();
 
-        private static IStoreController m_StoreController; // The Unity Purchasing system.
-        private static IExtensionProvider m_StoreExtensionProvider; // The store-specific Purchasing subsystems.
-        private IAppleExtensions m_AppleExtensions;
-        private IGooglePlayStoreExtensions m_GooglePlayStoreExtensions;
-        private ITransactionHistoryExtensions m_TransactionHistoryExtensions;
+        // Unity Purchasing v5: single unified, event-driven controller.
+        private StoreController m_StoreController;
 
         private Action callbackPay;
 
@@ -73,6 +78,10 @@ namespace Ezg.Feature.IAP
         private bool m_PurchaseInProgress;
         private bool m_IsGooglePlayStoreSelected;
         private bool m_IsAppleStoreSelected;
+        private bool m_StoreConnected;
+        private bool m_ProductsFetched;
+        private bool m_Connecting;
+        private bool m_RestoreInProgress;
         private bool isTestIAP = false;
 
         // Các dependency game được inject qua Configure() — module không gắn cứng code game.
@@ -81,7 +90,12 @@ namespace Ezg.Feature.IAP
         private IIapReporter _reporter;
         private IapSecurityConfig _config;
 
+        private CultureInfo cultureInfo;
+        private AppsFlyerListener _listener;
+
         private const string k_Environment = "production";
+
+        #region Initialize
 
         void Awake()
         {
@@ -96,28 +110,9 @@ namespace Ezg.Feature.IAP
                 Debug.LogError("---------INIT unity service fail-------\n" + e);
             }
             Initialize(OnSucces, OnFail);
-        }
 
-        /// <summary>
-        /// Inject các dependency game vào module. PHẢI gọi trước Init()/Buy().
-        /// </summary>
-        public void Configure(IPurchasing purchasing, IIapProfile profile, IIapReporter reporter, IapSecurityConfig config)
-        {
-            _purchasing = purchasing;
-            _profile = profile;
-            _reporter = reporter;
-            _config = config;
-        }
-
-        private bool IsConfigured()
-        {
-            if (_purchasing == null || _config == null)
-            {
-                Debug.LogError("[IAP] InAppManager chưa được Configure(). Hãy gọi Configure() trước Init()/Buy().");
-                return false;
-            }
-
-            return true;
+            // v5: tạo controller + đăng ký event 1 lần. Connect() được gọi ở Init() sau Configure().
+            CreateStoreController();
         }
 
         private void Initialize(Action onSuccess, Action<string> onError)
@@ -134,35 +129,51 @@ namespace Ezg.Feature.IAP
             }
         }
 
+        /// <summary>
+        /// Tạo StoreController v5 và đăng ký toàn bộ event. Idempotent — chỉ chạy 1 lần.
+        /// </summary>
+        private void CreateStoreController()
+        {
+            if (m_StoreController != null)
+            {
+                return;
+            }
+
+            m_StoreController = UnityIAPServices.StoreController();
+
+            m_StoreController.OnStoreConnected += OnStoreConnected;
+            m_StoreController.OnStoreDisconnected += OnStoreDisconnected;
+
+            m_StoreController.OnProductsFetched += OnProductsFetched;
+            m_StoreController.OnProductsFetchFailed += OnProductsFetchFailed;
+
+            m_StoreController.OnPurchasePending += OnPurchasePending;
+            m_StoreController.OnPurchaseConfirmed += OnPurchaseConfirmed;
+            m_StoreController.OnPurchaseFailed += OnPurchaseFailed;
+            m_StoreController.OnPurchaseDeferred += OnPurchaseDeferred;
+
+            m_StoreController.OnPurchasesFetched += OnPurchasesFetched;
+            m_StoreController.OnPurchasesFetchFailed += OnPurchasesFetchFailed;
+        }
+
+        #endregion
+
+        #region Public
+
+        /// <summary>
+        /// Inject các dependency game vào module. PHẢI gọi trước Init()/Buy().
+        /// </summary>
+        public void Configure(IPurchasing purchasing, IIapProfile profile, IIapReporter reporter, IapSecurityConfig config)
+        {
+            _purchasing = purchasing;
+            _profile = profile;
+            _reporter = reporter;
+            _config = config;
+        }
+
         public void SetIsTestIAP(bool isTest)
         {
             isTestIAP = isTest;
-        }
-
-        #region InitData
-
-        private void AddConsumableIds(ConfigurationBuilder builder)
-        {
-            void OnAddConsumableIds(string packNameId, ProductType type = ProductType.Consumable)
-            {
-                builder.AddProduct(packNameId, type);
-                if (type == ProductType.NonConsumable)
-                {
-                    nonConsume.Add(packNameId);
-                }
-            }
-
-            var productIds = _purchasing.GetConsumableProducts();
-            foreach (var product in productIds)
-            {
-                OnAddConsumableIds(product, ProductType.Consumable);
-            }
-
-            var nonConsumeProductIds = _purchasing.GetNonConsumableProducts();
-            foreach (var product in nonConsumeProductIds)
-            {
-                OnAddConsumableIds(product, ProductType.NonConsumable);
-            }
         }
 
         public void Init()
@@ -177,54 +188,26 @@ namespace Ezg.Feature.IAP
                 Application.platform == RuntimePlatform.Android && module.appStore == AppStore.GooglePlay;
             m_IsAppleStoreSelected = Application.platform == RuntimePlatform.IPhonePlayer &&
                                      module.appStore == AppStore.AppleAppStore;
-            // If we have already connected to Purchasing ...
-            if (IsInitialized())
+
+            CreateStoreController();
+
+            // Đã connect rồi → chỉ cần (re)fetch catalog.
+            if (m_StoreConnected)
             {
+                FetchProducts();
                 return;
             }
 
-
-            // If we haven't set up the Unity Purchasing reference
-            if (m_StoreController == null)
-            {
-                // Begin to configure our connection to Purchasing
-                try
-                {
-                    // Create a builder, first passing in a suite of Unity provided stores.
-                    var builder = ConfigurationBuilder.Instance(StandardPurchasingModule.Instance());
-
-                    AddConsumableIds(builder);
-
-                    // Kick off the remainder of the set-up with an asynchrounous call, passing the configuration
-                    // and this class' instance. Expect a response either in OnInitialized or OnInitializeFailed.
-                    Debug.Log("[IAP] Initialize IAP");
-                    UnityPurchasing.Initialize(this, builder);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError(e);
-                }
-            }
-            else
-            {
-            }
-
-            //InvokeCallbackInitIAP(false);
+            ConnectStore();
         }
 
+        /// <summary>
+        /// "Initialized" theo nghĩa sẵn sàng mua: store đã connect VÀ products đã fetch xong.
+        /// </summary>
         public bool IsInitialized()
         {
-            //#if UNITY_IAP
-            // Only say we are initialized if both the Purchasing references are set.
-            return m_StoreController != null && m_StoreExtensionProvider != null;
-            //#else
-            //            return false;
-            //#endif
+            return m_StoreController != null && m_StoreConnected && m_ProductsFetched;
         }
-
-        #endregion
-
-        #region Payment actions
 
         public void Buy(string productID, Action callBack, string source = "", string sourceId = "", Action unSuccess = null)
         {
@@ -278,7 +261,7 @@ namespace Ezg.Feature.IAP
                     return;
                 }
 
-                if (m_StoreController.products.WithID(productID) == null)
+                if (m_StoreController.GetProductById(productID) == null)
                 {
                     Debug.LogError("No product has id " + productID);
                     unSuccess?.Invoke();
@@ -286,7 +269,7 @@ namespace Ezg.Feature.IAP
                 }
 
                 m_PurchaseInProgress = true;
-                Debug.Log("[IAP] Purchasing product: " + productId);
+                Debug.Log("[IAP] Purchasing product: " + productID);
 
                 callbackPay = callBack;
                 productId = productID;
@@ -319,22 +302,201 @@ namespace Ezg.Feature.IAP
             }
         }
 
+        public void RestorePurchases()
+        {
+            try
+            {
+                // If Purchasing has not yet been set up ...
+                if (!IsInitialized())
+                {
+                    // ... report the situation and stop restoring. Consider either waiting longer, or retrying initialization.
+                    Debug.Log("[IAP] RestorePurchases FAIL. Not initialized.");
+                    return;
+                }
+
+                if (m_IsAppleStoreSelected)
+                {
+                    // Apple: StoreKit restore qua callback.
+                    m_StoreController.RestoreTransactions(OnTransactionsRestored);
+                }
+                else
+                {
+                    // Google Play (và store khác): entitlement được khôi phục bằng cách fetch purchases.
+                    m_RestoreInProgress = true;
+                    m_StoreController.FetchPurchases();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e);
+            }
+        }
+
+        public string GetPricingLocalize(string productID)
+        {
+            var defaultCost = GetDefaultPriceText();
+            if (m_StoreController == null) return defaultCost;
+
+            var product = m_StoreController.GetProductById(productID);
+            if (product != null && product.metadata != null)
+            {
+                return product.metadata.localizedPriceString;
+            }
+
+            return defaultCost;
+        }
+
+        public string GetPriceWithSale(string productID, float sale)
+        {
+            var defaultCost = GetDefaultPriceText();
+            if (m_StoreController == null) return defaultCost;
+
+            var product = m_StoreController.GetProductById(productID);
+            if (product != null && product.metadata != null)
+            {
+                if (cultureInfo == null)
+                {
+                    cultureInfo = CultureInfo.CurrentCulture;
+                }
+
+                var val = product.metadata.localizedPrice * (decimal)sale;
+                string formattedAmount = string.Format(cultureInfo, "{0:C}", val);
+                return formattedAmount;
+            }
+
+            return defaultCost;
+        }
+
+        public string GetPriceStringById(string id)
+        {
+            if (string.IsNullOrEmpty(id) || m_StoreController == null)
+            {
+                return "";
+            }
+
+            var product = m_StoreController.GetProductById(id);
+            if (product == null || product.metadata == null)
+            {
+                return "";
+            }
+
+            return product.metadata.localizedPriceString;
+        }
+
+        internal void FakeProcessPurchase(string productId)
+        {
+            Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", productId));
+            callbackPay = null;
+            m_PurchaseInProgress = false;
+        }
+
+        public AppsFlyerListener Listener
+        {
+            get
+            {
+                if (_listener == null) _listener = transform.GetComponent<AppsFlyerListener>();
+                if (_listener == null) _listener = gameObject.AddComponent<AppsFlyerListener>();
+                _listener.Reporter = _reporter;
+                return _listener;
+            }
+        }
+
+        #endregion
+
+        #region Private
+
+        private bool IsConfigured()
+        {
+            if (_purchasing == null || _config == null)
+            {
+                Debug.LogError("[IAP] InAppManager chưa được Configure(). Hãy gọi Configure() trước Init()/Buy().");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Kết nối store (v5). Kết quả trả về qua event OnStoreConnected / OnStoreDisconnected.
+        /// </summary>
+        private void ConnectStore()
+        {
+            if (m_Connecting || m_StoreConnected)
+            {
+                return;
+            }
+
+            m_Connecting = true;
+            Debug.Log("[IAP] Connecting to store...");
+
+            // Không dùng async void (theo convention dự án) và giữ package standalone (không thêm
+            // dependency UniTask). Kết quả connect đến qua event OnStoreConnected/OnStoreDisconnected;
+            // ContinueWith chỉ để quan sát/log exception của Task (tránh unobserved task exception).
+            try
+            {
+                m_StoreController.Connect().ContinueWith(OnConnectTaskCompleted);
+            }
+            catch (Exception e)
+            {
+                m_Connecting = false;
+                Debug.LogError("[IAP] Store connect failed: " + e);
+            }
+        }
+
+        private void OnConnectTaskCompleted(Task task)
+        {
+            if (task.IsFaulted)
+            {
+                m_Connecting = false;
+                Debug.LogError("[IAP] Store connect task faulted: " + task.Exception);
+            }
+        }
+
+        /// <summary>
+        /// Build danh sách ProductDefinition từ game rồi fetch metadata/giá từ store.
+        /// </summary>
+        private void FetchProducts()
+        {
+            if (!IsConfigured() || m_StoreController == null)
+            {
+                return;
+            }
+
+            nonConsume.Clear();
+
+            var definitions = new List<ProductDefinition>();
+
+            var consumableIds = _purchasing.GetConsumableProducts();
+            foreach (var id in consumableIds)
+            {
+                definitions.Add(new ProductDefinition(id, ProductType.Consumable));
+            }
+
+            var nonConsumableIds = _purchasing.GetNonConsumableProducts();
+            foreach (var id in nonConsumableIds)
+            {
+                definitions.Add(new ProductDefinition(id, ProductType.NonConsumable));
+                nonConsume.Add(id);
+            }
+
+            Debug.Log("[IAP] Fetching " + definitions.Count + " products");
+            m_StoreController.FetchProducts(definitions);
+        }
+
         void BuyProductID(string productId)
         {
             // If Purchasing has been initialized ...
             if (IsInitialized())
             {
-                // ... look up the Product reference with the general product identifier and the Purchasing
-                // system's products collection.
-                Product product = m_StoreController.products.WithID(productId);
+                // ... look up the Product reference with the general product identifier.
+                Product product = m_StoreController.GetProductById(productId);
 
                 // If the look up found a product for this device's store and that product is ready to be sold ...
                 if (product != null && product.availableToPurchase)
                 {
                     Debug.Log(string.Format("Purchasing product asychronously: '{0}'", product.definition.id));
-                    // ... buy the product. Expect a response either through ProcessPurchase or OnPurchaseFailed
-                    // asynchronously.
-                    m_StoreController.InitiatePurchase(product);
+                    // ... buy the product. Expect a response through OnPurchasePending / OnPurchaseFailed asynchronously.
+                    m_StoreController.PurchaseProduct(product);
                 }
                 // Otherwise ...
                 else
@@ -353,158 +515,25 @@ namespace Ezg.Feature.IAP
             }
         }
 
-        public void RestorePurchases()
-        {
-            try
-            {
-                // If Purchasing has not yet been set up ...
-                if (!IsInitialized())
-                {
-                    // ... report the situation and stop restoring. Consider either waiting longer, or retrying initialization.
-                    Debug.Log("[IAP] RestorePurchases FAIL. Not initialized.");
-                    return;
-                }
-
-                if (m_IsGooglePlayStoreSelected)
-                {
-                    m_GooglePlayStoreExtensions.RestoreTransactions(OnTransactionsRestored);
-                }
-                else if (m_IsAppleStoreSelected)
-                {
-                    m_AppleExtensions.RestoreTransactions(OnTransactionsRestored);
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-            }
-        }
-
-        private void OnTransactionsRestored(bool success)
-        {
-            Debug.Log("Transactions restored." + success);
-            if (success)
-            {
-                _purchasing.RestoreItem();
-            }
-
-            _purchasing.OnTransactionRestored?.Invoke(success);
-        }
-
-        #endregion
-
-        #region Payment event listener
-
-        public void OnInitialized(IStoreController controller, IExtensionProvider extensions)
-        {
-            // Purchasing has succeeded initializing. Collect our Purchasing references.
-            Debug.Log("[IAP] OnInitialized: PASS");
-
-            // Overall Purchasing system, configured with products for this application.
-            m_StoreController = controller;
-            // Store specific subsystem, for accessing device-specific store features.
-            m_StoreExtensionProvider = extensions;
-
-            m_AppleExtensions = m_StoreExtensionProvider.GetExtension<IAppleExtensions>();
-            m_TransactionHistoryExtensions = m_StoreExtensionProvider.GetExtension<ITransactionHistoryExtensions>();
-            m_GooglePlayStoreExtensions = m_StoreExtensionProvider.GetExtension<IGooglePlayStoreExtensions>();
-
-            LogProductDefinitions();
-        }
-
-        public void OnPurchaseFailed(Product product, PurchaseFailureDescription failureDescription)
-        {
-            try
-            {
-                // A product purchase attempt did not succeed. Check failureReason for more detail. Consider sharing
-                // this reason with the user to guide their troubleshooting actions.
-                Debug.Log(string.Format("OnPurchaseFailed: FAIL. Product: '{0}', PurchaseFailureReason: {1}",
-                    product.definition.storeSpecificId, failureDescription.message));
-
-                // Detailed debugging information
-                Debug.Log("Store specific error code: " +
-                          m_TransactionHistoryExtensions.GetLastStoreSpecificPurchaseErrorCode());
-                if (m_TransactionHistoryExtensions.GetLastPurchaseFailureDescription() != null)
-                {
-                    Debug.Log("Purchase failure description message: " +
-                              m_TransactionHistoryExtensions.GetLastPurchaseFailureDescription().message);
-                }
-
-                callbackPay = null;
-                _purchasing.OnPurchaseFailed?.Invoke(failureDescription.message);
-                m_PurchaseInProgress = false;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-            }
-        }
-
-        public void OnInitializeFailed(InitializationFailureReason error)
-        {
-            // Purchasing set-up has not succeeded. Check error for reason. Consider sharing this reason with the user.
-            Debug.Log("[IAP] Billing failed to initialize!");
-            switch (error)
-            {
-                case InitializationFailureReason.AppNotKnown:
-                    Debug.LogError("[Buy] Is your App correctly uploaded on the relevant publisher console?");
-                    break;
-
-                case InitializationFailureReason.PurchasingUnavailable:
-                    // Ask the user if billing is disabled in device settings.
-                    Debug.Log("[Buy] Billing disabled!");
-                    break;
-
-                case InitializationFailureReason.NoProductsAvailable:
-                    // Developer configuration error; check product metadata.
-                    Debug.Log("[Buy] No products available for purchase!");
-                    break;
-            }
-        }
-
-        public void OnInitializeFailed(InitializationFailureReason error, string? message)
-        {
-            // Purchasing set-up has not succeeded. Check error for reason. Consider sharing this reason with the user.
-            Debug.Log("[IAP] Billing failed to initialize!");
-            switch (error)
-            {
-                case InitializationFailureReason.AppNotKnown:
-                    Debug.LogError("[Buy] Is your App correctly uploaded on the relevant publisher console?");
-                    break;
-
-                case InitializationFailureReason.PurchasingUnavailable:
-                    // Ask the user if billing is disabled in device settings.
-                    Debug.Log("[Buy] Billing disabled!");
-                    break;
-
-                case InitializationFailureReason.NoProductsAvailable:
-                    // Developer configuration error; check product metadata.
-                    Debug.Log("[Buy] No products available for purchase!");
-                    break;
-            }
-        }
-
-        public PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs args)
+        /// <summary>
+        /// Validate receipt của order (thay cho logic trong ProcessPurchase ở v4).
+        /// Trả về true nếu hợp lệ; false nếu receipt giả mạo / bị huỷ / hoàn tiền.
+        /// Ném exception cho lỗi tạm thời (để caller giữ order ở trạng thái pending → retry).
+        /// </summary>
+        private bool ValidatePurchase(Order order)
         {
             bool validPurchase = true; // Presume valid for platforms with no R.V.
-            m_PurchaseInProgress = false;
 
-            // Unity IAP's validation logic is only included on these platforms.
+    #if RECEIPT_VALIDATION
+            // Receipt validation chỉ chạy trên device thật (xem macro RECEIPT_VALIDATION ở đầu file).
             var validator = new CrossPlatformValidator(_config.GooglePlayTangle,
                 _config.AppleTangle, Application.identifier);
-
-    #if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX
-            // Prepare the validator with the secrets we prepared in the Editor
-            // obfuscation window.
 
             try
             {
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
-                var result = validator.Validate(args.purchasedProduct.receipt);
-                // For informational purposes, we list the receipt(s)
-                // Debug.Log("Receipt is valid. Contents:");
-                //DataAnalyticsManager.BuyIAP(args.purchasedProduct.receipt, result);
+                var result = validator.Validate(order.Info.Receipt);
                 foreach (IPurchaseReceipt productReceipt in result)
                 {
                     Debug.Log(productReceipt.productID);
@@ -523,13 +552,13 @@ namespace Ezg.Feature.IAP
                                 validPurchase = false;
                                 break;
                         }
-
-                        if (google.purchaseState == GooglePurchaseState.Deferred)
-                        {
-                            Debug.Log("Pending");
-                            return PurchaseProcessingResult.Pending;
-                        }
                     }
+                }
+
+                // Yêu cầu có ít nhất một transactionID hợp lệ.
+                if (!result.Any(x => !string.IsNullOrEmpty(x.transactionID)))
+                {
+                    validPurchase = false;
                 }
             }
             catch (IAPSecurityException)
@@ -539,184 +568,12 @@ namespace Ezg.Feature.IAP
             }
     #endif
 
-            try
-            {
-                var result = validator.Validate(args.purchasedProduct.receipt);
-
-                if (validPurchase && result.Any(x => !string.IsNullOrEmpty(x.transactionID)))
-                {
-
-                    // Unlock the appropriate content here.
-                    var product = args.purchasedProduct;
-
-                    BuyCompleted(product);
-
-                    Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", productId));
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-                return PurchaseProcessingResult.Pending;
-            }
-
-            // Return a flag indicating whether this product has completely been received, or if the application needs
-            // to be reminded of this purchase at next app launch. Use PurchaseProcessingResult.Pending when still
-            // saving purchased products to the cloud, and when that save is delayed.
-            return PurchaseProcessingResult.Complete;
+            return validPurchase;
         }
 
-        public void OnPurchaseFailed(Product product, PurchaseFailureReason failureReason)
-        {
-            try
-            {
-                // A product purchase attempt did not succeed. Check failureReason for more detail. Consider sharing
-                // this reason with the user to guide their troubleshooting actions.
-                Debug.Log(string.Format("OnPurchaseFailed: FAIL. Product: '{0}', PurchaseFailureReason: {1}",
-                    product.definition.storeSpecificId, failureReason));
-
-                // Detailed debugging information
-                Debug.Log("Store specific error code: " +
-                          m_TransactionHistoryExtensions.GetLastStoreSpecificPurchaseErrorCode());
-                if (m_TransactionHistoryExtensions.GetLastPurchaseFailureDescription() != null)
-                {
-                    Debug.Log("Purchase failure description message: " +
-                              m_TransactionHistoryExtensions.GetLastPurchaseFailureDescription().message);
-                }
-
-                callbackPay = null;
-                _purchasing.OnPurchaseFailed?.Invoke(failureReason.ToString());
-                m_PurchaseInProgress = false;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-            }
-        }
-
-        #endregion
-
-        private string GetDefaultPriceText()
-        {
-            try
-            {
-                return _config?.DefaultPriceTextProvider?.Invoke() ?? "";
-            }
-            catch
-            {
-                return "";
-            }
-        }
-
-        public string GetPricingLocalize(string productID)
-        {
-            var defaultCost = GetDefaultPriceText();
-            if (m_StoreController == null) return defaultCost;
-
-            var product = m_StoreController.products;
-
-            if (product != null)
-            {
-                var productId = product.WithID(productID);
-                if (productId != null)
-                {
-                    var metaData = productId.metadata;
-                    if (metaData != null)
-                    {
-                        //Debug.Log(productID + " lay duoc gia : " + metaData.localizedPriceString);
-                        return metaData.localizedPriceString;
-                    }
-                }
-            }
-            //Debug.LogError(productID + " khong co trong store controller");
-            return defaultCost;
-        }
-
-        private CultureInfo cultureInfo;
-
-        public string GetPriceWithSale(string productID, float sale)
-        {
-            var defaultCost = GetDefaultPriceText();
-            if (m_StoreController == null) return defaultCost;
-
-            var product = m_StoreController.products;
-
-            if (product != null)
-            {
-                var productId = product.WithID(productID);
-                if (productId != null)
-                {
-                    var metaData = productId.metadata;
-                    if (metaData != null)
-                    {
-                        if (cultureInfo == null)
-                        {
-                            cultureInfo = CultureInfo.CurrentCulture;
-                        }
-
-                        var val = metaData.localizedPrice * (decimal)sale;
-                        string formattedAmount = string.Format(cultureInfo, "{0:C}", val);
-                        return formattedAmount;
-                    }
-                }
-            }
-
-            return defaultCost;
-        }
-
-        internal void FakeProcessPurchase(string productId)
-        {
-            Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", productId));
-            callbackPay = null;
-            m_PurchaseInProgress = false;
-        }
-
-        private void LogProductDefinitions()
-        {
-            var products = m_StoreController.products.all;
-            foreach (var product in products)
-            {
-    #if UNITY_5_6_OR_NEWER
-                Debug.Log(string.Format("id: {0}\nstore-specific id: {1}\ntype: {2}\nenabled: {3}\n", product.definition.id,
-                    product.definition.storeSpecificId, product.definition.type.ToString(),
-                    product.definition.enabled ? "enabled" : "disabled"));
-    #else
-                Debug.Log(string.Format("id: {0}\nstore-specific id: {1}\ntype: {2}\n", product.definition.id,
-                    product.definition.storeSpecificId, product.definition.type.ToString()));
-    #endif
-            }
-        }
-
-
-        public string GetPriceStringById(string id)
-        {
-            try
-            {
-                if (id.Length == 0)
-                {
-                    return "";
-                }
-
-                return m_StoreController.products.WithID(id).metadata.localizedPriceString;
-                //return isoCurrencyCode + localPrices[id];
-            }
-            catch (Exception e)
-            {
-                //Debug.LogError(e.ToString() + ": " + id);
-                return "";
-            }
-        }
-
-        private void BuyCompleted(Product product)
+        private void BuyCompleted(Product product, IOrderInfo orderInfo)
         {
             productId = product.definition.id;
-
-            // Flag to cancel multi progress
-            if (m_PurchaseInProgress == true)
-            {
-                Debug.Log("Please wait, purchase in progress");
-                return;
-            }
 
             if (m_StoreController == null)
             {
@@ -724,7 +581,7 @@ namespace Ezg.Feature.IAP
                 return;
             }
 
-            if (m_StoreController.products.WithID(productId) == null)
+            if (m_StoreController.GetProductById(productId) == null)
             {
                 Debug.LogError("No product has id " + productId);
                 return;
@@ -735,12 +592,13 @@ namespace Ezg.Feature.IAP
             _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
 
             callbackPay?.Invoke();
+            callbackPay = null;
 
-            var info = BuildPurchaseInfo(product);
+            var info = BuildPurchaseInfo(product, orderInfo);
 
             _reporter?.OnPurchaseValidated(info);
 
-            ValidateAndSend(product);
+            ValidateAndSend(product, orderInfo);
 
             _purchasing.OnPurchaseComplete?.Invoke(productId);
 
@@ -751,9 +609,12 @@ namespace Ezg.Feature.IAP
 
         /// <summary>
         /// Parse receipt thô của Unity IAP thành DTO độc lập SDK để chuyển ra game.
+        /// v5: receipt + transactionID nằm trên Order (IOrderInfo), không còn trên Product.
         /// </summary>
-        private IapPurchaseInfo BuildPurchaseInfo(Product product)
+        private IapPurchaseInfo BuildPurchaseInfo(Product product, IOrderInfo orderInfo)
         {
+            var receiptString = orderInfo != null ? orderInfo.Receipt : product.receipt;
+
             var info = new IapPurchaseInfo
             {
                 ProductId = product.definition.id,
@@ -761,20 +622,20 @@ namespace Ezg.Feature.IAP
                 SourceId = sourcePurchaseId,
                 LocalizedPrice = product.metadata.localizedPrice,
                 IsoCurrencyCode = product.metadata.isoCurrencyCode,
-                Receipt = product.receipt,
+                Receipt = receiptString,
             };
 
             try
             {
     #if UNITY_ANDROID
-                Receipt receiptAndroid = JsonUtility.FromJson<Receipt>(product.receipt);
+                Receipt receiptAndroid = JsonUtility.FromJson<Receipt>(receiptString);
                 PayloadAndroid receiptPayload = JsonUtility.FromJson<PayloadAndroid>(receiptAndroid.Payload);
                 info.PayloadJson = receiptPayload.json;
                 info.Signature = receiptPayload.signature;
     #elif UNITY_IPHONE
-                Receipt receiptiOS = JsonUtility.FromJson<Receipt>(product.receipt);
+                Receipt receiptiOS = JsonUtility.FromJson<Receipt>(receiptString);
                 info.PayloadJson = receiptiOS.Payload;
-                info.TransactionId = product.transactionID;
+                info.TransactionId = orderInfo != null ? orderInfo.TransactionID : product.transactionID;
     #endif
             }
             catch (Exception e)
@@ -785,7 +646,7 @@ namespace Ezg.Feature.IAP
             return info;
         }
 
-        private void ValidateAndSend(Product product)
+        private void ValidateAndSend(Product product, IOrderInfo orderInfo)
         {
             try
             {
@@ -793,7 +654,9 @@ namespace Ezg.Feature.IAP
 
                 string currency = product.metadata.isoCurrencyCode;
 
-                var receipt = (Dictionary<string, object>)AFMiniJSON.Json.Deserialize(product.receipt);
+                var receiptString = orderInfo != null ? orderInfo.Receipt : product.receipt;
+
+                var receipt = (Dictionary<string, object>)AFMiniJSON.Json.Deserialize(receiptString);
                 var receiptPayload =
                     (Dictionary<string, object>)AFMiniJSON.Json.Deserialize((string)receipt["Payload"]);
 
@@ -810,7 +673,7 @@ namespace Ezg.Feature.IAP
                     Listener);
     #elif UNITY_IOS
                     var productIdentifier = product.definition.id;
-                    var tranactionId = product.transactionID;
+                    var tranactionId = orderInfo != null ? orderInfo.TransactionID : product.transactionID;
 
                     AppsFlyer.validateAndSendInAppPurchase(productIdentifier, price, currency, tranactionId,
                         null, Listener);
@@ -822,16 +685,195 @@ namespace Ezg.Feature.IAP
             }
         }
 
-        private AppsFlyerListener _listener;
-        public AppsFlyerListener Listener
+        private string GetDefaultPriceText()
         {
-            get
+            try
             {
-                if (_listener == null) _listener = transform.GetComponent<AppsFlyerListener>();
-                if (_listener == null) _listener = gameObject.AddComponent<AppsFlyerListener>();
-                _listener.Reporter = _reporter;
-                return _listener;
+                return _config?.DefaultPriceTextProvider?.Invoke() ?? "";
+            }
+            catch
+            {
+                return "";
             }
         }
+
+        private void LogProductDefinitions()
+        {
+            var products = m_StoreController.GetProducts();
+            foreach (var product in products)
+            {
+                Debug.Log(string.Format("id: {0}\nstore-specific id: {1}\ntype: {2}\nenabled: {3}\n", product.definition.id,
+                    product.definition.storeSpecificId, product.definition.type.ToString(),
+                    product.definition.enabled ? "enabled" : "disabled"));
+            }
+        }
+
+        private Product GetFirstProductInOrder(Order order)
+        {
+            return order?.CartOrdered?.Items()?.FirstOrDefault()?.Product;
+        }
+
+        #endregion
+
+        #region Events
+
+        private void OnStoreConnected()
+        {
+            m_StoreConnected = true;
+            Debug.Log("[IAP] OnStoreConnected");
+            FetchProducts();
+        }
+
+        private void OnStoreDisconnected(StoreConnectionFailureDescription description)
+        {
+            m_StoreConnected = false;
+            m_ProductsFetched = false;
+            Debug.Log("[IAP] OnStoreDisconnected: " + description.message);
+        }
+
+        private void OnProductsFetched(List<Product> products)
+        {
+            m_ProductsFetched = true;
+            Debug.Log("[IAP] OnProductsFetched: " + products.Count);
+            LogProductDefinitions();
+        }
+
+        private void OnProductsFetchFailed(ProductFetchFailed failure)
+        {
+            Debug.LogError("[IAP] OnProductsFetchFailed: " + failure.FailureReason);
+        }
+
+        private void OnPurchasePending(PendingOrder order)
+        {
+            // Một purchase đã được store chấp nhận và đang chờ app xử lý + xác nhận.
+            m_PurchaseInProgress = false;
+
+            var product = GetFirstProductInOrder(order);
+            if (product == null)
+            {
+                Debug.LogError("[IAP] OnPurchasePending: product not found in order, confirming to close transaction.");
+                callbackPay = null;
+                m_StoreController.ConfirmPurchase(order);
+                return;
+            }
+
+            bool validPurchase;
+            try
+            {
+                validPurchase = ValidatePurchase(order);
+            }
+            catch (Exception e)
+            {
+                // Lỗi tạm thời (vd: deserialize/validator) → KHÔNG confirm, để store re-deliver lần sau
+                // (tương đương PurchaseProcessingResult.Pending ở v4). Chưa grant nên không lo double-grant.
+                Debug.LogError("[IAP] Validation error, leaving purchase pending: " + e);
+                return;
+            }
+
+            // Khi đã quyết định finalize: ConfirmPurchase PHẢI chạy đúng 1 lần — kể cả khi BuyCompleted
+            // ném exception SAU khi đã grant — để transaction không bị re-deliver lần sau → double-grant.
+            try
+            {
+                if (validPurchase)
+                {
+                    BuyCompleted(product, order.Info);
+                    Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", product.definition.id));
+                }
+                else
+                {
+                    callbackPay = null;
+                    Debug.Log("[IAP] Invalid receipt, not unlocking content.");
+                }
+            }
+            finally
+            {
+                // v5: ConfirmPurchase finalize transaction (tương đương return Complete ở v4).
+                // BẮT BUỘC trên iOS — bỏ bước này là nguyên nhân purchase iOS không hoàn tất ở legacy bridge.
+                m_StoreController.ConfirmPurchase(order);
+            }
+        }
+
+        private void OnPurchaseConfirmed(Order order)
+        {
+            var product = GetFirstProductInOrder(order);
+            switch (order)
+            {
+                case ConfirmedOrder:
+                    Debug.Log("[IAP] OnPurchaseConfirmed: " + (product != null ? product.definition.id : "?"));
+                    break;
+                case FailedOrder failedOrder:
+                    Debug.LogError("[IAP] Purchase confirmation failed: " + failedOrder.FailureReason + " / " +
+                                   failedOrder.Details);
+                    break;
+                default:
+                    Debug.Log("[IAP] OnPurchaseConfirmed: unknown result");
+                    break;
+            }
+        }
+
+        private void OnPurchaseFailed(FailedOrder order)
+        {
+            try
+            {
+                var product = GetFirstProductInOrder(order);
+                Debug.Log(string.Format("[IAP] OnPurchaseFailed. Product: '{0}', Reason: {1}, Details: {2}",
+                    product != null ? product.definition.storeSpecificId : "?", order.FailureReason, order.Details));
+
+                callbackPay = null;
+                _purchasing.OnPurchaseFailed?.Invoke(order.FailureReason.ToString());
+                m_PurchaseInProgress = false;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e);
+            }
+        }
+
+        private void OnPurchaseDeferred(DeferredOrder order)
+        {
+            // Purchase bị hoãn (vd: chờ phụ huynh phê duyệt). Không grant, không khoá flow.
+            var product = GetFirstProductInOrder(order);
+            Debug.Log("[IAP] OnPurchaseDeferred: " + (product != null ? product.definition.id : "?"));
+            m_PurchaseInProgress = false;
+        }
+
+        private void OnPurchasesFetched(Orders orders)
+        {
+            // Chỉ xử lý khi đang trong luồng restore (Google Play).
+            if (!m_RestoreInProgress)
+            {
+                return;
+            }
+
+            m_RestoreInProgress = false;
+            Debug.Log("[IAP] OnPurchasesFetched (restore). Confirmed: " + orders.ConfirmedOrders.Count);
+            _purchasing.RestoreItem();
+            _purchasing.OnTransactionRestored?.Invoke(true);
+        }
+
+        private void OnPurchasesFetchFailed(PurchasesFetchFailureDescription failure)
+        {
+            if (!m_RestoreInProgress)
+            {
+                return;
+            }
+
+            m_RestoreInProgress = false;
+            Debug.LogError("[IAP] OnPurchasesFetchFailed (restore): " + failure.message);
+            _purchasing.OnTransactionRestored?.Invoke(false);
+        }
+
+        private void OnTransactionsRestored(bool success, string error)
+        {
+            Debug.Log("Transactions restored." + success + (string.IsNullOrEmpty(error) ? "" : " Error: " + error));
+            if (success)
+            {
+                _purchasing.RestoreItem();
+            }
+
+            _purchasing.OnTransactionRestored?.Invoke(success);
+        }
+
+        #endregion
     }
 }

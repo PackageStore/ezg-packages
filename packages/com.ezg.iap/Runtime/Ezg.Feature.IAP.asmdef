@@ -3,11 +3,11 @@
     "rootNamespace": "Ezg.Feature.IAP",
     "references": [
         "Ezg.Singleton",
-        "UnityEngine.Purchasing",
-        "UnityEngine.Purchasing.Stores",
-        "UnityEngine.Purchasing.Security",
-        "UnityEngine.Purchasing.SecurityStub",
-        "UnityEngine.Purchasing.SecurityCore",
+        "Unity.Purchasing",
+        "Unity.Purchasing.Stores",
+        "Unity.Purchasing.Security",
+        "Unity.Purchasing.SecurityStub",
+        "Unity.Purchasing.SecurityCore",
         "Unity.Services.Core",
         "Unity.Services.Core.Environments",
         "AppsFlyer"
