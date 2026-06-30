@@ -4,6 +4,13 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-06-30
+
+**Changed**
+- unity-template.json — Nâng loạt package Unity lên bản mới nhất chạy được Unity 6.3: addressables 2.7.2→3.1.0, animation.rigging 1.3.0→1.4.1, cinemachine 2.10.4→2.10.7, collab-proxy 2.9.3→2.12.4, formats.fbx 5.1.4→5.1.6, recorder 5.1.2→5.1.6, timeline 1.8.9→1.8.12, visualscripting 1.9.7→1.9.11.
+- unity-template.json — Cập nhật package mob-sakai: com.coffee.ui-particle 4.11.2→4.13.2; com.coffee.ui-effect chuyển từ branch `#upm` sang pin tag 5.11.1.
+- Publish lại manifest template lên R2 (`unity-template/latest.json`) để client nhận version mới; đồng thời đồng bộ com.unity.purchasing 5.3.1 khớp bản IAP v5.
+
 ## 2026-06-27
 
 **Added**
