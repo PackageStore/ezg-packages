@@ -183,6 +183,15 @@
       "installedByDefault": true
     },
     {
+      "name": "ezg.base.default",
+      "fileName": "ezg.base.default.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.default.unitypackage",
+      "category": "EZG Base",
+      "sha256": "aba253f0b47c3f66fb2f088511bc12e9a5f75ea1504684026ae80d81c775cc93",
+      "installedByDefault": true,
+      "description": "Default setup package including ProjectSettings, .gitignore, AI tooling configuration, and backlog."
+    },
+    {
       "name": "ezg.base.visuals",
       "fileName": "ezg.base.visuals.unitypackage",
       "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.visuals.unitypackage",
