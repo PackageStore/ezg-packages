@@ -4,6 +4,15 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-07-01
+
+**Added**
+- Cấu trúc dự án mẫu — Thêm quy tắc định nghĩa phân chia cấu trúc dự án (framework-standard vs gameplay độc lập) cùng cấu trúc thư mục chuẩn.
+
+**Changed**
+- Tinh gọn quy tắc Claude trong DefaultSetup — Rút gọn nội dung compile-validation và định dạng đầu ra (output-format) theo dạng tổng quát hóa, không mang tính dự án cụ thể.
+- DefaultSetup CLAUDE.md — Liên kết thêm quy tắc cấu trúc dự án mới để Claude/Agent nắm bắt thông tin.
+
 ## 2026-06-30
 
 **Changed**
