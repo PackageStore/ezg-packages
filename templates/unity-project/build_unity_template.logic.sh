@@ -44,6 +44,12 @@ DOWNLOAD_CACHE_DIR_PREEXISTED=0
 KEEP_DOWNLOAD_CACHE="${KEEP_DOWNLOAD_CACHE:-0}"
 UNITY_PATH_OVERRIDE="${UNITY_PATH:-}"
 UNITY_VERSION_OVERRIDE="${UNITY_VERSION:-}"
+# Highest Unity major.minor line this template has been validated against. When a detected or selected
+# Unity version's major.minor is greater than this cap, choose_unity prints a warning (the build still
+# proceeds -- it never blocks). Only the first two version segments are compared, e.g. 6000.3. Override
+# with --unity-version-cap or UNITY_VERSION_CAP.
+DEFAULT_UNITY_VERSION_CAP="6000.3"
+UNITY_VERSION_CAP="${UNITY_VERSION_CAP:-$DEFAULT_UNITY_VERSION_CAP}"
 SELECT_UNITY=0
 SKIP_IMPORT=0
 # Unity build target baked into the generated project launcher (.command/.bat). When left empty it
@@ -78,6 +84,7 @@ Options:
   --project-path <path>          Unity project path to create/update.
   --unity-path <path>            Exact Unity executable to use.
   --unity-version <version>      Prefer an installed Unity version, for example 2022.3.62f1.
+  --unity-version-cap <version>  Warn when the chosen Unity is newer than this major.minor cap (default 6000.3).
   --template-file <path>         Build from this local Unity template JSON (forces local; skips the server).
   --template-url <url>           Download Unity template JSON from this URL (default: published latest.json).
   --package-template-dir <path>  Folder containing .unitypackage and local .tgz files.
@@ -93,6 +100,7 @@ Options:
 Environment overrides:
   UNITY_PATH=<path>              Same as --unity-path.
   UNITY_VERSION=<version>        Same as --unity-version.
+  UNITY_VERSION_CAP=<version>    Same as --unity-version-cap (default 6000.3).
   BUILD_TARGET=<target>          Same as --build-target.
   UNITY_TEMPLATE_URL=<url>       Same as --template-url.
   KEEP_DOWNLOAD_CACHE=1          Same as --keep-cache.
@@ -291,6 +299,11 @@ while [ "$#" -gt 0 ]; do
     --unity-version)
       [ "$#" -ge 2 ] || die "--unity-version requires a value"
       UNITY_VERSION_OVERRIDE="$2"
+      shift 2
+      ;;
+    --unity-version-cap)
+      [ "$#" -ge 2 ] || die "--unity-version-cap requires a value"
+      UNITY_VERSION_CAP="$2"
       shift 2
       ;;
     --package-template-dir)
@@ -571,12 +584,52 @@ find_unity_candidates() {
   fi
 }
 
+# Return 0 when a Unity version string's major.minor is strictly greater than UNITY_VERSION_CAP.
+# Only the first two segments are compared (e.g. 6000.4 vs the 6000.3 cap); the patch/build suffix
+# is ignored. Non-numeric or unparsable versions (e.g. "unknown") are treated as not-over.
+unity_version_exceeds_cap() {
+  local version="$1"
+  local cap="${UNITY_VERSION_CAP:-}"
+  local v_major v_minor c_major c_minor
+
+  [ -n "$version" ] || return 1
+  [ -n "$cap" ] || return 1
+
+  v_major="${version%%.*}"
+  v_minor="${version#*.}"; v_minor="${v_minor%%.*}"
+  c_major="${cap%%.*}"
+  c_minor="${cap#*.}"; c_minor="${c_minor%%.*}"
+
+  # Require plain integers on both sides; otherwise we cannot compare, so do not warn.
+  case "${v_major}:${v_minor}:${c_major}:${c_minor}" in
+    *[!0-9:]*|*::*) return 1 ;;
+  esac
+
+  if [ "$v_major" -gt "$c_major" ]; then
+    return 0
+  fi
+  if [ "$v_major" -eq "$c_major" ] && [ "$v_minor" -gt "$c_minor" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# Print a warning (to stderr, so it never pollutes the captured Unity path) when the given version
+# is newer than the tested cap. Best-effort: silent when the version is at/under the cap.
+warn_if_unity_over_cap() {
+  local version="$1"
+  if unity_version_exceeds_cap "$version"; then
+    log "WARNING: Unity $version is newer than the tested cap $UNITY_VERSION_CAP. This template is validated up to Unity $UNITY_VERSION_CAP; newer versions may not work correctly."
+  fi
+}
+
 choose_unity() {
   local candidates selected selected_path match_count prompt_index line version path default_index
 
   if [ -n "$UNITY_PATH_OVERRIDE" ]; then
     selected="$(to_unix_path "$UNITY_PATH_OVERRIDE")"
     [ -f "$selected" ] || die "UNITY_PATH does not point to a Unity executable: $UNITY_PATH_OVERRIDE"
+    warn_if_unity_over_cap "$(unity_version_from_path "$selected")"
     printf '%s\n' "$selected"
     return 0
   fi
@@ -592,11 +645,21 @@ choose_unity() {
   line="$(printf '%s\n' "$candidates" | tail -n 1)"
 
   log "Detected Unity versions:"
-  printf '%s\n' "$candidates" | awk -F'|' '{ printf "  %d) %s\n", NR, $1 }' >&2
+  prompt_index=0
+  while IFS='|' read -r version path; do
+    [ -n "$version" ] || continue
+    prompt_index=$((prompt_index + 1))
+    if unity_version_exceeds_cap "$version"; then
+      printf '  %d) %s   [WARNING: newer than tested cap %s]\n' "$prompt_index" "$version" "$UNITY_VERSION_CAP" >&2
+    else
+      printf '  %d) %s\n' "$prompt_index" "$version" >&2
+    fi
+  done < <(printf '%s\n' "$candidates")
 
   if [ -n "$UNITY_VERSION_OVERRIDE" ]; then
     match_count="$(printf '%s\n' "$candidates" | awk -F'|' -v version="$UNITY_VERSION_OVERRIDE" '$1 == version { count++ } END { print count + 0 }')"
     [ "$match_count" -gt 0 ] || die "Unity version '$UNITY_VERSION_OVERRIDE' was not found."
+    warn_if_unity_over_cap "$UNITY_VERSION_OVERRIDE"
     printf '%s\n' "$candidates" | awk -F'|' -v version="$UNITY_VERSION_OVERRIDE" '$1 == version { print $2; exit }'
     return 0
   fi
@@ -615,6 +678,7 @@ choose_unity() {
 
       selected_path="$(printf '%s\n' "$candidates" | awk -F'|' -v n="$selected" 'NR == n { print $2; exit }')"
       if [ -n "$selected_path" ]; then
+        warn_if_unity_over_cap "$(unity_version_from_path "$selected_path")"
         printf '%s\n' "$selected_path"
         return 0
       fi
@@ -623,6 +687,7 @@ choose_unity() {
     done
   fi
 
+  warn_if_unity_over_cap "$(printf '%s\n' "$line" | awk -F'|' '{ print $1 }')"
   printf '%s\n' "$line" | awk -F'|' '{ print $2 }'
 }
 
