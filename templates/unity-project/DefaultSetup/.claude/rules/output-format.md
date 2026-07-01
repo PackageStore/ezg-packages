@@ -2,22 +2,11 @@
 trigger: always_on
 ---
 
-# OUTPUT FORMAT RULES
+# OUTPUT FORMAT
 
-After completing any task:
-- **DO NOT** explain what was done
-- **DO NOT** provide testing instructions  
-- **DO NOT** summarize changes
-- **DO NOT** show code diffs or diff blocks
-- **ALWAYS** respond in the same language as the USER's request
+After completing a task, output **ONLY** a list of changed files (one-line description each) — **no** explanation, testing steps, summary, or diff blocks. Reply in the USER's language.
 
-**Output ONLY:**
-- List of files changed with one-line description each
+Each file = clickable markdown link with full absolute URI: `[FileName.cs](file:///absolute/path/to/FileName.cs)` — use the REAL path on this machine (`/Users/<you>/Projects/<project>/Assets/_Project/…`), never a placeholder, never plain backticks.
 
 Example:
-- [GameplayManager.cs](file:///Users/anhnt/Projects/m1/Assets/_Project/Features/Gameplay/Scripts/GameplayManager.cs) - Added ShowProdInfor() call in FillProductToShelf
-
-**IMPORTANT:** Always format changed files as clickable markdown links using the full absolute file URI:
-- Format: `[FileName.cs](file:///absolute/path/to/FileName.cs)`
-- Use the ACTUAL absolute path of the file on the current machine (under `/Users/anhnt/Projects/m1/Assets/_Project/...`), NOT a placeholder
-- NEVER use plain backtick text like `` `FileName.cs` `` for file names in the output list
+`- [GameplayManager.cs](file:///Users/<you>/Projects/<project>/…/GameplayManager.cs) — Added ShowProdInfor() call in FillProductToShelf`

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **[Project Name]** — Unity mobile game with merge-grid gameplay, cooking recipes, shop/IAP, events, and progression systems. C# codebase, ~11,000+ scripts. Primary working directory: `Assets/_Project/`.
 
+> **Where does new code go?** Domain buckets + per-feature layout + file-type→location table: see [.claude/rules/project-structure.md](.claude/rules/project-structure.md). Read it before creating any new file.
+
 ## Architecture
 
 ### Two-Tier Data System
