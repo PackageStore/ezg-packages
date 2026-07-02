@@ -19,7 +19,7 @@ If unsure, prefer the `.sh` path — that is the maintained runner for this temp
 
 1. Get the absolute repo root dynamically (do not hardcode): the directory containing `.claude/`.
 2. The `.sh` runner is itself the **controller**: it spawns one new Terminal window per task (via `osascript`) and waits for each to finish before the next. So you only launch it once; it does the looping.
-3. Run it with `--auto-model-by-tier` so each task window uses the tier-mapped model/effort (XS/S → sonnet, M → sonnet/high, L → opus/xhigh):
+3. Run it in the background with `--auto-model-by-tier` so each task window uses the tier-mapped model/effort (XS/S → sonnet, M → sonnet/high, L → opus/xhigh):
 
    ```bash
    bash <REPO_ROOT>/.claude/scripts/run-backlog-loop.sh --auto-model-by-tier

@@ -26,7 +26,7 @@ mcp__codegraph__codegraph_search(query="FeatureBaseController", limit=1)
 ### When CodeGraph IS available
 
 | Task | Tool (USE THIS) | Old habit (DO NOT USE) |
-|---|---|
+|---|---|---|
 | How does X work / survey an area / read several related symbols at once | `codegraph_explore` (primary) | ~~chain of grep + read~~ |
 | Find where symbol X is defined (location only) | `codegraph_search` | ~~`grep "class X"`~~ |
 | Verify what methods a class calls (detect missing calls, wrong calls) | `codegraph_node` with `includeCode=true` | ~~`grep "Method("` then guess~~ |

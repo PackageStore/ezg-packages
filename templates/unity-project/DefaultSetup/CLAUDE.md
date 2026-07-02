@@ -148,20 +148,22 @@ string name = Utils.GetNameItems(type, numericId, true);  // with "Lv X" suffix
 ## Branches
 
 - `main` — production
-- `develop` — integration branch
-- `AnhNT/RemakeBase` — current active branch (gameplay remake)
+- `develop` — integration branch (default)
+- `agent/dev` — automated work branch; `/run-backlog` creates it from the branch active at start (`$BASE_BRANCH`), merges that branch in on every run, and pushes to it (no PR)
 
 ## Autonomous Backlog System
 
-Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào). Index `BACKLOG.md` ở repo root; chi tiết từng task nằm trong `backlog/{planning,todo,in-progress,done}/`. Format task: dùng tier-specific template (`backlog/_TEMPLATE_XS/S/M/L.md`) — xem index tại `backlog/_TEMPLATE.md`.
+Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào). Index `BACKLOG.md` ở repo root; chi tiết từng task nằm trong `backlog/{planning,todo,in-progress,done}/`. Format task: dùng tier-specific template (`backlog/_TEMPLATE_XS/S/M/L.md`) hoặc `backlog/_TEMPLATE_WF.md` cho task workflow-backed — xem index tại `backlog/_TEMPLATE.md`.
 
 **Task lifecycle:** `planning → todo → in-progress → done`
 
+**Workflow-backed routing (hybrid):** khi intent là scaffold thuần khớp một `/new-*` command (`/new-feature`, `/new-ui`), `/planning-task` (STEP 0a) BỎ QUA Plan subagent (tiết kiệm ~15–25K token) và ghi thin-spec `_TEMPLATE_WF.md` với field `**Backed by workflow:**` + `**Workflow args:**`. Khi thực thi, `/run-backlog` (STEP 5.0) nạp đúng command đó (và skill mà nó delegate, ví dụ `/new-ui` → `create-ui`) thay vì implement free-form. Task lai (scaffold + logic custom) dùng template M/L bình thường nhưng kèm `**Backed by workflow:**`, Plan subagent chỉ plan phần delta. WF KHÔNG phải tier — tier thật vẫn nằm trong filename/bullet để review-gating của run-backlog không đổi. **Loại trừ:** `/new-package` (đóng UPM package, push thẳng monorepo `ezg-packages` — out-of-band, không qua agent/dev; chạy tay qua skill `package-module`); `/new-class` (task S, Plan subagent vốn đã skip cho S + không có checklist → cứ làm task S thường); không có `/new-skill`/`/new-enemy-skill` trong project này.
+
 | Command | Skill File | Description |
 |---------|-----------|-------------|
-| `/planning-task [intent]` | [.agents/skills/planning-task/SKILL.md](.agents/skills/planning-task/SKILL.md) | Triage XS/S/M/L → spawn Plan subagent (M/L only) → ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
+| `/planning-task [intent]` | [.agents/skills/planning-task/SKILL.md](.agents/skills/planning-task/SKILL.md) | Triage workflow-backed (STEP 0a) / XS/S/M/L → spawn Plan subagent (M/L non-scaffold; hybrid plan delta) → ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
 | `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick 1/nhiều/all → git mv planning→todo, assign NNN, update BACKLOG.md. Serial operation. |
-| `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick task TODO đầu → branch `agent/dev` (từ `develop`) → implement → deterministic preflight → quality gates (code review + performance review song song, + security khi sensitive; verify) với auto-fix max 2 rounds mỗi gate → mark DONE → commit + push (KHÔNG tạo PR). Khi TODO rỗng → ghi `PAUSED` vào `.agents/state`. |
+| `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick task TODO đầu → branch `agent/dev` (tạo/merge từ nhánh đang đứng lúc start = `$BASE_BRANCH`) → implement → deterministic preflight → quality gates (code review + performance review song song, + security khi sensitive; verify) với auto-fix max 2 rounds mỗi gate → mark DONE → commit + push (KHÔNG tạo PR). Khi TODO rỗng → ghi `PAUSED` vào `.agents/state`. |
 
 **Subagents dùng cho `/run-backlog`:**
 
@@ -172,11 +174,16 @@ Cơ chế thực thi task tự động dựa trên backlog split-file (token usa
 | `security-auditor` | [.agents/agents/security-auditor.md](.agents/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | sonnet | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
 | `qa-verifier` | [.agents/agents/qa-verifier.md](.agents/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |
 
-**Loop chạy thủ công khi muốn (Windows):**
+**Loop chạy thủ công khi muốn:**
 ```powershell
+# Windows
 powershell -ExecutionPolicy Bypass -File .agents/scripts/run-backlog-loop.ps1
 ```
-> **macOS / Linux:** chưa có loop runner `.sh`. Chạy trực tiếp skill `/run-backlog` trong Claude Code, lặp lại khi cần — pipeline tự pause (`PAUSED`) khi TODO rỗng.
+```bash
+# macOS / Linux — controller tự spawn 1 Terminal window mỗi task, model/effort map theo tier
+bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier
+```
+> Pipeline tự pause (`PAUSED` trong `.agents/state`) khi TODO rỗng.
 
 **Deterministic preflight:**
 ```powershell
@@ -199,9 +206,9 @@ bash .claude/scripts/sync-to-agents.sh
 ```
 
 **Branch model:**
-- `agent/dev` luôn branch từ `develop`.
+- `agent/dev` base theo nhánh đang đứng lúc chạy `/run-backlog` (`$BASE_BRANCH`): lần đầu tạo từ `$BASE_BRANCH`; các lần sau checkout + pull rồi **merge `$BASE_BRANCH` vào `agent/dev`** trước khi implement (conflict → dừng pipeline, user resolve tay).
 - `/run-backlog` chỉ push lên `agent/dev`, **không** tạo PR.
-- User merge tay `agent/dev → develop` sau khi chạy manual verify steps.
+- User merge tay `agent/dev → $BASE_BRANCH` sau khi chạy manual verify steps.
 
 **Source of truth:** `.claude/` là canonical source (file thật, được track trong git); `.agents/` chỉ là link views trỏ ngược về `.claude/` (cho Codex/Gemini/Cline đọc) — gitignore, không track. Chỉ edit trong `.claude/`. Sau clone chạy `sync-to-agents` một lần để tạo link.
 

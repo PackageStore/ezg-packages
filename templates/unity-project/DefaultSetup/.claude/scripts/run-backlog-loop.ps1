@@ -8,7 +8,7 @@ param(
     [int]$MaxIterations = 100,
     [string]$LogDir = "logs/backlog-loop",
     [AllowEmptyString()]
-    [string]$Model = "claude-sonnet-4-6",
+    [string]$Model = "sonnet",
     [AllowEmptyString()]
     [string]$Effort = "",
     [int]$ThinkingTokens = 10000,

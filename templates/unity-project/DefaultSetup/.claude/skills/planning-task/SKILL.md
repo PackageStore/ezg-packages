@@ -25,8 +25,9 @@ You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLO
 
 ```
 [0] TRIAGE       → classify XS / S / M / L (≤500 tokens)
+[0a] WF-DETECT   → pure scaffold matching a /new-* command? → skip Plan subagent, use _TEMPLATE_WF
 [1] EXTRACT      → parse user intent + clarify until contract is clear
-[2] DRAFT        → tier-specific (skip Plan subagent for XS/S)
+[2] DRAFT        → tier-specific (skip Plan subagent for XS/S and WF-backed scaffold)
 [3] FILENAME     → timestamp + tier + slug (no NNN, no race check)
 [4] WRITE        → fill tier-specific template + required skills + conditional guardrails
 [5] CHECK        → tier-aware quality check
@@ -74,6 +75,41 @@ Record your tier choice in your reasoning and explain it to the user in STEP 6. 
 
 ---
 
+## STEP 0a — Workflow-backed detection (deterministic routing)
+
+Run this right after triage. If the task is **pure scaffold** that exactly matches a `/new-*` command in `.claude/commands/`, the command IS the plan — so **skip the Plan subagent** in STEP 2 (saves ~15–25K tokens) and capture a thin spec with `_TEMPLATE_WF.md` instead.
+
+**Command registry ([Project Name]):**
+
+| Intent signal | Command | Exec tier | `Workflow args` format | Sensitive? |
+|---|---|---|---|---|
+| New feature module (controller + structure under `Assets/_Project/Features/<Domain>/`) | `/new-feature` | M (L if it also reshapes/migrates save data or wires ≥2 modules) | `FeatureName: Description` (PascalCase) | yes if Domain = `Monetization` or it grants/spends value |
+| New UI screen/popup prefab (delegates to the `create-ui` skill) | `/new-ui` | M (UI-scoped) | `FeatureName` | no |
+
+> **Excluded by design:**
+> - `/new-package` — extracts a UPM module and pushes to the `ezg-packages` monorepo `main` (out-of-band, no `agent/dev`/backlog lifecycle).
+> - `/new-class` — S-tier (the Plan subagent is already skipped for S, so WF saves no planner tokens) and has no deterministic checklist to lift; treat a new-class request as a normal S task.
+> - There are no `/new-skill`/`/new-enemy-skill` commands in this project.
+>
+> **Packaging intent (`/new-package`):** do NOT create a backlog task and do NOT fall through to normal triage — module-packaging runs out-of-band on a different monorepo. Tell the user to invoke the `package-module` skill manually, and stop.
+
+**Decision tree:**
+
+1. **No match** → continue to STEP 1 (normal flow).
+2. **Match + PURE scaffold** (the deliverable is exactly what the command generates, no extra logic):
+   - **Skip the Plan subagent.** Read only the matched command file (`.claude/commands/<name>.md`, ~1–3K tokens) — and, if it delegates to a skill (`/new-ui` → `create-ui`), skim that skill's checklist too.
+   - Lift the command's / delegated skill's checklist into the task's **Acceptance criteria**.
+   - Build `**Workflow args:**` in the EXACT format the command expects (see table).
+   - Use the **exec tier** from the table (do not re-triage by file count) and draft with `_TEMPLATE_WF.md` (STEP 4), setting `**Custom delta:** none`.
+   - For UI (`/new-ui`), still set `**Required skills:** /create-ui /compile-check` and keep the `/create-ui` acceptance criteria from the M template's UI block.
+3. **Match + HYBRID** (scaffold + custom logic/wiring/balance beyond the scaffold):
+   - Run the normal tier triage (almost always M, or L if cross-cutting) and draft with `_TEMPLATE_M.md` / `_TEMPLATE_L.md` (Plan subagent only if genuinely complex per STEP 2).
+   - Add the `**Backed by workflow:** /new-xxx` + `**Workflow args:** ...` fields to the M/L draft, and scope the Plan subagent (if any) to the **delta only** — the scaffold is already specified by the command.
+
+WF is **orthogonal to tier**: the filename + BACKLOG.md `[TIER]` bracket still carry the real exec tier (which drives review-gating); the WF marker only tells `run-backlog` to load the command first (its STEP 5.0).
+
+---
+
 ## STEP 1 — Extract intent (compact)
 
 Parse the user's message for: **What**, **Why** (if any), **Scope**, **Priority** (default `MEDIUM`), **Constraints**, and **Required skills**.
@@ -98,6 +134,8 @@ Do not ask questions that can be answered by grepping/reading the codebase or qu
 ---
 
 ## STEP 2 — Draft (tier-specific)
+
+> **Workflow-backed pure scaffold (from STEP 0a):** do NOT spawn the Plan subagent. The matched `/new-*` command is the plan — read it (and any skill it delegates to) to lift its checklist into Acceptance criteria, then jump straight to STEP 3/4 using `_TEMPLATE_WF.md`. A **hybrid** WF task (scaffold + custom logic) follows the M/L path below but carries the `**Backed by workflow:**` field; scope any Plan subagent to the delta only.
 
 ### Tier XS — no exploration needed
 
@@ -249,6 +287,11 @@ Pick template based on tier:
 | M  | `backlog/_TEMPLATE_M.md` |
 | L  | `backlog/_TEMPLATE_L.md` |
 
+**Workflow-backed write rule (when STEP 0a flagged a pure scaffold):**
+- Use `backlog/_TEMPLATE_WF.md` instead of the tier template. Fill `**Backed by workflow:** /new-xxx`, `**Workflow args:** ...` (exact format from the STEP 0a table), set `**Custom delta:** none`, and lift the command's / delegated skill's checklist into Acceptance criteria.
+- The **filename tier still reflects the registry exec tier** (`M` for both `/new-feature` & `/new-ui`) so `run-backlog` review-gating is unchanged.
+- A **hybrid** WF task (scaffold + custom logic) uses the normal `_TEMPLATE_M.md` / `_TEMPLATE_L.md` and just adds the `**Backed by workflow:**` + `**Workflow args:**` fields near the title.
+
 **Required skills rule**:
 - If the draft has `required_skills`, write them directly under the title as `**Required skills:** ...`.
 - If the task is UI-scoped but `required_skills` omits `/create-ui`, fix the draft before writing.
@@ -287,8 +330,8 @@ Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 - [ ] All S checks pass.
 - [ ] `open_questions` is empty or only contains low-risk implementation details that do not change the outcome.
 - [ ] `scope_control` has all fields: broad/not broad, affected areas, out_of_scope, test/regression plan, checkpoints, rollback/fallback.
-- [ ] If `scope_control.is_broad_change = true`, there must be a compelling reason, a migration plan if touching data/schema/config/save, and a specific rollback/fallback.
 - [ ] UI-scoped task includes `**Required skills:** /create-ui` and concrete `/create-ui` acceptance criteria.
+- [ ] If `scope_control.is_broad_change = true`, there must be a compelling reason, a migration plan if touching data/schema/config/save, and a specific rollback/fallback.
 - [ ] `applicable_guardrails` list exists and matches the included blocks.
 - [ ] Each excluded guardrail has a `not_applicable` reason of ≥10 chars.
 - [ ] Mobile impact — GC alloc / APK size / draw call / save data / localize / CSV: each axis is evaluated, included, or justified.

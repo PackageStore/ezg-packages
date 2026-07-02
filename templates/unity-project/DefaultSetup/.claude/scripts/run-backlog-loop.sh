@@ -12,7 +12,7 @@
 #
 # Usage:
 #   .claude/scripts/run-backlog-loop.sh
-#   .claude/scripts/run-backlog-loop.sh --model claude-opus-4-8 --effort xhigh --max-iterations 5
+#   .claude/scripts/run-backlog-loop.sh --model opus --effort xhigh --max-iterations 5
 #   .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --max-iterations 5
 #   .claude/scripts/run-backlog-loop.sh --inline        # run in THIS window (no new windows)
 #
@@ -20,13 +20,13 @@
 #   --model <id>             Claude model id (default: empty = CLI default).
 #   --effort <level>         Reasoning effort: low|medium|high|xhigh (default: empty = CLI default).
 #   --auto-model-by-tier     Pick model/effort per iteration from BACKLOG.md task tier.
-#   --xs-model/--xs-effort   Override XS profile (default: claude-sonnet-4-6/medium).
-#   --s-model/--s-effort     Override S profile (default: claude-sonnet-4-6/high).
-#   --m-model/--m-effort     Override M profile (default: claude-sonnet-4-6/high).
-#   --l-model/--l-effort     Override L profile (default: claude-opus-4-8/xhigh).
+#   --xs-model/--xs-effort   Override XS profile (default: sonnet/medium).
+#   --s-model/--s-effort     Override S profile (default: sonnet/high).
+#   --m-model/--m-effort     Override M profile (default: sonnet/high).
+#   --l-model/--l-effort     Override L profile (default: opus/xhigh).
 #                            (Opus is reserved for L; M runs on sonnet/high. There is NO
 #                             auto-escalation: if an M task hits REVIEW_BLOCKED the loop
-#                             stops — rerun that one task with --m-model claude-opus-4-8.)
+#                             stops — rerun that one task with --m-model opus.)
 #   --max-iterations <n>     Max task iterations (default: 100).
 #   --thinking-tokens <n>    Legacy/global MAX_THINKING_TOKENS override (default: 10000; 0 = off).
 #   --xs-thinking-tokens <n> Override XS thinking budget (default: 3000; 0 = off).
@@ -47,13 +47,13 @@ cd "$REPO_ROOT" || { echo "Cannot cd to repo root: $REPO_ROOT" >&2; exit 1; }
 MODEL=""
 EFFORT=""
 AUTO_MODEL_BY_TIER=0
-XS_MODEL="claude-sonnet-4-6"
+XS_MODEL="sonnet"
 XS_EFFORT="medium"
-S_MODEL="claude-sonnet-4-6"
+S_MODEL="sonnet"
 S_EFFORT="high"
-M_MODEL="claude-sonnet-4-6"
+M_MODEL="sonnet"
 M_EFFORT="high"
-L_MODEL="claude-opus-4-8"
+L_MODEL="opus"
 L_EFFORT="xhigh"
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000

@@ -10,12 +10,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # --- defaults (change these to taste) -------------------------------------------
 # Auto mode picks the next task's [XS]/[S]/[M]/[L] tier from BACKLOG.md before
 # opening each task window:
-#   XS/S -> claude-sonnet-4-6
-#   M/L  -> claude-opus-4-8
+#   XS/S -> sonnet
+#   M/L  -> opus
 AUTO_MODEL_BY_TIER=1
 
 # Used only when AUTO_MODEL_BY_TIER=0.
-MODEL="claude-opus-4-8"     # "" = CLI default; e.g. claude-sonnet-4-6 / claude-opus-4-8
+MODEL="opus"     # "" = CLI default; e.g. sonnet / opus
 EFFORT="xhigh"              # low | medium | high | xhigh; "" = CLI default
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000

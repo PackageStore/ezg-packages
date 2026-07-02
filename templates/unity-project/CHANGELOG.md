@@ -4,6 +4,17 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-07-02
+
+**Added**
+- `DefaultSetup/backlog/_TEMPLATE_WF.md` — Thêm template task hỗ trợ workflow-backed scaffolding.
+- `DefaultSetup/.claude/scripts/run-backlog-loop.sh` — Thêm script loop runner hỗ trợ chạy backlog tasks tự động trên macOS/Linux.
+
+**Changed**
+- `unity-template.json` — Nâng cấp package `com.ezg.iap` lên phiên bản mới nhất `0.2.0`.
+- Cấu hình nhánh phát triển (`branch model`) — Cập nhật branch `agent/dev` tự động lấy base branch hiện tại (`$BASE_BRANCH`) thay vì hardcode `develop`.
+- Hỗ trợ task dạng hybrid — Cập nhật `_TEMPLATE_M.md`, `_TEMPLATE_L.md` và các skill liên quan hỗ trợ task kết hợp workflow scaffold và logic tùy biến.
+
 ## 2026-07-01
 
 **Added**

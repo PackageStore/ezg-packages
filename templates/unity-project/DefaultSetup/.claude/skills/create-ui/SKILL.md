@@ -9,6 +9,8 @@ description: Build, extend, and refactor Unity UI with the shared template prefa
 
 Use this skill to choose an existing shared prefab template, instantiate it with Unity MCP, and preserve the prefab's built-in layout groups, controllers, and serialized references.
 
+**Resolve UI elements by token first (when the project has a UI catalog).** If `ui-catalog/ui-tokens.json` exists in the repo, it is the UGUI SSOT (browse via `Window ▸ UI ▸ Catalog`). Before picking a prefab, look the element up there (`ui.<group>.<variant>` / `screen.<feature>`) to get its exact `resourcesPath`, `controller`, and `layout` — don't guess paths. The prose tables below remain a useful narrative reference, but the JSON is canonical and covers every element (shared templates + popup shells + per-feature widgets/screens). If the project has no `ui-catalog/`, skip this and use the template tables below directly.
+
 Read [references/prefab-templates.md](references/prefab-templates.md) before editing when the request depends on choosing a template or understanding a prefab's hierarchy and runtime behavior.
 
 For the **executable layer** — exact Unity MCP tool sequence, property paths (`m_*`), value formats, reference wiring, the screenshot verify loop, and screen registration — follow [references/mcp-playbook.md](references/mcp-playbook.md). This skill decides *what* to build; the playbook is the deterministic *how*. Do not improvise MCP commands when the playbook covers the operation.

@@ -8,6 +8,13 @@ Filename: `backlog/todo/NNN-short-slug.md`
 
 ### [PRIORITY] Short output-focused title (≤10 words)
 
+<!-- HYBRID workflow-backed task? If this is a /new-* scaffold PLUS custom logic, uncomment the
+     two lines below so run-backlog (STEP 5.0) runs the command for the scaffold, then describe
+     ONLY the extra logic/wiring/balance below. See backlog/_TEMPLATE_WF.md for the registry.
+**Backed by workflow:** /new-feature      (or /new-ui)
+**Workflow args:** FeatureName: Description
+-->
+
 **Required skills:** <none, or `/create-ui`, `/compile-check`>
 
 **Description:**

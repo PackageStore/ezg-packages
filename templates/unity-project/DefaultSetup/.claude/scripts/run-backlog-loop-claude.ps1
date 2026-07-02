@@ -5,7 +5,7 @@ param(
     [int]$MaxIterations = 100,
     [string]$LogDir = "logs/backlog-loop",
     [AllowEmptyString()]
-    [string]$Model = "claude-sonnet-4-6",
+    [string]$Model = "sonnet",
     [switch]$NoSkipPermissions,
     # Extended thinking budget (output tokens reserved for reasoning) for the
     # orchestrator and the subagents it spawns. Pass 0 to disable thinking.

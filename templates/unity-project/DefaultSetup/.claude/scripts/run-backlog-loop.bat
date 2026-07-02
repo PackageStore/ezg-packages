@@ -7,7 +7,7 @@ REM never hangs and never errors on empty input.
 REM
 REM Usage:
 REM   run-backlog-loop.bat                 (interactive menu)
-REM   run-backlog-loop.bat -Model claude-opus-4-8 -MaxIterations 5   (extra args forwarded)
+REM   run-backlog-loop.bat -Model opus -MaxIterations 5   (extra args forwarded)
 
 setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
@@ -39,17 +39,17 @@ goto claude
 set "WRAPPER=run-backlog-loop-claude.ps1"
 echo.
 echo  Model:
-echo   [1] claude-sonnet-4-6   (wrapper default)
-echo   [2] claude-opus-4-8
-echo   [3] claude-haiku-4-5-20251001
+echo   [1] sonnet   (wrapper default)
+echo   [2] opus
+echo   [3] haiku
 echo   [4] custom / pass-through (use -Model in args, or wrapper default)
 echo.
 set "MODEL_CHOICE=4"
 set /p "MODEL_CHOICE= Select model (1-4) [default 4]: "
 set "MODEL_ARG="
-if "%MODEL_CHOICE%"=="1" set "MODEL_ARG=-Model claude-sonnet-4-6"
-if "%MODEL_CHOICE%"=="2" set "MODEL_ARG=-Model claude-opus-4-8"
-if "%MODEL_CHOICE%"=="3" set "MODEL_ARG=-Model claude-haiku-4-5-20251001"
+if "%MODEL_CHOICE%"=="1" set "MODEL_ARG=-Model sonnet"
+if "%MODEL_CHOICE%"=="2" set "MODEL_ARG=-Model opus"
+if "%MODEL_CHOICE%"=="3" set "MODEL_ARG=-Model haiku"
 goto run
 
 :codex

@@ -21,7 +21,7 @@ You read the index + **exactly one** task file — never scan all tasks.
 Pipeline orchestration:
 ```
 [1] PICK     → read index, pick task, move todo → in-progress
-[2] BRANCH   → switch to agent/dev (branch from develop if it doesn't exist yet)
+[2] BRANCH   → switch to agent/dev + merge $BASE_BRANCH into it (create from $BASE_BRANCH if it doesn't exist yet)
 [3] CONTEXT  → read CLAUDE.md + .agents/rules/* + task file + relevant code
 [4] IMPLEMENT→ write code, git add (DO NOT commit yet)
 [5] REVIEW   → run deterministic preflight, then spawn code-reviewer + (performance-reviewer IF perf-sensitive) + (security-auditor IF sensitive files) in parallel
@@ -55,6 +55,7 @@ Then read **exactly one** identified task file. DO NOT read other task files.
 Extract from the task file:
 - Task title and priority
 - **Task tier** (from the BACKLOG.md bullet format `[XS]`, `[S]`, `[M]`, `[L]`) — store as `$TASK_TIER`, used for the tier guard in STEP 5c. The tier lives in the BACKLOG.md bullet, NOT in the filename.
+- **Backed by workflow** — if the task body has a `**Backed by workflow:** /new-xxx` line, store `$WF_CMD = /new-xxx`, `$WF_ARGS` from the `**Workflow args:**` line, and `**Custom delta:**`. This routes implementation through STEP 5.0 (workflow-backed shortcut). If absent, `$WF_CMD = none` (normal free-form implement).
 - **Description** (what to do and why)
 - **Context & Constraints**
 - **Related files** (files to read first)
@@ -71,7 +72,7 @@ Extract from the task file:
 > ```
 > When `HAS_REMOTE=1` (the normal case — the project is connected to a remote): run `git fetch/pull/push origin` normally and **push `agent/dev` to origin** after each commit (STEP 1/STEP 9). When `HAS_REMOTE=0` (e.g. a fresh project generated from this template, not yet connected to GitLab): skip every `git fetch/pull/push origin` and determine whether `agent/dev` exists with `git branch --list agent/dev` (local) instead of `git branch -r`. Everything else runs unchanged on the `agent/dev` branch.
 
-Before touching code, record the current branch (this is the base branch to use if `agent/dev` doesn't exist yet):
+Before touching code, record the current branch (this is the **base branch**: `agent/dev` is created from it if missing, and **merged from it** on every run so the base branch's work is available to the agent):
 
 ```bash
 git rev-parse --abbrev-ref HEAD   # → $BASE_BRANCH
@@ -90,9 +91,13 @@ git branch -r | grep origin/agent/dev
 
 - If it **exists**:
   ```bash
+  git pull origin $BASE_BRANCH        # update base first — skip when HAS_REMOTE=0 or $BASE_BRANCH has no branch on origin
   git checkout agent/dev
   git pull origin agent/dev
+  git merge $BASE_BRANCH --no-edit    # bring the base branch's work into agent/dev
   ```
+  - **Skip the merge** when `$BASE_BRANCH` is already `agent/dev` (loop iterations after the first start here).
+  - If the merge **conflicts**: run `git merge --abort`, then STOP the whole pipeline (move nothing, implement nothing) and output: `BRANCH_BLOCKED: agent/dev has merge conflicts with $BASE_BRANCH — resolve manually, then re-run.` NEVER auto-resolve conflicts.
 
 - If it **does not exist yet**:
   ```bash
@@ -101,7 +106,7 @@ git branch -r | grep origin/agent/dev
   git checkout -b agent/dev
   ```
 
-> [Project Name] branch model: `agent/dev` is branched from whatever branch was active when the loop started (captured as `$BASE_BRANCH` above). The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never branch from `main` directly.
+> [Project Name] branch model: `agent/dev` always starts from `$BASE_BRANCH` — the branch active when the loop started: **created** from it on first run, **merged** from it on every later run. The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never branch from `main` directly.
 
 ---
 
@@ -115,7 +120,7 @@ Make **two** updates (will go into the same commit in STEP 8):
 2. **Edit `BACKLOG.md`**:
    - Remove the picked entry from `## TODO`.
    - Under `## IN PROGRESS`, replace `- (none)` with: `- [PRIORITY] [TIER] [Title](backlog/in-progress/<NNN-slug>.md)`
-     - Substitute **real values**, not the placeholder words: `[PRIORITY]` -> `[HIGH]`/`[MEDIUM]`/`[LOW]`, `[TIER]` -> the bracketed `$TASK_TIER` from STEP 1 (`[XS]`/`[S]`/`[M]`/`[L]`), `[Title]` -> the task title.
+     - Substitute **real values**, not the placeholder words: `[PRIORITY]` → `[HIGH]`/`[MEDIUM]`/`[LOW]`, `[TIER]` → the bracketed `$TASK_TIER` from STEP 1 (`[XS]`/`[S]`/`[M]`/`[L]`), `[Title]` → the task title.
      - **Keep the `[TIER]` bracket** — the loop runner (`run-backlog-loop.sh --auto-model-by-tier`) reads this exact token to pick the model/effort for the next task window. Dropping it or mangling the brackets makes a resumed task fall back to the M/opus profile.
      - Example: `- [HIGH] [S] [Author CurrencyConfig CSVs](backlog/in-progress/022-author-currencyconfig-csv-collection-model.md)`
 
@@ -174,6 +179,22 @@ DO NOT skip this step. [Project Name] conventions are strict — violations will
 ---
 
 ## STEP 5 — Implement task
+
+### 5.0 — Workflow-backed shortcut (run FIRST if `$WF_CMD != none`)
+
+If STEP 1 found a `**Backed by workflow:**` line, the scaffold is specified deterministically by a `/new-*` command — do NOT re-derive it free-form.
+
+1. **Read the command file inline:** `.claude/commands/<name>.md` (e.g. `new-feature.md`). Follow its steps **inline as instructions** — do NOT invoke it as a slash command (you are already mid-orchestration; the Skill/command tool would fork the flow).
+2. **Follow any delegated skill.** Some commands are thin entry points: `/new-ui` delegates to the `create-ui` skill (`.claude/skills/create-ui/SKILL.md` + its `references/prefab-templates.md` and `references/mcp-playbook.md`). When the command says "invoke the X skill", read that SKILL.md and follow its playbook/checklist — that checklist is the real authority. (`/new-package` is never workflow-backed — see `backlog/_TEMPLATE_WF.md`.)
+3. **Execute** using `$WF_ARGS` as the command's `{{args}}` input. Generate exactly the files, registrations, and conventions the command prescribes (`FeatureBaseController` subclass, `GameEnums.Features` registration, `Assets/_Project/Features/<Domain>/` layout, prefab variant from `screen_template`, `PlayerDataManager`/CSV registrations, naming rules, etc.). Honor every "DO NOT" the command states.
+4. **Apply the `**Custom delta:**`** from the task body (logic/wiring/balance beyond the scaffold). For a pure scaffold the delta is `none`.
+5. Then continue with the normal rules below (conventions, no extra features) and proceed to staging + compile check (STEP 5b).
+
+The command's / delegated skill's own checklist is part of the acceptance criteria — make sure every item is satisfied before staging. Quality gates (STEP 6/7) still run in full per `$TASK_TIER`.
+
+If `$WF_CMD = none`, skip this section and implement free-form below.
+
+---
 
 Write code to fulfill the task. Rules:
 - Follow exactly the conventions in `.agents/rules/`:
@@ -558,7 +579,7 @@ Make **two** updates (will go into the same commit in STEP 9):
    - Security review: <pass|warn|skipped — no sensitive files|skipped (XS/S tier)> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
    - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
 
-   **Manual verify steps (USER MUST RUN before merging agent/dev → develop):**
+   **Manual verify steps (USER MUST RUN before merging agent/dev → $BASE_BRANCH):**
    <M/L: copy exact `manual_verify_steps` from qa-verifier output>
    <XS/S: copy acceptance criteria items verbatim from the task spec>
    ```
@@ -620,7 +641,7 @@ Pipeline:
   - QA verify: pass (1 round) [codegraph]
   - Tool efficiency: 3/3 codegraph — optimal ✅
 
-⚠️ MANUAL VERIFY REQUIRED before merging agent/dev → develop:
+⚠️ MANUAL VERIFY REQUIRED before merging agent/dev → $BASE_BRANCH:
   1. Open MainScene, open Shop popup, confirm daily deals display correctly
   2. Tap buy twice quickly — confirm only 1 purchase triggers
   3. Regression: existing shop features (currency display, IAP packs) still work
