@@ -1,3 +1,12 @@
+## [0.2.5] - 2026-07-03
+
+### Fixed
+- `CsvImportManager.ImportAllData()` no longer shows a blocking `EditorUtility.DisplayDialog`
+  ("Load success") after importing CSVs — replaced with `Debug.Log`. The modal dialog stalled
+  the Unity Editor main thread waiting for a manual "OK" click, which hung any automated/MCP-driven
+  session (e.g. an agent invoking `CustomEditor/BlackFace/Reload all data CSV`) until a human
+  dismissed it.
+
 ## [0.2.3] - 2026-06-20
 
 ### Added

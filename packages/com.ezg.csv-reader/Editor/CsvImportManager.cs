@@ -37,7 +37,7 @@ namespace Ezg.Package.CsvReader
                     AssetDatabase.StopAssetEditing();
                 }
 
-                EditorUtility.DisplayDialog("Information", "Load success", "OK");
+                Debug.Log("[CsvImportManager] Load success");
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace Ezg.Package.CsvReader
                     sw.WriteLine($"{entry.Key};{entry.Value}");
             }
 
-            EditorUtility.DisplayDialog("Information", "Load success", "OK");
+            Debug.Log("[CsvImportManager] Load success");
         }
 
         #endregion
