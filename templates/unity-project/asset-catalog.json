@@ -319,6 +319,15 @@
       "sha256": "a04afb68a68c5eedd86bc68108ccb6e675e3b4c4e9477da8af3cff2e554bd688",
       "installedByDefault": false,
       "markerPaths": [ "Assets/AstarPathfindingProject" ]
+    },
+    {
+      "name": "KayKit - Medieval Hexagon Pack for Unity",
+      "fileName": "KayKit - Medieval Hexagon Pack for Unity.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/KayKit%20-%20Medieval%20Hexagon%20Pack%20for%20Unity.unitypackage",
+      "category": "3D Models",
+      "sha256": "6210435aeed1477ffd78675e522f879bca608641aaae56b001520f66b51437cb",
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/KayKit/Packs/KayKit - Medieval Hexagon Pack (for Unity)" ]
     }
   ]
 }
