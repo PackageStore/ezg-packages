@@ -328,6 +328,15 @@
       "sha256": "6210435aeed1477ffd78675e522f879bca608641aaae56b001520f66b51437cb",
       "installedByDefault": false,
       "markerPaths": [ "Assets/KayKit/Packs/KayKit - Medieval Hexagon Pack (for Unity)" ]
+    },
+    {
+      "name": "KayKit - Forest Nature Pack for Unity",
+      "fileName": "KayKit - Forest Nature Pack for Unity.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/KayKit%20-%20Forest%20Nature%20Pack%20for%20Unity.unitypackage",
+      "category": "3D Models",
+      "sha256": "055882a995e09f0d3bd1dd901b285a53b012e4e7ce53102d63d6b935c7c95bdb",
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/KayKit/Packs/KayKit - Forest Nature Pack (for Unity)" ]
     }
   ]
 }
