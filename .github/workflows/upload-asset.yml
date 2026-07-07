@@ -1,0 +1,101 @@
+name: Upload asset to R2
+
+# Manually upload a single file to the Cloudflare R2 bucket. Runners can't see a
+# maintainer's local disk, so the file is first attached to a GitHub release;
+# this job downloads that asset and PUTs it to R2 using the R2 API secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag the file is attached to'
+        required: true
+      asset_name:
+        description: 'Asset file name within that release'
+        required: true
+      key:
+        description: 'Destination R2 object key (path in the bucket)'
+        required: true
+      content_type:
+        description: 'Content-Type of the object'
+        required: false
+        default: 'application/octet-stream'
+      force:
+        description: 'Overwrite if the key already exists (true/false)'
+        required: false
+        default: 'false'
+      dry_run:
+        description: 'Preview only, do not write to R2 (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-upm
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tooling
+        working-directory: scripts
+        run: npm install
+
+      - name: Download staged asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/staging"
+          gh release download "${{ inputs.release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "${{ inputs.asset_name }}" \
+            --dir "$RUNNER_TEMP/staging"
+          ls -lh "$RUNNER_TEMP/staging"
+
+      - name: Upload to R2
+        working-directory: scripts
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: company-upm-registry
+          LIB: ${{ github.workspace }}/scripts/registry-lib.mjs
+          SRC: ${{ runner.temp }}/staging/${{ inputs.asset_name }}
+          KEY: ${{ inputs.key }}
+          CONTENT_TYPE: ${{ inputs.content_type }}
+          FORCE: ${{ inputs.force }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          node --input-type=module -e '
+          import { pathToFileURL } from "node:url";
+          import { readFileSync, statSync } from "node:fs";
+          import { createHash } from "node:crypto";
+          const { makeClient, putObject, objectExists, BUCKET } = await import(pathToFileURL(process.env.LIB).href);
+          const src = process.env.SRC;
+          const key = process.env.KEY;
+          const ct = process.env.CONTENT_TYPE || "application/octet-stream";
+          const force = process.env.FORCE === "true";
+          const dry = process.env.DRY_RUN === "true";
+          const body = readFileSync(src);
+          const sha = createHash("sha256").update(body).digest("hex");
+          console.log(`src    : ${src}`);
+          console.log(`size   : ${statSync(src).size} bytes`);
+          console.log(`sha256 : ${sha}`);
+          console.log(`bucket : ${BUCKET}`);
+          console.log(`key    : ${key}`);
+          const client = await makeClient();
+          const exists = await objectExists(client, key);
+          console.log(`exists : ${exists}`);
+          if (dry) { console.log("dry-run — not uploading"); process.exit(0); }
+          if (exists && !force) { console.log("skip — key exists (set force=true to overwrite)"); process.exit(0); }
+          await putObject(client, key, body, ct);
+          console.log(`uploaded -> r2://${BUCKET}/${key}`);
+          '
