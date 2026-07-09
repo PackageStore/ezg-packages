@@ -15,8 +15,8 @@ Since picking is a single-user serial operation, there is no race condition on `
 
 The layout you operate on:
 - `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (you read + move from here)
-- `backlog/todo/NNN-<slug>.md` = queued task (you write here)
-- `BACKLOG.md` = index (you append a bullet for each picked task)
+- `backlog/todo/NNN-<slug>.md` = queued task (the promote script moves files here)
+- `BACKLOG.md` = index (the promote script appends the bullets)
 
 ---
 
@@ -28,11 +28,11 @@ The layout you operate on:
 [2] DISPLAY          → show indexed list in TASK ORDER (lowest index / oldest first)
 [3] PICK             → user selects 1 / multiple / range / all
 [4] OVERRIDE         → optional priority TAG override (metadata only; does NOT reorder queue. tier CANNOT be changed)
-[5] ASSIGN_NNN       → scan todo/ + in-progress/ + done/, assign consecutive NNNs in task order
-[6] MOVE             → git mv each picked file from planning/ → todo/<NNN>-<slug>.md
-[7] UPDATE_BACKLOG   → single write to BACKLOG.md APPENDING bullets in task order (no priority buckets)
-[8] REPORT           → summarize what was picked and where
+[5] PROMOTE          → backlog-ops promote: assigns NNN + git mv planning → todo + appends bullets + self-lints
+[6] REPORT           → summarize what was picked and where
 ```
+
+> Steps [1]–[4] are interactive (you talk to the user). Step [5] is deterministic — ONE script call owns NNN assignment, the `git mv`, and the BACKLOG.md write. NEVER hand-edit `BACKLOG.md` or assign NNNs yourself.
 
 ---
 
@@ -102,19 +102,19 @@ Validate:
 - All indices must exist in the displayed list.
 - If any index is invalid → report which one and re-ask (max 2 re-asks, then abort).
 
-Treat the pick as a **set**, not a sequence: no matter what order the indices are typed (`5,3,1`), STEP 5 assigns NNN and STEP 7 appends bullets in **task order** (the STEP 1 sort), so the queue always stays dependency-ordered.
+Treat the pick as a **set**, not a sequence: no matter what order the indices are typed (`5,3,1`), the promote script (STEP 5) assigns NNN and appends bullets in **task order** (the STEP 1 sort), so the queue always stays dependency-ordered.
 
 ---
 
 ## STEP 4 — Override priority tag (optional)
 
-> Priority is a **metadata tag only** — it no longer changes a task's position in `## TODO` (the queue is ordered by task order, see STEP 7). Override it only when the tag itself is wrong, not to reorder the queue.
+> Priority is a **metadata tag only** — it no longer changes a task's position in `## TODO` (the queue is ordered by task order, see STEP 5). Override it only when the tag itself is wrong, not to reorder the queue.
 
 Ask once for the batch:
 > *"Keep current priorities for all picked tasks, or would you like to override any?"*
 
 Accept:
-- `keep` / `giữ` / empty → do not override
+- keep / empty → do not override
 - Per-task override format: `2:HIGH, 4:LOW`
 
 **Tier CANNOT be changed.** If the user requests a tier change → reply:
@@ -122,55 +122,23 @@ Accept:
 
 ---
 
-## STEP 5 — Assign NNN
+## STEP 5 — Promote (deterministic)
 
-1. List filenames in `backlog/todo/`, `backlog/in-progress/`, and `backlog/done/`.
-2. Extract the leading `NNN` from each filename (regex: `^(\d+)-`). Find the maximum.
-3. For a batch of K picked tasks, assign `max+1`, `max+2`, …, `max+K` in **task order** (the STEP 1 sort, not the order indices were typed).
-4. Zero-pad to 3 digits (`021`, not `21`).
+Run ONE script call with all picked planning files (any argv order — the script sorts them into **task order** internally, assigns consecutive NNNs from `max(todo, in-progress, done)+1`, does each `git mv`, appends the bullets to the END of `## TODO` in one atomic write, and self-lints):
 
-Example: if current max NNN is `010` and the user picks 3 tasks → assign `011`, `012`, `013`.
-
----
-
-## STEP 6 — Move files
-
-For each picked task, in the pick order:
-
-```
-git mv backlog/planning/<original-filename>.md backlog/todo/<NNN>-<slug>.md
+```bash
+python3 .claude/scripts/backlog-ops.py promote backlog/planning/<file1>.md [backlog/planning/<file2>.md ...]
 ```
 
-- `<slug>` is parsed from the original planning filename (omitting the timestamp + tier prefix).
-- Use `git mv` (not `mv`) to preserve git history.
-- If `git mv` fails for any file: skip that file, report the error in STEP 8, continue with remaining picks. DO NOT abort the whole batch.
+- **Priority override** (from STEP 4): `--priority HIGH|MEDIUM|LOW` applies to every file in the call. When overrides **differ per task**, run one `promote` call **per file, in task order** (earliest timestamp first) — never group by priority, or NNN assignment can invert the dependency chain. No override → each file keeps the priority parsed from its own `### [PRIORITY]` heading.
+- The JSON result lists `moved[]` (`nnn`, `path`, `tier`, `priority`, `title`) + `actions[]` + a `lint` block. A failed `git mv` is reported as a `FAILED ...` action and the batch continues — report skipped files in STEP 6.
+- If `lint.ok = false` after the write → the errors are pre-existing index damage; surface them to the user in STEP 6.
 
-**Slug collision in `todo/`** (rare): if `backlog/todo/<NNN>-<slug>.md` already exists, append `-2` to the slug.
-
----
-
-## STEP 7 — Update BACKLOG.md (single atomic write)
-
-1. Read `BACKLOG.md` once.
-2. Find the `## TODO` section.
-3. For each successfully moved task, build a bullet using the task's priority tag (post-override) and the **original** tier:
-   ```
-   - [PRIORITY] [Tier] [Title](backlog/todo/<NNN>-<slug>.md)
-   ```
-   Example: `- [HIGH] [M] [New shop popup feature](backlog/todo/011-new-shop-popup-feature.md)`
-   The `[PRIORITY]` tag is informational only; it does NOT decide position.
-4. **Append** the new bullets to the END of `## TODO`, in **task order** (= NNN ascending = the STEP 1 task order). Do NOT bucket by priority.
-   - Because NNN is assigned consecutively in task order (STEP 5), newly picked tasks always have a higher NNN than everything already queued, so appending keeps the whole `## TODO` in monotonic NNN / dependency order.
-   - `run-backlog` picks the **first** bullet in `## TODO`, so this ordering = execution order. Keeping it in task order is what guarantees a dependency chain runs in the right sequence.
-5. Preserve all existing bullets and their ordering.
-6. If there is a `- (none)` line in `## TODO`, delete it when inserting.
-7. Write `BACKLOG.md` ONCE (single atomic Write call).
-
-> **Why task order, not priority buckets?** A seeded roadmap phase is a dependency chain — task `N+1` often `depends_on` task `N`. Bucketing by priority (HIGH→MEDIUM→LOW) reorders the chain and can place a dependent task *above* its own dependency (e.g. a HIGH task that needs a MEDIUM one — exactly the inversion that breaks sequential execution). Appending in task order preserves the authored sequence. Use `[PRIORITY]` to signal importance, never to sequence the queue.
+> **Why task order, not priority buckets?** A seeded roadmap phase is a dependency chain — task `N+1` often `depends_on` task `N`. Bucketing by priority (HIGH→MEDIUM→LOW) reorders the chain and can place a dependent task *above* its own dependency — exactly the inversion that breaks sequential execution. `run-backlog` picks the **first** bullet in `## TODO`, so index order = execution order. Use `[PRIORITY]` to signal importance, never to sequence the queue.
 
 ---
 
-## STEP 8 — Report
+## STEP 6 — Report
 
 Notify the user, in order:
 1. **Number of tasks picked**: e.g., *"Picked 3 tasks from planning."*

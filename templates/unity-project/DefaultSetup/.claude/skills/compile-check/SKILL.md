@@ -1,6 +1,6 @@
 ---
 name: compile-check
-description: Validate C# compilation of the current Unity project via Unity MCP after editing .cs files. Picks the Unity instance, forces a recompile, waits for it to finish, reads compilation errors, and fixes them (max 2 rounds). Use when the user says "compile check", "kiểm tra compile", "validate lỗi compile", or after finishing an ad-hoc code task outside /run-backlog.
+description: Validate C# compilation of the current Unity project via Unity MCP after editing .cs files. Picks the Unity instance, forces a recompile, waits for it to finish, reads compilation errors, and fixes them (max 2 rounds). Use when the user says "compile check", or after finishing an ad-hoc code task outside /run-backlog.
 ---
 
 # Compile Check — Validate C# compilation via Unity MCP
@@ -17,7 +17,7 @@ unity_list_instances
 ```
 - **Exactly one instance** → use it.
 - **Multiple instances** → call `unity_select_instance` for this project's instance, capture its `port`, and pass `port` to every subsequent Unity call.
-- **No instance open** → STOP. Report to the user: `Unity Editor chưa mở project — không thể compile-validate qua MCP. Hãy mở Unity rồi chạy lại /compile-check.` Do not fall back silently.
+- **No instance open** → STOP. Report to the user: `Unity Editor is not open for this project — cannot compile-validate via MCP. Please open Unity and run /compile-check again.` Do not fall back silently.
 
 ### 2 — Force a recompile
 The agent edited `.cs` files on disk; Unity must re-import + recompile first.
@@ -41,7 +41,7 @@ unity_get_compilation_errors  (severity: "error")
 - **No errors** → report success: list the `.cs` files validated and `compile: clean`.
 - **Errors** → read each error (file + line + message), fix the code, then go back to **step 2** and re-validate.
 - After **2 fix rounds** still failing → STOP and output:
-  `COMPILE_BLOCKED — lỗi compile còn lại sau 2 vòng sửa, cần can thiệp tay.`
+  `COMPILE_BLOCKED — compile errors remain after 2 fix rounds, manual intervention required.`
   List the remaining errors. Do not claim the task is complete.
 
 ## Notes

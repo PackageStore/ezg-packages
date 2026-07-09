@@ -26,7 +26,7 @@ If unsure, prefer the `.sh` path — that is the maintained runner for this temp
    ```
 
    Optional flags: `--max-iterations <n>` to cap the run, `--inline` to run every task in the current window instead of spawning new ones.
-4. The runner pauses on its own when the backlog is empty (`PAUSED` sentinel) or stops on a blocker (`COMPILE_BLOCKED` / `PREFLIGHT_BLOCKED` / `REVIEW_BLOCKED` / `VERIFY_BLOCKED`). Logs land in `logs/backlog-loop/`.
+4. The runner pauses on its own when the backlog is empty (`PAUSED` sentinel) or stops on a blocker (`COMPILE_BLOCKED` / `PREFLIGHT_BLOCKED` / `REVIEW_BLOCKED` / `VERIFY_BLOCKED` / `RUNTIME_BLOCKED`). Logs land in `logs/backlog-loop/`.
 5. Notify the user that the loop is running, which model map is in effect, and where the logs are.
 
 > Granting **Automation permission to Terminal** is required the first time so `osascript` can open task windows. If that is denied, use `--inline`.

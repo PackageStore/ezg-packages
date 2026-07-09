@@ -10,6 +10,7 @@ TASK_NAME=""
 DETAILS=""
 TASK_URL=""
 TOKENS=""
+PROGRESS=""
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -19,6 +20,7 @@ while [[ "$#" -gt 0 ]]; do
     -d|--details) DETAILS="$2"; shift ;;
     -u|--url) TASK_URL="$2"; shift ;;
     -k|--tokens) TOKENS="$2"; shift ;;
+    -p|--progress) PROGRESS="$2"; shift ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
   shift
@@ -75,6 +77,11 @@ case "$EVENT_TYPE" in
     DESCRIPTION="QA Verifier reported unmet acceptance criteria after 2 fix rounds."
     COLOR=$COLOR_ERROR
     ;;
+  RUNTIME_BLOCKED)
+    TITLE="🔴 Runtime Smoke Blocked"
+    DESCRIPTION="Runtime smoke gate (play mode + console assert) still failing after 2 fix rounds."
+    COLOR=$COLOR_ERROR
+    ;;
   CLI_ERROR)
     TITLE="🔴 Automation CLI Error"
     DESCRIPTION="The claude CLI exited with a non-zero status. The loop stopped unexpectedly."
@@ -86,6 +93,11 @@ case "$EVENT_TYPE" in
     COLOR=$COLOR_WARNING
     ;;
 esac
+
+# Append task ordinal (e.g. "14/90") to the title, for every event type
+if [ -n "$PROGRESS" ]; then
+  TITLE="$TITLE ($PROGRESS)"
+fi
 
 # ISO 8601 Timestamp
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

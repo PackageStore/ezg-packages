@@ -20,27 +20,36 @@ You read the index + **exactly one** task file — never scan all tasks.
 
 Pipeline orchestration:
 ```
-[1] PICK     → read index, pick task, move todo → in-progress
-[2] BRANCH   → switch to agent/dev + merge $BASE_BRANCH into it (create from $BASE_BRANCH if it doesn't exist yet)
-[3] CONTEXT  → read CLAUDE.md + .agents/rules/* + task file + relevant code
-[4] IMPLEMENT→ write code, git add (DO NOT commit yet)
-[5] REVIEW   → run deterministic preflight, then spawn code-reviewer + (performance-reviewer IF perf-sensitive) + (security-auditor IF sensitive files) in parallel
-             → auto-fix max 2 rounds if blocked; fix rounds use preflight + delta diff when enough context is provided
-[6] VERIFY   → spawn qa-verifier; auto-fix max 2 rounds if failed; final preflight before DONE
-[7] DONE     → move in-progress → done, write summary with all 3 gate verdicts
-[8] SHIP     → commit + push to agent/dev (DO NOT create a PR)
-[9] REPORT   → summarize for user, including manual verification steps
+[1]   PICK     → backlog-ops pick: resolve the task from the index (todo | in-progress resume | empty → pause)
+[2]   BRANCH   → switch to agent/dev + merge $BASE_BRANCH into it (create from $BASE_BRANCH if it doesn't exist yet)
+[3]   START    → backlog-ops start: todo → in-progress + bullet move (on agent/dev)
+[4]   CONTEXT  → read .agents/rules/* + task file + relevant code
+[5]   IMPLEMENT→ write code, git add + 3-tier compile check (DO NOT commit yet)
+[6]   REVIEW   → deterministic preflight, then spawn code-reviewer + (performance-reviewer IF perf-sensitive) + (security-auditor IF sensitive files) in parallel
+               → auto-fix max 2 rounds if blocked; fix rounds use preflight + delta diff when enough context is provided
+[7]   VERIFY   → spawn qa-verifier; auto-fix max 2 rounds if failed; final preflight
+[7.5] SMOKE    → runtime smoke gate (M/L, orchestrator-side, Unity MCP): play mode + console assert + screenshot
+[8]   DONE     → backlog-ops done: in-progress → done + bullet removal, write summary with all gate verdicts
+[9]   SHIP     → backlog-ops lint, then commit + push to agent/dev (DO NOT create a PR)
+[10]  REPORT   → summarize for user, including manual verification steps
 ```
+
+> **Deterministic bookkeeping:** every backlog state transition (pick / start / done / index edits) runs through `python3 .agents/scripts/backlog-ops.py` — NEVER hand-edit `BACKLOG.md` for a transition. Hand-edited bookkeeping has already corrupted the index (leaked tool-call markup, dual-state task files, forbidden DONE bullets); the script self-lints after every mutation.
 
 ---
 
 ## STEP 1 — Read index and pick task
 
-Read `BACKLOG.md` only. Then:
+Resolve the task deterministically (do NOT parse `BACKLOG.md` yourself):
 
-- If there is a task under `## IN PROGRESS` → **resume** that task. Read the corresponding file in `backlog/in-progress/`.
-- Else if there is at least one entry under `## TODO` → pick the **first entry** (topmost). Note the file path.
-- Else (no IN PROGRESS, no TODO) → backlog is empty. Run the **self-pause flow**:
+```bash
+python3 .agents/scripts/backlog-ops.py pick
+# → JSON: {state, resume, nnn, tier, priority, title, path} — or {state: "empty"} (exit code 2)
+```
+
+- `state: "in-progress"` (`resume: true`) → **resume** that task. Read the file at `path`.
+- `state: "todo"` → the first TODO entry. Note `path`, `nnn`, and `tier`.
+- `state: "empty"` → backlog is empty. Run the **self-pause flow**:
   1. Write the string `PAUSED` into `.agents/state`
   2. Commit this file to `agent/dev` (push only if a remote exists — see LOCAL-ONLY MODE in STEP 2):
      ```bash
@@ -54,7 +63,7 @@ Then read **exactly one** identified task file. DO NOT read other task files.
 
 Extract from the task file:
 - Task title and priority
-- **Task tier** (from the BACKLOG.md bullet format `[XS]`, `[S]`, `[M]`, `[L]`) — store as `$TASK_TIER`, used for the tier guard in STEP 5c. The tier lives in the BACKLOG.md bullet, NOT in the filename.
+- **Task tier** — the `tier` field from the `pick` JSON (sourced from the BACKLOG.md bullet, NOT the filename) — store as `$TASK_TIER`, used for the tier guard in STEP 5c.
 - **Backed by workflow** — if the task body has a `**Backed by workflow:** /new-xxx` line, store `$WF_CMD = /new-xxx`, `$WF_ARGS` from the `**Workflow args:**` line, and `**Custom delta:**`. This routes implementation through STEP 5.0 (workflow-backed shortcut). If absent, `$WF_CMD = none` (normal free-form implement).
 - **Description** (what to do and why)
 - **Context & Constraints**
@@ -112,17 +121,15 @@ git branch -r | grep origin/agent/dev
 
 ## STEP 3 — Mark IN PROGRESS
 
-Make **two** updates (will go into the same commit in STEP 8):
+Run the deterministic transition — ONE call does the `git mv` todo → in-progress AND the BACKLOG.md bullet move (preserving the `[TIER]` bracket the loop runner reads), then self-lints:
 
-1. **Move task file**: `git mv backlog/todo/<NNN-slug>.md backlog/in-progress/<NNN-slug>.md`
-   (preserve git history; do not copy-and-delete)
+```bash
+python3 .agents/scripts/backlog-ops.py start <NNN>
+```
 
-2. **Edit `BACKLOG.md`**:
-   - Remove the picked entry from `## TODO`.
-   - Under `## IN PROGRESS`, replace `- (none)` with: `- [PRIORITY] [TIER] [Title](backlog/in-progress/<NNN-slug>.md)`
-     - Substitute **real values**, not the placeholder words: `[PRIORITY]` → `[HIGH]`/`[MEDIUM]`/`[LOW]`, `[TIER]` → the bracketed `$TASK_TIER` from STEP 1 (`[XS]`/`[S]`/`[M]`/`[L]`), `[Title]` → the task title.
-     - **Keep the `[TIER]` bracket** — the loop runner (`run-backlog-loop.sh --auto-model-by-tier`) reads this exact token to pick the model/effort for the next task window. Dropping it or mangling the brackets makes a resumed task fall back to the M/opus profile.
-     - Example: `- [HIGH] [S] [Author CurrencyConfig CSVs](backlog/in-progress/022-author-currencyconfig-csv-collection-model.md)`
+- The JSON result echoes the new `path` plus a `lint` block. If `lint.ok = false`, the errors are pre-existing index damage (hand-edit or merge residue) — fix them before writing any code.
+- DO NOT hand-edit `BACKLOG.md` for this transition.
+- (Resume case: if `pick` returned `state: "in-progress"`, the transition already happened in a previous run — skip this step.)
 
 Do this **before** writing any code.
 
@@ -296,9 +303,9 @@ Use `$TASK_TIER` extracted in STEP 1 from the BACKLOG.md bullet (the tier is `[X
 
 | Tier | Action |
 |------|--------|
-| **XS** | Run preflight (STEP 6b). If `has_blocking_definite = false` → skip STEP 6c/6d/6e and STEP 7 entirely. Go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". DONE summary records all three gates as `skipped (XS tier)`. |
-| **S** | Run preflight (STEP 6b). Then spawn **`code-reviewer`** (always) + **`performance-reviewer`** (only if `$PERF_SENSITIVE = true`, see STEP 6c-bis) in parallel. Do NOT spawn security-auditor (unless `$SENSITIVE = true`). Do NOT spawn qa-verifier. On `pass`/`warn` from the spawned reviewers → go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". |
-| **M** / **L** | Full pipeline — proceed normally through STEP 6 and STEP 7. |
+| **XS** | Run preflight (STEP 6b). If `has_blocking_definite = false` → skip STEP 6c/6d/6e, STEP 7, and STEP 7.5 entirely. Go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". DONE summary records all gates as `skipped (XS tier)`. |
+| **S** | Run preflight (STEP 6b). Then spawn **`code-reviewer`** (always) + **`performance-reviewer`** (only if `$PERF_SENSITIVE = true`, see STEP 6c-bis) in parallel. Do NOT spawn security-auditor (unless `$SENSITIVE = true`). Do NOT spawn qa-verifier. Skip STEP 7.5. On `pass`/`warn` from the spawned reviewers → go directly to STEP 8. Manual verify steps = copy from task spec's "Acceptance criteria". |
+| **M** / **L** | Full pipeline — proceed normally through STEP 6, STEP 7, and STEP 7.5 (runtime smoke). |
 
 **XS preflight-blocked rule:** if preflight returns `has_blocking_definite = true` for an XS task, apply the same 2-round fix loop as M/L. If still blocked after 2 rounds → `PREFLIGHT_BLOCKED`. Do not skip to DONE with unresolved definite findings.
 
@@ -486,7 +493,7 @@ If `CODEGRAPH_UP=true` but any reviewer returns `tool_method="grep-fallback"` wi
 
 - **After Round 2** if still `block`:
   - Print each remaining `block`/`critical` finding (file, line, issue, suggestion).
-  - Output exactly: `REVIEW_BLOCKED — manual intervention required. Run /run-backlog again after fixing, or move task back to backlog/todo/ to abandon.`
+  - Output exactly: `REVIEW_BLOCKED — manual intervention required. Run /run-backlog again after fixing, or run python3 .agents/scripts/backlog-ops.py demote <NNN> to abandon (returns the task to the head of todo).`
   - DO NOT commit. DO NOT proceed. Stop.
 
 ---
@@ -529,8 +536,8 @@ Prompt body (qa-verifier cross-checks every criterion, so it gets the full task 
 
 Record qa-verifier's `tool_method` field for the DONE summary. If `CODEGRAPH_UP=true` but qa-verifier returns `tool_method="grep-fallback"` without reporting a CodeGraph tool error, re-spawn qa-verifier once with this extra instruction: "CodeGraph is available. Re-run structural lookups with CodeGraph; use Grep only for literal text scans." Treat the second verdict as authoritative.
 
-- **`pass`** → proceed to STEP 8 (Mark DONE).
-- **`warn`** → proceed to STEP 8 but note `warn` findings in the DONE summary.
+- **`pass`** → proceed to 7c/7d, then STEP 7.5 (runtime smoke).
+- **`warn`** → proceed to 7c/7d, then STEP 7.5 — note the `warn` findings in the DONE summary.
 - **`fail`** → enter the **auto-fix loop** (same shape as STEP 6d, max 2 rounds):
   - Read `missed_criteria`.
   - Capture `git diff --staged > .agents/tmp/backlog/verify-before.diff`.
@@ -555,9 +562,38 @@ python3 .agents/scripts/backlog-preflight.py -Pretty
 # powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
-- If `summary.has_blocking_definite = false` → proceed to STEP 8.
+- If `summary.has_blocking_definite = false` → proceed to STEP 7.5 (runtime smoke).
 - If `summary.has_blocking_definite = true` → fix definite critical findings, `git add -A`, and re-run qa-verifier if the fix might affect completion criteria. If not resolved cleanly after 2 rounds, stop with:
   `PREFLIGHT_BLOCKED — deterministic critical findings require manual intervention before DONE.`
+
+---
+
+## STEP 7.5 — Quality Gate: Runtime smoke (M / L only, orchestrator-side)
+
+**Purpose:** every gate so far only READS the diff — none observes the game running. This gate boots the game in the Editor and fails on runtime errors. It automates the first slice of what "Manual verify steps" used to defer entirely to the user (the combat-presentation and rebirth-reset escapes were runtime-visible failures no diff reader can catch).
+
+Run it for **M/L** after qa-verifier passes (STEP 7) and the final preflight (7d). XS/S skip it (tier guard 5c). **You run it yourself** — the `mcp__unity__*` tools are available to the orchestrator only; do NOT spawn a subagent for this gate.
+
+**Skip conditions (graceful — never fail the task on these; record the reason in the DONE summary):**
+- Unity MCP not connected / no Editor open for this project → probe `mcp__unity__unity_list_instances`; on fail/timeout record `Runtime smoke: skipped (Unity MCP not connected / Editor not open)`.
+- The staged diff has no runtime surface (docs/`.md`, CSV comments only, editor-only `#if UNITY_EDITOR` code) → record `Runtime smoke: skipped (no runtime surface)`.
+
+**Procedure:**
+1. **Compile settled first** — poll `mcp__unity__unity_editor_state` until the Editor is NOT compiling. NEVER enter play mode with a compile pending: a mid-play domain reload wipes statics and produces a false NRE storm.
+2. `mcp__unity__unity_console_clear` — start from a clean console.
+3. Enter play mode (`mcp__unity__unity_play_mode`, play). Poll `unity_editor_state` until playing, then let the boot flow run **~20–30 s** (HomeScene Range combat is the default landing — archer firing + dummies dying is the baseline liveness signal).
+4. **Execute the spec's acceptance recipes** via `mcp__unity__unity_execute_code` wherever a criterion is expressible as a code assert (read a service value, confirm an object/prefab is live, invoke the flow under test). The C# payload MUST be ASCII-only (non-ASCII gets mangled in transit — route Vietnamese strings through files on disk if ever needed).
+5. **`$SENSITIVE` invariant suite** (only when STEP 6c set `$SENSITIVE = true` — economy/save/reset surfaces). Run via `unity_execute_code`, snapshot-first so player state is always restored:
+   - *Currency conservation:* read balance → grant X → spend X → assert balance == baseline (net-zero by construction).
+   - *Save-load roundtrip:* `PlayerDataManager.<Module>.Save()` → read the persisted JSON → assert persisted fields equal live values.
+   - *Reset scope* (only when the diff touches reset/rebirth): snapshot every module's JSON → invoke the reset → assert ONLY the modules the spec intends changed → restore all modules from the snapshot and `Save()`.
+6. Read `mcp__unity__unity_console_log` (errors + exceptions only). **Any exception/NRE, or any error originating from code the diff touches → FAIL.** Error-level noise that is provably pre-existing and unrelated to the diff → record as `warn` with a one-line justification; do not fail on it.
+7. `mcp__unity__unity_screenshot_game` → save to `.agents/tmp/backlog/runtime-smoke-<NNN>.png` and reference it in the DONE summary.
+8. **Exit play mode** (`unity_play_mode`, stop) before doing anything else — never leave the Editor playing.
+
+**On FAIL — auto-fix loop (max 2 rounds, same shape as STEP 6/7):** read the console evidence, exit play mode, fix the code, `git add -A`, re-run preflight if `.cs` changed, then re-run this gate from step 1. After Round 2 still failing → print the console evidence (error text + stack head) and output exactly:
+`RUNTIME_BLOCKED — runtime smoke failed after 2 fix rounds. Manual intervention required.`
+DO NOT commit. Stop.
 
 ---
 
@@ -565,9 +601,13 @@ python3 .agents/scripts/backlog-preflight.py -Pretty
 
 Make **two** updates (will go into the same commit in STEP 9):
 
-1. **Move task file**: `git mv backlog/in-progress/<NNN-slug>.md backlog/done/<NNN-slug>.md`
+1. **Run the deterministic transition** — ONE call does the `git mv` in-progress → done AND removes the IN PROGRESS bullet (restoring `- (none)` when empty), then self-lints. It never adds a DONE bullet — `backlog/done/` is the source of truth:
 
-2. **Edit the moved file**: replace the long task body with a short completion summary. Keep the heading `### [PRIORITY] Title`. Add:
+   ```bash
+   python3 .agents/scripts/backlog-ops.py done <NNN>
+   ```
+
+2. **Edit the moved file** (`backlog/done/<NNN-slug>.md`): replace the long task body with a short completion summary — this is content work, so YOU write it (the script only handles the transition). Keep the heading `### [PRIORITY] Title`. Add:
    ```
    **Completed on:** YYYY-MM-DD
 
@@ -578,19 +618,24 @@ Make **two** updates (will go into the same commit in STEP 9):
    - Performance review: <pass|warn|skipped (XS tier)|skipped (no perf-sensitive change)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
    - Security review: <pass|warn|skipped — no sensitive files|skipped (XS/S tier)> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
    - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
+   - Runtime smoke: <pass|warn|skipped (XS/S tier)|skipped (Unity MCP not connected / Editor not open)|skipped (no runtime surface)> (rounds used: 1|2) [screenshot: .agents/tmp/backlog/runtime-smoke-<NNN>.png|n/a]
 
    **Manual verify steps (USER MUST RUN before merging agent/dev → $BASE_BRANCH):**
    <M/L: copy exact `manual_verify_steps` from qa-verifier output>
    <XS/S: copy acceptance criteria items verbatim from the task spec>
    ```
 
-3. **Edit `BACKLOG.md`**:
-   - Remove the entry from `## IN PROGRESS`; if empty, put back `- (none)`.
-   - DO NOT list completed tasks in `## DONE` of BACKLOG.md — `backlog/done/` is the source of truth.
-
 ---
 
 ## STEP 9 — Commit and push to agent/dev
+
+Run the index consistency lint one last time before committing:
+
+```bash
+python3 .agents/scripts/backlog-ops.py lint
+```
+
+If `ok = false` → the errors indicate a hand-edit or merge residue (dual-state file, orphan bullet, leaked markup). Fix them, re-run the lint, and only then commit.
 
 Stage and commit all changed files (including `git mv` moves):
 ```bash
@@ -624,7 +669,7 @@ Notify the user:
 - Files changed
 - Commit message + short SHA used
 - Branch + remote pushed (`agent/dev`)
-- **Pipeline summary**: all 3 gate verdicts + rounds used in auto-fix
+- **Pipeline summary**: every gate verdict (code / perf / security / QA / runtime smoke) + rounds used in auto-fix
 - **MANUAL VERIFY REMINDER**: specific verification steps from the qa-verifier output, numbered clearly
 
 Example report format:
@@ -639,6 +684,7 @@ Pipeline:
   - Performance review: pass (1 round) [codegraph]
   - Security review: skipped (no sensitive files)
   - QA verify: pass (1 round) [codegraph]
+  - Runtime smoke: pass (1 round) [screenshot: .agents/tmp/backlog/runtime-smoke-001.png]
   - Tool efficiency: 3/3 codegraph — optimal ✅
 
 ⚠️ MANUAL VERIFY REQUIRED before merging agent/dev → $BASE_BRANCH:
@@ -670,8 +716,9 @@ If any gate agent used grep-fallback, add a warning:
   - `PREFLIGHT_BLOCKED` — deterministic definite critical findings remain.
   - `REVIEW_BLOCKED` after Round 2 in STEP 6.
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
+  - `RUNTIME_BLOCKED` after Round 2 in STEP 7.5.
 - **No `--ship-anyway` mode.** If the user wants to force-ship a blocked task, they manually resolve the block and re-run the skill.
 - **No PR creation.** [Project Name] only pushes to `agent/dev`; the user merges manually after manual verification.
 - **No deploy step.** Mobile game builds are done via Unity Editor, no CLI deploy exists.
 - **No `npm run lint` equivalent.** Unity projects lack a CLI compilation check. Rely on the 3 quality gates + manual verification.
-- **Verifier limitation:** qa-verifier is primarily a static check. It does not exercise the game runtime. The manual verification steps in the task spec + DONE summary are the ultimate safety net — the user MUST run them.
+- **Verifier limitation:** qa-verifier is a static diff check. The runtime smoke gate (STEP 7.5) covers boot + console + spec recipes for M/L when the Editor is up — but it is a smoke test, not full QA. The manual verification steps in the task spec + DONE summary remain the final safety net — the user MUST still run them.

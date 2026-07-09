@@ -162,8 +162,8 @@ Cơ chế thực thi task tự động dựa trên backlog split-file (token usa
 | Command | Skill File | Description |
 |---------|-----------|-------------|
 | `/planning-task [intent]` | [.agents/skills/planning-task/SKILL.md](.agents/skills/planning-task/SKILL.md) | Triage workflow-backed (STEP 0a) / XS/S/M/L → spawn Plan subagent (M/L non-scaffold; hybrid plan delta) → ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
-| `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick 1/nhiều/all → git mv planning→todo, assign NNN, update BACKLOG.md. Serial operation. |
-| `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick task TODO đầu → branch `agent/dev` (tạo/merge từ nhánh đang đứng lúc start = `$BASE_BRANCH`) → implement → deterministic preflight → quality gates (code review + performance review song song, + security khi sensitive; verify) với auto-fix max 2 rounds mỗi gate → mark DONE → commit + push (KHÔNG tạo PR). Khi TODO rỗng → ghi `PAUSED` vào `.agents/state`. |
+| `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick 1/nhiều/all → `backlog-ops.py promote` (gán NNN + git mv planning→todo + update BACKLOG.md, deterministic). Serial operation. |
+| `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick task TODO đầu → branch `agent/dev` (tạo/merge từ nhánh đang đứng lúc start = `$BASE_BRANCH`) → implement → deterministic preflight → quality gates (code review + performance review song song, + security khi sensitive; verify; **runtime smoke** cho M/L qua Unity MCP — play mode + console assert + screenshot, STEP 7.5) với auto-fix max 2 rounds mỗi gate → mark DONE → commit + push (KHÔNG tạo PR). Mọi chuyển trạng thái backlog (pick/start/done + sửa BACKLOG.md) chạy qua `backlog-ops.py` — KHÔNG hand-edit index. Khi TODO rỗng → ghi `PAUSED` vào `.agents/state`. |
 
 **Subagents dùng cho `/run-backlog`:**
 
@@ -193,6 +193,17 @@ powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -
 ```bash
 # macOS / Linux — bản port Python, JSON output giống hệt bản .ps1
 python3 .agents/scripts/backlog-preflight.py -Pretty
+```
+
+**Deterministic backlog bookkeeping (`backlog-ops.py` — Python, mọi nền tảng):** mọi chuyển trạng thái backlog + sửa `BACKLOG.md` phải qua script này, model KHÔNG hand-edit index (hand-edit đã từng làm hỏng index: leak tool-call markup, task dual-state, DONE bullet trái quy tắc). Mỗi lệnh mutate tự chạy `lint` sau khi ghi:
+```bash
+python3 .claude/scripts/backlog-ops.py lint                      # directory↔index consistency check
+python3 .claude/scripts/backlog-ops.py pick                      # task kế tiếp cho run-backlog (JSON)
+python3 .claude/scripts/backlog-ops.py start <NNN>               # todo → in-progress + bullet move
+python3 .claude/scripts/backlog-ops.py done <NNN>                # in-progress → done + bullet removal
+python3 .claude/scripts/backlog-ops.py demote <NNN>              # in-progress → todo (abandon task blocked)
+python3 .claude/scripts/backlog-ops.py promote <planning.md>...  # planning → todo (gán NNN, append bullet, task order)
+python3 .claude/scripts/backlog-ops.py timestamp                 # timestamp UTC cho filename planning
 ```
 
 **Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file):

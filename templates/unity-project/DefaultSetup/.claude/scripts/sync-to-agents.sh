@@ -82,5 +82,15 @@ if [ "$all_ok" -eq 1 ]; then
   echo "=== Done - all links OK ==="
 else
   echo "=== Done - some links failed (see errors above) ==="
+fi
+
+# Cổng "phải có codegraph": bootstrap sau clone cũng kiểm tra codegraph đã sẵn sàng
+# (CLI + .codegraph/ index của máy này + MCP config). Không chặn việc tạo link ở trên,
+# nhưng in cảnh báo loud nếu thiếu. Chạy `codegraph-doctor.sh --fix` để tự cài + index.
+echo ""
+CODEGRAPH_OK=1
+bash "$REPO_ROOT/.claude/scripts/codegraph-doctor.sh" || CODEGRAPH_OK=0
+
+if [ "$all_ok" -ne 1 ] || [ "$CODEGRAPH_OK" -ne 1 ]; then
   exit 1
 fi

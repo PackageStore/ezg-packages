@@ -58,18 +58,20 @@
   - Includes `UITransition` for open/close animation.
   - Includes the base canvas infrastructure needed by `FeatureBaseController`.
   - Supports `ClickBackgroundToExit`, `_closeButtons`, `FeatureType`, sorting-layer assignment, and animated open/close flow through the inherited controller logic.
-- Useful named children from the base template:
-  - `content`
-  - `top_view`
-  - `botview`
-  - `bg_fullscreen`
-  - decorative objects such as `icon_screen`
+- Two body containers ship side by side as children `[1]`/`[2]` of the root — pick exactly one, deactivate the other (see `mcp-playbook.md` §6a–§6d for the full decision + wiring recipe). **Each container ships its own, separate `button_close`** — wiring one has no effect on the other:
+  - `popup_template` (ships **active**) — for dismissable popups/panels. Body goes under `popup_container/container_content`. Its `popup_container/top_container_popup/button_close` ships **already active**, but that only makes it visible — `FeatureBaseController.Awake` wires listeners only for buttons in `_closeButtons`, so wire it in there and set `ClickBackgroundToExit = true` whenever the root is a popup-type screen, or the X renders but does nothing when tapped.
+  - `full_screen_template` (ships **inactive**) — for a feature that *is* the screen, or a persistent screen-level HUD. Body goes under `content`; `top_view`/`botview` are extra docked slots; `bg_fullscreen`/`_bg_Pattern_FullScreen_Normal` are the backdrop layers. Its `botview/button_close` also ships **already active**:
+    - Navigation page (player backs out of it) → wire `botview/button_close` into `_closeButtons`, keep `ClickBackgroundToExit = false`.
+    - Persistent HUD/shell (never individually dismissed) → deactivate `botview/button_close`, keep `_closeButtons` empty.
+  - Explicitly assign `MainUI` to `full_screen_template` in both full-screen cases — child order never changes, so the null-fallback (`transform.GetChild(1)`) always resolves to `popup_template`, which is wrong and inactive here.
+  - Default to `popup_template` unless the request explicitly calls for a full-screen feature or HUD.
 - Validation checklist after creating a variant:
   - Root still has the feature controller and `UITransition`.
   - `FeatureType` is set correctly.
-  - `ClickBackgroundToExit` matches the intended UX.
-  - `_closeButtons` contains the actual close button instances.
-  - Root child order still works with `FeatureBaseController`, or `MainUI` is explicitly assigned.
+  - Exactly one of `popup_template` / `full_screen_template` is active.
+  - Popup: its `button_close` active, wired into `_closeButtons`, `ClickBackgroundToExit = true`.
+  - Full-screen navigation page: `MainUI` set to `full_screen_template`; `botview/button_close` active + wired into `_closeButtons`; `ClickBackgroundToExit = false`.
+  - Full-screen persistent HUD/shell: `MainUI` set to `full_screen_template`; `botview/button_close` deactivated; `_closeButtons` empty.
   - The prefab opens and closes without missing references.
 
 ### `CurrenciesPreview`
@@ -183,8 +185,30 @@
 - Key hierarchy: `background` plus a nested `toggle_tab_template` instance.
 - Components: `UI_TabExtensions`, `ToggleGroup`, `HorizontalLayoutGroup`, `LayoutElement`, `Image`.
 - Controller behavior: `UI_TabExtensions` expects serialized toggle and content-object lists, then turns content panels on or off when the selected toggle changes.
-- Use it for: Tabs across popup sections, store categories, progression pages, or settings pages.
+- Use it for: Tabs across popup sections, store categories, progression pages, or settings pages — **all tabs live inside the same screen** and swap sibling content panels in place.
+- Do **not** use it for: a tab/nav bar whose buttons each open a *different* `FeatureBaseController` screen via `UIManager.Show(...)` (e.g. `MetaTabBarController`, the persistent bottom meta tab bar). That's a launcher, not a panel-switcher — wire plain `Button.onClick` per tab instead (see the "Launcher-style tab bar" note below). `UI_TabExtensions` only makes sense when every tab's content already lives under the same root as siblings.
 - Critical rule: When adding tabs, update both the toggle instances and the `UI_TabExtensions` lists. The layout alone is not enough.
+
+**`UI_TabExtensions` field/API reference** (`Assets/_Project/Features/_Shared/UI/UI_TabExtensions.cs`, namespace `Ezg.Core.Extensions`):
+
+| Serialized field | Type | Purpose |
+|---|---|---|
+| `_mainCanvasScale` | `CanvasScaler` | Reference resolution used to compute the slide distance for `_useAnimSwap`. |
+| `_toggleList` | `List<Toggle>` | One entry per tab button, in tab order. |
+| `_objectList` | `List<GameObject>` | One content panel per tab, index-aligned with `_toggleList`. |
+| `_useListObjects` | `bool` | Switch to multi-panel-per-tab mode (uses `_objectLists` instead of `_objectList`). |
+| `_objectLists` | `List<TabListObject>` | Only when `_useListObjects=true`; each entry wraps `ObjectList: List<GameObject>` — one tab can activate several objects at once. Mutually exclusive with `_useAnimSwap`. |
+| `_indexOnOpen` | `int` (default `-1`) | Tab auto-selected in `OnEnable` via `SetTabIndex`; `-1` = don't force a tab. |
+| `_useAnimSwap` | `bool` | Slide-transition between panels via DOTween instead of instant `SetActive` toggling. |
+
+Public API: `RegisterOnchangeAction(int index, UnityAction action)` (hook a callback per tab index — call this from the owning controller, do not edit the component's private fields directly), `SetTabIndex(int index)` / `JumpToIndex(int slot)` (programmatic tab switch), `GetIndexSelected()`, `GetToggleList()`, `GetObjectList()`.
+
+Usage patterns:
+- A screen controller keeps `public UI_TabExtensions MainTab;` as a serialized reference on the owning screen controller and drives the sibling content panels through it.
+- Wire per-tab reactions with `_functionTab.RegisterOnchangeAction(0, () => _tabIndex = 0);` (one call per tab index), then branch logic later off the stored `_tabIndex`.
+- Prefab consumer: `tab_template.prefab` itself (plus any feature screen that embeds a tab strip).
+
+MCP wiring recipe (same mechanics as playbook §4): `unity_component_batch_wire` with `componentType: "UI_TabExtensions"`, `propertyName: "_toggleList"` (one entry per `Toggle` instance) and a second pass with `propertyName: "_objectList"` (one entry per content panel, same order). Confirm alignment with `unity_component_get_properties` afterward — a mismatched index silently shows the wrong panel for a tab.
 
 ### `textbox_template`
 

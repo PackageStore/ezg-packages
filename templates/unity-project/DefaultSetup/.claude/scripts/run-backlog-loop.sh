@@ -4,9 +4,10 @@
 # Mirrors BlazeSurvivor's loop model: this script is the CONTROLLER. For each
 # iteration it spawns a SEPARATE Terminal window that runs exactly one
 # /run-backlog task, then waits (via a flag file) for that window to finish
-# before spawning the next. A failed task keeps its window open so you can read
-# the error. Stops when the backlog is empty, a blocker sentinel is printed, the
-# CLI exits non-zero, or MaxIterations is reached.
+# before spawning the next. A successful task auto-closes its own window; a failed
+# or blocked task keeps its window open so you can read the error. Stops when the
+# backlog is empty, a blocker sentinel is printed, the CLI exits non-zero, or
+# MaxIterations is reached.
 #
 # The run-backlog skill commits AND pushes each done task to agent/dev on origin.
 #
@@ -117,7 +118,7 @@ Required contract:
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, performance-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
-5. Print exactly these tokens when blocked: PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or "manual intervention required".
+5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
 6. Commit/push to agent/dev (origin) only when the skill marks the task DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
@@ -133,7 +134,7 @@ is_blocked() {
   [ -f "$log" ] || return 1
   result_line="$(grep '"type":"result"' "$log" | tail -n1)"
   [ -n "$result_line" ] || return 1
-  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|manual intervention required'
+  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|manual intervention required'
 }
 
 # --- backlog status -------------------------------------------------------------
@@ -298,12 +299,19 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   echo "--- Iteration $i/$MAX_ITERATIONS — backlog: TODO=$TODO, IN_PROGRESS=$IP ---"
   if [ "$TODO" -eq 0 ] && [ "$IP" -eq 0 ]; then
     STOP_REASON="Backlog empty (no TODO, no IN PROGRESS)"
+    DONE_ALL=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
     bash "$SCRIPT_DIR/notify.sh" \
       --event "BACKLOG_EMPTY" \
       --task "N/A" \
+      --progress "${DONE_ALL}/${DONE_ALL}" \
       --details "All backlog tasks have been processed successfully."
     break
   fi
+
+  # Task ordinal for this iteration (e.g. "14/90") — used by every notify.sh call below.
+  DONE_COUNT_NOTIF=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
+  TOTAL_COUNT_NOTIF=$((TODO + IP + DONE_COUNT_NOTIF))
+  PROGRESS_NOTIF="$((DONE_COUNT_NOTIF + 1))/$TOTAL_COUNT_NOTIF"
 
   # Resolve current task info for notifications
   CURRENT_TASK_LINE="$(task_line_for_section "IN PROGRESS")"
@@ -435,6 +443,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       --task "$TASK_TITLE_NOTIF" \
       --url "$TASK_URL_NOTIF" \
       --tokens "$tokens_val" \
+      --progress "$PROGRESS_NOTIF" \
       --details "$STOP_REASON"
     break
   fi
@@ -455,6 +464,9 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     elif grep -q "REVIEW_BLOCKED" "$log_file"; then
       block_event="REVIEW_BLOCKED"
       block_details=$(grep -o "REVIEW_BLOCKED.*" "$log_file" | head -n 1)
+    elif grep -q "RUNTIME_BLOCKED" "$log_file"; then
+      block_event="RUNTIME_BLOCKED"
+      block_details=$(grep -o "RUNTIME_BLOCKED.*" "$log_file" | head -n 1)
     elif grep -q "VERIFY_BLOCKED" "$log_file"; then
       block_event="VERIFY_BLOCKED"
       block_details=$(grep -o "VERIFY_BLOCKED.*" "$log_file" | head -n 1)
@@ -474,11 +486,20 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       --task "$TASK_TITLE_NOTIF" \
       --url "$TASK_URL_NOTIF" \
       --tokens "$tokens_val" \
+      --progress "$PROGRESS_NOTIF" \
       --details "$block_details"
     break
   fi
 
-  # Task passed all gates this iteration — notify success.
+  # Task passed all gates this iteration.
+  # Close its Terminal window on clean success only. Failed windows are kept open by
+  # the runner's press-any-key prompt (exit_code != 0), and blocked/timed-out windows
+  # are left open above so you can read the reason — so we only reach here on success.
+  if [ "$INLINE" -eq 0 ] && [ -n "${win_id:-}" ]; then
+    osascript -e "tell application \"Terminal\" to close (every window whose id is $win_id) saving no" >/dev/null 2>&1 || true
+  fi
+
+  # Notify success.
   read -r TODO_NEW IP_NEW <<<"$(backlog_counts)"
   DONE_NEW=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
   TOTAL_NEW=$((TODO_NEW + IP_NEW + DONE_NEW))
@@ -492,6 +513,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     --task "$TASK_TITLE_NOTIF" \
     --url "$TASK_URL_NOTIF" \
     --tokens "$tokens_val" \
+    --progress "$DONE_NEW/$TOTAL_NEW" \
     --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
 Committed & pushed to agent/dev. Ready for manual verify + merge."
 done

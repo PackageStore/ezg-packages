@@ -129,11 +129,31 @@ chunk:
 3. If wrong → adjust the offending property → screenshot again. **Max 3 correction rounds**
    per element; if still wrong, report what is off instead of looping forever.
 
-> **Edit-time invisibility gotcha:** `screen_template`'s root ships at `localScale (0,0,0)`
-> because `UITransition` plays an open-animation at runtime. In a static scene it looks
-> invisible. To inspect layout at edit time, temporarily set the root `RectTransform`
-> `m_LocalScale` to `{1,1,1}` (reset to `{0,0,0}` before saving the prefab, or just let the
-> runtime transition handle it). Prefer `unity_play_mode` for a true-to-runtime screenshot.
+> **Edit-time invisibility gotcha (root Canvas only — harmless at runtime, but ship it at `{1,1,1}` anyway):**
+> `screen_template`'s root ships at `localScale (0,0,0)` (verified: root RectTransform,
+> `screen_template.prefab` fileID `6025426740827259555`). In a static scene/prefab view this
+> looks invisible. **This is harmless at actual runtime** — `FeatureBaseController.Awake()` /
+> `UITransition.PlayOpen()` never touch the root's own scale (they only animate `MainUI` =
+> child `[1]`), and a root `Canvas` in Screen Space – Overlay mode ignores its own Transform
+> scale for rendering. Confirmed: the shipped, in-production `screen_change_name.prefab`
+> variant does **not** override this value either, and it renders fine at runtime regardless.
+> **Even so, always explicitly set the root `RectTransform` `m_LocalScale` to `{1,1,1}` before
+> saving.** Leaving it at `{0,0,0}` is a real workflow trap even though it's runtime-safe: every
+> later open of the prefab (Project preview thumbnail, Scene view, a teammate double-clicking
+> it, or you reviewing your own work later) shows a blank/invisible screen with no visual cue
+> why — easy to mistake for a broken prefab. There is no runtime reason to leave it at 0, so
+> don't: restore `{1,1,1}` as the last step before every save. Prefer `unity_play_mode` for a
+> true-to-runtime screenshot regardless.
+>
+> **This exemption is ONLY for the root Canvas GameObject.** Every other RectTransform in the
+> hierarchy (`popup_template`, `full_screen_template`, any child widget/prefab you zero out to
+> isolate and inspect) is a normal, rendered UI element — nothing restores its scale at
+> runtime. If you temporarily set a non-root element's scale to `{0,0,0}` to inspect it in
+> isolation, you **must** explicitly restore it (usually `{1,1,1}`) before saving the prefab,
+> or that element ships permanently invisible with no self-healing mechanism. This is the most
+> likely way `/create-ui` produces an invisible-but-otherwise-correct element — verify via an
+> actual `unity_play_mode` screenshot, not just an edit-time scene glance, before declaring an
+> element done.
 
 ---
 
@@ -147,18 +167,111 @@ Child order (FeatureBaseController depends on it — see §7):
 
 ```
 screen_template (root: Canvas + UITransition + CanvasGroup, NO controller)
-├─ [0] background_button     ← MainBackground (Image) + dim Button (ClickBackgroundToExit)
-├─ [1] popup_template        ← MainUI fallback (transform.GetChild(1))
-│   └─ popup_container        (VerticalLayoutGroup + ContentSizeFitter + LayoutElement)
+├─ [0] background_button          ← MainBackground (Image) + dim Button (ClickBackgroundToExit)
+├─ [1] popup_template             ← MainUI fallback (transform.GetChild(1)) · ships ACTIVE
+│   └─ popup_container              (VerticalLayoutGroup + ContentSizeFitter + LayoutElement)
 │       ├─ BG
 │       ├─ button_tooltips
-│       ├─ container_content   ← put your screen body here
+│       ├─ container_content       ← popup body goes here
 │       ├─ button_container
 │       └─ top_container_popup
-└─ [2] full_screen_template
+│           └─ button_close        ← ships ACTIVE on screen_template — see §6b
+└─ [2] full_screen_template       ← ships INACTIVE — see §6a
+    ├─ bg_fullscreen
+    ├─ _bg_Pattern_FullScreen_Normal
+    ├─ content                    ← full-screen body goes here
+    ├─ top_view
+    └─ botview
+        └─ button_close            ← ships ACTIVE — separate close button, see §6c/§6d
 ```
 
-Build the screen body under `popup_container/container_content`. Reuse child templates from
+### 6a. Popup vs full-screen — decide before you build
+
+`popup_template` and `full_screen_template` are siblings under the root; exactly **one** must
+stay active on the shipped prefab (deactivate the other via `unity_gameobject_set_active`).
+Full-screen itself splits into two sub-cases with opposite close-button treatment — see §6c/§6d.
+
+- **Popup** (default) — a dismissable feature layered on top of whatever screen is behind it:
+  confirm dialogs, reward popups, upgrade/shop panels, settings. Keep `popup_template` active
+  (its shipped default), set `full_screen_template` inactive. Build under
+  `popup_template/popup_container/container_content`.
+- **Full screen — navigation page** (§6c): the feature *is* a dedicated page the player
+  navigates to and can back out of (Gear, Talent Tree, a shop tab, etc.).
+  `SetActive(true)` on `full_screen_template`, `SetActive(false)` on `popup_template`. Build
+  under `full_screen_template/content` (`top_view`/`botview` are extra docked slots;
+  `bg_fullscreen`/`_bg_Pattern_FullScreen_Normal` are the backdrop layers). Wire
+  `botview/button_close` as the back affordance.
+- **Full screen — persistent HUD/shell** (§6d): a screen-level HUD or host shell that is never
+  individually dismissed (combat HUD, tab bar, the two-screen shell itself). Same container
+  setup as above, but deactivate `botview/button_close` — there is nothing to "close".
+- Default to popup. Only switch to full screen when the request explicitly calls for a
+  full-screen feature or a screen-level HUD, and pick §6c vs §6d based on whether the player
+  ever backs out of it.
+
+### 6b. Popup only — wire the close button
+
+`popup_template/popup_container/top_container_popup/button_close` ships **already active** on
+`screen_template` — but an active button is not a wired one. `FeatureBaseController.Awake` only
+hooks `onClick` for buttons present in `_closeButtons`; an active-but-unwired `button_close` is a
+dead button that looks clickable and does nothing (verified as the single most common bug across
+existing screens — see the popup/full-screen audit). For every popup-type screen:
+1. Confirm `button_close` is active (it should already be, from the template).
+2. Wire it into the controller's `_closeButtons` array (`unity_component_batch_wire`, §4). Do not
+   assume this happened automatically — check with `unity_component_get_properties` after.
+3. Set the controller's `ClickBackgroundToExit` = `true` (`unity_component_set_property`).
+
+Full-screen features skip this specific button — `popup_template` is entirely inactive for them,
+so its `button_close` never renders regardless of wiring. Full-screen has its **own**, separate
+close button under `full_screen_template/botview/button_close` — see §6c/§6d.
+
+### 6c. Full-screen navigation page — wire the botview close button
+
+`full_screen_template/botview/button_close` ships **already active**, independent from the
+popup's `button_close` (different object, different parent). For a full-screen page the player
+can back out of (Gear, Talent Tree, a shop tab, etc.):
+1. Confirm `botview/button_close` is active.
+2. Wire it into the controller's `_closeButtons` array (`unity_component_batch_wire`, §4) — same
+   dead-button trap as §6b: active ≠ wired.
+3. Leave `ClickBackgroundToExit` = `false` — there is no meaningful "background" to tap away from
+   in full screen.
+
+### 6d. Full-screen persistent HUD/shell — deactivate the botview close button
+
+For a screen-level HUD or host shell with no dismiss semantics (combat HUD, training HUD, the
+meta tab bar, the two-screen shell host, or a screen hosted inside that shell): deactivate
+`full_screen_template/botview/button_close` (`unity_gameobject_set_active` → `false`) and leave
+`_closeButtons` empty. These screens are switched away from or always-on, never individually
+closed by the player.
+
+### 6e. `_closeWithBackey` — `true` by default, `false` for §6d persistent HUD/shell
+
+`FeatureBaseController._closeWithBackey` (private field, default `true`) gates
+`CloseWithBackKey()` — the hardware/gesture Android back key closing the screen. Set (or
+explicitly confirm) `_closeWithBackey = true` on every new screen's controller regardless of
+popup vs full-screen — this is independent of the popup/full-screen and close-button decisions
+above.
+
+**Rule, tied directly to §6d, not a separate ad-hoc list:** any screen classified as full-screen
+**persistent HUD/shell** (§6d — "switched away from or always-on, never individually closed by
+the player") must set `_closeWithBackey = false`. §6d already deactivates the close button and
+never wires `ClickBackgroundToExit`, for exactly one reason — this screen is not meant to be
+individually dismissed at all; leaving the back key as a stray fourth dismiss path contradicts
+that same reasoning. A screen tied to a Scene's persistent/root content (a Scene-level HUD or
+shell, not an overlay page you navigate to and back out of) falls in
+this bucket by definition — decide via §6a/§6d, not by guessing per-field.
+
+For every other screen — popup (§6b) or full-screen **navigation page** (§6c) — leave
+`_closeWithBackey = true`. Only deviate from that with a documented, specific reason recorded in
+the task spec; don't leave it off silently as a one-off guess.
+
+Typical §6d screens, all `_closeWithBackey = false`:
+- persistent Scene shell content — screens a shell-host controller cross-fades via `CanvasGroup`
+  and never routes through the standard `CloseMe()`/`UIManager.CloseFeature` flow; a back-key
+  close here would blank the shell with nothing to return to.
+- a combat/gameplay HUD tied to the active Scene run — back-key must not blank the HUD mid-run.
+- a tutorial/FTUE mask or overlay — back-key must not let the player skip it.
+
+Build the screen body under the container chosen in §6a. Reuse child templates from
 `Prefabs/Templates/Templates/` (see `prefab-templates.md`).
 
 ---
@@ -185,6 +298,11 @@ A screen is not usable until all four hold. `UIManager.Show()` loads by
    `ClickBackgroundToExit`) and `transform.GetChild(1)` as `MainUI` (when `MainUI` is unset).
    Keep `background_button` first and `popup_template` second, **or** explicitly assign
    `MainUI` and verify the background reference.
+   - **Full-screen screens must explicitly assign `MainUI` to `full_screen_template`.** Child
+     order never changes (`popup_template` stays index `[1]`, `full_screen_template` stays `[2]`
+     regardless of which is active) — the null-fallback `transform.GetChild(1)` always resolves
+     to `popup_template`, which is wrong (and inactive) for a full-screen screen. Leaving `MainUI`
+     unset on a full-screen variant silently breaks `UITransition.PlayOpen`/`PlayClose` targeting.
 
 **Verify open:** after building + saving, confirm via
 `UIManager.Instance.Show(GameEnums.Features.MyNewScreen, ...)` (e.g. through `unity_play_mode`
@@ -221,7 +339,20 @@ fine.
   `popup_template` [1]) and that the controller component is present.
 - `unity_component_get_properties` on the controller → `FeatureType` set, `_closeButtons`
   populated, `MainUI` consistent.
+- Exactly one of `popup_template` / `full_screen_template` is active — never both, never
+  neither (§6a).
+- Popup screens: `popup_template/.../button_close` active, present in `_closeButtons`, and
+  `ClickBackgroundToExit = true` (§6b).
+- Full-screen navigation pages: `MainUI` explicitly set to `full_screen_template` (§7 step 4),
+  and `full_screen_template/botview/button_close` active + present in `_closeButtons` (§6c).
+- Full-screen persistent HUD/shell: `MainUI` explicitly set to `full_screen_template`, and
+  `full_screen_template/botview/button_close` deactivated with `_closeButtons` empty (§6d).
+- `_closeWithBackey`: `true` for popup (§6b) and full-screen navigation page (§6c); `false` for
+  full-screen persistent HUD/shell (§6d) — same reasoning as the deactivated close button (§6e).
 - `unity_search_missing_references` → no broken references introduced.
+- No non-root element left at `m_LocalScale (0,0,0)` from edit-time inspection (§5) — the
+  root-Canvas exemption does not extend to children; if you zeroed any child to isolate it,
+  confirm it was restored.
 - `unity_screenshot_game` (or play-mode) → final visual matches intent.
 - If any `.cs` was created/edited, run `/compile-check` (Unity MCP recompile) before done.
 

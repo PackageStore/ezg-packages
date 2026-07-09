@@ -2,26 +2,27 @@
 
 Tasks live as **individual files** in `backlog/{todo,in-progress,done}/`. This file is just the **index** — the agent reads only this file + the one task it picks, so tokens stay flat regardless of how many tasks accumulate.
 
-## Cách dùng
+> **Remote:** if this repo has an `origin` remote, `/run-backlog` commits **and pushes** each task to `agent/dev` (it does NOT create a PR; you merge `agent/dev → base branch` manually). If there is no remote (a fresh project generated from this template), the pipeline commits locally and skips the push. See "REMOTE DETECTION" in `.claude/skills/run-backlog/SKILL.md`.
 
-- Agent đọc file này, lấy task **đầu tiên** trong mục `## TODO` (link đến file riêng)
-- Agent đọc đúng 1 file task đó từ `backlog/todo/`
-- Khi bắt đầu làm: di chuyển file `backlog/todo/<name>.md` → `backlog/in-progress/<name>.md` và cập nhật mục `## IN PROGRESS` ở đây
-- Khi xong: di chuyển file `backlog/in-progress/<name>.md` → `backlog/done/<name>.md` và cập nhật cả 2 mục
-- Format chi tiết: xem `backlog/_TEMPLATE.md`
+## Usage
 
-## Quy tắc thứ tự trong TODO
+- Agent gets the next task using `python3 .claude/scripts/backlog-ops.py pick` (reads this index, returns JSON), then reads exactly that task file
+- When starting work: `backlog-ops.py start <NNN>` (git mv todo → in-progress + updates the `## IN PROGRESS` section here)
+- When done: `backlog-ops.py done <NNN>` (git mv in-progress → done + removes bullet)
+- DO NOT hand-edit this index file — all state transitions go through `backlog-ops.py`; `backlog-ops.py lint` checks directory↔index consistency
+- Detailed format: see `backlog/_TEMPLATE.md`
 
-- Task xếp theo **thứ tự thêm vào** (FIFO): task thêm trước ở trên, task thêm sau ở dưới — **KHÔNG** sắp xếp theo priority/rarity
-- Nhãn `[PRIORITY]` (HIGH/MEDIUM/LOW) chỉ để **tham khảo**, KHÔNG ảnh hưởng vị trí trong hàng đợi
-- NNN tăng dần theo thứ tự thêm; agent luôn lấy task **đầu tiên** (trên cùng) trong `## TODO`
-- Filename `NNN-slug.md` chỉ để sort hiển thị trong file explorer; **thứ tự thực sự là thứ tự trong file này**
+## Ordering Rules in TODO
+
+- Tasks are ordered by **insertion order** (FIFO): earlier-added on top, later-added below — do NOT sort by priority/rarity. `run-backlog` always picks the first task in the list.
+- The `[PRIORITY]` tag (HIGH/MEDIUM/LOW) is **metadata only**, it does NOT change a task's position in the queue.
+- NNN ascends with insertion order; the filename `NNN-slug.md` is also the execution order.
 
 ---
 
 ## TODO
 
-- [HIGH] [L] [Refactor UIManager sang string key — bỏ EnumBase.Features dependency](backlog/todo/005-refactor-uimanager-string-key.md)
+- (none)
 
 ## IN PROGRESS
 
@@ -29,4 +30,4 @@ Tasks live as **individual files** in `backlog/{todo,in-progress,done}/`. This f
 
 ## DONE
 
-Xem `backlog/done/` — mỗi task đã hoàn thành là 1 file riêng có tóm tắt và link commit.
+See `backlog/done/` — each completed task is a separate file with a summary and commit link. DO NOT list bullets here (`python3 .claude/scripts/backlog-ops.py lint` will block).

@@ -4,6 +4,17 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-07-09
+
+**Added**
+- `backlog-ops.py` — Kịch bản quản lý backlog tự động giúp chuyển đổi trạng thái và cập nhật `BACKLOG.md` nhất quán, tránh sai sót khi sửa bằng tay.
+- `codegraph-doctor.sh` — Kịch bản kiểm tra trạng thái cài đặt CLI và cấu hình MCP CodeGraph trước khi làm việc với UI Catalog.
+- Cổng kiểm thử tự động Runtime Smoke — Tích hợp bước chạy game ở Play Mode và kiểm tra lỗi qua Unity MCP server trong luồng xử lý backlog của agent.
+
+**Changed**
+- Đồng bộ hóa thao tác backlog qua script mới — Cập nhật các skill (`add-to-backlog`, `run-backlog`) và hướng dẫn trong `CLAUDE.md`, `BACKLOG.md` để sử dụng `backlog-ops.py`.
+- Tối ưu hóa vòng lặp chạy backlog tự động — Cập nhật các script liên quan đến loop runner và script notify để hỗ trợ gửi thông báo trạng thái tin cậy hơn.
+
 ## 2026-07-02
 
 **Added**

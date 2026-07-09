@@ -157,7 +157,7 @@ function Test-Blocked {
         try { $obj = $line | ConvertFrom-Json -ErrorAction Stop } catch { continue }
         if ($obj.type -ne 'result') { continue }
         $resultText = [string]$obj.result
-        if ($resultText -match '\b(COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED)\b') { return $true }
+        if ($resultText -match '\b(COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED)\b') { return $true }
         if ($resultText -match 'manual intervention required') { return $true }
     }
     return $false
@@ -192,7 +192,7 @@ function Get-BlockClassification {
     if (-not (Test-Path $LogPath)) { return $result }
     $content = Get-Content $LogPath -Raw -ErrorAction SilentlyContinue
     if (-not $content) { return $result }
-    foreach ($token in @("COMPILE_BLOCKED", "PREFLIGHT_BLOCKED", "REVIEW_BLOCKED", "VERIFY_BLOCKED")) {
+    foreach ($token in @("COMPILE_BLOCKED", "PREFLIGHT_BLOCKED", "REVIEW_BLOCKED", "RUNTIME_BLOCKED", "VERIFY_BLOCKED")) {
         if ($content -match $token) {
             $result.Event = $token
             $m = [regex]::Match($content, "$token.*")
@@ -268,7 +268,7 @@ function Send-Notify {
 
 function New-RunBacklogAdapterPrompt {
     return @"
-You are running the Merge Two backlog workflow through a non-Claude CLI adapter.
+You are running the [Project Name] backlog workflow through a non-Claude CLI adapter.
 
 Goal: execute exactly one backlog task iteration with behavior equivalent to the Claude Code slash command /run-backlog.
 
@@ -277,7 +277,7 @@ Required contract:
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code requested by the workflow.
 4. If your CLI cannot spawn subagents, perform the code-reviewer, security-auditor, and qa-verifier gates in this same session by reading their instructions from .agents/agents/*.md and applying the same blocking criteria.
-5. Preserve the same stop tokens and print them exactly when blocked: PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or "manual intervention required".
+5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
 6. Commit and push to agent/dev only when the run-backlog skill says the task is DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
@@ -288,14 +288,14 @@ Start now.
 
 function New-ClaudeRunBacklogPrompt {
     return @"
-Execute exactly one iteration of the Merge Two run-backlog workflow.
+Execute exactly one iteration of the [Project Name] run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
-5. Print exactly these tokens when blocked: PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or "manual intervention required".
+5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
 6. Commit and push to agent/dev only when the skill marks the task DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
@@ -1082,7 +1082,7 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     }
 
     if (Test-Blocked -LogPath $iterLog) {
-        $stopReason = "Detected COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or manual intervention required. See $iterLog"
+        $stopReason = "Detected COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or manual intervention required. See $iterLog"
         Write-Log $stopReason "Red"
         $block = Get-BlockClassification -LogPath $iterLog
         $tokens = Get-TokenUsage -LogFile $iterLog
