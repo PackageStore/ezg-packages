@@ -227,7 +227,7 @@ public class PowerRename : EditorWindow
         return result.ToString();
     }
 
-    [MenuItem("Tools/Power Rename")]
+    [MenuItem("Tools/EZG Technical Art/Power Rename")]
     public static void ShowWindow()
     {
         GetWindow(typeof(PowerRename), false, "Power Rename");

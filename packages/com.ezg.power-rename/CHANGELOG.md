@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.3] - 2026-07-14
+### Changed
+- Moved the editor window from `Tools ▸ Power Rename` to `Tools ▸ EZG Technical Art ▸ Power Rename`.
+
 ## [0.1.2] - 2026-07-14
 ### Added
 - **Capitalize First Letter** and **Capitalize Each Word** options (Each Word wins when both are on; keeps `space / _ - .` delimiters).

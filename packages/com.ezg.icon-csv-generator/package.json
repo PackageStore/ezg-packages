@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.icon-csv-generator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Icon CSV Generator",
-  "description": "Editor window (menu Tools ▸ Ezg ▸ Icon CSV Generator) that batch-generates 2D game UI icons with Google's Gemini image API, driven by user-defined CSV groups. Each group has its own CSV source, row filter, filename pattern, prompt template and reference images. It loads rows from the CSVs, resolves prompt tokens per row, estimates the API cost, generates in parallel under a configurable concurrency cap, caches results on disk, and offers a per-row review/approve workflow before writing approved icons as flat white-background PSDs to a configurable staging folder. Idempotency checks skip icons that already exist anywhere under Assets/. The Gemini API key is stored in EditorPrefs (never committed); the output/input roots are configured on an IconGeneratorSettings asset, so the package carries no hardcoded project paths. Editor-only, Unity built-ins only (UnityWebRequest + JsonUtility) — no third-party dependencies. Requires a Google Gemini API key.",
+  "description": "Editor window (menu Tools ▸ EZG Technical Art ▸ Icon CSV Generator) that batch-generates 2D game UI icons with Google's Gemini image API, driven by user-defined CSV groups. Each group has its own CSV source, row filter, filename pattern, prompt template and reference images. It loads rows from the CSVs, resolves prompt tokens per row, estimates the API cost, generates in parallel under a configurable concurrency cap, caches results on disk, and offers a per-row review/approve workflow before writing approved icons as flat white-background PSDs to a configurable staging folder. Idempotency checks skip icons that already exist anywhere under Assets/. The Gemini API key is stored in EditorPrefs (never committed); the output/input roots are configured on an IconGeneratorSettings asset, so the package carries no hardcoded project paths. Editor-only, Unity built-ins only (UnityWebRequest + JsonUtility) — no third-party dependencies. Requires a Google Gemini API key.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"

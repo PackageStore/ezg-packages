@@ -9,7 +9,7 @@ namespace Ezg.IconCsvGenerator.Editor
 
     // ---------------------------------------------------------------------------
     // Main EditorWindow for the Ezg Icon CSV Generator tool.
-    // Menu: Tools > Ezg > Icon CSV Generator
+    // Menu: Tools > EZG Technical Art > Icon CSV Generator
     //
     // Layout (OnGUI):
     //   1. ProcessPendingActions()           ← FIRST, before any drawing
@@ -42,7 +42,7 @@ namespace Ezg.IconCsvGenerator.Editor
     {
         // ── Constants ─────────────────────────────────────────────────────────────
 
-        private const string MENU_PATH               = "Tools/Ezg/Icon CSV Generator";
+        private const string MENU_PATH               = "Tools/EZG Technical Art/Icon CSV Generator";
         private const string WINDOW_TITLE            = "Icon Generator";
         private const float  SECTION_SPACING         = 8f;
         private const float  PREVIEW_SIZE            = 80f;

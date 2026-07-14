@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.procedural-animation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Procedural Animation",
-  "description": "Editor tool (menu Tools ▸ Ezg ▸ Procedural Animation ▸ Inbetween Generator) that procedurally generates in-between AnimationClips from captured pose ScriptableObjects. Poses are captured from scene rigs into PoseAssets; a PoseCombinationGraphAsset defines the valid pose-to-pose connections and paths; and per-bone 'feel' easing presets (FeelPresetAsset — including a DOTween-style ease library produced by the built-in DefaultFeelPresetFactory) with per-bone timing rules shape the interpolation. The graph-based window supports pose capture and filtering, pose renaming, per-connection settings, live preview, and batch AnimationClip export. Split into a runtime assembly (the ScriptableObject data types, usable in player builds) and an editor assembly (the authoring tools). Output and preset folders are configurable (default under Assets/ProceduralAnimation). Unity built-ins only (UnityEditor.Animations) — no third-party dependencies.",
+  "description": "Editor tool (menu Tools ▸ EZG Technical Art ▸ Procedural Animation ▸ Inbetween Generator) that procedurally generates in-between AnimationClips from captured pose ScriptableObjects. Poses are captured from scene rigs into PoseAssets; a PoseCombinationGraphAsset defines the valid pose-to-pose connections and paths; and per-bone 'feel' easing presets (FeelPresetAsset — including a DOTween-style ease library produced by the built-in DefaultFeelPresetFactory) with per-bone timing rules shape the interpolation. The graph-based window supports pose capture and filtering, pose renaming, per-connection settings, live preview, and batch AnimationClip export. Split into a runtime assembly (the ScriptableObject data types, usable in player builds) and an editor assembly (the authoring tools). Output and preset folders are configurable (default under Assets/ProceduralAnimation). Unity built-ins only (UnityEditor.Animations) — no third-party dependencies.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"

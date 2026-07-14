@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Ezg.ProceduralAnimation
 {
-    [CreateAssetMenu(menuName = "Ezg/Procedural Animation/Pose Asset")]
+    [CreateAssetMenu(menuName = "EZG Technical Art/Procedural Animation/Pose Asset")]
     public class PoseAsset : ScriptableObject
     {
         public Transform skeletonRootReference;

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Ezg.ProceduralAnimation
 {
-    [CreateAssetMenu(menuName = "Ezg/Procedural Animation/Pose Combination Graph")]
+    [CreateAssetMenu(menuName = "EZG Technical Art/Procedural Animation/Pose Combination Graph")]
     public class PoseCombinationGraphAsset : ScriptableObject
     {
         public List<PoseStage> stages = new List<PoseStage>();

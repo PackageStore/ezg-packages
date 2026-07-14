@@ -2,7 +2,7 @@
 
 Editor tool that procedurally generates **in-between AnimationClips** from captured pose ScriptableObjects, driven by a pose-combination graph and per-bone "feel" easing presets.
 
-Open via **Tools ▸ Ezg ▸ Procedural Animation ▸ Inbetween Generator**.
+Open via **Tools ▸ EZG Technical Art ▸ Procedural Animation ▸ Inbetween Generator**.
 
 ## Concept
 
@@ -34,7 +34,7 @@ Output and preset locations default to `Assets/ProceduralAnimation/…` and are 
 - `InbetweenGenerationSettings.outputFolder` / `PoseCombinationGenerationOptions.outputFolder` — where generated clips are written.
 - `DefaultFeelPresetFactory.DefaultPresetFolder` — where the default feel presets are created.
 
-Create the data assets via **Assets ▸ Create ▸ Ezg ▸ Procedural Animation ▸ {Feel Preset, Pose Asset, Pose Combination Graph}**.
+Create the data assets via **Assets ▸ Create ▸ EZG Technical Art ▸ Procedural Animation ▸ {Feel Preset, Pose Asset, Pose Combination Graph}**.
 
 ## Requirements
 

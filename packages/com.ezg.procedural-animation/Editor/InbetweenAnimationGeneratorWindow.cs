@@ -155,7 +155,7 @@ namespace Ezg.ProceduralAnimation.Editor
             }
         }
 
-        [MenuItem("Tools/Ezg/Procedural Animation/Inbetween Generator")]
+        [MenuItem("Tools/EZG Technical Art/Procedural Animation/Inbetween Generator")]
         public static void ShowWindow()
         {
             InbetweenAnimationGeneratorWindow window = GetWindow<InbetweenAnimationGeneratorWindow>("Inbetween Generator");

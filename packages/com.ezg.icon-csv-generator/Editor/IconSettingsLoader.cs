@@ -50,7 +50,7 @@ namespace Ezg.IconCsvGenerator.Editor
             {
                 Debug.LogWarning(
                     "[IconGenerator] No IconGeneratorSettings asset found in the project. " +
-                    "Create one via Assets ▸ Create ▸ Ezg ▸ Icon CSV Generator ▸ Settings. " +
+                    "Create one via Assets ▸ Create ▸ EZG Technical Art ▸ Icon CSV Generator ▸ Settings. " +
                     "Using in-memory defaults (aspectRatio=1:1, imageSize=1K). " +
                     "Changes will NOT be persisted until the asset is restored.");
                 return ScriptableObject.CreateInstance<IconGeneratorSettings>();

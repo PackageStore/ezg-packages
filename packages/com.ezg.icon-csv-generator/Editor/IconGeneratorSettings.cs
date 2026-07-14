@@ -9,7 +9,7 @@ namespace Ezg.IconCsvGenerator.Editor
     // ---------------------------------------------------------------------------
     // Global generation settings ScriptableObject for the Icon Generator tool.
     // One committed asset lives at:
-    //   <anywhere under Assets/> — created via Assets ▸ Create ▸ Ezg ▸ Icon CSV Generator ▸ Settings
+    //   <anywhere under Assets/> — created via Assets ▸ Create ▸ EZG Technical Art ▸ Icon CSV Generator ▸ Settings
     //
     // The window reads this asset at open time (via IconSettingsLoader) and
     // writes it back whenever the artist changes a dropdown.
@@ -24,7 +24,7 @@ namespace Ezg.IconCsvGenerator.Editor
     /// the asset YAML directly.
     /// </summary>
     [CreateAssetMenu(
-        menuName = "Ezg/Icon CSV Generator/Settings",
+        menuName = "EZG Technical Art/Icon CSV Generator/Settings",
         fileName = "IconGeneratorSettings")]
     internal sealed class IconGeneratorSettings : ScriptableObject
     {

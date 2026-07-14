@@ -2,7 +2,7 @@
 
 Editor tool that batch-generates 2D game UI icons with Google's **Gemini** image API, driven by CSV groups.
 
-Open via **Tools ▸ Ezg ▸ Icon CSV Generator**, paste your Gemini API key, point each group at a CSV, review the generated images, and save the approved ones as flat PSDs.
+Open via **Tools ▸ EZG Technical Art ▸ Icon CSV Generator**, paste your Gemini API key, point each group at a CSV, review the generated images, and save the approved ones as flat PSDs.
 
 ## Features
 
@@ -19,7 +19,7 @@ Open via **Tools ▸ Ezg ▸ Icon CSV Generator**, paste your Gemini API key, po
 ## Setup
 
 1. **API key** — open the window and enter your Google Gemini API key. It is stored in `EditorPrefs` (per-machine, never committed to the project).
-2. **Settings asset** — create one via **Assets ▸ Create ▸ Ezg ▸ Icon CSV Generator ▸ Settings**. The window auto-discovers it by type (`t:IconGeneratorSettings`); multiple assets act as selectable profiles.
+2. **Settings asset** — create one via **Assets ▸ Create ▸ EZG Technical Art ▸ Icon CSV Generator ▸ Settings**. The window auto-discovers it by type (`t:IconGeneratorSettings`); multiple assets act as selectable profiles.
 3. **Paths** — configure these on the settings asset (Inspector), so the package carries no hardcoded project layout:
    - `incomingRoot` — where generated PSDs are written, under a per-group subfolder. Default `Assets/_Incoming`.
    - `referenceImagesRoot` — where per-group reference images live. Default `Assets/Editor/IconReferenceImages`.

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Ezg.ProceduralAnimation
 {
-    [CreateAssetMenu(menuName = "Ezg/Procedural Animation/Feel Preset")]
+    [CreateAssetMenu(menuName = "EZG Technical Art/Procedural Animation/Feel Preset")]
     public class FeelPresetAsset : ScriptableObject
     {
         [Tooltip("<b>Đường cong chính</b> quyết định cảm giác chuyển động của toàn bộ animation. <i>VD: EaseInOut cho chuyển động mượt, Linear cho chuyển động đều.</i>")]

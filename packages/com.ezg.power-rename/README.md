@@ -2,7 +2,7 @@
 
 Editor window for batch-renaming Unity assets and scene objects.
 
-Open via **Tools ▸ Power Rename**, select one or more items in the Project or Hierarchy, set the options, and click **Rename**.
+Open via **Tools ▸ EZG Technical Art ▸ Power Rename**, select one or more items in the Project or Hierarchy, set the options, and click **Rename**.
 
 ## Features
 
