@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - 2026-07-14
+### Added
+- **Capitalize First Letter** and **Capitalize Each Word** options (Each Word wins when both are on; keeps `space / _ - .` delimiters).
+- **Replace Content in File** option — runs the find/replace inside a Project text file's content. Project text files only: scene GameObjects are unaffected and binary files (images, prefabs, .asset…) are skipped to avoid corruption; requires a non-empty Find.
+
 ## [0.1.1] - 2026-07-14
 ### Changed
 - Reorganized the editor window into grouped sections: Append (prefix/suffix), Trim, Find & Replace, Extension.
