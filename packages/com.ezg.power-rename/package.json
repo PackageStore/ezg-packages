@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.power-rename",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "displayName": "EZG Power Rename",
-  "description": "Editor window (menu Tools ▸ Power Rename) for batch-renaming selected project assets and scene GameObjects. Applies a prefix and suffix, trims a number of characters from the start/end, runs a find & replace, and can change an asset's file extension (e.g. .png → .psd) via AssetDatabase.MoveAsset. Renames scene objects with full Undo support and project assets through the AssetDatabase.",
+  "description": "Editor window (menu Tools ▸ Power Rename) for batch-renaming selected project assets and scene GameObjects. Applies a prefix and suffix, trims characters from the start/end, runs a find & replace, capitalizes the first letter or each word, and can change an asset's file extension (e.g. .png → .psd) via AssetDatabase.MoveAsset. Optionally replaces the find/replace text inside a Project text file's content (binary files skipped). Renames scene objects with full Undo support and project assets through the AssetDatabase.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
