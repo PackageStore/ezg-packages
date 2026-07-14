@@ -15,6 +15,7 @@
     "deprecate": "node deprecate.mjs",
     "upload-unity-template-assets": "node upload-unity-template-assets.mjs",
     "upload-unity-template-script": "node upload-unity-template-script.mjs",
+    "sync-template-deps": "node --env-file=.env sync-unity-template-deps.mjs",
     "link-skills": "node link-skills.mjs"
   },
   "dependencies": {
