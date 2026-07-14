@@ -16,8 +16,9 @@
  *   5. Chain sync-unity-template-deps.mjs, which mirrors every packages/* version into
  *      unity-template.json's `dependencies` and re-publishes it to unity-template/latest.json.
  *      Feature Hub reads only that file, so without this a published package stays invisible
- *      in its "UPM Packages" tab. No-op when the template already matches; `--no-template-sync`
- *      opts out.
+ *      in its "UPM Packages" tab. Anything that failed above is excluded by name so the
+ *      template only ever names live versions. The re-publish happens even when the template
+ *      already matches (see the comment on that call); `--no-template-sync` opts out.
  *
  * Run:  node --env-file=.env publish.mjs            real publish + sign + template sync;
  *                                                    needs R2_* creds and UPM_SERVICE_ACCOUNT_KEY_ID /
@@ -167,6 +168,7 @@ async function main() {
   const client = DRY_RUN ? null : await makeClient();
   const tmp = mkdtempSync(join(tmpdir(), "ezg-upm-"));
   const summary = [];
+  const failedNames = [];
   let failures = 0;
 
   for (const dir of dirs) {
@@ -208,6 +210,8 @@ async function main() {
       summary.push(`publish ${label}`);
     } catch (err) {
       failures++;
+      // Nameless package.json can't match a template entry, so there's nothing to exclude.
+      if (name) failedNames.push(name);
       console.error(`! failed ${label}: ${err.message}`);
       summary.push(`FAIL    ${label}: ${err.message}`);
     }
@@ -224,13 +228,17 @@ async function main() {
   // of leaving it to a step someone has to remember. The sync is a no-op when the template
   // already matches, so running it on every publish costs nothing.
   //
-  // Skipped when any package failed: the template must never name a version that isn't
-  // actually live on the registry, and a failed publish means exactly that. Dry-runs
-  // forward --dry-run so they preview the template diff without writing or uploading.
-  if (SYNC_TEMPLATE && failures === 0) {
+  // A package that failed to publish is excluded by name rather than skipping the entire
+  // sync: the template must never name a version that isn't live on the registry, but one
+  // broken package must not keep its healthy siblings out of Feature Hub — and it would
+  // keep them out for good, since a retry skips them as already-published while the broken
+  // one fails again, so `failures === 0` would never come back. Dry-runs forward --dry-run
+  // so they preview the template diff without writing or uploading.
+  if (SYNC_TEMPLATE) {
     console.log("\n--- sync unity-template.json ---");
     const args = [fileURLToPath(new URL("./sync-unity-template-deps.mjs", import.meta.url))];
     if (DRY_RUN) args.push("--dry-run");
+    if (failedNames.length > 0) args.push(`--exclude=${failedNames.join(",")}`);
     // Inherits R2_* creds from this process — the template manifest lives in the same
     // bucket as the registry, so a working publish already has everything the sync needs.
     execFileSync(process.execPath, args, { stdio: "inherit", env: process.env });

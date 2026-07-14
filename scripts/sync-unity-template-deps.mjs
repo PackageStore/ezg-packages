@@ -10,6 +10,8 @@
  *   node sync-unity-template-deps.mjs --dry-run              preview only, no writes/uploads
  *   node --env-file=.env sync-unity-template-deps.mjs        write + upload to R2 (needs R2_* creds)
  *   node --env-file=.env sync-unity-template-deps.mjs --skip-upload   only write the local file
+ *   node --env-file=.env sync-unity-template-deps.mjs --exclude=com.ezg.foo,com.ezg.bar
+ *                                                           leave those packages' entries untouched
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +24,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = join(REPO_ROOT, "templates", "unity-project", "unity-template.json");
 const DRY_RUN = hasFlag("--dry-run");
 const SKIP_UPLOAD = hasFlag("--skip-upload");
+
+// Packages whose entry must be left exactly as-is. publish.mjs passes the ones that failed
+// to publish in this run: the template must never name a version that isn't live on the
+// registry, and a failed publish means exactly that. Excluding them by name (rather than
+// skipping the whole sync) keeps the packages that published fine from being held hostage
+// by a broken sibling — a retry would not save them either, since they get skipped as
+// already-published while the broken one fails again.
+const EXCLUDE = new Set(
+  process.argv
+    .slice(2)
+    .filter((a) => a.startsWith("--exclude="))
+    .flatMap((a) => a.slice("--exclude=".length).split(","))
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
 
 // New (not-yet-templated) packages are only auto-added when they're under this scope.
 // Non-EZG packages under packages/ (e.g. the com.google.play.* / appbundle vendor copies)
@@ -49,9 +66,14 @@ function main() {
 
   const changes = [];
   const skipped = [];
+  const excluded = [];
   for (const dir of listPackageDirs()) {
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
     if (!pkg.name || !pkg.version) continue;
+    if (EXCLUDE.has(pkg.name)) {
+      excluded.push(pkg.name);
+      continue;
+    }
     const current = template.dependencies[pkg.name];
     if (current === pkg.version) continue;
 
@@ -67,6 +89,12 @@ function main() {
     } else {
       entries[entries.findIndex(([k]) => k === pkg.name)][1] = pkg.version;
     }
+  }
+
+  if (excluded.length > 0) {
+    console.log("Excluded — template keeps whatever version it already names for these:");
+    for (const name of excluded) console.log(`  - ${name}`);
+    console.log("");
   }
 
   if (skipped.length > 0) {
