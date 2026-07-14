@@ -76,15 +76,13 @@ function main() {
   }
 
   if (changes.length === 0) {
-    console.log("Nothing to sync — unity-template.json already matches packages/*.");
-    return;
-  }
-
-  template.dependencies = Object.fromEntries(entries);
-
-  console.log("Changes:");
-  for (const c of changes) {
-    console.log(c.from ? `  ~ ${c.name}: ${c.from} -> ${c.to}` : `  + ${c.name}: ${c.to} (new)`);
+    console.log("unity-template.json already matches packages/* — no edit needed.");
+  } else {
+    template.dependencies = Object.fromEntries(entries);
+    console.log("Changes:");
+    for (const c of changes) {
+      console.log(c.from ? `  ~ ${c.name}: ${c.from} -> ${c.to}` : `  + ${c.name}: ${c.to} (new)`);
+    }
   }
 
   if (DRY_RUN) {
@@ -92,14 +90,23 @@ function main() {
     return;
   }
 
-  writeFileSync(TEMPLATE_PATH, `${JSON.stringify(template, null, 2)}\n`, "utf8");
-  console.log(`\n+ wrote ${TEMPLATE_PATH}`);
+  if (changes.length > 0) {
+    writeFileSync(TEMPLATE_PATH, `${JSON.stringify(template, null, 2)}\n`, "utf8");
+    console.log(`\n+ wrote ${TEMPLATE_PATH}`);
+  }
 
   if (SKIP_UPLOAD) {
     console.log("~ --skip-upload set, not publishing to R2 (run upload-unity-template-assets.mjs manually).");
     return;
   }
 
+  // Uploads even when nothing changed locally. The local file matching packages/* is no
+  // proof R2 got it: the write above happens before the upload, so any upload that died
+  // (missing R2_* creds, network, a SHA-256 mismatch) leaves the file already correct on
+  // disk. Gating the upload on a local diff made that state permanent — every later run
+  // saw "already matches", exited 0, and never re-sent, so Feature Hub kept serving the
+  // old versions while the tool reported success. Re-uploading an unchanged manifest is a
+  // ~12KB idempotent PUT, so making this unconditional costs nothing and self-heals.
   execFileSync(process.execPath, [join(HERE, "upload-unity-template-assets.mjs")], {
     stdio: "inherit",
     env: process.env,
