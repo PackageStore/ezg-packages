@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1] - 2026-07-14
+### Changed
+- Reorganized the editor window into grouped sections: Append (prefix/suffix), Trim, Find & Replace, Extension.
+- Added Vietnamese tooltips to every input field.
+### Added
+- Green target indicator showing whether the rename targets scene GameObjects or project files, with counts.
+
 ## [0.1.0] - 2026-07-14
 ### Added
 - Initial release extracted from `Assets/_Project/Visual/ArtAsset/Scripts/PowerRename.cs`.
