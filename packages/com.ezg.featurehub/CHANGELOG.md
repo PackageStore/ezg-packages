@@ -1,6 +1,9 @@
 # Changelog
 
-## [0.1.7] - 2026-06-23
+## [0.1.8] - 2026-07-14
+### Fixed
+- **Installing `com.ezg.featurehub` alone now works out of the box.** Feature Hub's editor code uses `Newtonsoft.Json` unconditionally (`FeatureHubService`, install record, import finalizer), but the dependency was never declared, so a fresh project without `com.unity.nuget.newtonsoft-json` failed to compile with `CS0246`. Because the compile failed, the `[InitializeOnLoad]` self-heal bootstrap never ran either — so it could not add the missing package the way it does for rlottie.
+  - Declared `com.unity.nuget.newtonsoft-json` `3.2.1` in `dependencies`. UPM resolves it automatically from the Unity registry on install, whether Feature Hub is added via scoped registry **or via git URL** (`?path=/packages/com.ezg.featurehub`). Newtonsoft cannot be self-healed by the C# bootstrap (that code needs Newtonsoft to compile in the first place), so it must be a declared dependency; `com.gindemit.rlottie` stays on the runtime bootstrap because it is a git-url dependency that UPM cannot express in `dependencies`.
 ### Added
 - **Uninstall for the "Features" tab.** Each feature card now shows a **"Gỡ"** (uninstall) button next to the install button whenever the feature is present in the project. It removes the feature by deleting the folders/assets declared in the catalog entry's `markerPaths`/`markerGuids` (each feature is a self-contained folder such as `Assets/_Project/Features/<Category>/<Name>`) and clearing the local install record, after a confirm dialog that lists exactly what will be deleted. Status reverts to "Chưa cài" on the next refresh. Uninstall is intentionally limited to the Features tab; the Unity Packages tab (third-party plugins whose markers are only partial) is unchanged.
 - `FeatureHubService.UninstallUnityPackage(asset, onDone)` — resolves marker paths/guids to existing project assets, deletes them via `AssetDatabase.DeleteAsset`, refreshes, then removes the install record (record cleared first so a script-triggered domain reload cannot leave a stale "installed" state).
