@@ -12,16 +12,26 @@
  *        metadata -> key `<name>`                 (content-type application/json)
  *        tarball  -> key `<name>/-/<file>.tgz`     (content-type application/octet-stream)
  *
- * Run:  node --env-file=.env publish.mjs            real publish + sign; needs R2_* creds
- *                                                    and UPM_SERVICE_ACCOUNT_KEY_ID /
+ * Then, once for the whole run:
+ *   5. Chain sync-unity-template-deps.mjs, which mirrors every packages/* version into
+ *      unity-template.json's `dependencies` and re-publishes it to unity-template/latest.json.
+ *      Feature Hub reads only that file, so without this a published package stays invisible
+ *      in its "UPM Packages" tab. No-op when the template already matches; `--no-template-sync`
+ *      opts out.
+ *
+ * Run:  node --env-file=.env publish.mjs            real publish + sign + template sync;
+ *                                                    needs R2_* creds and UPM_SERVICE_ACCOUNT_KEY_ID /
  *                                                    UPM_SERVICE_ACCOUNT_KEY_SECRET / ORGANIZATION_ID
  *       node --env-file=.env publish.mjs --no-sign   real publish, unsigned (npm pack)
- *       node publish.mjs --dry-run                   pack + build metadata only, no R2/signing
+ *       node publish.mjs --dry-run                   pack + build metadata + preview template
+ *                                                    diff only, no R2/signing
+ *       node --env-file=.env publish.mjs --no-template-sync   registry only, leave template alone
  */
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { readFileSync, mkdtempSync, existsSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import semver from "semver";
 import {
@@ -42,6 +52,11 @@ const DRY_RUN = hasFlag("--dry-run");
 // they stay dependency-free (no upm CLI / service-account creds needed).
 const SIGN = !hasFlag("--no-sign");
 const USE_SIGN = SIGN && !DRY_RUN;
+// Publishing to the registry and declaring the version in the base template are two
+// different destinations, and Feature Hub only ever reads the template — so the sync runs
+// automatically here rather than relying on anyone remembering it. `--no-template-sync`
+// opts out for the rare case of a registry-only publish.
+const SYNC_TEMPLATE = !hasFlag("--no-template-sync");
 
 // SRI integrity (sha512 base64) + npm shasum (sha1 hex), computed from tarball bytes.
 function hashesFor(buf) {
@@ -200,6 +215,27 @@ async function main() {
 
   console.log("\n--- summary ---");
   for (const line of summary) console.log("  " + line);
+
+  // Feature Hub's "UPM Packages" tab reads unity-template.json (published as
+  // unity-template/latest.json) and never queries the registry — npm's protocol has no
+  // "list all packages" endpoint, and Feature Hub runs on a user's machine with no
+  // registry credentials anyway. A package published above therefore stays invisible in
+  // Feature Hub until its version is mirrored into the template, so mirror it here instead
+  // of leaving it to a step someone has to remember. The sync is a no-op when the template
+  // already matches, so running it on every publish costs nothing.
+  //
+  // Skipped when any package failed: the template must never name a version that isn't
+  // actually live on the registry, and a failed publish means exactly that. Dry-runs
+  // forward --dry-run so they preview the template diff without writing or uploading.
+  if (SYNC_TEMPLATE && failures === 0) {
+    console.log("\n--- sync unity-template.json ---");
+    const args = [fileURLToPath(new URL("./sync-unity-template-deps.mjs", import.meta.url))];
+    if (DRY_RUN) args.push("--dry-run");
+    // Inherits R2_* creds from this process — the template manifest lives in the same
+    // bucket as the registry, so a working publish already has everything the sync needs.
+    execFileSync(process.execPath, args, { stdio: "inherit", env: process.env });
+  }
+
   if (failures > 0) process.exit(1);
 }
 

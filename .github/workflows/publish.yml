@@ -6,8 +6,10 @@ on:
     paths: [ 'packages/**' ]
   workflow_dispatch:
 
+# write (not read): publish.mjs syncs unity-template.json as part of publishing, and the
+# refreshed file is committed back below so the repo doesn't drift from what's on R2.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: publish-upm
@@ -35,6 +37,9 @@ jobs:
       - name: Validate packages
         run: node scripts/validate.mjs
 
+      # publish.mjs chains sync-unity-template-deps.mjs, so this step also refreshes
+      # unity-template.json's dependencies and re-publishes unity-template/latest.json —
+      # that is what makes a newly published package show up in Feature Hub's UPM tab.
       - name: Publish new package versions to R2 (signed)
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -48,3 +53,21 @@ jobs:
           UPM_SERVICE_ACCOUNT_KEY_SECRET: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_SECRET }}
           ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
         run: node scripts/publish.mjs
+
+      # The sync above already pushed the refreshed template to R2 — this only keeps the
+      # committed copy in step with it, so a later local run doesn't show a surprise diff.
+      # Loop-safe: this workflow only triggers on packages/**, and this commit touches
+      # templates/** exclusively. Non-fatal on purpose — if a branch rule rejects the push,
+      # the publish and the R2 sync still succeeded and must not be reported as failed.
+      - name: Commit refreshed unity-template.json
+        continue-on-error: true
+        run: |
+          if git diff --quiet -- templates/unity-project/unity-template.json; then
+            echo "unity-template.json already in sync — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add templates/unity-project/unity-template.json
+          git commit -m "chore(template): sync UPM deps into unity-template.json"
+          git push

@@ -1,37 +1,55 @@
 ---
 name: sync-upm-template-deps
-description: Đồng bộ version của package trong packages/ (com.ezg.*, com.google.play.*, ...) vào "dependencies" của templates/unity-project/unity-template.json rồi publish file này lên R2, để tab "UPM Packages" của Feature Hub thấy được package mới/bản cập nhật. Chạy NGAY sau khi publish một package mới hoặc bump version một package có sẵn — không cần hỏi lại user, không cần dry-run gate. Dùng khi user nói "publish package X", "cập nhật version package Y", hoặc khi Feature Hub không thấy package tuy đã có trên UPM registry.
+description: Đồng bộ version của package trong packages/ vào "dependencies" của templates/unity-project/unity-template.json rồi publish lên R2, để tab "UPM Packages" của Feature Hub thấy package mới/bản cập nhật. Từ 2026-07-14 việc này đã TỰ ĐỘNG chạy trong publish.mjs (cả local lẫn CI) nên KHÔNG cần gọi skill này sau khi publish nữa. Chỉ dùng khi cần sync độc lập với publish: sửa tay unity-template.json, bước sync trong publish bị lỗi, publish chạy với --no-template-sync, hoặc Feature Hub không thấy package tuy đã có trên UPM registry.
 ---
 
 # Đồng bộ UPM dependencies vào template Feature Hub
 
-## Vì sao cần skill này
+## Vì sao tồn tại bước này
 
-Publish package lên UPM registry và "khai báo package đó trong base template" là **hai bước
-độc lập, hai đích khác nhau**:
+Publish package lên UPM registry và "khai báo package đó trong base template" là **hai đích
+khác nhau**:
 
 - Registry publish (`packages/<pkg>/package.json` → CI `publish.yml` → `publish.mjs`): đưa
   package + version lên Cloudflare R2 qua `upm-registry-worker`. Giao thức npm chuẩn — chỉ tra
   được từng package theo tên, **không có endpoint "list all"**.
 - Base template (`templates/unity-project/unity-template.json` → `dependencies`, publish lên
-  `unity-template/latest.json`): danh sách version đã **curate thủ công**. Tab "UPM Packages"
-  của Feature Hub (`FeatureHubModels.cs` → `TEMPLATE_URL`) chỉ đọc file này, không bao giờ tự
-  query registry — vì Feature Hub chạy trên máy user, không có credentials để liệt kê registry.
+  `unity-template/latest.json`): tab "UPM Packages" của Feature Hub
+  (`FeatureHubModels.cs` → `TEMPLATE_URL`) chỉ đọc file này, không bao giờ tự query registry —
+  vì Feature Hub chạy trên máy user, không có credentials để liệt kê registry.
 
-=> Publish package xong mà quên sync 2 phần này thì package đã published vẫn "vô hình" với
-Feature Hub. Đây là lý do `com.ezg.power-rename` (và `com.ezg.csv-reader` bump 0.2.4→0.2.5,
-`com.ezg.editor-ui`, `com.ezg.supabase`) publish xong không hiện trong tab UPM cho tới khi được
-sync thủ công lần đầu (phiên 2026-07-14).
+=> Package published mà template chưa khai báo thì vẫn "vô hình" với Feature Hub.
 
-## Khi nào chạy
+## Bước này giờ đã tự động — đừng chạy tay sau khi publish
 
-Ngay sau khi:
-- Publish package UPM mới (thêm folder mới dưới `packages/`), hoặc
-- Bump version một package đã có trong `packages/`.
+`scripts/publish.mjs` tự chain `sync-unity-template-deps.mjs` ở cuối mỗi lần publish thật, nên
+mọi đường publish đều tự sync:
 
-Chạy **luôn, không hỏi xác nhận trước** — khác với `package-unpublish`/`package-rollback`
-(thao tác phá huỷ, cần dry-run + confirm), việc này chỉ thêm/cập nhật version nên an toàn để tự
-động hoá hoàn toàn.
+- **Local**: `node --env-file=.env publish.mjs` → publish xong tự sync + upload template.
+- **CI**: `publish.yml` chạy chính `publish.mjs` (đã có sẵn R2 creds + `R2_BUCKET`), sau đó
+  commit ngược `unity-template.json` về repo để file trong git không lệch với R2.
+
+Chi tiết đáng biết:
+- Sync **luôn chạy**, kể cả khi publish không đẩy version mới nào (mọi package đều "skip" vì đã
+  published) — vì template có thể stale độc lập với registry. Không có gì đổi thì in
+  "Nothing to sync" rồi dừng, không upload.
+- Sync **bị bỏ qua khi có package publish lỗi** (`failures > 0`): template không được phép trỏ
+  tới version chưa thật sự live trên registry.
+- `publish.mjs --dry-run` sẽ forward `--dry-run` xuống sync → xem trước diff template mà không
+  ghi/upload gì.
+- Muốn publish registry mà không đụng template: `publish.mjs --no-template-sync`.
+
+## Khi nào vẫn cần gọi skill này
+
+Chỉ khi cần sync **tách rời khỏi publish**:
+- Vừa sửa tay `unity-template.json` (thêm entry ngoài scope `com.ezg.*`) và muốn đẩy lên R2.
+- Bước sync trong publish fail (vd. lệch SHA-256 một file template) và muốn chạy lại riêng sau
+  khi đã xử lý xong.
+- Publish đã chạy với `--no-template-sync` và giờ muốn sync bù.
+- Feature Hub không thấy package tuy registry đã có → chạy `--dry-run` để xem lệch chỗ nào.
+
+Chạy **luôn, không hỏi xác nhận** — khác `package-unpublish`/`package-rollback` (phá huỷ, cần
+dry-run + confirm), việc này chỉ thêm/cập nhật version nên an toàn.
 
 ## Chạy
 
@@ -81,4 +99,6 @@ Phải in ra đúng version vừa publish.
 - Script upload nội bộ (`upload-unity-template-assets.mjs`) sẽ báo lỗi và dừng nếu một file
   khác trong `files.localPackages`/`files.unityPackages` bị lệch SHA-256 — không liên quan tới
   phần dependencies vừa sync (file local đã được ghi trước bước upload), nhưng sẽ chặn việc đẩy
-  manifest lên R2 cho tới khi xử lý xong file bị lệch hash đó.
+  manifest lên R2 cho tới khi xử lý xong file bị lệch hash đó. Lưu ý các file này **không được
+  git-track**: trên CI thư mục `PackageTemplate/` rỗng nên mọi entry rơi vào nhánh "external
+  url" và không bị check SHA — lỗi lệch hash chỉ xảy ra ở máy local có file thật.
