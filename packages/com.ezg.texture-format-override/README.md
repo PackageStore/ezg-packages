@@ -1,8 +1,8 @@
 # EZG Texture Format Override
 
-Editor window for batch-applying texture import settings to every PNG/PSD in a folder.
+Editor window for batch-applying texture import settings to the current Project-window selection.
 
-Open via **Tools ▸ EZG Technical Art ▸ Texture Format Override**, assign a **Target Folder** (it scans for PNG/PSD), pick one of the two mutually-exclusive modes, then click **Apply**.
+Open via **Tools ▸ EZG Technical Art ▸ Texture Format Override**, select textures and/or folders in the Project window, pick one of the two mutually-exclusive modes, then click **Apply**. A green/amber indicator shows how many textures are targeted. Selected folders are scanned for textures; the **Recursive** checkbox controls whether subfolders are included. Any `TextureImporter` asset is accepted (png, psd, jpg, tga, exr…).
 
 ## Modes
 

@@ -14,10 +14,17 @@ public class TextureFormatOverrideWindow : EditorWindow
     private static readonly string[] SIZE_LABELS = { "32", "64", "128", "256", "512", "1024", "2048", "4096", "8192" };
     private static readonly int[] SIZE_VALUES = { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
 
+    private static readonly Color TargetColor = new Color(0.24f, 0.75f, 0.32f);
+    private static readonly Color EmptyColor = new Color(0.90f, 0.70f, 0.20f);
+
     private Mode mode = Mode.PlatformOverride;
 
-    private DefaultAsset targetFolder;
-    private List<string> texturePaths = new List<string>();
+    private readonly List<string> texturePaths = new List<string>();
+    private readonly HashSet<string> _seen = new HashSet<string>();
+    private int _folderCount;
+    private int _fileCount;
+    private bool recursive = true;
+
     private bool forceSetTextureSize = false;
     private bool removePsdMatte = true;
 
@@ -30,11 +37,22 @@ public class TextureFormatOverrideWindow : EditorWindow
     private int customMaxTextureSize = 2048;
 
     private Vector2 scrollPos;
+    private GUIStyle _targetStyle;
 
     [MenuItem("Tools/EZG Technical Art/Texture Format Override")]
     public static void ShowWindow()
     {
         GetWindow<TextureFormatOverrideWindow>("Texture Override");
+    }
+
+    private void OnEnable()
+    {
+        RebuildTargets();
+    }
+
+    private void OnSelectionChange()
+    {
+        RebuildTargets();
     }
 
     private void OnGUI()
@@ -44,16 +62,15 @@ public class TextureFormatOverrideWindow : EditorWindow
         EditorGUILayout.LabelField("Texture Format Override Tool", EditorStyles.boldLabel);
         EditorGUILayout.Space();
 
+        DrawTargetIndicator();
+
         EditorGUI.BeginChangeCheck();
-        targetFolder = (DefaultAsset)EditorGUILayout.ObjectField("Target Folder", targetFolder, typeof(DefaultAsset), false);
+        recursive = EditorGUILayout.ToggleLeft(
+            new GUIContent("Recursive", "Khi chọn folder: bao gồm cả texture trong subfolder. Tắt = chỉ texture nằm trực tiếp trong folder. Không ảnh hưởng tới texture được chọn trực tiếp."),
+            recursive);
         if (EditorGUI.EndChangeCheck())
         {
-            ScanFolder();
-        }
-
-        if (targetFolder != null)
-        {
-            EditorGUILayout.HelpBox($"Found {texturePaths.Count} PNG/PSD files in folder.", MessageType.Info);
+            RebuildTargets();
         }
 
         EditorGUILayout.Space();
@@ -74,15 +91,40 @@ public class TextureFormatOverrideWindow : EditorWindow
 
         EditorGUILayout.Space();
 
+        EditorGUI.BeginDisabledGroup(texturePaths.Count == 0);
         string buttonLabel = mode == Mode.PlatformOverride
-            ? "Apply Platform Override to All PNG/PSD Files"
-            : "Apply Custom Max Size to All PNG/PSD Files";
+            ? "Apply Platform Override to Selected Textures"
+            : "Apply Custom Max Size to Selected Textures";
         if (GUILayout.Button(buttonLabel, GUILayout.Height(40)))
         {
             ApplySettings();
         }
+        EditorGUI.EndDisabledGroup();
 
         EditorGUILayout.EndVertical();
+    }
+
+    // Green/amber line telling the user which textures the apply will hit.
+    private void DrawTargetIndicator()
+    {
+        if (_targetStyle == null)
+            _targetStyle = new GUIStyle(EditorStyles.boldLabel) { wordWrap = true };
+
+        string message;
+        if (texturePaths.Count == 0)
+        {
+            _targetStyle.normal.textColor = EmptyColor;
+            message = "▶ Chưa có texture nào — chọn texture hoặc folder trong Project window.";
+        }
+        else
+        {
+            _targetStyle.normal.textColor = TargetColor;
+            var parts = new List<string>();
+            if (_folderCount > 0) parts.Add($"{_folderCount} folder");
+            if (_fileCount > 0) parts.Add($"{_fileCount} file được chọn");
+            message = $"▶ Sẽ sửa {texturePaths.Count} texture (từ {string.Join(" + ", parts)})";
+        }
+        EditorGUILayout.LabelField(message, _targetStyle);
     }
 
     private void DrawPlatformOverrideBody()
@@ -124,31 +166,61 @@ public class TextureFormatOverrideWindow : EditorWindow
         }
     }
 
-    private void ScanFolder()
+    private void RebuildTargets()
     {
         texturePaths.Clear();
-        if (targetFolder == null) return;
+        _seen.Clear();
+        _folderCount = 0;
+        _fileCount = 0;
 
-        string folderPath = AssetDatabase.GetAssetPath(targetFolder);
-        if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath)) return;
+        foreach (string guid in Selection.assetGUIDs)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path)) continue;
 
-        string[] guids = AssetDatabase.FindAssets("t:Texture", new[] { folderPath });
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                _folderCount++;
+                CollectTexturesInFolder(path);
+            }
+            else if (IsTextureAsset(path) && _seen.Add(path))
+            {
+                _fileCount++;
+                texturePaths.Add(path);
+            }
+        }
+
+        Repaint();
+    }
+
+    private void CollectTexturesInFolder(string folder)
+    {
+        string[] guids = AssetDatabase.FindAssets("t:Texture", new[] { folder });
         foreach (string guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            string lowerPath = path.ToLower();
-            if (lowerPath.EndsWith(".png") || lowerPath.EndsWith(".psd"))
+            if (!recursive)
+            {
+                string dir = Path.GetDirectoryName(path)?.Replace('\\', '/');
+                if (dir != folder) continue;
+            }
+            if (IsTextureAsset(path) && _seen.Add(path))
             {
                 texturePaths.Add(path);
             }
         }
     }
 
+    private static bool IsTextureAsset(string path)
+    {
+        return AssetImporter.GetAtPath(path) is TextureImporter;
+    }
+
     private void ApplySettings()
     {
         if (texturePaths.Count == 0)
         {
-            EditorUtility.DisplayDialog("No Textures Found", "Please select a folder containing PNG or PSD images first.", "OK");
+            EditorUtility.DisplayDialog("No Textures Selected", "Select textures or folders in the Project window first.", "OK");
             return;
         }
 

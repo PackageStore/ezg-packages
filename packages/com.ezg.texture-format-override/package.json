@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.texture-format-override",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Texture Format Override",
-  "description": "Editor window (menu Tools ▸ EZG Technical Art ▸ Texture Format Override) for batch-applying texture import settings to every PNG/PSD in a selected folder. Offers two mutually-exclusive modes: Platform Override — enable the Android and iOS override tabs and set their format, compression quality, and (optionally) max size, plus a PSD remove-matte toggle; or Custom Max Size — set the Default tab's Max Texture Size (32–4096 slider) and force NPOT scale to None. Reimports are batched via AssetDatabase.StartAssetEditing.",
+  "description": "Editor window (menu Tools ▸ EZG Technical Art ▸ Texture Format Override) for batch-applying texture import settings to the current Project-window selection — selected textures and/or folders (recursive optional). Accepts any TextureImporter asset (png, psd, jpg, tga, exr…). Offers two mutually-exclusive modes: Platform Override — enable the Android and iOS override tabs and set their format, compression quality, and (optionally) max size, plus a PSD remove-matte toggle; or Custom Max Size — set the Default tab's Max Texture Size (32–4096 slider) and force NPOT scale to None. Reimports are batched via AssetDatabase.StartAssetEditing.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
