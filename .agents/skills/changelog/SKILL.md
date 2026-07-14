@@ -128,14 +128,16 @@ Sau khi xuất changelog (bước SHOW), **TỰ ĐỘNG** gửi nội dung chang
 Không cần hỏi ý kiến user cho bước này, luôn tự động thực thi.
 
 **Thông tin kết nối**:
-- **Bot Token**: `MTQ5NjA0OTY4NzIwMTg0MTI5NA.GKpzOO.c1zKiGAvjwsuzJpK2nBDIX9w_Lr6m2hahgYCdM`
+- **Bot Token**: đọc từ biến môi trường `$DISCORD_BOT_TOKEN`. File này được commit lên GitHub — KHÔNG hardcode token vào đây.
 - **Thread ID (Channel ID)**: `1518955197345435809`
 
 **Lệnh thi hành**:
-Dùng công cụ `run_command` để gọi API Discord. Hãy dùng `jq` để escape JSON an toàn, ví dụ:
+Dùng `jq` để escape JSON an toàn:
 ```bash
 jq -n --arg content "NỘI DUNG CHANGELOG" '{content: $content}' | curl -X POST "https://discord.com/api/v10/channels/1518955197345435809/messages" \
-     -H "Authorization: Bot MTQ5NjA0OTY4NzIwMTg0MTI5NA.GKpzOO.c1zKiGAvjwsuzJpK2nBDIX9w_Lr6m2hahgYCdM" \
+     -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
      -H "Content-Type: application/json" \
      -d @-
 ```
+
+Nếu `$DISCORD_BOT_TOKEN` chưa set: bỏ qua bước này, báo user một dòng, KHÔNG coi là lỗi của cả pipeline.
