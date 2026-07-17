@@ -14,7 +14,7 @@
 - A real example is `Assets/_Project/Features/Social/ChangeName/Scripts/Controller/ScreenChangeNameController.cs`.
 - A real screen prefab example is `Assets/_Project/Features/Social/ChangeName/Resources/screen_change_name.prefab`.
 - `screen_change_name.prefab` is a prefab variant of `screen_template.prefab` with source guid `56fe2a4fb9f5141488c53da9e7819aa1`.
-- Feature folders in this repo use `Assets/_Project/Features/<Category>/<FeatureName>/Resources/` (`<Category>` is one of `Meta`, `Social`, `System`, `Monetization`, `Events`, `Gameplay`, `Onboarding`), not the BlazeSurvivor `_Game/2.BUS/...` path.
+- Feature folders in this template use `Assets/_Project/Features/<Category>/<FeatureName>/Resources/` (`<Category>` is one of `Meta`, `Social`, `System`, `Monetization`, `Events`, `Gameplay`, `Onboarding`). If the generated repository has evolved a different layout, follow its real project-structure rule and sibling features.
 - Screen prefab names commonly use the `screen_<snake_case>.prefab` pattern, but there are feature-specific exceptions. Check the local folder before naming a new prefab.
 
 ## Selection Cheatsheet

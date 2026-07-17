@@ -1,5 +1,5 @@
 ---
-description: Create a UI screen/popup prefab from the [Project Name] shared templates
+description: Create a UI screen/popup prefab from the current Unity project's shared templates
 ---
 
 # Create New UI Workflow
@@ -8,7 +8,9 @@ When the user runs `/new-ui [FeatureName]` (or requests a new UI prefab):
 
 This workflow is a thin entry point — the executable detail lives in the **`create-ui` skill** (`.agents/skills/create-ui/SKILL.md` + its `references/prefab-templates.md` and `references/mcp-playbook.md`). Invoke that skill and follow its playbook. Do NOT improvise Unity MCP commands the playbook already covers.
 
-## Summary of what `create-ui` does ([Project Name])
+**STEP 0 — ground truth:** args may carry ` | groundTruth=<value>` after the FeatureName (mockup pipeline — `.claude/commands/ui-mockup.md`). An approved `TechSpec/Mockups/<F>/<S>.png` (+ sibling `.ui-spec.json`) is the frozen visual contract the build must match — read it first and follow the create-ui skill's "Ground truth" section (including `ui-visual-reviewer` phase checkpoints). `clone:<Prefab>` → copy that prefab's layout. `PENDING-*` → STOP: the mockup is not approved; run `/ui-mockup` first.
+
+## Summary of what `create-ui` does
 
 1. **Decide**: root feature screen vs reusable child block.
 2. **Root screen** (controller inherits `FeatureBaseController`): create a **prefab variant** of `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`.

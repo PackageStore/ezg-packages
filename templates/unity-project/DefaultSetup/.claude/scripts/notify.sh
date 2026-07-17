@@ -11,6 +11,8 @@ DETAILS=""
 TASK_URL=""
 TOKENS=""
 PROGRESS=""
+DURATION=""     # wall-clock time this task's iteration took, e.g. "00:04:12"
+BREAKDOWN=""    # pre-formatted per-tool time+token table (from get_timing_token_breakdown)
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -21,6 +23,8 @@ while [[ "$#" -gt 0 ]]; do
     -u|--url) TASK_URL="$2"; shift ;;
     -k|--tokens) TOKENS="$2"; shift ;;
     -p|--progress) PROGRESS="$2"; shift ;;
+    -x|--duration) DURATION="$2"; shift ;;
+    -b|--breakdown) BREAKDOWN="$2"; shift ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
   shift
@@ -82,6 +86,21 @@ case "$EVENT_TYPE" in
     DESCRIPTION="Runtime smoke gate (play mode + console assert) still failing after 2 fix rounds."
     COLOR=$COLOR_ERROR
     ;;
+  VISUAL_BLOCKED)
+    TITLE="🔴 Visual Review Blocked"
+    DESCRIPTION="The live Unity UI still diverges from its approved visual contract after the allowed fix rounds."
+    COLOR=$COLOR_ERROR
+    ;;
+  MOCKUP_BLOCKED)
+    TITLE="🟠 Mockup Approval Required"
+    DESCRIPTION="A UI task reached execution without an approved visual contract."
+    COLOR=$COLOR_WARNING
+    ;;
+  EDITOR_REQUIRED)
+    TITLE="🟠 Unity Editor Required"
+    DESCRIPTION="All remaining runnable tasks require a live Unity Editor instance."
+    COLOR=$COLOR_WARNING
+    ;;
   CLI_ERROR)
     TITLE="🔴 Automation CLI Error"
     DESCRIPTION="The claude CLI exited with a non-zero status. The loop stopped unexpectedly."
@@ -94,10 +113,14 @@ case "$EVENT_TYPE" in
     ;;
 esac
 
-# Append task ordinal (e.g. "14/90") to the title, for every event type
-if [ -n "$PROGRESS" ]; then
-  TITLE="$TITLE ($PROGRESS)"
+# Fold "which task in the backlog" + "how long it took" into the title so
+# they're visible without opening the embed body, e.g. "(Task 14/90, 00:04:12)".
+TITLE_SUFFIX=""
+[ -n "$PROGRESS" ] && TITLE_SUFFIX="Task $PROGRESS"
+if [ -n "$DURATION" ]; then
+  if [ -n "$TITLE_SUFFIX" ]; then TITLE_SUFFIX="$TITLE_SUFFIX, $DURATION"; else TITLE_SUFFIX="$DURATION"; fi
 fi
+[ -n "$TITLE_SUFFIX" ] && TITLE="$TITLE ($TITLE_SUFFIX)"
 
 # ISO 8601 Timestamp
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -119,6 +142,7 @@ ESC_DETAILS=$(escape_json "$DETAILS")
 ESC_TASK_NAME=$(escape_json "$TASK_NAME")
 ESC_TASK_URL=$(escape_json "$TASK_URL")
 ESC_TOKENS=$(escape_json "$TOKENS")
+ESC_BREAKDOWN=$(escape_json "$BREAKDOWN")
 
 # Build Markdown for Task field (incorporate URL if present)
 if [ -n "$ESC_TASK_URL" ]; then
@@ -134,6 +158,21 @@ fi
 # Build details block. Default to N/A if empty.
 if [ -z "$ESC_DETAILS" ]; then
   ESC_DETAILS="No additional details provided."
+fi
+
+# Optional per-tool time+token breakdown field — only added when the caller passed one
+# (empty for BACKLOG_EMPTY, and for any event where the log couldn't be parsed).
+BREAKDOWN_FIELD=""
+if [ -n "$ESC_BREAKDOWN" ]; then
+  BREAKDOWN_FIELD=$(cat <<BDEOF
+,
+    {
+      "name": "Time & Token Breakdown (approx., per tool)",
+      "value": "\`\`\`\\n$ESC_BREAKDOWN\\n\`\`\`",
+      "inline": false
+    }
+BDEOF
+)
 fi
 
 # Construct Embed JSON
@@ -158,7 +197,7 @@ EMBED_JSON=$(cat <<EOF
       "name": "Details / Error Log",
       "value": "\`\`\`\\n$ESC_DETAILS\\n\`\`\`",
       "inline": false
-    }
+    }$BREAKDOWN_FIELD
   ]
 }
 EOF

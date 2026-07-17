@@ -1,11 +1,11 @@
 ---
 name: run-backlog
-description: Autonomous backlog agent for [Project Name] — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer in parallel, + security-auditor when sensitive, + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to agent/dev. DO NOT create PRs.
+description: Autonomous backlog agent for a Unity project — pick the first task in TODO, implement it, run tiered quality gates with auto-fix, mark it DONE, and commit + push to agent/dev when a remote exists. DO NOT create PRs.
 ---
 
 # Run Backlog — Autonomous Task Agent
 
-You are an autonomous development agent and the **orchestrator** of a multi-agent pipeline for the [Project Name] project (Unity, C#, mobile merge-grid game). Task: pick the first task from the backlog, implement it, pass quality gates by delegating to subagents, mark it DONE, and commit + push to the `agent/dev` branch.
+You are the autonomous implementer and orchestrator for the current Unity project. Pick the first backlog task, implement it against the repository's real rules and code, pass the tiered gates, mark it DONE, and commit to `agent/dev` (pushing only when a remote exists).
 
 Follow these steps **precisely**.
 
@@ -21,6 +21,7 @@ You read the index + **exactly one** task file — never scan all tasks.
 Pipeline orchestration:
 ```
 [1]   PICK     → backlog-ops pick: resolve the task from the index (todo | in-progress resume | empty → pause)
+[1b]  REQUIRES → task declares **Requires:** unity-editor but no live Editor → backlog-ops defer (or EDITOR_REQUIRED pause)
 [2]   BRANCH   → switch to agent/dev + merge $BASE_BRANCH into it (create from $BASE_BRANCH if it doesn't exist yet)
 [3]   START    → backlog-ops start: todo → in-progress + bullet move (on agent/dev)
 [4]   CONTEXT  → read .agents/rules/* + task file + relevant code
@@ -50,14 +51,8 @@ python3 .agents/scripts/backlog-ops.py pick
 - `state: "in-progress"` (`resume: true`) → **resume** that task. Read the file at `path`.
 - `state: "todo"` → the first TODO entry. Note `path`, `nnn`, and `tier`.
 - `state: "empty"` → backlog is empty. Run the **self-pause flow**:
-  1. Write the string `PAUSED` into `.agents/state`
-  2. Commit this file to `agent/dev` (push only if a remote exists — see LOCAL-ONLY MODE in STEP 2):
-     ```bash
-     git add .agents/state
-     git commit -m "chore: pause agent — TODO is empty"
-     [ "$HAS_REMOTE" = "1" ] && git push origin agent/dev   # skipped when no origin
-     ```
-  3. Stop and output: `TODO is empty — agent paused. Add tasks via /planning-task then /add-to-backlog, then re-run.`
+  1. Write the local operational state `PAUSED` into `.agents/state` (do not commit or push it; no task branch has been selected yet).
+  2. Stop and output: `TODO is empty — agent paused. Add tasks via /planning-task then /add-to-backlog, then re-run.`
 
 Then read **exactly one** identified task file. DO NOT read other task files.
 
@@ -65,11 +60,27 @@ Extract from the task file:
 - Task title and priority
 - **Task tier** — the `tier` field from the `pick` JSON (sourced from the BACKLOG.md bullet, NOT the filename) — store as `$TASK_TIER`, used for the tier guard in STEP 5c.
 - **Backed by workflow** — if the task body has a `**Backed by workflow:** /new-xxx` line, store `$WF_CMD = /new-xxx`, `$WF_ARGS` from the `**Workflow args:**` line, and `**Custom delta:**`. This routes implementation through STEP 5.0 (workflow-backed shortcut). If absent, `$WF_CMD = none` (normal free-form implement).
+- **Context docs** — if the task body has a `**Context docs:**` line (batch tasks from `/planning-system`), store the paths as `$CONTEXT_DOCS`. These are design docs (typically `TechSpec/<Name>-Implementation.md` + `-TechSpec.md`) holding the concrete values (Domain bucket, Manager Type, CSV columns, economy numbers, event tables) the task was planned from — read them in STEP 5/5.0. If absent, `$CONTEXT_DOCS = none`.
+- **Requires** — if the task body has a `**Requires:**` line, run the **requires gate** (1b below) BEFORE STEP 2 (the task is still in todo/ — defer is only possible pre-start). For this and the other optional fields (`**Context docs:**`, `**Depends on:**`): ignore occurrences inside HTML comments (`<!-- ... -->`) — those are template leftovers, not declarations.
 - **Description** (what to do and why)
 - **Context & Constraints**
 - **Related files** (files to read first)
 - **Acceptance criteria** (exit conditions)
 - **Manual verify steps** — will be copied verbatim into the DONE summary for the user.
+
+### 1b. Requires gate (only when the task declares `**Requires:**`)
+
+Currently one requirement value exists: `unity-editor` — the task cannot run headless (e.g. `/new-ui` prefab authoring).
+
+1. Probe Unity MCP: `mcp__unity__unity_list_instances`. A live Editor instance for THIS project → requirement satisfied; continue to STEP 2.
+2. No live Editor (probe fails / times out / returns no instance):
+   - Check whether any OTHER task remains that could run headless: `grep -L '\*\*Requires:\*\*' backlog/todo/*.md` (cheap, deterministic — reads no task body beyond the marker).
+   - **Some headless task exists** → defer this one and let the loop continue:
+     ```bash
+     python3 .agents/scripts/backlog-ops.py defer <NNN>
+     ```
+     then output `DEFERRED — task <NNN> requires a live Unity Editor; moved to the tail of TODO.` and END this iteration normally (the next run picks the next task).
+   - **Every remaining TODO task requires the editor** → pause exactly like the empty-backlog flow: write local operational state `EDITOR_REQUIRED` into `.agents/state` (do not commit/push it) and output: `EDITOR_REQUIRED — all remaining tasks need a live Unity Editor. Open the Editor, delete .agents/state, then re-run.` (Without the state write, a headless loop would defer-cycle forever.)
 
 ---
 
@@ -77,9 +88,9 @@ Extract from the task file:
 
 > **REMOTE DETECTION.** Detect once whether an `origin` remote exists:
 > ```bash
-> git remote | grep -q . && HAS_REMOTE=1 || HAS_REMOTE=0
+> git remote get-url origin >/dev/null 2>&1 && HAS_REMOTE=1 || HAS_REMOTE=0
 > ```
-> When `HAS_REMOTE=1` (the normal case — the project is connected to a remote): run `git fetch/pull/push origin` normally and **push `agent/dev` to origin** after each commit (STEP 1/STEP 9). When `HAS_REMOTE=0` (e.g. a fresh project generated from this template, not yet connected to GitLab): skip every `git fetch/pull/push origin` and determine whether `agent/dev` exists with `git branch --list agent/dev` (local) instead of `git branch -r`. Everything else runs unchanged on the `agent/dev` branch.
+> When `HAS_REMOTE=1`: fetch/pull/push `origin` and push `agent/dev` after each completed task. When `HAS_REMOTE=0` (common for a freshly generated project): skip every network command and use local refs only.
 
 Before touching code, record the current branch (this is the **base branch**: `agent/dev` is created from it if missing, and **merged from it** on every run so the base branch's work is available to the agent):
 
@@ -87,35 +98,40 @@ Before touching code, record the current branch (this is the **base branch**: `a
 git rev-parse --abbrev-ref HEAD   # → $BASE_BRANCH
 ```
 
-Then fetch and get on `agent/dev`:
+Then resolve whether `agent/dev` already exists:
 
 ```bash
-git fetch origin
+if [ "$HAS_REMOTE" = "1" ]; then
+  git fetch origin
+  git show-ref --verify --quiet refs/remotes/origin/agent/dev && AGENT_EXISTS=1 || AGENT_EXISTS=0
+else
+  git show-ref --verify --quiet refs/heads/agent/dev && AGENT_EXISTS=1 || AGENT_EXISTS=0
+fi
 ```
 
-Check if `agent/dev` exists on the remote:
-```bash
-git branch -r | grep origin/agent/dev
-```
-
-- If it **exists**:
+- If `AGENT_EXISTS=1`:
   ```bash
-  git pull origin $BASE_BRANCH        # update base first — skip when HAS_REMOTE=0 or $BASE_BRANCH has no branch on origin
+  # Update base only when origin actually has that branch.
+  if [ "$HAS_REMOTE" = "1" ] && git show-ref --verify --quiet "refs/remotes/origin/$BASE_BRANCH"; then
+    git pull --ff-only origin "$BASE_BRANCH"
+  fi
   git checkout agent/dev
-  git pull origin agent/dev
-  git merge $BASE_BRANCH --no-edit    # bring the base branch's work into agent/dev
+  [ "$HAS_REMOTE" = "1" ] && git pull --ff-only origin agent/dev
+  [ "$BASE_BRANCH" = "agent/dev" ] || git merge "$BASE_BRANCH" --no-edit
   ```
   - **Skip the merge** when `$BASE_BRANCH` is already `agent/dev` (loop iterations after the first start here).
   - If the merge **conflicts**: run `git merge --abort`, then STOP the whole pipeline (move nothing, implement nothing) and output: `BRANCH_BLOCKED: agent/dev has merge conflicts with $BASE_BRANCH — resolve manually, then re-run.` NEVER auto-resolve conflicts.
 
-- If it **does not exist yet**:
+- If `AGENT_EXISTS=0`:
   ```bash
-  git checkout $BASE_BRANCH
-  git pull origin $BASE_BRANCH
+  git checkout "$BASE_BRANCH"
+  if [ "$HAS_REMOTE" = "1" ] && git show-ref --verify --quiet "refs/remotes/origin/$BASE_BRANCH"; then
+    git pull --ff-only origin "$BASE_BRANCH"
+  fi
   git checkout -b agent/dev
   ```
 
-> [Project Name] branch model: `agent/dev` always starts from `$BASE_BRANCH` — the branch active when the loop started: **created** from it on first run, **merged** from it on every later run. The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never branch from `main` directly.
+> Branch model: `agent/dev` always starts from `$BASE_BRANCH` — the branch active when the loop started: **created** from it on first run, **merged** from it on every later run. The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. Never assume `main` or `develop` is the base.
 
 ---
 
@@ -139,9 +155,12 @@ Do this **before** writing any code.
 
 Before writing code:
 
-### 4a. Probe CodeGraph availability (ONCE — determines exploration method for the entire task)
+### 4a. Resolve CodeGraph availability (ONCE — determines exploration method for the entire task)
+
+First check whether `.codegraph/` exists at repository root. If it does not, set `CODEGRAPH_UP = false` and skip every CodeGraph probe. Indexing is the user's decision.
 
 ```
+# Only when .codegraph/ exists:
 mcp__codegraph__codegraph_search(query="FeatureBaseController", limit=1)
 ```
 
@@ -181,7 +200,7 @@ mcp__codegraph__codegraph_search(query="FeatureBaseController", limit=1)
 - Read files only after Grep confirms the symbol exists there.
 - Minimize Read calls — read only the relevant section.
 
-DO NOT skip this step. [Project Name] conventions are strict — violations will be blocked by the code-reviewer in STEP 5.
+DO NOT skip this step. Repository conventions are strict and are part of the review contract.
 
 ---
 
@@ -193,7 +212,9 @@ If STEP 1 found a `**Backed by workflow:**` line, the scaffold is specified dete
 
 1. **Read the command file inline:** `.claude/commands/<name>.md` (e.g. `new-feature.md`). Follow its steps **inline as instructions** — do NOT invoke it as a slash command (you are already mid-orchestration; the Skill/command tool would fork the flow).
 2. **Follow any delegated skill.** Some commands are thin entry points: `/new-ui` delegates to the `create-ui` skill (`.claude/skills/create-ui/SKILL.md` + its `references/prefab-templates.md` and `references/mcp-playbook.md`). When the command says "invoke the X skill", read that SKILL.md and follow its playbook/checklist — that checklist is the real authority. (`/new-package` is never workflow-backed — see `backlog/_TEMPLATE_WF.md`.)
-3. **Execute** using `$WF_ARGS` as the command's `{{args}}` input. Generate exactly the files, registrations, and conventions the command prescribes (`FeatureBaseController` subclass, `GameEnums.Features` registration, `Assets/_Project/Features/<Domain>/` layout, prefab variant from `screen_template`, `PlayerDataManager`/CSV registrations, naming rules, etc.). Honor every "DO NOT" the command states.
+2b. **Context docs as 0th-priority input:** if `$CONTEXT_DOCS` includes a `TechSpec/<Name>-Implementation.md`, treat it as the command's structured input — for `/new-feature` this IS the "Implementation Mapping" its step 2 gives 0th priority (§10.1–10.7 drive Sub-Features, Save Data, CSV Columns, Events, Registration Points). Use the mapping rows already pasted in the task body first; open the full doc when they lack a detail.
+2c. **Ground-truth (mockup) gate — fires for ANY UI task that references an approved mockup, not only `/new-ui`.** The gate is ON when EITHER: (a) `$WF_ARGS` carries ` | groundTruth=<value>`, OR (b) the task has `**Required skills:** /create-ui` AND its body/Context docs reference a `TechSpec/Mockups/<F>/<S>.png` (+ sibling `.ui-spec.json`). When ON: follow the create-ui skill's "Ground truth" section — the approved PNG + ui-spec is the frozen visual contract. Build to match it (a **redesign of an existing screen** = rebuild the body node-by-node from the ui-spec when its containers/elements differ from the current prefab; a recolor-in-place that keeps the old layout is a defect), and the `ui-visual-reviewer` phase checkpoints (A skeleton / B elements / C wiring) are a **hard gate**: a `block` verdict that survives 2 fix rounds terminates the task with `VISUAL_BLOCKED` (do NOT fall through to runtime-smoke — the orchestrator's own screenshot is a smoke test, never a substitute for the independent visual-diff gate). `clone:<Prefab>` copies that prefab's layout. A `PENDING-*` value means promote's `mockup_warnings` blocker was bypassed — STOP with `MOCKUP_BLOCKED — groundTruth not approved; run /ui-mockup first.` Never build a screen from its text description alone.
+3. **Execute** using `$WF_ARGS` as the command's `{{args}}` input. Generate exactly the files, registrations, and conventions the command prescribes (`FeatureBaseController` subclass, `GameEnums.Features` registration, `Assets/_Project/Features/<Domain>/` layout, prefab variant from `screen_template`, `PlayerDataManager`/CSV registrations, naming rules, etc.). Honor every "DO NOT" the command states. If the `**Custom delta:**` says a command step is deferred to another queued task (e.g. "SKIP workflow step 7 (UI prefab) — prefab is task NN"), skip that step and note it in the DONE summary instead of executing it.
 4. **Apply the `**Custom delta:**`** from the task body (logic/wiring/balance beyond the scaffold). For a pure scaffold the delta is `none`.
 5. Then continue with the normal rules below (conventions, no extra features) and proceed to staging + compile check (STEP 5b).
 
@@ -259,7 +280,7 @@ mcp__unity__unity_get_compilation_errors
 **Tier 2 — dotnet build (~10–40 s)**
 
 ```powershell
-dotnet build --nologo -v q 2>&1   # auto-detects the project's single .sln in repo root
+dotnet build --nologo -v q 2>&1
 ```
 
 Parse stdout/stderr for lines containing `error CS`.
@@ -329,10 +350,8 @@ If the diff is empty:
 ### 6b. Run deterministic preflight before LLM reviewers
 
 ```bash
-# macOS / Linux (no PowerShell) — Python port, identical JSON output:
+# macOS / Linux — use the Python port (identical JSON output)
 python3 .agents/scripts/backlog-preflight.py -Pretty
-# Windows (PowerShell):
-# powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 The preflight output is a JSON containing:
@@ -556,10 +575,8 @@ The QA-verifier output has a `manual_verify_steps` field — copy this list exac
 ### 7d. Final deterministic preflight before DONE
 
 ```bash
-# macOS / Linux (no PowerShell) — Python port, identical JSON output:
+# macOS / Linux — use the Python port (identical JSON output)
 python3 .agents/scripts/backlog-preflight.py -Pretty
-# Windows (PowerShell):
-# powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 - If `summary.has_blocking_definite = false` → proceed to STEP 7.5 (runtime smoke).
@@ -570,7 +587,7 @@ python3 .agents/scripts/backlog-preflight.py -Pretty
 
 ## STEP 7.5 — Quality Gate: Runtime smoke (M / L only, orchestrator-side)
 
-**Purpose:** every gate so far only READS the diff — none observes the game running. This gate boots the game in the Editor and fails on runtime errors. It automates the first slice of what "Manual verify steps" used to defer entirely to the user (the combat-presentation and rebirth-reset escapes were runtime-visible failures no diff reader can catch).
+**Purpose:** every gate so far only READS the diff — none observes the game running. This gate boots the game in the Editor and fails on runtime errors, catching scene wiring, lifecycle, presentation, and state-reset failures that a static diff reader cannot see.
 
 Run it for **M/L** after qa-verifier passes (STEP 7) and the final preflight (7d). XS/S skip it (tier guard 5c). **You run it yourself** — the `mcp__unity__*` tools are available to the orchestrator only; do NOT spawn a subagent for this gate.
 
@@ -581,12 +598,12 @@ Run it for **M/L** after qa-verifier passes (STEP 7) and the final preflight (7d
 **Procedure:**
 1. **Compile settled first** — poll `mcp__unity__unity_editor_state` until the Editor is NOT compiling. NEVER enter play mode with a compile pending: a mid-play domain reload wipes statics and produces a false NRE storm.
 2. `mcp__unity__unity_console_clear` — start from a clean console.
-3. Enter play mode (`mcp__unity__unity_play_mode`, play). Poll `unity_editor_state` until playing, then let the boot flow run **~20–30 s** (HomeScene Range combat is the default landing — archer firing + dummies dying is the baseline liveness signal).
+3. Enter play mode (`mcp__unity__unity_play_mode`, play). Poll `unity_editor_state` until playing, then let the project's normal boot flow run **~20–30 s**. Use task-specific liveness signals from the task spec or current bootstrap scene; do not assume a particular game mode.
 4. **Execute the spec's acceptance recipes** via `mcp__unity__unity_execute_code` wherever a criterion is expressible as a code assert (read a service value, confirm an object/prefab is live, invoke the flow under test). The C# payload MUST be ASCII-only (non-ASCII gets mangled in transit — route Vietnamese strings through files on disk if ever needed).
 5. **`$SENSITIVE` invariant suite** (only when STEP 6c set `$SENSITIVE = true` — economy/save/reset surfaces). Run via `unity_execute_code`, snapshot-first so player state is always restored:
    - *Currency conservation:* read balance → grant X → spend X → assert balance == baseline (net-zero by construction).
    - *Save-load roundtrip:* `PlayerDataManager.<Module>.Save()` → read the persisted JSON → assert persisted fields equal live values.
-   - *Reset scope* (only when the diff touches reset/rebirth): snapshot every module's JSON → invoke the reset → assert ONLY the modules the spec intends changed → restore all modules from the snapshot and `Save()`.
+   - *Reset scope* (only when the diff touches a reset flow): snapshot every affected module's JSON → invoke the reset → assert ONLY the modules the spec intends changed → restore all modules from the snapshot and `Save()`.
 6. Read `mcp__unity__unity_console_log` (errors + exceptions only). **Any exception/NRE, or any error originating from code the diff touches → FAIL.** Error-level noise that is provably pre-existing and unrelated to the diff → record as `warn` with a one-line justification; do not fail on it.
 7. `mcp__unity__unity_screenshot_game` → save to `.agents/tmp/backlog/runtime-smoke-<NNN>.png` and reference it in the DONE summary.
 8. **Exit play mode** (`unity_play_mode`, stop) before doing anything else — never leave the Editor playing.
@@ -649,16 +666,16 @@ Use `$SHORT_SHA` only in the STEP 10 user report. Do NOT edit `backlog/done/*.md
 Commit message format:
 - `feat: new shop popup with daily deals`
 - `fix: notification badge stale on logout`
-- `refactor: extract item merge csv parser`
+- `refactor: extract feature config parser`
 
 Push to `agent/dev`:
 ```bash
 git push -u origin agent/dev
 ```
 
-> **REMOTE DETECTION:** when `HAS_REMOTE=1` (the normal case — a remote is connected), the `git push -u origin agent/dev` above is **required** so the task lands on the remote. Only skip the push when `HAS_REMOTE=0` (no remote at all); in that case report `committed locally (no remote — push skipped)` in STEP 10.
+> **REMOTE DETECTION:** when `HAS_REMOTE=1`, the push above is required. Only skip it when `HAS_REMOTE=0`; report `committed locally (no remote — push skipped)`.
 
-**DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps. This is a [Project Name] convention.
+**DO NOT create a PR.** The user manually merges `agent/dev → $BASE_BRANCH` after running manual verification steps.
 
 ---
 
@@ -717,8 +734,11 @@ If any gate agent used grep-fallback, add a warning:
   - `REVIEW_BLOCKED` after Round 2 in STEP 6.
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
   - `RUNTIME_BLOCKED` after Round 2 in STEP 7.5.
+  - `VISUAL_BLOCKED` — a UI task with an approved-mockup ground truth (STEP 2c) still fails `ui-visual-reviewer` after Round 2 (live build diverges from the approved `<S>.png` / ui-spec structure).
+  - `MOCKUP_BLOCKED` — a `/new-ui` task reached STEP 5.0 with a `PENDING-*` groundTruth (approve via `/ui-mockup` first).
+  - `EDITOR_REQUIRED` — every remaining TODO task declares `**Requires:** unity-editor` and no Editor is live (STEP 1b); also writes `EDITOR_REQUIRED` to `.agents/state`. (`DEFERRED` is NOT a stop — it ends the iteration normally and the next run picks the next task.)
 - **No `--ship-anyway` mode.** If the user wants to force-ship a blocked task, they manually resolve the block and re-run the skill.
-- **No PR creation.** [Project Name] only pushes to `agent/dev`; the user merges manually after manual verification.
+- **No PR creation.** The pipeline only pushes to `agent/dev`; the user merges manually after verification.
 - **No deploy step.** Mobile game builds are done via Unity Editor, no CLI deploy exists.
 - **No `npm run lint` equivalent.** Unity projects lack a CLI compilation check. Rely on the 3 quality gates + manual verification.
 - **Verifier limitation:** qa-verifier is a static diff check. The runtime smoke gate (STEP 7.5) covers boot + console + spec recipes for M/L when the Editor is up — but it is a smoke test, not full QA. The manual verification steps in the task spec + DONE summary remain the final safety net — the user MUST still run them.

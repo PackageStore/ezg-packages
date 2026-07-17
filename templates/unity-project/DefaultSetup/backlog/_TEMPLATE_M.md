@@ -2,17 +2,31 @@
 
 Use for: multi-file feature, new UI screen/popup, new controller, new save field, new TigerForge event. 3–8 files.
 
-Filename: `backlog/todo/NNN-short-slug.md`
+Filename: `backlog/todo/NNN-M-short-slug.md`
 
 ---
 
 ### [PRIORITY] Short output-focused title (≤10 words)
+
+**Tier:** M
+<!-- Source of truth for tier. run-backlog reads this line first; the BACKLOG.md bullet `[Tier]` is a mirror. Never change after capture. -->
 
 <!-- HYBRID workflow-backed task? If this is a /new-* scaffold PLUS custom logic, uncomment the
      two lines below so run-backlog (STEP 5.0) runs the command for the scaffold, then describe
      ONLY the extra logic/wiring/balance below. See backlog/_TEMPLATE_WF.md for the registry.
 **Backed by workflow:** /new-feature      (or /new-ui)
 **Workflow args:** FeatureName: Description
+-->
+
+<!-- Batch / design-pipeline optional fields (fill when applicable, else DELETE this whole comment).
+Field names inside this comment are deliberately UN-bolded so comment-blind parsers (backlog-ops
+DEPENDS_RE, run-backlog Requires-gate) never match a leftover template comment. When filling,
+write them bolded on real lines directly under the title block:
+Context docs: `TechSpec/<Name>-Implementation.md` — design doc with the concrete values the implementer must read
+Depends on: `<planning filename(s) / task NNN(s) this task builds on>`
+Requires: `unity-editor` — only when the task cannot run headless (prefab authoring)
+Needs mockup: yes — HYBRID task that builds a NEW screen not backed by /new-ui; /ui-mockup
+  sweeps this flag to draft+approve a wireframe before the task is promoted
 -->
 
 **Required skills:** <none, or `/create-ui`, `/compile-check`>

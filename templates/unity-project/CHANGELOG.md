@@ -4,6 +4,21 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-07-17
+
+**Added**
+- Pipeline `/planning-system` theo hướng design-first — Hỗ trợ quy trình từ phân tích tính năng, viết thiết kế kỹ thuật đến phân bổ task theo thứ tự phụ thuộc và tiếp tục từ mapping artifact.
+- Bộ công cụ UI mockup và review theo hướng spec-first — Tích hợp approval gate (cần người duyệt), visual reviewer và capability gate cho catalog để tránh đóng gói catalog của game gốc vào template.
+- Bộ unit tests cho backlog và UI review — Kiểm thử tự động tính đúng đắn của mockup-promotion contract và các quyết định duyệt UI.
+
+**Changed**
+- Cải tiến backlog contract — Đổi tên file task thành `NNN-TIER-slug.md`, kiểm tra ràng buộc tier/dependency/mockup preflight, hỗ trợ `defer`, `Requires: unity-editor` và xử lý branch chung.
+- Nâng cấp cơ chế loop runner và thông báo — Bổ sung trạng thái `VISUAL_BLOCKED`, `MOCKUP_BLOCKED`, `EDITOR_REQUIRED` và tiếp tục vòng lặp khi gặp task bị hoãn (`DEFERRED`).
+- Chuẩn hóa và tổng quát hóa tài liệu hướng dẫn — Loại bỏ các đường dẫn đặc thù của dự án QUIVER/A004 và các giả định gameplay để giữ template độc lập.
+
+**Fixed**
+- Sửa lỗi đường dẫn DefaultSetup trong `backlog-ops.py` — Tìm đúng thư mục DefaultSetup khi chạy trong monorepo và tự động fallback kiểm tra `clone:<Prefab>` qua Assets khi chưa xuất catalog.
+
 ## 2026-07-09
 
 **Added**

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# [Project Name] — Run Backlog Loop (macOS), per-task new Terminal window.
+# Unity Project — Run Backlog Loop (macOS), per-task new Terminal window.
 #
-# Mirrors BlazeSurvivor's loop model: this script is the CONTROLLER. For each
+# This script is the CONTROLLER. For each
 # iteration it spawns a SEPARATE Terminal window that runs exactly one
 # /run-backlog task, then waits (via a flag file) for that window to finish
 # before spawning the next. A successful task auto-closes its own window; a failed
@@ -9,7 +9,8 @@
 # backlog is empty, a blocker sentinel is printed, the CLI exits non-zero, or
 # MaxIterations is reached.
 #
-# The run-backlog skill commits AND pushes each done task to agent/dev on origin.
+# The run-backlog skill commits each done task to agent/dev and pushes only when
+# an origin remote exists.
 #
 # Usage:
 #   .claude/scripts/run-backlog-loop.sh
@@ -111,15 +112,15 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RENDER" ]; then HAS_RENDER=1; el
 
 # --- per-task prompt ------------------------------------------------------------
 read -r -d '' PROMPT <<'EOF'
-Execute exactly one iteration of the [Project Name] run-backlog workflow.
+Execute exactly one iteration of this Unity repository's run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, performance-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
-5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
-6. Commit/push to agent/dev (origin) only when the skill marks the task DONE. Do not create a PR.
+5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, VISUAL_BLOCKED, MOCKUP_BLOCKED, EDITOR_REQUIRED, or "manual intervention required". DEFERRED is a successful iteration and must not stop the loop.
+6. Commit to agent/dev only when the skill permits it; push only when an origin remote exists. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
 
@@ -127,14 +128,14 @@ Start now.
 EOF
 
 # Returns 0 (blocked) only if the FINAL {"type":"result"} event's line contains a
-# blocker sentinel — mirrors BlazeSurvivor's Test-Blocked. Grepping the whole log
+# blocker sentinel. Grepping the whole log
 # false-positives because the prompt echoes sentinel names in the conversation JSON.
 is_blocked() {
   local log="$1" result_line
   [ -f "$log" ] || return 1
   result_line="$(grep '"type":"result"' "$log" | tail -n1)"
   [ -n "$result_line" ] || return 1
-  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|manual intervention required'
+  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|VISUAL_BLOCKED|MOCKUP_BLOCKED|EDITOR_REQUIRED|manual intervention required'
 }
 
 # --- backlog status -------------------------------------------------------------
@@ -217,7 +218,7 @@ build_cli_args() {
 
 echo
 echo "=========================================="
-echo "  [Project Name] — Run Backlog Loop (controller)"
+echo "  Unity Project — Run Backlog Loop (controller)"
 echo "=========================================="
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
   echo "  Model:           auto by task tier"
@@ -261,6 +262,79 @@ get_token_usage() {
   fi
 }
 
+# Approximate per-tool time + token breakdown from a stream-json log, for the Discord
+# "Time & Token Breakdown" embed field. Two approximations, both unavoidable given what
+# stream-json actually timestamps:
+#   - Time: only tool_result ("user") lines carry a timestamp, not the tool_use call. The
+#     gap between consecutive tool_result timestamps is attributed to the tool whose result
+#     ARRIVES at the end of that gap (model picks next tool + it runs = belongs to the one
+#     that just finished).
+#   - Tokens: usage is reported per assistant turn, not per tool call. A turn's usage is
+#     split evenly across the tool_use block(s) it issued (almost always 1).
+get_timing_token_breakdown() {
+  local log="$1"
+  [ -f "$log" ] || return 0
+  jq -R -s -r '
+    def fmt_tok(n):
+      if n >= 1000000 then ((n/100000|round)/10|tostring) + "M"
+      elif n >= 1000 then ((n/100|round)/10|tostring) + "K"
+      else (n|round|tostring) end;
+    def fmt_sec(s):
+      if s >= 60 then ((s/6|round)/10|tostring) + "m"
+      else (s|round|tostring) + "s" end;
+    def toolcat(name):
+      if (name == null or name == "") then "(other)"
+      elif (name == "Bash" or name == "PowerShell" or name == "run_shell_command") then "exec"
+      elif (name | startswith("mcp__")) then
+        ((name | split("__")) as $p | if ($p|length) >= 3 then $p[2] else name[5:] end)
+      else name end;
+    def rpad(w): . as $s | (w - ($s|length)) as $d | if $d <= 0 then $s else $s + (" " * $d) end;
+    def lpad(w): . as $s | (w - ($s|length)) as $d | if $d <= 0 then $s else (" " * $d) + $s end;
+
+    split("\n") | map(select(. != "") | (fromjson? // empty)) | . as $rows
+    | (reduce ($rows[] | select(.type=="assistant" and .message.id != null) | .message.content[]?
+              | select(.type=="tool_use" and .id != null)) as $b ({}; .[$b.id] = toolcat($b.name))) as $id2cat
+    | (reduce ($rows[] | select(.type=="assistant" and .message.id != null)) as $m ({};
+         ([ $m.message.content[]? | select(.type=="tool_use") | toolcat(.name) ]) as $cats
+         | if ($cats|length) > 0 then .[$m.message.id] = $cats else . end)) as $msgcats
+    | (reduce ($rows[] | select(.type=="assistant" and .message.id != null and .message.usage != null)) as $m ({};
+         ($m.message.usage) as $u | ($u.output_tokens // 0) as $o
+         | if (.[$m.message.id] == null or $o >= (.[$m.message.id].output_tokens // -1)) then .[$m.message.id] = $u else . end)) as $msgusage
+    | ([ $rows[] | select(.type=="user" and .timestamp != null and .message.content != null)
+         | { t: (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601?),
+             cats: [ .message.content[]? | select(.type=="tool_result" and .tool_use_id != null) | $id2cat[.tool_use_id] // empty ] }
+         | select(.t != null and (.cats|length) > 0) ] | sort_by(.t)) as $events
+    | (reduce ($msgusage | keys[]) as $id ({};
+         ($msgcats[$id]) as $cats
+         | if $cats == null then . else
+             ($msgusage[$id]) as $u
+             | (($u.input_tokens // 0) + ($u.cache_creation_input_tokens // 0) + ($u.output_tokens // 0) + ($u.cache_read_input_tokens // 0)) as $tok
+             | ($cats|length) as $n
+             | reduce $cats[] as $c (.; .[$c] = ((.[$c] // {sec:0,tok:0}) | .tok += ($tok/$n)))
+           end)) as $stats0
+    | (reduce range(1; ($events|length)) as $i ($stats0;
+         ($events[$i].t - $events[$i-1].t) as $gap
+         | if $gap < 0 then . else
+             ($events[$i].cats) as $cats | ($cats|length) as $n
+             | reduce $cats[] as $c (.; .[$c] = ((.[$c] // {sec:0,tok:0}) | .sec += ($gap/$n)))
+           end)) as $stats
+    | if ($stats|length) == 0 then "" else
+        ([ $stats | to_entries[] | {name:.key, sec:(.value.sec // 0), tok:(.value.tok // 0)} ] | sort_by(-.sec)) as $sorted
+        | ($sorted[0:8]) as $top
+        | ($sorted[8:]) as $rest
+        | (reduce ($top[].name | length) as $l (12; if $l > . then $l else . end)) as $nw
+        | ([ ("Tool" | rpad($nw)) + "  " + ("Time" | lpad(7)) + "  " + ("Tokens" | lpad(8)) ]
+           + [ $top[] | (.name | rpad($nw)) + "  " + (fmt_sec(.sec) | lpad(7)) + "  " + (fmt_tok(.tok) | lpad(8)) ]
+           + (if ($rest|length) > 0 then
+               [ (("+" + ($rest|length|tostring) + " more") | rpad($nw)) + "  "
+                 + (fmt_sec($rest | map(.sec) | add) | lpad(7)) + "  "
+                 + (fmt_tok($rest | map(.tok) | add) | lpad(8)) ]
+             else [] end)
+          ) | join("\n")
+      end
+  ' "$log" 2>/dev/null
+}
+
 # Write one runner script for iteration $1; runs claude, tees log, writes exit
 # code to the flag file (via EXIT trap so it's ALWAYS written), keeps window open on failure.
 write_runner() {
@@ -276,7 +350,7 @@ echo \$\$ > $(printf '%q' "$pidfile")
 code=0
 # Idempotent: do not clobber a flag the controller already wrote (e.g. "124" on watchdog kill).
 trap '[ -f $(printf '%q' "$flag") ] || echo "\$code" > $(printf '%q' "$flag")' EXIT
-echo "=== [Project Name] backlog task — iteration $idx ==="
+echo "=== Unity backlog task — iteration $idx ==="
 cat $(printf '%q' "$promptfile") | claude $CLI_ARGS_Q 2>&1 | tee $(printf '%q' "$log") $RENDER_PIPE
 code=\${PIPESTATUS[1]}
 echo "\$code" > $(printf '%q' "$flag")
@@ -363,6 +437,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   pid_file="$base.pid"
   printf '%s\n' "$PROMPT" > "$prompt_file"
   rm -f "$flag_file"
+  ITER_START=$(date +%s)
 
   if [ "$INLINE" -eq 1 ]; then
     # Same-window execution.
@@ -378,7 +453,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     fi
     exit_code="${PIPESTATUS[1]}"
   else
-    # New Terminal window per task (BlazeSurvivor model).
+    # New Terminal window per task.
     write_runner "$i" "$log_file" "$flag_file" "$prompt_file" "$runner_file" "$pid_file"
     win_id="$(osascript -e "tell application \"Terminal\"" -e "do script \"bash '$runner_file'\"" -e "return id of front window" -e "end tell" 2>/dev/null)" \
       || { STOP_REASON="Failed to open Terminal window (grant Automation permission to Terminal)"; break; }
@@ -404,12 +479,12 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
         inactive_seconds=$((inactive_seconds + check_interval))
       fi
 
-      # 900 seconds (15 minutes) of absolute inactivity, or 3600 seconds (60 minutes) max execution time
-      if [ "$inactive_seconds" -ge 900 ] || [ "$elapsed" -ge 3600 ]; then
+      # 900 seconds (15 minutes) of absolute inactivity, or 10800 seconds (180 minutes) max execution time
+      if [ "$inactive_seconds" -ge 900 ] || [ "$elapsed" -ge 10800 ]; then
         if [ "$inactive_seconds" -ge 900 ]; then
           STOP_REASON="Task hung or stopped due to token exhaustion/inactivity (no log updates for 15m)"
         else
-          STOP_REASON="Task timed out (exceeded 60m limit)"
+          STOP_REASON="Task timed out (exceeded 180m limit)"
         fi
         echo "  ⚠️ $STOP_REASON. Killing task window so it stops consuming tokens." >&2
         echo "124" > "$flag_file"   # claim the result first so the runner's EXIT trap won't clobber it
@@ -432,11 +507,17 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     rm -f "$runner_file" "$pid_file"
   fi
 
+  # Wall-clock time this iteration took (HH:MM:SS), folded into the notify title.
+  ITER_ELAPSED=$(( $(date +%s) - ITER_START ))
+  ITER_DURATION=$(printf '%02d:%02d:%02d' $((ITER_ELAPSED/3600)) $(((ITER_ELAPSED%3600)/60)) $((ITER_ELAPSED%60)))
+
   if [ "$exit_code" -ne 0 ]; then
     STOP_REASON="claude exited non-zero ($exit_code) on iteration $i (see $log_file)"
-    local tokens_val=""
+    tokens_val=""
+    breakdown_val=""
     if command -v jq >/dev/null 2>&1; then
       tokens_val=$(get_token_usage "$log_file")
+      breakdown_val=$(get_timing_token_breakdown "$log_file")
     fi
     bash "$SCRIPT_DIR/notify.sh" \
       --event "CLI_ERROR" \
@@ -444,42 +525,56 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       --url "$TASK_URL_NOTIF" \
       --tokens "$tokens_val" \
       --progress "$PROGRESS_NOTIF" \
+      --duration "$ITER_DURATION" \
+      --breakdown "$breakdown_val" \
       --details "$STOP_REASON"
     break
   fi
 
   if is_blocked "$log_file"; then
     STOP_REASON="Blocker sentinel detected on iteration $i (see $log_file)"
+    block_result=$(grep '"type":"result"' "$log_file" | tail -n1)
     
     # Classify the block type
     block_event="VERIFY_BLOCKED"
     block_details="Manual intervention required."
     
-    if grep -q "COMPILE_BLOCKED" "$log_file"; then
+    if printf '%s' "$block_result" | grep -q "EDITOR_REQUIRED"; then
+      block_event="EDITOR_REQUIRED"
+      block_details=$(printf '%s' "$block_result" | grep -o "EDITOR_REQUIRED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "MOCKUP_BLOCKED"; then
+      block_event="MOCKUP_BLOCKED"
+      block_details=$(printf '%s' "$block_result" | grep -o "MOCKUP_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "VISUAL_BLOCKED"; then
+      block_event="VISUAL_BLOCKED"
+      block_details=$(printf '%s' "$block_result" | grep -o "VISUAL_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "COMPILE_BLOCKED"; then
       block_event="COMPILE_BLOCKED"
-      block_details=$(grep -o "COMPILE_BLOCKED.*" "$log_file" | head -n 1)
-    elif grep -q "PREFLIGHT_BLOCKED" "$log_file"; then
+      block_details=$(printf '%s' "$block_result" | grep -o "COMPILE_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "PREFLIGHT_BLOCKED"; then
       block_event="PREFLIGHT_BLOCKED"
-      block_details=$(grep -o "PREFLIGHT_BLOCKED.*" "$log_file" | head -n 1)
-    elif grep -q "REVIEW_BLOCKED" "$log_file"; then
+      block_details=$(printf '%s' "$block_result" | grep -o "PREFLIGHT_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "REVIEW_BLOCKED"; then
       block_event="REVIEW_BLOCKED"
-      block_details=$(grep -o "REVIEW_BLOCKED.*" "$log_file" | head -n 1)
-    elif grep -q "RUNTIME_BLOCKED" "$log_file"; then
+      block_details=$(printf '%s' "$block_result" | grep -o "REVIEW_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "RUNTIME_BLOCKED"; then
       block_event="RUNTIME_BLOCKED"
-      block_details=$(grep -o "RUNTIME_BLOCKED.*" "$log_file" | head -n 1)
-    elif grep -q "VERIFY_BLOCKED" "$log_file"; then
+      block_details=$(printf '%s' "$block_result" | grep -o "RUNTIME_BLOCKED.*" | head -n 1)
+    elif printf '%s' "$block_result" | grep -q "VERIFY_BLOCKED"; then
       block_event="VERIFY_BLOCKED"
-      block_details=$(grep -o "VERIFY_BLOCKED.*" "$log_file" | head -n 1)
+      block_details=$(printf '%s' "$block_result" | grep -o "VERIFY_BLOCKED.*" | head -n 1)
     else
-      block_details=$(grep -i "manual intervention.*" "$log_file" | head -n 1)
+      block_details=$(printf '%s' "$block_result" | grep -io "manual intervention.*" | head -n 1)
       if [ -z "$block_details" ]; then
         block_details="Automation paused. Manual intervention required."
       fi
     fi
 
-    local tokens_val=""
+    tokens_val=""
+    breakdown_val=""
     if command -v jq >/dev/null 2>&1; then
       tokens_val=$(get_token_usage "$log_file")
+      breakdown_val=$(get_timing_token_breakdown "$log_file")
     fi
     bash "$SCRIPT_DIR/notify.sh" \
       --event "$block_event" \
@@ -487,6 +582,8 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       --url "$TASK_URL_NOTIF" \
       --tokens "$tokens_val" \
       --progress "$PROGRESS_NOTIF" \
+      --duration "$ITER_DURATION" \
+      --breakdown "$breakdown_val" \
       --details "$block_details"
     break
   fi
@@ -504,9 +601,11 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   DONE_NEW=$(find backlog/done -name "*.md" 2>/dev/null | wc -l | xargs)
   TOTAL_NEW=$((TODO_NEW + IP_NEW + DONE_NEW))
 
-  local tokens_val=""
+  tokens_val=""
+  breakdown_val=""
   if command -v jq >/dev/null 2>&1; then
     tokens_val=$(get_token_usage "$log_file")
+    breakdown_val=$(get_timing_token_breakdown "$log_file")
   fi
   bash "$SCRIPT_DIR/notify.sh" \
     --event "TASK_COMPLETED" \
@@ -514,6 +613,8 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     --url "$TASK_URL_NOTIF" \
     --tokens "$tokens_val" \
     --progress "$DONE_NEW/$TOTAL_NEW" \
+    --duration "$ITER_DURATION" \
+    --breakdown "$breakdown_val" \
     --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
 Committed & pushed to agent/dev. Ready for manual verify + merge."
 done

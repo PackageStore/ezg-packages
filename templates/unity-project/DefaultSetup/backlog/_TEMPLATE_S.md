@@ -2,11 +2,14 @@
 
 Use for: single-file logic tweak, small bug fix in ≤2 files. No new UI screen / save field / event.
 
-Filename: `backlog/todo/NNN-short-slug.md`
+Filename: `backlog/todo/NNN-S-short-slug.md`
 
 ---
 
 ### [PRIORITY] Short output-focused title (≤10 words)
+
+**Tier:** S
+<!-- Source of truth for tier. run-backlog reads this line first; the BACKLOG.md bullet `[Tier]` is a mirror. Never change after capture. -->
 
 **Description:**
 2–3 sentences explaining what needs to be done and why. No vague words ("improve", "optimize") — must have concrete criteria.

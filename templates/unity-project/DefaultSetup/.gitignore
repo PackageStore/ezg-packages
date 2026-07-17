@@ -75,8 +75,12 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/SceneHistory.asset
-Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/SceneHistory.asset
+Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/ViewStates.asset
+Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/ViewStates.asset.meta
 .codegraph/
+
+# Editor-local IDE settings
+.vscode/
 
 # Backlog agent transient files (logs, compile output, review diffs)
 .agents/tmp/
@@ -98,3 +102,11 @@ Assets/Plugins/Infinity Code/Ultimate Editor Enhancer Settings/SceneHistory.asse
 
 # Local environment variables containing credentials
 .env
+
+# Generated UI review/catalog artifacts. Export the current project's catalog;
+# do not carry previews or caches into a newly generated project.
+ui-catalog/thumbs/
+ui-catalog/preview-assets/
+/Assets/Screenshots/
+__pycache__/
+*.pyc

@@ -157,7 +157,7 @@ function Test-Blocked {
         try { $obj = $line | ConvertFrom-Json -ErrorAction Stop } catch { continue }
         if ($obj.type -ne 'result') { continue }
         $resultText = [string]$obj.result
-        if ($resultText -match '\b(COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED)\b') { return $true }
+        if ($resultText -match '\b(COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|VISUAL_BLOCKED|MOCKUP_BLOCKED|EDITOR_REQUIRED)\b') { return $true }
         if ($resultText -match 'manual intervention required') { return $true }
     }
     return $false
@@ -190,17 +190,22 @@ function Get-BlockClassification {
     param([string]$LogPath)
     $result = @{ Event = "VERIFY_BLOCKED"; Details = "Manual intervention required." }
     if (-not (Test-Path $LogPath)) { return $result }
-    $content = Get-Content $LogPath -Raw -ErrorAction SilentlyContinue
-    if (-not $content) { return $result }
-    foreach ($token in @("COMPILE_BLOCKED", "PREFLIGHT_BLOCKED", "REVIEW_BLOCKED", "RUNTIME_BLOCKED", "VERIFY_BLOCKED")) {
-        if ($content -match $token) {
+    $resultText = ""
+    foreach ($line in (Get-Content $LogPath -ErrorAction SilentlyContinue)) {
+        if (-not $line.TrimStart().StartsWith('{')) { continue }
+        try { $obj = $line | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+        if ($obj.type -eq 'result') { $resultText = [string]$obj.result }
+    }
+    if (-not $resultText) { return $result }
+    foreach ($token in @("EDITOR_REQUIRED", "MOCKUP_BLOCKED", "VISUAL_BLOCKED", "COMPILE_BLOCKED", "PREFLIGHT_BLOCKED", "REVIEW_BLOCKED", "RUNTIME_BLOCKED", "VERIFY_BLOCKED")) {
+        if ($resultText -match $token) {
             $result.Event = $token
-            $m = [regex]::Match($content, "$token.*")
+            $m = [regex]::Match($resultText, "$token.*")
             if ($m.Success) { $result.Details = $m.Value }
             return $result
         }
     }
-    $m = [regex]::Match($content, "(?i)manual intervention.*")
+    $m = [regex]::Match($resultText, "(?i)manual intervention.*")
     if ($m.Success) { $result.Details = $m.Value } else { $result.Details = "Automation paused. Manual intervention required." }
     return $result
 }
@@ -254,13 +259,169 @@ function Get-TokenUsage {
     }
 }
 
+# Categorize a tool name the same way the live console renderer does (Bash/PowerShell -> "exec",
+# mcp__server__tool -> "server", everything else kept as-is).
+function Get-ToolCategory {
+    param([string]$ToolName)
+    if ([string]::IsNullOrEmpty($ToolName)) { return "(other)" }
+    if ($ToolName -in @("Bash", "PowerShell", "run_shell_command")) { return "exec" }
+    if ($ToolName.StartsWith("mcp__")) {
+        $parts = $ToolName -split "__"
+        if ($parts.Count -ge 3) { return $parts[2] }
+        return $ToolName.Substring(5)
+    }
+    return $ToolName
+}
+
+# Approximate per-tool time + token breakdown from a claude stream-json iteration log, for
+# the Discord "Time & Token Breakdown" embed field. Two approximations, both unavoidable
+# given what stream-json actually timestamps:
+#   - Time: stream-json only puts a "timestamp" on tool_result ("user" role) lines, not on
+#     the tool_use call itself. The gap between consecutive tool_result timestamps is
+#     attributed to whichever tool(s) were in flight during that gap.
+#   - Tokens: usage is reported per assistant turn, not per individual tool call. A turn's
+#     incremental usage is split evenly across the tool_use block(s) issued in that turn
+#     (almost always 1; only differs for parallel tool calls in the same turn).
+function Get-TimingTokenBreakdown {
+    param([string]$LogFile)
+    if (-not (Test-Path $LogFile)) { return "" }
+    try {
+        $lines = Get-Content $LogFile -ErrorAction SilentlyContinue
+        if (-not $lines) { return "" }
+
+        $toolIdToCategory = @{}
+        $msgUsage = @{}
+        $msgCategories = @{}
+        $timeEvents = @()
+
+        foreach ($line in $lines) {
+            if (-not $line.Trim()) { continue }
+            $obj = ConvertFrom-Json $line -ErrorAction SilentlyContinue
+            if (-not $obj) { continue }
+
+            if ($obj.type -eq "assistant" -and $obj.message -and $obj.message.id) {
+                $msg = $obj.message
+                $cats = @()
+                if ($msg.content) {
+                    foreach ($block in $msg.content) {
+                        if ($block.type -eq "tool_use" -and $block.name) {
+                            $cat = Get-ToolCategory $block.name
+                            $cats += $cat
+                            if ($block.id) { $toolIdToCategory[$block.id] = $cat }
+                        }
+                    }
+                }
+                # Streaming re-emits growing snapshots of the same message id; keep
+                # overwriting with the latest non-empty set so a later, fuller snapshot
+                # (e.g. a second tool_use block added mid-stream) isn't missed.
+                if ($cats.Count -gt 0) { $msgCategories[$msg.id] = $cats }
+                if ($msg.usage) {
+                    $outTok = 0
+                    if ($msg.usage.output_tokens) { $outTok = [int]$msg.usage.output_tokens }
+                    $prevOut = -1
+                    if ($msgUsage.ContainsKey($msg.id)) { $prevOut = [int]$msgUsage[$msg.id].output_tokens }
+                    if ($outTok -ge $prevOut) { $msgUsage[$msg.id] = $msg.usage }
+                }
+                continue
+            }
+
+            if ($obj.type -eq "user" -and $obj.timestamp -and $obj.message -and $obj.message.content) {
+                $cats = @()
+                foreach ($c in $obj.message.content) {
+                    if ($c.type -eq "tool_result" -and $c.tool_use_id -and $toolIdToCategory.ContainsKey($c.tool_use_id)) {
+                        $cats += $toolIdToCategory[$c.tool_use_id]
+                    }
+                }
+                if ($cats.Count -eq 0) { continue }
+                try { $t = [datetime]::Parse($obj.timestamp) } catch { continue }
+                $timeEvents += [PSCustomObject]@{ Time = $t; Categories = $cats }
+            }
+        }
+
+        if ($timeEvents.Count -lt 2 -and $msgUsage.Count -eq 0) { return "" }
+
+        $stats = @{}
+        function Get-Stat($cat) {
+            if (-not $stats.ContainsKey($cat)) {
+                $stats[$cat] = [PSCustomObject]@{ Seconds = 0.0; Tokens = 0.0 }
+            }
+            return $stats[$cat]
+        }
+
+        # Token totals per category (split each turn's usage across its tool_use blocks).
+        foreach ($id in $msgUsage.Keys) {
+            if (-not $msgCategories.ContainsKey($id)) { continue }
+            $u = $msgUsage[$id]
+            $cats = $msgCategories[$id]
+            $n = $cats.Count
+            if ($n -lt 1) { $n = 1 }
+            $tok = [double]$u.input_tokens
+            if ($u.cache_creation_input_tokens) { $tok += [double]$u.cache_creation_input_tokens }
+            if ($u.output_tokens) { $tok += [double]$u.output_tokens }
+            if ($u.cache_read_input_tokens) { $tok += [double]$u.cache_read_input_tokens }
+            foreach ($cat in $cats) {
+                (Get-Stat $cat).Tokens += ($tok / $n)
+            }
+        }
+
+        # Time totals per category (gap between consecutive tool_result timestamps).
+        # Attributed to the tool whose result ARRIVES at the end of the gap (index $i).
+        $timeEvents = $timeEvents | Sort-Object Time
+        for ($i = 1; $i -lt $timeEvents.Count; $i++) {
+            $gap = ($timeEvents[$i].Time - $timeEvents[$i - 1].Time).TotalSeconds
+            if ($gap -lt 0) { continue }
+            $cats = $timeEvents[$i].Categories
+            $n = $cats.Count
+            if ($n -lt 1) { $n = 1 }
+            foreach ($cat in $cats) {
+                (Get-Stat $cat).Seconds += ($gap / $n)
+            }
+        }
+
+        if ($stats.Count -eq 0) { return "" }
+
+        function Format-CompactTokens($n) {
+            if ($n -ge 1000000) { return "$([Math]::Round($n / 100000) / 10)M" }
+            if ($n -ge 1000) { return "$([Math]::Round($n / 100) / 10)K" }
+            return "$([Math]::Round($n))"
+        }
+
+        function Format-CompactSecs($s) {
+            if ($s -ge 60) { return "$([Math]::Round($s / 60, 1))m" }
+            return "$([Math]::Round($s))s"
+        }
+
+        $rows = $stats.GetEnumerator() | Sort-Object { $_.Value.Seconds } -Descending
+        $top = @($rows | Select-Object -First 8)
+        $rest = @($rows | Select-Object -Skip 8)
+
+        $nameWidth = 12
+        foreach ($r in $top) { if ($r.Key.Length -gt $nameWidth) { $nameWidth = $r.Key.Length } }
+
+        $sb = New-Object System.Text.StringBuilder
+        [void]$sb.AppendLine(("{0,-$nameWidth}  {1,7}  {2,8}" -f "Tool", "Time", "Tokens"))
+        foreach ($r in $top) {
+            [void]$sb.AppendLine(("{0,-$nameWidth}  {1,7}  {2,8}" -f $r.Key, (Format-CompactSecs $r.Value.Seconds), (Format-CompactTokens $r.Value.Tokens)))
+        }
+        if ($rest.Count -gt 0) {
+            $restSec = 0.0; $restTok = 0.0
+            foreach ($r in $rest) { $restSec += $r.Value.Seconds; $restTok += $r.Value.Tokens }
+            [void]$sb.AppendLine(("{0,-$nameWidth}  {1,7}  {2,8}" -f "+$($rest.Count) more", (Format-CompactSecs $restSec), (Format-CompactTokens $restTok)))
+        }
+
+        return $sb.ToString().TrimEnd()
+    } catch {
+        return ""
+    }
+}
+
 # Fire a Discord notification via notify.ps1 (gracefully no-ops if not configured).
 function Send-Notify {
-    param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "", [string]$Tokens = "")
+    param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "", [string]$Tokens = "", [string]$Progress = "", [string]$Duration = "", [string]$Breakdown = "")
     $notifyScript = Join-Path $PSScriptRoot "notify.ps1"
     if (-not (Test-Path $notifyScript)) { return }
     try {
-        & $notifyScript -Event $EventType -Task $Task -Url $Url -Details $Details -Tokens $Tokens
+        & $notifyScript -Event $EventType -Task $Task -Url $Url -Details $Details -Tokens $Tokens -Progress $Progress -Duration $Duration -Breakdown $Breakdown
     } catch {
         Write-Log "Notify failed: $($_.Exception.Message)" "Yellow"
     }
@@ -268,7 +429,7 @@ function Send-Notify {
 
 function New-RunBacklogAdapterPrompt {
     return @"
-You are running the [Project Name] backlog workflow through a non-Claude CLI adapter.
+You are running this Unity repository's backlog workflow through a non-Claude CLI adapter.
 
 Goal: execute exactly one backlog task iteration with behavior equivalent to the Claude Code slash command /run-backlog.
 
@@ -277,7 +438,7 @@ Required contract:
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code requested by the workflow.
 4. If your CLI cannot spawn subagents, perform the code-reviewer, security-auditor, and qa-verifier gates in this same session by reading their instructions from .agents/agents/*.md and applying the same blocking criteria.
-5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
+5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, VISUAL_BLOCKED, MOCKUP_BLOCKED, EDITOR_REQUIRED, or "manual intervention required". DEFERRED is a successful iteration and must not stop the loop.
 6. Commit and push to agent/dev only when the run-backlog skill says the task is DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
@@ -288,14 +449,14 @@ Start now.
 
 function New-ClaudeRunBacklogPrompt {
     return @"
-Execute exactly one iteration of the [Project Name] run-backlog workflow.
+Execute exactly one iteration of this Unity repository's run-backlog workflow.
 
 Required contract:
 1. Read .agents/skills/run-backlog/SKILL.md before changing any files.
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .agents/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
-5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or "manual intervention required".
+5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, VISUAL_BLOCKED, MOCKUP_BLOCKED, EDITOR_REQUIRED, or "manual intervention required". DEFERRED is a successful iteration and must not stop the loop.
 6. Commit and push to agent/dev only when the skill marks the task DONE. Do not create a PR.
 7. Do not ask for confirmation. Work autonomously inside this repository.
 8. Use English for all output, progress messages, reports, and commit messages.
@@ -1076,17 +1237,19 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
             $stopReason = "$Provider exited non-zero (exit code: $exitCode). See $iterLog"
             Write-Log $stopReason "Red"
             $tokens = Get-TokenUsage -LogFile $iterLog
-            Send-Notify -EventType "CLI_ERROR" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $stopReason -Tokens $tokens
+            $breakdown = Get-TimingTokenBreakdown -LogFile $iterLog
+            Send-Notify -EventType "CLI_ERROR" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $stopReason -Tokens $tokens -Duration $iterDuration.ToString('hh\:mm\:ss') -Breakdown $breakdown
             break
         }
     }
 
     if (Test-Blocked -LogPath $iterLog) {
-        $stopReason = "Detected COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, or manual intervention required. See $iterLog"
+        $stopReason = "Detected a run-backlog blocker sentinel or manual intervention requirement. See $iterLog"
         Write-Log $stopReason "Red"
         $block = Get-BlockClassification -LogPath $iterLog
         $tokens = Get-TokenUsage -LogFile $iterLog
-        Send-Notify -EventType $block.Event -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $block.Details -Tokens $tokens
+        $breakdown = Get-TimingTokenBreakdown -LogFile $iterLog
+        Send-Notify -EventType $block.Event -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $block.Details -Tokens $tokens -Duration $iterDuration.ToString('hh\:mm\:ss') -Breakdown $breakdown
         break
     }
 
@@ -1099,7 +1262,8 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     $totalCount = $statusAfter.TodoCount + $statusAfter.InProgressCount + $doneCount
     $completedDetails = "Progress: Task $doneCount of $totalCount completed successfully.`nCommitted & pushed to agent/dev. Ready for manual verify + merge."
     $tokens = Get-TokenUsage -LogFile $iterLog
-    Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails -Tokens $tokens
+    $breakdown = Get-TimingTokenBreakdown -LogFile $iterLog
+    Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails -Tokens $tokens -Duration $iterDuration.ToString('hh\:mm\:ss') -Breakdown $breakdown
 }
 
 $totalDuration = (Get-Date) - $startTime

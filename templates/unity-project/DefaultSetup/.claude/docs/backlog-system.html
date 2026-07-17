@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unity Project · Hệ thống Backlog &amp; Task Execution</title>
+<style>
+:root{
+  --bg:#f6f7fb; --panel:#ffffff; --ink:#1c2333; --muted:#5b6478; --line:#e3e7f0;
+  --cap:#3b82f6; --cap-bg:#eff5ff; --queue:#8b5cf6; --queue-bg:#f4f0ff;
+  --exec:#059669; --exec-bg:#e9fbf3; --warn:#e11d48; --warn-bg:#fff0f3;
+  --gold:#d97706; --gold-bg:#fff7ec; --code:#0f172a; --codetext:#e2e8f0;
+  --shadow:0 1px 2px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0c0f17; --panel:#141a26; --ink:#eaeef7; --muted:#9aa5bd; --line:#242c3d;
+    --cap:#60a5fa; --cap-bg:#152238; --queue:#a78bfa; --queue-bg:#1e1a33;
+    --exec:#34d399; --exec-bg:#0f2a20; --warn:#fb7185; --warn-bg:#2a1620;
+    --gold:#fbbf24; --gold-bg:#2a2110; --code:#0a0e18; --codetext:#e2e8f0;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f6f7fb; --panel:#fff; --ink:#1c2333; --muted:#5b6478; --line:#e3e7f0;
+  --cap:#3b82f6; --cap-bg:#eff5ff; --queue:#8b5cf6; --queue-bg:#f4f0ff;
+  --exec:#059669; --exec-bg:#e9fbf3; --warn:#e11d48; --warn-bg:#fff0f3;
+  --gold:#d97706; --gold-bg:#fff7ec; --code:#0f172a; --codetext:#e2e8f0;
+}
+:root[data-theme="dark"]{
+  --bg:#0c0f17; --panel:#141a26; --ink:#eaeef7; --muted:#9aa5bd; --line:#242c3d;
+  --cap:#60a5fa; --cap-bg:#152238; --queue:#a78bfa; --queue-bg:#1e1a33;
+  --exec:#34d399; --exec-bg:#0f2a20; --warn:#fb7185; --warn-bg:#2a1620;
+  --gold:#fbbf24; --gold-bg:#2a2110; --code:#0a0e18; --codetext:#e2e8f0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+  line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 80px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:6px}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.02em}
+.logo .q{color:var(--exec)}
+.sub{color:var(--muted);font-size:13.5px;margin:2px 0 18px}
+.theme-btn{margin-left:auto;border:1px solid var(--line);background:var(--panel);
+  color:var(--muted);border-radius:9px;padding:7px 12px;cursor:pointer;font-size:13px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:2px solid var(--line);margin-bottom:22px}
+.tab{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14.5px;
+  font-weight:600;padding:11px 15px;border-radius:9px 9px 0 0;position:relative;top:2px}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom:2px solid var(--exec)}
+.panelview{display:none;animation:fade .25s ease}
+.panelview.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+h2{font-size:19px;margin:26px 0 12px;letter-spacing:-.01em}
+h2:first-child{margin-top:0}
+h3{font-size:15px;margin:20px 0 8px}
+p{margin:8px 0}
+.lead{font-size:15px;color:var(--muted);max-width:75ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:16px 18px;box-shadow:var(--shadow);margin:12px 0}
+.grid{display:grid;gap:12px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;
+  letter-spacing:.02em}
+.p-cap{background:var(--cap-bg);color:var(--cap)}
+.p-queue{background:var(--queue-bg);color:var(--queue)}
+.p-exec{background:var(--exec-bg);color:var(--exec)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}
+.p-gold{background:var(--gold-bg);color:var(--gold)}
+.lane{border-radius:14px;padding:16px 18px;border:1px solid var(--line);height:100%}
+.lane.cap{background:var(--cap-bg);border-color:color-mix(in srgb,var(--cap) 30%,transparent)}
+.lane.queue{background:var(--queue-bg);border-color:color-mix(in srgb,var(--queue) 30%,transparent)}
+.lane.exec{background:var(--exec-bg);border-color:color-mix(in srgb,var(--exec) 30%,transparent)}
+.lane h3{margin-top:0;display:flex;align-items:center;gap:8px}
+.lane ul{margin:8px 0 0;padding-left:18px}
+.lane li{margin:5px 0;font-size:13.5px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+  background:color-mix(in srgb,var(--line) 55%,transparent);padding:1px 6px;border-radius:5px}
+pre{background:var(--code);color:var(--codetext);border-radius:12px;padding:14px 16px;
+  overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12.5px;line-height:1.5;margin:10px 0}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.note{border-left:3px solid var(--gold);background:var(--gold-bg);padding:10px 14px;
+  border-radius:0 10px 10px 0;margin:12px 0;font-size:13.5px}
+.step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}
+.step:last-child{border-bottom:0}
+.step .n{flex:none;width:46px;font-weight:800;font-size:12px;color:var(--exec);
+  font-family:ui-monospace,monospace;padding-top:2px}
+.step .b{font-size:13.5px}
+.step .b b{font-size:13.5px}
+.kv{font-size:13px;color:var(--muted)}
+.arrow{color:var(--muted);text-align:center;font-size:20px;line-height:1;padding:2px}
+/* Diagram */
+.diagram{overflow-x:auto;padding:6px 2px}
+.flow{min-width:640px}
+.dbox{border-radius:12px;padding:11px 13px;font-size:13px;border:1px solid var(--line);
+  background:var(--panel);box-shadow:var(--shadow)}
+.dbox .t{font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.dbox .d{color:var(--muted);font-size:12px}
+.dcol{display:flex;flex-direction:column;gap:10px}
+.drow{display:grid;gap:14px;align-items:stretch}
+.dconn{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px}
+.badge{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;padding:1px 6px;
+  border-radius:6px;background:color-mix(in srgb,var(--line) 60%,transparent);color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0 4px;font-size:12.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+.stopgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.stopgrid .s{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--panel);
+  font-size:12px}
+.stopgrid .s b{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--warn)}
+.small{font-size:12.5px;color:var(--muted)}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="logo"><span class="q">Unity Project</span> · Backlog &amp; Task Execution</div>
+    </div>
+    <button class="theme-btn" id="themeToggle">◐ Đổi theme</button>
+  </header>
+  <div class="sub">Vòng đời một task: <b>Capture</b> → <b>Queue</b> → <b>Execute</b>. Bản chi tiết kỹ thuật: <code>backlog-system.md</code></div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-t="overview">Tổng quan</button>
+    <button class="tab" data-t="capture">Capture / Planning</button>
+    <button class="tab" data-t="execute">Execute / Run-backlog</button>
+    <button class="tab" data-t="diagram">Diagram</button>
+  </nav>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section class="panelview active" id="overview">
+    <p class="lead">Cơ chế thực thi task tự động dựa trên backlog <b>split-file</b>: mỗi task là một file, <code>BACKLOG.md</code> chỉ là index — nên token phẳng dù backlog lớn cỡ nào. Bookkeeping deterministic (không hand-edit), spec là contract, không bịa quyết định rủi ro.</p>
+
+    <h2>Ba lớp</h2>
+    <div class="grid g3">
+      <div class="lane cap">
+        <h3><span class="pill p-cap">CAPTURE</span></h3>
+        <div class="small">parallel-safe · không touch <code>BACKLOG.md</code></div>
+        <ul>
+          <li><code>/planning-task</code> — cửa vào duy nhất, triage + spec</li>
+          <li><code>/planning-system</code> — GDD lớn → N task</li>
+          <li><code>/ui-mockup</code> — ground truth UI (human approve)</li>
+        </ul>
+        <div class="small" style="margin-top:8px">→ <code>backlog/planning/*.md</code></div>
+      </div>
+      <div class="lane queue">
+        <h3><span class="pill p-queue">QUEUE</span></h3>
+        <div class="small">serial · intentional commit của user</div>
+        <ul>
+          <li><code>/add-to-backlog</code></li>
+          <li><code>promote --check</code> → 3 hard blocker</li>
+          <li><code>promote</code> → gán NNN, update index</li>
+        </ul>
+        <div class="small" style="margin-top:8px">→ <code>backlog/todo/*.md</code> + <code>BACKLOG.md</code></div>
+      </div>
+      <div class="lane exec">
+        <h3><span class="pill p-exec">EXECUTE</span></h3>
+        <div class="small">autonomous · quality gates + auto-fix</div>
+        <ul>
+          <li><code>/run-backlog</code></li>
+          <li>pick → branch → implement → gates</li>
+          <li>DONE → commit + push <code>agent/dev</code></li>
+        </ul>
+        <div class="small" style="margin-top:8px">→ <code>in-progress → done/</code> (no PR)</div>
+      </div>
+    </div>
+
+    <h2>Nguyên tắc thiết kế</h2>
+    <div class="card">
+      <table>
+        <tr><th>Nguyên tắc</th><th>Cơ chế</th></tr>
+        <tr><td><b>Token phẳng</b></td><td>Split-file; agent đọc index + đúng 1 task nó pick.</td></tr>
+        <tr><td><b>Bookkeeping deterministic</b></td><td>Mọi transition qua <code>backlog-ops.py</code>, tự lint. Không hand-edit index.</td></tr>
+        <tr><td><b>Spec là contract</b></td><td>Triage + acceptance criteria + verify steps + guardrails trước khi vào queue.</td></tr>
+        <tr><td><b>Không bịa quyết định rủi ro</b></td><td>5 nhóm cấm-bịa: economy · save-migration · backend/IAP/security · UX flow · acceptance criteria.</td></tr>
+        <tr><td><b>Generate autonomous · Approve human</b></td><td>Mockup UI: agent draft tự động (parallel), human duyệt visual gom một phiên (không dừng planning).</td></tr>
+      </table>
+    </div>
+
+    <h2>File layout &amp; vòng đời</h2>
+    <div class="card">
+      <p style="margin:0 0 10px"><span class="pill p-cap">planning/</span> <span class="arrow" style="display:inline">→</span> <span class="pill p-queue">todo/</span> <span class="arrow" style="display:inline">→</span> <span class="pill p-exec">in-progress/</span> <span class="arrow" style="display:inline">→</span> <span class="pill p-exec">done/</span></p>
+<pre>backlog/
+├── _TEMPLATE{,_XS,_S,_M,_L,_WF}.md   templates theo tier + workflow-backed
+├── _GUARDRAILS.md                    định nghĩa tag [SAVE] [ASYNC]...
+├── planning/  &lt;timestamp&gt;[-NN]-&lt;TIER&gt;-&lt;slug&gt;.md   đã draft, chưa queue
+├── todo/      NNN-&lt;TIER&gt;-&lt;slug&gt;.md                  đã queue (NNN = thứ tự chạy)
+├── in-progress/                                     đang chạy
+└── done/                                            xong (SOURCE OF TRUTH, không bullet)</pre>
+      <div class="note"><b>Tier invariant</b> (lint enforce): <code>&lt;TIER&gt;</code> trong <b>filename</b> == dòng <code>**Tier:**</code> trong <b>body</b> == <code>[TIER]</code> trong <b>bullet</b>. Body là source of truth.</div>
+    </div>
+
+    <h2>Task tiers</h2>
+    <div class="card">
+      <table>
+        <tr><th>Tier</th><th>Tín hiệu</th><th>Cost</th><th>Subagent draft</th></tr>
+        <tr><td><span class="badge">XS</span></td><td>CSV tweak / hằng số / dead code / rename 1 file / thêm EventName</td><td>~1K</td><td>Không</td></tr>
+        <tr><td><span class="badge">S</span></td><td>Sửa logic 1 file, bug fix ≤2 file, save field nhỏ</td><td>~3K</td><td>Không</td></tr>
+        <tr><td><span class="badge">M</span></td><td>Multi-file: screen/controller mới, save reshape, 3–8 file</td><td>~10–15K</td><td>task-planner nếu complex</td></tr>
+        <tr><td><span class="badge">L</span></td><td>Cross-cutting: IAP flow, save migration đa module, 9+ file</td><td>~25K</td><td>task-planner + risk</td></tr>
+      </table>
+      <div class="small">Phân vân → <b>chọn tier LỚN hơn</b> (run-backlog không tự escalate; tier thấp oan = bỏ qua reviewer oan). <b>WF</b> orthogonal với tier: scaffold thuần <code>/new-feature</code>/<code>/new-ui</code> dùng <code>_TEMPLATE_WF</code>, bỏ qua task-planner, tier thật vẫn trong filename.</div>
+    </div>
+  </section>
+
+  <!-- ============ CAPTURE ============ -->
+  <section class="panelview" id="capture">
+    <h2><span class="pill p-cap">/planning-task</span> — cửa vào duy nhất</h2>
+    <p class="lead">Mọi intent đi qua đây, tự phân loại và route: từ CSV tweak 1 dòng tới cả một GDD hệ thống mới.</p>
+    <div class="card">
+      <div class="step"><div class="n">0b</div><div class="b"><b>NEW-SYSTEM?</b> — cả GDD / ≥2 module MỚI tương tác → dispatch <code>/planning-system</code> (0a match = nhường). Chạm economy đơn thuần KHÔNG kích.</div></div>
+      <div class="step"><div class="n">0</div><div class="b"><b>TRIAGE</b> — XS / S / M / L (phân vân → tier lớn hơn)</div></div>
+      <div class="step"><div class="n">0a</div><div class="b"><b>WF-DETECT</b> — scaffold thuần khớp <code>/new-*</code> → skip task-planner, dùng <code>_TEMPLATE_WF</code></div></div>
+      <div class="step"><div class="n">1</div><div class="b"><b>EXTRACT</b> — What/Why/Scope/Priority/Constraints; clarify ≤3 câu/lượt (chỉ 5 nhóm cấm-bịa)</div></div>
+      <div class="step"><div class="n">2</div><div class="b"><b>DRAFT</b> — XS thẳng · S codegraph 1–3 file · M-simple main-context · M-complex/L <b>task-planner</b> · <code>/new-ui</code> resolve groundTruth</div></div>
+      <div class="step"><div class="n">3</div><div class="b"><b>FILENAME</b> — <code>backlog-ops.py timestamp</code> → <code>&lt;ts&gt;-&lt;TIER&gt;-&lt;slug&gt;.md</code></div></div>
+      <div class="step"><div class="n">4</div><div class="b"><b>WRITE</b> — template + <code>**Tier:**</code> + <code>**Guardrails:**</code> tags → <code>backlog/planning/</code></div></div>
+      <div class="step"><div class="n">5–6</div><div class="b"><b>CHECK + REPORT</b> — checklist theo tier → trỏ <code>/add-to-backlog</code></div></div>
+    </div>
+
+    <h3>7 case routing</h3>
+    <div class="card"><table>
+      <tr><th>Case</th><th>Kích hoạt</th><th>Đường đi</th><th>Template</th></tr>
+      <tr><td><b>A</b> New-system</td><td>Cả GDD</td><td>0b → <code>/planning-system</code> → N task</td><td>WF + M/L</td></tr>
+      <tr><td><b>B</b> WF pure</td><td>"tạo feature Achievements"</td><td>0a match + scaffold thuần, skip planner</td><td>WF</td></tr>
+      <tr><td><b>C</b> WF hybrid</td><td>scaffold + logic custom</td><td>0a + task-planner plan <b>delta only</b></td><td>M/L + Backed by</td></tr>
+      <tr><td><b>D</b> XS</td><td>đổi hằng số</td><td>draft thẳng</td><td>XS</td></tr>
+      <tr><td><b>E</b> S</td><td>bug fix ≤2 file</td><td>codegraph 1–3 file</td><td>S</td></tr>
+      <tr><td><b>F</b> M-simple</td><td>1 screen theo pattern</td><td>main-context, tự sinh JSON</td><td>M</td></tr>
+      <tr><td><b>G</b> M-complex/L</td><td>IAP flow, save migration</td><td>task-planner (opus) → present → user chỉnh</td><td>M/L</td></tr>
+    </table></div>
+
+    <h2><span class="pill p-cap">/planning-system</span> — GDD lớn → N task</h2>
+    <p class="lead">Design-first: validate thiết kế qua các stage, rồi batch-ground mapping thành N task theo dependency order. Profile co giãn độ sâu.</p>
+    <div class="grid g3">
+      <div class="card" style="margin:0"><h3 style="margin-top:0"><span class="badge">LITE</span></h3><div class="small">Không economy/backend VÀ ≤5 sub-feature → bỏ 03, 05 chỉ Lens 1+3. Cắt ~40–60% token.</div></div>
+      <div class="card" style="margin:0"><h3 style="margin-top:0"><span class="badge">STANDARD</span></h3><div class="small">Economy HOẶC 6–15 sub-feature. <b>Mặc định khi thiếu tín hiệu.</b> Full flow.</div></div>
+      <div class="card" style="margin:0"><h3 style="margin-top:0"><span class="badge">EPIC</span></h3><div class="small">Backend/PvP/social HOẶC &gt;15 sub-feature → Module Split → 05+06 per-module.</div></div>
+    </div>
+    <div class="card">
+      <p style="margin:0 0 6px"><b>Stage pipeline</b> (subagent/stage, stage sau ăn artifact stage trước):</p>
+      <p class="mono" style="margin:4px 0">04 feature-analysis → <span class="badge">Architecture.md</span> · 05 tech-spec → <span class="badge">TechSpec.md</span> (4-lens audit) · 06 mapping → <span class="badge">Implementation.md</span> (§10.1–10.7)</p>
+      <div class="small">stage-result <code>{OK | QUESTIONS | ABORT}</code>: QUESTIONS → hỏi user ≤3 câu → re-spawn ĐÚNG stage. Batch output: MỘT timestamp + <code>NN</code> topo (= thứ tự thực thi), mỗi task mang <code>Context docs</code> + <code>Depends on</code>; trộn nhiều tier.</div>
+    </div>
+
+    <h2><span class="pill p-gold">Mockup pipeline</span> — UI ground truth (tích hợp ui-catalog)</h2>
+    <div class="note"><b>Capability gate:</b> UI-kit <b>sinh từ ui-catalog của project hiện tại</b>; <code>ui-kit-sync.py</code> extract geometry/màu từ prefab thật. Fresh project chưa export catalog phải dừng với prerequisite rõ ràng, không copy generated catalog từ game khác. Template name trong spec = token id (<code>ui.currency.single</code>). Default contract <b>1080×2400</b>.</div>
+    <div class="card">
+      <p style="margin:0 0 8px"><b>Generate = autonomous</b> (parallel-safe) · <b>Approve = HUMAN-ONLY</b> (serial, bất đồng bộ — không dừng planning):</p>
+      <table>
+        <tr><th>groundTruth</th><th>Nghĩa</th></tr>
+        <tr><td><code>...&lt;S&gt;.png</code></td><td><span class="pill p-exec">Đã approve</span> — PNG đóng băng là contract</td></tr>
+        <tr><td><code>PENDING-APPROVAL:&lt;html&gt;</code></td><td>Draft có, chờ human duyệt ở <code>/ui-mockup</code></td></tr>
+        <tr><td><code>PENDING-MOCKUP</code></td><td>Chưa draft — <code>/ui-mockup</code> sẽ draft nốt</td></tr>
+        <tr><td><code>clone:&lt;Prefab&gt;</code></td><td>Khỏi mockup — nhái layout prefab có sẵn (tra ui-catalog)</td></tr>
+      </table>
+      <div class="small"><code>promote --check</code> xuất <code>mockup_warnings</code> (<span class="pill p-warn">hard blocker</span>) khi còn <code>PENDING-*</code>. Khi build: <code>ui-visual-reviewer</code> chụp màn độc lập so PNG tại Phase A/B/C.</div>
+    </div>
+
+    <h2><span class="pill p-queue">/add-to-backlog</span> — pick vào queue</h2>
+    <div class="card">
+      <div class="step"><div class="n">1–3</div><div class="b"><b>LIST → DISPLAY → PICK</b> — theo task order (timestamp, NN); user chọn <code>1</code> / <code>1,3</code> / <code>1-3</code> / <code>all</code></div></div>
+      <div class="step"><div class="n">4.5</div><div class="b"><b>PRECHECK</b> — <code>promote --check</code>: 3 hard blocker → <span class="pill p-warn">tier_errors</span> <span class="pill p-warn">dependency_warnings</span> <span class="pill p-warn">mockup_warnings</span></div></div>
+      <div class="step"><div class="n">5</div><div class="b"><b>PROMOTE</b> — gán NNN + git mv planning→todo + append bullet + self-lint. Sort theo <b>task order</b>, KHÔNG bucket priority (giữ dependency chain).</div></div>
+    </div>
+  </section>
+
+  <!-- ============ EXECUTE ============ -->
+  <section class="panelview" id="execute">
+    <h2><span class="pill p-exec">/run-backlog</span> — pipeline 11 bước</h2>
+    <p class="lead">Loop tự động: pick task đầu, implement, qua quality gate (auto-fix ≤2 vòng/gate), mark done, push <code>agent/dev</code>. Không tạo PR.</p>
+    <div class="card">
+      <div class="step"><div class="n">1</div><div class="b"><b>PICK</b> — <code>backlog-ops pick</code> (todo | in-progress resume | empty → <span class="pill p-warn">PAUSED</span>)</div></div>
+      <div class="step"><div class="n">1b</div><div class="b"><b>REQUIRES</b> — <code>**Requires:** unity-editor</code> + Editor không sống → <code>defer</code> (còn task headless) hoặc <span class="pill p-warn">EDITOR_REQUIRED</span></div></div>
+      <div class="step"><div class="n">2</div><div class="b"><b>BRANCH</b> — checkout <code>agent/dev</code> + merge <code>$BASE_BRANCH</code> (conflict → <span class="pill p-warn">BRANCH_BLOCKED</span>)</div></div>
+      <div class="step"><div class="n">3</div><div class="b"><b>START</b> — <code>backlog-ops start</code>: todo → in-progress</div></div>
+      <div class="step"><div class="n">4</div><div class="b"><b>CONTEXT</b> — đọc rules + task + <code>$CONTEXT_DOCS</code> + code liên quan</div></div>
+      <div class="step"><div class="n">5</div><div class="b"><b>IMPLEMENT</b> — 5.0 WF shortcut (load command, Context docs input ưu tiên 0, <code>/new-ui</code> groundTruth gate) → code → <code>git add</code> → 5b 3-tier compile → 5c tier guard</div></div>
+      <div class="step"><div class="n">6</div><div class="b"><b>REVIEW</b> — preflight → detect sensitive/perf → spawn code-reviewer (+perf +security) <b>song song</b> → auto-fix ≤2</div></div>
+      <div class="step"><div class="n">7</div><div class="b"><b>VERIFY</b> — qa-verifier → auto-fix ≤2 → final preflight</div></div>
+      <div class="step"><div class="n">7.5</div><div class="b"><b>SMOKE</b> — runtime smoke (M/L, orchestrator chạy Unity MCP): play mode + console assert + invariant suite + screenshot</div></div>
+      <div class="step"><div class="n">8–9</div><div class="b"><b>DONE + SHIP</b> — <code>backlog-ops done</code> + completion summary → lint → commit + push <code>agent/dev</code></div></div>
+    </div>
+
+    <h2>Tier guard — cắt gate theo tier (STEP 5c)</h2>
+    <div class="card"><table>
+      <tr><th>Tier</th><th>Gate chạy</th></tr>
+      <tr><td><span class="badge">XS</span></td><td>Preflight. Pass → thẳng DONE. Bỏ mọi reviewer + verify + smoke.</td></tr>
+      <tr><td><span class="badge">S</span></td><td>Preflight + code-reviewer (+perf nếu perf-sensitive +security nếu sensitive). Bỏ qa-verifier + smoke.</td></tr>
+      <tr><td><span class="badge">M/L</span></td><td>Full pipeline: STEP 6 + 7 + 7.5.</td></tr>
+    </table></div>
+
+    <h2>Reviewers &amp; subagents</h2>
+    <div class="card"><table>
+      <tr><th>Agent</th><th>Role</th><th>Spawn khi</th></tr>
+      <tr><td><b>code-reviewer</b></td><td>Conventions (FeatureBaseController, UIManager, UniTask, TigerForge, localize, magic number)</td><td>Mọi task (trừ XS pass)</td></tr>
+      <tr><td><b>performance-reviewer</b></td><td>GC alloc hot path, LINQ/string loop, Find/GetComponent, pooling, canvas rebuild, O(n²)</td><td><code>$PERF_SENSITIVE</code></td></tr>
+      <tr><td><b>security-auditor</b></td><td>Credential leak, IAP integrity, save tampering, input validation</td><td><code>$SENSITIVE</code> (bất kể tier)</td></tr>
+      <tr><td><b>qa-verifier</b></td><td>Cross-check acceptance criteria với diff → manual_verify_steps</td><td>M/L sau review</td></tr>
+      <tr><td><b>ui-visual-reviewer</b></td><td>Chụp Unity MCP độc lập so groundTruth + hard rules create-ui</td><td>Checkpoint Phase A/B/C UI</td></tr>
+    </table></div>
+
+    <h2>Compile check 3-tier (5b)</h2>
+    <div class="card">
+      <p style="margin:0"><span class="badge">1</span> Unity Editor MCP <span class="arrow" style="display:inline">→</span> <span class="badge">2</span> <code>dotnet build</code> <span class="arrow" style="display:inline">→</span> <span class="badge">3</span> Unity batch mode. Dừng ở tier đầu <b>chạy được</b>; fix loop ≤2 vòng; skip chỉ khi cả 3 không chạy được. (Unity không có <code>npm run lint</code>.)</p>
+    </div>
+
+    <h2>Stop tokens (không bao giờ bypass)</h2>
+    <div class="stopgrid">
+      <div class="s"><b>PAUSED</b><br><span class="small">TODO rỗng</span></div>
+      <div class="s"><b>DEFERRED</b><br><span class="small">cần Editor, có task khác (không phải stop)</span></div>
+      <div class="s"><b>EDITOR_REQUIRED</b><br><span class="small">mọi task còn lại cần Editor</span></div>
+      <div class="s"><b>BRANCH_BLOCKED</b><br><span class="small">merge conflict</span></div>
+      <div class="s"><b>NO_CHANGES</b><br><span class="small">implement không ra diff</span></div>
+      <div class="s"><b>COMPILE_BLOCKED</b><br><span class="small">lỗi compile sau 2 vòng</span></div>
+      <div class="s"><b>PREFLIGHT_BLOCKED</b><br><span class="small">critical finding còn</span></div>
+      <div class="s"><b>MOCKUP_BLOCKED</b><br><span class="small">groundTruth PENDING</span></div>
+      <div class="s"><b>REVIEW_BLOCKED</b><br><span class="small">reviewer block sau 2 vòng</span></div>
+      <div class="s"><b>VERIFY_BLOCKED</b><br><span class="small">qa-verifier fail sau 2 vòng</span></div>
+      <div class="s"><b>RUNTIME_BLOCKED</b><br><span class="small">smoke fail sau 2 vòng</span></div>
+    </div>
+
+    <h2>backlog-ops.py &amp; chạy loop</h2>
+    <pre>backlog-ops.py  lint | pick | start &lt;NNN&gt; | done &lt;NNN&gt; | demote &lt;NNN&gt;
+                defer &lt;NNN&gt;                    # task cần Editor → cuối queue
+                promote &lt;planning.md&gt;...        # gán NNN-TIER, block khi đứt dep/mockup
+                promote --check &lt;f&gt;...          # preflight read-only
+                timestamp                       # filename planning
+
+# macOS loop runner (controller, mỗi task 1 cửa sổ Terminal):
+.claude/scripts/run-backlog-loop.sh --auto-model-by-tier --max-iterations 5</pre>
+    <div class="small">Branch model: <code>agent/dev</code> base theo <code>$BASE_BRANCH</code> (= <code>develop</code>); user merge tay <code>agent/dev → develop</code> sau khi chạy manual verify. Chỉ push <code>agent/dev</code>, không PR.</div>
+  </section>
+
+  <!-- ============ DIAGRAM ============ -->
+  <section class="panelview" id="diagram">
+    <h2>Diagram — vòng đời một task</h2>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--cap)"></i> Capture</span>
+      <span><i class="dot" style="background:var(--queue)"></i> Queue</span>
+      <span><i class="dot" style="background:var(--exec)"></i> Execute</span>
+      <span><i class="dot" style="background:var(--gold)"></i> Mockup / human</span>
+      <span><i class="dot" style="background:var(--warn)"></i> Blocker</span>
+    </div>
+
+    <div class="diagram">
+      <div class="flow">
+        <!-- Row 1: capture -->
+        <div class="drow" style="grid-template-columns:1fr 40px 1fr 40px 1fr">
+          <div class="dbox" style="border-color:var(--cap)">
+            <div class="t"><i class="dot" style="background:var(--cap)"></i>intent / GDD</div>
+            <div class="d">user mô tả task hoặc ném doc</div>
+          </div>
+          <div class="dconn">→</div>
+          <div class="dbox" style="border-color:var(--cap)">
+            <div class="t"><i class="dot" style="background:var(--cap)"></i>/planning-task</div>
+            <div class="d">0b new-system? · 0a WF? · triage XS/S/M/L · clarify</div>
+          </div>
+          <div class="dconn">→</div>
+          <div class="dbox">
+            <div class="t"><span class="badge">draft</span></div>
+            <div class="d">task-planner (M/L) hoặc main-context</div>
+          </div>
+        </div>
+
+        <div class="drow" style="grid-template-columns:1fr;margin:6px 0"><div class="dconn" style="justify-content:flex-start;padding-left:22px">↓ <span class="small" style="margin-left:8px">new-system → nhánh /planning-system</span></div></div>
+
+        <!-- Row 2: planning-system + mockup -->
+        <div class="drow" style="grid-template-columns:1.3fr 40px 1fr">
+          <div class="dbox" style="border-color:var(--cap)">
+            <div class="t"><i class="dot" style="background:var(--cap)"></i>/planning-system</div>
+            <div class="d">profile LITE/STD/EPIC → stage 04→05→06 → batch-ground N task (NN topo)</div>
+          </div>
+          <div class="dconn">⇄</div>
+          <div class="dbox" style="border-color:var(--gold)">
+            <div class="t"><i class="dot" style="background:var(--gold)"></i>mockup-drafter</div>
+            <div class="d">.ui-spec.json + HTML (ui-catalog token, 1080×2400) → PENDING-APPROVAL</div>
+          </div>
+        </div>
+
+        <div class="drow" style="grid-template-columns:1fr;margin:6px 0"><div class="dconn" style="justify-content:flex-start;padding-left:22px">↓</div></div>
+
+        <!-- Row 3: planning file + ui-mockup approve -->
+        <div class="drow" style="grid-template-columns:1fr 40px 1fr">
+          <div class="dbox">
+            <div class="t"><span class="badge">backlog/planning/*.md</span></div>
+            <div class="d">chưa queue · không touch BACKLOG.md · không commit</div>
+          </div>
+          <div class="dconn">⇄</div>
+          <div class="dbox" style="border-color:var(--gold)">
+            <div class="t"><i class="dot" style="background:var(--gold)"></i>/ui-mockup (human)</div>
+            <div class="d">Review Dashboard → approve → PNG đóng băng → flip groundTruth</div>
+          </div>
+        </div>
+
+        <div class="drow" style="grid-template-columns:1fr;margin:6px 0"><div class="dconn" style="justify-content:flex-start;padding-left:22px">↓</div></div>
+
+        <!-- Row 4: queue -->
+        <div class="drow" style="grid-template-columns:1.2fr 40px 1fr 40px 1fr">
+          <div class="dbox" style="border-color:var(--queue)">
+            <div class="t"><i class="dot" style="background:var(--queue)"></i>/add-to-backlog</div>
+            <div class="d">pick (task order) · <b>promote --check</b></div>
+          </div>
+          <div class="dconn">→</div>
+          <div class="dbox" style="border-color:var(--warn)">
+            <div class="t"><i class="dot" style="background:var(--warn)"></i>3 blocker</div>
+            <div class="d">tier / dependency / mockup warnings</div>
+          </div>
+          <div class="dconn">→</div>
+          <div class="dbox" style="border-color:var(--queue)">
+            <div class="t"><span class="badge">backlog/todo/NNN-*.md</span></div>
+            <div class="d">promote gán NNN, update BACKLOG.md</div>
+          </div>
+        </div>
+
+        <div class="drow" style="grid-template-columns:1fr;margin:6px 0"><div class="dconn" style="justify-content:flex-start;padding-left:22px">↓</div></div>
+
+        <!-- Row 5: execute pipeline -->
+        <div class="dbox" style="border-color:var(--exec);padding:14px 16px">
+          <div class="t" style="margin-bottom:8px"><i class="dot" style="background:var(--exec)"></i>/run-backlog — pipeline</div>
+          <div class="drow" style="grid-template-columns:repeat(6,1fr);gap:8px">
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">1 PICK</div><div class="d">1b requires gate</div></div>
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">2–4 BRANCH</div><div class="d">agent/dev + context</div></div>
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">5 IMPLEMENT</div><div class="d">WF · compile 3-tier</div></div>
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">6 REVIEW</div><div class="d">code+perf+sec ‖</div></div>
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">7 VERIFY</div><div class="d">qa-verifier</div></div>
+            <div class="dbox" style="padding:8px 10px"><div class="t" style="font-size:12px">7.5 SMOKE</div><div class="d">Unity play (M/L)</div></div>
+          </div>
+          <div class="d" style="margin-top:8px;text-align:center">mỗi gate auto-fix ≤2 vòng · fail → <span style="color:var(--warn)">*_BLOCKED</span> stop token</div>
+        </div>
+
+        <div class="drow" style="grid-template-columns:1fr;margin:6px 0"><div class="dconn" style="justify-content:flex-start;padding-left:22px">↓</div></div>
+
+        <!-- Row 6: done -->
+        <div class="drow" style="grid-template-columns:1fr 40px 1.4fr">
+          <div class="dbox" style="border-color:var(--exec)">
+            <div class="t"><i class="dot" style="background:var(--exec)"></i>8–9 DONE + SHIP</div>
+            <div class="d">in-progress → done/ · completion summary</div>
+          </div>
+          <div class="dconn">→</div>
+          <div class="dbox" style="border-color:var(--exec)">
+            <div class="t"><span class="badge">commit + push agent/dev</span> <span class="small">(no PR)</span></div>
+            <div class="d">user merge tay agent/dev → develop sau khi chạy manual verify steps</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:20px"><b>Deterministic bookkeeping xuyên suốt:</b> mọi mũi tên đổi trạng thái file (planning→todo→in-progress→done) + sửa <code>BACKLOG.md</code> đều chạy qua <code>backlog-ops.py</code> (tự lint sau mỗi mutate). Model không bao giờ hand-edit index.</div>
+  </section>
+
+  <footer>
+    Unity Project · Hệ thống Backlog &amp; Autonomous Task Execution · bản kỹ thuật đầy đủ: <code>.claude/docs/backlog-system.md</code> · flow theo case: <code>.claude/docs/planning-task-flow.md</code>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var tabs=document.getElementById('tabs');
+  tabs.addEventListener('click',function(e){
+    var b=e.target.closest('.tab'); if(!b)return;
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+    document.querySelectorAll('.panelview').forEach(function(p){p.classList.remove('active')});
+    b.classList.add('active');
+    document.getElementById(b.dataset.t).classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+  var root=document.documentElement, btn=document.getElementById('themeToggle');
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark':'light'; }
+    root.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  });
+})();
+</script>
+</body>
+</html>

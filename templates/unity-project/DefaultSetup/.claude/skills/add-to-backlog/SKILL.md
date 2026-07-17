@@ -14,8 +14,8 @@ This skill is the counterpart to `/planning-task`:
 Since picking is a single-user serial operation, there is no race condition on `BACKLOG.md`.
 
 The layout you operate on:
-- `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (you read + move from here)
-- `backlog/todo/NNN-<slug>.md` = queued task (the promote script moves files here)
+- `backlog/planning/<timestamp>[-<NN>]-<TIER>-<slug>.md` = drafted, not yet queued (you read + move from here; `NN` = topo index of a `/planning-system` batch)
+- `backlog/todo/NNN-<TIER>-<slug>.md` = queued task (the promote script moves files here)
 - `BACKLOG.md` = index (the promote script appends the bullets)
 
 ---
@@ -28,6 +28,7 @@ The layout you operate on:
 [2] DISPLAY          → show indexed list in TASK ORDER (lowest index / oldest first)
 [3] PICK             → user selects 1 / multiple / range / all
 [4] OVERRIDE         → optional priority TAG override (metadata only; does NOT reorder queue. tier CANNOT be changed)
+[4.5] PRECHECK       → backlog-ops promote --check: read-only blockers (tier_errors / dependency_warnings / mockup_warnings)
 [5] PROMOTE          → backlog-ops promote: assigns NNN + git mv planning → todo + appends bullets + self-lints
 [6] REPORT           → summarize what was picked and where
 ```
@@ -74,10 +75,10 @@ Then exit.
 Render each planning task as an indexed line, in **task order** (the STEP 1 sort):
 
 ```
-[1] [S]  [HIGH]   Bootstrap CSV pipeline      — 2026-05-22 09:15
-[2] [M]  [HIGH]   Author balance CSV tables   — 2026-05-22 09:15
-[3] [S]  [HIGH]   Author config CSV model     — 2026-05-22 09:15
-[4] [M]  [MEDIUM] New shop popup feature      — 2026-05-23 14:23
+[1] [S]  [HIGH]   Re-bootstrap CSV pipeline   — 2026-06-24 09:35
+[2] [M]  [HIGH]   Author balance CSV tables   — 2026-06-24 09:35
+[3] [S]  [HIGH]   Author AchievementConfig CSV — 2026-06-24 09:35
+[4] [M]  [MEDIUM] Insight/Ascension CSVs      — 2026-06-24 09:35
 ```
 
 - Pad the tier to 2 characters and priority to 6 characters for column alignment.
@@ -119,6 +120,24 @@ Accept:
 
 **Tier CANNOT be changed.** If the user requests a tier change → reply:
 > *"The tier is a property of the task (determined during capture). If you want to change the tier, edit the `backlog/planning/<filename>.md` file directly and pick again."*
+
+---
+
+## STEP 4.5 — Precheck (read-only, before any mutation)
+
+Run the promote preflight on the picked set:
+
+```bash
+python3 .claude/scripts/backlog-ops.py promote --check backlog/planning/<file1>.md [...]
+```
+
+The JSON returns three blocker lists — **all three are hard blockers**; the mutating promote in STEP 5 enforces the same result, so resolve them here instead of discovering a refused promote:
+
+- `tier_errors` — a task is missing its `**Tier:**` body line or it mismatches the filename tier → fix the planning file (body and filename must agree), then re-run.
+- `dependency_warnings` — a task's `**Depends on:**` target is neither earlier in this batch nor already in todo/in-progress/done → either add the missing upstream file to the pick, or confirm with the user that running out of order is intended (then remove/adjust the `**Depends on:**` line).
+- `mockup_warnings` — a `/new-ui` task's `groundTruth` is still `PENDING-MOCKUP` / `PENDING-APPROVAL:*` → the visual contract is not approved. Tell the user to run `/ui-mockup` (review + approve → PNG) first, or set `groundTruth=clone:<ExistingPrefab>` if the screen only clones an existing layout. Do NOT promote past this.
+
+All lists empty (`ok: true`) → proceed to STEP 5.
 
 ---
 

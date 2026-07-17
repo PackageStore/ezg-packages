@@ -9,7 +9,7 @@ Tasks use **tier-specific templates**. Pick the one matching the task size (the 
 | **M** | [_TEMPLATE_M.md](_TEMPLATE_M.md) | Multi-file feature, new UI screen/popup, new controller, new save field. 3–8 files. |
 | **L** | [_TEMPLATE_L.md](_TEMPLATE_L.md) | Cross-cutting: new IAP/purchase flow, save migration, new system integration, 9+ files. |
 
-**Workflow-backed (orthogonal to tier):** [_TEMPLATE_WF.md](_TEMPLATE_WF.md) — pure scaffold matching a `/new-*` command (`/new-feature`, `/new-ui`). `/planning-task` STEP 0a detects these and skips the Plan subagent; the filename still carries the real exec tier. See the template for the registry (and why `/new-package` and `/new-class` are excluded).
+**Workflow-backed (orthogonal to tier):** [_TEMPLATE_WF.md](_TEMPLATE_WF.md) — pure scaffold matching a `/new-*` command (`/new-feature`, `/new-ui`). `/planning-task` STEP 0a detects these and skips the task-planner subagent; the filename still carries the real exec tier. See the template for the registry (and why `/new-package` and `/new-class` are excluded).
 
 **Auto-bump rules** (override tier upward if any signal matches):
 - Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M.
@@ -18,9 +18,13 @@ Tasks use **tier-specific templates**. Pick the one matching the task size (the 
 - Touches `Auth*`, `Token*`, `Session*` → at least M.
 - Touches >2 feature modules or >8 files → L.
 
+**Body tier (source of truth):** every template has a `**Tier:** X` line right under the title. Fill it with the exec tier you chose (must match the `<TIER>` in the filename — `backlog-ops.py lint` enforces filename == body == bullet). This is what `run-backlog` reads first to gate its quality gates; the BACKLOG.md bullet `[Tier]` is only a mirror.
+
+**Batch / design-pipeline optional fields** (semantics in `_TEMPLATE_WF.md`; comment blocks in M/L templates): `**Context docs:**` (design docs with the concrete values), `**Depends on:**` (dependency edges — `promote` warns when broken), `**Requires:** unity-editor` (task cannot run headless — run-backlog defers it when no Editor is live), `**Needs mockup:** yes` (HYBRID task building a NEW screen not backed by `/new-ui` — swept by `/ui-mockup`). Fill them with REAL values or DELETE the line — never leave template placeholders.
+
 **Lifecycle:**
-- `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (`/planning-task` writes here)
-- `backlog/todo/NNN-<slug>.md` = queued for `run-backlog` (`/add-to-backlog` picks from planning)
+- `backlog/planning/<timestamp>[-<NN>]-<TIER>-<slug>.md` = drafted, not yet queued (`/planning-task` writes here; `/planning-system` batches add the `NN` topo index)
+- `backlog/todo/NNN-<TIER>-<slug>.md` = queued for `run-backlog` (`/add-to-backlog` picks from planning)
 - `backlog/in-progress/` and `backlog/done/` = managed by `run-backlog`
 
-**Filename convention for todo/:** `NNN-short-slug.md` where `NNN` = next sequential number across all of `todo/`, `in-progress/`, `done/`.
+**Filename convention for todo/:** `NNN-TIER-short-slug.md` where `NNN` = next sequential number across all of `todo/`, `in-progress/`, `done/` (files promoted before 2026-07-13 use the legacy tier-less `NNN-short-slug.md`).

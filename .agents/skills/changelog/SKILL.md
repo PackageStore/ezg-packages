@@ -129,11 +129,16 @@ Không cần hỏi ý kiến user cho bước này, luôn tự động thực th
 
 **Thông tin kết nối**:
 - **Bot Token**: đọc từ biến môi trường `$DISCORD_BOT_TOKEN`. File này được commit lên GitHub — KHÔNG hardcode token vào đây.
+  - Local: token nằm trong `scripts/.env` (gitignored), phải nạp thủ công — shell KHÔNG tự đọc file này.
+  - CI: token đến từ repo secret, đã có sẵn trong env nên bước nạp bị bỏ qua.
 - **Thread ID (Channel ID)**: `1518955197345435809`
 
 **Lệnh thi hành**:
-Dùng `jq` để escape JSON an toàn:
+Nạp token nếu shell chưa có, rồi dùng `jq` để escape JSON an toàn:
 ```bash
+[ -z "$DISCORD_BOT_TOKEN" ] && [ -f scripts/.env ] && \
+  export DISCORD_BOT_TOKEN="$(grep -E '^DISCORD_BOT_TOKEN=' scripts/.env | cut -d= -f2-)"
+
 jq -n --arg content "NỘI DUNG CHANGELOG" '{content: $content}' | curl -X POST "https://discord.com/api/v10/channels/1518955197345435809/messages" \
      -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
      -H "Content-Type: application/json" \

@@ -9,14 +9,15 @@ Tasks live as **individual files** in `backlog/{todo,in-progress,done}/`. This f
 - Agent gets the next task using `python3 .claude/scripts/backlog-ops.py pick` (reads this index, returns JSON), then reads exactly that task file
 - When starting work: `backlog-ops.py start <NNN>` (git mv todo → in-progress + updates the `## IN PROGRESS` section here)
 - When done: `backlog-ops.py done <NNN>` (git mv in-progress → done + removes bullet)
+- If a task declares `**Requires:** unity-editor` and no Editor is live: `backlog-ops.py defer <NNN>` moves its bullet to the tail of TODO without moving the task file
 - DO NOT hand-edit this index file — all state transitions go through `backlog-ops.py`; `backlog-ops.py lint` checks directory↔index consistency
 - Detailed format: see `backlog/_TEMPLATE.md`
 
 ## Ordering Rules in TODO
 
-- Tasks are ordered by **insertion order** (FIFO): earlier-added on top, later-added below — do NOT sort by priority/rarity. `run-backlog` always picks the first task in the list.
+- Tasks are ordered by **insertion order** (FIFO), except a `/planning-system` batch whose dependency/topological order is preserved by its shared timestamp + batch index. `run-backlog` always picks the first task in the list.
 - The `[PRIORITY]` tag (HIGH/MEDIUM/LOW) is **metadata only**, it does NOT change a task's position in the queue.
-- NNN ascends with insertion order; the filename `NNN-slug.md` is also the execution order.
+- NNN ascends with insertion order. New files use `NNN-TIER-slug.md`; `backlog-ops.py lint` enforces filename tier = body tier = index tier. Legacy `NNN-slug.md` files remain readable.
 
 ---
 

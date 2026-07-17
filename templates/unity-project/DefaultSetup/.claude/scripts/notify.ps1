@@ -2,6 +2,7 @@
 # Translates automation stop conditions and events into structured Discord Embeds.
 #
 # Usage: powershell -File notify.ps1 -Event TASK_COMPLETED -Task "..." [-Url "..."] [-Details "..."]
+#          [-Tokens "..."] [-Progress "5/12"] [-Duration "00:04:12"] [-Breakdown "..."]
 
 param(
     [Parameter(Mandatory = $true)]
@@ -9,7 +10,14 @@ param(
     [string]$Task = "",
     [string]$Details = "",
     [string]$Url = "",
-    [string]$Tokens = ""
+    [string]$Tokens = "",
+    # "<current>/<total>" position of this task in the whole backlog (e.g. "5/12").
+    [string]$Progress = "",
+    # Wall-clock time this task's iteration took, e.g. "00:04:12".
+    [string]$Duration = "",
+    # Pre-formatted per-tool time+token table (from Get-TimingTokenBreakdown). Empty when the
+    # caller has nothing to analyze - the breakdown field below is only added when non-empty.
+    [string]$Breakdown = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +59,26 @@ switch ($Event) {
         $description = "QA Verifier reported unmet acceptance criteria after 2 fix rounds."
         $color = $COLOR_ERROR
     }
+    "RUNTIME_BLOCKED" {
+        $title = "🔴 Runtime Smoke Blocked"
+        $description = "Runtime smoke still fails after the allowed fix rounds."
+        $color = $COLOR_ERROR
+    }
+    "VISUAL_BLOCKED" {
+        $title = "🔴 Visual Review Blocked"
+        $description = "The live Unity UI still diverges from its approved visual contract after the allowed fix rounds."
+        $color = $COLOR_ERROR
+    }
+    "MOCKUP_BLOCKED" {
+        $title = "🟠 Mockup Approval Required"
+        $description = "A UI task reached execution without an approved visual contract."
+        $color = $COLOR_WARNING
+    }
+    "EDITOR_REQUIRED" {
+        $title = "🟠 Unity Editor Required"
+        $description = "All remaining runnable tasks require a live Unity Editor instance."
+        $color = $COLOR_WARNING
+    }
     "CLI_ERROR" {
         $title = "🔴 Automation CLI Error"
         $description = "The agent CLI exited with a non-zero status. The loop stopped unexpectedly."
@@ -61,6 +89,15 @@ switch ($Event) {
         $description = "An automation stop condition or event occurred."
         $color = $COLOR_WARNING
     }
+}
+
+# Fold "which task in the backlog" + "how long it took" into the title so
+# they're visible without opening the embed body, e.g. "(Task 14/90, 00:04:12)".
+$titleSuffixParts = @()
+if ($Progress) { $titleSuffixParts += "Task $Progress" }
+if ($Duration) { $titleSuffixParts += $Duration }
+if ($titleSuffixParts.Count -gt 0) {
+    $title = "$title (" + ($titleSuffixParts -join ", ") + ")"
 }
 
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -83,16 +120,26 @@ $detailsValue = "$fence`n$detailsText`n$fence"
 
 # Construct the embed object, then serialize. ConvertTo-Json handles all escaping.
 $tokenVal = if ($Tokens) { $Tokens } else { "N/A" }
+$fields = [System.Collections.ArrayList]@(
+    [ordered]@{ name = "Task"; value = $taskFieldVal; inline = $true }
+    [ordered]@{ name = "Token Usage"; value = $tokenVal; inline = $true }
+    [ordered]@{ name = "Details / Error Log"; value = $detailsValue; inline = $false }
+)
+
+# Only add the breakdown field when the caller actually had something to analyze
+# (empty for BACKLOG_EMPTY, and for any event where the log couldn't be parsed).
+if ($Breakdown) {
+    $breakdownText = $Breakdown
+    if ($breakdownText.Length -gt 1000) { $breakdownText = $breakdownText.Substring(0, 1000) + "..." }
+    [void]$fields.Add([ordered]@{ name = "Time & Token Breakdown (approx., per tool)"; value = "$fence`n$breakdownText`n$fence"; inline = $false })
+}
+
 $embed = [ordered]@{
     title       = $title
     description = $description
     color       = $color
     timestamp   = $timestamp
-    fields      = @(
-        [ordered]@{ name = "Task"; value = $taskFieldVal; inline = $true }
-        [ordered]@{ name = "Token Usage"; value = $tokenVal; inline = $true }
-        [ordered]@{ name = "Details / Error Log"; value = $detailsValue; inline = $false }
-    )
+    fields      = $fields
 }
 
 $embedJson = $embed | ConvertTo-Json -Depth 6 -Compress
