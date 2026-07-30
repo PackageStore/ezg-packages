@@ -1,3 +1,34 @@
+## [0.2.6] - 2026-07-30
+
+### Fixed
+- **`BasePostProcessor.GenAsset` no longer silently keeps stale data.** When a CSV collapses to
+  exactly one group, `CsvReader.Deserialize` returns a single object instead of an array while the
+  target field is `Model[]`, so `field.SetValue` threw. The old code caught it, logged a vague
+  warning ("Chỉ có một phần tử...") and `return`ed — leaving the `.asset` with its **previous**
+  contents. Designers saw "import succeeded" while the game kept running old numbers. The single
+  object is now wrapped into a 1-element array, and any remaining failure is a `LogError` that says
+  explicitly the asset was left untouched. (This fix already existed in the game project the module
+  was extracted from; it was lost during packaging.)
+- `GenAsset` now guards against a null target field (collection with neither a `Model[]` field nor
+  `dataGroups`) instead of throwing a `NullReferenceException`.
+- `CsvImportManager.ImportAllData` uses `ImportAssetOptions.ForceUpdate` instead of `Default`.
+  `Default` is skipped by Unity when the content hash is unchanged, so "Force Reload all data CSV"
+  could silently do nothing in exactly the case it exists for — a stale `.asset` next to an
+  unchanged `.csv`.
+
+### Changed
+- CSVs whose collection implements `ICsvCustomData` no longer require a matching `<Name>Model`
+  class. The collection parses the raw text itself (e.g. `LanguageData` in the Localize module),
+  so demanding a model class only produced a spurious "Data class not found" skip.
+- `AssetPathGenerate.Generate()` sorts entries ordinally. The order used to follow
+  `Directory.EnumerateFiles`, which is filesystem-dependent — the generated `CsvAssetDir.cs`
+  reshuffled between macOS and Windows, causing git churn and needless recompiles.
+  **One-off effect:** the first run after upgrading rewrites `CsvAssetDir.cs` (and therefore any
+  file generated from it) in sorted order. Content is equivalent; only ordering changes.
+- `ImportAllData` reports what actually happened (`Reimport N/M CSV có thay đổi` /
+  `Không CSV nào thay đổi`) instead of an unconditional "Load success", and drops cache entries
+  whose CSV no longer exists so the MD5 cache file stops accumulating dead paths.
+
 ## [0.2.5] - 2026-07-03
 
 ### Fixed

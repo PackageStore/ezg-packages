@@ -165,7 +165,9 @@ namespace Ezg.Package.CsvReader
                     continue;
                 }
 
-                if (classData == null)
+                // Collection tự parse CSV (ICsvCustomData) thì không cần model class — vd LanguageData
+                // của module Localize nhận thẳng raw text. Chỉ bắt buộc có model cho pipeline mặc định.
+                if (classData == null && !typeof(ICsvCustomData).IsAssignableFrom(classCollection))
                 {
                     Debug.LogWarning($"[CsvImport] Skip '{str}': Data class '{className}' not found.");
                     continue;
@@ -218,15 +220,34 @@ namespace Ezg.Package.CsvReader
                 field = gm.GetType().GetField("dataGroups",
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+            if (field == null)
+            {
+                Debug.LogError($"[CsvImport] {assetfile}: '{classCollection.Name}' không có field kiểu " +
+                               $"'{classData.Name}[]' lẫn field 'dataGroups' — ASSET GIỮ NGUYÊN DATA CŨ.");
+                return;
+            }
+
             // Fully-qualified: type 'CsvReader' trùng tên với leaf namespace 'Ezg.Package.CsvReader'.
             var value = global::Ezg.Package.CsvReader.CsvReader.Deserialize(data.text, classData, assetfile);
+
+            // CSV chỉ còn ĐÚNG 1 group -> Deserialize trả về 1 object thay vì mảng, trong khi field là
+            // Model[] => SetValue ném lỗi. Trước đây chỗ này chỉ log warning rồi return, tức asset ÂM THẦM
+            // không được ghi lại (data cũ vẫn chạy). Bọc lại thành mảng 1 phần tử cho đúng.
+            if (value != null && field.FieldType.IsArray && !value.GetType().IsArray)
+            {
+                var single = Array.CreateInstance(field.FieldType.GetElementType(), 1);
+                single.SetValue(value, 0);
+                value = single;
+            }
+
             try
             {
                 field.SetValue(gm, value);
             }
-            catch
+            catch (Exception ex)
             {
-                Debug.LogWarning("Chỉ có một phần tử, cần sửa lại cấu trúc data của: " + classData);
+                Debug.LogError($"[CsvImport] Không set được data cho {assetfile} (type {classData}): {ex.Message}" +
+                               " — ASSET GIỮ NGUYÊN DATA CŨ, cần sửa cấu trúc CSV.");
                 return;
             }
 

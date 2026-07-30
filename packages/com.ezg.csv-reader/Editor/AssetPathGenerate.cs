@@ -23,6 +23,10 @@ namespace Ezg.Package.CsvReader
 
             AddCsvConfigEntries(entries, orderedKeys);
 
+            // Thứ tự của Directory.EnumerateFiles phụ thuộc filesystem (macOS vs Windows khác nhau),
+            // nên file sinh ra đổi thứ tự giữa các máy => git diff rác + recompile vô ích. Sort cố định.
+            orderedKeys.Sort(StringComparer.Ordinal);
+
             var propertiesBuf = new StringBuilder();
             foreach (var key in orderedKeys)
                 propertiesBuf.Append(string.Format(FORMAT, key, entries[key]));

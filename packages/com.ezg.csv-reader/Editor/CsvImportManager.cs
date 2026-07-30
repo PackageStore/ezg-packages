@@ -26,18 +26,22 @@ namespace Ezg.Package.CsvReader
         {
             if (isForce)
             {
+                var forcedPaths = CsvPathUtility.EnumerateManagedCsvAssetPaths().ToArray();
+
                 AssetDatabase.StartAssetEditing();
                 try
                 {
-                    foreach (var path in CsvPathUtility.EnumerateManagedCsvAssetPaths())
-                        AssetDatabase.ImportAsset(path, ImportAssetOptions.Default);
+                    // ForceUpdate (không phải Default): Default bỏ qua khi content hash của Unity không đổi,
+                    // nên "Force reload" sẽ im lặng không làm gì trong trường hợp .asset stale mà .csv thì y nguyên.
+                    foreach (var path in forcedPaths)
+                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                 }
                 finally
                 {
                     AssetDatabase.StopAssetEditing();
                 }
 
-                Debug.Log("[CsvImportManager] Load success");
+                Debug.Log($"[CsvImportManager] Force reimport {forcedPaths.Length} CSV.");
                 return;
             }
 
@@ -78,7 +82,7 @@ namespace Ezg.Package.CsvReader
                 try
                 {
                     foreach (var path in changedPaths)
-                        AssetDatabase.ImportAsset(path, ImportAssetOptions.Default);
+                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                 }
                 finally
                 {
@@ -86,13 +90,20 @@ namespace Ezg.Package.CsvReader
                 }
             }
 
+            // Cache chỉ giữ file còn tồn tại: entry của CSV đã xoá/đổi tên tích tụ mãi trong file tracked
+            // bởi git, gây diff rác và làm cache phình ra vô nghĩa.
+            var livePaths = new HashSet<string>(allCsv.Select(f => CsvPathUtility.ToAssetPath(f.FullName)));
             using (var sw = new StreamWriter(cacheFilePath))
             {
                 foreach (var entry in allInfo)
-                    sw.WriteLine($"{entry.Key};{entry.Value}");
+                    if (livePaths.Contains(entry.Key))
+                        sw.WriteLine($"{entry.Key};{entry.Value}");
             }
 
-            Debug.Log("[CsvImportManager] Load success");
+            Debug.Log(changedPaths.Count > 0
+                ? $"[CsvImportManager] Reimport {changedPaths.Count}/{allCsv.Length} CSV có thay đổi."
+                : $"[CsvImportManager] Không CSV nào thay đổi ({allCsv.Length} file đã up-to-date) — " +
+                  "dùng 'Force Reload all data CSV' nếu cần dựng lại asset.");
         }
 
         #endregion
