@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.2] - 2026-07-30
+### Fixed
+- Apple Unity Plug-ins priming no longer misses the environment type. `Type.GetType` with a short assembly name only searches assemblies that are already loaded, so in batchmode it intermittently reported "not in project" even though the package was installed — and when that happened no native library was copied and the iOS link failed with hundreds of undefined `_NSString_*` / `_NSObject_*` symbols. Resolution now falls back to Unity's `TypeCache` and an assembly scan.
+
 ## [0.1.1] - 2026-07-30
 ### Added
 - Inject the Android manifest declarations that `com.unity.mobile.notifications` fails to emit in batchmode builds: the `UnityNotificationManager` receiver, `custom_notification_android_activity` and `exact_scheduling` meta-data, `POST_NOTIFICATIONS`, and — when enabled in the notification settings — the boot receiver and exact-alarm permissions. Values are read from `ProjectSettings/NotificationsSettings.asset`, never hardcoded.

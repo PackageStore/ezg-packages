@@ -35,7 +35,8 @@ namespace Ezg.VoodooSdk.Editor
         /// <summary>Chạy sớm — native library phải sẵn sàng trước khi Unity sinh Xcode project.</summary>
         public int callbackOrder => -100;
 
-        private const string TypeName = "Apple.Core.ApplePlugInEnvironment, Apple.Core.Editor";
+        private const string EnvironmentTypeFullName = "Apple.Core.ApplePlugInEnvironment";
+        private const string TypeName = EnvironmentTypeFullName + ", Apple.Core.Editor";
         private const int MaxTicks = 120;
         private const int TickDelayMs = 250;
 
@@ -59,7 +60,7 @@ namespace Ezg.VoodooSdk.Editor
             if (!Application.isBatchMode)
                 return; // GUI tick bình thường, không cần can thiệp.
 
-            var type = Type.GetType(TypeName);
+            Type type = ResolveEnvironmentType();
             if (type == null)
                 return; // Project không dùng Apple Unity Plug-ins.
 
@@ -90,6 +91,42 @@ namespace Ezg.VoodooSdk.Editor
 
             Debug.LogWarning($"[VoodooSdk] Apple Unity Plug-ins vẫn ở '{initializing}' sau {MaxTicks} tick. " +
                              "Kiểm tra thư mục ApplePluginLibraries trong Xcode project sau khi build.");
+        }
+
+        #endregion
+
+        #region Private
+
+        /// <summary>
+        /// Tìm <c>Apple.Core.ApplePlugInEnvironment</c> một cách chắc chắn.
+        ///
+        /// KHÔNG dùng riêng <see cref="Type.GetType(string)"/> với tên assembly dạng ngắn:
+        /// nó chỉ tra trong các assembly ĐÃ nạp, nên tuỳ thời điểm mà lúc thấy lúc không —
+        /// build batchmode từng báo "không có trong project" dù package vẫn ở đó, khiến native
+        /// library không được copy và link iOS vỡ với undefined <c>_NSString_*</c>.
+        ///
+        /// <c>TypeCache</c> của Unity index sẵn mọi type nên không phụ thuộc trạng thái nạp.
+        /// </summary>
+        private static Type ResolveEnvironmentType()
+        {
+            Type type = Type.GetType(TypeName);
+            if (type != null)
+                return type;
+
+            foreach (Type candidate in TypeCache.GetTypesDerivedFrom<AssetPostprocessor>())
+            {
+                if (candidate.FullName == EnvironmentTypeFullName)
+                    return candidate;
+            }
+
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                type = assembly.GetType(EnvironmentTypeFullName, throwOnError: false);
+                if (type != null)
+                    return type;
+            }
+
+            return null;
         }
 
         #endregion
