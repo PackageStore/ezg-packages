@@ -62,6 +62,9 @@ namespace Ezg.VoodooSdk.Editor
             string activity = config?.firebase?.notificationActivity;
             if (!string.IsNullOrWhiteSpace(activity))
                 RestoreFirebase(activity);
+
+            // Bù khai báo mà com.unity.mobile.notifications không tiêm được ở build batchmode.
+            VoodooSdkNotificationManifest.Inject();
         }
 
         #endregion
@@ -76,6 +79,7 @@ namespace Ezg.VoodooSdk.Editor
                 return;
 
             string original = File.ReadAllText(path);
+            bool hadBom = VoodooSdkXml.HasUtf8Bom(path);
             string patched = Regex.Replace(original, "tools:replace=\"([^\"]*)\"", match =>
             {
                 string[] names = match.Groups[1].Value
@@ -90,7 +94,7 @@ namespace Ezg.VoodooSdk.Editor
             if (patched == original)
                 return;
 
-            File.WriteAllText(path, patched);
+            VoodooSdkXml.Write(path, patched, hadBom);
             Debug.Log($"[VoodooSdk] Đã bổ sung namespace cho tools:replace trong {projectRelative}.");
         }
 
@@ -102,6 +106,7 @@ namespace Ezg.VoodooSdk.Editor
                 return;
 
             string content = File.ReadAllText(path);
+            bool hadBom = VoodooSdkXml.HasUtf8Bom(path);
             bool changed = false;
 
             if (content.Contains(UnityActivity))
@@ -113,27 +118,22 @@ namespace Ezg.VoodooSdk.Editor
             if (!content.Contains(ForwardingService) && content.Contains(ThirdPartyMarker))
             {
                 string service =
-                    "    <!-- FIREBASE MESSAGING (khôi phục bởi com.ezg.voodoo-sdk) -->\n" +
-                    $"    <service android:name=\"{ForwardingService}\"\n" +
-                    "             android:permission=\"android.permission.BIND_JOB_SERVICE\"\n" +
-                    "             android:exported=\"true\" />\n    ";
-                content = ReplaceFirst(content, ThirdPartyMarker, service + ThirdPartyMarker);
+                    "<!-- FIREBASE MESSAGING (khôi phục bởi com.ezg.voodoo-sdk) -->\n" +
+                    $"<service android:name=\"{ForwardingService}\"\n" +
+                    "         android:permission=\"android.permission.BIND_JOB_SERVICE\"\n" +
+                    "         android:exported=\"true\" />\n";
+                content = VoodooSdkXml.InsertBeforeLineOf(content, ThirdPartyMarker, service);
                 changed = true;
             }
 
             if (!changed)
                 return;
 
-            File.WriteAllText(path, content);
+            VoodooSdkXml.Write(path, content, hadBom);
             Debug.Log($"[VoodooSdk] Đã khôi phục Firebase Messaging trong {VoodooSdkPaths.AndroidManifest} " +
                       $"(launcher = {notificationActivity}).");
         }
 
-        private static string ReplaceFirst(string source, string search, string replacement)
-        {
-            int index = source.IndexOf(search, System.StringComparison.Ordinal);
-            return index < 0 ? source : source.Remove(index, search.Length).Insert(index, replacement);
-        }
 
         #endregion
     }

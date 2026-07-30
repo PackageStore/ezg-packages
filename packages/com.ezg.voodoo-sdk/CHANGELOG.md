@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1] - 2026-07-30
+### Added
+- Inject the Android manifest declarations that `com.unity.mobile.notifications` fails to emit in batchmode builds: the `UnityNotificationManager` receiver, `custom_notification_android_activity` and `exact_scheduling` meta-data, `POST_NOTIFICATIONS`, and — when enabled in the notification settings — the boot receiver and exact-alarm permissions. Values are read from `ProjectSettings/NotificationsSettings.asset`, never hardcoded.
+- `VoodooSdkXml` helper that preserves the UTF-8 BOM and inserts XML at line boundaries with matching indentation, so manifest edits produce clean diffs.
+
+### Fixed
+- Firebase Messaging restore and `tools:replace` qualification no longer strip the manifest's UTF-8 BOM or break indentation of the tag they insert before.
+
 ## [0.1.0] - 2026-07-30
 ### Added
 - Initial release extracted from `Assets/_Project/Features/_Shared/VoodooSdk`.

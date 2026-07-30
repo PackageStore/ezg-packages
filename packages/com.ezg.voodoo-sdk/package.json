@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.voodoo-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Voodoo SDK",
-  "description": "Editor automation for installing Voodoo's TinySauce publishing SDK (which bundles Adjust, GameAnalytics, the Facebook SDK and VoodooAnalytics) into a Unity project. You fill in one JSON config file with your keys and run a single menu item or batchmode entry point; the package generates TinySauce's settings asset, wires the Facebook app id and client token, adds the required scripting define and scene prefab, and validates the setup. It also re-applies every compatibility fix automatically at build time — restoring Firebase Messaging entries that TinySauce overwrites in AndroidManifest.xml, qualifying tools:replace attribute names for AGP 8.x, stripping AppLovin MAX callbacks that GameAnalytics still references but MAX v13 removed, and priming Apple's Unity plug-ins so headless iOS builds link. Editor-only, no runtime code, no third-party dependencies.",
+  "description": "Editor automation for installing Voodoo's TinySauce publishing SDK (which bundles Adjust, GameAnalytics, the Facebook SDK and VoodooAnalytics) into a Unity project. You fill in one JSON config file with your keys and run a single menu item or batchmode entry point; the package generates TinySauce's settings asset, wires the Facebook app id and client token, adds the required scripting define and scene prefab, and validates the setup. It also re-applies every compatibility fix automatically at build time \u2014 restoring Firebase Messaging entries that TinySauce overwrites in AndroidManifest.xml, qualifying tools:replace attribute names for AGP 8.x, stripping AppLovin MAX callbacks that GameAnalytics still references but MAX v13 removed, and priming Apple's Unity plug-ins so headless iOS builds link. Editor-only, no runtime code, no third-party dependencies.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
