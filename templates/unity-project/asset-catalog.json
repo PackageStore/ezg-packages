@@ -337,6 +337,15 @@
       "sha256": "055882a995e09f0d3bd1dd901b285a53b012e4e7ce53102d63d6b935c7c95bdb",
       "installedByDefault": false,
       "markerPaths": [ "Assets/KayKit/Packs/KayKit - Forest Nature Pack (for Unity)" ]
+    },
+    {
+      "name": "TinySauce-8.2.0",
+      "fileName": "TinySauce-8.2.0.unitypackage",
+      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/TinySauce-8.2.0.unitypackage",
+      "category": "SDK",
+      "sha256": "609d15710639ab46e00a75eb12b4800d80858427b2c63c81d6dc66b6518bfaaa",
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/VoodooPackages/TinySauce" ]
     }
   ]
 }

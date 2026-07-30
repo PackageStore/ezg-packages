@@ -4,6 +4,11 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-07-30
+
+**Added**
+- Thêm asset TinySauce-8.2.0 (Voodoo Sauce SDK) vào `asset-catalog.json` — SDK bên thứ ba, cài optional qua Asset Installer, file + catalog đã publish lên R2.
+
 ## 2026-07-17
 
 **Added**
