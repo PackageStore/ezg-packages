@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "templateVersion": "local-dev",
   "dependencies": {
-    "appsflyer-unity-plugin": "https://github.com/AppsFlyerSDK/appsflyer-unity-plugin.git#upm",
+    "appsflyer-unity-plugin": "https://github.com/AppsFlyerSDK/appsflyer-unity-plugin.git#v6.18.1",
     "com.anklebreaker.unity-mcp": "https://github.com/AnkleBreaker-Studio/unity-mcp-plugin.git",
     "com.apple.unityplugin.core": "file:com.apple.unityplugin.core-3.2.0.tgz",
     "com.apple.unityplugin.gamekit": "file:com.apple.unityplugin.gamekit-4.0.1.tgz",
@@ -72,7 +72,7 @@
     "com.unity.mobile.notifications": "2.4.3",
     "com.unity.multiplayer.center": "1.0.0",
     "com.unity.nuget.newtonsoft-json": "3.2.1",
-    "com.unity.purchasing": "5.3.1",
+    "com.unity.purchasing": "5.4.0",
     "com.unity.recorder": "5.1.6",
     "com.unity.render-pipelines.core": "17.2.0",
     "com.unity.test-framework": "1.6.0",
