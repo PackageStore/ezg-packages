@@ -121,6 +121,5 @@ namespace Ezg.Core.Extensions
 
         #endregion
     }
-
-#endif
 }
+#endif

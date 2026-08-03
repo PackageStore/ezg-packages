@@ -4,6 +4,11 @@ All notable changes to `com.ezg.core` will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-08-03
+
+### Fixed
+- `AssetBundleExtractor` and `PrePlaySceneReloader` closed their `#if UNITY_EDITOR` guard *before* the namespace's closing brace, so every non-Editor build stripped the `#endif` block and left a dangling `}` → the package failed to compile in player builds. Moved `#endif` after the namespace brace in both files.
+
 ## [0.1.2] - 2026-06-25
 
 ### Removed
