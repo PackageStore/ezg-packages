@@ -39,9 +39,13 @@ These are referenced by the asmdef but are **not** package dependencies — inst
 - **`com.unity.purchasing`** (Unity IAP) — assemblies `UnityEngine.Purchasing`, `.Stores`, `.Security`,
   `.SecurityStub`, `.SecurityCore`.
 - **`com.unity.services.core`** — assemblies `Unity.Services.Core`, `Unity.Services.Core.Environments`.
-- **AppsFlyer SDK** — imported manually (not a UPM package); provides the `AppsFlyer` assembly. Used directly in
-  the validated-purchase flow (`InAppManager.ValidateAndSend` / `AppsFlyerListener`). A project that does not use
-  AppsFlyer must remove/abstract that path behind `IIapReporter`.
+- **AppsFlyer SDK** — imported manually (not a UPM package); provides the `AppsFlyer` assembly. `AppsFlyerListener`
+  routes conversion/attribution data back to the game via `IIapReporter`, and implements the Purchase Connector
+  (ROI360) revenue data source. IAP revenue is reported by the AppsFlyer Purchase Connector, configured by the
+  consumer project (see `GameInitialize.InitPurchaseConnector`), **not** by this package. The legacy
+  `InAppManager.ValidateAndSend` / `validateAndSendInAppPurchase` path (and its `AppsFlyerPublicKey` config) is
+  kept for reference but is no longer called — do not re-enable it alongside the Purchase Connector or IAP revenue
+  is double-counted. A project that does not use AppsFlyer must abstract that path behind `IIapReporter`.
 
 ---
 

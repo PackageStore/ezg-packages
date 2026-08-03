@@ -82,6 +82,8 @@ namespace Ezg.Feature.IAP
         private bool m_ProductsFetched;
         private bool m_Connecting;
         private bool m_RestoreInProgress;
+        private bool m_PendingRecoveryFetch;      // đang fetch để recover pending/deferred order (khác luồng restore)
+        private bool m_ProcessPendingConfigured;  // đã set ProcessPendingOrdersOnPurchasesFetched(true) chưa
         private bool isTestIAP = false;
 
         // Các dependency game được inject qua Configure() — module không gắn cứng code game.
@@ -89,6 +91,7 @@ namespace Ezg.Feature.IAP
         private IIapProfile _profile;
         private IIapReporter _reporter;
         private IapSecurityConfig _config;
+        private IIapOrderLedger _ledger;
 
         private CultureInfo cultureInfo;
         private AppsFlyerListener _listener;
@@ -154,6 +157,26 @@ namespace Ezg.Feature.IAP
 
             m_StoreController.OnPurchasesFetched += OnPurchasesFetched;
             m_StoreController.OnPurchasesFetchFailed += OnPurchasesFetchFailed;
+
+            if (!m_ProcessPendingConfigured)
+            {
+                // Khi fetch purchases, các order pending/deferred-approved sẽ được đẩy vào OnPurchasePending
+                // để grant + confirm. Đây là cơ chế recover chính thức cho CẢ Android lẫn iOS.
+                m_StoreController.ProcessPendingOrdersOnPurchasesFetched(true);
+                m_ProcessPendingConfigured = true;
+            }
+        }
+
+        /// <summary>
+        /// Quay lại foreground: hỏi lại store xem có order nào chưa giao không (deferred iOS Ask-to-Buy
+        /// được approve lúc background, hoặc mua rồi rời app). Chạy cho cả Android và iOS.
+        /// </summary>
+        private void OnApplicationPause(bool paused)
+        {
+            if (!paused && m_StoreConnected && m_ProductsFetched)
+            {
+                RecoverPendingPurchases();
+            }
         }
 
         #endregion
@@ -163,12 +186,14 @@ namespace Ezg.Feature.IAP
         /// <summary>
         /// Inject các dependency game vào module. PHẢI gọi trước Init()/Buy().
         /// </summary>
-        public void Configure(IPurchasing purchasing, IIapProfile profile, IIapReporter reporter, IapSecurityConfig config)
+        public void Configure(IPurchasing purchasing, IIapProfile profile, IIapReporter reporter,
+            IapSecurityConfig config, IIapOrderLedger ledger = null)
         {
             _purchasing = purchasing;
             _profile = profile;
             _reporter = reporter;
             _config = config;
+            _ledger = ledger;
         }
 
         public void SetIsTestIAP(bool isTest)
@@ -483,6 +508,30 @@ namespace Ezg.Feature.IAP
             m_StoreController.FetchProducts(definitions);
         }
 
+        /// <summary>
+        /// Kéo các order chưa confirm (pending / deferred đã approve / mua bị gián đoạn) từ store về
+        /// OnPurchasePending để grant + ConfirmPurchase. Dùng chung Android & iOS.
+        /// Khác RestorePurchases(): restore là hành động do user bấm để lấy lại non-consumable (iOS
+        /// cần RestoreTransactions); còn đây là recover tự động các giao dịch đang treo.
+        /// </summary>
+        private void RecoverPendingPurchases()
+        {
+            if (m_StoreController == null || !m_StoreConnected)
+            {
+                return;
+            }
+
+            // Không chồng lên luồng restore (nút Restore) đang chạy — tránh double xử lý OnPurchasesFetched.
+            if (m_RestoreInProgress || m_PendingRecoveryFetch)
+            {
+                return;
+            }
+
+            m_PendingRecoveryFetch = true;
+            Debug.Log("[IAP] Recover pending purchases...");
+            m_StoreController.FetchPurchases();
+        }
+
         void BuyProductID(string productId)
         {
             // If Purchasing has been initialized ...
@@ -571,20 +620,25 @@ namespace Ezg.Feature.IAP
             return validPurchase;
         }
 
-        private void BuyCompleted(Product product, IOrderInfo orderInfo)
+        /// <summary>
+        /// Cấp quà + lưu bền vững (KHÔNG analytics). Trả về true nếu đã cấp thành công.
+        /// Tách khỏi analytics để OnPurchasePending có thể ghi ledger NGAY sau khi grant + save,
+        /// TRƯỚC khi bắn analytics — thu hẹp khe crash double-grant và tránh analytics bắn trùng.
+        /// </summary>
+        private bool GrantRewards(Product product)
         {
             productId = product.definition.id;
 
             if (m_StoreController == null)
             {
                 Debug.LogError("Purchasing is not initialized");
-                return;
+                return false;
             }
 
             if (m_StoreController.GetProductById(productId) == null)
             {
                 Debug.LogError("No product has id " + productId);
-                return;
+                return false;
             }
 
             m_PurchaseInProgress = false;
@@ -594,13 +648,26 @@ namespace Ezg.Feature.IAP
             callbackPay?.Invoke();
             callbackPay = null;
 
+            // Cấp quà thật + Save (game xử lý trong OnPurchaseComplete → GrantIapByProductId → ReceiveRewards).
+            _purchasing.OnPurchaseComplete?.Invoke(productId);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Bắn analytics/đồng bộ cho một giao dịch đã grant. Gọi SAU khi đã MarkGranted (ledger),
+        /// nên nếu app chết trước bước này, phiên sau order re-deliver sẽ bị guard chặn grant lại
+        /// → analytics KHÔNG bắn trùng.
+        /// </summary>
+        private void SendPurchaseAnalytics(Product product, IOrderInfo orderInfo)
+        {
             var info = BuildPurchaseInfo(product, orderInfo);
 
             _reporter?.OnPurchaseValidated(info);
 
-            ValidateAndSend(product, orderInfo);
-
-            _purchasing.OnPurchaseComplete?.Invoke(productId);
+            // ROI360: doanh thu IAP do AppsFlyer Purchase Connector tự validate + log.
+            // KHÔNG gọi ValidateAndSend nữa để tránh đếm trùng doanh thu. Xem GameInitialize.InitPurchaseConnector.
+            // ValidateAndSend(product, orderInfo);
 
             _profile?.RecordPurchase(product.metadata.localizedPrice);
 
@@ -722,6 +789,12 @@ namespace Ezg.Feature.IAP
             m_StoreConnected = true;
             Debug.Log("[IAP] OnStoreConnected");
             FetchProducts();
+
+            // Recover order treo (deferred approve / mua gián đoạn) NGAY khi store connect — độc lập với
+            // FetchProducts. Trước đây recover chỉ gọi trong OnProductsFetched; khi fetch products FAIL
+            // một phần ("could not retrieve the attached subset") thì luồng recover không chạy → deferred
+            // không nhận quà. FetchPurchases chỉ cần store đã connect, không cần products fetch xong.
+            RecoverPendingPurchases();
         }
 
         private void OnStoreDisconnected(StoreConnectionFailureDescription description)
@@ -735,7 +808,20 @@ namespace Ezg.Feature.IAP
         {
             m_ProductsFetched = true;
             Debug.Log("[IAP] OnProductsFetched: " + products.Count);
-            LogProductDefinitions();
+
+            // Recover TRƯỚC khi log — recover là chức năng quan trọng (kéo order deferred/interrupted về
+            // để grant quà), KHÔNG được phụ thuộc vào LogProductDefinitions (chỉ để debug, có thể ném
+            // exception với product thiếu metadata khi fetch fail một phần → trước đây nuốt luôn recover).
+            RecoverPendingPurchases();
+
+            try
+            {
+                LogProductDefinitions();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[IAP] LogProductDefinitions error (bỏ qua): " + e);
+            }
         }
 
         private void OnProductsFetchFailed(ProductFetchFailed failure)
@@ -757,6 +843,19 @@ namespace Ezg.Feature.IAP
                 return;
             }
 
+            // Chụp transactionID NGAY BÂY GIỜ — sau ConfirmPurchase, IOrderInfo.TransactionID sẽ rỗng.
+            string transactionId = order.Info != null ? order.Info.TransactionID : null;
+
+            // Idempotent guard: order này đã grant + save ở phiên trước (app chết trước ConfirmPurchase,
+            // giờ store re-deliver) → CHỈ confirm lại để đóng transaction, KHÔNG grant lần hai.
+            if (_ledger != null && !string.IsNullOrEmpty(transactionId) && _ledger.IsGranted(transactionId))
+            {
+                Debug.Log("[IAP] Order đã grant trước đó, chỉ confirm lại (chống double-grant): " + transactionId);
+                callbackPay = null;
+                m_StoreController.ConfirmPurchase(order);
+                return;
+            }
+
             bool validPurchase;
             try
             {
@@ -770,13 +869,26 @@ namespace Ezg.Feature.IAP
                 return;
             }
 
-            // Khi đã quyết định finalize: ConfirmPurchase PHẢI chạy đúng 1 lần — kể cả khi BuyCompleted
+            // Khi đã quyết định finalize: ConfirmPurchase PHẢI chạy đúng 1 lần — kể cả khi grant/analytics
             // ném exception SAU khi đã grant — để transaction không bị re-deliver lần sau → double-grant.
             try
             {
                 if (validPurchase)
                 {
-                    BuyCompleted(product, order.Info);
+                    // THỨ TỰ QUAN TRỌNG (chống double-grant + analytics trùng):
+                    // 1) Cấp quà + Save.  2) Ghi ledger "đã grant".  3) Bắn analytics.
+                    // Nếu app chết giữa (1) và (2): phiên sau re-deliver → guard trên KHÔNG chặn → grant lại
+                    //   (khe hẹp nhất có thể — chỉ giữa hai lần Save, không còn xen analytics).
+                    // Nếu app chết giữa (2) và (3): phiên sau re-deliver → guard CHẶN → không grant lại,
+                    //   analytics cũng không bắn trùng (nó nằm sau ledger).
+                    var granted = GrantRewards(product);
+
+                    if (granted && _ledger != null && !string.IsNullOrEmpty(transactionId))
+                        _ledger.MarkGranted(transactionId, product.definition.id);
+
+                    if (granted)
+                        SendPurchaseAnalytics(product, order.Info);
+
                     Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", product.definition.id));
                 }
                 else
@@ -839,28 +951,58 @@ namespace Ezg.Feature.IAP
 
         private void OnPurchasesFetched(Orders orders)
         {
-            // Chỉ xử lý khi đang trong luồng restore (Google Play).
-            if (!m_RestoreInProgress)
+            Debug.Log(string.Format(
+                "[IAP] OnPurchasesFetched. Pending: {0}, Deferred: {1}, Confirmed: {2} (restore={3}, recover={4})",
+                orders.PendingOrders.Count, orders.DeferredOrders.Count, orders.ConfirmedOrders.Count,
+                m_RestoreInProgress, m_PendingRecoveryFetch));
+
+            var wasRestore = m_RestoreInProgress;
+            m_RestoreInProgress = false;
+            m_PendingRecoveryFetch = false;
+
+            // Chủ động forward từng PendingOrder vào OnPurchasePending để grant + ConfirmPurchase.
+            // KHÔNG dựa hoàn toàn vào ProcessPendingOrdersOnPurchasesFetched auto-route: theo report của
+            // Unity (IAP v5), có trường hợp FetchPurchases không tự route pending order → deferred approved
+            // không nhận được quà. Đây là workaround Unity staff khuyến nghị (tự đẩy pending order ra listener).
+            // OnPurchasePending có guard idempotent theo transactionId nên forward lại KHÔNG gây double-grant.
+            if (orders.PendingOrders != null)
             {
-                return;
+                foreach (var pending in orders.PendingOrders)
+                {
+                    try
+                    {
+                        OnPurchasePending(pending);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError("[IAP] Error forwarding pending order: " + e);
+                    }
+                }
             }
 
-            m_RestoreInProgress = false;
-            Debug.Log("[IAP] OnPurchasesFetched (restore). Confirmed: " + orders.ConfirmedOrders.Count);
-            _purchasing.RestoreItem();
-            _purchasing.OnTransactionRestored?.Invoke(true);
+            // Luồng Restore (user bấm nút): báo game khôi phục item.
+            if (wasRestore)
+            {
+                _purchasing.RestoreItem();
+                _purchasing.OnTransactionRestored?.Invoke(true);
+            }
         }
 
         private void OnPurchasesFetchFailed(PurchasesFetchFailureDescription failure)
         {
-            if (!m_RestoreInProgress)
+            if (m_RestoreInProgress)
             {
+                m_RestoreInProgress = false;
+                Debug.LogError("[IAP] OnPurchasesFetchFailed (restore): " + failure.message);
+                _purchasing.OnTransactionRestored?.Invoke(false);
                 return;
             }
 
-            m_RestoreInProgress = false;
-            Debug.LogError("[IAP] OnPurchasesFetchFailed (restore): " + failure.message);
-            _purchasing.OnTransactionRestored?.Invoke(false);
+            if (m_PendingRecoveryFetch)
+            {
+                m_PendingRecoveryFetch = false;
+                Debug.LogWarning("[IAP] OnPurchasesFetchFailed (recover): " + failure.message);
+            }
         }
 
         private void OnTransactionsRestored(bool success, string error)
