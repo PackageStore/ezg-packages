@@ -3,7 +3,8 @@
   "rootNamespace": "",
   "references": [
     "Ezg.Singleton",
-    "MaxSdk.Scripts"
+    "MaxSdk.Scripts",
+    "Unity.Advertisement.IosSupport"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

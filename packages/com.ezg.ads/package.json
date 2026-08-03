@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.ads",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "displayName": "EZG Ads",
-  "description": "Ads mediation module (AppLovin MAX adapter) with injectable analytics tracker and level-based gating. Game-specific analytics, player data and SDK keys are injected from the host project.",
+  "description": "Ads mediation module (AppLovin MAX adapter) with injectable analytics tracker, per-format opt-in and level-based gating. Each project enables only the ad formats it actually uses; calling a disabled format is a safe no-op, so shared code needs no #if branches. Ships a debug provider that bypasses mediation for testing, and reads per-platform SDK keys and ad-unit-ids from an injectable AdsConfig asset — game-specific analytics, player data and keys stay in the host project.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
@@ -14,6 +14,7 @@
     "ezg"
   ],
   "dependencies": {
-    "com.ezg.singleton": "0.1.1"
+    "com.ezg.singleton": "0.1.1",
+    "com.unity.ads.ios-support": "1.0.1"
   }
 }

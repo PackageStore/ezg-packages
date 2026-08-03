@@ -15,6 +15,12 @@ namespace Ezg.Package.AdsManager
 
         private static AdsConfig _config;
 
+        /// <summary>
+        /// Config đang dùng (load lazy từ Resources, hoặc do <see cref="SetConfig" /> inject).
+        /// Có thể null nếu project chưa tạo asset.
+        /// </summary>
+        public static AdsConfig Current => Config;
+
         private static AdsConfig Config
         {
             get

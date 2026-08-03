@@ -1,22 +1,31 @@
 using System;
 using UnityEngine;
+#if UNITY_IOS && !UNITY_EDITOR
+using Unity.Advertisement.IosSupport;
+#endif
 
 namespace Ezg.Package.AdsManager
 {
     /// <summary>
     /// Adapter quảng cáo dùng AppLovin MAX SDK.
-    /// Implement cả <see cref="IAdvertising"/> và <see cref="IRemoteConfigAdvertising"/>.
+    /// Chỉ khởi tạo/đăng ký callback cho những format được bật qua <see cref="Initialize" />
+    /// (xem <see cref="AdsConfig.EnabledFormats" />) — format không bật thì SDK không tạo, không load.
     /// Toàn bộ MAX-specific code được guard bằng #if MEDIATION_MAX.
     /// </summary>
-    public class MaxAdsvertising : IAdvertising, IRemoteConfigAdvertising
+    public class MaxAdsvertising : IAdProvider, IBannerAds, IInterstitialAds, IRewardedAds, IMRecAds,
+        IRemoteConfigAdvertising
     {
         #region Fields
+
+        // Key extra parameter của AppLovin để bật/tắt consent flow (CMP).
+        private const string EXTRA_PARAM_CONSENT_FLOW_ENABLED = "consent_flow_enabled";
 
         public event Action OnBannerLoaded;
         public event Action OnBannerFailed;
 
         private IAdsTracker _tracker = new NullAdsTracker();
         private Func<int> _currentLevelProvider = () => int.MaxValue;
+        private AdFormats _formats = AdFormats.None;
 
         private Action finishVideo;
         private Action skipVideo;
@@ -50,20 +59,28 @@ namespace Ezg.Package.AdsManager
 
         #region Public Methods
 
+        /// <summary> Format này có được project bật hay không. </summary>
+        /// <param name="format">Format cần kiểm tra.</param>
+        /// <returns>True nếu format đang bật.</returns>
+        public bool Supports(AdFormats format) => (_formats & format) != 0;
+
         /// <summary>
-        /// Inject tracker analytics và hàm lấy level hiện tại.
+        /// Inject tracker analytics, hàm lấy level hiện tại và tập format được bật, rồi khởi tạo MAX SDK.
+        /// Chỉ những format nằm trong <paramref name="formats" /> mới được tạo/đăng ký callback.
         /// </summary>
+        /// <param name="formats">Bitmask format mà project bật.</param>
         /// <param name="tracker">Tracker để ghi nhận sự kiện quảng cáo.</param>
         /// <param name="currentLevelProvider">Hàm trả về level hiện tại của người chơi.</param>
-        public void Bind(IAdsTracker tracker, Func<int> currentLevelProvider)
+        public void Initialize(AdFormats formats, IAdsTracker tracker, Func<int> currentLevelProvider)
         {
+            _formats = formats;
             if (tracker != null) _tracker = tracker;
             if (currentLevelProvider != null) _currentLevelProvider = currentLevelProvider;
+            InitAds();
         }
 
         /// <summary>
-        /// Đăng ký toàn bộ MAX SDK callbacks cho rewarded, interstitial, banner.
-        /// Gọi sau khi MAX SDK init xong.
+        /// Đăng ký MAX SDK callbacks cho những format đang bật. Gọi sau khi MAX SDK init xong.
         /// </summary>
         public void InitEvent()
         {
@@ -71,52 +88,61 @@ namespace Ezg.Package.AdsManager
 
             isBannerReady = false;
 
-            #region Reward Video
-
             if (isInit)
             {
                 return;
             }
 
             isInit = true;
-            // Attach callback
-            MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += OnRewardedAdLoadedEvent;
-            MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += OnRewardedAdLoadFailedEvent;
-            MaxSdkCallbacks.Rewarded.OnAdDisplayedEvent += OnRewardedAdDisplayedEvent;
-            MaxSdkCallbacks.Rewarded.OnAdClickedEvent += OnRewardedAdClickedEvent;
-            MaxSdkCallbacks.Rewarded.OnAdRevenuePaidEvent += OnRewardedAdRevenuePaidEvent;
-            MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += OnRewardedAdHiddenEvent;
-            MaxSdkCallbacks.Rewarded.OnAdDisplayFailedEvent += OnRewardedAdFailedToDisplayEvent;
-            MaxSdkCallbacks.Rewarded.OnAdReceivedRewardEvent += OnRewardedAdReceivedRewardEvent;
 
-            // Load the first rewarded ad
-            LoadRewardAds();
+            #region Reward Video
+
+            if (Supports(AdFormats.Rewarded))
+            {
+                MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += OnRewardedAdLoadedEvent;
+                MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += OnRewardedAdLoadFailedEvent;
+                MaxSdkCallbacks.Rewarded.OnAdDisplayedEvent += OnRewardedAdDisplayedEvent;
+                MaxSdkCallbacks.Rewarded.OnAdClickedEvent += OnRewardedAdClickedEvent;
+                MaxSdkCallbacks.Rewarded.OnAdRevenuePaidEvent += OnRewardedAdRevenuePaidEvent;
+                MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += OnRewardedAdHiddenEvent;
+                MaxSdkCallbacks.Rewarded.OnAdDisplayFailedEvent += OnRewardedAdFailedToDisplayEvent;
+                MaxSdkCallbacks.Rewarded.OnAdReceivedRewardEvent += OnRewardedAdReceivedRewardEvent;
+
+                // Load the first rewarded ad
+                LoadRewardAds();
+            }
 
             #endregion
 
             #region Interstitial
 
-            MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += OnInterstitialLoadedEvent;
-            MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += OnInterstitialLoadFailedEvent;
-            MaxSdkCallbacks.Interstitial.OnAdDisplayedEvent += OnInterstitialDisplayedEvent;
-            MaxSdkCallbacks.Interstitial.OnAdClickedEvent += OnInterstitialClickedEvent;
-            MaxSdkCallbacks.Interstitial.OnAdHiddenEvent += OnInterstitialHiddenEvent;
-            MaxSdkCallbacks.Interstitial.OnAdDisplayFailedEvent += OnInterstitialAdFailedToDisplayEvent;
-            MaxSdkCallbacks.Interstitial.OnAdRevenuePaidEvent += OnAdRevenuePaidEventInterstitial;
+            if (Supports(AdFormats.Interstitial))
+            {
+                MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += OnInterstitialLoadedEvent;
+                MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += OnInterstitialLoadFailedEvent;
+                MaxSdkCallbacks.Interstitial.OnAdDisplayedEvent += OnInterstitialDisplayedEvent;
+                MaxSdkCallbacks.Interstitial.OnAdClickedEvent += OnInterstitialClickedEvent;
+                MaxSdkCallbacks.Interstitial.OnAdHiddenEvent += OnInterstitialHiddenEvent;
+                MaxSdkCallbacks.Interstitial.OnAdDisplayFailedEvent += OnInterstitialAdFailedToDisplayEvent;
+                MaxSdkCallbacks.Interstitial.OnAdRevenuePaidEvent += OnAdRevenuePaidEventInterstitial;
 
-            //LoadInterstitial();
+                LoadInterstitial();
+            }
 
             #endregion
 
             #region Banner
 
-            MaxSdkCallbacks.Banner.OnAdLoadedEvent += OnBannerAdLoadedEvent;
-            MaxSdkCallbacks.Banner.OnAdLoadFailedEvent += OnBannerAdLoadFailedEvent;
-            MaxSdkCallbacks.Banner.OnAdClickedEvent += OnBannerAdClickedEvent;
-            MaxSdkCallbacks.Banner.OnAdRevenuePaidEvent += OnBannerAdRevenuePaidEvent;
-            MaxSdkCallbacks.Banner.OnAdExpandedEvent += OnBannerAdExpandedEvent;
-            MaxSdkCallbacks.Banner.OnAdCollapsedEvent += OnBannerAdCollapsedEvent;
-            MaxSdkCallbacks.Banner.OnAdRevenuePaidEvent += OnAdRevenuePaidEventBanner;
+            if (Supports(AdFormats.Banner))
+            {
+                MaxSdkCallbacks.Banner.OnAdLoadedEvent += OnBannerAdLoadedEvent;
+                MaxSdkCallbacks.Banner.OnAdLoadFailedEvent += OnBannerAdLoadFailedEvent;
+                MaxSdkCallbacks.Banner.OnAdClickedEvent += OnBannerAdClickedEvent;
+                MaxSdkCallbacks.Banner.OnAdRevenuePaidEvent += OnBannerAdRevenuePaidEvent;
+                MaxSdkCallbacks.Banner.OnAdExpandedEvent += OnBannerAdExpandedEvent;
+                MaxSdkCallbacks.Banner.OnAdCollapsedEvent += OnBannerAdCollapsedEvent;
+                MaxSdkCallbacks.Banner.OnAdRevenuePaidEvent += OnAdRevenuePaidEventBanner;
+            }
 
             #endregion
 
@@ -125,7 +151,7 @@ namespace Ezg.Package.AdsManager
         }
 
         /// <summary>
-        /// Khởi tạo MAX SDK và thiết lập SDK key.
+        /// Khởi tạo MAX SDK và thiết lập SDK key. Banner chỉ được tạo nếu format Banner đang bật.
         /// </summary>
         public void InitAds()
         {
@@ -134,10 +160,16 @@ namespace Ezg.Package.AdsManager
 
             MaxSdk.SetSdkKey(AppKey);
             //MaxSdk.SetUserId("USER_ID");
-            MaxSdk.InitializeSdk();
-            //MaxSdk.LoadMRec(MediationConstant.Max.MRecStringId);
 
-            //MaxSdk.CreateBanner(MediationConstant.Max.BannerStringId, MaxSdkBase.BannerPosition.BottomCenter);
+            // Phải gọi TRƯỚC InitializeSdk — set sau khi init thì extra parameter không còn tác dụng.
+            DisableConsentFlowIfAttDenied();
+
+            MaxSdk.InitializeSdk();
+
+            if (Supports(AdFormats.Banner))
+            {
+                MaxSdk.CreateBanner(MediationConstant.Max.BannerStringId, MaxSdkBase.BannerPosition.BottomCenter);
+            }
 
             // float currentWidth = Screen.width;
             // float referenceWidth = referenceResolution.x;
@@ -164,6 +196,8 @@ namespace Ezg.Package.AdsManager
         /// <returns>True nếu rewarded ad đã sẵn sàng.</returns>
         public bool IsReadyVideoAds()
         {
+            if (!Supports(AdFormats.Rewarded)) return false;
+
             if (Application.internetReachability == NetworkReachability.ReachableViaLocalAreaNetwork ||
                 Application.internetReachability == NetworkReachability.ReachableViaCarrierDataNetwork)
             {
@@ -180,13 +214,16 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         public void LoadRewardAds()
         {
+            if (!Supports(AdFormats.Rewarded)) return;
     #if MEDIATION_MAX
             MaxSdk.LoadRewardedAd(MediationConstant.Max.RewardedStringId);
     #endif
         }
 
         /// <summary>
-        /// Hiển thị rewarded video. Trên Editor sẽ invoke onFinish ngay lập tức.
+        /// Hiển thị rewarded video. Trên Editor sẽ invoke onFinish ngay lập tức (MAX SDK không serve ad
+        /// thật ngoài device). Muốn chủ động chạy chế độ auto-nhận-thưởng thì bật debugAds trong AdsConfig
+        /// — khi đó <see cref="DebugAdsProvider" /> thay thế adapter này hoàn toàn.
         /// </summary>
         /// <param name="onFinish">Callback khi xem xong và nhận thưởng.</param>
         /// <param name="onClose">Callback khi đóng ad.</param>
@@ -195,6 +232,12 @@ namespace Ezg.Package.AdsManager
         public void ShowRewardVideo(Action onFinish = null, Action onClose = null, Action onFail = null,
             string source = null)
         {
+            if (!Supports(AdFormats.Rewarded))
+            {
+                onFail?.Invoke();
+                return;
+            }
+
             sourceRewardAds = source;
     #if UNITY_EDITOR
             onFinish?.Invoke();
@@ -225,6 +268,8 @@ namespace Ezg.Package.AdsManager
         /// <returns>True nếu interstitial ad đã sẵn sàng.</returns>
         public bool IsInterstitialReady()
         {
+            if (!Supports(AdFormats.Interstitial)) return false;
+
             if (Application.internetReachability == NetworkReachability.ReachableViaLocalAreaNetwork ||
                 Application.internetReachability == NetworkReachability.ReachableViaCarrierDataNetwork)
             {
@@ -241,6 +286,7 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         public void LoadInterstitial()
         {
+            if (!Supports(AdFormats.Interstitial)) return;
     #if MEDIATION_MAX
             MaxSdk.LoadInterstitial(MediationConstant.Max.InterstitialStringId);
     #endif
@@ -257,6 +303,12 @@ namespace Ezg.Package.AdsManager
         public void ShowInterstitial(Action onFinish = null, Action onClose = null, Action onFail = null,
             string source = null)
         {
+            if (!Supports(AdFormats.Interstitial))
+            {
+                onClose?.Invoke();
+                return;
+            }
+
     #if UNITY_EDITOR
             closeInter?.Invoke();
     #else
@@ -285,6 +337,8 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         public void ShowBannerAds()
         {
+            if (!Supports(AdFormats.Banner)) return;
+
             Debug.Log("Request Show Banner Ads");
             if (!IsShowBannerAds) return;
             if (_currentLevelProvider() < ShowBannerAdsFromLevel) return;
@@ -300,6 +354,7 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         public void HideBannerAds()
         {
+            if (!Supports(AdFormats.Banner)) return;
     #if MEDIATION_MAX
             MaxSdk.HideBanner(MediationConstant.Max.BannerStringId);
     #endif
@@ -391,7 +446,7 @@ namespace Ezg.Package.AdsManager
         /// <returns>True nếu <see cref="CanShowInterstitial"/> đang bật.</returns>
         public bool CanShowInter()
         {
-            return CanShowInterstitial;
+            return Supports(AdFormats.Interstitial) && CanShowInterstitial;
         }
 
         #endregion
@@ -399,6 +454,26 @@ namespace Ezg.Package.AdsManager
         #region Private Methods
 
     #if MEDIATION_MAX
+        /// <summary>
+        /// Tắt consent flow (CMP/GDPR) của AppLovin khi user đã từ chối ATT trên iOS.
+        /// Từ chối ATT nghĩa là user không cho tracking, nên KHÔNG hiện lại dialog GDPR nữa
+        /// và báo luôn cho MAX là không có consent.
+        /// Lưu ý: ở lần chạy đầu tiên ATT status còn là NOT_DETERMINED lúc SDK init, nên guard này
+        /// chỉ có hiệu lực từ lần mở app sau — khi trạng thái DENIED/RESTRICTED đã được iOS lưu.
+        /// </summary>
+        private static void DisableConsentFlowIfAttDenied()
+        {
+        #if UNITY_IOS && !UNITY_EDITOR
+            var attStatus = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            if (attStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.DENIED ||
+                attStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.RESTRICTED)
+            {
+                MaxSdk.SetExtraParameter(EXTRA_PARAM_CONSENT_FLOW_ENABLED, "false");
+                MaxSdk.SetHasUserConsent(false);
+            }
+        #endif
+        }
+
         /// <summary>
         /// Tạo <see cref="AdRevenueInfo"/> từ dữ liệu MAX SDK để đẩy cho tracker.
         /// </summary>

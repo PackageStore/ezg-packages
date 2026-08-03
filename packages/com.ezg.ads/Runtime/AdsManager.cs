@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using Ezg.Package.Singleton;
 using UnityEngine;
 
@@ -7,21 +6,34 @@ namespace Ezg.Package.AdsManager
 {
     /// <summary>
     /// Singleton quản lý toàn bộ quảng cáo trong game (rewarded, interstitial, banner, mrec).
-    /// Delegate thực thi cho <see cref="IAdvertising"/> adapter (mặc định là MaxAdsvertising).
+    /// Delegate thực thi cho adapter (mặc định là <see cref="MaxAdsvertising" />).
+    /// <para>
+    /// Chỉ những format được bật trong <see cref="AdsConfig.EnabledFormats" /> mới được khởi tạo.
+    /// Gọi một format không bật là <b>no-op an toàn</b> (không throw, không log lỗi) — nhờ vậy code
+    /// dùng chung giữa các project không cần #if hay xoá callsite khi project không dùng format đó.
+    /// Muốn nhánh theo format thì kiểm tra <see cref="HasBanner" /> / <see cref="HasInterstitial" /> /
+    /// <see cref="HasRewarded" />.
+    /// </para>
     /// </summary>
     public class AdsManager : Singleton<AdsManager>
     {
         #region Fields
 
-        public IAdvertising advertising;
         public IRemoteConfigAdvertising advertisingRemoteConfig;
         public Vector2 size;
         public float intervalTime;
         public bool canShowInter;
         public int count;
 
-        private bool _canLoadBanner = false;
-        private bool _isTestAds = false;
+        private IAdProvider _provider;
+        private IBannerAds _banner;
+        private IInterstitialAds _interstitial;
+        private IRewardedAds _rewarded;
+        private IMRecAds _mrec;
+
+        private bool _initialized;
+        private bool _isTestAds;
+        private bool _isDebugAds;
 
         private IAdsTracker _tracker = new NullAdsTracker();
         private Func<int> _currentLevelProvider = () => int.MaxValue;
@@ -31,19 +43,30 @@ namespace Ezg.Package.AdsManager
 
         #endregion
 
-        #region Initialize
-
-        private void Awake()
-        {
-            InitAds();
-        }
-
-        #endregion
-
         #region Public Methods
 
         /// <summary>
-        /// Inject tracker analytics + nguồn lấy level hiện tại từ host project. Gọi 1 lần lúc bootstrap.
+        /// Đang chạy chế độ debug ads: không có mediation SDK, mọi ad auto-thành-công, không bắn tracking.
+        /// Luôn false ở build production (xem <see cref="AdsConfig.IsDebugAds" />).
+        /// </summary>
+        public bool IsDebugAds => _isDebugAds;
+
+        /// <summary> Project này có bật banner không. </summary>
+        public bool HasBanner => _banner != null;
+
+        /// <summary> Project này có bật interstitial không. </summary>
+        public bool HasInterstitial => _interstitial != null;
+
+        /// <summary> Project này có bật rewarded không. </summary>
+        public bool HasRewarded => _rewarded != null;
+
+        /// <summary> Project này có bật MRec không. </summary>
+        public bool HasMRec => _mrec != null;
+
+        /// <summary>
+        /// Inject tracker analytics + nguồn lấy level hiện tại từ host project, rồi khởi tạo ads
+        /// theo tập format trong <see cref="AdsConfig" />. Gọi 1 lần lúc bootstrap (Splash).
+        /// Gọi lại lần nữa sẽ bị bỏ qua.
         /// </summary>
         /// <param name="tracker">Tracker analytics để ghi nhận sự kiện quảng cáo.</param>
         /// <param name="currentLevelProvider">Hàm trả về level hiện tại của người chơi.</param>
@@ -51,7 +74,8 @@ namespace Ezg.Package.AdsManager
         {
             if (tracker != null) _tracker = tracker;
             if (currentLevelProvider != null) _currentLevelProvider = currentLevelProvider;
-            advertising?.Bind(_tracker, _currentLevelProvider);
+
+            InitAds();
         }
 
         /// <summary>
@@ -69,41 +93,40 @@ namespace Ezg.Package.AdsManager
         /// <returns>True nếu đủ điều kiện hiển thị interstitial.</returns>
         public bool CanShowInter()
         {
-            return advertising.CanShowInter() && canShowInter;
+            return _interstitial != null && _interstitial.CanShowInter() && canShowInter;
         }
 
         #region Reward Ads
 
         /// <summary>
         /// Kiểm tra xem rewarded video có sẵn sàng để hiển thị không.
+        /// Ở chế độ debug ads luôn true (khi format bật) vì <see cref="DebugAdsProvider" /> trả thưởng ngay.
         /// </summary>
-        /// <returns>True nếu rewarded ad đã load xong.</returns>
+        /// <returns>True nếu rewarded ad đã load xong. False nếu project không bật rewarded.</returns>
         public bool IsVideoRewardReady()
         {
-            return advertising.IsReadyVideoAds();
+            return _rewarded != null && _rewarded.IsReadyVideoAds();
         }
 
         /// <summary>
-        /// Hiển thị rewarded video với callback khi hoàn thành.
-        /// </summary>
-        /// <param name="sourceId">Placement/source định danh nơi gọi ad.</param>
-        /// <param name="onFinish">Callback khi người dùng xem xong và nhận thưởng.</param>
-        public void ShowRewardedVideo(string sourceId, Action onFinish = null)
-        {
-            _tracker.OnRewardClick(sourceId);
-            advertising.ShowRewardVideo(onFinish, source: sourceId);
-        }
-
-        /// <summary>
-        /// Hiển thị rewarded video với đầy đủ callback.
+        /// Hiển thị rewarded video.
+        /// Nếu project không bật rewarded thì gọi <paramref name="onFail" /> để caller có đường thoát.
         /// </summary>
         /// <param name="sourceId">Placement/source định danh nơi gọi ad.</param>
         /// <param name="onFinish">Callback khi người dùng xem xong và nhận thưởng.</param>
         /// <param name="onClose">Callback khi người dùng đóng ad trước khi hoàn thành.</param>
         /// <param name="onFail">Callback khi ad thất bại.</param>
-        public void ShowRewardedVideo(string sourceId, Action onFinish = null, Action onClose = null, Action onFail = null)
+        public void ShowRewardedVideo(string sourceId, Action onFinish = null, Action onClose = null,
+            Action onFail = null)
         {
-            advertising.ShowRewardVideo(onFinish, onClose, onFail, source: sourceId);
+            if (_rewarded == null)
+            {
+                onFail?.Invoke();
+                return;
+            }
+
+            _tracker.OnRewardClick(sourceId);
+            _rewarded.ShowRewardVideo(onFinish, onClose, onFail, source: sourceId);
         }
 
         #endregion
@@ -112,11 +135,12 @@ namespace Ezg.Package.AdsManager
 
         /// <summary>
         /// Kiểm tra xem interstitial có sẵn sàng để hiển thị không.
+        /// Ở chế độ debug ads luôn true (khi format bật) vì <see cref="DebugAdsProvider" /> kết thúc ngay.
         /// </summary>
-        /// <returns>True nếu interstitial ad đã load xong.</returns>
+        /// <returns>True nếu interstitial ad đã load xong. False nếu project không bật interstitial.</returns>
         public bool IsInterstitialReady()
         {
-            return advertising.IsInterstitialReady();
+            return _interstitial != null && _interstitial.IsInterstitialReady();
         }
 
         /// <summary>
@@ -124,14 +148,16 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         public void LoadInterstitial()
         {
-            if (!IsInterstitialReady())
+            if (_interstitial == null) return;
+
+            if (!_interstitial.IsInterstitialReady())
             {
-                advertising.LoadInterstitial();
+                _interstitial.LoadInterstitial();
             }
         }
 
         /// <summary>
-        /// Hiển thị interstitial ad.
+        /// Hiển thị interstitial ad. No-op (gọi <paramref name="onClose" />) nếu project không bật interstitial.
         /// </summary>
         /// <param name="onFinish">Callback khi ad hoàn thành.</param>
         /// <param name="onClose">Callback khi người dùng đóng ad.</param>
@@ -140,15 +166,19 @@ namespace Ezg.Package.AdsManager
         public void ShowInterstitial(Action onFinish = null, Action onClose = null, Action onFail = null,
             string source = null)
         {
-    #if UNITY_EDITOR
-            //GoogleAdMobController.Instance.OnAdInterClosedEvent?.Invoke();
-            Debug.Log("Show Inter");
-            count = 0;
-            canShowInter = false;
-            onFinish?.Invoke();
-            return;
-    #endif
-            advertising.ShowInterstitial(onFinish, onClose, onFail, source);
+            if (_interstitial == null)
+            {
+                onClose?.Invoke();
+                return;
+            }
+
+            if (_isDebugAds)
+            {
+                count = 0;
+                canShowInter = false;
+            }
+
+            _interstitial.ShowInterstitial(onFinish, onClose, onFail, source);
         }
 
         #endregion
@@ -156,18 +186,19 @@ namespace Ezg.Package.AdsManager
         #region Banner Ads
 
         /// <summary>
-        /// Load banner ad.
+        /// Load/show banner ad. No-op nếu project không bật banner.
         /// </summary>
         public void LoadBanner()
         {
+            _banner?.ShowBannerAds();
         }
 
         /// <summary>
-        /// Ẩn banner ad.
+        /// Ẩn banner ad. No-op nếu project không bật banner.
         /// </summary>
         public void HideBanner()
         {
-            advertising.HideBannerAds();
+            _banner?.HideBannerAds();
         }
 
         #endregion
@@ -175,28 +206,28 @@ namespace Ezg.Package.AdsManager
         #region Mrec
 
         /// <summary>
-        /// Tạo MRec tại vị trí chỉ định.
+        /// Tạo MRec tại vị trí chỉ định. No-op nếu project không bật MRec.
         /// </summary>
         /// <param name="pos">Vị trí hiển thị MRec.</param>
         public void CreateMRec(Vector2 pos)
         {
-            advertising.CreateMRec(pos);
+            _mrec?.CreateMRec(pos);
         }
 
         /// <summary>
-        /// Hiển thị MRec ad.
+        /// Hiển thị MRec ad. No-op nếu project không bật MRec.
         /// </summary>
         public void ShowMrec()
         {
-            advertising.ShowMRec();
+            _mrec?.ShowMRec();
         }
 
         /// <summary>
-        /// Ẩn MRec ad.
+        /// Ẩn MRec ad. No-op nếu project không bật MRec.
         /// </summary>
         public void HideMrec()
         {
-            advertising.HideMRec();
+            _mrec?.HideMRec();
         }
 
         #endregion
@@ -206,54 +237,69 @@ namespace Ezg.Package.AdsManager
         #region Private Methods
 
         /// <summary>
-        /// Khởi tạo advertising adapter và đăng ký các event.
+        /// Khởi tạo advertising adapter theo tập format bật trong <see cref="AdsConfig" />,
+        /// và chỉ giữ tham chiếu tới những format đó.
         /// </summary>
-        protected void InitAds()
+        private void InitAds()
         {
-            advertising = new MaxAdsvertising();
-            advertisingRemoteConfig = advertising as IRemoteConfigAdvertising;
-            advertising.Bind(_tracker, _currentLevelProvider);
-            advertising.OnBannerLoaded += HandleBannerLoaded;
-            advertising.OnBannerFailed += HandleBannerFailed;
-            advertising.InitAds();
-        }
+            if (_initialized) return;
+            _initialized = true;
 
-        /// <summary>
-        /// Tăng bộ đếm thời gian để tính cooldown giữa các interstitial.
-        /// </summary>
-        private void IntervalTime()
-        {
-            advertisingRemoteConfig.CountTimeShowInterstitialAds++;
-            if (advertisingRemoteConfig.CountTimeShowInterstitialAds >=
-                advertisingRemoteConfig.TimeDelayShowInterstitialAds)
-            {
-                advertisingRemoteConfig.CanShowInterstitial = true;
-            }
-        }
+            var config = MediationConstant.Current;
+            var formats = config != null ? config.EnabledFormats : AdFormats.None;
 
-        /// <summary>
-        /// Coroutine đếm cooldown interstitial theo giây.
-        /// </summary>
-        private IEnumerator Cooldown()
-        {
-            while (true)
+            // Format đã tick trong AdsConfig nhưng bị tự tắt vì thiếu ad-unit-id. Phải báo TÊN format:
+            // nếu không, format biến mất im lặng và triệu chứng chỉ là "đã bật Rewarded mà đọc ra None".
+            var missingId = config != null ? config.MissingIdFormats : AdFormats.None;
+            if (missingId != AdFormats.None)
             {
-                count++;
-                yield return new WaitForSeconds(1);
-                if (count >= intervalTime)
-                {
-                    canShowInter = true;
-                    count = 0;
-                }
+                Debug.LogError($"[Ads] Format [{missingId}] đã bật trong AdsConfig nhưng THIẾU ad-unit-id " +
+                               "→ tự bị tắt. Điền ad-unit-id tương ứng ở Resources/AdsConfig, " +
+                               "hoặc bật debugAds để test mà không cần id.");
             }
+
+            if (formats == AdFormats.None)
+            {
+                var reason = missingId != AdFormats.None
+                    ? $"mọi format đã bật đều thiếu ad-unit-id ([{missingId}])"
+                    : "enabledFormats trong AdsConfig không tick format nào";
+                Debug.LogWarning($"[Ads] Không có format quảng cáo nào khả dụng ({reason}) " +
+                                 "— bỏ qua khởi tạo mediation, mọi lệnh show ad sẽ vào nhánh fail.");
+                return;
+            }
+
+            // Debug ads: provider giả, KHÔNG init mediation SDK / không dùng ad-unit-id thật,
+            // và ép tracker rỗng để không bắn tracking quảng cáo.
+            _isDebugAds = config.IsDebugAds;
+            if (_isDebugAds)
+            {
+                _tracker = new NullAdsTracker();
+            }
+
+            var provider = _isDebugAds
+                ? (IAdProvider)new DebugAdsProvider()
+                : new MaxAdsvertising();
+
+            _provider = provider;
+            advertisingRemoteConfig = provider as IRemoteConfigAdvertising;
+
+            if ((formats & AdFormats.Banner) != 0) _banner = provider as IBannerAds;
+            if ((formats & AdFormats.Interstitial) != 0) _interstitial = provider as IInterstitialAds;
+            if ((formats & AdFormats.Rewarded) != 0) _rewarded = provider as IRewardedAds;
+            if ((formats & AdFormats.MRec) != 0) _mrec = provider as IMRecAds;
+
+            if (_banner != null)
+            {
+                _banner.OnBannerLoaded += HandleBannerLoaded;
+                _banner.OnBannerFailed += HandleBannerFailed;
+            }
+
+            _provider.Initialize(formats, _tracker, _currentLevelProvider);
         }
 
         private void OnApplicationPause(bool isPaused)
         {
-            if (advertising != null)
-            {
-                advertising.OnApplicationPause(isPaused);
-            }
+            _provider?.OnApplicationPause(isPaused);
         }
 
         #endregion
