@@ -4,6 +4,13 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-08-03
+
+**Fixed**
+- `com.coffee.ui-effect` không cài được ("Repository does not contain a package manifest") — Tag `5.11.1` của UIEffect là một Unity project đầy đủ, `package.json` nằm ở `Packages/src` chứ không ở root. Bổ sung `?path=Packages/src` vào git URL.
+- Project init từ template không compile được: `error CS0246: The type or namespace name 'UIShadow' could not be found` tại `Assets/_Project/Editor/Shared/PsdLayerImporter.cs` — UIEffect v5 đã chuyển `UIShadow`/`UIGradient`/`UIShiny` ra `Samples~/v4 Compatible Components/` (thư mục `Samples~` không được Unity compile), trong khi `PsdLayerImporter.cs` và 6 prefab trong `ezg.base.features.unitypackage` vẫn dùng API v4. Bổ sung sample "v4 Compatible Components" (`Assets/Samples/UI Effect/5.11.1/`) vào `ezg.base.features.unitypackage`, giữ nguyên GUID gốc nên prefab tự bind lại (`UIShadow` = `0848bff1…`, `UIGradient` = `3fb48d82…`, `UIShiny` = `f19b7e22…`) và khớp 2 assembly `UIEffect`/`UIEffect-Editor` mà `Ezg.Editor.asmdef` đã tham chiếu sẵn.
+- `asset-catalog.json` khai sai SHA-256 của `ezg.base.features.unitypackage` (`911b3683…`) so với file thật trên R2 → Feature Hub tab "Unity Packages" fail verify khi cài package này. Đồng bộ lại hash ở cả `asset-catalog.json` và `unity-template.json` (`181c8b18…`) và republish catalog.
+
 ## 2026-07-30
 
 **Added**

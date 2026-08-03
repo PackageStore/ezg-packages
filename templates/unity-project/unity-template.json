@@ -7,7 +7,7 @@
     "com.apple.unityplugin.core": "file:com.apple.unityplugin.core-3.2.0.tgz",
     "com.apple.unityplugin.gamekit": "file:com.apple.unityplugin.gamekit-4.0.1.tgz",
     "com.coffee.softmask-for-ugui": "https://github.com/mob-sakai/SoftMaskForUGUI.git?path=Packages/src",
-    "com.coffee.ui-effect": "https://github.com/mob-sakai/UIEffect.git#5.11.1",
+    "com.coffee.ui-effect": "https://github.com/mob-sakai/UIEffect.git?path=Packages/src#5.11.1",
     "com.coffee.ui-particle": "https://github.com/mob-sakai/ParticleEffectForUGUI.git#4.13.2",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.ezg.ads": "0.2.0",
@@ -229,7 +229,7 @@
       {
         "fileName": "ezg.base.features.unitypackage",
         "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
-        "sha256": "d09656bc15f71b87beb13c4681efdbfe2f497ea706b5d4cc85651ec89fb75689"
+        "sha256": "181c8b18bd4a5a5a755f742bdb312c97dd1d4a4a2a870e5f86d92ed72c897d06"
       },
       {
         "fileName": "ezg.base.visuals.unitypackage",
