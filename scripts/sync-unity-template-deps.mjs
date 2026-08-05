@@ -48,7 +48,18 @@ const AUTO_ADD_SCOPE = "com.ezg.";
 
 // Known com.ezg.* packages that are intentionally not part of the base template (e.g.
 // throwaway smoke-test fixtures). Extend this if another such package shows up.
-const SKIP_NEW_PACKAGES = new Set(["com.ezg.sample"]);
+// Without an entry here a removed dependency comes straight back: anything under
+// AUTO_ADD_SCOPE that the template doesn't already name is treated as "new" and re-added.
+const SKIP_NEW_PACKAGES = new Set([
+  "com.ezg.sample",
+  // Gỡ khỏi base template 2026-08-05:
+  // - rpg-stats: code dùng nó (_Shared/RpgStats/*) đã bị xoá khỏi template.
+  // - fast-script-reload: EnableExperimentalAddedFieldsSupport mặc định bật và chỉ tắt được
+  //   qua EditorPrefs (per-máy), gây HarmonyLib "mprotect returned EACCES" mỗi lần domain
+  //   reload trên Apple Silicon. Ai cần thì tự thêm và tự tắt tuỳ chọn đó.
+  "com.ezg.rpg-stats",
+  "com.ezg.fast-script-reload",
+]);
 
 // Insert [key, value] right before the first entry that sorts after `key`, leaving every
 // other entry's position untouched. The file isn't fully alphabetical top to bottom (e.g.

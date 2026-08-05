@@ -13,7 +13,7 @@ This step combines CSV Design and User Data rules.
 ### CSV File Rules
 - **Column Names**: Use `snake_case` (e.g., `tokens_required`)
 - **File Naming**: Match Collection class name without "Collection" suffix
-  - *Example*: `SpeedFeastRaceRoundCollection` → `SpeedFeastRaceRound.csv`
+  - *Example*: `GeneralConfigCollection` → `GeneralConfig.csv`
 - **Location**: `Assets/_Project/Features/<Domain>/<FeatureName>/CsvConfig/` (co-located with the feature)
 
 ### C# Model & Collection Rules

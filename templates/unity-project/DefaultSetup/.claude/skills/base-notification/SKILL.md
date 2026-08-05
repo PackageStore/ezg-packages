@@ -48,9 +48,8 @@ namespace Ezg.Feature.RedDot
     public enum RedDotId
     {
         None,
-        QuestNotif,
-        BattlePassNotif,
         DailyRewardNotif,
+        ShopNotif,
         // Add new types here...
     }
 }
@@ -116,37 +115,38 @@ public class MyFeatureManager
 }
 ```
 
-## Real Examples
+## Example Shapes
 
-### Simple Notification (PiggyBank)
+The only badge the template ships is `ShopNotif`
+(`Features/Monetization/Shop/Store/Scripts/Controller/ShopNotif.cs`) — a stub that always resolves to
+`IsActive = false` because the template has no shop notification rule yet. The two shapes below are
+**illustrative sketches**; replace the service call with your feature's own check.
+
+### Simple Notification
 ```csharp
-internal class PiggyBankNotif : RedDotBadge
+internal class DailyRewardNotif : RedDotBadge
 {
     public override void Execute()
     {
         base.Execute();
-        IsActive = PiggyBankManager.HaveNotif();
+        IsActive = DailyRewardService.HaveNotif();
     }
 }
 ```
 
-### Conditional Notification (LuckySpin)
+### Conditional Notification (Inspector-driven variants)
 ```csharp
-internal class LuckySpinNotif : RedDotBadge
+internal class MyFeatureNotif : RedDotBadge
 {
-    public bool IsTotal;
-    public bool IsLuckySpin;
+    public bool IsAffordableOnly;
     public long ValueCheck;
 
     public override void Execute()
     {
         base.Execute();
-        IsActive = IsTotal 
-            ? PlayerResource.IsEnough(EnumBase.MoneyTypes.LuckySpinCoin, ValueCheck) ||
-              LuckySpinManager.HaveAnyNotif
-            : IsLuckySpin 
-                ? PlayerResource.IsEnough(EnumBase.MoneyTypes.LuckySpinCoin, ValueCheck)
-                : LuckySpinManager.HaveAnyNotif;
+        IsActive = IsAffordableOnly
+            ? PlayerResource.IsEnough(EnumBase.MoneyTypes.Gold, ValueCheck)
+            : MyFeatureService.HaveAnyNotif;
     }
 }
 ```

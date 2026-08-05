@@ -8,9 +8,9 @@ Follow these rules when creating or modifying CSV files and their data models.
 ## CSV File Rules
 - **Column Names**: Use `snake_case` (e.g., `tokens_required`).
 - **File Naming**: The CSV filename MUST match the Collection class name without the "Collection" suffix.
-  - *Example*: `SpeedFeastRaceRoundCollection` class -> `SpeedFeastRaceRound.csv`.
+  - *Example*: `GeneralConfigCollection` class -> `GeneralConfig.csv`.
 - **No Comments**: Do NOT include comments or metadata rows in the CSV file itself.
-- **Location**: Place CSV files co-located with the feature, in `Assets/_Project/Features/<Domain>/<FeatureName>/CsvConfig/` (e.g. `Features/Gameplay/CsvConfig/`, `Features/Meta/Inventory/CsvConfig/`). Domains: `Gameplay, Meta, Monetization, Onboarding, Social, System, Events, _Shared`.
+- **Location**: Place CSV files co-located with the feature, in `Assets/_Project/Features/<Domain>/<FeatureName>/CsvConfig/` (e.g. `Features/System/GeneralConfig/CsvConfig/`, `Features/Monetization/Shop/CsvConfig/`). Domains shipped by the template: `_Shared, Meta, Monetization, Onboarding, Social, System` — plus whatever gameplay bucket the project adds.
 
 ## C# Model & Collection Rules
 - **Naming Convention**: 
@@ -21,7 +21,7 @@ Follow these rules when creating or modifying CSV files and their data models.
   - If a field contains multiple elements, use an **array**.
   - If a field contains only one element, do **not** use an array.
 - **Automatic Loading**: Do NOT write custom load functions. The `com.ezg.csv-reader` package loads CSV automatically.
-- **DataManager access**: Expose each collection as a property in `DataManager` and read it via `DataManager.<CollectionName>` (e.g. `DataManager.CookingRecipes`). There is no `DataManager.GetConfig<T>()`.
+- **DataManager access**: Expose each collection as a property in `DataManager` and read it via `DataManager.<CollectionName>` (e.g. `DataManager.GeneralConfig`). There is no `DataManager.GetConfig<T>()`.
 - **No CreateAssetMenu**: Do NOT use the `[CreateAssetMenu]` attribute on these data classes.
 
 ## Workflow Steps

@@ -10,6 +10,11 @@ description: UI system management - show/hide/layer control via UIManager. Use w
 
 Centralized UI management — handles layering, caching, and feature open/close logic. All feature screens must inherit `FeatureBaseController` (`Assets/_Project/Features/_Shared/UI/Framework/FeatureBaseController.cs`).
 
+> **Feature names in the snippets below are illustrative.** Only the entries actually declared in
+> `Features/_Shared/Config/GameEnums.cs` exist — read that file before using a name. Adding a screen
+> means adding an enum entry there first (new, unused numeric value; never renumber existing ones,
+> they are serialized into prefabs).
+
 ## 1. Open UI (Show Feature)
 
 `Show` is `async UniTask<GameObject>`; default group is `Overlay_Container`.

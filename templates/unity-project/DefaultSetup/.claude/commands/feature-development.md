@@ -98,11 +98,11 @@ public static class YourFeatureService
 **Reference**: `/utils-constants-rule`
 
 When implementing Service logic:
-- Store resource paths in `PathUtils` (`_Shared/Systems/PathUtils.cs`).
-- Define game constants feature-local (`SCREAMING_SNAKE_CASE`); there is no central `GameConstants` class.
+- Store **shared** resource paths in `PathUtils` (`_Shared/Systems/PathUtils.cs`); a path used by one feature stays in that feature.
+- App-wide constants go in `GameConstant` (`_Shared/Config/GameConstant.cs`); everything else is feature-local (`SCREAMING_SNAKE_CASE`).
 
 ```csharp
-var path = PathUtils.PathPrefabVFX + "MyPrefab";
+var path = PathUtils.PathPrefabIconFeature + "icon_shop";
 if (level >= MAX_LEVEL) { }
 ```
 

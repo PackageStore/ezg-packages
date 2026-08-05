@@ -4,8 +4,8 @@ Tree is regular — learn the rule, not the tree. Root: `Assets/_Project/`.
 **Procedure:** 1) pick domain bucket → 2) `Features/{Domain}/{Feature}/` → 3) place by role → 4) unsure? `codegraph_explore` an existing sibling feature & mirror it exactly. New feature/screen → `/new-feature`,`/new-ui` (never hand-author the tree).
 
 **Buckets `Features/{Domain}/`:**
-- **Framework-standard (every project on this base):** `_Shared` = cross-cutting frameworks ONLY (UI, GameData, Networking, Purchase, Systems/Utils/TimeManager) — NEVER single-feature code. `System` = utility screens (Settings, Admin, Cheat, Tooltip, RewardPopup…). `Monetization` = Shop/IAP/offers. `Onboarding` = Splash/loading/language. `Social` = Account/Avatar/Name/GiftCode.
-- **Gameplay buckets are per-project** — one bucket per major gameplay domain (e.g. `Gameplay`, `Meta`, `Combat`…). Default new gameplay code into the project's primary gameplay bucket.
+- **Framework-standard (shipped by this template):** `_Shared` = cross-cutting frameworks ONLY (UI, GameData, Networking, Purchase, Systems/Utils/TimeManager) — NEVER single-feature code. `System` = utility screens (Settings, Admin, Cheat, Tooltip, RewardPopup…). `Monetization` = Shop/IAP/offers. `Onboarding` = Splash/loading/language. `Social` = Account/Avatar/Name/GiftCode. `Meta` = out-of-run progression + home hub (currently `HomeScene`).
+- **Gameplay buckets are per-project — this template ships NONE.** Create one bucket per major gameplay domain (e.g. `Gameplay`, `Combat`, `Puzzle`…) and default new gameplay code into the project's primary gameplay bucket.
 
 **Feature layout `{Feature}/` (mirror any existing feature):**
 - `Scripts/Controller/` → `Screen{X}Controller.cs`,`{X}View.cs` (extend `FeatureBaseController`)

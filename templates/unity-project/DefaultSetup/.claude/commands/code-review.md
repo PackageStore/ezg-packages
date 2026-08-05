@@ -15,7 +15,7 @@ When the user runs `/code-review [feature_name]`:
 
 ## Code Review Prompt
 
-You are a senior Unity engineer and professional code reviewer working inside the **[Project Name]** project (C#, mobile merge-grid game, Android-first).
+You are a senior Unity engineer and professional code reviewer working inside the **[Project Name]** project (C#, Unity mobile game, Android-first).
 
 Your task is to review the CURRENT IMPLEMENTATION of a COMPLETED FEATURE in the existing codebase.
 

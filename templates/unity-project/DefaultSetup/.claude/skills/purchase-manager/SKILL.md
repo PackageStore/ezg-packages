@@ -84,7 +84,7 @@ PurchaseManager.PurchaseOffline(
     price: 0,                    // price is ignored for ads
     successAction: () => { 
         // Give rewards after watching ad
-        RewardsService.Add(rewards);
+        RewardsService.ReceiveReward(rewards);
     },
     unSuccessAction: () => { /* ad failed/skipped */ },
     location: "double_reward",   // ads location for analytics
@@ -107,6 +107,11 @@ PurchaseManager.PurchaseOnline(
 ```
 
 ## Common Usage Patterns
+
+> The patterns below are **illustrative** — `PlayerDataManager.Inventory` / `.Building` are placeholder
+> module names, not modules this template ships. Swap in your project's real
+> `PlayerDataManager.<Module>` (shipped: `Account`, `Campaign`, `LoginActivity`, `Settings`,
+> `PlayerResource`, `UnlockFeature`, `PlayerRating`, `PlayerShop`).
 
 ### Pattern 1: Buy Item with Gold
 ```csharp
@@ -134,7 +139,7 @@ public void WatchAdForReward(List<Resource> rewards)
         moneyType: EnumBase.MoneyTypes.Ads,
         price: 0,
         successAction: () => {
-            RewardsService.Add(rewards, source: "ads_reward");
+            RewardsService.ReceiveReward(rewards, source: "ads_reward");
         },
         location: "reward_popup",
         source: "daily_reward",

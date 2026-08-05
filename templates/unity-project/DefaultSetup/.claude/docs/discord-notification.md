@@ -181,5 +181,5 @@ bash .agents/scripts/notify.sh \
   --event "COMPILE_BLOCKED" \
   --task "Sửa Lỗi Logic Game" \
   --url "file:///path/to/your-project/backlog/todo/001-fix-logic.md" \
-  --details "error CS1002: ; expected in Assets/_Project/GameplayManager.cs:42"
+  --details "error CS1002: ; expected in Assets/_Project/Features/Monetization/Shop/Store/Scripts/Controller/ShopController.cs:42"
 ```

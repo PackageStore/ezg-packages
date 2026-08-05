@@ -112,16 +112,16 @@ Resource[] finalRewards = packRewards.GetFinalRewardsBonus();
 
 ## Cost Requirements
 
-### Define Cost Requirements
+`RewardsService.CostRequire` is the serializable cost row used by pack/config models
+(see `Features/Monetization/Shop/Store/Scripts/Data/PackTemplateModel.cs`):
 ```csharp
 var costs = new RewardsService.CostRequire[]
 {
     new() { costType = EnumBase.ResourceTypes.Money, costId = 0, costNumber = 100 }
 };
-
-// Convert to Resource list for validation
-List<Resource> resourceCosts = RewardsService.GetRequireCost(costs);
 ```
+Convert it to `Resource` yourself (the template ships no helper for this) and hand the result to
+`PurchaseManager.PurchaseOffline(List<Resource>, ...)`.
 
 ## Method Reference
 
@@ -133,11 +133,10 @@ List<Resource> resourceCosts = RewardsService.GetRequireCost(costs);
 | `ShowToast(Resource[])` | Display reward popup |
 | `Tracking(Resource[])` | Send analytics events |
 | `CompileRewards()` | Merge duplicate rewards |
-| `FixDuplicateRewards()` | Remove and merge duplicates |
+| `ExtractResource(List<Resource>)` | Expand/normalize a reward list before granting |
 | `GenerateReward()` | Filter valid reward types |
 | `ValidResource()` | Format currency with color |
 | `GetFinalRewardsBonus()` | Calculate stage-based bonuses |
-| `GetRequireCost()` | Convert CostRequire to Resource list |
 
 ## Analytics Tracking
 Tracking is automatic when using `ReceiveReward`/`ReceiveRewards`. Events sent:

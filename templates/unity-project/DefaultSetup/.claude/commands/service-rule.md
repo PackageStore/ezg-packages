@@ -9,7 +9,7 @@ A Service is a **static class** that handles shared logic for an entire feature.
 ## Implementation
 - Service classes must be **static**.
 - To access player data: `PlayerDataManager.<Module>` (preferred — avoid raw `DataPlayer.GetModule<T>()` in feature code).
-- To access config data from CSV: `DataManager.<CollectionName>` (property, e.g. `DataManager.CookingRecipes`).
+- To access config data from CSV: `DataManager.<CollectionName>` (property, e.g. `DataManager.GeneralConfig`).
 
 ## Example Structure
 ```csharp

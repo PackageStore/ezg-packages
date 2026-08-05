@@ -122,7 +122,7 @@ Two-tier architecture — relevant for deciding dependency direction:
 - **Layer 2 — Module packages** (`<scope>.<module>`): feature or genre modules. Each module = one package. May depend on Layer 1 and on other Layer 2 packages (acyclic only).
 
 **Business/SDK leak = hard stop** (see DEP-GATE). Examples of leaks that disqualify a module from packaging:
-- Hardcoded game-specific CSV key constants (e.g. `ItemMerge`, `CookingRecipes`)
+- Hardcoded game-specific CSV key constants (e.g. a `CsvAssetDir.<GameTable>` name baked into the module)
 - Hardcoded `Assets/` paths for CSV/Resources (e.g. `Assets/_Project/Features/<Feature>/CsvConfig/`)
 - Direct references to game-specific singletons (`DataManager`, `PlayerDataManager`, `GameEnums.Features`)
 - Third-party SDK types without an asmdef boundary (Supabase, Google.Play.AssetDelivery compiled directly into Core)

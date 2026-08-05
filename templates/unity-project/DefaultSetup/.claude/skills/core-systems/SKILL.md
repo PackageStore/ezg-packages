@@ -111,6 +111,9 @@ TimeManager.RegEventNextDay(() => {
 ## 3. UIManager - UI System Management
 **Location**: `Assets\_Project\Features\_Shared\UI\Framework\UIManager.cs`
 
+> Feature names in the snippets below are illustrative — only the entries declared in
+> `Features/_Shared/Config/GameEnums.cs` exist. Check that file first.
+
 ### Common Use Cases
 
 #### Show Feature

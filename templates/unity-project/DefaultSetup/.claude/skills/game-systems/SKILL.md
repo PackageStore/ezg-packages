@@ -37,8 +37,8 @@ GameSystems.ShowMessage(
     showCancelButton: true
 );
 
-// Editor-only debug message (yellow color)
-GameSystems.ShowSimpleMessageEditor("Debug info");
+// Simple notification anchored to a RectTransform
+GameSystems.ShowSimpleMessageWithPos("not_enough_gold", anchorRect, parentTransform);
 ```
 
 ### Reward Popup
@@ -68,16 +68,6 @@ GameSystems.ShowWaitingScreen(false);
 
 // Check if loading screen is visible
 if (GameSystems.IsShowWaitingScreen()) { }
-```
-
-### Floating Text (World Space)
-
-```csharp
-// Display floating text at world position
-GameSystems.ShowFloatingText("+100", transform.position, Color.green);
-
-// With position offset
-GameSystems.ShowFloatingText("+50", pos, Color.yellow, Vector3.up * 2f);
 ```
 
 ### Localization
@@ -176,4 +166,4 @@ GameSystems.InitCancelToken(GameEnums.Scenes.BattleScene);
 2. **Scene Changes**: Always use `ChangeScene()` to properly manage tokens
 3. **Loading Screen**: Pair `ShowWaitingScreen(true)` with `ShowWaitingScreen(false)`
 4. **Confirmation Dialogs**: Set `focusYes: false` for destructive actions
-5. **Debug Messages**: Use `ShowSimpleMessageEditor` - only shows in Unity Editor
+5. **Tooltips**: `ShowTooltip` / `ShowTooltips` are extension methods on `GameObject` — call them on the anchor object, and pair with `ClearToolTipObject()` when the screen closes

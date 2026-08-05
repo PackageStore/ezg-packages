@@ -1,6 +1,6 @@
 ---
 name: create-ui
-description: Build, extend, and refactor Unity UI with the shared template prefabs under `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates`. Use when Codex needs to create a new feature screen or popup that inherits from `FeatureBaseController`, create a prefab variant from `Popup_Template/screen_template`, or assemble reusable UI blocks such as tabs, lists, sliders, input fields, item or currency previews, resource headers, text boxes, and trigger cards through Unity MCP.
+description: Build, extend, and refactor Unity UI with the shared template prefabs under `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates`. Use when Codex needs to create a new feature screen or popup that inherits from `FeatureBaseController`, create a prefab variant from `Popup_Template/screen_template`, or assemble reusable UI blocks such as tabs, lists, sliders, input fields, item or currency previews, resource headers, and text boxes through Unity MCP.
 ---
 
 # Create UI
@@ -82,7 +82,6 @@ Apply this workflow when the new root prefab is a feature screen or popup and th
 - Use `ItemElement` for one item or reward cell and `ItemPreview` for a runtime-generated strip of multiple item cells.
 - Use `ItemElementRewardPopup` when the visual should feel like a reward popup, not an inventory tile.
 - Use `ResourceViewer` for a live resource header chip with icon, value, and add button.
-- Use `TriggerTemplate` as a source gallery of trigger-card variants. Duplicate a single child variant instead of dropping the whole gallery into production UI.
 
 ## Guardrails
 
@@ -95,7 +94,6 @@ Apply this workflow when the new root prefab is a feature screen or popup and th
 - Do not move dynamic content to the wrong level. Example: keep scroll items under `ScrollViewTemplate/Viewport/Content`.
 - Do not clear serialized references on controller components. Most of these prefabs depend on inspector wiring.
 - Preserve nested prefab instances and override only what the task needs.
-- Preserve unknown or third-party components on `TriggerTemplate` variants. They include animation and display behavior that is easy to break by stripping components.
 
 ## Unity MCP Notes
 

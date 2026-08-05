@@ -35,7 +35,6 @@
 | Single tab button | `toggle_tab_template` |
 | Text display box | `textbox_template` |
 | Editable text field | `InputField01_Basic_White_NormalText` |
-| Trigger or shop card variant | `TriggerTemplate` |
 
 ## Prefabs
 
@@ -232,12 +231,3 @@ MCP wiring recipe (same mechanics as playbook §4): `unity_component_batch_wire`
 - Use it for: Child unit inside `tab_template`.
 - Notes: Rewire any persistent events or linked content objects on cloned instances so the toggle controls the intended panel.
 
-### `TriggerTemplate`
-
-- Resource path: `Prefabs/Templates/Templates/TriggerTemplate`
-- Purpose: Gallery of trigger-card and shop-card variants rather than a single production-ready card.
-- Root structure: `TriggerTemplate` with many first-level variants including `ShowFeature`, `Employee`, `OpenShop`, `ViewAds`, `Shelf`, `BuyCheckout`, `BuyShelf`, `BuyParkingSlot`, `Expand`, `Lock`, `Lock_ParkingSlot`, `Buy_shop`, `Bus stop`, `FreeResouce`, `ProductAds`.
-- Components across variants: `TextMeshPro`, `DOTweenAnimation`, images, and additional serialized components that should be preserved even if their type is not obvious from YAML alone.
-- Use it for: Choosing one existing trigger-card composition as the starting point for a shop CTA, unlock card, ad-view card, or feature teaser.
-- Preferred workflow: duplicate the single variant child that matches the request, then edit that variant.
-- Avoid: Instantiating the entire root gallery into the final UI unless the goal is to showcase multiple trigger types at once.

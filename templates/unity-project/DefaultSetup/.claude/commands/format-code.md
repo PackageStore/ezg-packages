@@ -27,7 +27,7 @@ When the user runs `/format-code ClassName1 [ClassName2 ...]`:
    - **DO NOT** rename any existing fields, methods, or classes to match naming conventions — renaming breaks references and Unity serialization.
 
 4. **Sort and group methods within each `#region`**:
-   - **Identify feature groups**: scan all method names and implementations within the region to determine which feature/subsystem they belong to (e.g., UI, Animation, Data, Reward, Merge, Grid, Timer, Event, etc.).
+   - **Identify feature groups**: scan all method names and implementations within the region to determine which feature/subsystem they belong to (e.g., UI, Animation, Data, Reward, Purchase, Timer, Event, etc.).
    - **Group methods by feature**: place methods that belong to the same feature/subsystem adjacent to each other. Separate groups with a single blank line.
    - **Sort within each group**: order methods in logical call-order (entry-point / high-level method first, helpers and sub-methods below it).
    - **Sort across groups**: order feature groups from most general/core to most specific (e.g., Initialization → Core Logic → UI → Animation → Utility/Helper).

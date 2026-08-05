@@ -4,6 +4,38 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-08-05
+
+Đợt cập nhật lớn: rebase toàn bộ nội dung Unity + AI tooling của template theo project `Tank` sau khi nó được refactor thành "template thuần, không gameplay".
+
+**Added**
+- `DefaultSetup/ProjectSettings/` nay ship thêm `ProjectSettings.asset`, `QualitySettings.asset`, `GraphicsSettings.asset` và `ProjectVersion.txt` (pin **Unity 6000.3.16f1**) — trước đây chỉ có `TagManager.asset` + `EditorBuildSettings.asset`, nên mỗi project init ra lại tự sinh graphics/quality settings khác nhau. `ProjectSettings.asset` đã được sanitize: `productName` → `Unity Game Template`, `productGUID` → zero; `companyName`, keystore, `appleDeveloperTeamID`, `cloudProjectId`/`organizationId` vốn đã rỗng ở nguồn.
+- `ezg.base.features.unitypackage` nhận thêm 6 file lẻ ở gốc `Assets/` trước đây không thuộc package nào: `Editor/DisableBitcode.cs`, `Editor/SpineSettings.asset`, `ProjectSettings/UI{Effect,Particle,SoftMask}ProjectSettings.asset`, `Resources/BillingMode.json`.
+- Khôi phục **283 asset art** bị mất GUID (sprite/texture/font/material/shader) từ các project nguồn `a004_temp` / `m1` / `sm006`, giữ nguyên GUID nên prefab tự bind lại mà không phải sửa YAML. Art thuộc UI kit dùng chung về đúng chỗ cũ (`Visual/ArtAsset/{Layer Lab,Shared,Fonts,UI/common,…}`); phần còn lại nằm dưới `Visual/ArtAsset/_Recovered/` để dễ truy vết và sắp xếp lại sau.
+
+**Changed**
+- `ezg.base.features.unitypackage`: 817 → **767 entry** (`sha256 6ec2a9d1…`). Bỏ 60 entry gameplay-specific (HomeScene infinite-scroll/streak controllers, Shop Store data của game cũ, `_Shared/RpgStats/*`, `GameData/Core/ItemMerge*`, `GameCheat/AdminToolManager/SaveFoundElement`, `UnlockFeature` bản `_old`, `TestScene.unity`…), thêm 5 entry mới (`TemplatePurchaseHooks`, `PsdToUnityConfigCollection`, `UIFrameworkAdapter`, `tool_tip_item.prefab`, `AdsConfig.asset`) + 6 file lẻ nói trên.
+- `ezg.base.visuals.unitypackage`: 1219 → **1170 entry**, 148,879,275 → **138,412,922 B** (`sha256 2f44b358…`). Bản cũ trên R2 là bản 21/06/2026 — có từ *trước* đợt refactor và chứa toàn bộ VFX/material của merge-game (`vfx_impact_merge_*`, `speed_boost`, `sandglass_boost`, `unlimit_energy`, `Materials/{Block,BoxTape,Booster,Missiles,Cup,Freeze}`) cùng hệ thống `SoftTut` (kèm `.cs`). Bản mới bỏ hết, thêm Layer Lab UI kit + art khôi phục.
+- `ezg.base.default.unitypackage`: 368 entry, 473,659 → **822,530 B** (`sha256 c92ff146…`), do 4 file ProjectSettings mới.
+- `DefaultSetup/`: đồng bộ 23 file AI tooling từ Tank (8 `.claude/commands`, 2 `.claude/rules`, 1 `.claude/docs`, 9 SKILL/reference, `CLAUDE.md`, `.mcp.json`). `CLAUDE.md` mô tả đúng hiện trạng: `DataManager.Generated.cs` + `CsvAssetDir.cs`, danh sách collection và module PlayerData thật, ~280 script, nêu rõ template **không ship gameplay bucket** nào.
+- `TagManager.asset` lấy từ Tank: giữ layer `ui_hide_by_cheat` @ index 8 (bắt buộc — `FeatureBaseController.cs:276` gọi `ChangeLayerUI(GameConstant.LayerUIHideByCheat)`, chưa khai thì `LayerMask.NameToLayer` trả `-1` và Unity báo lỗi), nhưng **xoá 4 tag rác** của game cũ (`button_shop`, `button_level_to_level_pass`, `button_build_up_goal_home`, `button_play`) — đã verify 0 tham chiếu trong `.cs` lẫn `m_TagString` của prefab/scene.
+- Gỡ khỏi `dependencies` (109 → **107**):
+  - `com.ezg.rpg-stats` — code dùng nó (`_Shared/RpgStats/*`) đã bị xoá khỏi template.
+  - `com.ezg.fast-script-reload` — `EnableExperimentalAddedFieldsSupport` mặc định **bật** và chỉ tắt được qua `EditorPrefs` (per-máy, không đi kèm project), gây `HarmonyLib … mprotect returned EACCES` mỗi lần domain reload trên Apple Silicon. Ai cần thì tự thêm rồi tắt tay ở `Window → Fast Script Reload → Welcome Screen → New Fields`.
+- `scripts/sync-unity-template-deps.mjs`: cả hai package trên được thêm vào `SKIP_NEW_PACKAGES`. Nếu không, `AUTO_ADD_SCOPE = "com.ezg."` sẽ tự thêm chúng trở lại ở lần publish kế tiếp và việc gỡ trên trở thành vô nghĩa.
+
+**Fixed**
+- **324 → 60 GUID chết** (477 → ~70 cặp file × GUID; 189 → 39 file dính). Đây là hư hỏng có từ trước đợt refactor — prefab bê từ `m1`/`a004`/`sm006` mà không mang art theo — và bản `ezg.base.visuals` đang ship cũng dính y hệt, nên mọi project init ra trước bản này đều có UI template thiếu sprite.
+- Xoá 49 file mồ côi (không asset nào tham chiếu, không nằm trong `Resources/`): 35 TMP font material (`Panton-ExtraBold *`, `Barlow-Black *`, `ARIAL`, `LiberationSans`, `TextMeshPro_Sprite`) trỏ vào atlas của font **không hề có trong project**; 12 `.mat`/`.controller` VFX di sản; và 2 asset `Visual/ArtAsset/Shared/Transition/Data/` (`UnityScreenNavigatorSettings.asset`, `Demo Scene UI Layer Setting.asset`) vốn là **missing script** vì chỉ phần `Transition/Shared/*.cs` được copy sang. Sau đợt này **không còn missing script nào**.
+- `Visual/ArtAsset/UI/_Legacy/` đã được dọn: 18 asset (đều đang được tham chiếu thật) move sang `UI/common/{Badge,Button,Frame,Pattern}` kèm `.meta` nên giữ nguyên GUID; thư mục `_Legacy/` bị xoá.
+- Skill `create-ui` không còn tham chiếu `TriggerTemplate` — prefab này đã bị refactor xoá khỏi Tank nhưng `SKILL.md` và `references/prefab-templates.md` vẫn hướng dẫn dùng. Không khôi phục nó từ bản R2 cũ vì bản đó kéo theo 23 GUID chết + 1 missing script và toàn bộ variant đều là của game cũ (`Employee`, `Shelf`, `BuyParkingSlot`, `Bus stop`…). 14 prefab template còn lại mà skill tham chiếu đã verify là tồn tại đủ.
+- Gỡ khỏi `DefaultSetup/`: 4 script `ns-*.ps1`, `.claude/settings.local.json`, 7 file `.DS_Store` và thư mục rỗng `.claude/worktrees/`.
+
+**Known issues**
+- Còn **60 GUID chết** rải trong 39 file (17 features/scenes + 22 visuals) — không truy hồi được từ bất kỳ project nguồn nào. Gồm 28 `m_Sprite`, 25 `objectReference` (override sprite của prefab instance), 4 `target` (nested prefab), 1 shader và 1 `m_LightingDataAsset` (vô hại). Ảnh hưởng: một vài ô icon/sprite trong UI template hiển thị trống. Không có missing script, không ảnh hưởng compile. Nặng nhất: `TabHelper_NavigationBar_mainMenu` (10), `screen_shop` (8), `screen_save_found` (4), `shop_item_raw_pack` (4).
+- Chưa có asset `LanguageData` nào trong template (`find Assets -iname "*LanguageData*"` → 0). 21 key đang được code gọi sẽ render ra raw key dạng `#common_key` trên UI. Giữ nguyên hiện trạng — project mới tự tạo bộ ngôn ngữ của mình.
+- `ezg.base.features` và `ezg.base.visuals` **không độc lập**: `Assets/_Project/Visual/Ezg.Features.asmref` trỏ vào `Ezg.Features.asmdef` (24 file `.cs` trong `Visual/` compile thẳng vào `Ezg.Features.dll`), và `Ezg.Features.asmdef` reference `UnityScreenNavigator.Runtime` — asmdef này nằm trong `Visual/ArtAsset/Shared/Transition/`, tức thuộc gói **visuals**. Cài `features` mà thiếu/lệch phiên bản `visuals` thì `Ezg.Features.dll` không compile được. Hai gói phải luôn re-export và bump hash cùng lúc.
+
 ## 2026-08-03
 
 **Fixed**
