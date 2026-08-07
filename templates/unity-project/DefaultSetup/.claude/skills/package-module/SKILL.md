@@ -1,11 +1,11 @@
 ---
 name: package-module
-description: Extract one specified module/folder from BlazeSurvivor into a clean UPM package and commit + push it directly to the main branch of the Packages monorepo (MONOREPO_PATH — D:\Packages on Windows, $HOME/Packages on macOS/Linux), where the push to main triggers GitHub Actions (publish-packages.yml) to publish it to the bf-packages scoped registry. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
+description: Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the Packages monorepo (MONOREPO_PATH — D:\Packages on Windows, $HOME/Packages on macOS/Linux), where the push to main triggers GitHub Actions (publish-packages.yml) to publish it to the bf-packages scoped registry. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
 ---
 
 # Package Module — UPM Extraction → `Packages` monorepo `main` Agent
 
-Take one **specified module** (a folder under `Assets/` in the BlazeSurvivor repo), build a **clean, standards-compliant UPM package** from it, and **commit + push it straight to the `main` branch of the `Packages` monorepo** (`MONOREPO_PATH`). The push to `main` triggers the monorepo's GitHub Actions workflow `publish-packages.yml`, which scans every `package.json` under `Frameworks/`, `Modules/`, `Packages/` and runs `npm publish` for any whose version is not yet on the **bf-packages scoped registry**. **No feature branch, no PR** — pushing to `main` IS the publish trigger.
+Take one **specified module** (a folder under `Assets/` in the current game repo), build a **clean, standards-compliant UPM package** from it, and **commit + push it straight to the `main` branch of the `Packages` monorepo** (`MONOREPO_PATH`). The push to `main` triggers the monorepo's GitHub Actions workflow `publish-packages.yml`, which scans every `package.json` under `Frameworks/`, `Modules/`, `Packages/` and runs `npm publish` for any whose version is not yet on the **bf-packages scoped registry**. **No feature branch, no PR** — pushing to `main` IS the publish trigger.
 
 > **Difference vs a flat `packages/<scope>.<name>/` monorepo:** the `Packages` monorepo groups packages into **three top-level categories** — `Frameworks/`, `Modules/`, `Packages/` — and each package folder is a **human-readable PascalCase name** (e.g. `B-PoolingManager`), NOT a dotted id. The dotted id lives only in `package.json.name`. Pick the category in STEP 0.
 
@@ -16,7 +16,7 @@ Take one **specified module** (a folder under `Assets/` in the BlazeSurvivor rep
 At the start of each run, resolve the following from user input or sensible defaults. Ask only for values that cannot be inferred:
 
 ```
-MODULE_PATH      = required — full path (or repo-relative path) to the module folder in BlazeSurvivor (e.g. Assets/_Game/2.BUS/... or an absolute path); SOURCE_ROOT is derived from it
+MODULE_PATH      = required — full path (or repo-relative path) to the module folder in the game repo (repo-relative, e.g. under `<sourceRoot>/`, or absolute); SOURCE_ROOT is derived from it
 PACKAGE_CATEGORY = Frameworks | Modules | Packages — default Modules.
                    Frameworks = universal infra with no game logic (Singleton-style).
                    Modules    = functional gameplay/system module extracted from the game (DEFAULT for "đóng module X").
@@ -35,14 +35,14 @@ PAT_FILE         = user-specified (or env BF_PACKAGES_PAT_FILE), default per OS:
                    Linux:   ${XDG_CONFIG_HOME:-$HOME/.config}/bf-packages/bf-packages.pat
 UNITY_VERSION    = user-specified (explicit value takes priority); default **2021.3** if not specified
                    # existing repacks use 2019.4–2021.3; pick the LOWEST version the module actually needs so more projects can consume it.
-                   # do NOT auto-read from ProjectSettings/ProjectVersion.txt unless the user explicitly asks to match BlazeSurvivor's version
+                   # do NOT auto-read from ProjectSettings/ProjectVersion.txt unless the user explicitly asks to match the game's version
 ```
 
 **`MODULE_PATH` is the only required input** — the user provides a direct path to the module folder. `SOURCE_ROOT` is derived as the parent tree above it. All other values have defaults; ask once to confirm/override if running for the first time on a new module.
 
 ### Shell / OS compatibility
 
-Snippets are provided for both **macOS/Linux (zsh/bash)** and **Windows (PowerShell)** — use the one matching the current machine. Default locations are OS-specific: on **Windows** the game repo is at `D:\GameDevelop\BlazeSurvivor` and the monorepo at `D:\Packages`; on **macOS/Linux** the monorepo defaults to `$HOME/Packages` (the game repo is the current working dir). Quote every path. Do not use `%LOCALAPPDATA%` or backslash path examples on macOS.
+Snippets are provided for both **macOS/Linux (zsh/bash)** and **Windows (PowerShell)** — use the one matching the current machine. The game repo is always the current working directory — never a hardcoded path. Only the monorepo has an OS-specific default: `D:\Packages` on **Windows**, `$HOME/Packages` on **macOS/Linux**. Quote every path. Do not use `%LOCALAPPDATA%` or backslash path examples on macOS.
 
 ### GitHub PAT — provided OUT-OF-BAND (never in this file)
 
@@ -91,7 +91,7 @@ If neither source yields a token → **stop** at STEP 4 and ask the user to set 
 - Inject it via the remote URL form `https://<PAT>@github.com/...` **only on the clone/fetch/push command itself**; immediately reset `origin` to the clean `MONOREPO_REMOTE` so the token isn't persisted in `.git/config`.
 - Keep it in `$pat` (a shell variable) for the duration of the run only.
 
-> **This skill does NOT modify the BlazeSurvivor repo.** The module stays in `Assets/` and the game keeps compiling. We **copy** the source into the monorepo, never `git mv` it out. **Switching the game to consume the package from the registry (removing the in-`Assets/` copy + adding the manifest dependency) is a separate Phase 2** — see the end of this file. It is intentionally NOT automated here because the registry version does not exist until the push to `main` has triggered CI and it has published.
+> **This skill does NOT modify the game repo.** The module stays in `Assets/` and the game keeps compiling. We **copy** the source into the monorepo, never `git mv` it out. **Switching the game to consume the package from the registry (removing the in-`Assets/` copy + adding the manifest dependency) is a separate Phase 2** — see the end of this file. It is intentionally NOT automated here because the registry version does not exist until the push to `main` has triggered CI and it has published.
 
 **One module per run.**
 
@@ -101,7 +101,7 @@ If neither source yields a token → **stop** at STEP 4 and ask the user to set 
 
 | Role | Repo | This skill |
 |---|---|---|
-| **Source** (game) | BlazeSurvivor repo — current working dir (`D:\GameDevelop\BlazeSurvivor` on Windows; `$HOME/Projects/BlazeSurvivor` on macOS) | **read-only** — reads `<MODULE_PATH>` |
+| **Source** (game) | the game repo — always the current working dir, whatever it is | **read-only** — reads `<MODULE_PATH>` |
 | **Target** (packages) | `Packages` monorepo at `MONOREPO_PATH` (existing clone of `PackageStore/Packages`) | commits + pushes **directly to `main`** adding/updating `<CATEGORY>/<FolderName>/` |
 
 ---
@@ -113,7 +113,7 @@ If neither source yields a token → **stop** at STEP 4 and ask the user to set 
 | Existing in the monorepo | What it does | How this skill relates |
 |---|---|---|
 | `publish-packages.yml` (GitHub Actions) | On push to `main`, scans `Frameworks/`, `Modules/`, `Packages/` and `npm publish`es any version not yet on the registry (no `--force`). | **This skill relies on it** — the skill only pushes to `main`; CI does the actual publish. Same path, no double-publish. |
-| `/create-package` | Scaffolds a UPM package from a folder **in place inside the monorepo**. | **Overlaps** with this skill's scaffolding. Use ONE per module: `/create-package` when you start from a folder already sitting in the monorepo; **this skill** when you EXTRACT a module from the BlazeSurvivor repo (cross-repo copy + audit + push). Never run both on the same module. |
+| `/create-package` | Scaffolds a UPM package from a folder **in place inside the monorepo**. | **Overlaps** with this skill's scaffolding. Use ONE per module: `/create-package` when you start from a folder already sitting in the monorepo; **this skill** when you EXTRACT a module from the game repo (cross-repo copy + audit + push). Never run both on the same module. |
 | `/publish` | Manual local `npm publish --force` reading `AUTH_TOKEN` from `npm-registry/.env`. | Different token + can overwrite versions. This skill never calls it; it lets CI publish. If someone uses `/publish --force`, the "immutable version" assumption no longer holds. |
 | `/push`, `/deploy`, `/remove-version` | git push (no `feat:` prefix), deploy the Worker, delete a version from R2. | Unrelated to extraction. This skill follows the `/push` no-prefix commit rule (STEP 6). |
 
@@ -150,7 +150,7 @@ Two-tier architecture — relevant for deciding dependency direction and which c
 **Business/SDK leak = hard stop** (see DEP-GATE). Examples of leaks that disqualify a module from packaging:
 - Hardcoded game-specific CSV key constants (e.g. `ItemMerge`, `CookingRecipes`)
 - Hardcoded `Assets/` paths for CSV/Resources (e.g. `Assets/_Game/.../CsvConfig/`)
-- Direct references to BlazeSurvivor-specific singletons (`DataManager`, `DataPlayer`, `GameEnums.Features`, `UIManager` if game-specific)
+- Direct references to game-specific singletons (`DataManager`, `DataPlayer`, `GameEnums.Features`, `UIManager` if game-specific)
 - Third-party SDK types without an asmdef boundary (Supabase, Cloudflare client, Google.Play.AssetDelivery compiled directly into a Framework)
 
 If a module has these leaks, stop and report — do not package unless the user explicitly accepts known debt (document it in README).
@@ -209,11 +209,11 @@ Use **codegraph first**; grep only for `using` directives, string literals, defi
 
 2. **Leak scan** (grep inside the folder):
    - Odin: `using Sirenix` / `[TabGroup]`/`[ShowIf]`/`[Button]`/`[Title]` → wrap in `#if ODIN_INSPECTOR` (STEP 4).
-   - **Business / game-specific leak:** hardcoded BlazeSurvivor CSV paths, CSV key constants, game-specific singletons (`DataManager`, `DataPlayer`, feature enums, data-access facades unique to BlazeSurvivor). A reusable package **must not** carry these → DEP-GATE hard stop.
+   - **Business / game-specific leak:** hardcoded game CSV paths, CSV key constants, game-specific singletons (`DataManager`, `DataPlayer`, feature enums, data-access facades unique to the game). A reusable package **must not** carry these → DEP-GATE hard stop.
    - Editor-only code (`#if UNITY_EDITOR`, `using UnityEditor`, an `Editor/` subfolder) → goes into the package `Editor/` assembly.
    - `Resources/`, scenes, `.asmref` inside the folder → flag (load-path semantics change when published).
 
-3. **Incoming consumers** — `codegraph_callers` to list who in BlazeSurvivor uses this module. Record them: they are the Phase-2 work list.
+3. **Incoming consumers** — `codegraph_callers` to list who in the game repo uses this module. Record them: they are the Phase-2 work list.
 
 Produce a compact audit (kept in reasoning): outgoing deps by bucket, peer libs, registry deps, Odin files, editor files, business leaks, DLL refs, incoming consumers.
 
@@ -554,7 +554,7 @@ Full compile-verification happens when the package is consumed (Phase 2 / smoke 
 
 After the push, CI runs automatically (workflow `publish-packages.yml`, trigger `push` to `main` on `Frameworks/**`, `Modules/**`, `Packages/**`). It scans every `package.json` and runs `npm publish` for any whose version is not already on the registry (already-published versions are skipped — so a re-push without a version bump is a no-op). Watch with `gh run watch -R PackageStore/Packages` if `gh` is available; otherwise tell the user to check the **Actions** tab.
 
-**Never `--force` push. Never rewrite `main` history. Never commit in the BlazeSurvivor repo.**
+**Never `--force` push. Never rewrite `main` history. Never commit in the game repo.**
 
 ---
 
@@ -569,14 +569,14 @@ After the push, CI runs automatically (workflow `publish-packages.yml`, trigger 
    "dependencies": { "<scope>.<name>": "<version>" }
    ```
 5. **Peer requirements:** external libs the consuming project must already have (and that are NOT on bf-packages).
-6. **Source repo: unchanged.** Then spell out **Phase 2** (separate, do later): after the version is published & smoke-tested, switch the game to consume it — remove `<MODULE_PATH>` from BlazeSurvivor, add the `<scope>.<name>` dependency to `Packages/manifest.json`, add the assembly to consumer asmdefs, and let Unity recompile. Warn that keeping **both** the in-`Assets/` copy and a registry dependency causes a **duplicate-package conflict**, so Phase 2 removes the source in the same change.
+6. **Source repo: unchanged.** Then spell out **Phase 2** (separate, do later): after the version is published & smoke-tested, switch the game to consume it — remove `<MODULE_PATH>` from the game repo, add the `<scope>.<name>` dependency to `Packages/manifest.json`, add the assembly to consumer asmdefs, and let Unity recompile. Warn that keeping **both** the in-`Assets/` copy and a registry dependency causes a **duplicate-package conflict**, so Phase 2 removes the source in the same change.
 
 ---
 
 ## Guardrails
 
 - **One module per run.** No sibling-folder scope creep.
-- **Never modify the BlazeSurvivor repo.** Copy out; do not `git mv`. Phase 2 (the destructive game change) is separate and explicit.
+- **Never modify the game repo.** Copy out; do not `git mv`. Phase 2 (the destructive game change) is separate and explicit.
 - **the `MONOREPO_PATH` clone is a real working clone** — never blindly `reset --hard` it; if dirty, show the user and ask before discarding.
 - **Monorepo: commit + push directly to `main`** (no branch, no PR). Never `--force`-push, never rewrite history; pull/rebase before pushing.
 - **Always carry `.meta`** for copied source; hand-author metas for new code/asmdef/folder files **and every root-level file** (`package.json`, `README.md`, `CHANGELOG.md`, `LICENSE`) — a registry-installed package is immutable, so any file without a meta is warned about and ignored by Unity.

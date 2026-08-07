@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HANDLER="$ROOT/.claude/scripts/ui-review-approve-handler.py"
-APP_DIR="$HOME/Applications/BlazeSurvivorApprove.app"
+APP_DIR="$HOME/Applications/AgentApprove.app"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister"
 
 if [ ! -f "$HANDLER" ]; then
@@ -38,4 +38,4 @@ PLIST="$APP_DIR/Contents/Info.plist"
 "$LSREGISTER" -f "$APP_DIR"
 
 echo "OK: blazesurvivor-approve:// -> $APP_DIR (handler: $HANDLER)"
-echo "Lan dau macOS se hoi xac nhan mo bang BlazeSurvivorApprove.app - dong y 1 lan."
+echo "Lan dau macOS se hoi xac nhan mo bang AgentApprove.app - dong y 1 lan."

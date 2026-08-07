@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pretty-print Claude CLI stream-json (stdin) for the backlog loop.
 
-Port of BlazeSurvivor's Render-ClaudeStreamLine: turns the raw --output-format
+Port of Render-ClaudeStreamLine: turns the raw --output-format
 stream-json firehose into readable, colored console output (session header,
 assistant prose, tool calls, tool output, done line). The raw JSON is still
 written to the log file by `tee` upstream; this only affects what humans see.

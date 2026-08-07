@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-clickable launcher (macOS Finder) for the BlazeSurvivor backlog loop.
+# Double-clickable launcher (macOS Finder) for the backlog loop.
 # Finder opens .command files in Terminal and runs them. We resolve our own
 # location so it works no matter what the current directory is.
 #
@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- defaults (change these to taste) -------------------------------------------
 # Auto mode picks the next task's [XS]/[S]/[M]/[L] tier from BACKLOG.md before
-# opening each task window (BlazeSurvivor quality-first map):
+# opening each task window (quality-first map):
 #   XS/S -> sonnet
 #   M/L  -> opus
 AUTO_MODEL_BY_TIER=1
@@ -33,7 +33,7 @@ M_THINKING_TOKENS=10000
 L_THINKING_TOKENS=10000
 # --------------------------------------------------------------------------------
 
-echo "Starting BlazeSurvivor backlog loop..."
+echo "Starting backlog loop..."
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     echo "  model=<auto by task tier>  max-iterations=$MAX_ITERATIONS"
     echo "  thinking: XS=$XS_THINKING_TOKENS S=$S_THINKING_TOKENS M=$M_THINKING_TOKENS L=$L_THINKING_TOKENS"

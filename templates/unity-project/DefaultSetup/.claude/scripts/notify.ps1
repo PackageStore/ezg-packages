@@ -1,7 +1,7 @@
 ﻿# Notification classification and Discord routing (PowerShell twin of notify.sh).
 #
 # Self-contained: builds the Discord Embed AND sends the developer DM inline.
-# BlazeSurvivor ships only discord-send.sh (bash), so this script does not depend on
+# This repo ships only discord-send.sh (bash), so this script does not depend on
 # a discord-send.ps1 — it POSTs to Discord directly via Invoke-RestMethod. Gracefully
 # degrades (no-op, exit 0) when Discord is not configured, so the loop never fails
 # just because notifications are off.
@@ -203,7 +203,7 @@ $headers = @{
 # (PS 5.1's default UA starts with "Mozilla/5.0..."), returning a misleading
 # 403 { "code": 40333, "message": "internal network error" }. Send the documented
 # bot UA format to avoid the block: https://github.com/discord/discord-api-docs/issues/6473
-$discordUserAgent = "DiscordBot (https://github.com/bf-gamedev/BlazeSurvivor, 1.0)"
+$discordUserAgent = "DiscordBot (https://github.com/bf-gamedev, 1.0)"
 
 foreach ($rawId in ($developers -split ',')) {
     $userId = $rawId.Trim()

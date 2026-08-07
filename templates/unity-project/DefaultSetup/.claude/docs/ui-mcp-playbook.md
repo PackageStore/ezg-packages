@@ -364,7 +364,7 @@ This repo opens features via `UIManager.Instance.Show(EnumBase.Features.X).Forge
 3. **Set `FeatureType`** on the controller (TabGroup "Common") to the matching
    `EnumBase.Features` member — required for open/close events and for `FeatureKey` resolution.
 4. **Prefab name + location** — `[FeatureName].prefab` (PascalCase, matching the controller +
-   folder) in `Assets/_Game/2.BUS/Features/[FeatureName]/Resources/`.
+   folder) in `<featuresRoot>/[FeatureName]/Resources/`.
 
 **Verify open:** `UIManager.Instance.Show(EnumBase.Features.[FeatureName]).Forget()` via
 `unity_play_mode` (+ a cheat/menu trigger), then screenshot.
@@ -392,7 +392,7 @@ base template, `unity_asset_create_prefab` yields a flattened **regular** prefab
 link. The variant relationship comes entirely from the source being a base-template instance — so
 always start from an instantiated template, never a blank object.
 
-Save to `Assets/_Game/2.BUS/Features/[FeatureName]/Resources/[FeatureName].prefab`.
+Save to `<featuresRoot>/[FeatureName]/Resources/[FeatureName].prefab`.
 
 ---
 

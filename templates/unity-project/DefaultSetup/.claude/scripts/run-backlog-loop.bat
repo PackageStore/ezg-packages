@@ -4,7 +4,7 @@ set "SCRIPT_DIR=%~dp0"
 
 echo.
 echo  ==========================================
-echo   BlazeSurvivor - Run Backlog Loop
+echo   Run Backlog Loop
 echo  ==========================================
 echo.
 echo  [1] Claude

@@ -66,6 +66,21 @@ Những key còn lại build script **cố ý không đoán**: layout code, thre
 > Chạy lại build script trên project đã có **không** ghi đè file này (`.mcp.json` cũng vậy) — hai file
 > đó được seed một lần rồi thuộc về project. Phần còn lại của `.claude/` thì có refresh.
 
+**Cập nhật khi template ra bản mới.** Chạy lại build script là được, nhưng nó kéo theo resolve
+packages, cần Unity và ghi lại `ProjectSettings` — nhiều máy móc cho một lần cập nhật tài liệu.
+Bản nhẹ chỉ đụng hệ thống agent:
+
+```bash
+bash <template>/agents-update.sh /đường/dẫn/project          # xem trước: thêm --dry-run
+```
+
+Nó giữ nguyên đúng những file mà build script giữ (đọc thẳng `DEFAULT_SETUP_PRESERVE` từ builder
+nên hai bên không thể lệch nhau), bù file mới, và refresh `.agents/` link view — bước này quan trọng
+vì mỗi lần template mọc thêm thư mục cấp một dưới `.claude/` là có thêm một link target
+(`backlog-templates/` và `ui-kit/` đều đã đến theo đường đó). File project tự thêm sẽ được **liệt kê
+là orphan chứ không xoá** — không có cách nào an toàn để phân biệt "template bỏ đi" với "project tự
+thêm vào"; đọc danh sách rồi chạy lại với `--prune` nếu đồng ý.
+
 | Key | Ý nghĩa | Sửa khi |
 |-----|---------|---------|
 | `projectName`, `solutionFile` | tên project + file `.sln` cho compile-check tier 2 | luôn (bootstrap cảnh báo nếu còn placeholder) |

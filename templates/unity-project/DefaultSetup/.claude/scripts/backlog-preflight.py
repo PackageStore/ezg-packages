@@ -219,6 +219,24 @@ def test_file_usings(file, added_usings, needed_usings, findings):
                     "Add 'using {};' at the top of the file.".format(ns))
 
 
+# Which staged files the LANGUAGE rules apply to.
+#
+# Nearly every rule below is a C# rule — DateTime.Now, StartCoroutine, PlayerPrefs,
+# Debug.Log, UIManager.SetActive, LINQ in a hot loop. Run them over the whole diff
+# and they match any prose that merely QUOTES the pattern, which is exactly what
+# the agent-system docs do for a living: a fresh project's first commit stages
+# ~200 markdown/py/ps1 files and drew 798 findings, 719 of them "unitask" against
+# text explaining the UniTask rule. Zero were about C#.
+#
+# Secret detection is deliberately NOT gated: a leaked key in a .json, .env or
+# .md is a leak all the same.
+SOURCE_FILE_EXTENSIONS = (".cs",)
+
+
+def is_source_file(path):
+    return bool(path) and path.lower().endswith(SOURCE_FILE_EXTENSIONS)
+
+
 # Sensitive surfaces that auto-spawn the security-auditor, from
 # `.claude/project-profile.json` (`sensitiveGlobs`). This project's defaults are
 # broad on purpose — a real backend (Supabase read + Cloudflare Worker write), a
@@ -338,7 +356,9 @@ def main():
             trimmed = code.strip()
             context = "\n".join(hunk_buffer)
 
-            if is_code:
+            # Language rules only for real C#; secret rules run on everything
+            # (see SOURCE_FILE_EXTENSIONS).
+            if is_code and is_source_file(current_file):
                 if search(r"\bDateTime\.(Now|UtcNow)\b", trimmed):
                     add_finding(findings, "time-manager", "critical", "definite", current_file, line_number, trimmed,
                                 "Use TimeManager instead of DateTime.Now/DateTime.UtcNow.")
@@ -406,6 +426,7 @@ def main():
                                 _BACKEND_WRITE_ADVICE)
                     sensitive_reasons.append({"type": "direct-backend-write", "file": current_file, "line": line_number})
 
+            if is_code:
                 if search(CREDENTIAL_ID_PATTERN, trimmed):
                     add_finding(findings, "credential", "critical", "contextual", current_file, line_number, trimmed,
                                 "Credential-like UPPER_SNAKE identifier. If it carries a real key/secret value, remove it from client code; if it is only a constant name, justify it to the security reviewer.")

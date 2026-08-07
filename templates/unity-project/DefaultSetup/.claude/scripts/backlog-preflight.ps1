@@ -20,6 +20,34 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RepoRoot = Split-Path -Parent $RepoRoot
+
+# Project-specific review surfaces come from project-profile.json, exactly as the
+# Python twin does (project_profile.py). Keep the two in lockstep — the parity
+# test in tests/test_preflight_twin_parity.py fails the build if they drift.
+# -Fallback is what a box without python3 gets, and it mirrors
+# project_profile.DEFAULTS.
+# Which staged files the LANGUAGE rules apply to. Lockstep with
+# SOURCE_FILE_EXTENSIONS in backlog-preflight.py — read the rationale there.
+# Secret detection is deliberately NOT gated by this.
+$SourceFileExtensions = @(".cs")
+
+function Test-SourceFile {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    foreach ($ext in $SourceFileExtensions) {
+        if ($Path.ToLower().EndsWith($ext)) { return $true }
+    }
+    return $false
+}
+
+function Get-ProfileJson {
+    param([string]$Key)
+    try {
+        $v = (& python3 (Join-Path $PSScriptRoot "project_profile.py") $Key 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $v) { return ($v | ConvertFrom-Json) }
+    } catch { }
+    return $null
+}
 Set-Location $RepoRoot
 
 function Invoke-Git {
@@ -250,7 +278,7 @@ if ($IncludeDiffStat -and $changedFiles.Count -gt 0) {
 $findings = [System.Collections.Generic.List[object]]::new()
 $sensitiveReasons = [System.Collections.Generic.List[object]]::new()
 
-$sensitiveFilePatterns = @(
+$sensitiveFilePatternsFallback = @(
     "*Backend*",
     "*Supabase*",
     "*Cloudflare*",
@@ -277,6 +305,15 @@ $sensitiveFilePatterns = @(
     "*Secrets*",
     "*Credential*"
 )
+
+$sensitiveFilePatterns = Get-ProfileJson "sensitiveGlobs"
+if (-not $sensitiveFilePatterns) { $sensitiveFilePatterns = $sensitiveFilePatternsFallback }
+
+# Backend write rule, same source as the Python twin.
+$backendCfg = Get-ProfileJson "backend"
+$backendWriteBanned  = if ($backendCfg) { [bool]$backendCfg.directWriteBanned } else { $true }
+$backendWritePattern = if ($backendCfg -and $backendCfg.directWritePattern) { [string]$backendCfg.directWritePattern } else { '(?i)supabase\s*\.\s*from\s*\([^\)]*\)\s*\.\s*(insert|update|upsert|delete)\b' }
+$backendWriteAdvice  = if ($backendCfg -and $backendCfg.directWriteAdvice) { [string]$backendCfg.directWriteAdvice } else { "Client writes must go through Cloudflare Worker, not direct Supabase mutation." }
 
 foreach ($file in $changedFiles) {
     foreach ($pattern in $sensitiveFilePatterns) {
@@ -353,7 +390,9 @@ foreach ($rawLine in ($diff -split "`n")) {
         $trimmed = $code.Trim()
         $context = ($hunkBuffer.ToArray() -join "`n")
 
-        if ($isCode) {
+        # Language rules only for real C#; secret rules run on everything
+        # (see $SourceFileExtensions).
+        if ($isCode -and (Test-SourceFile $currentFile)) {
             if ($trimmed -match '\bDateTime\.(Now|UtcNow)\b') {
                 Add-Finding $findings "time-manager" "critical" "definite" $currentFile $lineNumber $trimmed "Use TimeManager instead of DateTime.Now/DateTime.UtcNow."
             }
@@ -412,15 +451,17 @@ foreach ($rawLine in ($diff -split "`n")) {
                 Add-Finding $findings "data-persistence" "critical" "contextual" $currentFile $lineNumber $trimmed "Never call Save() from Update/FixedUpdate/LateUpdate or per-frame loops."
             }
 
-            if ($trimmed -match '(?i)supabase\s*\.\s*from\s*\([^\)]*\)\s*\.\s*(insert|update|upsert|delete)\b') {
-                Add-Finding $findings "backend-security" "critical" "definite" $currentFile $lineNumber $trimmed "Client writes must go through Cloudflare Worker, not direct Supabase mutation."
+            if ($backendWriteBanned -and $trimmed -match $backendWritePattern) {
+                Add-Finding $findings "backend-security" "critical" "definite" $currentFile $lineNumber $trimmed $backendWriteAdvice
                 $sensitiveReasons.Add([PSCustomObject]@{
                     type = "direct-supabase-write"
                     file = $currentFile
                     line = $lineNumber
                 }) | Out-Null
             }
+        }
 
+        if ($isCode) {
             # Credential-LIKE identifier. The scoped (?-i:...) keeps the match
             # UPPER_SNAKE-only even though -match is case-insensitive by default —
             # without it, lowercase identifiers/JSON keys (player_token, session_key,

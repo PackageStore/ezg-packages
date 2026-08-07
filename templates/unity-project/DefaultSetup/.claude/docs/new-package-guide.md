@@ -41,16 +41,16 @@ Determine package requirements by priority:
 
 | # | Path | Purpose |
 |---|------|---------|
-| 1 | `Assets/_Game/2.BUS/DataConfigs/Models/PackageTemplateModel.cs` | Base model fields (name, profit, rewards, packId) |
-| 2 | `Assets/_Game/2.BUS/Features/Package/Scripts/Controller/PurchaseTemplateController.cs` | How UI handles IAP purchases |
-| 3 | `Assets/_Game/2.BUS/Features/Package/Scripts/Controller/PackageManager.cs` | Purchase tracking (`IsPurchase`, `PurchasePack`, `PurchaseDailyPack`, `PurchaseWeeklyPack`) |
+| 1 | `PackageTemplateModel.cs` (`Glob **/PackageTemplateModel.cs`) | Base model fields (name, profit, rewards, packId) |
+| 2 | `<featuresRoot>/Package/Scripts/Controller/PurchaseTemplateController.cs` | How UI handles IAP purchases |
+| 3 | `<featuresRoot>/Package/Scripts/Controller/PackageManager.cs` | Purchase tracking (`IsPurchase`, `PurchasePack`, `PurchaseDailyPack`, `PurchaseWeeklyPack`) |
 | 4 | Examples (pick relevant) | `StarterPack/` (duration/comebackAfter), `GemRefillPack/` (gem trigger), `JewelPack/` (simple time-limited) |
 
 ---
 
 ## 4. Directory structure
 
-Create under `Assets/_Game/2.BUS/Features/`:
+Create under `<featuresRoot>/`:
 
 ```
 [PackageName]/
@@ -164,7 +164,7 @@ public static [PackageName]Manager [PackageName]
 ### E. `[PackageName]Controller.cs`
 
 - **Location:** `[PackageName]/Scripts/Controller/`
-- **Inheritance:** `GameFeatureBaseController` (adds `FeatureType` for open/close events) — defined at `Assets/_Game/4.CORE/Modules/UIModule/GameFeatureBaseController.cs`
+- **Inheritance:** `GameFeatureBaseController` (adds `FeatureType` for open/close events) — locate with `Glob **/GameFeatureBaseController.cs`
 - **Namespace:** `Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller`
 - **Rules:**
   - `PurchaseTemplateController` reference for IAP
@@ -225,14 +225,14 @@ namespace Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller
 
 ## 6. DataManager / IAP registration
 
-1. **`CsvAssetDir.cs`** — `Assets/_Game/4.CORE/Modules/CsvReaders/CsvAssetDir.cs`  
+1. **`CsvAssetDir.cs`** — locate with `Glob **/CsvAssetDir.cs`  
    `public const string [PackageName] = "[PackageName]";`  
    Value is bare filename (no extension). `ResLoader` resolves CSV inside the package's `CsvConfig/` folder.
 
-2. **`DataManagerAutoGenerate.cs`** — `Assets/_Game/2.BUS/DataConfigs/DataManagerAutoGenerate.cs`  
+2. **`DataManagerAutoGenerate.cs`** — locate with `Glob **/DataManagerAutoGenerate.cs`  
    `public static [PackageName]Collection [PackageName] => Get<[PackageName]Collection>();`
 
-3. **`GameSystems.cs`** — `Assets/_Game/2.BUS/Systems/GameSystems.cs`  
+3. **`GameSystems.cs`** — locate with `Glob **/GameSystems.cs`  
    Inside `InitAllPurchasePackage()`, add to `consumablePack` **before** the `Where` filter:
 
 ```csharp
@@ -245,7 +245,7 @@ Pattern: `.Select(x => x.packId)` when each entry is a separate pack (same as `S
 
 ## 7. CSV data file
 
-**Path:** `Assets/_Game/2.BUS/Features/[PackageName]/CsvConfig/[PackageName].csv`
+**Path:** `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv`
 
 > Do **NOT** place CSV at `Assets/Csv/Collection/Packages/...` — that legacy path is obsolete (see csv-config skill).
 
@@ -352,7 +352,7 @@ Typical package cheats (mirror `DailyLoginV2` / `Equipment` in style):
 - [ ] `CsvAssetDir.cs` updated with path constant
 - [ ] `DataManagerAutoGenerate.cs` updated with collection property
 - [ ] `GameSystems.InitAllPurchasePackage()` has `DataManager.[PackageName].dataGroups.Select(x => x.packId)`
-- [ ] CSV at `Assets/_Game/2.BUS/Features/[PackageName]/CsvConfig/[PackageName].csv`
+- [ ] CSV at `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv`
 - [ ] IAP product IDs: `com.blackface.survivor.blaze.[package_name]_N`
 - [ ] Localization keys for package names
 - [ ] `/new-ui [PackageName]` → prefab variant at `Features/[PackageName]/Resources/[PackageName].prefab` (Package branch)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "blazesurvivor/ui-spec-v1",
-  "title": "BlazeSurvivor UI Spec v1",
+  "title": "UI Spec v1",
   "type": "object",
   "required": [
     "specVersion",

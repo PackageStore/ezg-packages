@@ -73,7 +73,7 @@ DEFAULTS = {
         "*Auth*", "*Login*", "*Token*", "*Session*",
         "*Leaderboard*", "*Ranking*", "*Social*",
         "*AntiCheat*", "*Validation*", "*Integrity*",
-        "*.env*", "*.config", "*Secrets*",
+        "*.env*", "*.config", "*Secrets*", "*Credential*",
     ],
 
     # --- backend shape ------------------------------------------------------

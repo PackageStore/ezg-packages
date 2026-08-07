@@ -62,7 +62,7 @@ Kết thúc bằng đúng MỘT JSON object, không kèm prose:
 # 10. Implementation Mapping
 
 ## 10.1 Sub-Features
-Liệt kê các feature con cần tạo riêng (mỗi feature = 1 folder trong `Assets/_Game/2.BUS/Features/`):
+Liệt kê các feature con cần tạo riêng (mỗi feature = 1 folder trong `<featuresRoot>/`):
 | Feature Name | Controller | Manager Type | Cần Model/Collection? |
 |---|---|---|---|
 | [PascalCase] | Có/Không | Static / DataPlayerBase | Có/Không |
