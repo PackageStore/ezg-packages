@@ -632,7 +632,20 @@
           <li>Toàn bộ backlog nằm <b>ngoài</b> worktree: <code>$(git rev-parse --git-common-dir)/backlog/</code> = <code>&lt;repo&gt;/.git/backlog/</code>. Per-dev, không commit, không merge được — nhưng <b>mọi git worktree của cùng clone thấy chung một hàng đợi</b>.</li>
           <li>4 thư mục = 4 trạng thái: <code>planning/</code> → <code>todo/</code> → <code>in-progress/</code> → <code>done/</code>. Index là <code>BACKLOG.md</code> cùng chỗ.</li>
           <li><b>Mọi transition đi qua <code>backlog-ops.py</code></b> — không hand-edit BACKLOG.md, không <code>git add/mv</code> file backlog. Hand-edit từng làm hỏng index thật.</li>
-          <li>Clone mới: <code>python3 .claude/scripts/backlog-ops.py init</code> một lần.</li>
+          <li>Clone mới: chạy <code>bash .claude/scripts/bootstrap.sh</code> (Windows: <code>bootstrap.ps1</code>) — dựng link view cho provider + git + backlog trong <b>một lệnh</b>. Chỉ muốn riêng phần backlog thì <code>python3 .claude/scripts/backlog-ops.py init</code>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">NỀN TẢNG</span>Project profile — vì sao doc viết <code>&lt;sourceRoot&gt;</code> chứ không viết đường dẫn</h3>
+        <ul>
+          <li>Hệ thống backlog/planning này <b>ship nguyên xi sang mọi project</b>, nên mọi thứ khác nhau giữa các project nằm trong <b>một file dữ liệu</b>: <code>.claude/project-profile.json</code>. SKILL.md không còn nhắc tên đường dẫn nào của riêng game này.</li>
+          <li>Vì vậy trong skill và trong trang này, placeholder ngoặc nhọn — <code>&lt;sourceRoot&gt;</code> · <code>&lt;featuresRoot&gt;</code> · <code>&lt;gameplayRoot&gt;</code> · <code>&lt;gitConfigPrefix&gt;</code> · <code>&lt;solutionFile&gt;</code> — <b>phải tra ra giá trị thật trước khi dùng</b>, đừng đoán theo hình dạng repo:
+            <pre class="cmd" style="margin:9px 0 0;">python3 .claude/scripts/project_profile.py            <span class="c"># tất cả key</span>
+python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một key</span></pre>
+          </li>
+          <li>Thiếu file profile <b>không phải lỗi</b> — reader rơi về DEFAULTS dựng lại đúng hành vi cũ của repo này. Chính vì thế lớp gián tiếp này không thể làm đổi kết quả preflight ở đây.</li>
+          <li>Script tự đọc profile, không hard-code: cổng COMPILE tier 2 build <code>project_profile.py solutionFile</code>; preflight quyết định file nào là "sensitive" theo profile — <code>backlog-preflight.py</code> và bản twin <code>.ps1</code> bị <code>test_preflight_twin_parity.py</code> ép chạy cùng một luật.</li>
         </ul>
       </div>
     </div>
@@ -783,7 +796,7 @@ python3 -m unittest discover -s .claude/scripts/tests <span class="c"># regressi
 
     <p style="font-size:.84rem; color:var(--ink-soft);">
       <b>--auto-model-by-tier:</b> XS/S → sonnet, M/L → opus.
-      <b>Base branch</b> = nhánh hiện tại lúc bắt đầu, lưu vào git config <code><code>blazesurvivor.agentBaseBranch</code>lt;gitConfigPrefix<code>blazesurvivor.agentBaseBranch</code>gt;.agentBaseBranch</code>;
+      <b>Base branch</b> = nhánh hiện tại lúc bắt đầu, lưu vào git config <code>&lt;gitConfigPrefix&gt;.agentBaseBranch</code>;
       đổi base bằng <code>git config --unset</code> rồi chạy lại từ nhánh mới.
     </p>
   </section>
