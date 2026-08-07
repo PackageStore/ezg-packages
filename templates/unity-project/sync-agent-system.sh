@@ -1,0 +1,391 @@
+#!/usr/bin/env bash
+# sync-agent-system.sh — port the planning/backlog/mockup agent system from an
+# upstream Unity project into this template.
+#
+# UPSTREAM is a project whose canonical agent tree lives in `.agents/` (real
+# files) with `.claude/` as link views — BlazeSurvivor is the reference.
+# THE TEMPLATE inverts that: `DefaultSetup/.claude/` holds the real files and
+# `.agents/` is the link view, because Claude Code is the primary driver here
+# and other providers read through the links.
+#
+# So this script does three things:
+#   1. copies an explicit ALLOWLIST of upstream files into DefaultSetup/.claude/
+#   2. rewrites `.agents/<x>` path references to `.claude/<x>`
+#      (with `workflows` -> `commands`, `sync-to-claude` -> `sync-to-agents`)
+#   3. reports anything upstream that is in neither the copy list nor the
+#      keep list, so new upstream files can never be silently dropped
+#
+# The lists are an ALLOWLIST on purpose. Upstream carries game-specific skills
+# (balance sims, enemy/art generators, localization) and at least one Google
+# service-account credential that must never reach a template.
+#
+# Usage:
+#   bash sync-agent-system.sh [--upstream <path>] [--dry-run]
+#
+# Default upstream: ../../../BlazeSurvivor relative to this script.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UPSTREAM="${UPSTREAM:-$(cd "$SCRIPT_DIR/../../../BlazeSurvivor" 2>/dev/null && pwd || true)}"
+DST="$SCRIPT_DIR/DefaultSetup/.claude"
+DRY_RUN=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --upstream) UPSTREAM="$2"; shift 2 ;;
+    --dry-run)  DRY_RUN=1; shift ;;
+    -h|--help)  sed -n '2,26p' "$0"; exit 0 ;;
+    *) echo "unknown arg: $1" >&2; exit 1 ;;
+  esac
+done
+
+[ -n "$UPSTREAM" ] && [ -d "$UPSTREAM/.agents" ] \
+  || { echo "ERROR: upstream .agents/ not found at: ${UPSTREAM:-<unset>}" >&2; exit 1; }
+[ -d "$DST" ] || { echo "ERROR: template .claude/ not found at: $DST" >&2; exit 1; }
+
+UPSTREAM="$(cd "$UPSTREAM" && pwd)"
+SRC="$UPSTREAM/.agents"
+
+# ---------------------------------------------------------------------------
+# COPY — upstream is ahead; overwrite the template's copy.
+#
+# Everything here is the backlog/planning/mockup machinery proper: the parts
+# that are exercised every day upstream and whose contracts move together
+# (backlog-ops <-> run-backlog <-> task templates, ui-review <-> ui-kit <->
+# mockup-drafter). Splitting a contract across two vintages breaks it, so these
+# move as whole groups.
+# ---------------------------------------------------------------------------
+
+# agents/<file> — the subagent roster, all seven move together with run-backlog.
+COPY_AGENTS=(
+  code-reviewer.md
+  mockup-drafter.md
+  performance-reviewer.md
+  qa-verifier.md
+  security-auditor.md
+  task-planner.md
+  ui-visual-reviewer.md
+)
+
+# skills/<dir> — the pipeline skills only. EZG-base API skills (ui-manager,
+# purchase-manager, csv-config, ...) are deliberately NOT here: the template's
+# own versions describe the template's Assets/_Project layout and its base
+# packages, which upstream's versions do not.
+COPY_SKILLS=(
+  add-to-backlog
+  compile-check
+  execute-backlog-tasks
+  package-module
+  planning-system
+  planning-task
+  run-backlog
+  ui-kit                            # lifecycle of the generated mockup contract
+)
+
+# scripts/<file|dir>
+COPY_SCRIPTS=(
+  project_profile.py                # imported by backlog-preflight.py at load
+  bootstrap.sh                      # first-run setup: link view + git + backlog
+  bootstrap.ps1
+  backlog-ops.py
+  backlog-preflight.py
+  backlog-preflight.ps1
+  backlog-snapshot.py
+  run-backlog-loop.sh
+  run-backlog-loop.ps1
+  run-backlog-loop.bat
+  run-backlog-loop.command
+  run-backlog-loop-core.ps1
+  run-backlog-loop-claude.ps1
+  run-backlog-loop-codex.ps1
+  run-backlog-loop-gemini.ps1
+  notify.sh
+  notify.ps1
+  discord-send.sh
+  git_prepare.sh
+  git_prepare.ps1
+  git_push.sh
+  git_push.ps1
+  stream-render.py
+  setup-approve-handler-macos.sh
+  setup-approve-handler-windows.ps1
+  ui_spec_common.py
+  ui-build-report.py
+  ui-kit-sync.py
+  ui-review.py
+  ui-review-approve-handler.py
+  ui-spec-extract.py
+  ui-spec-render.py
+  ui-spec-validator.py
+  ui-visual-diff.py
+  tests
+)
+
+# docs/<file|dir>
+COPY_DOCS=(
+  design-pipeline
+  design-style
+  planning-task-flow.md
+  planning-task-flow.html         # rendered companion to the .md above
+  run-backlog-flow.html
+  ui-spec-schema.json
+  ui-mcp-playbook.md
+  new-ui-guide.md
+  new-package-guide.md
+  workflow-model-recommendations.md
+)
+
+# Top-level trees with no counterpart in the template's old layout. The task
+# templates used to live inside the in-tree backlog/ folder; now that the
+# backlog lives in .git/ they need a home that ships.
+COPY_TREES=(
+  backlog-templates
+)
+
+# ui-kit/<file> — the HAND-WRITTEN half only.
+#
+# ui-kit.json / ui-kit.css / kit-preview.html are GENERATED by ui-kit-sync.py
+# from `Assets/Resources/Prefabs/Templates`, and ui-kit.json carries a
+# `_meta.sourceHash` of exactly those prefabs. Shipping upstream's copy hands
+# every new project a kit describing a DIFFERENT game's 46 prefabs, and the
+# spec validator rejects it as `kit_stale` on the first /ui-mockup run.
+# Bootstrap regenerates them against the project's own prefabs instead.
+#
+# ui-kit-usage.json carries no hash — it is hand-written composition rules, and
+# the EZG base templates it describes are the same ones every generated project
+# starts from. It ships as a SEED the project then owns; a rule naming a prefab
+# that project does not have shows up as `_meta.usageUnknown` on the first sync
+# rather than failing anything.
+COPY_UIKIT=(
+  kit-preview.template.html
+  ui-review-dashboard.template.html
+  ui-kit-usage.json
+)
+
+# workflows/<file> -> commands/<file>. Only the ones the new pipeline's
+# contracts reach into.
+COPY_WORKFLOWS=(
+  ui-mockup.md
+)
+
+# ---------------------------------------------------------------------------
+# KEEP — the template's own version wins; do not copy from upstream.
+#
+# Two reasons a file lands here. Either the template's copy is adapted to the
+# template's own layout and base packages (new-feature.md is 5.8K here against
+# upstream's 15K of survivor-game specifics), or the template's copy carries
+# hand-improvements upstream never received (new-ui.md already speaks
+# groundTruth). Overwriting either way loses work.
+# ---------------------------------------------------------------------------
+KEEP_NOTE=(
+  "rules/*                 template's rules are already the genericized twins of upstream's"
+  "skills/{ui-manager,purchase-manager,csv-config,...}   EZG-base API docs for THIS template"
+  "commands/{new-feature,new-package,new-class,new-ui}.md   adapted to Assets/_Project"
+  "commands/{code-review,qa-review,tester,format-code,push,build}.md   parity, no upstream gain"
+  "commands/*-rule.md, step1-3, feature-development, csv-design   template-only"
+  "scripts/{sync-to-agents.*,codegraph-doctor.sh,discord-send.ps1}   template-only / correct direction"
+  "harness/, settings.json, docs/discord-notification.md   template-only"
+  "docs/GETTING-STARTED.md   template-only: first-run guide for a generated project"
+)
+
+# ---------------------------------------------------------------------------
+# NEVER — must not reach a template, called out so the intent is auditable.
+# ---------------------------------------------------------------------------
+# The template carries the same EZG-base API skills under different names.
+# Listing the pairs keeps the coverage report honest: these are decided (keep
+# the template's), not overlooked.  upstream-name:template-name
+KEEP_ALIASES=(
+  currency-preview-controller:currency-preview
+  easy-event-manager:event-manager
+  item-preview-controller:item-preview
+  notification-system:base-notification
+  reward-manager:rewards-service
+)
+
+NEVER_GLOBS=(
+  "docs/blaze-survivor-*.json"      # Google service-account credential
+  "skills/_shared"                  # blaze-art-style.md — upstream game's art bible
+  "skills/balance-*" "skills/generate-*" "skills/enemy-*" "skills/feature-cheat"
+  "skills/skill-csv-localize" "skills/play-console-api" "skills/notebooklm-query"
+  "skills/project-doc-design" "skills/progress-thread" "skills/core-extensions"
+  "skills/loop-list-view-2-padding" "skills/html-doc-style" "skills/game-systems"
+  "scripts/balance*" "scripts/icon-post.py" "scripts/*localize*"
+  "scripts/edit_project_doc.py" "scripts/format_project_doc.py"
+  "scripts/sync-to-claude.*"        # inverted link direction, wrong for a template
+  "workflows/new-enemy*.md" "workflows/new-skill.md"
+  "workflows/add-localize.md" "workflows/edit-project-doc.md"
+  "docs/casual-workflow" "docs/skill-*.md" "docs/rpg-stat-types.md"
+  "docs/animation-role-cast-system.md"
+)
+
+# ---------------------------------------------------------------------------
+
+say() { printf '%s\n' "$*"; }
+run() { if [ "$DRY_RUN" = "1" ]; then say "  [dry] $*"; else "$@"; fi; }
+
+copied=0
+# Destinations written by this run. The rewrite pass reads this list instead of
+# walking the whole tree: the template owns files this script never copies, and
+# a blanket sed edits those too. That is how an earlier run mangled
+# sync-to-agents.sh's header into "the .claude/ link views point back to
+# .claude/". Rewrite only what you just wrote.
+COPIED_PATHS=()
+copy_one() {  # copy_one <src-abs> <dst-abs>
+  local src="$1" dst="$2"
+  [ -e "$src" ] || { say "  MISSING upstream: ${src#$SRC/}"; return 1; }
+  run mkdir -p "$(dirname "$dst")"
+  if [ -d "$src" ]; then
+    run rm -rf "$dst"
+    run cp -R "$src" "$dst"
+  else
+    run cp -p "$src" "$dst"
+  fi
+  COPIED_PATHS+=("$dst")
+  copied=$((copied + 1))
+  say "  copy  ${src#$SRC/}"
+}
+
+say "=== sync-agent-system ==="
+say "upstream : $SRC"
+say "template : $DST"
+[ "$DRY_RUN" = "1" ] && say "mode     : DRY RUN (no writes)"
+say ""
+
+say "--- agents/"
+for f in "${COPY_AGENTS[@]}";    do copy_one "$SRC/agents/$f"    "$DST/agents/$f"    || true; done
+say "--- skills/"
+for f in "${COPY_SKILLS[@]}";    do copy_one "$SRC/skills/$f"    "$DST/skills/$f"    || true; done
+say "--- scripts/"
+for f in "${COPY_SCRIPTS[@]}";   do copy_one "$SRC/scripts/$f"   "$DST/scripts/$f"   || true; done
+say "--- docs/"
+for f in "${COPY_DOCS[@]}";      do copy_one "$SRC/docs/$f"      "$DST/docs/$f"      || true; done
+say "--- trees/"
+for f in "${COPY_TREES[@]}";     do copy_one "$SRC/$f"           "$DST/$f"           || true; done
+say "--- ui-kit/ (hand-written half only)"
+run rm -rf "$DST/ui-kit"
+for f in "${COPY_UIKIT[@]}";     do copy_one "$SRC/ui-kit/$f"    "$DST/ui-kit/$f"    || true; done
+say "--- workflows/ -> commands/"
+for f in "${COPY_WORKFLOWS[@]}"; do copy_one "$SRC/workflows/$f" "$DST/commands/$f"  || true; done
+
+# ---------------------------------------------------------------------------
+# Path rewrite. Order matters: the workflows->commands rename and the
+# sync-script rename must both run before the generic .agents -> .claude pass,
+# otherwise they would be rewritten into `.claude/workflows` first and the
+# rename would no longer match.
+# ---------------------------------------------------------------------------
+say ""
+say "--- rewriting paths (.agents -> .claude)"
+if [ "$DRY_RUN" = "1" ]; then
+  say "  [dry] skipped"
+else
+  # -print0/-d '' so paths with spaces survive. Only the paths this run wrote:
+  # COPIED_PATHS holds files and directories, so expand directories to files.
+  printf '%s\0' "${COPIED_PATHS[@]}" |
+  xargs -0 -I{} find {} -type f \
+    \( -name '*.md' -o -name '*.py' -o -name '*.sh' -o -name '*.ps1' \
+       -o -name '*.json' -o -name '*.html' -o -name '*.bat' -o -name '*.command' \
+       -o -name '*.css' \) -print0 |
+  while IFS= read -r -d '' f; do
+    # bootstrap.* is deliberately layout-agnostic: it globs for `sync-to-*.sh`
+    # and probes BOTH profile locations, so it needs no rewrite to work here.
+    # Running the rewrite over it only corrupts the prose that names the two
+    # sides ("the link view (.claude/ <-> .claude/)") and duplicates the probe
+    # list. Leave it exactly as upstream wrote it.
+    case "$(basename "$f")" in bootstrap.*) continue ;; esac
+
+    # BSD sed needs the empty -i argument; this script targets macOS.
+    #
+    # Three path shapes, and all three have to be covered. The slash form
+    # (`.agents/scripts/x.py`) is what prose and shell use. The segment forms
+    # (`Path(".agents") / "ui-kit"` in Python, `".agents\scripts"` in
+    # PowerShell) carry no slash and silently survive a slash-only rewrite —
+    # they then resolve only through the link view, so a freshly generated
+    # project breaks until someone runs sync-to-agents.
+    sed -i '' \
+      -e 's#\.agents/workflows#.claude/commands#g' \
+      -e 's#sync-to-claude#sync-to-agents#g' \
+      -e 's#\.agents/#.claude/#g' \
+      -e 's#"\.agents"#".claude"#g' \
+      -e "s#'\.agents'#'.claude'#g" \
+      -e 's#\.agents\\#.claude\\#g' \
+      "$f"
+  done
+  say "  done"
+
+  # Drop tests whose subject script is not part of the template. Upstream's
+  # suite covers game-only tools too (icon-post.py); keeping those tests would
+  # hand every new project a red suite on day one.
+  say ""
+  say "--- pruning orphaned tests"
+  for t in "$DST"/scripts/tests/test_*.py; do
+    [ -e "$t" ] || continue
+    orphan=0
+    while read -r target; do
+      [ -n "$target" ] || continue
+      [ -e "$DST/scripts/$target" ] || orphan=1
+    done < <(grep -oE '"[a-z_-]+\.py"' "$t" | tr -d '"' | sort -u)
+    if [ "$orphan" = "1" ]; then
+      rm -f "$t"
+      say "  prune $(basename "$t")  (subject script not shipped)"
+    fi
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# Coverage report. Anything upstream that is neither copied nor explicitly
+# excluded shows up here — that is the signal a new upstream feature landed and
+# somebody has to decide where it goes.
+# ---------------------------------------------------------------------------
+say ""
+say "--- upstream entries in neither COPY nor NEVER (decide these):"
+uncovered=0
+for group in agents skills scripts docs workflows rules; do
+  [ -d "$SRC/$group" ] || continue
+  for entry in "$SRC/$group"/*; do
+    [ -e "$entry" ] || continue
+    name="$(basename "$entry")"
+    rel="$group/$name"
+
+    covered=0
+    case "$group" in
+      agents)    for x in "${COPY_AGENTS[@]}";    do [ "$x" = "$name" ] && covered=1; done ;;
+      skills)    for x in "${COPY_SKILLS[@]}";    do [ "$x" = "$name" ] && covered=1; done ;;
+      scripts)   for x in "${COPY_SCRIPTS[@]}";   do [ "$x" = "$name" ] && covered=1; done ;;
+      docs)      for x in "${COPY_DOCS[@]}";      do [ "$x" = "$name" ] && covered=1; done ;;
+      workflows) for x in "${COPY_WORKFLOWS[@]}"; do [ "$x" = "$name" ] && covered=1; done ;;
+      rules)     covered=1 ;;   # template keeps its own rules wholesale
+    esac
+    [ "$covered" = "1" ] && continue
+
+    for g in "${NEVER_GLOBS[@]}"; do
+      # shellcheck disable=SC2053
+      [[ "$rel" == $g ]] && { covered=1; break; }
+    done
+    [ "$covered" = "1" ] && continue
+
+    # Kept-on-purpose overlaps: present in the template already.
+    tpl_group="$group"; [ "$group" = "workflows" ] && tpl_group="commands"
+    if [ -e "$DST/$tpl_group/$name" ]; then
+      say "  keep  $rel  (template has its own)"
+      continue
+    fi
+
+    # Same skill, different name in the template.
+    for pair in "${KEEP_ALIASES[@]}"; do
+      if [ "$group" = "skills" ] && [ "${pair%%:*}" = "$name" ]; then
+        say "  keep  $rel  (template calls it '${pair##*:}')"
+        covered=1; break
+      fi
+    done
+    [ "$covered" = "1" ] && continue
+
+    say "  ????  $rel  — NOT copied, NOT excluded, NOT in template"
+    uncovered=$((uncovered + 1))
+  done
+done
+
+say ""
+say "=== copied $copied entries; $uncovered undecided ==="
+[ "$uncovered" -gt 0 ] && say "Review the '????' lines above before shipping."
+exit 0

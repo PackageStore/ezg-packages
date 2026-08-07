@@ -15,7 +15,9 @@ PROJECT_PATH_PROVIDED=0
 PACKAGE_TEMPLATE_DIR="$SCRIPT_DIR/PackageTemplate"
 # Folder whose contents are force-copied into the new project so our baked-in defaults always win:
 # DefaultSetup/ProjectSettings/ overwrites the project's ProjectSettings (tags/build settings), and
-# any other top-level entries (.claude/, .agents/, .mcp.json, ...) are copied into the project root.
+# any other top-level entries (.claude/, .mcp.json, CLAUDE.md, ...) are copied into the project root.
+# The `.agents/` link view is NOT among them -- it is created by the project's own bootstrap, because a
+# symlink cannot survive a tarball on Windows and dereferencing it would ship a copy that drifts.
 # ensure_default_setup() repoints this to a server copy when there is no local DefaultSetup/ beside the
 # bootstrap (a fresh machine only has the bootstrap + manifest).
 DEFAULT_SETUP_DIR="$SCRIPT_DIR/DefaultSetup"
@@ -32,6 +34,17 @@ CACHE_CLEANED=0
 # Set to 1 once a DefaultSetup overwrite has copied successfully, so the EXIT-trap backstop does not
 # re-run apply_default_setup after the cache (its source on a fresh machine) was already cleaned.
 DEFAULT_SETUP_OK=0
+# Per-project files that DefaultSetup ships as PLACEHOLDERS and this script fills in once (see
+# personalize_default_setup). apply_default_setup runs up to three times per build and force-copies the
+# whole DefaultSetup root, so without this list the second copy would hand a re-run project its
+# placeholders back and throw away whatever the developer tuned. Paths are relative to the project root.
+DEFAULT_SETUP_PRESERVE=(".claude/project-profile.json" ".mcp.json")
+# One-shot guard: the generated project is bootstrapped (link view + git init + backlog + UI kit) exactly
+# once per run, on whichever path gets there first -- the success path or the EXIT-trap backstop.
+AGENT_BOOTSTRAP_RAN=0
+# GitLab group for .mcp.json's GITLAB_PROJECT_ID. The project half is known (it is the project name);
+# the group is not, so it stays the literal YOUR_GROUP unless the environment names one.
+EZG_GITLAB_GROUP="${EZG_GITLAB_GROUP:-}"
 TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
 TEMPLATE_FILE_PROVIDED=0
 # By default the script fetches the latest published manifest from the server every run. Pass
@@ -230,6 +243,13 @@ pause_before_close() {
   # success path already applied it.
   if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ] && [ "$DEFAULT_SETUP_OK" != "1" ]; then
     apply_default_setup || true
+  fi
+
+  # Backstop: a project that got its .claude/ but never got bootstrapped cannot run the agent system at
+  # all (no link view -> Claude never finds the subagents). One-shot guarded, so this no-ops when the
+  # success path already ran it.
+  if [ "$APPLY_DEFAULT_SETUP_PENDING" = "1" ]; then
+    bootstrap_agent_system || true
   fi
 
   # Backstop: open the project as long as its launcher exists, even if an earlier step failed (compile
@@ -1854,7 +1874,7 @@ run_launcher() {
 }
 
 # Force-copy DefaultSetup into the freshly built project: ProjectSettings overrides the project's
-# ProjectSettings, and the rest (.claude/, .agents/, .mcp.json) lands in the project root. Runs after
+# ProjectSettings, and the rest (.claude/, .mcp.json, CLAUDE.md) lands in the project root. Runs after
 # the hidden resolve/validate pass so
 # our baked-in settings always win; it must succeed even if that pass failed, so it is best-effort
 # (never dies) and is also invoked from the EXIT trap as a backstop. Idempotent: the first call wins.
@@ -1917,17 +1937,98 @@ ensure_default_setup() {
   fi
 }
 
+# Lowercase alphanumeric form of the project name, used as the git-config namespace the backlog loop
+# stores its base branch under (<prefix>.agentBaseBranch). Git section names cannot hold spaces or
+# punctuation, so everything outside [a-z0-9] is dropped rather than replaced -- "Blaze Survivor 2"
+# becomes "blazesurvivor2". Falls back to "project" if the name is entirely non-alphanumeric.
+project_slug() {
+  local slug
+  slug="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
+  printf '%s\n' "${slug:-project}"
+}
+
+# Replace one literal (not regex) placeholder in a file, in place. No-op when the file is missing or the
+# placeholder is not present, which is what makes the whole personalize pass idempotent: the second
+# apply_default_setup either finds a preserved file with nothing left to substitute, or a freshly copied
+# placeholder file to fill in again. Best-effort -- a failed sed leaves the original untouched.
+replace_placeholder_in_file() {
+  local file="$1" needle="$2" value="$3" escaped_needle escaped_value
+  [ -f "$file" ] || return 0
+  grep -qF -- "$needle" "$file" 2>/dev/null || return 0
+  # Escape for sed: the needle is a BRE, the value is replacement text. Both may contain / & \ and the
+  # project name is user input, so neither can be interpolated raw.
+  escaped_needle="$(printf '%s' "$needle" | sed -e 's/[][\.*^$\/&]/\\&/g')"
+  escaped_value="$(printf '%s' "$value" | sed -e 's/[\/&\\]/\\&/g')"
+  if sed "s/$escaped_needle/$escaped_value/g" "$file" >"${file}.tmp" 2>>"$BUILD_RUN_LOG"; then
+    mv -f "${file}.tmp" "$file" 2>>"$BUILD_RUN_LOG" || rm -f "${file}.tmp"
+  else
+    rm -f "${file}.tmp"
+    log "WARNING: could not personalize $file (placeholder '$needle' left as-is)"
+  fi
+}
+
+# Turn the generic DefaultSetup copy into THIS project's copy. Everything the agent system needs to know
+# about the project it is running in comes from .claude/project-profile.json, so that file is the one
+# that actually matters; CLAUDE.md and .mcp.json carry the same name for humans and for the GitLab MCP.
+# Runs after every extras copy (see apply_default_setup_extras) because that copy re-lays the
+# placeholders each time.
+personalize_default_setup() {
+  local name slug
+  name="$(basename "$PROJECT_PATH")"
+  slug="$(project_slug "$name")"
+
+  # The profile: projectName/solutionFile/gitConfigPrefix. Everything else in that file is left at the
+  # template's values for the developer to tune (GETTING-STARTED.md section 2 walks through them).
+  replace_placeholder_in_file "$PROJECT_PATH/.claude/project-profile.json" "__PROJECT_NAME__" "$name"
+  replace_placeholder_in_file "$PROJECT_PATH/.claude/project-profile.json" "__PROJECT_SLUG__" "$slug"
+
+  # The doc heading Claude reads first.
+  replace_placeholder_in_file "$PROJECT_PATH/CLAUDE.md" "[Project Name]" "$name"
+
+  # GITLAB_PROJECT_ID is "<group>/<project>". We know the project; the group is org-specific and is only
+  # filled when the environment names one, so an unset EZG_GITLAB_GROUP leaves a placeholder that reads
+  # as obviously-unfinished rather than a plausible wrong path.
+  replace_placeholder_in_file "$PROJECT_PATH/.mcp.json" "YOUR_PROJECT" "$name"
+  if [ -n "$EZG_GITLAB_GROUP" ]; then
+    replace_placeholder_in_file "$PROJECT_PATH/.mcp.json" "YOUR_GROUP" "$EZG_GITLAB_GROUP"
+  fi
+
+  log "Personalized DefaultSetup for project '$name' (profile slug: $slug)"
+  return 0
+}
+
 # Copy everything at the DefaultSetup root EXCEPT ProjectSettings (handled separately) into the project
-# root -- i.e. the baked-in tooling like .claude/, .agents/ and .mcp.json -- so a freshly created project
-# ships with it. Best-effort and force-overwriting, consistent with the ProjectSettings overwrite.
+# root -- i.e. the baked-in tooling like .claude/ and .mcp.json -- so a freshly created project ships
+# with it. Best-effort and force-overwriting, consistent with the ProjectSettings overwrite, EXCEPT for
+# DEFAULT_SETUP_PRESERVE: those are per-project config this script seeds once, so an existing copy is
+# stashed across the overwrite instead of being replaced by the template's placeholder version.
 apply_default_setup_extras() {
-  local root="$DEFAULT_SETUP_DIR" entry name copied=0
+  local root="$DEFAULT_SETUP_DIR" entry name copied=0 rel stash="" preserved=0
   [ -d "$root" ] || return 0
-  # dotglob: include dotfiles (.claude, .agents, .mcp.json). nullglob: skip the loop when empty.
+
+  # 1) Stash the per-project files an earlier run (or an earlier apply in THIS run) already filled in.
+  if stash="$(mktemp -d "${TMPDIR:-/tmp}/ezg-preserve.XXXXXX" 2>/dev/null)"; then
+    for rel in "${DEFAULT_SETUP_PRESERVE[@]}"; do
+      [ -f "$PROJECT_PATH/$rel" ] || continue
+      mkdir -p "$stash/$(dirname "$rel")" 2>/dev/null || continue
+      cp -f "$PROJECT_PATH/$rel" "$stash/$rel" 2>>"$BUILD_RUN_LOG" && preserved=1
+    done
+  else
+    stash=""
+    log "WARNING: could not create a temp dir; existing project-profile.json/.mcp.json may be overwritten."
+  fi
+
+  # dotglob: include dotfiles (.claude, .mcp.json). nullglob: skip the loop when empty.
   shopt -s dotglob nullglob 2>/dev/null || true
   for entry in "$root"/*; do
     name="$(basename "$entry")"
     [ "$name" = "ProjectSettings" ] && continue
+    # The `.agents/` link view is bootstrap's job, never a copy (see bootstrap_agent_system). The
+    # published tarball already excludes it, so shipped builds never had it -- but a build run against
+    # a LOCAL DefaultSetup/ would copy whatever link view happens to sit there, seeding the project
+    # with one vintage of links before bootstrap rewrites them. Skipping it here makes the two paths
+    # agree by construction instead of by what the upload script happened to exclude.
+    [ "$name" = ".agents" ] && continue
     if cp -Rf "$entry" "$PROJECT_PATH/" 2>>"$BUILD_RUN_LOG"; then
       copied=1
     else
@@ -1935,7 +2036,24 @@ apply_default_setup_extras() {
     fi
   done
   shopt -u dotglob nullglob 2>/dev/null || true
-  [ "$copied" = "1" ] && log "Applied DefaultSetup extras (.claude, .agents, .mcp.json, ...) into: $PROJECT_PATH"
+
+  # 2) Put the stashed per-project files back over the freshly copied placeholders.
+  if [ -n "$stash" ]; then
+    for rel in "${DEFAULT_SETUP_PRESERVE[@]}"; do
+      [ -f "$stash/$rel" ] || continue
+      cp -f "$stash/$rel" "$PROJECT_PATH/$rel" 2>>"$BUILD_RUN_LOG" \
+        || log "WARNING: could not restore preserved file: $rel"
+    done
+    rm -rf "$stash"
+  fi
+  [ "$preserved" = "1" ] && log "Kept this project's existing ${DEFAULT_SETUP_PRESERVE[*]} (not re-seeded)."
+
+  if [ "$copied" = "1" ]; then
+    log "Applied DefaultSetup extras (.claude, .mcp.json, ...) into: $PROJECT_PATH"
+    # 3) Fill the placeholders the template ships. Cheap and idempotent, so it runs on every apply
+    #    rather than being guarded -- the copy above re-lays them each time.
+    personalize_default_setup
+  fi
   return 0
 }
 
@@ -1964,8 +2082,59 @@ apply_default_setup() {
     log "WARNING: no DefaultSetup/ProjectSettings available to overwrite (source missing): $src"
   fi
 
-  # 2) Everything else at the DefaultSetup root (.claude/, .agents/, .mcp.json, ...) -> project root.
+  # 2) Everything else at the DefaultSetup root (.claude/, .mcp.json, ...) -> project root.
   apply_default_setup_extras
+}
+
+# Run the generated project's own bootstrap so it arrives ready to use rather than one-manual-step short.
+#
+# Three things the agent system needs cannot travel inside the tarball, which is exactly why this call
+# exists: the `.agents/` link view (symlinks do not survive a tarball on Windows, and dereferencing them
+# ships a COPY that drifts from `.claude/` the moment anyone edits a skill), the backlog (it lives in
+# `.git/backlog/`, so there must first BE a `.git/`), and the UI kit (extracted from this project's own
+# screen-template prefabs and hash-bound to them).
+#
+# Best-effort by design: a project whose bootstrap failed is still a valid Unity project, and the script
+# is idempotent, so the fix is always "run it again" -- never a reason to fail the build. One-shot so the
+# EXIT-trap backstop does not repeat what the success path already did.
+bootstrap_agent_system() {
+  [ "$AGENT_BOOTSTRAP_RAN" = "0" ] || return 0
+
+  local script="$PROJECT_PATH/.claude/scripts/bootstrap.sh"
+  if [ ! -f "$script" ]; then
+    log "WARNING: no .claude/scripts/bootstrap.sh in the project; skipping agent-system bootstrap."
+    return 0
+  fi
+
+  AGENT_BOOTSTRAP_RAN=1
+
+  # The backlog lives in the git COMMON dir, and bootstrap.sh only runs `git init` when it cannot find a
+  # repo at all. Projects are created next to this script, which may itself sit inside a checkout (the
+  # template repo, a Projects/ folder under version control, ...) -- and there the project would silently
+  # adopt the PARENT repo: its backlog would land in the parent's .git/ and the loop would commit the
+  # parent's branch. Give the project its own repo first whenever it does not already own the toplevel.
+  # Compare physical paths on both sides: --show-toplevel resolves symlinks, and PROJECT_PATH often does
+  # not (on macOS /tmp is a link to /private/tmp), so a textual compare would report a false mismatch.
+  local toplevel="" project_real=""
+  toplevel="$(cd "$PROJECT_PATH" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)" || toplevel=""
+  project_real="$(cd "$PROJECT_PATH" 2>/dev/null && pwd -P 2>/dev/null)" || project_real="$PROJECT_PATH"
+  if [ -n "$toplevel" ] && [ "$toplevel" != "$project_real" ]; then
+    log "Project sits inside another git repo ($toplevel); giving it its own repository instead."
+    ( cd "$PROJECT_PATH" && git init >/dev/null 2>&1 ) \
+      || log "WARNING: git init failed in $PROJECT_PATH; the backlog may attach to $toplevel"
+  fi
+
+  log "Bootstrapping the agent system (link view, git repo, backlog, UI kit)..."
+  # bootstrap.sh resolves the repo root from its own location, so no cd is needed; it exits 1 when a step
+  # failed and prints what to fix. Its output goes to the run log, and the summary line below tells the
+  # user where to look.
+  if bash "$script" >>"$BUILD_RUN_LOG" 2>&1; then
+    log "Agent system ready. Next: fill .claude/project-profile.json — see .claude/docs/GETTING-STARTED.md"
+  else
+    log "WARNING: agent-system bootstrap reported problems; see $BUILD_RUN_LOG"
+    log "         Re-run it any time: bash .claude/scripts/bootstrap.sh (idempotent)"
+  fi
+  return 0
 }
 
 # Unity pops a "Missing Signature" dialog on every editor open when a project pulls packages from a
@@ -2134,6 +2303,11 @@ fi
 # Re-apply after the Unity pass in case it rewrote any ProjectSettings file, before the launcher
 # opens. (The EXIT trap is the backstop for the failure path.)
 apply_default_setup
+
+# Now that .claude/ is in place and personalized, make the project usable by the agent system: link view,
+# git init, backlog, UI kit. Deliberately AFTER the final apply -- bootstrap creates the `.agents/` links
+# and an earlier apply would have copied over them.
+bootstrap_agent_system
 
 cleanup_download_cache
 log "Done. Open the project in Unity: $PROJECT_PATH"

@@ -21,7 +21,7 @@ When the user runs `/format-code ClassName1 [ClassName2 ...]`:
    - Wait for each chunk to complete before starting the next.
    - **DO NOT** try to edit the entire file in one tool call.
 
-3. **Format code according to project rules** (`.agents/rules/code-style.md`):
+3. **Format code according to project rules** (`.claude/rules/code-style.md`):
    - Apply region order: `Fields` → `Initialize` (Awake→OnEnable→Start→OnDisable) → `Public Methods` → `Private Methods` → `Event Handlers`.
    - Ensure proper spacing and indentation.
    - **DO NOT** rename any existing fields, methods, or classes to match naming conventions — renaming breaks references and Unity serialization.

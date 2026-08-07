@@ -13,11 +13,11 @@ Text columns (A=key, B=en, C=vi) are written with RAW so a value starting with
 Formula columns (D-R) are written with USER_ENTERED so they are evaluated.
 
 Auth: a Google service-account JSON with edit access to the sheet.
-  Path resolves from --creds, then $LOCALIZE_SA_FILE, then .agents/docs/service-account.json
+  Path resolves from --creds, then $LOCALIZE_SA_FILE, then .claude/docs/service-account.json
   Share the spreadsheet with the service-account email (client_email in the JSON).
 
 Usage:
-  python .agents/scripts/batch_add_localize.py --file entries.json [--sheet shop]
+  python .claude/scripts/batch_add_localize.py --file entries.json [--sheet shop]
 
 JSON format (key + en required; vi and any language are optional overrides):
   [
@@ -62,12 +62,12 @@ LANG_COLS = [
 
 def resolve_creds_path(cli_value):
     path = cli_value or os.environ.get('LOCALIZE_SA_FILE') \
-        or os.path.join('.agents', 'docs', 'service-account.json')
+        or os.path.join('.claude', 'docs', 'service-account.json')
     if not os.path.isfile(path):
         sys.exit(
             f"Service-account file not found: {path}\n"
             "Provide one with --creds, set $LOCALIZE_SA_FILE, or place it at "
-            ".agents/docs/service-account.json, then share the sheet with its client_email."
+            ".claude/docs/service-account.json, then share the sheet with its client_email."
         )
     return path
 

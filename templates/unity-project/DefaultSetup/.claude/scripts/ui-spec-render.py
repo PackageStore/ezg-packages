@@ -14,7 +14,6 @@ from ui_spec_common import (
     KIT_CSS,
     UISpecError,
     canonical_json,
-    css_class,
     kit_hash,
     load_spec,
     spec_hash,
@@ -145,11 +144,11 @@ def render(spec: dict) -> str:
         if node_id in containers:
             node = containers[node_id]
             kind = node.get("type", "col")
-            layout_class = "row" if kind == "row" else "col" if kind == "col" else ""
+            css_class = "row" if kind == "row" else "col" if kind == "col" else ""
             if kind == "grid":
-                layout_class = "spec-grid"
+                css_class = "spec-grid"
             if kind == "absolute":
-                layout_class = "spec-absolute"
+                css_class = "spec-absolute"
             children = "".join(render_node(child) for child in node.get("children", []))
             if kind == "grid":
                 columns = node.get("columns", 1)
@@ -163,18 +162,50 @@ def render(spec: dict) -> str:
                 node.get("position") == "abs" or "pos" in node or node.get("anchor") == "stretch"
             ) else "false"
             style = ";".join(part for part in (css_style(node), grid_rules, alignment_style(node)) if part)
+            scroll = node.get("scroll")
+            # A scroll container maps to a ScrollViewTemplate/ScrollLoopTemplate instance in Unity
+            # (new-ui-guide.md §3d), so mark it in both the tag and the rendered box.
+            scroll_attr = f' data-scroll="{html.escape(str(scroll))}"' if scroll else ""
+            scroll_bar = '<span class="spec-scrollbar"></span>' if scroll else ""
+            # A tabBar container IS the TabBottomTemplate instance in Unity (new-ui-guide.md
+            # §3d), so paint the bar itself — otherwise the frozen PNG shows floating toggles
+            # over nothing and reads as "tabs anywhere is fine".
+            tabbar = node.get("tabBar") is True
+            tabbar_attr = ' data-tabbar="true"' if tabbar else ""
+            # A section container IS a FrameTemplateInside instance carrying a ButtonTitleTemplate
+            # pill on its top edge (new-ui-guide.md §3d), so paint both — a frozen PNG that shows
+            # the blocks unframed is what makes the builder ship a flat wall of text.
+            section = node.get("section")
+            section_attr = ""
+            section_title = ""
+            if isinstance(section, dict) and isinstance(section.get("title"), str):
+                section_attr = ' data-section="true"'
+                section_title = (
+                    '<span class="spec-section-title">'
+                    f'{html.escape(section["title"])}</span>'
+                )
+            label = (
+                f"{kind}·{node_id}"
+                + (f" ⇅{scroll}" if scroll else "")
+                + (" ⧉TabBottomTemplate" if tabbar else "")
+                + (" ⧉FrameTemplateInside+ButtonTitleTemplate" if section_attr else "")
+            )
+            ct_tag = f'<span class="ui-tag ui-tag-ct">{html.escape(label)}</span>'
             return (
-                f'<div id="{html.escape(node_id)}" class="spec-container {layout_class}" '
-                f'data-layout="{html.escape(kind)}" data-positioned="{positioned}" style="{html.escape(style)}">'
-                f"{children}</div>"
+                f'<div id="{html.escape(node_id)}" class="spec-container {css_class}" '
+                f'data-layout="{html.escape(kind)}" data-positioned="{positioned}"'
+                f'{scroll_attr}{tabbar_attr}{section_attr} '
+                f'style="{html.escape(style)}">'
+                f"{ct_tag}{scroll_bar}{section_title}{children}</div>"
             )
         node = elements[node_id]
         template = node["template"]
         content = html.escape(str(node.get("text", "")))
+        el_tag = f'<span class="ui-tag ui-tag-el">{html.escape(template)}</span>'
         return (
-            f'<div id="{html.escape(node_id)}" class="tpl tpl-{html.escape(css_class(template))}" '
+            f'<div id="{html.escape(node_id)}" class="tpl tpl-{html.escape(template)}" '
             f'data-tpl="{html.escape(template)}" style="{html.escape(css_style(node))}">'
-            f"{content}</div>"
+            f"{el_tag}{content}</div>"
         )
 
     body = "".join(render_node(root) for root in roots)
@@ -204,15 +235,48 @@ def render(spec: dict) -> str:
 .stage[data-branch="Popup"] > .spec-container[data-positioned="false"]{{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}}
 .stage[data-branch="FullScreen"] > .spec-container[data-positioned="false"]{{position:absolute;inset:0}}
 .spec-orphans{{position:absolute;left:0;top:0;border:4px solid #f33}}
+/* Scroll region — clips like the Unity Viewport and shows the track so the frozen PNG says "this scrolls". */
+.spec-container[data-scroll]{{overflow:hidden}}
+.spec-container[data-scroll] > .spec-scrollbar{{position:absolute;z-index:50;background:rgba(255,255,255,.30);border-radius:5px;pointer-events:none}}
+.spec-container[data-scroll="horizontal"] > .spec-scrollbar{{left:8px;right:8px;bottom:5px;height:8px}}
+.spec-container[data-scroll="vertical"] > .spec-scrollbar,
+.spec-container[data-scroll="loop"] > .spec-scrollbar{{top:8px;bottom:8px;right:5px;width:8px}}
+/* Tab bar — the container maps to the shipped FullScreen/Bot TabBottomTemplate, so it paints
+   like the real bar instead of leaving the toggles floating on the background. */
+.spec-container[data-tabbar]{{background:rgba(147,122,101,1.0)}}
+/* Titled info block — the container maps to a FrameTemplateInside instance whose
+   ButtonTitleTemplate pill straddles the top edge (ignoreLayout, pos (0,30), size (0,60)),
+   so the frame's padding-top reserves 50px for it exactly like the Unity VerticalLayoutGroup. */
+.spec-container[data-section]{{background:rgba(0,0,0,.533);border-radius:22px;padding-top:50px}}
+.spec-container[data-section] > .spec-section-title{{position:absolute;z-index:40;top:-30px;left:50%;
+transform:translateX(-50%);height:60px;padding:0 15px;display:flex;align-items:center;
+background:rgba(0,0,0,.753);border-radius:12px;color:#fff;white-space:nowrap;
+font:700 40px/1 'Source Sans Pro','Segoe UI',sans-serif}}
+/* Template-identity overlay — which Unity template each node maps to. Toggle in the toolbar. */
+.ui-tag{{position:absolute;z-index:60;font:600 12px/1.2 ui-monospace,Menlo,Consolas,monospace;padding:2px 6px;pointer-events:none;white-space:nowrap;letter-spacing:.2px;max-width:100%;overflow:hidden;text-overflow:ellipsis}}
+.ui-tag-el{{top:0;left:0;background:#1e66f5;color:#fff;border-radius:0 0 6px 0;box-shadow:0 1px 3px rgba(0,0,0,.5)}}
+.ui-tag-ct{{top:0;right:0;background:rgba(10,14,28,.82);color:#8fd6ff;border:1px solid rgba(143,214,255,.5);border-top:none;border-right:none;border-radius:0 0 0 6px}}
+body:not(.ui-tags) .ui-tag{{display:none}}
+.ui-toolbar{{position:fixed;top:10px;right:10px;z-index:400;background:rgba(10,14,28,.92);color:#fff;font:13px/1.4 -apple-system,'Segoe UI',Roboto,sans-serif;padding:7px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.16);display:flex;gap:12px;align-items:center}}
+.ui-toolbar label{{display:flex;gap:6px;align-items:center;cursor:pointer;user-select:none}}
+.ui-toolbar .ui-hint{{opacity:.62;font-size:11px}}
+.ui-toolbar b.el{{color:#5b9bff}}.ui-toolbar b.ct{{color:#8fd6ff}}
 </style>
 </head>
-<body>
+<body class="ui-tags">
+<div class="ui-toolbar">
+<label><input type="checkbox" id="tglTags" checked> Template labels</label>
+<span class="ui-hint"><b class="el">■</b> element template · <b class="ct">■</b> container type·id</span>
+</div>
 <div class="stage" data-branch="{html.escape(spec['branch'])}">
 <div class="dim"></div>
 {body}
 </div>
 <script type="application/json" id="spec">
 {spec_json}
+</script>
+<script>
+(function(){{var b=document.body,t=document.getElementById('tglTags');if(t)t.addEventListener('change',function(){{b.classList.toggle('ui-tags',t.checked);}});}})();
 </script>
 </body>
 </html>

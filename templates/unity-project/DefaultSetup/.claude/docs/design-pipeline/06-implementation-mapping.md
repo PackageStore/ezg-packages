@@ -62,10 +62,10 @@ Kết thúc bằng đúng MỘT JSON object, không kèm prose:
 # 10. Implementation Mapping
 
 ## 10.1 Sub-Features
-Liệt kê các feature con cần tạo riêng (mỗi feature = 1 folder trong feature tree được `.claude/rules/project-structure.md` quy định; chọn Domain bucket từ sibling code thật, không hardcode domain của một game khác):
-| Feature Name | Domain | Controller | Manager Type | Cần Model/Collection? |
-|---|---|---|---|---|
-| [PascalCase] | <real domain> | Có/Không | Static / DataPlayerBase | Có/Không |
+Liệt kê các feature con cần tạo riêng (mỗi feature = 1 folder trong `Assets/_Game/2.BUS/Features/`):
+| Feature Name | Controller | Manager Type | Cần Model/Collection? |
+|---|---|---|---|
+| [PascalCase] | Có/Không | Static / DataPlayerBase | Có/Không |
 
 ## 10.2 Player Save Data
 Liệt kê tất cả field cần lưu vào PlayerData (persistent qua session):
@@ -90,7 +90,7 @@ Liệt kê tất cả prefab UI cần tạo:
 |---|---|---|
 
 ## 10.5 Event Definitions
-Liệt kê tất cả custom events (dùng TigerForge EventManager + `EventName` constants):
+Liệt kê tất cả custom events (dùng EasyEventManager):
 | Event Name | Payload | Publisher → Subscriber |
 |---|---|---|
 
@@ -110,9 +110,9 @@ Ví dụ:
 
 ## 10.7 Registration Points
 Với mỗi sub-feature cần Model/Collection, liệt kê các file hệ thống cần cập nhật:
-| Sub-Feature | CsvAssetDir.cs | DataManager facade | PlayerDataManager.cs |
+| Sub-Feature | CsvAssetDir.cs | DataManagerAutoGenerate.cs | PlayerDataManager.cs |
 |---|---|---|---|
-| [FeatureName] | `public const string [FeatureName]Config = "[FeatureName]Config"` | expose accessor `DataManager.[FeatureName]` (`_Shared/GameData/DataManager.cs` / `DataManager.Generated.cs`) | Có/Không (chỉ khi Manager = DataPlayerBase) |
+| [FeatureName] | `Collection/Features/[FeatureName]/[FeatureName]` | `[FeatureName]Collection` | Có/Không (chỉ khi Manager = DataPlayerBase) |
 
 > Mục tiêu: Developer biết rõ side-effect ngoài folder feature khi chạy `/new-feature`.
 

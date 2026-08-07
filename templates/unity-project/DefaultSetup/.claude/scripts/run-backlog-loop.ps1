@@ -1,44 +1,37 @@
-# Backward-compatible alias for the Claude backlog loop.
+# Non-interactive default entrypoint for the autonomous backlog loop (Claude, headless).
 #
 # Existing usage still works:
-#   powershell -ExecutionPolicy Bypass -File .agents/scripts/run-backlog-loop.ps1
+#   powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1
+#
+# For Codex/Gemini or an interactive provider menu, use run-backlog-loop.bat.
 
 [CmdletBinding()]
 param(
     [int]$MaxIterations = 100,
     [string]$LogDir = "logs/backlog-loop",
     [AllowEmptyString()]
-    [string]$Model = "sonnet",
-    [AllowEmptyString()]
-    [string]$Effort = "",
-    [int]$ThinkingTokens = 10000,
-    [int]$XsThinkingTokens = 3000,
-    [int]$SThinkingTokens = 6000,
-    [int]$MThinkingTokens = 10000,
-    [int]$LThinkingTokens = 10000,
-    [switch]$NoAutoThinkingByTier,
-    [switch]$NoSkipPermissions
+    [string]$Model = "opus",
+    [switch]$NoSkipPermissions,
+    # Where the agent works: Current = this checkout (keeps both Unity gates,
+    # dev must not edit concurrently); Worktree = sibling checkout on
+    # agent/dev-<base> (dev undisturbed, but NO compile check and NO runtime
+    # smoke - merge and run /compile-check afterwards).
+    [ValidateSet("Current", "Worktree")]
+    [string]$Mode = "Current"
 )
 
-$argsForClaude = @{
+$coreArgs = @{
+    Provider = "claude"
     MaxIterations = $MaxIterations
     LogDir = $LogDir
     Model = $Model
-    Effort = $Effort
-    ThinkingTokens = $ThinkingTokens
-    XsThinkingTokens = $XsThinkingTokens
-    SThinkingTokens = $SThinkingTokens
-    MThinkingTokens = $MThinkingTokens
-    LThinkingTokens = $LThinkingTokens
-}
-
-if ($NoAutoThinkingByTier) {
-    $argsForClaude.NoAutoThinkingByTier = $true
 }
 
 if ($NoSkipPermissions) {
-    $argsForClaude.NoSkipPermissions = $true
+    $coreArgs.NoSkipPermissions = $true
 }
 
-& "$PSScriptRoot\run-backlog-loop-claude.ps1" @argsForClaude
+$coreArgs.Mode = $Mode
+
+& "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
 exit $LASTEXITCODE

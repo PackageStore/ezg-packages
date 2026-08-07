@@ -1,73 +1,117 @@
 #!/usr/bin/env python3
-"""ui-kit-sync — bake the visual UI-kit FROM THE UI CATALOG.
+"""ui-kit-sync — extract the UI-kit contract from the template prefabs.
 
-The UGUI SSOT of this repo is ui-catalog/ui-tokens.json (authored via
-UiCatalogConfig, baked by the editor exporter — see CLAUDE.md "UI Token
-Catalog"). This script derives the mockup kit from it: every catalog token
-becomes one kit template (template name == token id, e.g. "ui.currency.single"),
-and its geometry/colors are extracted from the token's real prefab at
-`assetPath` (Unity YAML, parsed with regexes — same zero-dependency approach
-as backlog-preflight.py; PyYAML can't read Unity's `!u!` tags).
+Reads `<uiTemplatesRoot>/*.prefab` (the profile key; Unity YAML, parsed with
+regexes — same zero-dependency approach as backlog-preflight.py; PyYAML can't
+read Unity's `!u!` tags) and writes to .claude/ui-kit/:
 
-Writes to ui-catalog/ (same home as the catalog it derives from):
-
-  ui-kit.json       real numbers per token: root size/anchors/pivot,
+  ui-kit.json       real numbers per template: root size/anchors/pivot,
                     background color, text nodes (font size/color/sample),
-                    direct children, nested prefab references, plus catalog
-                    metadata (prefab stem, category, controller,
-                    contentContainer).
-  ui-kit.css        one `.tpl-<css-safe token>` class per token carrying the
-                    real dimensions + colors, plus the shared wireframe base
-                    (.stage 1080x2400, .tpl, .col/.row flex helpers) that
-                    mockup HTML inlines.
-  kit-preview.html  gallery of every token composed from its prefab Images at
-                    true proportions — open once
-                    after each refresh to sanity-check the extraction.
-  preview-assets/   generated browser-compatible PNGs for PSD and sliced
-                    sprite-sheet sources (never screenshots).
+                    direct children (name, size, position, active), nested
+                    template references.
+  ui-kit.css        one `.tpl-<Name>` class per template carrying the real
+                    dimensions + colors, plus the shared wireframe base
+                    (.stage 1080x1920, .tpl, .col/.row flex helpers) that
+                    /ui-mockup drafts inline into each mockup HTML.
+  kit-preview.html  gallery rendered from prefab hierarchy and linked assets,
+                    including sliced sprites and layout-driven roots.
 
 Prefab Variants (root = PrefabInstance with m_TransformParent {fileID: 0})
 are resolved recursively against their base prefab (searched under
-Assets/_Project/**), then root-targeted m_SizeDelta / text overrides are
-applied on top.
+Assets/Resources/Prefabs/**), then root-targeted m_SizeDelta / text overrides
+are applied on top.
 
-The JSON/CSS kit stays v0 wireframe-compatible. The gallery additionally
-resolves prefab Images through their sprite GUIDs: PSDs and sprite-sheet
-regions are converted losslessly to generated PNGs, and Unity Image type 1 is
-rendered with CSS border-image (9-slice).
+The CSS contract intentionally remains a portable wireframe for mockup HTML.
+The gallery is higher fidelity: it resolves sprite/font GUIDs, reads sprite
+rects and borders from texture .meta files, and renders them from source assets
+without creating captured copies.
+
+Hand-written composition rules that no prefab can express (`ui-kit-usage.json`)
+are merged in as each template's `usage` field.
 
 Deterministic output (sorted names, no timestamps) → clean git diffs.
-Run whenever the catalog is re-exported or template prefabs change:
+Run whenever the templates change:
     python3 .claude/scripts/ui-kit-sync.py
+    python3 .claude/scripts/ui-kit-sync.py --check   # exit 1 if the kit is stale
+
+Lifecycle (when to run, what to do when it drifts): .claude/skills/ui-kit/SKILL.md
 """
 
 import hashlib
-import html
+import copy
 import json
-import os
+import math
 import re
-import shutil
+import struct
 import sys
 from pathlib import Path
-from urllib.parse import quote
+
+# Running as a script puts this directory on sys.path, so the plain import works.
+from project_profile import profile
 
 ROOT = Path(__file__).resolve().parents[2]
-CATALOG_JSON = ROOT / "ui-catalog" / "ui-tokens.json"
-PREFABS_ROOT = ROOT / "Assets" / "_Project"
-OUT_DIR = ROOT / "ui-catalog"
-PREVIEW_ASSETS_DIR = OUT_DIR / "preview-assets"
-DESIGN_W, DESIGN_H = 1080, 2400
+# Where the screen templates live differs per project, so it comes from the
+# profile (`uiTemplatesRoot`). PREFABS_ROOT is its parent: the GUID scan below
+# needs every prefab around the templates, not just the templates themselves.
+TEMPLATES_REL = profile().ui_templates_root
+TEMPLATES_DIR = ROOT / TEMPLATES_REL
+PREFABS_ROOT = TEMPLATES_DIR.parent
+OUT_DIR = ROOT / ".claude" / "ui-kit"
+DESIGN_W, DESIGN_H = 1080, 1920
 MAX_VARIANT_DEPTH = 5
+
+# Hand-maintained composition contract, kept as DATA next to the kit rather than
+# in this file. The extractor can read a prefab's own geometry but not how
+# templates compose with each other, so a drafter reading ui-kit.json alone
+# cannot tell that tab toggles must live inside the bottom bar (how DungeonGuide
+# ended up with a hand-made tab row in Mid). Those rules are per-project — the
+# template set differs — while this script is shared byte-identical across
+# projects, so hardcoding them here would ship one game's rules to every other.
+USAGE_FILE = OUT_DIR / "ui-kit-usage.json"
+
+
+def load_usage(errors=None):
+    """Per-project composition notes; missing file simply means none.
+
+    `errors` collects why notes were dropped, so --check can say "your file is
+    broken" instead of the misleading "the notes changed".
+    """
+    def broken(message):
+        if errors is not None:
+            errors.append(message)
+        print(f"warning: {message}", file=sys.stderr)
+        return {}
+
+    try:
+        raw = USAGE_FILE.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    except OSError as error:
+        return broken(f"cannot read {USAGE_FILE.name}: {error}")
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as error:
+        # Hand-edited file: a typo must not silently drop every note, and it must
+        # not sink the kit either — the geometry half is still worth writing.
+        return broken(f"{USAGE_FILE.name} is not valid JSON ({error}); "
+                      "usage notes skipped")
+    notes = payload.get("templates", payload)
+    if not isinstance(notes, dict):
+        return {}
+    return {name: text for name, text in notes.items()
+            if isinstance(text, str) and text.strip() and not name.startswith("_")}
 
 DOC_RE = re.compile(r"^--- !u!(\d+) &(-?\d+)( stripped)?\s*$", re.M)
 GUID_IN_META_RE = re.compile(r"^guid: ([0-9a-f]{32})", re.M)
 MOD_ENTRY_RE = re.compile(
     r"- target: \{fileID: (-?\d+), guid: [0-9a-f]{32}, type: \d+\}\n"
     r"\s+propertyPath: (\S+)\n"
+    r"\s+value: ([^\n]*)")
+MOD_FULL_RE = re.compile(
+    r"- target: \{fileID: (-?\d+), guid: ([0-9a-f]{32}), type: \d+\}\n"
+    r"\s+propertyPath: ([^\n]+)\n"
     r"\s+value: ([^\n]*)\n"
-    r"\s+objectReference: \{fileID: (-?\d+)"
-    r"(?:, guid: ([0-9a-f]{32}), type: \d+)?\}")
-CSS_SAFE_RE = re.compile(r"[^A-Za-z0-9_-]")
+    r"\s+objectReference: \{fileID: (-?\d+)(?:, guid: ([0-9a-f]{32}), type: \d+)?\}")
 
 # Built-in UI script GUIDs (stable across Unity versions); used as a shortcut,
 # with field-signature detection as the robust fallback.
@@ -76,32 +120,35 @@ GUID_TEXT = "5f7201a12d95ffc409449d95f23cf332"
 GUID_TMP = "f4688fdb7df04437aeb418b961361dc5"
 
 
-def css_class(name):
-    return CSS_SAFE_RE.sub("-", name)
+def scalar(body, name, default=None):
+    m = re.search(rf"^\s*{re.escape(name)}: ([^\n]+)", body, re.M)
+    return m.group(1).strip() if m else default
 
 
-def load_tokens():
-    payload = json.loads(CATALOG_JSON.read_text(encoding="utf-8"))
-    return payload.get("tokens", [])
+def object_ref(body, name):
+    m = re.search(
+        rf"^\s*{re.escape(name)}: \{{fileID: (-?\d+)(?:, guid: ([0-9a-f]{{32}}), type: \d+)?\}}",
+        body, re.M)
+    return {"fileId": m.group(1), "guid": m.group(2)} if m else None
 
 
-def source_hash(tokens):
-    """Hash the catalog JSON plus every referenced prefab (+ .meta), sorted by
-    token id. Must stay byte-identical to ui_spec_common.kit_source_hash()."""
+def vec4_values(value):
+    if not value:
+        return [0, 0, 0, 0]
+    fields = {key: num(raw) for key, raw in re.findall(r"([xyzw]): (-?[\d.eE+-]+)", value)}
+    return [fields.get(key, 0) for key in "xyzw"]
+
+
+def source_hash():
+    """Hash template prefabs and their meta GUIDs without unrelated Resources churn."""
     digest = hashlib.sha256()
-    digest.update(CATALOG_JSON.read_bytes())
-    digest.update(b"\0")
-    for token in sorted(tokens, key=lambda t: t.get("token", "")):
-        asset = ROOT / token.get("assetPath", "")
-        digest.update(token.get("token", "").encode("utf-8"))
+    for path in sorted(TEMPLATES_DIR.glob("*.prefab")):
+        digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
         digest.update(b"\0")
-        if asset.is_file():
-            digest.update(asset.read_bytes())
-            meta = asset.with_suffix(asset.suffix + ".meta")
-            if meta.exists():
-                digest.update(meta.read_bytes())
-        else:
-            digest.update(b"<missing>")
+        digest.update(path.read_bytes())
+        meta = path.with_suffix(path.suffix + ".meta")
+        if meta.exists():
+            digest.update(meta.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -165,9 +212,6 @@ def classify_mono(body, guid):
     if guid == GUID_IMAGE or (re.search(r"^\s*m_Sprite:", body, re.M)
                               and re.search(r"^\s*m_Color:", body, re.M)):
         return "image"
-    if (re.search(r"^\s*m_Texture:", body, re.M)
-            and re.search(r"^\s*m_UVRect:", body, re.M)):
-        return "rawimage"
     return None
 
 
@@ -180,8 +224,8 @@ def text_sample(body, key):
 
 
 def guid_path_map():
-    """guid → prefab Path for every prefab under Assets/_Project/**, so
-    variant bases and nested PrefabInstances resolve to real files/names."""
+    """guid → prefab Path for every prefab under Assets/Resources/Prefabs/**,
+    so variant bases and nested PrefabInstances resolve to real files/names."""
     out = {}
     for meta in PREFABS_ROOT.rglob("*.prefab.meta"):
         m = GUID_IN_META_RE.search(meta.read_text(encoding="utf-8", errors="replace"))
@@ -191,109 +235,85 @@ def guid_path_map():
 
 
 def asset_guid_path_map():
-    """guid -> source asset for browser-renderable sprite resolution."""
+    """GUID → asset path for sprite/font resolution in the HTML preview."""
     out = {}
     for meta in (ROOT / "Assets").rglob("*.meta"):
         try:
-            source = meta.read_text(encoding="utf-8", errors="replace")
+            head = meta.read_text(encoding="utf-8", errors="replace")[:256]
         except OSError:
             continue
-        m = GUID_IN_META_RE.search(source)
+        m = GUID_IN_META_RE.search(head)
         if m:
             out[m.group(1)] = meta.with_suffix("")
     return out
 
 
-def unity_vec4(body, name):
-    m = re.search(
-        rf"^\s*{name}: \{{x: (-?[\d.eE+-]+), y: (-?[\d.eE+-]+), "
-        rf"z: (-?[\d.eE+-]+), w: (-?[\d.eE+-]+)\}}",
-        body, re.M)
-    return [num(m.group(i)) for i in range(1, 5)] if m else [0, 0, 0, 0]
-
-
-def web_url(path):
-    return quote(Path(os.path.relpath(path, OUT_DIR)).as_posix(), safe="/._-")
-
-
-def sprite_info(guid, file_id, asset_paths, cache):
-    """Resolve a Unity sprite reference to a browser PNG plus its 9-slice border.
-
-    Unity rects use a bottom-left origin; Pillow uses top-left, so multi-sprite
-    atlas regions are flipped on Y while being extracted.
-    """
-    key = (guid, str(file_id))
-    if key in cache:
-        return cache[key]
-    source = asset_paths.get(guid)
-    if not source or not source.is_file():
-        cache[key] = None
-        return None
-    meta_path = source.with_suffix(source.suffix + ".meta")
-    if not meta_path.is_file():
-        cache[key] = None
-        return None
-    meta = meta_path.read_text(encoding="utf-8", errors="replace")
-    mode_match = re.search(r"^\s*spriteMode: (\d+)", meta, re.M)
-    sprite_mode = int(mode_match.group(1)) if mode_match else 1
-    border = unity_vec4(meta, "spriteBorder")
-    crop = None
-    sprite_name = source.stem
-
-    if sprite_mode == 2:
-        blocks = re.findall(
-            r"^    - serializedVersion: 2\n(.*?)(?=^    - serializedVersion: 2\n|^    outline:)",
-            meta, re.M | re.S)
-        wanted = str(file_id)
-        selected = next((block for block in blocks
-                         if re.search(rf"^\s*internalID: {re.escape(wanted)}\s*$", block, re.M)), None)
-        if selected:
-            name_match = re.search(r"^\s*name: (.+)$", selected, re.M)
-            sprite_name = name_match.group(1).strip() if name_match else sprite_name
-            rect_match = re.search(
-                r"^\s*rect:\n\s*serializedVersion: \d+\n"
-                r"\s*x: (-?[\d.]+)\n\s*y: (-?[\d.]+)\n"
-                r"\s*width: ([\d.]+)\n\s*height: ([\d.]+)", selected, re.M)
-            if rect_match:
-                crop = [int(round(float(rect_match.group(i)))) for i in range(1, 5)]
-            border = unity_vec4(selected, "border")
-
-    direct_web = source.suffix.lower() in (".png", ".jpg", ".jpeg") and crop is None
-    if direct_web:
-        # Keep every browser dependency beside the generated gallery. Apart
-        # from making it portable, this avoids file:// parent-path restrictions
-        # in Safari Quick Look and some Chromium configurations.
-        PREVIEW_ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-        output = PREVIEW_ASSETS_DIR / f"{guid}-{file_id}{source.suffix.lower()}"
-        shutil.copyfile(source, output)
-        result = {"url": web_url(output), "asset": source.relative_to(ROOT).as_posix(),
-                  "sprite": sprite_name, "border": border}
-        cache[key] = result
-        return result
-
-    # Browsers cannot decode PSD, and an atlas reference must expose only its
-    # selected sprite. This is deterministic source extraction, not a capture.
+def png_size(path):
     try:
-        from PIL import Image
-        with Image.open(source) as image:
-            image.load()
-            if crop:
-                x, y, width, height = crop
-                image = image.crop((x, image.height - y - height, x + width, image.height - y))
-            image = image.convert("RGBA")
-            PREVIEW_ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-            output = PREVIEW_ASSETS_DIR / f"{guid}-{file_id}.png"
-            image.save(output, "PNG", optimize=True)
-    except Exception:
+        with path.open("rb") as stream:
+            header = stream.read(24)
+        if header[:8] == b"\x89PNG\r\n\x1a\n" and header[12:16] == b"IHDR":
+            return list(struct.unpack(">II", header[16:24]))
+    except OSError:
+        pass
+    return None
+
+
+def texture_metadata(path, file_id, cache):
+    """Resolve a Unity Sprite reference to its source texture rect and border."""
+    key = (str(path), str(file_id))
+    if key in cache:
+        return copy.deepcopy(cache[key])
+    meta_path = path.with_suffix(path.suffix + ".meta")
+    if not path.is_file() or not meta_path.is_file():
         cache[key] = None
         return None
-    result = {"url": web_url(output), "asset": source.relative_to(ROOT).as_posix(),
-              "sprite": sprite_name, "border": border}
+    text = meta_path.read_text(encoding="utf-8", errors="replace")
+    size = png_size(path)
+    if not size:
+        cache[key] = None
+        return None
+
+    ppu = num(scalar(text, "spritePixelsToUnits", "100"))
+    border_match = re.search(r"^\s*spriteBorder: \{([^}]+)\}", text, re.M)
+    border = vec4_values(border_match.group(1) if border_match else None)
+    rect = [0, 0, size[0], size[1]]
+    sprite_name = path.stem
+    if str(file_id) != "21300000":
+        blocks = re.finditer(
+            r"(?ms)^    - serializedVersion: 2\n(.*?)(?=^    - serializedVersion: 2\n|^    outline:)",
+            text)
+        for match in blocks:
+            body = match.group(1)
+            internal = re.search(r"^\s+internalID: (-?\d+)", body, re.M)
+            if not internal or internal.group(1) != str(file_id):
+                continue
+            sprite_name = scalar(body, "name", sprite_name)
+            rect_match = re.search(
+                r"(?ms)^\s+rect:\n\s+serializedVersion: \d+\n"
+                r"\s+x: (-?[\d.]+)\n\s+y: (-?[\d.]+)\n"
+                r"\s+width: ([\d.]+)\n\s+height: ([\d.]+)", body)
+            if rect_match:
+                rect = [num(rect_match.group(i)) for i in range(1, 5)]
+            sub_border = re.search(r"^\s+border: \{([^}]+)\}", body, re.M)
+            if sub_border:
+                border = vec4_values(sub_border.group(1))
+            break
+
+    relative = path.relative_to(ROOT).as_posix()
+    result = {
+        "path": "../../" + relative,
+        "textureSize": size,
+        "rect": rect,
+        "border": border,
+        "pixelsPerUnit": ppu,
+        "name": sprite_name,
+    }
     cache[key] = result
-    return result
+    return copy.deepcopy(result)
 
 
-def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dict):
+def extract(prefab: Path, guid_paths: dict):
     """Parse one prefab. Returns a template record, a variant marker
     {"variant": guid, "mods": [...]}, or None (no UI root)."""
     text = prefab.read_text(encoding="utf-8", errors="replace")
@@ -321,7 +341,7 @@ def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
             }
         elif classid == "114":
             gm = re.search(r"m_Script: \{fileID: -?\d+, guid: ([0-9a-f]{32})", body)
-            monos.append({"id": fid, "go": ref(body, "m_GameObject"),
+            monos.append({"go": ref(body, "m_GameObject"),
                           "guid": gm.group(1) if gm else "", "body": body})
         elif classid == "1001":
             sm = re.search(r"m_SourcePrefab: \{fileID: -?\d+, guid: ([0-9a-f]{32})", body)
@@ -363,7 +383,7 @@ def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
         break
     if not bg or bg[3] < 0.05:
         # Root image is often a transparent raycast target — the visible skin
-        # lives on a direct child. Borrow its color.
+        # lives on a direct child (e.g. ButtonImg-on). Borrow its color.
         for cid in root["children"]:
             rt = rts.get(cid)
             if not rt:
@@ -394,7 +414,7 @@ def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
     for cid in root["children"]:
         if cid in stripped_rts:
             inst = instances.get(stripped_rts[cid]["instance"] or "", {})
-            mods = {p: v for _, p, v, _, _ in inst.get("mods", [])}
+            mods = {p: v for _, p, v in inst.get("mods", [])}
             src_path = guid_paths.get(inst.get("source", ""))
             src = src_path.stem if src_path else inst.get("source", "?")[:8]
             entry = {"name": mods.get("m_Name", src), "nested": src}
@@ -411,96 +431,12 @@ def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
     nested = sorted({guid_paths[i["source"]].stem for i in instances.values()
                      if i["source"] in guid_paths})
 
-    # Recreate the prefab's local Image composition. This intentionally uses
-    # serialized prefab data only: no editor camera, screenshot or thumbnail.
-    display_w = w or DESIGN_W
-    display_h = h or DESIGN_H
-    layout = {}
-
-    def walk_layout(rt_id, left, top, width, height, parent_active=True):
-        rt = rts[rt_id]
-        go = gos.get(rt["go"], {})
-        active = parent_active and go.get("active", True)
-        layout[rt_id] = [left, top, width, height, active]
-        for child_id in rt["children"]:
-            child = rts.get(child_id)
-            if not child:
-                continue
-            amin = child["anchorMin"] or [0.5, 0.5]
-            amax = child["anchorMax"] or amin
-            sd = child["size"] or [0, 0]
-            pos = child["pos"] or [0, 0]
-            pivot = child["pivot"] or [0.5, 0.5]
-            child_w = max(0, width * (amax[0] - amin[0]) + sd[0])
-            child_h = max(0, height * (amax[1] - amin[1]) + sd[1])
-            anchor_x = width * (amin[0] + amax[0]) / 2
-            anchor_y = height * (amin[1] + amax[1]) / 2
-            child_left = left + anchor_x + pos[0] - pivot[0] * child_w
-            child_top = top + height - anchor_y - pos[1] - (1 - pivot[1]) * child_h
-            walk_layout(child_id, child_left, child_top, child_w, child_h, active)
-
-    walk_layout(root_id, 0, 0, display_w, display_h)
-    go_to_rt = {rt["go"]: rt_id for rt_id, rt in rts.items()}
-    images = []
-    for mb in monos:
-        kind = classify_mono(mb["body"], mb["guid"])
-        if kind not in ("image", "rawimage"):
-            continue
-        rt_id = go_to_rt.get(mb["go"])
-        rect = layout.get(rt_id)
-        if not rect or rect[2] <= 0 or rect[3] <= 0:
-            continue
-        reference_name = "m_Sprite" if kind == "image" else "m_Texture"
-        sprite_match = re.search(
-            rf"^\s*{reference_name}: \{{fileID: (-?\d+), guid: ([0-9a-f]{{32}})",
-            mb["body"], re.M)
-        if not sprite_match:
-            continue
-        sprite = sprite_info(sprite_match.group(2), sprite_match.group(1),
-                             asset_paths, sprite_cache)
-        if not sprite:
-            continue
-        type_match = re.search(r"^\s*m_Type: (\d+)", mb["body"], re.M)
-        preserve_match = re.search(r"^\s*m_PreserveAspect: (\d+)", mb["body"], re.M)
-        center_match = re.search(r"^\s*m_FillCenter: (\d+)", mb["body"], re.M)
-        ppu_match = re.search(r"^\s*m_PixelsPerUnitMultiplier: (-?[\d.]+)", mb["body"], re.M)
-        active_chain = []
-        cursor = rt_id
-        while cursor in rts:
-            cursor_rt = rts[cursor]
-            cursor_go = cursor_rt["go"]
-            active_chain.append([cursor_go, gos.get(cursor_go, {}).get("active", True)])
-            cursor = cursor_rt["father"]
-        images.append({
-            "node": go_name(mb["go"]),
-            "rect": [round(v, 2) for v in rect[:4]],
-            "sprite": sprite,
-            "imageType": int(type_match.group(1)) if type_match and kind == "image" else 0,
-            "preserveAspect": bool(int(preserve_match.group(1))) if preserve_match else False,
-            "fillCenter": bool(int(center_match.group(1))) if center_match else True,
-            "pixelsPerUnitMultiplier": float(ppu_match.group(1)) if ppu_match else 1,
-            "color": color(mb["body"]),
-            "active": rect[4],
-            "enabled": not bool(re.search(r"^\s*m_Enabled: 0\s*$", mb["body"], re.M)),
-            "_component": mb["id"],
-            "_rt": rt_id,
-            "_go": mb["go"],
-            "_activeChain": active_chain,
-        })
-
     rec = {"size": [w, h],
            "background": css_rgba(bg, None) if bg else None,
            "texts": texts[:6],
            "children": children,
-           "images": images,
            "nested": nested,
-           "_rootRT": root_id,
-           "_rootRTData": root,
-           "_layout": layout,
-           "_nestedInstances": [
-               {"source": inst["source"], "parent": inst["parent"], "mods": inst["mods"]}
-               for inst in instances.values() if inst["source"] and inst["parent"] not in (None, "0")
-           ]}
+           "_rootRT": root_id}
     if stretch_w or stretch_h:
         rec["stretch"] = True
     if bg:
@@ -510,20 +446,329 @@ def extract(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
     return rec
 
 
-def resolve(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dict,
-            cache: dict, depth=0):
+def parse_full_mods(body):
+    return [
+        {
+            "target": target,
+            "targetGuid": target_guid,
+            "property": prop.strip(),
+            "value": value.strip(),
+            "refFileId": ref_file,
+            "refGuid": ref_guid,
+        }
+        for target, target_guid, prop, value, ref_file, ref_guid in MOD_FULL_RE.findall(body)
+    ]
+
+
+def visual_rect(body):
+    rotation = re.search(
+        r"^\s*m_LocalRotation: \{x: (-?[\d.eE+-]+), y: (-?[\d.eE+-]+), "
+        r"z: (-?[\d.eE+-]+), w: (-?[\d.eE+-]+)\}", body, re.M)
+    angle = 0
+    if rotation:
+        z, w = float(rotation.group(3)), float(rotation.group(4))
+        angle = round(math.degrees(2 * math.atan2(z, w)), 3)
+    scale_match = re.search(
+        r"^\s*m_LocalScale: \{x: (-?[\d.eE+-]+), y: (-?[\d.eE+-]+), z: (-?[\d.eE+-]+)\}",
+        body, re.M)
+    scale = [num(scale_match.group(1)), num(scale_match.group(2))] if scale_match else [1, 1]
+    return {
+        "anchorMin": vec2(body, "m_AnchorMin") or [0.5, 0.5],
+        "anchorMax": vec2(body, "m_AnchorMax") or [0.5, 0.5],
+        "size": vec2(body, "m_SizeDelta") or [0, 0],
+        "pos": vec2(body, "m_AnchoredPosition") or [0, 0],
+        "pivot": vec2(body, "m_Pivot") or [0.5, 0.5],
+        "scale": scale,
+        "rotation": angle,
+    }
+
+
+def visual_image(body):
+    sprite = object_ref(body, "m_Sprite")
+    texture = object_ref(body, "m_Texture")
+    return {
+        "spriteRef": sprite or texture,
+        "color": color(body) or [1, 1, 1, 1],
+        "type": int(scalar(body, "m_Type", "0")),
+        "preserveAspect": scalar(body, "m_PreserveAspect", "0") == "1",
+        "fillCenter": scalar(body, "m_FillCenter", "1") == "1",
+        "fillMethod": int(scalar(body, "m_FillMethod", "4")),
+        "fillAmount": num(scalar(body, "m_FillAmount", "1")),
+        "fillOrigin": int(scalar(body, "m_FillOrigin", "0")),
+        "fillClockwise": scalar(body, "m_FillClockwise", "1") == "1",
+        "ppuMultiplier": num(scalar(body, "m_PixelsPerUnitMultiplier", "1")),
+    }
+
+
+def visual_text(body, kind):
+    if kind == "text":
+        font_size = scalar(body, "m_FontSize")
+        alignment = int(scalar(body, "m_Alignment", "4"))
+        sample = text_sample(body, "m_Text") or ""
+        font_ref = object_ref(body, "m_Font")
+        best_fit = scalar(body, "m_BestFit", "0") == "1"
+        min_size = scalar(body, "m_MinSize", "3")
+        max_size = scalar(body, "m_MaxSize", font_size or "40")
+        font_style = int(scalar(body, "m_FontStyle", "0"))
+    else:
+        font_size = scalar(body, "m_fontSize")
+        alignment = int(scalar(body, "m_textAlignment", "514"))
+        sample = text_sample(body, "m_text") or ""
+        font_ref = object_ref(body, "m_fontAsset")
+        best_fit = scalar(body, "m_enableAutoSizing", "0") == "1"
+        min_size = scalar(body, "m_fontSizeMin", "3")
+        max_size = scalar(body, "m_fontSizeMax", font_size or "40")
+        font_style = int(scalar(body, "m_fontStyle", "0"))
+    return {
+        "value": sample,
+        "fontSize": num(font_size) if font_size else 30,
+        "color": color(body, "m_fontColor") if kind == "tmp" else color(body),
+        "alignment": alignment,
+        "bestFit": best_fit,
+        "minSize": num(min_size),
+        "maxSize": num(max_size),
+        "bold": font_style in (1, 3),
+        "italic": font_style in (2, 3),
+        "fontRef": font_ref,
+    }
+
+
+def iter_visual_nodes(root):
+    yield root
+    for child in root.get("children", []):
+        yield from iter_visual_nodes(child)
+
+
+def set_pair_component(pair, component, raw):
+    index = 0 if component == "x" else 1
+    pair[index] = num(raw)
+
+
+def set_color_component(values, component, raw):
+    index = {"r": 0, "g": 1, "b": 2, "a": 3}[component]
+    values[index] = num(raw)
+
+
+def apply_visual_mods(root, mods):
+    for mod in mods:
+        prop, value, target = mod["property"], mod["value"], mod["target"]
+        for node in iter_visual_nodes(root):
+            if node.get("_asset") != mod["targetGuid"]:
+                continue
+            if target == node.get("_go"):
+                if prop == "m_Name":
+                    node["name"] = value
+                elif prop == "m_IsActive":
+                    node["active"] = value == "1"
+            if target == node.get("_rt"):
+                pairs = {
+                    "m_SizeDelta": "size",
+                    "m_AnchoredPosition": "pos",
+                    "m_AnchorMin": "anchorMin",
+                    "m_AnchorMax": "anchorMax",
+                    "m_Pivot": "pivot",
+                    "m_LocalScale": "scale",
+                }
+                for unity_name, key in pairs.items():
+                    if prop in (unity_name + ".x", unity_name + ".y"):
+                        set_pair_component(node["rect"][key], prop[-1], value)
+                if prop == "m_LocalEulerAnglesHint.z":
+                    node["rect"]["rotation"] = num(value)
+            if node.get("image") and target == node.get("_image"):
+                if prop == "m_Sprite" and mod["refFileId"] != "0":
+                    node["image"]["spriteRef"] = {
+                        "fileId": mod["refFileId"], "guid": mod["refGuid"]}
+                elif prop.startswith("m_Color."):
+                    set_color_component(node["image"]["color"], prop[-1], value)
+                elif prop == "m_FillAmount":
+                    node["image"]["fillAmount"] = num(value)
+            if node.get("text") and target == node.get("_text"):
+                if prop in ("m_Text", "m_text"):
+                    node["text"]["value"] = value.strip("'\"")
+                elif prop in ("m_FontData.m_FontSize", "m_fontSize"):
+                    node["text"]["fontSize"] = num(value)
+                elif prop in ("m_FontData.m_MaxSize", "m_fontSizeMax"):
+                    node["text"]["maxSize"] = num(value)
+                elif prop in ("m_FontData.m_MinSize", "m_fontSizeMin"):
+                    node["text"]["minSize"] = num(value)
+                elif prop.startswith("m_Color.") or prop.startswith("m_fontColor."):
+                    set_color_component(node["text"]["color"], prop[-1], value)
+    return root
+
+
+def resolve_visual(prefab, guid_paths, path_guids, asset_paths, cache, depth=0):
+    key = str(prefab)
+    if key in cache:
+        return copy.deepcopy(cache[key])
+    if depth > MAX_VARIANT_DEPTH + 4:
+        raise ValueError("visual prefab nesting too deep")
+
+    text = prefab.read_text(encoding="utf-8", errors="replace")
+    prefab_guid = path_guids.get(str(prefab), "")
+    gos, rts, stripped_rts, monos, instances = {}, {}, {}, [], {}
+    for classid, fid, stripped, body in parse_docs(text):
+        if classid == "1":
+            gos[fid] = {
+                "name": scalar(body, "m_Name", fid),
+                "active": scalar(body, "m_IsActive", "1") == "1",
+            }
+        elif classid == "224":
+            if stripped:
+                stripped_rts[fid] = ref(body, "m_PrefabInstance")
+            else:
+                rts[fid] = {
+                    "go": ref(body, "m_GameObject"),
+                    "father": ref(body, "m_Father"),
+                    "children": parse_children(body),
+                    "body": body,
+                }
+        elif classid == "114" and not stripped:
+            script = re.search(r"m_Script: \{fileID: -?\d+, guid: ([0-9a-f]{32})", body)
+            guid = script.group(1) if script else ""
+            monos.append({"id": fid, "go": ref(body, "m_GameObject"), "guid": guid, "body": body})
+        elif classid == "1001":
+            source = re.search(r"m_SourcePrefab: \{fileID: -?\d+, guid: ([0-9a-f]{32})", body)
+            instances[fid] = {
+                "source": source.group(1) if source else "",
+                "parent": ref(body, "m_TransformParent"),
+                "mods": parse_full_mods(body),
+            }
+
+    root_id = next((fid for fid, rt in rts.items() if rt["father"] in (None, "0")), None)
+    if root_id is None:
+        variant = next((item for item in instances.values()
+                        if item["parent"] == "0" and item["source"]), None)
+        if not variant or variant["source"] not in guid_paths:
+            return None
+        tree = resolve_visual(
+            guid_paths[variant["source"]], guid_paths, path_guids,
+            asset_paths, cache, depth + 1)
+        if tree:
+            apply_visual_mods(tree, variant["mods"])
+            cache[key] = copy.deepcopy(tree)
+        return tree
+
+    def node_for(rt_id):
+        rt = rts[rt_id]
+        go_id = rt["go"]
+        go = gos.get(go_id, {"name": go_id, "active": True})
+        components = [item for item in monos if item["go"] == go_id]
+        node = {
+            "_asset": prefab_guid,
+            "_go": go_id,
+            "_rt": rt_id,
+            "name": go["name"],
+            "active": go["active"],
+            "rect": visual_rect(rt["body"]),
+            "children": [],
+        }
+        image_component = next(
+            (item for item in components if classify_mono(item["body"], item["guid"]) == "image"), None)
+        if image_component:
+            node["_image"] = image_component["id"]
+            node["image"] = visual_image(image_component["body"])
+        text_component = next(
+            (item for item in components
+             if classify_mono(item["body"], item["guid"]) in ("text", "tmp")), None)
+        if text_component:
+            kind = classify_mono(text_component["body"], text_component["guid"])
+            node["_text"] = text_component["id"]
+            node["text"] = visual_text(text_component["body"], kind)
+            effect = next((item for item in components if "m_EffectColor:" in item["body"]), None)
+            if effect:
+                distance_match = re.search(r"^\s*m_EffectDistance: \{([^}]+)\}", effect["body"], re.M)
+                node["text"]["effect"] = {
+                    "color": color(effect["body"], "m_EffectColor"),
+                    "distance": vec4_values(distance_match.group(1) if distance_match else None)[:2],
+                }
+        layout_component = next(
+            (item for item in components if "m_ChildControlWidth:" in item["body"]), None)
+        if layout_component:
+            body = layout_component["body"]
+            node["layout"] = {
+                "direction": "horizontal",
+                "padding": [
+                    int(scalar(body, "m_Left", "0")),
+                    int(scalar(body, "m_Right", "0")),
+                    int(scalar(body, "m_Top", "0")),
+                    int(scalar(body, "m_Bottom", "0")),
+                ],
+                "alignment": int(scalar(body, "m_ChildAlignment", "0")),
+                "spacing": num(scalar(body, "m_Spacing", "0")),
+                "controlWidth": scalar(body, "m_ChildControlWidth", "1") == "1",
+                "controlHeight": scalar(body, "m_ChildControlHeight", "1") == "1",
+                "expandWidth": scalar(body, "m_ChildForceExpandWidth", "0") == "1",
+                "expandHeight": scalar(body, "m_ChildForceExpandHeight", "0") == "1",
+                "reverse": scalar(body, "m_ReverseArrangement", "0") == "1",
+            }
+        layout_element = next(
+            (item for item in components
+             if "m_PreferredWidth:" in item["body"] and "m_IgnoreLayout:" in item["body"]), None)
+        if layout_element:
+            body = layout_element["body"]
+            node["layoutElement"] = {
+                "ignore": scalar(body, "m_IgnoreLayout", "0") == "1",
+                "minWidth": num(scalar(body, "m_MinWidth", "-1")),
+                "minHeight": num(scalar(body, "m_MinHeight", "-1")),
+                "preferredWidth": num(scalar(body, "m_PreferredWidth", "-1")),
+                "preferredHeight": num(scalar(body, "m_PreferredHeight", "-1")),
+                "flexibleWidth": num(scalar(body, "m_FlexibleWidth", "-1")),
+                "flexibleHeight": num(scalar(body, "m_FlexibleHeight", "-1")),
+            }
+        for child_id in rt["children"]:
+            if child_id in rts:
+                node["children"].append(node_for(child_id))
+            elif child_id in stripped_rts:
+                instance = instances.get(stripped_rts[child_id])
+                if not instance or instance["source"] not in guid_paths:
+                    continue
+                child = resolve_visual(
+                    guid_paths[instance["source"]], guid_paths, path_guids,
+                    asset_paths, cache, depth + 1)
+                if child:
+                    apply_visual_mods(child, instance["mods"])
+                    node["children"].append(child)
+        return node
+
+    tree = node_for(root_id)
+    cache[key] = copy.deepcopy(tree)
+    return tree
+
+
+def finalize_visual(root, asset_paths, sprite_cache):
+    if not root:
+        return None
+    for node in iter_visual_nodes(root):
+        image = node.get("image")
+        if image:
+            sprite_ref = image.pop("spriteRef", None)
+            guid = sprite_ref.get("guid") if sprite_ref else None
+            path = asset_paths.get(guid) if guid else None
+            image["sprite"] = texture_metadata(path, sprite_ref["fileId"], sprite_cache) if path else None
+        text = node.get("text")
+        if text:
+            font_ref = text.pop("fontRef", None)
+            font_path = asset_paths.get(font_ref.get("guid")) if font_ref else None
+            text["font"] = ("../../" + font_path.relative_to(ROOT).as_posix()) if font_path else None
+        for key in list(node):
+            if key.startswith("_"):
+                del node[key]
+    return root
+
+
+def resolve(prefab: Path, guid_paths: dict, cache: dict, depth=0):
     """extract() + recursive variant resolution with root-targeted overrides."""
     key = str(prefab)
     if key in cache:
         return cache[key]
     if depth > MAX_VARIANT_DEPTH:
         raise ValueError("variant chain too deep")
-    rec = extract(prefab, guid_paths, asset_paths, sprite_cache)
+    rec = extract(prefab, guid_paths)
     if rec and "variant" in rec:
         base_path = guid_paths.get(rec["variant"])
         if base_path is None or not base_path.exists():
             raise ValueError(f"variant of unknown base guid {rec['variant'][:8]}…")
-        base = resolve(base_path, guid_paths, asset_paths, sprite_cache, cache, depth + 1)
+        base = resolve(base_path, guid_paths, cache, depth + 1)
         if base is None:
             raise ValueError(f"variant base {base_path.stem} has no UI root")
         merged = json.loads(json.dumps({k: v for k, v in base.items()}))
@@ -531,12 +776,7 @@ def resolve(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
         root_rt = str(base.get("_rootRT", ""))
         size = list(merged["size"])
         sample = fontsize = None
-        active_overrides = {}
-        unmatched_sprite_overrides = []
-        override_props = {}
-        old_w, old_h = merged["size"]
-        for target, prop, value, object_file, object_guid in rec["mods"]:
-            override_props.setdefault(target, {})[prop] = value
+        for target, prop, value in rec["mods"]:
             if target == root_rt and prop == "m_SizeDelta.x":
                 size[0] = num(value)
             elif target == root_rt and prop == "m_SizeDelta.y":
@@ -545,156 +785,13 @@ def resolve(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
                 sample = value.strip().strip("'\"")[:40]
             elif prop in ("m_FontData.m_FontSize", "m_fontSize") and fontsize is None:
                 fontsize = num(value)
-            if prop == "m_IsActive":
-                active_overrides[target] = value == "1"
-            matched_image = False
-            for image in merged.get("images", []):
-                if target != image.get("_component"):
-                    continue
-                matched_image = True
-                if prop in ("m_Sprite", "m_Texture"):
-                    replacement = (sprite_info(object_guid, object_file, asset_paths, sprite_cache)
-                                   if object_guid and object_file != "0" else None)
-                    image["sprite"] = replacement
-                    if replacement is None:
-                        image["enabled"] = False
-                elif prop == "m_Type":
-                    image["imageType"] = int(value)
-                elif prop == "m_PreserveAspect":
-                    image["preserveAspect"] = value == "1"
-                elif prop == "m_FillCenter":
-                    image["fillCenter"] = value == "1"
-                elif prop == "m_Enabled":
-                    image["enabled"] = value == "1"
-                elif prop == "m_PixelsPerUnitMultiplier":
-                    image["pixelsPerUnitMultiplier"] = float(value)
-                elif prop.startswith("m_Color."):
-                    channel = {"r": 0, "g": 1, "b": 2, "a": 3}.get(prop.rsplit(".", 1)[-1])
-                    if channel is not None:
-                        image["color"] = list(image.get("color") or [1, 1, 1, 1])
-                        image["color"][channel] = float(value)
-            if (prop in ("m_Sprite", "m_Texture") and not matched_image
-                    and object_guid and object_file != "0"):
-                replacement = sprite_info(object_guid, object_file, asset_paths, sprite_cache)
-                if replacement:
-                    unmatched_sprite_overrides.append((target, replacement))
         merged["size"] = size
-        old_display_w, old_display_h = old_w or DESIGN_W, old_h or DESIGN_H
-        new_display_w, new_display_h = size[0] or DESIGN_W, size[1] or DESIGN_H
-        scale_x = new_display_w / old_display_w if old_display_w else 1
-        scale_y = new_display_h / old_display_h if old_display_h else 1
-        for image in merged.get("images", []):
-            if scale_x != 1 or scale_y != 1:
-                x, y, width, height = image["rect"]
-                image["rect"] = [round(x * scale_x, 2), round(y * scale_y, 2),
-                                 round(width * scale_x, 2), round(height * scale_y, 2)]
-            if active_overrides:
-                chain = image.get("_activeChain", [])
-                for state in chain:
-                    if state[0] in active_overrides:
-                        state[1] = active_overrides[state[0]]
-                image["active"] = all(state[1] for state in chain)
-        # Unity assigns virtual fileIDs to objects added by an intermediate
-        # prefab variant. Those IDs do not occur in the source YAML of that
-        # intermediate prefab. Button variants follow a stable convention:
-        # the final unmatched sprite is the face/btn graphic and earlier ones
-        # are centered icon overlays. Preserve those virtual IDs on the layers
-        # so the next variant in the chain can override them again.
-        if unmatched_sprite_overrides and "/Button_Template/" in prefab.as_posix():
-            root_width, root_height = new_display_w, new_display_h
-            icon_overrides = unmatched_sprite_overrides
-            if len(unmatched_sprite_overrides) >= 2:
-                background_target, background_sprite = unmatched_sprite_overrides[-1]
-                candidates = [image for image in merged.get("images", [])
-                              if image.get("node", "").lower() in ("btn", "background", "bg")]
-                if candidates:
-                    background = max(candidates, key=lambda image: image["rect"][2] * image["rect"][3])
-                    background["sprite"] = background_sprite
-                    background["_component"] = background_target
-                    props = override_props.get(background_target, {})
-                    if "m_Type" in props:
-                        background["imageType"] = int(props["m_Type"])
-                    icon_overrides = unmatched_sprite_overrides[:-1]
-            for icon_target, icon_sprite in icon_overrides:
-                # button_template_icon defines a 120px icon in a 160px root;
-                # common text+icon buttons use roughly 68% of their height.
-                icon_ratio = 0.75 if abs(root_width - root_height) < 1 else 0.68
-                side = min(root_width, root_height) * icon_ratio
-                props = override_props.get(icon_target, {})
-                merged["images"].append({
-                    "node": "icon",
-                    "rect": [round((root_width - side) / 2, 2),
-                             round((root_height - side) / 2, 2),
-                             round(side, 2), round(side, 2)],
-                    "sprite": icon_sprite,
-                    "imageType": int(props.get("m_Type", 0)),
-                    "preserveAspect": True,
-                    "fillCenter": True,
-                    "pixelsPerUnitMultiplier": float(props.get("m_PixelsPerUnitMultiplier", 1)),
-                    "color": [1, 1, 1, 1],
-                    "active": True,
-                    "enabled": True,
-                    "_component": icon_target,
-                    "_rt": root_rt,
-                    "_go": "",
-                    "_activeChain": [],
-                })
         if merged["texts"] and (sample or fontsize):
             if sample:
                 merged["texts"][0]["sample"] = sample
             if fontsize:
                 merged["texts"][0]["fontSize"] = fontsize
         rec = merged
-    elif rec:
-        # Flatten nested prefab Image layers into the owning prefab. Unity
-        # serializes nested prefab transforms as PrefabInstance overrides;
-        # compose those transforms here so the browser preview follows the
-        # same hierarchy instead of showing an empty placeholder.
-        nested_images = []
-        for nested_instance in rec.get("_nestedInstances", []):
-            source_path = guid_paths.get(nested_instance["source"])
-            parent_rect = rec.get("_layout", {}).get(nested_instance["parent"])
-            if not source_path or not source_path.exists() or not parent_rect or not parent_rect[4]:
-                continue
-            source = resolve(source_path, guid_paths, asset_paths, sprite_cache,
-                             cache, depth + 1)
-            if not source:
-                continue
-            root_rt = str(source.get("_rootRT", ""))
-            root_data = json.loads(json.dumps(source.get("_rootRTData", {})))
-            mods = {prop: value for target, prop, value, _, _ in nested_instance["mods"]
-                    if target == root_rt}
-            size_delta = list(root_data.get("size") or source.get("size") or [0, 0])
-            position = list(root_data.get("pos") or [0, 0])
-            anchor_min = list(root_data.get("anchorMin") or [0.5, 0.5])
-            anchor_max = list(root_data.get("anchorMax") or anchor_min)
-            pivot = list(root_data.get("pivot") or [0.5, 0.5])
-            for axis, key in enumerate(("x", "y")):
-                if f"m_SizeDelta.{key}" in mods:
-                    size_delta[axis] = num(mods[f"m_SizeDelta.{key}"])
-                if f"m_AnchoredPosition.{key}" in mods:
-                    position[axis] = num(mods[f"m_AnchoredPosition.{key}"])
-            parent_left, parent_top, parent_w, parent_h = parent_rect[:4]
-            width = max(0, parent_w * (anchor_max[0] - anchor_min[0]) + size_delta[0])
-            height = max(0, parent_h * (anchor_max[1] - anchor_min[1]) + size_delta[1])
-            anchor_x = parent_w * (anchor_min[0] + anchor_max[0]) / 2
-            anchor_y = parent_h * (anchor_min[1] + anchor_max[1]) / 2
-            left = parent_left + anchor_x + position[0] - pivot[0] * width
-            top = parent_top + parent_h - anchor_y - position[1] - (1 - pivot[1]) * height
-            source_w = source["size"][0] or DESIGN_W
-            source_h = source["size"][1] or DESIGN_H
-            scale_x = width / source_w if source_w else 1
-            scale_y = height / source_h if source_h else 1
-            for image in source.get("images", []):
-                layer = json.loads(json.dumps(image))
-                x, y, image_w, image_h = layer["rect"]
-                layer["rect"] = [round(left + x * scale_x, 2),
-                                 round(top + y * scale_y, 2),
-                                 round(image_w * scale_x, 2),
-                                 round(image_h * scale_y, 2)]
-                layer["node"] = f"{source_path.stem}/{layer['node']}"
-                nested_images.append(layer)
-        rec["images"].extend(nested_images)
     cache[key] = rec
     return rec
 
@@ -702,7 +799,6 @@ def resolve(prefab: Path, guid_paths: dict, asset_paths: dict, sprite_cache: dic
 def build_css(kit):
     lines = [
         "/* generated by .claude/scripts/ui-kit-sync.py — do not hand-edit.",
-        "   Derived from ui-catalog/ui-tokens.json (template name == token id).",
         "   v0 wireframe: real geometry/colors, no sprites. Inline this whole file",
         "   into each mockup HTML (self-contained contract, survives moves). */",
         "*{box-sizing:border-box;margin:0;padding:0}",
@@ -721,8 +817,8 @@ def build_css(kit):
     for name, rec in kit.items():
         w, h = rec["size"]
         if w == 0 and h == 0:
-            # Screen-root tokens (screen.* / popup shells) are sized by
-            # UIManager at runtime — in a mockup the .stage plays that role.
+            # Screen-root templates (FeatureTemplate/PackageTemplate) are sized
+            # by UIManager at runtime — in a mockup the .stage plays that role.
             props = [f"width:{DESIGN_W}px", f"height:{DESIGN_H}px"]
         else:
             # A single zero axis = layout-driven (LayoutGroup sizes it at
@@ -739,161 +835,136 @@ def build_css(kit):
             props.append(f"color:{css_rgba(tc)}")
         elif bga and bga[3] >= 0.5 and (bga[0] + bga[1] + bga[2]) / 3 > 0.7:
             props.append("color:#222")  # readable label on a bright wireframe fill
-        lines.append(f".tpl-{css_class(name)}{{{';'.join(props)}}}")
+        lines.append(f".tpl-{name}{{{';'.join(props)}}}")
     return "\n".join(lines) + "\n"
 
 
-def image_layer_html(layer):
-    left, top, width, height = layer["rect"]
-    url = html.escape(layer["sprite"]["url"], quote=True)
-    rgba = layer.get("color") or [1, 1, 1, 1]
-    styles = ["position:absolute", f"left:{left}px", f"top:{top}px",
-              f"width:{width}px", f"height:{height}px", "pointer-events:none"]
-    if rgba[3] < 1:
-        styles.append(f"opacity:{rgba[3]}")
-    border = layer["sprite"].get("border") or [0, 0, 0, 0]
-    if layer["imageType"] == 1 and any(border):
-        # Unity border = left,bottom,right,top; CSS = top,right,bottom,left.
-        source_slices = [border[3], border[2], border[1], border[0]]
-        multiplier = layer.get("pixelsPerUnitMultiplier", 1)
-        render_widths = [value * multiplier for value in source_slices]
-        render_widths[0] = min(render_widths[0], height / 2)
-        render_widths[2] = min(render_widths[2], height / 2)
-        render_widths[1] = min(render_widths[1], width / 2)
-        render_widths[3] = min(render_widths[3], width / 2)
-        values = " ".join(f"{v}px" for v in render_widths)
-        slices = " ".join(str(v) for v in source_slices)
-        fill = " fill" if layer.get("fillCenter", True) else ""
-        styles.extend([
-            # url() is single-quoted: this whole string lands in a double-quoted
-            # HTML style="…" attribute, so a double-quoted url() would close the
-            # attribute early and silently drop the sprite (web_url percent-
-            # encodes the path, so it never contains a single quote). border-color
-            # is a transparent fallback so a missing sprite degrades to nothing
-            # instead of Chrome's solid currentColor frame.
-            "border-style:solid", "border-color:transparent",
-            f"border-width:{values}",
-            f"border-image-source:url('{url}')",
-            f"border-image-slice:{slices}{fill}",
-            f"border-image-width:{values}", "border-image-repeat:stretch",
-        ])
-    else:
-        styles.extend([f"background-image:url('{url}')", "background-position:center",
-                       "background-repeat:repeat" if layer["imageType"] == 2
-                       else "background-repeat:no-repeat"])
-        if layer["imageType"] != 2:
-            styles.append("background-size:contain" if layer["preserveAspect"]
-                          else "background-size:100% 100%")
-    node = html.escape(layer["node"], quote=True)
-    asset = html.escape(layer["sprite"]["asset"], quote=True)
-    return f'<div class="image-layer" title="{node} — {asset}" style="{";".join(styles)}"></div>'
-
-
-def visible_images(rec):
-    return [image for image in rec.get("images", [])
-            if image.get("active", True) and image.get("enabled", True)
-            and image.get("sprite")
-            and (image.get("color") or [1, 1, 1, 1])[3] > 0.001]
-
-
 def build_preview(kit):
-    cells = []
-    # Reusable ui.* templates are the primary purpose of this gallery; keep
-    # full feature screens after them so opening the file lands on useful kits.
-    for name, rec in sorted(kit.items(), key=lambda item: (item[0].startswith("screen."), item[0])):
+    cards = []
+    for name, rec in kit.items():
         w, h = rec["size"]
-        display_w = w or DESIGN_W
-        display_h = h or DESIGN_H
-        scale = min(0.42, 300 / max(display_w, 1), 300 / max(display_h, 1))
-        sw, sh = round(display_w * scale), round(display_h * scale)
-        fs = next((t["fontSize"] for t in rec["texts"] if t["fontSize"]), "—")
-        extra = f" · variant of {rec['variantOf']}" if rec.get("variantOf") else ""
-        nested = f" · nested: {', '.join(rec['nested'])}" if rec["nested"] else ""
-        cat = f" · {rec['category']}" if rec.get("category") else ""
-        preview_images = visible_images(rec)
-        layers = "".join(image_layer_html(layer) for layer in preview_images)
-        image_note = f" · {len(preview_images)} prefab images"
-        dimensions = f"{w}×{h}" if w and h else f"runtime {display_w}×{display_h}"
-        cells.append(
-            f'<div class="cell"><div class="box" style="width:{sw}px;height:{sh}px">'
-            f'<div class="tpl prefab-composite tpl-{css_class(name)}" data-tpl="{name}" '
-            f'style="width:{display_w}px;height:{display_h}px;transform:scale({scale});'
-            f'transform-origin:top left">{layers}</div></div>'
-            f'<p><b>{name}</b><br>{dimensions} · font {fs}{image_note}{cat}{extra}{nested}</p></div>')
-    image_count = sum(len(visible_images(rec)) for rec in kit.values())
-    sliced_count = sum(1 for rec in kit.values() for layer in visible_images(rec)
-                       if layer["imageType"] == 1 and any(layer["sprite"].get("border") or []))
-    return (
-        "<!doctype html><meta charset='utf-8'><title>Unity visual UI-kit (from ui-catalog)</title>\n"
-        "<link rel='stylesheet' href='ui-kit.css'>\n"
-        "<style>body{padding:24px;color:#eee}h1{margin-bottom:4px}"
-        ".hint{opacity:.7;margin-bottom:20px}"
-        ".grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}"
-        ".cell{width:320px}.box{overflow:hidden;border:1px solid #333;background:#151527}"
-        ".prefab-composite{background-image:none!important}"
-        ".cell p{font-size:13px;line-height:1.5;margin-top:6px;opacity:.9}</style>\n"
-        "<h1>Visual UI-kit — prefab sprites (derived from ui-catalog)</h1>\n"
-        f"<p class='hint'>{len(kit)} tokens · {image_count} Image layers · "
-        f"{sliced_count} rendered with 9-slice · no screenshots · "
-        "regenerate: <code>python3 .claude/scripts/ui-kit-sync.py</code></p>\n"
-        f"<div class='grid'>{''.join(cells)}</div>\n")
+        variant = f" · variant of {rec['variantOf']}" if rec.get("variantOf") else ""
+        layout_driven = " · layout-driven" if not w or not h else ""
+        cards.append(
+            f'<article class="card" data-template="{name}" data-name="{name.lower()}">'
+            f'<button class="preview" type="button" aria-label="Inspect {name}">'
+            '<span class="checker"></span><span class="prefab-host"></span>'
+            '<span class="inspect" aria-hidden="true">Inspect</span></button>'
+            f'<div class="meta"><div><b>{name}</b><span>{w}×{h}{layout_driven}{variant}</span></div>'
+            f'<code>{len(rec["visual"]["children"]) if rec.get("visual") else 0} root children</code>'
+            '</div></article>')
+    payload = json.dumps(kit, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    template = (OUT_DIR / "kit-preview.template.html").read_text(encoding="utf-8")
+    return (template.replace("__COUNT__", str(len(kit)))
+            .replace("__CARDS__", "".join(cards))
+            .replace("__KIT__", payload))
+
+
+def check():
+    """Report whether the committed kit still matches the prefabs + usage notes.
+
+    Exists so staleness is detectable without regenerating: bootstrap, the skill
+    and any gate can ask, and only a human decides to rewrite generated files.
+    `sourceHash` covers the prefabs alone, so an edited usage note would slip
+    past it — the recorded notes are therefore compared directly.
+    """
+    kit_file = OUT_DIR / "ui-kit.json"
+    def report(state, detail, code):
+        print(json.dumps({"ok": code == 0, "state": state, "detail": detail,
+                          "kit": str(kit_file.relative_to(ROOT)),
+                          "regenerate": "python3 .claude/scripts/ui-kit-sync.py"},
+                         ensure_ascii=False, indent=2))
+        return code
+
+    if not TEMPLATES_DIR.is_dir():
+        # A toolchain checkout with no UI prefabs yet is not a failure state.
+        return report("no-templates", f"{TEMPLATES_REL} does not exist", 0)
+
+    # Before anything else: a broken usage file has to be reported as itself,
+    # because the obvious response to any other state is "regenerate" — which
+    # here would quietly produce a kit stripped of every composition rule.
+    usage_errors = []
+    usage = load_usage(usage_errors)
+    if usage_errors:
+        return report("usage-invalid", "; ".join(usage_errors), 1)
+
+    try:
+        payload = json.loads(kit_file.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return report("missing", "kit has never been generated", 1)
+    except (OSError, json.JSONDecodeError) as error:
+        return report("unreadable", str(error), 1)
+
+    recorded = payload.get("_meta", {}).get("sourceHash")
+    if recorded != source_hash():
+        return report("stale", "prefabs changed since the kit was generated", 1)
+
+    templates = payload.get("templates", {})
+    # Only templates that actually exist are compared: a note naming a template
+    # this project does not have is a bad entry, not staleness — regenerating
+    # would never clear it. Those surface as `_meta.usageUnknown` instead.
+    drifted = sorted(name for name, rec in templates.items()
+                     if rec.get("usage") != usage.get(name))
+    if drifted:
+        return report("stale", f"usage notes changed: {', '.join(drifted)}", 1)
+    return report("fresh", f"{len(templates)} template(s) in sync", 0)
 
 
 def main():
-    if not CATALOG_JSON.is_file():
-        print(f"catalog not found: {CATALOG_JSON}", file=sys.stderr)
+    if any(a in ("--check", "-check") for a in sys.argv[1:]):
+        return check()
+    if not TEMPLATES_DIR.is_dir():
+        print(f"templates dir not found: {TEMPLATES_DIR}", file=sys.stderr)
         return 1
-    tokens = load_tokens()
     guid_paths = guid_path_map()
     asset_paths = asset_guid_path_map()
-    if PREVIEW_ASSETS_DIR.exists():
-        shutil.rmtree(PREVIEW_ASSETS_DIR)
-    kit, skipped, cache, sprite_cache = {}, [], {}, {}
-    for token in sorted(tokens, key=lambda t: t.get("token", "")):
-        name = token.get("token")
-        asset = ROOT / token.get("assetPath", "")
-        if not name:
-            continue
-        if not asset.is_file():
-            skipped.append(f"{name}: assetPath missing ({token.get('assetPath')})")
-            continue
+    path_guids = {str(path): guid for guid, path in asset_paths.items()}
+    usage = load_usage()
+    kit, skipped, cache, visual_cache, sprite_cache = {}, [], {}, {}, {}
+    for prefab in sorted(TEMPLATES_DIR.glob("*.prefab")):
         try:
-            rec = resolve(asset, guid_paths, asset_paths, sprite_cache, cache)
+            rec = resolve(prefab, guid_paths, cache)
         except Exception as e:  # one broken prefab must not sink the whole kit
-            skipped.append(f"{name}: {e}")
+            skipped.append(f"{prefab.stem}: {e}")
             continue
         if rec is None:
-            skipped.append(f"{name}: no RectTransform root (not a UI prefab)")
+            skipped.append(f"{prefab.stem}: no RectTransform root (not a UI prefab)")
             continue
-        rec = {k: v for k, v in rec.items() if not k.startswith("_")}
-        rec["prefab"] = token.get("prefab")
-        if token.get("category"):
-            rec["category"] = token["category"]
-        if token.get("controller"):
-            rec["controller"] = token["controller"]
-        layout = token.get("layout") or {}
-        if layout.get("contentContainer"):
-            rec["contentContainer"] = layout["contentContainer"]
-        kit[name] = rec
+        public_rec = {k: v for k, v in rec.items() if not k.startswith("_")}
+        if prefab.stem in usage:
+            public_rec["usage"] = usage[prefab.stem]
+        try:
+            visual = resolve_visual(
+                prefab, guid_paths, path_guids, asset_paths, visual_cache)
+            public_rec["visual"] = finalize_visual(visual, asset_paths, sprite_cache)
+        except Exception as error:
+            public_rec["visual"] = None
+            skipped.append(f"{prefab.stem} visual: {error}")
+        kit[prefab.stem] = public_rec
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    # Image layers are gallery implementation details. Keep ui-kit.json's
-    # established v0 schema stable for ui-spec/mockup consumers.
-    public_kit = {
-        name: {key: value for key, value in rec.items() if key != "images"}
-        for name, rec in kit.items()
-    }
+    # A note whose template no longer exists (renamed, deleted, or a typo) would
+    # otherwise vanish silently — the very drift this kit keeps having.
+    usage_unknown = sorted(set(usage) - set(kit))
     payload = {
         "_meta": {
-            "source": "ui-catalog/ui-tokens.json",
+            "source": TEMPLATES_REL,
             "designResolution": [DESIGN_W, DESIGN_H],
             "fidelity": "v0-wireframe",
-            "sourceHash": source_hash(tokens),
+            "previewFidelity": "v1-prefab-assets",
+            "sourceHash": source_hash(),
             "count": len(kit),
             "skipped": skipped,
             "regenerate": "python3 .claude/scripts/ui-kit-sync.py",
+            # Absent when empty, so the common case keeps the same shape.
+            **({"usageUnknown": usage_unknown} if usage_unknown else {}),
         },
-        "templates": public_kit,
+        # Keep the public mockup contract compact/backward-compatible. The
+        # richer visual tree is embedded only in kit-preview.html.
+        "templates": {
+            name: {key: value for key, value in rec.items() if key != "visual"}
+            for name, rec in kit.items()
+        },
     }
     (OUT_DIR / "ui-kit.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -901,6 +972,7 @@ def main():
     (OUT_DIR / "ui-kit.css").write_text(build_css(kit), encoding="utf-8")
     (OUT_DIR / "kit-preview.html").write_text(build_preview(kit), encoding="utf-8")
     print(json.dumps({"ok": True, "templates": len(kit), "skipped": skipped,
+                      "usageUnknown": usage_unknown,
                       "out": str(OUT_DIR.relative_to(ROOT))}, ensure_ascii=False, indent=2))
     return 0
 

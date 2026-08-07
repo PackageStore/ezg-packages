@@ -6,11 +6,25 @@ BACKLOG.md or invents timestamps (prose-driven bookkeeping has already
 corrupted the index once: leaked tool-call markup, dual-state task files,
 forbidden DONE bullets). Sibling of backlog-preflight.py.
 
+LOCATION — the backlog lives in `$(git rev-parse --git-common-dir)/backlog/`
+(i.e. `.git/backlog/`), NOT in the worktree. Two reasons:
+  * It is per-developer bookkeeping, not shared source. Keeping it in the tree
+    made every dev branch carry its own BACKLOG.md + task files, so merging two
+    devs into main conflicted on the index and collided on NNN numbering.
+  * `.git/` is shared by every linked worktree of the same clone, so an agent
+    running in a `git worktree` sees the SAME queue as the dev's main checkout
+    with no symlink, no gitignore entry, and no copy step.
+Nothing here is ever git-tracked: task transitions are plain filesystem moves
+(a `git mv` inside `.git/` is meaningless and would hard-fail). The bullet
+paths in BACKLOG.md stay written as `backlog/<state>/<file>.md`, resolved
+relative to the git common dir.
+
 Commands
+  init                        Create the backlog root (dirs + BACKLOG.md skeleton).
   lint                        Directory<->index consistency check (read-only).
   pick                        Print the task run-backlog must work on (JSON).
-  start   <NNN>               todo -> in-progress (git mv + index bullet move).
-  done    <NNN>               in-progress -> done (git mv + bullet removal).
+  start   <NNN>               todo -> in-progress (move + index bullet move).
+  done    <NNN>               in-progress -> done (move + bullet removal).
   demote  <NNN>               in-progress -> todo (abandon a blocked run; bullet
                               returns to the head of ## TODO).
   defer   <NNN>               Move a TODO bullet to the TAIL of ## TODO (file
@@ -24,21 +38,21 @@ Commands
                               earlier in the batch nor in todo/in-progress/done,
                               and when a /new-ui task's groundTruth is still
                               PENDING-MOCKUP / PENDING-APPROVAL (mockup not yet
-                              approved via /ui-mockup), or clone:<Prefab> does
-                              not resolve through ui-catalog or to an
-                              unambiguous prefab under Assets/.
+                              auto-approved — run /ui-mockup).
   timestamp                   Print UTC YYYYMMDDTHHmmssSSS (planning filenames).
 
 Every mutating command re-runs lint afterwards and embeds the result.
 --dry-run prints the plan without touching anything.
 
-Exit codes: 0 = ok · 1 = lint errors / operation failure · 2 = pick found nothing.
+Exit codes: 0 = ok · 1 = lint errors / operation failure · 2 = pick found nothing
+· 3 = backlog root missing (run `init`).
 """
 
 import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -68,35 +82,159 @@ QUEUE_RE = re.compile(
 HEADING_RE = re.compile(r"^#{1,4} \[(?P<priority>HIGH|MEDIUM|LOW)\] (?P<title>.+?)\s*$")
 BODY_TIER_RE = re.compile(r"^\*\*Tier:\*\*\s*(?P<tier>XS|S|M|L)\s*$", re.IGNORECASE)
 DEPENDS_RE = re.compile(r"^\*\*Depends on:\*\*\s*(?P<deps>.+?)\s*$", re.IGNORECASE)
-# Mockup-pipeline pending markers inside **Workflow args:** (see /ui-mockup).
-# PENDING-MOCKUP = no draft yet; PENDING-APPROVAL:<html> = draft awaits human OK.
+DEP_REF_RE = re.compile(r"`\s*([^`\s]+\.md)\s*`")
+# Mockup-pipeline pending markers on any real line (usually **Workflow args:**
+# for /new-ui tasks, or a dedicated **Mockup:** line for HYBRID tasks — the token
+# is location-agnostic, ui-review.py flips it by whole-file replace). See /ui-mockup.
+# PENDING-MOCKUP = no draft yet; PENDING-APPROVAL:<html> = draft not yet frozen to PNG.
 PENDING_GROUNDTRUTH_RE = re.compile(r"groundTruth=(PENDING-MOCKUP|PENDING-APPROVAL:\S+)")
-CLONE_GROUNDTRUTH_RE = re.compile(r"groundTruth=clone:([^\s`]+)")
+# ANY groundTruth token means the author made an explicit visual-source decision
+# (.png approved / clone:<Prefab> / none / PENDING-*). Its total ABSENCE on a task
+# that otherwise signals UI-screen work is the silent-skip hole this guards.
+ANY_GROUNDTRUTH_RE = re.compile(r"groundTruth=\S+")
+# A task referencing /new-ui builds or authors a UI prefab/screen — it must carry
+# an explicit mockup decision (draft, clone, or none) before it can be promoted,
+# so a new screen can never skip the draft+approval gate the way a /new-feature
+# HYBRID once could.
+NEWUI_SIGNAL_RE = re.compile(r"/new-ui\b")
 
 STATE_DIRS = ("todo", "in-progress", "done")
 
 
-def repo_root() -> Path:
-    script_root = Path(__file__).resolve().parents[2]
+def _git_out(*args):
     try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=script_root, capture_output=True, text=True, check=True,
-        ).stdout.strip()
-        if out and (Path(out) / "BACKLOG.md").exists():
-            return Path(out)
+        out = subprocess.run(["git", *args], capture_output=True, text=True,
+                             check=True).stdout.strip()
+        return out or None
     except Exception:
-        pass
-    # git unavailable — walk up from this script (then cwd) looking for BACKLOG.md
-    for base in (script_root, Path.cwd()):
+        return None
+
+
+def repo_root() -> Path:
+    out = _git_out("rev-parse", "--show-toplevel")
+    if out:
+        return Path(out)
+    # git unavailable — walk up from this script (then cwd) looking for .git
+    for base in (Path(__file__).resolve().parent, Path.cwd()):
         for p in (base, *base.parents):
-            if (p / "BACKLOG.md").exists():
+            if (p / ".git").exists():
                 return p
     return Path.cwd()
 
 
+def git_common_dir() -> Path:
+    """The shared .git directory. In a linked worktree `--git-dir` points at
+    `.git/worktrees/<name>` (private) while `--git-common-dir` points at the
+    ORIGINAL `.git` — that is precisely what makes one backlog visible from
+    every worktree of the clone, so never substitute --git-dir here.
+
+    Older git returns a path relative to the cwd, newer git an absolute one;
+    resolve against the cwd so both shapes land on the same directory."""
+    out = _git_out("rev-parse", "--git-common-dir")
+    if out:
+        return (Path.cwd() / out).resolve()
+    return (repo_root() / ".git").resolve()
+
+
 ROOT = repo_root()
-BACKLOG = ROOT / "BACKLOG.md"
+# Bullets stay written as `backlog/<state>/<file>.md`; TASK_BASE is what they
+# are resolved against, so a bullet's spelling never changed with the move.
+TASK_BASE = git_common_dir()
+BACKLOG_ROOT = TASK_BASE / "backlog"
+BACKLOG = BACKLOG_ROOT / "BACKLOG.md"
+
+BACKLOG_SKELETON = """# Backlog
+
+Task index for the autonomous backlog system. Task bodies live as individual
+files in `backlog/{todo,in-progress,done}/` next to this file; the agent reads
+only this index plus the one task it picks, so tokens stay flat no matter how
+many tasks accumulate.
+
+This backlog is per-developer bookkeeping stored under the git common dir
+(`.git/backlog/`). It is never committed and never merged, and every worktree
+of this clone shares it. Templates live in `.claude/backlog-templates/`.
+
+## Ordering Rules in TODO
+
+- **FIFO (task order).** `promote` appends to the END of `## TODO`; `pick`
+  always takes the HEAD. Position in this list = execution order.
+- **Priority is a metadata tag only** — it does NOT reorder the queue.
+
+## TODO
+
+- (none)
+
+## IN PROGRESS
+
+- (none)
+
+## DONE
+
+- (none)
+
+See `backlog/done/` — each completed task is a separate file with its summary.
+"""
+
+
+def init_backlog() -> list:
+    """Create the backlog root. Idempotent — only reports what it actually made."""
+    actions = []
+    for d in ("planning", *STATE_DIRS):
+        p = BACKLOG_ROOT / d
+        if not p.is_dir():
+            p.mkdir(parents=True, exist_ok=True)
+            actions.append(f"created {d}/")
+    if not BACKLOG.exists():
+        BACKLOG.write_text(BACKLOG_SKELETON, encoding="utf-8")
+        actions.append("created BACKLOG.md")
+    return actions
+
+
+# Commands that legitimately reach a machine whose backlog does not exist yet
+# (a fresh clone / a brand-new dev): they bootstrap it. Everything else MUST
+# fail loudly instead — a `pick` that silently auto-created an empty backlog
+# would report `state: empty`, and the loop would write PAUSED and announce
+# "backlog is empty" when the real fault is a misconfigured checkout.
+AUTO_INIT_COMMANDS = ("init", "promote")
+
+
+def script_path(name: str) -> str:
+    """Path to a sibling script, spelled the way the caller can paste it back.
+
+    The same toolchain lives under `.claude/scripts/` in one project layout and
+    `.claude/scripts/` in another, so a hardcoded path is wrong in half the
+    checkouts. Derive it from this file, relative to the cwd when that works
+    (a worktree cwd with the script in the main checkout gives no relative
+    path — fall back to absolute rather than printing a `../../..` chain)."""
+    p = (Path(__file__).resolve().parent / name)
+    try:
+        return p.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return p.as_posix()
+
+
+def ensure_structure(command: str) -> list:
+    if command in AUTO_INIT_COMMANDS:
+        return init_backlog()
+    missing = [str(p) for p in (BACKLOG, *(BACKLOG_ROOT / d for d in STATE_DIRS))
+               if not p.exists()]
+    if missing:
+        # `fix` is the whole point of this branch: the reader is a model or a dev
+        # who just hit exit 3, and both should be able to paste one line rather
+        # than work out where the script lives in this layout.
+        print(json.dumps({
+            "ok": False,
+            "error": "backlog not initialised",
+            "backlog_root": str(BACKLOG_ROOT),
+            "missing": missing,
+            "fix": f"python3 {script_path('backlog-ops.py')} init",
+            "hint": f"run `python3 {script_path('backlog-ops.py')} init` — or "
+                    f"`bash {script_path('bootstrap.sh')}` to set up the link view "
+                    "and the backlog together. The backlog lives in the git common "
+                    "dir and is never committed, so a fresh clone starts without one",
+        }, ensure_ascii=False, indent=2))
+        raise SystemExit(3)
+    return []
 
 
 def fmt_bullet(priority, tier, title, path) -> str:
@@ -180,7 +318,7 @@ def state_files():
     """basename -> list of state dirs that contain it."""
     seen = {}
     for d in STATE_DIRS:
-        p = ROOT / "backlog" / d
+        p = BACKLOG_ROOT / d
         if not p.is_dir():
             continue
         for f in sorted(p.glob("*.md")):
@@ -216,11 +354,16 @@ def max_nnn() -> int:
     return best
 
 
-def git(*args, dry_run=False):
+def move_file(src: Path, dst_rel: str, dry_run: bool) -> str:
+    """Move a task file between states. Plain filesystem move, never `git mv`:
+    the backlog lives inside the git common dir, so nothing here is tracked and
+    `git mv` would hard-fail with 'not under version control'."""
     if dry_run:
-        return f"DRY-RUN: git {' '.join(args)}"
-    subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True)
-    return f"git {' '.join(args)}"
+        return f"DRY-RUN: mv {src.name} -> {dst_rel}"
+    dst = TASK_BASE / dst_rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    return f"mv {src.name} -> {dst_rel}"
 
 
 # --------------------------------------------------------------------------- lint
@@ -272,10 +415,10 @@ def run_lint() -> dict:
                     f"BACKLOG.md:{i + 1}: bullet under ## {sec} links outside backlog/{folder}/: {path}"
                 )
                 continue
-            if not (ROOT / path).exists():
+            if not (TASK_BASE / path).exists():
                 errors.append(f"BACKLOG.md:{i + 1}: bullet target does not exist: {path}")
             else:
-                task_path = ROOT / path
+                task_path = TASK_BASE / path
                 queue_name = QUEUE_RE.match(task_path.name)
                 filename_tier = queue_name.group("tier") if queue_name else None
                 body_tier = read_body_tier(task_path)
@@ -297,7 +440,7 @@ def run_lint() -> dict:
             linked[folder].add(Path(path).name)
 
     # E4c — draft invariant before promotion: planning filename tier == body tier.
-    planning_dir = ROOT / "backlog" / "planning"
+    planning_dir = BACKLOG_ROOT / "planning"
     if planning_dir.is_dir():
         for task_path in sorted(planning_dir.glob("*.md")):
             filename = PLANNING_RE.match(task_path.name)
@@ -411,13 +554,6 @@ def norm_nnn(arg: str) -> str:
     return m.group(1)
 
 
-def safe_git_mv(src_rel: str, dst_rel: str, dry_run: bool) -> str:
-    try:
-        return git("mv", src_rel, dst_rel, dry_run=dry_run)
-    except subprocess.CalledProcessError as e:
-        raise SystemExit(f"git mv {src_rel} -> {dst_rel} failed: {(e.stderr or '').strip()}")
-
-
 def prepare_transition(from_section: str, to_dir: str, arg: str):
     """Validate everything and build the mutated index in memory BEFORE any
     filesystem change — a crash mid-transition must never leave the dual-state
@@ -430,7 +566,7 @@ def prepare_transition(from_section: str, to_dir: str, arg: str):
     i, m = find_bullet(idx, from_section, nnn)
     if m is None:
         raise SystemExit(f"no ## {from_section} bullet for task {nnn} in BACKLOG.md")
-    src = ROOT / m.group("path")
+    src = TASK_BASE / m.group("path")
     if not src.exists():
         raise SystemExit(f"task file missing: {m.group('path')}")
     dst_rel = f"backlog/{to_dir}/{src.name}"
@@ -449,7 +585,7 @@ def run_start(arg: str, dry_run: bool) -> dict:
     else:
         idx.insert_line(idx.section_tail("IN PROGRESS"), new_bullet)
 
-    actions = [safe_git_mv(str(src.relative_to(ROOT)), dst_rel, dry_run)]
+    actions = [move_file(src, dst_rel, dry_run)]
     if not dry_run:
         write_backlog(idx.text())
     actions.append(f"BACKLOG.md: TODO bullet {nnn} -> IN PROGRESS")
@@ -464,7 +600,7 @@ def run_done(arg: str, dry_run: bool) -> dict:
     if not idx.bullets("IN PROGRESS"):
         idx.insert_line(idx.section_tail("IN PROGRESS"), "- (none)")
 
-    actions = [safe_git_mv(str(src.relative_to(ROOT)), dst_rel, dry_run)]
+    actions = [move_file(src, dst_rel, dry_run)]
     if not dry_run:
         write_backlog(idx.text())
     actions.append(f"BACKLOG.md: IN PROGRESS bullet {nnn} removed")
@@ -486,7 +622,7 @@ def run_demote(arg: str, dry_run: bool) -> dict:
     at = todo_bullets[0][0] if todo_bullets else idx.section_tail("TODO")
     idx.insert_line(at, new_bullet)
 
-    actions = [safe_git_mv(str(src.relative_to(ROOT)), dst_rel, dry_run)]
+    actions = [move_file(src, dst_rel, dry_run)]
     if not dry_run:
         write_backlog(idx.text())
     actions.append(f"BACKLOG.md: IN PROGRESS bullet {nnn} -> head of TODO")
@@ -530,7 +666,8 @@ def parse_planning(path: Path) -> dict:
     priority, title, depends = "MEDIUM", m.group("slug").replace("-", " "), []
     body_tier = None
     pending_mockup = None
-    clone_mockup = None
+    has_groundtruth = False
+    ui_signal = False
     heading_found = False
     in_comment = False
     for line in path.read_text(encoding="utf-8").split("\n"):
@@ -557,16 +694,22 @@ def parse_planning(path: Path) -> dict:
         if not depends:
             d = DEPENDS_RE.match(stripped)
             if d:
-                depends = [tok.strip().strip("`") for tok in d.group("deps").split(",")]
+                # Backticked filenames are the convention and a dependency line often
+                # carries prose around them ("`-12-.md` (một chiều — `-12-` là **chủ**)").
+                # Comma-splitting swallows that commentary into the token, and the dep then
+                # matches nothing — a silently wrong promote gate.
+                depends = DEP_REF_RE.findall(d.group("deps"))
+                if not depends:
+                    depends = [tok.strip().strip("`") for tok in d.group("deps").split(",")]
                 depends = [t for t in depends if t and t.lower() not in ("none", "n/a", "-")]
         if pending_mockup is None:
             g = PENDING_GROUNDTRUTH_RE.search(stripped)
             if g:
                 pending_mockup = g.group(1)
-        if clone_mockup is None:
-            clone = CLONE_GROUNDTRUTH_RE.search(stripped)
-            if clone:
-                clone_mockup = clone.group(1)
+        if not has_groundtruth and ANY_GROUNDTRUTH_RE.search(stripped):
+            has_groundtruth = True
+        if not ui_signal and NEWUI_SIGNAL_RE.search(stripped):
+            ui_signal = True
     filename_tier = m.group("tier")
     tier_errors = []
     if body_tier is None:
@@ -578,26 +721,25 @@ def parse_planning(path: Path) -> dict:
     return {"tier": filename_tier, "body_tier": body_tier,
             "tier_errors": tier_errors, "slug": m.group("slug"),
             "priority": priority, "title": title, "depends_on": depends,
-            "pending_mockup": pending_mockup, "clone_mockup": clone_mockup,
+            "pending_mockup": pending_mockup,
+            "has_groundtruth": has_groundtruth, "ui_signal": ui_signal,
             "sort_key": (m.group("ts"), int(m.group("idx") or 0), path.name)}
 
 
-def move_with_git(src: Path, dst_rel: str, dry_run: bool) -> str:
-    """git mv, falling back to filesystem-move + git add when the source is
-    untracked — planning drafts are often written but never git-added, and a
-    plain `git mv` hard-fails on them ('not under version control'), which
-    would dead-end an entire batch promote."""
-    try:
-        return git("mv", str(src.relative_to(ROOT)), dst_rel, dry_run=dry_run)
-    except subprocess.CalledProcessError as e:
-        stderr = e.stderr or ""
-        if "not under version control" not in stderr:
-            raise
-        if dry_run:
-            return f"DRY-RUN: mv {src.name} -> {dst_rel} + git add (untracked source)"
-        src.rename(ROOT / dst_rel)
-        git("add", dst_rel)
-        return f"mv {src.name} -> {dst_rel} + git add (untracked source)"
+def resolve_planning_arg(arg: str) -> Path:
+    """Accept every spelling a caller may reasonably pass for a planning file:
+    an absolute path, the canonical `backlog/planning/<name>.md` (relative to
+    the git common dir), the same string relative to the worktree root (which
+    resolves when the optional discoverability junction exists), or a bare
+    filename. Returning the canonical location for a non-existent input keeps
+    the caller's error message pointing at the real backlog."""
+    path = Path(arg)
+    if path.is_absolute():
+        return path
+    for candidate in (TASK_BASE / arg, ROOT / arg, BACKLOG_ROOT / "planning" / path.name):
+        if candidate.exists():
+            return candidate
+    return TASK_BASE / arg
 
 
 def dependency_warnings(tasks) -> list:
@@ -643,58 +785,33 @@ def dependency_warnings(tasks) -> list:
 
 
 def mockup_warnings(tasks) -> list:
-    """A /new-ui task promoted while its groundTruth is still PENDING-* will
-    execute without an approved visual reference — the exact failure mode the
-    mockup pipeline exists to prevent. Clone fast lanes must also resolve to a
-    real catalog token/prefab. Warnings are preflight blockers."""
+    """Two silent-skip holes in the mockup gate, both promotion blockers:
+
+    1. A task whose groundTruth is still PENDING-* would execute without an
+       approved visual reference — the failure the mockup pipeline prevents.
+    2. A task that signals UI-screen work (references /new-ui) but carries NO
+       groundTruth token at all. This was the /new-feature-HYBRID hole: the
+       mockup gate keyed only off a `groundTruth=` token, which such tasks
+       never emitted, so a brand-new screen skipped draft+approval entirely.
+       Requiring an explicit decision (draft / clone / none) closes it."""
     warns = []
-    catalog_path = ROOT / "ui-catalog" / "ui-tokens.json"
-    clone_targets = set()
-    try:
-        tokens = json.loads(catalog_path.read_text(encoding="utf-8")).get("tokens", [])
-        for token in tokens:
-            if not isinstance(token, dict):
-                continue
-            for key in ("token", "prefab", "resourcesPath", "assetPath"):
-                value = token.get(key)
-                if isinstance(value, str) and value:
-                    clone_targets.add(value.lower())
-                    if key == "assetPath":
-                        clone_targets.add(Path(value).stem.lower())
-    except (OSError, ValueError, json.JSONDecodeError):
-        # A fresh project may not have exported a UI catalog yet. Keep clone
-        # tasks usable when the requested prefab can be resolved unambiguously
-        # from Assets; mockup/kit-composition tasks still require the catalog.
-        assets = ROOT / "Assets"
-        if assets.is_dir():
-            prefabs = list(assets.rglob("*.prefab"))
-            stem_counts = {}
-            for prefab in prefabs:
-                stem = prefab.stem.lower()
-                stem_counts[stem] = stem_counts.get(stem, 0) + 1
-                clone_targets.add(prefab.relative_to(ROOT).as_posix().lower())
-            clone_targets.update(stem for stem, count in stem_counts.items() if count == 1)
     for t in tasks:
         marker = t.get("pending_mockup")
         if marker:
             warns.append(
-                f"{t['src'].name}: groundTruth still {marker} — approve a mockup via "
-                f"/ui-mockup before this task executes, or set "
-                f"groundTruth=clone:<ExistingPrefab> if the screen only clones an "
-                f"existing layout"
+                f"{t['src'].name}: groundTruth still {marker} — run /ui-mockup "
+                f"(drafts + auto-approves to a frozen PNG) before this task executes, "
+                f"or set groundTruth=clone:<ExistingPrefab> if the screen only clones "
+                f"an existing layout"
             )
-            continue
-        clone = t.get("clone_mockup")
-        if clone and not clone_targets:
+        elif t.get("ui_signal") and not t.get("has_groundtruth"):
             warns.append(
-                f"{t['src'].name}: cannot validate groundTruth=clone:{clone} because "
-                f"ui-catalog/ui-tokens.json is missing or invalid and no matching "
-                f"prefab was found under Assets"
-            )
-        elif clone and clone.lower() not in clone_targets:
-            warns.append(
-                f"{t['src'].name}: groundTruth=clone:{clone} does not resolve to a catalog "
-                f"token/prefab — choose a real ui-catalog entry or use the mockup lane"
+                f"{t['src'].name}: references /new-ui (builds/authors a UI screen) but "
+                f"carries no mockup groundTruth — the task would skip the draft+approval "
+                f"gate. Draft one via /ui-mockup by adding a line "
+                f"`**Mockup:** groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>)`, or "
+                f"declare no mockup is needed with groundTruth=clone:<ExistingPrefab> "
+                f"(clones an existing layout) or groundTruth=none (only wires an existing screen)"
             )
     return warns
 
@@ -702,11 +819,9 @@ def mockup_warnings(tasks) -> list:
 def run_promote(paths, priority_override, dry_run: bool, check_only=False) -> dict:
     tasks = []
     for p in paths:
-        path = Path(p)
-        if not path.is_absolute():
-            path = ROOT / p
+        path = resolve_planning_arg(p)
         if not path.exists():
-            raise SystemExit(f"planning file not found: {p}")
+            raise SystemExit(f"planning file not found: {p} (looked in {BACKLOG_ROOT / 'planning'})")
         if path.parent.name != "planning":
             raise SystemExit(f"not a backlog/planning/ file: {p}")
         info = parse_planning(path)
@@ -726,7 +841,7 @@ def run_promote(paths, priority_override, dry_run: bool, check_only=False) -> di
         return {
             "ok": not blockers,
             "check_only": True,
-            "tasks": [str(t["src"].relative_to(ROOT)) for t in tasks],
+            "tasks": [f"backlog/planning/{t['src'].name}" for t in tasks],
             "tier_errors": tier_errors,
             "dependency_warnings": dep_warnings,
             "mockup_warnings": mock_warnings,
@@ -744,13 +859,13 @@ def run_promote(paths, priority_override, dry_run: bool, check_only=False) -> di
     for t in tasks:
         nnn += 1
         dst_name = f"{nnn:03d}-{t['tier']}-{t['slug']}.md"
-        if (ROOT / "backlog" / "todo" / dst_name).exists():
+        if (BACKLOG_ROOT / "todo" / dst_name).exists():
             dst_name = f"{nnn:03d}-{t['tier']}-{t['slug']}-2.md"
         dst_rel = f"backlog/todo/{dst_name}"
         try:
-            actions.append(move_with_git(t["src"], dst_rel, dry_run))
-        except subprocess.CalledProcessError as e:
-            actions.append(f"FAILED git mv {t['src'].name}: {e.stderr.strip()}")
+            actions.append(move_file(t["src"], dst_rel, dry_run))
+        except OSError as e:
+            actions.append(f"FAILED mv {t['src'].name}: {e}")
             continue
         bullets.append(fmt_bullet(t["priority"], t["tier"], t["title"], dst_rel))
         moved.append({"nnn": f"{nnn:03d}", "path": dst_rel, "tier": t["tier"],
@@ -780,7 +895,7 @@ def run_promote(paths, priority_override, dry_run: bool, check_only=False) -> di
 def main():
     ap = argparse.ArgumentParser(prog="backlog-ops.py", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["lint", "pick", "start", "done", "demote", "defer", "promote", "timestamp"])
+    ap.add_argument("command", choices=["init", "lint", "pick", "start", "done", "demote", "defer", "promote", "timestamp"])
     ap.add_argument("args", nargs="*")
     ap.add_argument("--priority", choices=PRIORITIES)
     ap.add_argument("--dry-run", action="store_true")
@@ -797,7 +912,13 @@ def main():
         print(now.strftime("%Y%m%dT%H%M%S") + f"{now.microsecond // 1000:03d}")
         return 0
 
-    if ns.command == "lint":
+    init_actions = ensure_structure(ns.command)
+
+    if ns.command == "init":
+        result = {"ok": True, "backlog_root": str(BACKLOG_ROOT),
+                  "actions": init_actions or ["already initialised"],
+                  "lint": run_lint()}
+    elif ns.command == "lint":
         result = run_lint()
     elif ns.command == "pick":
         result = run_pick()

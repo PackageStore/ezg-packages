@@ -53,8 +53,8 @@ def validate_report(report: dict, report_path: Path | None = None) -> dict:
             errors.append("specHash does not match current spec")
         if report.get("kitHash") != kit_hash():
             errors.append("kitHash does not match current UI kit")
-        if png_size(resolved(report["unityScreenshot"])) != [1080, 2400]:
-            errors.append("unityScreenshot must be 1080x2400")
+        if png_size(resolved(report["unityScreenshot"])) != [1080, 1920]:
+            errors.append("unityScreenshot must be 1080x1920")
         diff = json.loads(resolved(report["visualDiff"]).read_text(encoding="utf-8"))
         if not diff.get("ok"):
             errors.append("visualDiff must be ok")
@@ -87,8 +87,8 @@ def create(args) -> int:
         validation = validate_spec(spec, mode="build")
         if not validation["ok"]:
             raise UISpecError(json.dumps(validation, ensure_ascii=False))
-        if png_size(args.screenshot) != [1080, 2400]:
-            raise UISpecError("Unity screenshot must be 1080x2400")
+        if png_size(args.screenshot) != [1080, 1920]:
+            raise UISpecError("Unity screenshot must be 1080x1920")
         if not args.prefab.exists():
             raise UISpecError(f"prefab does not exist: {args.prefab}")
         def portable(path: Path) -> str:

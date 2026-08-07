@@ -9,8 +9,8 @@ Automate the staging, committing, and pushing of changes with an AI-generated me
 ## 1. PREPARE & ANALYZE
 - Optional: If the user provides additional text or symbols (e.g., `+ /push`, `/push ~`, `/push [UI]`), capture any intended `<prefix>` (such as symbols `*`, `+`, `~`, `!`, `#`, or bracketed text) and/or `<suffix>`. Look for these anywhere in the prompt.
 - **OS Check**:
-  - On Windows: Run `powershell -ExecutionPolicy Bypass -File .agents/scripts/git_prepare.ps1`
-  - On macOS/Linux: Run `bash .agents/scripts/git_prepare.sh`
+  - On Windows: Run `powershell -ExecutionPolicy Bypass -File .claude/scripts/git_prepare.ps1`
+  - On macOS/Linux: Run `bash .claude/scripts/git_prepare.sh`
 - If output is `NO_CHANGES`, stop and inform the user.
 - Analyze the output — use `--- STAT ---` to identify which files changed and their scope, and use `--- DIFF (first 80 lines) ---` for high-level intent. Generate a concise, descriptive commit message (max 50 chars) that captures the actual change.
 - If no `<prefix>` is explicitly provided by the user, **DO NOT** generate default prefixes like `feat:`, `fix:`, `refactor:`, etc.
@@ -18,6 +18,6 @@ Automate the staging, committing, and pushing of changes with an AI-generated me
 
 ## 2. FINALIZE
 - **OS Check**:
-  - On Windows: Run `powershell -ExecutionPolicy Bypass -File .agents/scripts/git_push.ps1 "[Final Message]"`
-  - On macOS/Linux: Run `bash .agents/scripts/git_push.sh "[Final Message]"`
+  - On Windows: Run `powershell -ExecutionPolicy Bypass -File .claude/scripts/git_push.ps1 "[Final Message]"`
+  - On macOS/Linux: Run `bash .claude/scripts/git_push.sh "[Final Message]"`
 - Report the status and the final message.

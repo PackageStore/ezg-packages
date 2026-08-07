@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "what": "Composition rules the extractor cannot read out of a prefab. ui-kit-sync.py copies each note into the matching template of ui-kit.json as `usage`, and mockup-drafter reads it while drafting.",
+    "why": "A prefab's YAML carries its own geometry but not how it composes with OTHER templates. Nothing in TabBottomTemplate.prefab says a tab toggle must live inside it — which is how a screen ended up with a hand-made tab row in the content area, passing every gate.",
+    "howToEdit": "Hand-written, one entry per template name (the prefab file stem). Add one whenever a review catches a drafter composing templates wrongly; that rule is the fix, not a one-off correction. Names that match no template are reported as `_meta.usageUnknown` in ui-kit.json.",
+    "keepInSyncWith": ".claude/docs/new-ui-guide.md §3d",
+    "skill": ".claude/skills/ui-kit/SKILL.md"
+  },
+  "templates": {
+    "TabBottomTemplate": "Thanh tab đáy — đã ship sẵn (inactive) tại FeatureTemplate FullScreen/Bot cùng ToggleGroup + HorizontalLayoutGroup + UI_TabExtensions. Trong ui-spec đây là CONTAINER mang \"tabBar\": true (type row) đặt trong chrome Bot, KHÔNG phải element; children chỉ gồm TabToggleIconTemplate/TabToggleTextTemplate. Xem new-ui-guide.md §3d.",
+    "TabToggleIconTemplate": "Tab icon — phải là con trực tiếp của một container \"tabBar\": true (TabBottomTemplate). Mỗi tab tương ứng một page container trong Mid, nối qua UI_TabExtensions (_toggleList ↔ _objectList). Không dựng row tab tự chế trong nội dung.",
+    "TabToggleTextTemplate": "Tab chữ — cùng luật với TabToggleIconTemplate. Tab1/Tab2 mẫu của FeatureTemplate chính là 2 instance của template này nằm trong TabBottomTemplate."
+  }
+}

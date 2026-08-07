@@ -34,8 +34,8 @@ def main():
     try:
         reference = Image.open(args.reference).convert("RGB")
         actual = Image.open(args.actual).convert("RGB")
-        if reference.size != (1080, 2400) or actual.size != (1080, 2400):
-            raise ValueError("both images must be 1080x2400")
+        if reference.size != (1080, 1920) or actual.size != (1080, 1920):
+            raise ValueError("both images must be 1080x1920")
         diff = ImageChops.difference(reference, actual)
         stat = ImageStat.Stat(diff)
         mae = sum(stat.mean) / (3 * 255)
@@ -53,7 +53,7 @@ def main():
             "actual": portable(args.actual),
             "referenceSha256": file_hash(args.reference),
             "actualSha256": file_hash(args.actual),
-            "resolution": [1080, 2400],
+            "resolution": [1080, 1920],
             "meanAbsoluteError": round(mae, 6),
             "rootMeanSquareError": round(rmse, 6),
             "changedPixelRatio": round(changed_ratio, 6),

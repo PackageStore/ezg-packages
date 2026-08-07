@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for the spec-first Unity UI mockup pipeline.
-
-The UI kit here is DERIVED FROM THE UI CATALOG: ui-catalog/ui-tokens.json is
-the UGUI SSOT (authored via UiCatalogConfig, baked by the editor exporter) and
-ui-kit-sync.py bakes ui-catalog/ui-kit.{json,css} from it. Kit template names
-ARE catalog token ids (e.g. "ui.currency.single"), so mockup specs and Unity
-builds share one vocabulary. Design resolution is 1080x2400 (screen_template's
-CanvasScaler reference resolution).
-"""
+"""Shared helpers for the spec-first UI mockup pipeline."""
 
 from __future__ import annotations
 
@@ -15,33 +7,35 @@ import copy
 import hashlib
 import html
 import json
-import os
 import re
 from pathlib import Path
 
+# Every importer of this module lives in the same scripts/ directory, which is
+# therefore already on sys.path — the same plain import ui-kit-sync.py uses.
+from project_profile import profile
 
-ROOT = Path(os.environ.get("UI_PIPELINE_ROOT", Path(__file__).resolve().parents[2])).resolve()
-CATALOG_JSON = ROOT / "ui-catalog" / "ui-tokens.json"
-KIT_JSON = ROOT / "ui-catalog" / "ui-kit.json"
-KIT_CSS = ROOT / "ui-catalog" / "ui-kit.css"
-DESIGN_RESOLUTION = [1080, 2400]
+
+ROOT = Path(__file__).resolve().parents[2]
+KIT_JSON = ROOT / ".claude" / "ui-kit" / "ui-kit.json"
+KIT_CSS = ROOT / ".claude" / "ui-kit" / "ui-kit.css"
+# Must resolve to the SAME directory ui-kit-sync.py extracted the kit from:
+# kit_source_hash() below re-hashes those prefabs and compares against the
+# `_meta.sourceHash` the extractor recorded. Reading the profile in one script
+# and hardcoding the path in the other makes every validation in a project with
+# a different layout report `kit_stale` forever, because this side would hash an
+# empty directory.
+TEMPLATES_DIR = ROOT / profile().ui_templates_root
+PREFABS_ROOT = TEMPLATES_DIR.parent
 SPEC_RE = re.compile(
     r"<script\s+[^>]*id=[\"']spec[\"'][^>]*>(.*?)</script>",
     re.IGNORECASE | re.DOTALL,
 )
-CSS_SAFE_RE = re.compile(r"[^A-Za-z0-9_-]")
 PATCH_ROOTS = {"containers", "elements", "wiring", "assumptions"}
 PATCH_OPS = {"add", "remove", "replace"}
 
 
 class UISpecError(ValueError):
     pass
-
-
-def css_class(template: str) -> str:
-    """Catalog token ids contain dots (ui.currency.single) — CSS class names
-    cannot. Both the kit generator and the renderer must sanitize identically."""
-    return CSS_SAFE_RE.sub("-", template)
 
 
 def canonical_json(value) -> str:
@@ -67,23 +61,14 @@ def kit_hash() -> str:
 
 
 def kit_source_hash() -> str:
-    """Hash the catalog JSON plus every referenced prefab (+ .meta), sorted by
-    token id. Must stay byte-identical to ui-kit-sync.py's source_hash()."""
     digest = hashlib.sha256()
-    digest.update(CATALOG_JSON.read_bytes())
-    digest.update(b"\0")
-    tokens = json.loads(CATALOG_JSON.read_text(encoding="utf-8")).get("tokens", [])
-    for token in sorted(tokens, key=lambda t: t.get("token", "")):
-        asset = ROOT / token.get("assetPath", "")
-        digest.update(token.get("token", "").encode("utf-8"))
+    for path in sorted(TEMPLATES_DIR.glob("*.prefab")):
+        digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
         digest.update(b"\0")
-        if asset.is_file():
-            digest.update(asset.read_bytes())
-            meta = asset.with_suffix(asset.suffix + ".meta")
-            if meta.exists():
-                digest.update(meta.read_bytes())
-        else:
-            digest.update(b"<missing>")
+        digest.update(path.read_bytes())
+        meta = path.with_suffix(path.suffix + ".meta")
+        if meta.exists():
+            digest.update(meta.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -178,7 +163,7 @@ def _list_index(value: str, items: list, *, allow_end: bool = False) -> int:
 
 
 def apply_json_patch(document: dict, operations: list[dict]) -> dict:
-    """Apply the restricted patch dialect used by structured mockup choices."""
+    """Apply the restricted patch dialect used by deterministic review choices."""
     if not isinstance(operations, list) or len(operations) > 100:
         raise ValueError("Option patch must contain at most 100 operations")
     result = copy.deepcopy(document)
@@ -232,13 +217,94 @@ ANCHORS = {
     "bottom-left", "bottom-center", "bottom-right", "stretch",
 }
 
+# Containers are invisible layout only. A visible panel/card/frame must be an
+# element mapping to a frame template (FrameTemplate / FrameTemplateInside /
+# LayoutTemplate) anchored stretch — never CSS styling on the container. The
+# /new-ui builder cannot turn a styled container into a real framed sprite; it
+# emits a raw recoloured Image instead (the DungeonGuide "backgrounds bị đổi màu"
+# + "không dùng FrameTemplate" defect). Popup outer frame comes from the base
+# template chrome, not a redrawn container background.
+CONTAINER_FRAME_KEYS = (
+    "border", "borderTop", "borderBottom", "borderLeft", "borderRight", "boxShadow",
+)
+# Fixed-size chrome widgets: two instances at different sizes reads as uneven UI
+# (the Dungeon "TimeLayoutTemplate kích thước không đồng đều" defect).
+CHROME_TEMPLATES = {
+    "TimeLayoutTemplate", "TimeLayoutTemplate_small", "ResourceHomeTemplate",
+    "ResourceViewTemplate", "CurrencyPreview", "GameNotification",
+}
+
+# A scroll region is a CONTAINER property, not an element: ScrollViewTemplate /
+# ScrollLoopTemplate own their own Viewport/Content subtree, and spec elements
+# cannot nest children, so placing one as an element strands the scrolled body
+# outside it. Marking the container instead tells /new-ui to instantiate the
+# template and drop the container's children into Viewport/Content. Without this
+# field a scrolling area is invisible in the spec and the builder hand-adds a
+# raw ScrollRect (the StageOverview / task 064 defect).
+SCROLL_TEMPLATES = {"ScrollViewTemplate", "ScrollLoopTemplate"}
+SCROLL_MODES = (False, "vertical", "horizontal", "loop")
+
+# A tab bar is a CONTAINER property too. FeatureTemplate ships FullScreen/Bot/
+# TabBottomTemplate (Image + ToggleGroup + HorizontalLayoutGroup +
+# UI_TabExtensions) already holding the toggle row, but inactive — a feature with
+# tabs activates it and parents its TabToggle* instances to it, then wires
+# UI_TabExtensions (_toggleList ↔ _objectList). Spec elements hold no children,
+# so a TabBottomTemplate element cannot host the toggles: they end up in a
+# hand-made row inside Mid while the real bar stays dead and the controller
+# hand-wires Toggle.onValueChanged (the DungeonGuide defect).
+TAB_BAR_TEMPLATES = {"TabBottomTemplate"}
+TAB_TOGGLE_TEMPLATES = {"TabToggleIconTemplate", "TabToggleTextTemplate"}
+
+# A titled info block is a CONTAINER property, same reasoning as scroll/tabBar: the
+# block is a FrameTemplateInside instance whose ButtonTitleTemplate pill straddles the
+# frame's top edge, and both must WRAP the block's body — which spec elements cannot do.
+# Drawn by hand it degrades into a styled container plus a loose label, and the /new-ui
+# builder then ships a flat wall of text with no framing (the DungeonGuide storyboard
+# defect). Precedent: StageOverview.prefab, DungeonGuide.prefab.
+SECTION_FRAME_TEMPLATES = {"FrameTemplate", "FrameTemplateInside", "LayoutTemplate"}
+SECTION_TITLE_TEMPLATES = {"ButtonTitleTemplate"}
+# The pill hangs 30px above the frame's top edge, so the list stacking the sections needs
+# at least that much clearance or each title lands on the block above it, and the frame
+# itself must reserve the other 30px plus breathing room before its body starts.
+SECTION_MIN_PARENT_GAP = 40
+SECTION_PILL_RESERVE = 50
+
+
+def _is_visible_background(value) -> bool:
+    """A container background reads as a visible panel unless it is fully transparent."""
+    if value is None:
+        return False
+    if not isinstance(value, str):
+        return True
+    text = value.strip().lower()
+    if text in ("", "transparent", "none"):
+        return False
+    if text.startswith("rgba(") and text.endswith(")"):
+        parts = [part.strip() for part in text[5:-1].split(",")]
+        if len(parts) == 4:
+            try:
+                return float(parts[3]) != 0
+            except ValueError:
+                return True
+    return True
+
+
+def _container_frame_offenders(style: dict) -> list[str]:
+    """Return the visible-framing style keys a container must not carry."""
+    offenders = [
+        key for key in CONTAINER_FRAME_KEYS
+        if key in style and style[key] not in (None, "", "none")
+    ]
+    if "background" in style and _is_visible_background(style["background"]):
+        offenders.append("background")
+    return sorted(offenders)
+
 
 def validate_spec(
     spec: dict,
     *,
     mode: str = "draft",
     embedded: dict | None = None,
-    require_lane: bool = False,
     _validate_patches: bool = True,
 ) -> dict:
     errors, warnings = [], []
@@ -257,20 +323,13 @@ def validate_spec(
     elif version != 1:
         errors.append(issue("unsupported_version", "$.specVersion", f"unsupported specVersion {version}"))
 
-    lane = spec.get("mockupLane")
-    if lane is not None and lane not in ("kit-composition", "custom"):
-        errors.append(issue("mockup_lane", "$.mockupLane", "mockupLane must be kit-composition or custom"))
-    elif strict and require_lane and lane is None:
-        errors.append(issue("mockup_lane", "$.mockupLane", "new drafts must record their fast lane"))
-
     for key in ("screen", "feature"):
         if not isinstance(spec.get(key), str) or not spec[key].strip():
             errors.append(issue("required", f"$.{key}", f"{key} must be a non-empty string"))
     if spec.get("branch") not in ("Popup", "FullScreen"):
         errors.append(issue("branch", "$.branch", "branch must be Popup or FullScreen"))
-    if spec.get("designResolution") != DESIGN_RESOLUTION:
-        errors.append(issue("resolution", "$.designResolution",
-                            f"designResolution must be {DESIGN_RESOLUTION}"))
+    if spec.get("designResolution") != [1080, 1920]:
+        errors.append(issue("resolution", "$.designResolution", "designResolution must be [1080, 1920]"))
 
     containers = spec.get("containers", [])
     elements = spec.get("elements", [])
@@ -312,7 +371,7 @@ def validate_spec(
             target = errors if strict else warnings
             target.append(issue(
                 "kit_stale", "$",
-                "UI kit does not match current ui-catalog/prefab sources; run python3 .claude/scripts/ui-kit-sync.py",
+                "UI kit does not match current prefab sources; run python3 .claude/scripts/ui-kit-sync.py",
             ))
     except UISpecError as exc:
         errors.append(issue("kit_missing", "$", str(exc)))
@@ -347,6 +406,110 @@ def validate_spec(
                 errors.append(issue("grid_columns", f"{base}.columns", "grid requires integer columns >= 1"))
             if "spacing" in row and not _valid_vec(row["spacing"], 2, positive=True):
                 errors.append(issue("grid_spacing", f"{base}.spacing", "grid spacing must be [x,y]"))
+        if "scroll" in row:
+            scroll = row["scroll"]
+            if scroll not in SCROLL_MODES:
+                errors.append(issue(
+                    "scroll_value", f"{base}.scroll",
+                    "scroll must be false, 'vertical', 'horizontal' or 'loop'",
+                ))
+            elif scroll:
+                if row.get("type") == "absolute":
+                    errors.append(issue(
+                        "scroll_container_type", f"{base}.type",
+                        "a scrolling container must be row, col or grid — an absolute container has no flow "
+                        "extent for the builder to size Viewport/Content from",
+                    ))
+                if strict and "size" not in row and row.get("anchor") != "stretch":
+                    errors.append(issue(
+                        "scroll_size", f"{base}.size",
+                        "a scrolling container must declare size (or anchor 'stretch' with offsets) — that "
+                        "rect becomes the ScrollViewTemplate Viewport the content scrolls inside",
+                    ))
+        if "tabBar" in row:
+            tab_bar = row["tabBar"]
+            if not isinstance(tab_bar, bool):
+                errors.append(issue("tabbar_value", f"{base}.tabBar", "tabBar must be true or false"))
+            elif tab_bar:
+                if row.get("type") != "row":
+                    errors.append(issue(
+                        "tabbar_container_type", f"{base}.type",
+                        "a tabBar container must be type 'row' - it maps to TabBottomTemplate, whose "
+                        "HorizontalLayoutGroup lays the toggles out left to right",
+                    ))
+                children = row.get("children")
+                for child in children if isinstance(children, list) else []:
+                    child_row = element_map.get(child)
+                    if child_row is None or child_row.get("template") not in TAB_TOGGLE_TEMPLATES:
+                        errors.append(issue(
+                            "tabbar_children", f"{base}.children",
+                            f"tabBar child {child!r} must be a TabToggleIconTemplate/TabToggleTextTemplate "
+                            "element — TabBottomTemplate hosts only the toggles; each tab's page body lives "
+                            "in the content root (FullScreen/Mid)",
+                        ))
+        if "section" in row:
+            section = row["section"]
+            if not isinstance(section, dict):
+                errors.append(issue(
+                    "section_value", f"{base}.section",
+                    "section must be an object {title, localize} — it maps the container to a "
+                    "FrameTemplateInside block titled by a ButtonTitleTemplate pill",
+                ))
+            else:
+                title = section.get("title")
+                localize = section.get("localize")
+                if not isinstance(title, str) or not title.strip():
+                    errors.append(issue(
+                        "section_value", f"{base}.section.title",
+                        "section.title must be a non-empty string — it is the text painted in the pill",
+                    ))
+                if localize != "none" and not (
+                    isinstance(localize, str) and localize.startswith("#") and len(localize) > 1
+                ):
+                    errors.append(issue(
+                        "section_localize", f"{base}.section.localize",
+                        "section.localize must be '#key' or 'none' — the pill's TitleText is a STATIC "
+                        "label owned by LocalizesUI, never 'dynamic'",
+                    ))
+                if row.get("type") == "absolute":
+                    errors.append(issue(
+                        "section_container_type", f"{base}.type",
+                        "a section container must be row, col or grid — the frame sizes itself from the "
+                        "flow extent (VerticalLayoutGroup + ContentSizeFitter); an absolute container "
+                        "has none",
+                    ))
+                padding = row.get("padding")
+                if _valid_vec(padding, 4, positive=True) and padding[2] < SECTION_PILL_RESERVE:
+                    warnings.append(issue(
+                        "section_padding_top", f"{base}.padding",
+                        f"padding.top {padding[2]} leaves less than {SECTION_PILL_RESERVE} for the title "
+                        "pill; the pill sinks 30px into the frame, so the body starts under it",
+                    ))
+                children = row.get("children")
+                for child in children if isinstance(children, list) else []:
+                    template = (element_map.get(child) or {}).get("template")
+                    if template in SECTION_TITLE_TEMPLATES:
+                        errors.append(issue(
+                            "section_title_as_element", f"{base}.children",
+                            f"{child!r} draws a {template} inside a section container that already owns "
+                            "its title pill — the flag builds it, so this ships two titles",
+                        ))
+                    elif template in SECTION_FRAME_TEMPLATES:
+                        errors.append(issue(
+                            "section_frame_as_element", f"{base}.children",
+                            f"{child!r} draws a {template} inside a section container that already owns "
+                            "its frame — the flag builds it, so this ships a frame inside a frame",
+                        ))
+        style = row.get("style")
+        if strict and isinstance(style, dict):
+            offenders = _container_frame_offenders(style)
+            if offenders:
+                errors.append(issue(
+                    "container_style", f"{base}.style",
+                    f"container declares visible framing ({', '.join(offenders)}); a panel/card/frame must be an "
+                    "element using FrameTemplate/FrameTemplateInside/LayoutTemplate anchored stretch, not container "
+                    "styling — the builder recolours a raw Image otherwise",
+                ))
         children = row.get("children", [])
         if not isinstance(children, list):
             errors.append(issue("children", f"{base}.children", "children must be an array of ids"))
@@ -367,7 +530,14 @@ def validate_spec(
         if not isinstance(template, str) or not template:
             errors.append(issue("required", f"{base}.template", "template is required"))
         elif templates and template not in templates:
-            errors.append(issue("unknown_template", f"{base}.template", f"template {template!r} is not in ui-kit.json (kit templates are ui-catalog token ids)"))
+            errors.append(issue("unknown_template", f"{base}.template", f"template {template!r} is not in ui-kit.json"))
+        elif template in SCROLL_TEMPLATES:
+            errors.append(issue(
+                "scroll_as_element", f"{base}.template",
+                f"{template} cannot be an element — elements hold no children, so the scrolled body would land "
+                "outside its Viewport/Content. Mark the container that scrolls with "
+                "\"scroll\": \"vertical\" | \"horizontal\" | \"loop\" instead",
+            ))
         parent = row.get("parent")
         if parent not in container_map:
             errors.append(issue("parent", f"{base}.parent", f"parent {parent!r} is not a container"))
@@ -404,10 +574,95 @@ def validate_spec(
                 ))
         if isinstance(text_value, str) and "[?]" in text_value:
             target = errors if mode in ("approve", "build") else warnings
-            target.append(issue(
-                "placeholder", f"{base}.text",
-                f"unresolved [?] placeholder in {row.get('id', '?')!r}: {text_value!r} "
-                f"(replace with a representative value + localize='dynamic', or remove the element)",
+            target.append(issue("placeholder", f"{base}.text", "unresolved [?] placeholder"))
+
+    tab_bar_ids = {
+        row["id"] for row in containers
+        if isinstance(row, dict) and isinstance(row.get("id"), str) and row.get("tabBar") is True
+    }
+    tab_toggles = [
+        row for row in elements
+        if isinstance(row, dict) and row.get("template") in TAB_TOGGLE_TEMPLATES
+    ]
+    # FeatureTemplate ships Bot/TabBottomTemplate inactive, so a bar drawn without toggles is a
+    # brown strip the build never renders - and the mockup showing it is exactly what makes a
+    # builder activate it for nothing (BattleResultDungeon).
+    if not tab_toggles:
+        for row in elements:
+            if not isinstance(row, dict) or row.get("template") not in TAB_BAR_TEMPLATES:
+                continue
+            warnings.append(issue(
+                "tabbar_empty_chrome", ids.get(row.get("id"), "$.elements") + ".template",
+                "TabBottomTemplate is drawn with no tab toggles; the shipped bar is inactive, so this screen "
+                "renders no bar at runtime. Drop it and leave ButtonBack alone in the Bot chrome",
+            ))
+    if tab_toggles:
+        for row in elements:
+            if not isinstance(row, dict) or row.get("template") not in TAB_BAR_TEMPLATES:
+                continue
+            errors.append(issue(
+                "tabbar_as_element", ids.get(row.get("id"), "$.elements") + ".template",
+                "TabBottomTemplate cannot be an element on a screen that has tab toggles — elements hold no "
+                "children, so the toggles land outside the bar. Mark the row container holding them with "
+                "\"tabBar\": true instead",
+            ))
+        for row in tab_toggles:
+            parent = row.get("parent")
+            if parent in tab_bar_ids:
+                continue
+            errors.append(issue(
+                "tabs_outside_bottom_bar", ids.get(row.get("id"), "$.elements") + ".parent",
+                f"tab toggle {row.get('id')!r} sits in {parent!r}, which is not a \"tabBar\": true container — "
+                "navigation tabs belong inside FullScreen/Bot's TabBottomTemplate (precedent: Equipment.prefab, "
+                "Shop.prefab). A hand-made tab row in Mid leaves the shipped bar inactive and forces the "
+                "controller to hand-wire Toggle listeners instead of UI_TabExtensions",
+            ))
+
+    section_ids = {
+        row["id"] for row in containers
+        if isinstance(row, dict) and isinstance(row.get("id"), str) and isinstance(row.get("section"), dict)
+    }
+    # A loose pill is how the pattern degrades: the title renders but the body it belongs to
+    # keeps no frame, so the builder ships a bare label above unframed text.
+    for row in elements:
+        if not isinstance(row, dict) or row.get("template") not in SECTION_TITLE_TEMPLATES:
+            continue
+        if declared_parent.get(row.get("id")) in section_ids:
+            continue
+        warnings.append(issue(
+            "section_title_without_frame", ids.get(row.get("id"), "$.elements") + ".parent",
+            f"{row.get('id')!r} is a loose ButtonTitleTemplate; a titled info block is a container "
+            "flag — put \"section\": {\"title\", \"localize\"} on the container it heads so the "
+            "builder frames the body too (StageOverview.prefab). A standalone header pill is fine — "
+            "record it in assumptions[]",
+        ))
+    # The pill hangs above the frame, so a tight parent gap stacks each title onto the block above.
+    for node_id in section_ids:
+        parent_row = container_map.get(declared_parent.get(node_id))
+        if parent_row is None:
+            continue
+        gap = parent_row.get("gap")
+        if _is_number(gap) and gap < SECTION_MIN_PARENT_GAP:
+            warnings.append(issue(
+                "section_parent_gap", ids[declared_parent[node_id]] + ".gap",
+                f"gap {gap} is below {SECTION_MIN_PARENT_GAP} while stacking section {node_id!r}; the "
+                "title pill hangs 30px above its frame and will overlap the block above it",
+            ))
+
+    chrome_sizes: dict[str, set] = {}
+    for row in elements:
+        if not isinstance(row, dict):
+            continue
+        template = row.get("template")
+        size = row.get("size")
+        if template in CHROME_TEMPLATES and _valid_vec(size, 2, positive=True):
+            chrome_sizes.setdefault(template, set()).add((size[0], size[1]))
+    for template, sizes in chrome_sizes.items():
+        if len(sizes) > 1:
+            warnings.append(issue(
+                "inconsistent_chrome_size", "$.elements",
+                f"template {template!r} is placed at differing sizes {sorted(sizes)}; identical chrome widgets "
+                "(timers, chips, badges) should share one size — reuse the template's native size",
             ))
 
     for node_id, row in {**container_map, **element_map}.items():
@@ -427,7 +682,7 @@ def validate_spec(
         if content_root not in container_map:
             errors.append(issue(
                 "content_root", "$.contentRoot",
-                "contentRoot must name the popup container_content or full_screen content container",
+                "contentRoot must name the Popup/content or FullScreen/Mid container",
             ))
         else:
             def descends_from(node_id: str, ancestor: str) -> bool:
@@ -441,75 +696,93 @@ def validate_spec(
                 return node_id == ancestor
 
             for node_id, row in element_map.items():
+                # Tab toggles are feature content that legitimately lives in the Bot chrome
+                # (inside the shipped TabBottomTemplate), so a tabBar parent exempts them
+                # instead of forcing a misleading baseChrome flag.
+                if declared_parent.get(node_id) in tab_bar_ids:
+                    continue
                 if not row.get("baseChrome") and not descends_from(node_id, content_root):
                     errors.append(issue(
                         "containment", ids[node_id],
                         f"{node_id!r} must descend from contentRoot {content_root!r}; mark only template-owned chrome as baseChrome",
                     ))
 
+            if spec.get("branch") == "FullScreen":
+                has_fullscreen_chrome = any(
+                    row.get("baseChrome") and not descends_from(node_id, content_root)
+                    for node_id, row in element_map.items()
+                )
+                if not has_fullscreen_chrome:
+                    warnings.append(issue(
+                        "fullscreen_missing_chrome", "$.branch",
+                        f"branch='FullScreen' has no baseChrome element outside contentRoot {content_root!r} — "
+                        "mirror FeatureTemplate.prefab's FullScreen/Top (ResourceViewTemplate Gold/Gem bar) and "
+                        "FullScreen/Bot (a ButtonIcon instance named ButtonBack; the TabBottomTemplate bar only "
+                        "when the screen has tabs), or record the deviation in assumptions[]",
+                    ))
+
+            if tab_bar_ids and all(descends_from(node_id, content_root) for node_id in tab_bar_ids):
+                warnings.append(issue(
+                    "tabbar_in_content", "$.containers",
+                    "every tabBar container sits inside contentRoot; primary navigation tabs belong to the "
+                    "FullScreen/Bot chrome (the shipped TabBottomTemplate). A content-level filter row like "
+                    "Equipment's EquipmentFilter is fine — record it in assumptions[]",
+                ))
+
     questions = spec.get("questions", [])
     if not isinstance(questions, list):
         errors.append(issue("questions", "$.questions", "questions must be an array"))
     else:
-        # Options may stay as legacy strings (AI edit) or carry a deterministic JSON patch
-        # that the review dashboard applies locally without launching an agent.
-        for idx, q in enumerate(questions):
-            if isinstance(q, str):
+        # Structured options carry a restricted deterministic patch. Legacy string options still
+        # route through AI regenerate for changes that cannot be expressed safely as data.
+        for idx, question in enumerate(questions):
+            if isinstance(question, str):
                 continue
-            if isinstance(q, dict) and isinstance(q.get("q"), str) and q.get("q").strip():
-                opts = q.get("options", [])
-                if not isinstance(opts, list):
-                    errors.append(issue("questions", f"$.questions[{idx}].options", "question options must be an array"))
+            if not isinstance(question, dict) or not isinstance(question.get("q"), str) or not question["q"].strip():
+                errors.append(issue("questions", f"$.questions[{idx}]", "each question must be a string or an object {q, options?}"))
+                continue
+            options = question.get("options", [])
+            if not isinstance(options, list):
+                errors.append(issue("questions", f"$.questions[{idx}].options", "question options must be an array"))
+                continue
+            for option_idx, option in enumerate(options):
+                option_path = f"$.questions[{idx}].options[{option_idx}]"
+                if isinstance(option, str):
                     continue
-                for option_idx, option in enumerate(opts):
-                    option_path = f"$.questions[{idx}].options[{option_idx}]"
-                    if isinstance(option, str):
-                        continue
-                    if not isinstance(option, dict) or not isinstance(option.get("label"), str) or not option["label"].strip():
-                        errors.append(issue("questions", option_path, "option must be a string or {label, patch}"))
-                        continue
-                    patch = option.get("patch")
-                    if not isinstance(patch, list):
-                        errors.append(issue("questions", option_path + ".patch", "structured option patch must be an array"))
-                        continue
-                    option_valid = True
-                    if len(patch) > 100:
-                        errors.append(issue("questions", option_path + ".patch", "structured option patch may contain at most 100 operations"))
+                if not isinstance(option, dict) or not isinstance(option.get("label"), str) or not option["label"].strip():
+                    errors.append(issue("questions", option_path, "option must be a string or {label, patch}"))
+                    continue
+                patch = option.get("patch")
+                if not isinstance(patch, list):
+                    errors.append(issue("questions", option_path + ".patch", "structured option patch must be an array"))
+                    continue
+                option_valid = True
+                if len(patch) > 100:
+                    errors.append(issue("questions", option_path + ".patch", "structured option patch may contain at most 100 operations"))
+                    option_valid = False
+                for patch_idx, operation in enumerate(patch):
+                    op_path = f"{option_path}.patch[{patch_idx}]"
+                    if not isinstance(operation, dict) or operation.get("op") not in PATCH_OPS:
+                        errors.append(issue("questions", op_path, "patch op must be add, remove, or replace"))
                         option_valid = False
-                    for patch_idx, operation in enumerate(patch):
-                        op_path = f"{option_path}.patch[{patch_idx}]"
-                        if not isinstance(operation, dict) or operation.get("op") not in ("add", "remove", "replace"):
-                            errors.append(issue("questions", op_path, "patch op must be add, remove, or replace"))
-                            option_valid = False
-                            continue
-                        path = operation.get("path")
-                        if not isinstance(path, str) or not re.match(r"^/(containers|elements|wiring|assumptions)(/|$)", path):
-                            errors.append(issue("questions", op_path + ".path", "patch path must target a mutable UI field"))
-                            option_valid = False
-                        if operation["op"] in ("add", "replace") and "value" not in operation:
-                            errors.append(issue("questions", op_path + ".value", f"{operation['op']} requires value"))
-                            option_valid = False
-                    if option_valid and _validate_patches:
-                        try:
-                            patched = apply_json_patch(spec, patch)
-                        except ValueError as exc:
-                            errors.append(issue("questions", option_path + ".patch", f"structured option cannot apply: {exc}"))
-                        else:
-                            patched_result = validate_spec(
-                                patched,
-                                mode="draft",
-                                require_lane=require_lane,
-                                _validate_patches=False,
-                            )
-                            if patched_result["errors"]:
-                                first = patched_result["errors"][0]
-                                errors.append(issue(
-                                    "questions",
-                                    option_path + ".patch",
-                                    f"structured option produces invalid UI: {first['path']}: {first['message']}",
-                                ))
-                continue
-            errors.append(issue("questions", f"$.questions[{idx}]", "each question must be a string or an object {q, options?}"))
+                        continue
+                    path = operation.get("path")
+                    if not isinstance(path, str) or not re.match(r"^/(containers|elements|wiring|assumptions)(/|$)", path):
+                        errors.append(issue("questions", op_path + ".path", "patch path must target a mutable UI field"))
+                        option_valid = False
+                    if operation["op"] in ("add", "replace") and "value" not in operation:
+                        errors.append(issue("questions", op_path + ".value", f"{operation['op']} requires value"))
+                        option_valid = False
+                if option_valid and _validate_patches:
+                    try:
+                        patched = apply_json_patch(spec, patch)
+                    except ValueError as exc:
+                        errors.append(issue("questions", option_path + ".patch", f"structured option cannot apply: {exc}"))
+                    else:
+                        result = validate_spec(patched, mode="draft", _validate_patches=False)
+                        if result["errors"]:
+                            first = result["errors"][0]
+                            errors.append(issue("questions", option_path + ".patch", f"structured option produces invalid UI: {first['path']}: {first['message']}"))
         if questions:
             target = errors if mode in ("approve", "build") else warnings
             target.append(issue("unresolved_questions", "$.questions", f"{len(questions)} unresolved question(s)"))

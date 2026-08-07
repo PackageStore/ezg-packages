@@ -2,6 +2,35 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## §0 — Bootstrap
+
+Ba thứ agent system cần đều KHÔNG nằm trong git nên không thể ship kèm template: link view `.agents/`
+(symlink/junction trỏ về `.claude/`), backlog (nằm trong `.git/backlog/`, không track được theo thiết
+kế), và UI kit (trích từ prefab template của **chính project này** + mang hash của chúng, nên kit của
+project khác là vô dụng). Chúng được tạo bằng bootstrap thay vì copy từ tarball.
+
+**Sinh project bằng `build_unity_template` thì bootstrap đã chạy sẵn** — build script gọi nó ngay sau
+khi copy `.claude/`, và điền luôn `projectName`/`solutionFile`/`gitConfigPrefix` trong
+`.claude/project-profile.json`. Không cần làm gì thêm trước khi giao việc đầu tiên.
+
+Chạy tay khi **clone** repo này về máy khác, hoặc để sửa một checkout hỏng nửa vời (ai đó xoá
+`.agents/`, hoặc `.agents/` biến thành thư mục thật):
+
+```bash
+bash .claude/scripts/bootstrap.sh                                          # macOS / Linux
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File .claude/scripts/bootstrap.ps1     # Windows
+```
+
+Script này idempotent — chạy lại luôn an toàn. Nó tạo link view, `git init` nếu repo chưa có,
+`backlog-ops.py init`, rồi sinh UI kit nếu project chưa có. Chi tiết + việc còn phải làm tay (tinh
+chỉnh `.claude/project-profile.json` cho khớp layout/threat surface, tạo remote nếu muốn push):
+[.claude/docs/GETTING-STARTED.md](.claude/docs/GETTING-STARTED.md).
+
+**Chưa có `origin` là trạng thái hợp lệ.** `/run-backlog` tự dò remote và bỏ qua mọi lệnh network khi
+không có — task vẫn implement, vẫn qua gate, vẫn commit, chỉ không push.
+
 ## Project Overview
 
 **[Project Name]** — Unity mobile **game template** (Android/iOS). It ships the shared plumbing every
@@ -170,11 +199,28 @@ Scenes shipped: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `
 
 - `main` — production
 - `develop` — integration branch (default)
-- `agent/dev` — automated work branch; `/run-backlog` creates it from the branch active at start (`$BASE_BRANCH`), merges that branch in on every run, and pushes to it (no PR)
+- `agent/dev-<base>` — automated work branch, **chỉ dùng ở mode `worktree`**; cắt từ nhánh đang đứng lúc chạy loop, merge nhánh đó vào mỗi lần chạy, push (nếu có remote), **không** tạo PR. Ở mode `current` (mặc định) agent commit thẳng lên nhánh đang mở, không tạo nhánh nào.
 
 ## Autonomous Backlog System
 
-Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào). Index `BACKLOG.md` ở repo root; chi tiết từng task nằm trong `backlog/{planning,todo,in-progress,done}/`. Format task: dùng tier-specific template (`backlog/_TEMPLATE_XS/S/M/L.md`) hoặc `backlog/_TEMPLATE_WF.md` cho task workflow-backed — xem index tại `backlog/_TEMPLATE.md`. Mọi task có `**Tier:** XS|S|M|L`; `backlog-ops.py lint` enforce tier trong filename, body và bullet khớp nhau. Toàn cảnh các case planning: [.claude/docs/planning-task-flow.md](.claude/docs/planning-task-flow.md).
+Cơ chế thực thi task tự động dựa trên backlog split-file (token usage phẳng dù backlog lớn cỡ nào).
+
+**Backlog nằm NGOÀI worktree** — ở git common dir:
+
+```bash
+BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"   # tức <repo>/.git/backlog
+bash .claude/scripts/bootstrap.sh                           # clone/generate mới: link view + git + backlog
+```
+
+Đây là bookkeeping **riêng từng dev**: không commit, không merge, không track được. Lý do: khi backlog nằm trong tree, mỗi nhánh dev mang một `BACKLOG.md` riêng → merge lên main là đụng index và trùng NNN. `.git/` được **mọi `git worktree` của cùng clone dùng chung**, nên agent chạy trong worktree thấy đúng hàng đợi của dev. Hệ quả: **KHÔNG BAO GIỜ `git add` / `git mv` / commit file trong backlog** — mọi transition đi qua `backlog-ops.py` (filesystem move); DONE summary vì thế không nằm trong commit, nên report cuối của `/run-backlog` là bản giao duy nhất cho user.
+
+Index `BACKLOG.md` + chi tiết từng task nằm trong `$BACKLOG_ROOT/{planning,todo,in-progress,done}/`. Format task: dùng tier-specific template (`.claude/backlog-templates/_TEMPLATE_XS/S/M/L.md`) hoặc `_TEMPLATE_WF.md` cho task workflow-backed — xem index tại `.claude/backlog-templates/_TEMPLATE.md`. Mọi task có `**Tier:** XS|S|M|L`; `backlog-ops.py lint` enforce tier trong filename, body và bullet khớp nhau. Toàn cảnh các case planning: [.claude/docs/planning-task-flow.md](.claude/docs/planning-task-flow.md).
+
+**Giá trị per-project** (source root, base branch, threat surface, tên solution) nằm trong `.claude/project-profile.json`, KHÔNG viết cứng trong skill/agent — nhờ vậy các file đó giữ nguyên byte giữa mọi project và update được từ template. Thiếu file thì `project_profile.py` fallback về default:
+```bash
+python3 .claude/scripts/project_profile.py            # in toàn bộ key đã merge
+python3 .claude/scripts/project_profile.py sourceRoot # một key
+```
 
 **Task lifecycle:** `planning → todo → in-progress → done`
 
@@ -184,43 +230,54 @@ Cơ chế thực thi task tự động dựa trên backlog split-file (token usa
 
 | Command | Skill File | Description |
 |---------|-----------|-------------|
-| `/planning-task [intent]` | [.agents/skills/planning-task/SKILL.md](.agents/skills/planning-task/SKILL.md) | Detect new-system → dispatch `/planning-system`; nếu task đơn thì triage workflow-backed / XS/S/M/L, ground bằng `task-planner` khi cần, rồi ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
-| `/planning-system [doc \| --from-mapping ...]` | [.agents/skills/planning-system/SKILL.md](.agents/skills/planning-system/SKILL.md) | Design-first pipeline cho hệ thống mới lớn: validate design qua [.claude/docs/design-pipeline/](.claude/docs/design-pipeline/README.md), map ownership/dependency/topological order, rồi batch-ground thành N planning task. Resume được từ Implementation Mapping. |
-| `/ui-mockup [task \| Feature: desc]` | [.claude/commands/ui-mockup.md](.claude/commands/ui-mockup.md) | Spec-first visual contract: current-project UI catalog → `.ui-spec.json` + HTML → human review/approval → frozen PNG. Fresh project chưa export catalog phải dừng với prerequisite rõ ràng; không copy generated catalog từ game khác. |
-| `/add-to-backlog` | [.agents/skills/add-to-backlog/SKILL.md](.agents/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick → `promote --check` (tier/dependency/mockup blockers) → deterministic promote (gán NNN-TIER + git mv planning→todo + update BACKLOG.md). Serial operation. |
-| `/run-backlog` | [.agents/skills/run-backlog/SKILL.md](.agents/skills/run-backlog/SKILL.md) | Pick TODO đầu → requires/defer gate → `agent/dev` → implement → compile + deterministic preflight + tiered reviewers + QA + runtime/visual gates khi áp dụng → DONE → commit, push nếu có remote. Stop sentinels gồm compile/preflight/review/verify/runtime/visual/mockup/editor-required; `DEFERRED` không stop loop. KHÔNG tạo PR. |
+| `/planning-task [intent]` | [.claude/skills/planning-task/SKILL.md](.claude/skills/planning-task/SKILL.md) | Detect new-system → dispatch `/planning-system`; nếu task đơn thì triage workflow-backed / XS/S/M/L, ground bằng `task-planner` khi cần, rồi ghi `backlog/planning/<timestamp>-<TIER>-slug.md`. Parallel-safe, KHÔNG touch BACKLOG.md. |
+| `/planning-system [doc \| --from-mapping ...]` | [.claude/skills/planning-system/SKILL.md](.claude/skills/planning-system/SKILL.md) | Design-first pipeline cho hệ thống mới lớn: validate design qua [.claude/docs/design-pipeline/](.claude/docs/design-pipeline/README.md), map ownership/dependency/topological order, rồi batch-ground thành N planning task. Resume được từ Implementation Mapping. |
+| `/ui-mockup [task \| Feature: desc]` | [.claude/commands/ui-mockup.md](.claude/commands/ui-mockup.md) | Spec-first visual contract: ui-kit của project → `.ui-spec.json` + HTML → **auto-approve** → frozen PNG. Dev chỉ vào cuộc khi drafter để lại câu hỏi cấm-bịa hoặc muốn sửa design. Không copy generated kit từ game khác. |
+| `ui-kit` (skill, không phải command) | [.claude/skills/ui-kit/SKILL.md](.claude/skills/ui-kit/SKILL.md) | Vòng đời contract mà mockup + `/new-ui` đọc: `ui-kit-sync.py` regenerate, `--check` báo stale (exit 1), `ui-kit-usage.json` giữ luật ghép template. Chạy lại mỗi khi prefab template đổi — preflight có rule `ui-kit-stale`. |
+| `/add-to-backlog` | [.claude/skills/add-to-backlog/SKILL.md](.claude/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick → `promote --check` (tier/dependency/mockup blockers) → deterministic promote (gán NNN-TIER + git mv planning→todo + update BACKLOG.md). Serial operation. |
+| `/run-backlog` | [.claude/skills/run-backlog/SKILL.md](.claude/skills/run-backlog/SKILL.md) | Pick TODO đầu → requires/defer gate → `agent/dev` → implement → compile + deterministic preflight + tiered reviewers + QA + runtime/visual gates khi áp dụng → DONE → commit, push nếu có remote. Stop sentinels gồm compile/preflight/review/verify/runtime/visual/mockup/editor-required; `DEFERRED` không stop loop. KHÔNG tạo PR. |
 
 **Subagents dùng cho `/run-backlog`:**
 
 | Agent | File | Role | Model | Spawn khi |
 |-------|------|------|-------|-----------|
-| `code-reviewer` | [.agents/agents/code-reviewer.md](.agents/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | sonnet | Mọi task |
-| `performance-reviewer` | [.agents/agents/performance-reviewer.md](.agents/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | sonnet | Mọi task (song song với code-reviewer) |
-| `security-auditor` | [.agents/agents/security-auditor.md](.agents/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | sonnet | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
-| `qa-verifier` | [.agents/agents/qa-verifier.md](.agents/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |
-| `ui-visual-reviewer` | [.agents/agents/ui-visual-reviewer.md](.agents/agents/ui-visual-reviewer.md) | So live Unity UI với approved PNG + ui-spec hoặc clone-source, kèm hard rules của create-ui. | opus | Checkpoint Phase A/B/C khi build UI |
+| `code-reviewer` | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | sonnet | Mọi task |
+| `performance-reviewer` | [.claude/agents/performance-reviewer.md](.claude/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | sonnet | Mọi task (song song với code-reviewer) |
+| `security-auditor` | [.claude/agents/security-auditor.md](.claude/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | sonnet | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
+| `qa-verifier` | [.claude/agents/qa-verifier.md](.claude/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |
+| `ui-visual-reviewer` | [.claude/agents/ui-visual-reviewer.md](.claude/agents/ui-visual-reviewer.md) | So live Unity UI với approved PNG + ui-spec hoặc clone-source, kèm hard rules của create-ui. | opus | Checkpoint Phase A/B/C khi build UI |
 
 **Subagents dùng cho planning:** `task-planner` ground spec M/L và batch item; `mockup-drafter` chỉ sinh spec+HTML khi current-project catalog/kit đã sẵn sàng. Cả hai không implement, approve hay promote task.
 
+**Hai mode thực thi (`--mode` / `-Mode`)** — hỏi dev trước khi chạy loop, đánh đổi là thật:
+
+| | `current` (mặc định) | `worktree` |
+|---|---|---|
+| Thư mục | chính checkout này | `<repo>-agent-<base>` bên cạnh |
+| Nhánh commit | nhánh đang checkout (KHÔNG checkout, KHÔNG merge) | `agent/dev-<base>` — dev tự merge |
+| Dev làm việc song song | **không** (agent `git add -A` sẽ nuốt file dở) | được |
+| compile-check + runtime smoke | **có** | **không** (worktree không có `.sln` và không có Editor gắn vào) |
+
 **Loop chạy thủ công khi muốn:**
-```powershell
-# Windows
-powershell -ExecutionPolicy Bypass -File .agents/scripts/run-backlog-loop.ps1
-```
 ```bash
 # macOS / Linux — controller tự spawn 1 Terminal window mỗi task, model/effort map theo tier
 bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier
+bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --mode worktree
 ```
-> Pipeline tự pause (`PAUSED` trong `.agents/state`) khi TODO rỗng.
-
-**Deterministic preflight:**
 ```powershell
 # Windows
-powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
+powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1 -Mode Current
 ```
+> Pipeline tự pause (`PAUSED` ghi vào `$BACKLOG_ROOT/state`, nằm trong `.git/` nên không commit) khi TODO rỗng.
+
+**Deterministic preflight:**
 ```bash
 # macOS / Linux — bản port Python, JSON output giống hệt bản .ps1
-python3 .agents/scripts/backlog-preflight.py -Pretty
+python3 .claude/scripts/backlog-preflight.py -Pretty
+```
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File .claude/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 **Deterministic backlog bookkeeping (`backlog-ops.py` — Python, mọi nền tảng):** mọi chuyển trạng thái backlog + sửa `BACKLOG.md` phải qua script này, model KHÔNG hand-edit index (hand-edit đã từng làm hỏng index: leak tool-call markup, task dual-state, DONE bullet trái quy tắc). Mỗi lệnh mutate tự chạy `lint` sau khi ghi:
@@ -236,20 +293,21 @@ python3 .claude/scripts/backlog-ops.py promote <planning.md>...  # planning → 
 python3 .claude/scripts/backlog-ops.py timestamp                 # timestamp UTC cho filename planning
 ```
 
-**Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file):
-```powershell
-# Windows (junction)
-powershell -ExecutionPolicy Bypass -File .claude/scripts/sync-to-agents.ps1
-```
+**Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file). `bootstrap` ở [§0](#0--bootstrap-chạy-trước-mọi-thứ-khác) làm cả link + backlog; hai script dưới là riêng bước link:
 ```bash
 # macOS / Linux (symlink)
 bash .claude/scripts/sync-to-agents.sh
 ```
+```powershell
+# Windows (junction)
+powershell -ExecutionPolicy Bypass -File .claude/scripts/sync-to-agents.ps1
+```
 
 **Branch model:**
-- `agent/dev` base theo nhánh đang đứng lúc chạy `/run-backlog` (`$BASE_BRANCH`): lần đầu tạo từ `$BASE_BRANCH`; các lần sau checkout + pull rồi **merge `$BASE_BRANCH` vào `agent/dev`** trước khi implement (conflict → dừng pipeline, user resolve tay).
-- `/run-backlog` chỉ push lên `agent/dev`, **không** tạo PR.
-- User merge tay `agent/dev → $BASE_BRANCH` sau khi chạy manual verify steps.
+- Base branch = **nhánh đang mở** lúc bắt đầu loop, ghi vào git config `<gitConfigPrefix>.agentBaseBranch` (key lấy từ `project-profile.json`) để sống sót qua các vòng lặp.
+- Mode `current`: KHÔNG tạo nhánh, KHÔNG checkout, KHÔNG merge — commit thẳng lên nhánh đang mở.
+- Mode `worktree`: nhánh `agent/dev-<base>` là bắt buộc (git không cho checkout một nhánh ở hai worktree); lần đầu cắt từ base, các lần sau merge base vào trước khi implement (conflict → dừng pipeline, user resolve tay). User merge tay `agent/dev-<base> → base` sau khi chạy manual verify steps.
+- `/run-backlog` **không** tạo PR ở cả hai mode, và **chỉ push khi repo có `origin`** — repo local-only vẫn chạy hết pipeline, chỉ bỏ bước push.
 
 **Source of truth:** `.claude/` là canonical source (file thật, được track trong git); `.agents/` chỉ là link views trỏ ngược về `.claude/` (cho Codex/Gemini/Cline đọc) — gitignore, không track. Chỉ edit trong `.claude/`. Sau clone chạy `sync-to-agents` một lần để tạo link.
 

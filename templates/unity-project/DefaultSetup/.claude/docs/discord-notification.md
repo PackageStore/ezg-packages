@@ -57,13 +57,13 @@ Chắc chắn rằng file `.env` không bao giờ bị push lên Git bằng các
 
 ## 3. Các Script Thành Phần
 
-### A. Core Sender Script (`.agents/scripts/discord-send.sh`)
+### A. Core Sender Script (`.claude/scripts/discord-send.sh`)
 Tải/tạo file script này với quyền thực thi (`chmod +x`). Script này có nhiệm vụ:
 1. Đọc file `.env` cục bộ.
 2. Với mỗi User ID, gửi yêu cầu API tạo phòng chat DM (`/users/@me/channels`).
 3. Gửi nội dung tin nhắn hoặc cấu trúc Rich Embed qua phòng chat đó.
 
-### B. Notification Router (`.agents/scripts/notify.sh`)
+### B. Notification Router (`.claude/scripts/notify.sh`)
 Script này nhận các tham số để định dạng tin nhắn đẹp mắt trên Discord (sử dụng Embed màu sắc):
 * `--event`: Tên sự kiện dừng vòng lặp (Ví dụ: `BACKLOG_EMPTY`, `COMPILE_BLOCKED`, `PREFLIGHT_BLOCKED`, `REVIEW_BLOCKED`, `VERIFY_BLOCKED`).
 * `--task`: Tên task đang thực thi.
@@ -171,13 +171,13 @@ fi
 
 ```bash
 # Test gửi thông báo khi trống backlog (Success - Màu xanh lá)
-bash .agents/scripts/notify.sh \
+bash .claude/scripts/notify.sh \
   --event "BACKLOG_EMPTY" \
   --task "N/A" \
   --details "Không còn task nào trong backlog."
 
 # Test gửi thông báo khi lỗi compile (Error - Màu đỏ)
-bash .agents/scripts/notify.sh \
+bash .claude/scripts/notify.sh \
   --event "COMPILE_BLOCKED" \
   --task "Sửa Lỗi Logic Game" \
   --url "file:///path/to/your-project/backlog/todo/001-fix-logic.md" \

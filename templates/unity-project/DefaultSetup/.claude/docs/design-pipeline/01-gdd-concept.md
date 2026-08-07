@@ -8,7 +8,7 @@ Stage sáng tạo đầu chuỗi: từ ý tưởng thô → concept doc (hook, m
 
 ## Prompt chuẩn
 
-Dựa vào tài liệu GDD/roadmap được user cung cấp (hoặc các file phù hợp dưới `GDD/`), hãy đề xuất concept phù hợp với loại feature được yêu cầu. Không giả định tên game hay đường dẫn GDD cố định.
+Dựa vào tài liệu trong "Docs" của game Blaze Survivor, hãy đề xuất 1 mini-game limited-time event hoàn toàn mới.
 
 MỤC TIÊU:
 

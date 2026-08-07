@@ -1,6 +1,5 @@
 ---
-name: add-to-backlog
-description: Pick one or more tasks from backlog/planning/ into BACKLOG.md (assign NNN, move planning → todo, insert bullet). Used when the user says "add task to backlog" / "pick task to backlog" / "promote task". To CREATE a new task spec, use /planning-task. When intent is unclear between the two skills, confirm with the user first.
+description: Pick one or more tasks from backlog/planning/ into BACKLOG.md (assign NNN, move planning → todo, insert bullet). Bare invocation (no args) auto-picks ALL planning tasks. Used when the user says "add task to backlog" / "pick task to backlog" / "promote task". To CREATE a new task spec, use /planning-task. When intent is unclear between the two skills, confirm with the user first.
 ---
 
 # Add to Backlog — Pick from Planning Agent
@@ -13,8 +12,22 @@ This skill is the counterpart to `/planning-task`:
 
 Since picking is a single-user serial operation, there is no race condition on `BACKLOG.md`.
 
+
+> **Where the backlog lives.** Every `backlog/...` path in this document is relative to
+> the backlog root, which is **NOT in the worktree**:
+>
+> ```bash
+> BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"   # i.e. <repo>/.git/backlog
+> ```
+>
+> It is per-developer bookkeeping — never committed, never merged (tracking it made every
+> dev branch carry its own index and collide on merge), and shared automatically by every
+> `git worktree` of the clone. So: **write task files to `$BACKLOG_ROOT/planning/`, glob
+> from there, and NEVER `git add` / `git mv` / commit anything under it.** If the
+> directory does not exist yet, run `python3 .claude/scripts/backlog-ops.py init` first.
+
 The layout you operate on:
-- `backlog/planning/<timestamp>[-<NN>]-<TIER>-<slug>.md` = drafted, not yet queued (you read + move from here; `NN` = topo index of a `/planning-system` batch)
+- `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (you read + pick from here)
 - `backlog/todo/NNN-<TIER>-<slug>.md` = queued task (the promote script moves files here)
 - `BACKLOG.md` = index (the promote script appends the bullets)
 
@@ -23,27 +36,32 @@ The layout you operate on:
 ## Pipeline
 
 ```
-[0] CONFIRM_INTENT   → if ambiguous between pick vs create, ask
-[1] LIST             → glob backlog/planning/*.md, parse index/tier/priority/title/timestamp
-[2] DISPLAY          → show indexed list in TASK ORDER (lowest index / oldest first)
-[3] PICK             → user selects 1 / multiple / range / all
-[4] OVERRIDE         → optional priority TAG override (metadata only; does NOT reorder queue. tier CANNOT be changed)
-[4.5] PRECHECK       → backlog-ops promote --check: read-only blockers (tier_errors / dependency_warnings / mockup_warnings)
-[5] PROMOTE          → backlog-ops promote: assigns NNN + git mv planning → todo + appends bullets + self-lints
-[6] REPORT           → summarize what was picked and where
+[M] MODE             → bare invocation (no args at all) = AUTO-ALL; anything else = INTERACTIVE
+
+AUTO-ALL:     [1] LIST → [5] PROMOTE (all listed tasks, no priority override) → [6] REPORT
+INTERACTIVE:  [0] CONFIRM_INTENT → [1] LIST → [2] DISPLAY → [3] PICK → [4] OVERRIDE → [5] PROMOTE → [6] REPORT
 ```
 
-> Steps [1]–[4] are interactive (you talk to the user). Step [5] is deterministic — ONE script call owns NNN assignment, the `git mv`, and the BACKLOG.md write. NEVER hand-edit `BACKLOG.md` or assign NNNs yourself.
+> AUTO-ALL skips the interactive DISPLAY/PICK/OVERRIDE steps — no question is asked. INTERACTIVE steps [0], [2]–[4] are the only ones where you talk to the user. Step [5] always starts with a deterministic read-only check, then ONE mutating script call owns NNN assignment, the `git mv`, and the BACKLOG.md write. NEVER hand-edit `BACKLOG.md` or assign NNNs yourself.
 
 ---
 
-## STEP 0 — Confirm intent (if ambiguous)
+## STEP M — Determine mode
 
-Skip this step entirely if the user's message clearly says "pick", "add task to backlog", "promote", or names an existing planning task.
+- **Bare invocation** — the user typed `/add-to-backlog` (or said the equivalent, e.g. "add to backlog", "đưa vào backlog") with **no argument at all**: no index, no range, no task name, no filter. → **AUTO-ALL mode**: the intent is "queue everything currently in planning." Skip straight to STEP 1 (LIST), then STEP 5 (PROMOTE) with the full task-order list and no priority override, then STEP 6 (REPORT). Do not ask which tasks to pick.
+- **Invocation with args** — the user named specific task(s), gave indices/ranges, or otherwise qualified the request (e.g. "add the campaign difficulty task to backlog", "pick 1,3", "promote the HIGH priority ones") → **INTERACTIVE mode**: run the full pipeline (STEP 0 → STEP 4) exactly as before.
 
-Confirm only when there is genuine ambiguity:
+If genuinely unsure which mode applies (rare — the args are ambiguous, not simply absent), default to INTERACTIVE and let STEP 0/STEP 2 sort it out.
+
+---
+
+## STEP 0 — Confirm intent (INTERACTIVE mode only, if ambiguous)
+
+Skip this step entirely if the user's message clearly says "pick", "add task to backlog", "promote", or names an existing planning task. Also skip entirely in AUTO-ALL mode.
+
+Confirm only when there is genuine ambiguity, for example:
 - The user says "add task X" without "to backlog" → they might want to create a new planning task → ask.
-- The user names a task that is not in `backlog/planning/` → ask:
+- The user names a task that is not in `backlog/planning/` → they might have meant `/planning-task` → ask:
   > *"This task is not in planning. Would you like to (a) create a new planning task with `/planning-task`, or (b) did you mistype the name?"*
 
 Maximum ONE confirmation question. If still unclear, default to listing planning tasks and letting the user pick.
@@ -52,15 +70,17 @@ Maximum ONE confirmation question. If still unclear, default to listing planning
 
 ## STEP 1 — List planning tasks
 
-1. Glob `backlog/planning/*.md` (ignore `.gitkeep` and non-`.md` files).
+Runs in both modes.
+
+1. Glob `$BACKLOG_ROOT/planning/*.md` (ignore `.gitkeep` and non-`.md` files). Use the resolved absolute path — the directory is outside the worktree.
 2. For each file, parse:
    - **Filename**: `<timestamp>[-<index>]-<TIER>-<slug>.md`
      - `timestamp` = first 18 characters (`YYYYMMDDTHHmmssSSS`)
      - `index` = OPTIONAL numeric segment right after the timestamp (e.g. `01`, `37`) — present when tasks are batch-seeded for a roadmap phase, so it encodes the intended dependency sequence. Absent for one-off drafts.
-     - `TIER` = `XS` | `S` | `M` | `L`
+     - `TIER` = `XS` | `S` | `M` | `L` (between the first and second `-` after the timestamp/index)
      - `slug` = everything between the tier and `.md`
-   - **Priority** from file content: first heading matching `### [PRIORITY] ...`
-   - **Title** from the same heading.
+   - **Priority** from the file content: the first heading matching `### [PRIORITY] ...` where `PRIORITY` is `HIGH` / `MEDIUM` / `LOW`.
+   - **Title** from the same heading: text after `[PRIORITY]`, trimmed.
    - **Display timestamp**: reformat to `YYYY-MM-DD HH:mm`.
 3. Sort in **task order** = ascending by `(timestamp, index, filename)`. This is FIFO (oldest draft first) and, for a batch-seeded phase, preserves the authored dependency sequence (`01 → 02 → …`). Do **NOT** sort by priority.
 
@@ -70,32 +90,33 @@ Then exit.
 
 ---
 
-## STEP 2 — Display
+## STEP 2 — Display (INTERACTIVE mode only — skip in AUTO-ALL)
 
 Render each planning task as an indexed line, in **task order** (the STEP 1 sort):
 
 ```
-[1] [S]  [HIGH]   Re-bootstrap CSV pipeline   — 2026-06-24 09:35
-[2] [M]  [HIGH]   Author balance CSV tables   — 2026-06-24 09:35
-[3] [S]  [HIGH]   Author AchievementConfig CSV — 2026-06-24 09:35
-[4] [M]  [MEDIUM] Insight/Ascension CSVs      — 2026-06-24 09:35
+[1] [S]  [HIGH]   Glory Pass final sprint offer — 2026-05-23 14:23
+[2] [S]  [MEDIUM] Fix notification badge stale   — 2026-05-23 14:25
+[3] [L]  [MEDIUM] IAP purchase flow migration    — 2026-05-22 09:15
+[4] [XS] [LOW]    Tweak CSV config constant       — 2026-05-22 08:01
 ```
 
-- Pad the tier to 2 characters and priority to 6 characters for column alignment.
+- Pad the tier to 2 characters and the priority to 6 characters so the columns align.
 - Listed in task order (lowest index / oldest first) so the displayed index `[n]`, the NNN assigned in STEP 5, and the final TODO position all line up.
+- Show timestamp as `YYYY-MM-DD HH:mm` (omit ms for readability).
 
 Then ask:
 > *"Which task(s) to pick? (`1`, `1,3`, `1-3`, or `all`)"*
 
 ---
 
-## STEP 3 — Pick
+## STEP 3 — Pick (INTERACTIVE mode only — skip in AUTO-ALL, which always targets the full list)
 
 Accept the following input formats:
 - Single index: `2`
 - Comma-separated: `1,3,5`
 - Space-separated: `1 3 5`
-- Range: `1-3` (inclusive)
+- Range: `1-3` (inclusive of both ends)
 - Mixed: `1-2,4`
 - `all` → all planning tasks
 
@@ -107,7 +128,7 @@ Treat the pick as a **set**, not a sequence: no matter what order the indices ar
 
 ---
 
-## STEP 4 — Override priority tag (optional)
+## STEP 4 — Override priority tag (optional, INTERACTIVE mode only — skip in AUTO-ALL)
 
 > Priority is a **metadata tag only** — it no longer changes a task's position in `## TODO` (the queue is ordered by task order, see STEP 5). Override it only when the tag itself is wrong, not to reorder the queue.
 
@@ -115,60 +136,63 @@ Ask once for the batch:
 > *"Keep current priorities for all picked tasks, or would you like to override any?"*
 
 Accept:
-- keep / empty → do not override
-- Per-task override format: `2:HIGH, 4:LOW`
+- `keep` / `giữ` / empty → do not override, use current priorities
+- Per-task override format: `2:HIGH, 4:LOW` (index from STEP 2 + new priority)
 
 **Tier CANNOT be changed.** If the user requests a tier change → reply:
 > *"The tier is a property of the task (determined during capture). If you want to change the tier, edit the `backlog/planning/<filename>.md` file directly and pick again."*
 
----
-
-## STEP 4.5 — Precheck (read-only, before any mutation)
-
-Run the promote preflight on the picked set:
-
-```bash
-python3 .claude/scripts/backlog-ops.py promote --check backlog/planning/<file1>.md [...]
-```
-
-The JSON returns three blocker lists — **all three are hard blockers**; the mutating promote in STEP 5 enforces the same result, so resolve them here instead of discovering a refused promote:
-
-- `tier_errors` — a task is missing its `**Tier:**` body line or it mismatches the filename tier → fix the planning file (body and filename must agree), then re-run.
-- `dependency_warnings` — a task's `**Depends on:**` target is neither earlier in this batch nor already in todo/in-progress/done → either add the missing upstream file to the pick, or confirm with the user that running out of order is intended (then remove/adjust the `**Depends on:**` line).
-- `mockup_warnings` — a `/new-ui` task's `groundTruth` is still `PENDING-MOCKUP` / `PENDING-APPROVAL:*` → the visual contract is not approved. Tell the user to run `/ui-mockup` (review + approve → PNG) first, or set `groundTruth=clone:<ExistingPrefab>` if the screen only clones an existing layout. Do NOT promote past this.
-
-All lists empty (`ok: true`) → proceed to STEP 5.
+Then proceed without changing the tier.
 
 ---
 
 ## STEP 5 — Promote (deterministic)
 
-Run ONE script call with all picked planning files (any argv order — the script sorts them into **task order** internally, assigns consecutive NNNs from `max(todo, in-progress, done)+1`, does each `git mv`, appends the bullets to the END of `## TODO` in one atomic write, and self-lints):
+In AUTO-ALL mode the picked set = every file from STEP 1 (task order). In INTERACTIVE mode the picked set = the user's STEP 3 selection.
+
+First run the mandatory read-only preflight with all picked planning files:
+
+```bash
+python3 .claude/scripts/backlog-ops.py promote --check backlog/planning/<file1>.md [backlog/planning/<file2>.md ...]
+```
+
+- `ok = false` in **INTERACTIVE mode** → **do not run the mutating command**. Resolve every `tier_errors[]`, `dependency_warnings[]`, and `mockup_warnings[]` with the user, then re-run `--check`.
+- `ok = false` in **AUTO-ALL mode** → do NOT ask the user and do NOT abort the whole batch. Instead, drop exactly the file(s) named in `tier_errors[]` / `dependency_warnings[]` / `mockup_warnings[]` from the batch, re-run `--check` on the reduced set, and repeat until `ok = true` or the set is empty. Carry the dropped files + their blocker reason forward to STEP 6 as "skipped" — they stay untouched in `backlog/planning/` for a later manual/interactive pick.
+- Missing dependencies must be included earlier in the same batch or already exist in todo/in-progress/done.
+- Pending mockups must be approved to a `.png` (run `/ui-mockup` — it drafts + auto-approves; only screens with open forbidden-to-invent questions need the dev) or changed to a valid `clone:<ExistingPrefab>` ground truth.
+- There is no proceed-anyway path for the files that remain blocked: normal `promote` enforces the same blockers before its first mutation.
+
+Only when `--check` returns `ok = true`, run ONE mutating script call (any argv order — the script sorts them into **task order** internally, assigns consecutive NNNs from `max(todo, in-progress, done)+1`, does each `git mv`, appends the bullets to the END of `## TODO` in one atomic write, and self-lints):
 
 ```bash
 python3 .claude/scripts/backlog-ops.py promote backlog/planning/<file1>.md [backlog/planning/<file2>.md ...]
 ```
 
 - **Priority override** (from STEP 4): `--priority HIGH|MEDIUM|LOW` applies to every file in the call. When overrides **differ per task**, run one `promote` call **per file, in task order** (earliest timestamp first) — never group by priority, or NNN assignment can invert the dependency chain. No override → each file keeps the priority parsed from its own `### [PRIORITY]` heading.
-- The JSON result lists `moved[]` (`nnn`, `path`, `tier`, `priority`, `title`) + `actions[]` + a `lint` block. A failed `git mv` is reported as a `FAILED ...` action and the batch continues — report skipped files in STEP 6.
+- The JSON result lists `moved[]` (`nnn`, `path`, `tier`, `priority`, `title`) + `actions[]` + `dependency_warnings[]` + `mockup_warnings[]` + a `lint` block. A failed `git mv` is reported as a `FAILED ...` action and the batch continues — report skipped files in STEP 6. (Untracked planning files are handled automatically: the script falls back to filesystem-move + `git add`.)
+- **`dependency_warnings[]` non-empty during `--check`** → block promotion. Include the missing upstream planning file(s) or correct/remove an obsolete dependency in the task spec, then check again.
+- **`mockup_warnings[]` non-empty during `--check`** → block promotion. Run `/ui-mockup` (drafts missing screens + auto-approves everything that validates); or use `groundTruth=clone:<ExistingPrefab>` when appropriate, then check again.
 - If `lint.ok = false` after the write → the errors are pre-existing index damage; surface them to the user in STEP 6.
 
 > **Why task order, not priority buckets?** A seeded roadmap phase is a dependency chain — task `N+1` often `depends_on` task `N`. Bucketing by priority (HIGH→MEDIUM→LOW) reorders the chain and can place a dependent task *above* its own dependency — exactly the inversion that breaks sequential execution. `run-backlog` picks the **first** bullet in `## TODO`, so index order = execution order. Use `[PRIORITY]` to signal importance, never to sequence the queue.
+
+**NEVER hand-edit `BACKLOG.md`, hand-assign NNNs, or run a manual `git mv` for a pick — the promote script owns all three so the index can never drift.**
 
 ---
 
 ## STEP 6 — Report
 
 Notify the user, in order:
-1. **Number of tasks picked**: e.g., *"Picked 3 tasks from planning."*
-2. **List each moved task**:
+1. **Mode used**: in AUTO-ALL mode, lead with e.g. *"Bare invocation → auto-picked all N planning tasks."* In INTERACTIVE mode, skip this line.
+2. **Number of tasks picked**: e.g., *"Picked 3 tasks from planning."*
+3. **List each moved task**:
    ```
-   [011] [HIGH]   New shop popup feature   → backlog/todo/011-new-shop-popup-feature.md
-   [012] [MEDIUM] Fix notification badge   → backlog/todo/012-notification-badge-stale.md
+   [041] [HIGH]   New shop popup feature   → backlog/todo/041-M-new-shop-popup-feature.md
+   [042] [MEDIUM] Fix notification badge   → backlog/todo/042-S-notification-badge-stale.md
    ```
-3. **Priority overrides applied** (if any).
-4. **Position in queue**: e.g., *"Tasks #011–#013 appended to the end of TODO in task order; #011 runs after the 10 already queued."*
-5. **Remaining planning tasks**: e.g., *"2 planning tasks remaining."*
-6. **Skipped tasks** (if any move failed): name + reason.
+4. **Priority overrides applied** (if any): *"Task [042] changed MEDIUM → HIGH."* (never happens in AUTO-ALL mode)
+5. **Position in queue**: e.g., *"Tasks #041–#043 appended to the end of TODO in task order; #041 runs after the tasks already queued."*
+6. **Remaining planning tasks**: e.g., *"2 planning tasks remaining."*
+7. **Skipped tasks** (if any move failed, or were dropped in AUTO-ALL mode due to blockers): name + reason, suggesting a manual fix (e.g. run `/ui-mockup`, or pick interactively once the missing dependency is queued).
 
 DO NOT commit. The user may want to review before `run-backlog` picks it up.

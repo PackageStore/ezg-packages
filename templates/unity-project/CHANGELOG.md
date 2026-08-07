@@ -4,6 +4,24 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-08-07
+
+Nối agent system vào builder: project sinh ra đã personalize và bootstrap sẵn, thay vì bàn giao một `.claude/` còn nguyên placeholder và bắt dev tự chạy 1 lệnh mới dùng được.
+
+**Added**
+- `build_unity_template.logic.sh` — `personalize_default_setup()`: điền tên project vừa hỏi ở prompt vào `.claude/project-profile.json` (`projectName`, `solutionFile`, `gitConfigPrefix`), `CLAUDE.md` (`[Project Name]`) và `.mcp.json` (`GITLAB_PROJECT_ID`). `gitConfigPrefix` = tên viết thường bỏ ký tự không phải chữ-số (git không cho section name có dấu cách); tên project là input người dùng nên được escape trước khi vào `sed`.
+- `build_unity_template.logic.sh` — `bootstrap_agent_system()`: chạy `.claude/scripts/bootstrap.sh` của chính project (link view `.agents/`, `git init`, `backlog-ops.py init`, sinh UI kit). Chạy sau lần `apply_default_setup` cuối — bootstrap tạo link `.agents/`, apply sớm hơn sẽ copy đè lên. One-shot, best-effort, và có backstop trong EXIT trap để build hỏng giữa chừng vẫn để lại project dùng được.
+- `EZG_GITLAB_GROUP` — điền nửa group của `GITLAB_PROJECT_ID`. Không set thì giữ nguyên chữ `YOUR_GROUP`: nửa project thì builder biết, group là chuyện của org, đoán ra một path sai trông-như-đúng còn tệ hơn để trống.
+
+**Changed**
+- `apply_default_setup_extras()` giữ lại `.claude/project-profile.json` + `.mcp.json` nếu project đã có. Hai file này là config riêng của project, seed một lần; `apply_default_setup` chạy tới 3 lần mỗi build và force-copy cả `DefaultSetup/`, nên trước đây lần copy thứ hai sẽ trả placeholder về và xoá sạch phần dev đã tinh chỉnh. Phần còn lại của `.claude/` vẫn refresh như cũ.
+- `DefaultSetup/CLAUDE.md` §0 + `.claude/docs/GETTING-STARTED.md` §1–2: bootstrap giờ là bước **đã chạy sẵn** cho project sinh từ builder; lệnh chạy tay còn dùng cho clone sang máy khác và sửa checkout hỏng.
+
+**Fixed**
+- Project sinh **bên trong** một git repo khác (builder nằm trong checkout — chính repo template là một ví dụ) trước đây bị bootstrap gắn nhầm vào repo cha: backlog rơi vào `.git/backlog/` của cha và loop commit lên nhánh của cha. Builder giờ so `git rev-parse --show-toplevel` với project (so path đã resolve symlink, vì trên macOS `/tmp` là link tới `/private/tmp`) và `git init` cho project trước khi bootstrap.
+- `apply_default_setup_extras()` bỏ qua hẳn `.agents` khi copy. Link view là việc của `bootstrap_agent_system()`, nhưng vòng copy chỉ loại trừ `ProjectSettings`, nên build chạy trên `DefaultSetup/` **local** vẫn bê nguyên link view đang nằm ở đó vào project (bootstrap sửa lại sau, nên kết quả cuối vẫn đúng — chỉ là thừa và sai thứ tự). Bản tarball xuất bản đã `--exclude=.agents` nên đường ship không dính; giờ hai đường khớp nhau do chính đoạn code này, không còn phụ thuộc vào việc script upload có loại trừ hay không.
+- `DefaultSetup/CLAUDE.md`: 10 link có nhãn `.agents/...` nhưng href trỏ `.claude/...`. Cả hai đều mở được (link view resolve), nhưng nhãn ngược với chính quy ước file này công bố ở mục Source of truth (`.claude/` là canonical, chỉ edit ở đó). Nhãn giờ khớp href; 7 chỗ nhắc `.agents/` trong văn xuôi là mô tả link view nên giữ nguyên.
+
 ## 2026-08-05
 
 Đợt cập nhật lớn: rebase toàn bộ nội dung Unity + AI tooling của template theo project `Tank` sau khi nó được refactor thành "template thuần, không gameplay".

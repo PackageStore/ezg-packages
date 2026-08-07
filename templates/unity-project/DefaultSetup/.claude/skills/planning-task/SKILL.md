@@ -1,19 +1,35 @@
 ---
 name: planning-task
-description: Capture a new task into backlog/planning/ with full triage + spec (DO NOT touch BACKLOG.md). Used when the user says "create planning task" / "draft task" / "create task X". Multiple agents can run in parallel — the filename uses a timestamp, so it is unique. Large new-system intents (a whole GDD / multi-module design doc) are detected at STEP 0b and dispatched to /planning-system instead. To PICK a planning task into BACKLOG.md, use /add-to-backlog. When intent is unclear between the two skills, confirm with the user first.
+description: Capture a new task into backlog/planning/ with full triage + spec (DO NOT touch BACKLOG.md). Used when the user says "planning task" / "plan task" / "create planning task" / "draft task" / "create task X". Multiple agents can run in parallel — the filename uses a timestamp, so it is unique. To PICK a planning task into BACKLOG.md, use /add-to-backlog. When intent is unclear between the two skills, confirm with the user first.
 ---
 
 # Planning Task — Capture Agent
 
 Turn a user request into a fully specified task file in `backlog/planning/`, allowing multiple Claude windows to capture tasks in parallel without overwriting each other. The task is NOT yet queued for `run-backlog` — that only happens when the user selects the task via `/add-to-backlog`.
 
+
+> **Where the backlog lives.** Every `backlog/...` path in this document is relative to
+> the backlog root, which is **NOT in the worktree**:
+>
+> ```bash
+> BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"   # i.e. <repo>/.git/backlog
+> ```
+>
+> It is per-developer bookkeeping — never committed, never merged (tracking it made every
+> dev branch carry its own index and collide on merge), and shared automatically by every
+> `git worktree` of the clone. So: **write task files to `$BACKLOG_ROOT/planning/`, glob
+> from there, and NEVER `git add` / `git mv` / commit anything under it.** If the
+> directory does not exist yet, run `python3 .claude/scripts/backlog-ops.py init` first.
+
 The backlog uses a **split-file layout**:
 - `backlog/planning/<timestamp>-<TIER>-<slug>.md` = drafted, not yet queued (this skill writes here)
 - `BACKLOG.md` = index of queued tasks (only `/add-to-backlog` modifies this)
-- `backlog/todo/NNN-<slug>.md` = queued task (created by `/add-to-backlog` when picking from planning)
+- `backlog/todo/NNN-<TIER>-<slug>.md` = queued task (created by `/add-to-backlog` when picking from planning)
 - `backlog/in-progress/`, `backlog/done/` = managed by `run-backlog`
 
-You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLOG.md` and **DO NOT** create files in `backlog/todo/`.
+You create **one new file** in `backlog/planning/` — with **one exception**: a task that builds a **NEW UI screen** is split into a sibling `/new-ui` screen task + the logic task (STEP 2 HYBRID/M-L block), so the planning session writes **two** files. You **DO NOT** touch `BACKLOG.md` and **DO NOT** create files in `backlog/todo/`.
+
+> **Drafting ahead of dependencies?** If this task (or a wave of tasks) is being spec'd against code that does not exist yet, mark any not-yet-real path/class with `[ASSUMED]` and raise it as an `open_question`. Before such specs are promoted via `/add-to-backlog`, run them through `.claude/backlog-templates/_REVALIDATION-PLAYBOOK.md` (the 4 checks: duplicate / stale-path / phantom / deps) so `/run-backlog` does not hit a hard blocker. Prefer spec'ing just-in-time (after dependencies ship) to keep this light.
 
 ---
 
@@ -21,75 +37,91 @@ You create **one new file** in `backlog/planning/`. You **DO NOT** touch `BACKLO
 
 **A planning task is an implementation contract, not a rough idea.** Prioritize understanding the correct intent over saving tokens. Do not run a full M/L pipeline for a CSV tweak, but also do not guess decisions that could lead `run-backlog` to implement in the wrong direction.
 
-**Spec against REAL code, not a void (just-in-time).** A spec is only as accurate as the code it references. Spec a task when its dependencies already exist as real code — so `codegraph` returns real paths/class names and there is nothing to guess. **Do NOT batch-spec a whole future phase on an empty/stub codebase**: parallel planners that can't see each other will independently invent paths, duplicate each other's deliverables, and reference configs/classes that nobody creates. Spec one phase at a time, only after the prior phase ships. If you must draft ahead of the code, mark assumed paths/classes explicitly as `[ASSUMED]` and add an `open_question` so they get re-validated before promotion. See the phase-revalidation playbook (`backlog/_REVALIDATION-PLAYBOOK.md`) for fixing specs that were drafted ahead of their dependencies.
-
 ```
-[0b] NEW-SYSTEM? → whole GDD / ≥2 new interacting modules? dispatch /planning-system (0a match = tie-break)
-[0] TRIAGE       → classify XS / S / M / L (≤500 tokens)
-[0a] WF-DETECT   → pure scaffold matching a /new-* command? → skip task-planner, use _TEMPLATE_WF
+[0] TRIAGE       → (0b) NEW-SYSTEM? dispatch /planning-system → (0a) workflow-backed? → classify XS / S / M / L (≤500 tokens)
 [1] EXTRACT      → parse user intent + clarify until contract is clear
-[2] DRAFT        → tier-specific (skip task-planner for XS/S, simple-M, and WF-backed scaffold)
+[2] DRAFT        → tier-specific (skip task-planner for XS/S, simple-M, AND workflow-backed scaffolds)
 [3] FILENAME     → timestamp + tier + slug (no NNN, no race check)
-[4] WRITE        → fill tier-specific template + required skills + conditional guardrails
+[4] WRITE        → fill tier-specific OR _TEMPLATE_WF template + conditional guardrails
 [5] CHECK        → tier-aware quality check
 [6] REPORT       → summarize for user, point to /add-to-backlog
 ```
 
 ---
 
-## STEP 0b — New-system detection (runs BEFORE everything, 0a is the tie-break)
+## STEP 0b — New-system detection (chạy TRƯỚC 0a, nhưng 0a là tie-break)
 
-Some intents are not "one task" but **a whole new system** (a GDD / multi-part design doc). Writing a single M/L task for it = losing scope control; batch-spec'ing it by hand = the documented phase-drift failure mode. The right route is the **design pipeline** `/planning-system` (design-validate → mapping → batch-ground into N planning tasks). This skill only **detects and dispatches** — all mechanics live in [.claude/skills/planning-system/SKILL.md](../planning-system/SKILL.md).
+Một số intent không phải là "một task" mà là **cả một hệ thống mới** (GDD/design doc nhiều phần). Viết một task M/L duy nhất cho nó = mất kiểm soát scope; đúng đường là **pipeline thiết kế** `/planning-system` (design-validate → mapping → batch-ground thành N task planning). Skill này chỉ **phát hiện và dispatch** — mọi cơ chế nằm trong [.claude/skills/planning-system/SKILL.md](../planning-system/SKILL.md).
 
-**0b fires ONLY when BOTH hold:**
+**0b CHỈ fire khi thỏa CẢ HAI:**
 
-1. **Doc/system scale** — at least one of:
-   - The input is a whole GDD/design doc with multiple sections (not one scoped change), or the user drops a doc file and says "build this feature".
-   - The intent creates **≥2 NEW feature modules that interact with each other** (not edits to existing modules).
-2. **NOT expressible as ONE workflow-backed task** — run the STEP 0a registry match first as the tie-break: if the intent fits one registry row entirely (e.g. one new feature module → `/new-feature`, one new screen → `/new-ui`), **0b yields to 0a**, even when the intent touches economy/IAP. Merely touching economy does NOT trigger 0b — that is only a tier signal (auto-bump M), as today.
+1. **Quy mô doc/hệ thống** — ít nhất một trong:
+   - Input là cả một GDD/design doc nhiều section (không phải một thay đổi scoped), hoặc user ném file doc và bảo "làm feature này".
+   - Intent tạo **≥2 feature module MỚI tương tác với nhau** (không phải sửa module có sẵn).
+2. **KHÔNG diễn đạt được thành MỘT task workflow-backed** — chạy registry match của STEP 0a trước như tie-break: nếu intent khớp trọn một dòng registry (vd. một package IAP lẻ → `/new-package`, một skill lẻ → `/new-skill`) thì **0b NHƯỜNG 0a**, kể cả khi intent chạm economy/IAP. Chạm economy đơn thuần KHÔNG đủ để kích 0b — nó chỉ là tín hiệu tier (auto-bump M) như hiện tại.
 
-**Idempotency (mandatory probe before dispatch):** Glob `TechSpec/<FeatureName>-*.md`. If artifacts already exist → this system already went through the pipeline; do NOT rerun from scratch — dispatch `/planning-system` in **resume mode** (`--from-mapping TechSpec/<FeatureName>-Implementation.md` if the mapping exists, or from the first missing stage). Tell the user which stage you are resuming from.
+**Idempotency (bắt buộc probe trước khi dispatch):** Glob `TechSpec/<FeatureName>-*.md`. Nếu artifact đã tồn tại → hệ thống này từng qua pipeline; KHÔNG chạy lại từ đầu — dispatch `/planning-system` ở **chế độ resume** (`--from-mapping TechSpec/<FeatureName>-Implementation.md` nếu mapping đã có, hoặc từ stage đầu tiên còn thiếu). Nói rõ với user đang resume từ stage nào.
 
-**Anti-recursion (mandatory):** if the current prompt/context carries the flag `origin: planning-system` (batch mode — the orchestrator is reusing this skill's drafting path), **SKIP 0b and 0a-dispatch ENTIRELY** and go straight to STEP 2. `/planning-system` must never dispatch itself (depth cap = 1).
+**Chống đệ quy (bắt buộc):** nếu prompt/ngữ cảnh hiện tại có flag `origin: planning-system` (batch mode — orchestrator đang tái sử dụng drafting path của skill này), **BỎ QUA HOÀN TOÀN 0b và 0a-dispatch**, vào thẳng STEP 2. `/planning-system` không bao giờ được dispatch chính nó (depth cap = 1).
 
-**When 0b fires:** do NOT write any task, do NOT ask for a tier. Tell the user in one sentence ("This intent is a large new system → routing to the /planning-system design pipeline") and execute `/planning-system` with the input doc. When 0b does not fire → continue to STEP 0 below as normal.
+**Khi 0b fire:** KHÔNG viết task nào, KHÔNG hỏi tier. Thông báo user một câu ("Intent này là hệ thống mới lớn → chuyển qua pipeline thiết kế /planning-system") rồi thực thi `/planning-system` với input doc. Khi 0b không fire → tiếp tục STEP 0a bên dưới như bình thường.
+
+---
+
+## STEP 0a — Workflow-backed detection (run FIRST, before tier triage)
+
+Some `/new-*` workflows in `.claude/commands/` already specify a scaffold **deterministically** (which files, which registrations, which conventions). For those, the workflow IS the plan — spending a `task-planner` subagent (~15–25K tokens) to re-discover what the workflow states verbatim is pure waste. Detect these first and route around `task-planner`.
+
+**Workflow registry** (match the user's intent against these):
+
+| Intent signal | Workflow | Exec tier (for review-gating) | Sensitive? |
+|---|---|---|---|
+| Create a new **feature module** (controller + manager, optional save/CSV) | `/new-feature` | M (L if it adds a save field + cross-system events) | yes if it adds a `DataPlayer` field |
+| Create a new **IAP package** (PascalCase, ends with `Pack`) | `/new-package` | M | **yes** (IAP/purchase) |
+| Create a new **player skill** (ID 1–5999) | `/new-skill` | M | no |
+| Create a new **enemy/boss skill** (ID 6000–6999) | `/new-enemy-skill` | M | no |
+| Create a **COMPLETE enemy** end-to-end (animation + prefab + skills + `Enemies.csv` + localize) | `/new-enemy` | L | no |
+| Create a new **UI prefab** from `FeatureTemplate.prefab` | `/new-ui` | S–M | no |
+| Create a new **class** following `FeatureBaseController` conventions | `/new-class` | S | no |
+
+> `/add-localize` is **not** a standalone WF task: it writes to a Google Sheet and produces **no local git diff**, so `run-backlog` would stop with `NO_CHANGES`. Treat localize as a sub-step folded into the parent feature task (the workflow / custom delta references it), never as its own backlog task.
+
+> `/new-ui` tasks carry a **mockup ground truth** in `**Workflow args:**` (`FeatureName | groundTruth=...`) — resolved in STEP 2 item 2b via the mockup pipeline (`mockup-drafter` subagent + automatic `ui-review.py auto-approve`). Building UI from a text description alone is the documented main visual-failure mode (new-ui-guide.md §0a); the mockup is the cheap-medium design pass the Unity build later copies.
+
+**Decision:**
+
+1. **No registry match** → not workflow-backed. Go to STEP 0 (normal tier triage).
+2. **Match + PURE scaffold** (the deliverable is exactly what the workflow generates, no extra logic, no cross-system wiring beyond what the workflow documents):
+   - **Skip `task-planner`.** Assign the **exec tier** from the registry column (this only drives review-gating in `run-backlog`; it is NOT discovered by an agent).
+   - Read **only the one matched workflow file** (~1–3K tokens) to lift its checklist into acceptance criteria. **Do NOT grep the codebase, do NOT spawn any subagent.**
+   - Draft with `_TEMPLATE_WF.md` (STEP 2 → "Workflow-backed path"). `**Custom delta:**` = `none`.
+3. **Match + HYBRID** (scaffold **plus** custom logic the workflow does not cover — e.g. "new skill AND wire it into evolution pool X and rebalance CSV Y"):
+   - Run normal tier triage (STEP 0) → almost always M or L.
+   - Spawn `task-planner` (STEP 2 M/L) but **scope it to the delta only**: tell it the scaffold is handled by `/new-xxx` and it must NOT re-plan the workflow's files — only plan the extra wiring/logic/balance.
+   - The resulting M/L draft MUST carry a `**Backed by workflow:** /new-xxx` + `**Workflow args:** ...` line so `run-backlog` still loads the workflow first.
+   - **If the HYBRID also builds a NEW UI screen** (authors a new `Resources/*.prefab` popup/panel) → **split the screen into its own `/new-ui` task** (STEP 2 HYBRID/M-L block). Do NOT bundle screen authoring into the logic task — the split is what routes the screen through the mockup draft+approval pass.
+
+In both WF cases, record the matched workflow + args so STEP 4 can write them into the task file.
 
 ---
 
 ## STEP 0 — Triage (always perform first)
 
-Classify the task into one of the four tiers using **concrete signals**, not gut feeling. **When in doubt, choose the LARGER tier** — review gates in `run-backlog` are keyed to the tier and are never escalated automatically at execution time, so an under-tiered task silently skips reviewers (and the M/L runtime-smoke gate), while an over-tiered one only costs a little more review.
+Classify the task into one of the four tiers using **concrete signals**, not gut feeling. **When in doubt, choose the LARGER tier** — review gates in `run-backlog` are keyed to the tier and are never escalated automatically at execution time, so an under-tiered task silently skips reviewers, while an over-tiered one only costs a little more review.
 
 | Tier | Signals (any single match) | Pipeline cost |
 |---|---|---|
-| **XS** | CSV tweak / constant adjust / dead-code removal / rename in 1 file / **add an `EventName` constant**. No new logic. | ~1K tokens, no subagent |
-| **S** | Single-file logic tweak, OR a **small self-contained save field/module** (≤2 files, `SetupDefaultData()` fallback, no reshaping of existing saved data). No new UI screen. | ~3K tokens, no subagent |
-| **M** | Multi-file feature: new UI screen/popup, new controller, OR a save change that **migrates/reshapes existing player data** or spans 3–8 files. | ~10K tokens, task-planner subagent only if complex (see STEP 2) |
-| **L** | Cross-cutting: new IAP/purchase flow, save-data **migration across modules**, auth/session, new system integration, or 9+ files. | ~25K tokens, task-planner subagent + risk pass |
+| **XS** | CSV tweak / constant adjust / dead-code removal / rename variable in 1 file. No new logic. | ~1K tokens, no subagent |
+| **S** | Single-file logic tweak. No new UI screen / new save field / new event. ≤2 files. | ~3K tokens, no subagent |
+| **M** | Multi-file feature. New UI screen/popup, new controller, new save field, new TigerForge event. 3–8 files. | ~15K tokens, task-planner subagent **only if complex** (simple M drafts in main context — see STEP 2) |
+| **L** | Cross-cutting: new IAP/purchase flow, new backend surface, save data migration, skill system integration, or 9+ files. | ~25K tokens, task-planner subagent + risk pass |
 
-> **Tier = implementation scope, NOT risk.** Tier drives the template + model/effort. Risk (save / security / hot-path) drives which quality gates run, and that is decided at `run-backlog` time from the actual diff — not by inflating the tier. Do not bump a small task to M just because it touches a save or event file; bump only when the *scope* (file count) or *migration risk* is real (see auto-bump below).
-
-**UI skill routing rule** (applies before drafting):
-- A task is UI-scoped if it creates or edits a Unity feature screen, popup, persistent HUD widget, reusable UI child prefab, prefab variant, serialized UI references, tab/list/slider/resource preview composition, or screen registration.
-- UI-scoped tasks are at least **M**, except a pure code-only tweak to an existing controller in <=2 files with no prefab or serialized-reference work.
-- Every UI-scoped task must include `**Required skills:** /create-ui` near the title. Add `/compile-check` when that UI task creates or edits `.cs` files.
-- UI-scoped acceptance criteria must explicitly require the `/create-ui` workflow: read `.claude/skills/create-ui/SKILL.md`, follow `references/prefab-templates.md` and `references/mcp-playbook.md`, reuse shared prefab templates, screenshot-verify, and self-correct layout issues before done.
-- For a root feature screen or popup, criteria must require a `Popup_Template/screen_template` prefab variant, the correct `FeatureBaseController` subclass on the root, preserved root child order (`child[0]` background, `child[1]` MainUI), wired serialized references, and `UIManager.Show(...)` verification.
-- If the requested work is mostly service/gameplay code and UI prefab authoring should happen after the controller/service exists, keep prefab authoring out of scope and create a separate UI follow-up planning task when requested. Do not modify existing planning files just to add the split unless the user explicitly asks.
-
-**Screen redesign / rebuild routing rule** (prevents a "restyle" from silently keeping the old layout while passing every non-visual gate):
-- A task that changes an **existing** screen's visual layout to match an approved mockup is NOT a free-form "restyle M task". It MUST carry `**Backed by workflow:** /new-ui` + `**Workflow args:** <Feature> | groundTruth=<approved .png>` + `**Requires:** unity-editor`, so `run-backlog`'s ground-truth gate (STEP 2c) and the `ui-visual-reviewer` visual-diff checkpoints engage. Referencing the mockup only in `**Context docs:**` or in prose acceptance criteria is **not** enough — that path skips the visual gate and is exactly how a wrong layout shipped.
-- **Restyle vs rebuild — decide by a structural diff, not by wording:**
-  - **Rebuild** (the default when the mockup changes structure): the mockup's `ui-spec.json` introduces, moves, or removes containers/elements the existing prefab lacks (a hero portal, a pity bar, a drop-rate table, a different grid). Recoloring the old prefab cannot produce a layout it does not have — the body must be reconstructed node-by-node from the ui-spec. Route as the `/new-ui` rebuild above.
-  - **Restyle** (palette/color/spacing only): permitted ONLY when the existing prefab's hierarchy already matches the ui-spec's containers/elements 1:1 and nothing but styling changes. Still wire `groundTruth=` so the visual gate confirms it.
-  - **When in doubt, choose rebuild** (the larger scope). An under-scoped restyle ships the old layout and passes code/perf/qa/runtime-smoke gates (none of them compare against the mockup).
-- A rebuild task's acceptance criteria MUST state: "reconstruct the screen body from `<S>.ui-spec.json` **node-by-node**; do NOT recolor the existing prefab", "preserve the existing controller + every serialized reference (verify `unity_search_missing_references` before/after = 0)", and "`ui-visual-reviewer` passes against the approved `<S>.png`".
-
-**Auto-bump rules** (risk-driven — bump only when the risk is real, not merely because a task "touches a save/event file"):
-- Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M (L if it is a NEW purchase/IAP flow).
-- Touches `Auth*`, `Token*`, `Session*`, OR grants/spends currency, grants owned items, writes to the server, or writes leaderboard/competitive values → at least M.
-- **New save field/module:** keep at **S** when self-contained (≤2 files, `SetupDefaultData()` fallback, no reshaping of existing saved data). Bump to **M** only when it spans 3–8 files OR migrates/reshapes existing player data. Bump to **L** only when that migration spans multiple modules.
-- **New `EventName` constant only** → stays **XS/S**. Bump to **M** only when the event wires a genuinely NEW cross-system runtime flow (≥2 feature modules coordinating through it) — not for adding a constant that existing code happens to listen to.
+**Auto-bump rules** (override to a higher tier if any signal matches):
+- Touches `Purchase*`, `IAP*`, `Receipt*`, `Payment*` → at least M.
+- Adds new `DataPlayer` field or save module → at least M.
+- Adds new TigerForge event cross-system → at least M.
+- Adds new Cloudflare Worker endpoint or Supabase table → at least M.
+- Touches `Backend*`, `Auth*`, `Token*`, `Session*` → at least M.
 - Touches >2 feature modules or >8 files → L.
 
 **Scope-control gate** (prevent uncontrolled sprawling edits):
@@ -103,58 +135,9 @@ Record your tier choice in your reasoning and explain it to the user in STEP 6. 
 
 ---
 
-## STEP 0a — Workflow-backed detection (deterministic routing)
-
-Run this right after triage. If the task is **pure scaffold** that exactly matches a `/new-*` command in `.claude/commands/`, the command IS the plan — so **skip the task-planner subagent** in STEP 2 (saves ~15–25K tokens) and capture a thin spec with `_TEMPLATE_WF.md` instead.
-
-**Command registry (default Unity template):**
-
-| Intent signal | Command | Exec tier | `Workflow args` format | Sensitive? |
-|---|---|---|---|---|
-| New feature module (controller + structure under `Assets/_Project/Features/<Domain>/`) | `/new-feature` | M (L if it also reshapes/migrates save data or wires ≥2 modules) | `FeatureName: Description` (PascalCase) | yes if Domain = `Monetization` or it grants/spends value |
-| New UI screen/popup prefab (delegates to the `create-ui` skill) | `/new-ui` | M (UI-scoped) | `FeatureName \| groundTruth=<value>` (mockup pipeline — see case 2 item 2b) | no |
-
-> **Excluded by design:**
-> - `/new-package` — extracts a UPM module and pushes to the `ezg-packages` monorepo `main` (out-of-band, no `agent/dev`/backlog lifecycle).
-> - `/new-class` — S-tier (the task-planner subagent is already skipped for S, so WF saves no planner tokens) and has no deterministic checklist to lift; treat a new-class request as a normal S task.
-> - There are no `/new-skill`/`/new-enemy-skill` commands in this project.
->
-> **Packaging intent (`/new-package`):** do NOT create a backlog task and do NOT fall through to normal triage — module-packaging runs out-of-band on a different monorepo. Tell the user to invoke the `package-module` skill manually, and stop.
-
-**Decision tree:**
-
-1. **No match** → continue to STEP 1 (normal flow).
-2. **Match + PURE scaffold** (the deliverable is exactly what the command generates, no extra logic):
-   - **Skip the task-planner subagent.** Read only the matched command file (`.claude/commands/<name>.md`, ~1–3K tokens) — and, if it delegates to a skill (`/new-ui` → `create-ui`), skim that skill's checklist too.
-   - Lift the command's / delegated skill's checklist into the task's **Acceptance criteria**.
-   - Build `**Workflow args:**` in the EXACT format the command expects (see table).
-
-     **2b — `/new-ui` only: resolve `groundTruth` (mockup pipeline).** A UI task must not be built from a text description alone — it needs a visual ground truth. Append ` | groundTruth=<value>` to the args:
-     - User supplied a reference image path → that path (`Read` once to confirm it exists).
-     - Probe `ui-catalog/ui-tokens.json` + `ui-catalog/ui-kit.json`. When both exist, run the **UI fast-lane classifier** before drafting:
-       1. **Clone lane:** an existing prefab already matches the requested containers/hierarchy and the delta is text/data binding or minor styling → `clone:<ExistingPrefab>`; no mockup.
-       2. **Kit-composition lane:** no single prefab matches, but every visible block maps to existing UI-kit tokens and there is no bespoke art/layout direction → spawn [`mockup-drafter`](../../agents/mockup-drafter.md) with `lane=kit-composition`.
-       3. **Custom lane:** a new layout, bespoke composition, or visual direction is required → spawn it with `lane=custom`.
-       If uncertain between clone and composition, use composition; if uncertain between composition and custom, use custom.
-     - **Fresh project without an exported UI catalog:** supplied reference images remain valid. A clone lane is also valid when the prefab resolves uniquely under `Assets/`. Otherwise set `groundTruth=PENDING-MOCKUP`, preserve `**Mockup lane:** custom`, and report that the project must export `ui-catalog/ui-tokens.json` then run `ui-kit-sync.py`; never copy catalog data from another game.
-     - Drafter input: featureName / screenName / lane / outputPath `TechSpec/Mockups/<F>/<S>.html` + intent/context docs. `created`/`recovered`/`exists` (validated spec+HTML pair), with the returned HTML confirmed present ⇒ `PENDING-APPROVAL:<path.html>`; `error` ⇒ `PENDING-MOCKUP`. HTML is an internal deterministic render artifact; never ask the user to author or edit it. **Never block planning on drafting.**
-     - Persist non-clone classification in the task as `**Mockup lane:** kit-composition|custom` next to `**Workflow args:**`, even when drafting fails. This lets `/ui-mockup` retry without redoing classification. Supplied image and `clone:` paths delete/omit this field.
-     - **Generate = autonomous, approve = human:** interactive single-task session → you MAY offer immediate review/approval (that is `/ui-mockup` STEP 4–6 inline). Batch (`origin: planning-system`) or any parallel run → NEVER wait for approval; the draft parks at `PENDING-APPROVAL` and `/ui-mockup` sweeps it later. The drafter writes ONLY its own screen pair (parallel-safe); `backlog-ops.py promote` blocks via `mockup_warnings` while the value is still `PENDING-*`.
-   - Use the **exec tier** from the table (do not re-triage by file count) and draft with `_TEMPLATE_WF.md` (STEP 4), setting `**Custom delta:** none`.
-   - For UI (`/new-ui`), still set `**Required skills:** /create-ui /compile-check`, add `**Requires:** unity-editor`, and keep the `/create-ui` acceptance criteria from the M template's UI block.
-3. **Match + HYBRID** (scaffold + custom logic/wiring/balance beyond the scaffold):
-   - Run the normal tier triage (almost always M, or L if cross-cutting) and draft with `_TEMPLATE_M.md` / `_TEMPLATE_L.md` (task-planner subagent only if genuinely complex per STEP 2).
-   - Add the `**Backed by workflow:** /new-xxx` + `**Workflow args:** ...` fields to the M/L draft, and scope the task-planner subagent (if any) to the **delta only** — the scaffold is already specified by the command.
-
-WF is **orthogonal to tier**: the filename + BACKLOG.md `[TIER]` bracket still carry the real exec tier (which drives review-gating); the WF marker only tells `run-backlog` to load the command first (its STEP 5.0).
-
----
-
 ## STEP 1 — Extract intent (compact)
 
-Parse the user's message for: **What**, **Why** (if any), **Scope**, **Priority** (default `MEDIUM`), **Constraints**, and **Required skills**.
-
-If the request mentions a screen, popup, HUD, prefab, UI controller, visual layout, UI list/tab/slider/resource preview, or manual Editor authoring for UI, mark the task UI-scoped and apply the UI skill routing rule from STEP 0.
+Parse the user's message for: **What**, **Why** (if any), **Scope**, **Priority** (default `MEDIUM`), and **Constraints**.
 
 If the intent is ambiguous regarding **what**, **scope**, **priority**, **constraints**, or any decision affecting **acceptance criteria / verify steps / product behavior**, you must ask for clarification before writing the file. Ask in small batches, maximum **3 questions per turn**, and continue clarifying until the task is clear enough to implement as a contract.
 
@@ -162,50 +145,75 @@ Do not guess decisions belonging to the following groups:
 - Core product behavior or UX flow.
 - Reward/economy/balance values.
 - Save data, migration, and persist/restart behavior.
-- IAP, purchase, and receipt validation.
+- Backend, auth, security, leaderboard, social, IAP, purchase, and receipt.
 - Acceptance criteria or manual verification steps.
 
 You may only assume low-risk details that do not change the outcome (e.g., slug name, title phrasing, expected file paths after grep/read). All other assumptions must be documented clearly in the task, but **assumptions must not be used to replace questions** when ambiguity affects behavior or completion criteria.
 
 For **XS/S**, you can stop clarifying once the small change is clear and the rest is implementation detail. For **M/L**, do not create a planning task if there are remaining `open_questions` affecting the contract; continue asking the user or state clearly that the task is blocked due to missing decisions.
 
-Do not ask questions that can be answered by grepping/reading the codebase or querying codegraph.
+Do not ask questions that can be answered by grepping/reading the codebase.
 
 ---
 
 ## STEP 2 — Draft (tier-specific)
 
-> **Workflow-backed pure scaffold (from STEP 0a):** do NOT spawn the task-planner subagent. The matched `/new-*` command is the plan — read it (and any skill it delegates to) to lift its checklist into Acceptance criteria, then jump straight to STEP 3/4 using `_TEMPLATE_WF.md`. A **hybrid** WF task (scaffold + custom logic) follows the M/L path below but carries the `**Backed by workflow:**` field; scope any task-planner subagent to the delta only.
+### Workflow-backed path (PURE scaffold from STEP 0a) — no subagent, no codebase grep
+
+This is the token-saving path. Do **NOT** spawn `task-planner`. Do **NOT** grep/read feature code.
+
+1. Read **only** the matched workflow file in `.claude/commands/` (e.g. `new-skill.md`).
+2. Build the `**Workflow args:**` string in the exact format that workflow's arg parser expects (e.g. `/new-skill` wants `SkillId: Description`; `/new-package` wants `PackageName: Description`, PascalCase ending in `Pack`).
+
+   **2b — `/new-ui` only: resolve `groundTruth` (mockup pipeline).** Append ` | groundTruth=<value>`:
+   - User supplied a reference image path → that path (`Read` once to confirm it exists).
+   - The screen clones an existing prefab's layout → `clone:<ExistingPrefab>`.
+   - Otherwise → spawn [`mockup-drafter`](../../agents/mockup-drafter.md) (featureName / branch / outputPath `TechSpec/Mockups/<F>/<S>.html` + intent/context docs). `created`/`recovered`/`exists` (validated v1 pair) or `legacy-exists` (validated legacy HTML), with returned HTML confirmed present ⇒ `PENDING-APPROVAL:<path.html>`; `error` ⇒ `PENDING-MOCKUP`. **Never block planning on drafting.**
+   - **Generate = autonomous, approve = AUTOMATIC:** after the task file is written (STEP 4), run `python3 .claude/scripts/ui-review.py auto-approve --task backlog/planning/<task>.md` — it freezes the draft to its PNG contract and flips `groundTruth` → `.png` with no human round. Screens left `pending` (open drafter `questions[]` / `[?]` placeholders / no Chrome) stay `PENDING-APPROVAL`; report them so the dev can settle them via `/ui-mockup` (dashboard). The drafter writes ONLY its own screen pair (parallel-safe); `backlog-ops.py promote` blocks while the value is still `PENDING-*`.
+3. Lift the workflow's `CHECKLIST` / `FINAL CHECKLIST` into acceptance criteria.
+3b. **Cheat decision (`/new-feature`, `/new-package`, `/new-ui` only).** These scaffolds produce a prefab that already inherits `ButtonCheatMenu` from `FeatureTemplate`/`PackageTemplate`, so a dev cheat costs only the `Cheat_*` methods + 2–5 buttons. If the feature has state a tester cannot reach in a few taps (time gate / daily reset / cooldown, progression or unlock threshold, resource requirement, rare or one-shot flow, anything needing a reset) → add `[CHEAT]` to `**Guardrails:**`, name the concrete cheats in `**Custom delta:**` (this is a real delta — the workflow does not invent them), and add an acceptance criterion. Otherwise write the reason into `**Guardrails skipped:**` (e.g. `cheat (static info popup, drivable from its own UI)`). Design + code pattern: [.claude/skills/feature-cheat/SKILL.md](../feature-cheat/SKILL.md) — mirror `DailyLoginV2.prefab` / `Equipment.prefab`.
+4. Draft with `_TEMPLATE_WF.md` (STEP 4). `**Custom delta:**` = `none — pure scaffold` (or the cheat list from 3b).
+5. Still resolve any contract-affecting `open_questions` with the user first (e.g. the exact skill ID, the IAP product-id suffix, the gameplay rule the scaffold must satisfy) — a deterministic workflow still needs correct inputs.
+
+Then go straight to STEP 3. Skip the M/L subagent flow below.
 
 ### Tier XS — no exploration needed
 
-Write the task directly from the user's message + your knowledge of the repo. No task-planner subagent, no Grep.
+Write the task directly from the user's message + your knowledge of the repo. No task-planner subagent, no Grep. The task is so small that scoping it is faster than analyzing it.
 
 ### Tier S — light exploration in the main context
 
-Use `codegraph_explore` or `codegraph_search` to locate symbols and confirm file paths — one call replaces multiple Grep + Read calls. Only fall back to Grep/Read for string literals or details codegraph didn't cover. **DO NOT** spawn a task-planner subagent. Then draft directly.
+Use Grep + Read on 1–3 files to confirm file paths and patterns. **DO NOT** spawn a task-planner subagent. Then draft directly.
 
 ### Tier M (simple) — main-context draft, NO task-planner subagent
 
-Spawn the opus task-planner subagent **only when the M task is genuinely complex**. Many M tasks are bumped up purely for scope (3–8 files) but are mechanically simple — a task-planner subagent (opus) is wasted tokens for those.
+Spawn the opus `task-planner` subagent **only when the M task is genuinely complex**. Many M tasks are bumped to M purely for scope (3–8 files) but are mechanically simple — an opus subagent is wasted tokens for those.
 
-Draft in the **main context** (1–2 `codegraph_explore` calls, then write the spec yourself) when the M task is **simple**, i.e. ALL of:
+Draft in the **main context** (1–2 Grep/Read passes to confirm paths and patterns, then write the spec yourself) when the M task is **simple**, i.e. ALL of:
 - A single new save field/module, OR a single new controller/screen, OR a localized set of edits in 3–8 files following one obvious existing pattern.
 - No cross-module runtime flow being newly wired.
 - No migration/reshaping of existing saved data.
 - No open questions affecting the contract.
 
-Escalate to the **task-planner subagent** (next section) when the M task is **complex**: multiple subsystems interact, a non-obvious pattern decision is needed, the dependency graph is unclear, or you cannot confidently list `files_to_touch` after 1–2 codegraph calls.
+Escalate to the **task-planner subagent** (next section) when the M task is **complex**: multiple subsystems interact, a non-obvious pattern decision is needed, the dependency graph is unclear, or you cannot confidently list the files to touch after 1–2 Grep/Read passes.
 
-When drafting in the main context, produce the same JSON fields the task-planner subagent would (see the schema in [.claude/agents/task-planner.md](../../agents/task-planner.md)) so STEP 4 can fill the template identically.
+When drafting in the main context, produce the same JSON fields the `task-planner` subagent would (see the schema in [.claude/agents/task-planner.md](../../agents/task-planner.md)) so STEP 4 can fill the template identically.
 
 ### Tier M (complex) / L — task-planner subagent
 
-> **HYBRID (scaffold + custom logic, from STEP 0a case 3):** if the task is partly a `/new-*` scaffold, scope the subagent to the **delta only**. Add to the prompt body: *"The scaffold (files, registrations, conventions) is handled by `/new-xxx` — do NOT plan or list those files; plan ONLY the custom logic/wiring/balance beyond the command."* Then add a `**Backed by workflow:** /new-xxx` + `**Workflow args:** ...` line into the final M/L draft so `run-backlog` loads the command before applying the delta. Pure scaffolds never reach here — they use the Workflow-backed path above.
+> **HYBRID (scaffold + custom logic, from STEP 0a case 3):** if the task is partly a `/new-*` scaffold, scope the subagent to the **delta only**. Add to the prompt body: *"The scaffold (files, registrations, conventions) is handled by `/new-xxx` — do NOT plan or list those files; plan ONLY the custom logic/wiring/balance beyond the workflow."* Then add a `**Backed by workflow:** /new-xxx` + `**Workflow args:** ...` line into the final M/L draft so `run-backlog` loads the workflow before applying the delta. Pure scaffolds never reach here — they use the Workflow-backed path above.
 >
-> A HYBRID/M/L task that builds a **NEW screen not backed by `/new-ui`** additionally gets a real `**Needs mockup:** yes` line (the template comment documents it) — `/ui-mockup` sweeps that flag for drafting + approval, same as the `/new-ui` groundTruth path.
+> **A HYBRID/M/L task that builds a NEW UI screen** (authors a new `Resources/*.prefab` popup/panel, e.g. a `/new-feature` scaffold with a custom popup) — **SPLIT the screen into its own `/new-ui` task.** Do NOT bundle screen authoring into the logic task: a bundled screen never spawns `mockup-drafter`, so `/planning-task` produces a task with no draft to approve (the exact bug this fixes). The split mirrors `/planning-system`'s UI handling and routes the screen through **item 2b** above.
+>
+> Concretely, the planning session writes **two** files:
+> 1. **Screen task** — a `/new-ui` task (`_TEMPLATE_WF.md`, `**Backed by workflow:** /new-ui`, `**Workflow args:** <Screen> | groundTruth=<value>`). Draft this one FIRST so its timestamp sorts ahead. Because it is `/new-ui`, STEP 2 **item 2b runs**: `mockup-drafter` is spawned **at planning time** → the draft is then auto-approved to its PNG contract (item 2b), so the task is promote-ready without a human round.
+> 2. **Logic task** — the HYBRID/M/L task with the custom logic/wiring, carrying `**Backed by workflow:** /new-xxx` (if any) + `**Depends on:** <screen-task planning filename>` so `promote` queues the screen ahead of it.
+>
+> **Escape hatch** (screen genuinely inseparable from the logic prefab, e.g. you only re-wire an existing screen — no new visual): keep one task, list `/new-ui` in `**Required skills:**`, and carry a wired marker line `**Mockup:** groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>)`, or `groundTruth=none — <reason>` when there is truly no new visual to design. The `groundTruth=` token works on ANY real line (not just `**Workflow args:**`); `/ui-mockup` greps it and `promote` blocks on it.
+>
+> **Do NOT use the legacy `Needs mockup: yes` string — nothing sweeps it** (that was the silent-skip bug). **Backstop (both paths):** `backlog-ops.py promote` hard-blocks any task that references `/new-ui` but carries no `groundTruth=` token at all, so a forgotten split or marker fails loudly at `/add-to-backlog` instead of silently skipping the gate.
 
-Spawn the **`task-planner`** subagent. Its full brief — steps, JSON schema, and repository-convention checks — lives in [.claude/agents/task-planner.md](../../agents/task-planner.md) so it can be edited independently of this skill. You pass **only the dynamic context** in the prompt:
+Spawn the **`task-planner`** subagent. Its full brief — steps, the JSON schema it must return, and project conventions — lives in [.claude/agents/task-planner.md](../../agents/task-planner.md) so it can be edited independently of this skill. You pass **only the dynamic context** in the prompt:
 
 ```
 Agent({
@@ -229,7 +237,7 @@ Prompt body (dynamic context only — the agent already knows the steps and the 
 >
 > Read the codebase sufficiently and return the single JSON spec object defined in your instructions. DO NOT implement, DO NOT modify files.
 
-The agent returns ONE JSON object (schema defined in [.claude/agents/task-planner.md](../../agents/task-planner.md)). If it returns `open_questions` affecting behavior, acceptance criteria, verification steps, or save/IAP/security/economy/UX flow, the task is **not yet permitted** to be written into `backlog/planning/` — resolve them with the user first (see 2b).
+The agent returns ONE JSON object (schema defined in [.claude/agents/task-planner.md](../../agents/task-planner.md)). If it returns `open_questions` affecting behavior, acceptance criteria, verification steps, or save/backend/IAP/security/economy/UX flow, the task is **not yet permitted** to be written into `backlog/planning/` — resolve them with the user first (see 2b).
 
 **Re-spawn cap: max 1**. If the user rejects the first and second drafts, commit the second draft with the user's last refinements applied + assumption notes.
 
@@ -237,8 +245,6 @@ The agent returns ONE JSON object (schema defined in [.claude/agents/task-planne
 
 Show a **condensed** view, not raw JSON:
 - One-line summary
-- Required skills (especially `/create-ui` for UI-scoped tasks)
-- UI split decision (same task vs separate follow-up, if relevant)
 - File list (paths + one-line why)
 - Scope-control summary (broad change? why, affected areas, rollback/fallback if any)
 - Top 3–5 completion criteria
@@ -257,17 +263,18 @@ Accept user edits on file lists / criteria / verify steps. Update the draft in p
 
 ## STEP 3 — Filename (timestamp + tier + slug)
 
-1. Get the UTC millisecond timestamp from the ops script — deterministic, never hand-generate or guess it:
+1. Get the UTC millisecond timestamp from the ops script — deterministic, **never hand-generate or guess it**:
    ```bash
    python3 .claude/scripts/backlog-ops.py timestamp   # → YYYYMMDDTHHmmssSSS
    ```
+   Example output: `20260523T142301456`
 2. Tier from STEP 0: `XS` | `S` | `M` | `L`.
 3. Slug: 2–5 kebab-case words from the task title.
 4. Final filename:
    ```
    <timestamp>-<TIER>-<slug>.md
    ```
-   Example: `20260523T142301456-M-new-shop-popup.md`
+   Example: `20260523T142301456-M-glory-pass-sprint-offer.md`
 
 **No NNN. No folder scanning. No race check.** Timestamp + millisecond is unique per agent instance.
 
@@ -279,37 +286,29 @@ The file goes into `backlog/planning/`, **never** `backlog/todo/`.
 
 ## STEP 4 — Write task file
 
-Pick template based on tier:
+Pick template based on tier — **unless the task is a PURE workflow-backed scaffold** (STEP 0a case 2), in which case use `_TEMPLATE_WF.md` regardless of tier:
 
-| Tier | Template file |
+| Case | Template file |
 |---|---|
-| XS | `backlog/_TEMPLATE_XS.md` |
-| S  | `backlog/_TEMPLATE_S.md` |
-| M  | `backlog/_TEMPLATE_M.md` |
-| L  | `backlog/_TEMPLATE_L.md` |
+| PURE workflow-backed scaffold | `.claude/backlog-templates/_TEMPLATE_WF.md` |
+| XS | `.claude/backlog-templates/_TEMPLATE_XS.md` |
+| S  | `.claude/backlog-templates/_TEMPLATE_S.md` |
+| M (incl. HYBRID workflow-backed) | `.claude/backlog-templates/_TEMPLATE_M.md` |
+| L (incl. HYBRID workflow-backed) | `.claude/backlog-templates/_TEMPLATE_L.md` |
 
-**Body tier rule (all tiers):** every template has a `**Tier:** X` line right under the title — fill it with the exec tier from STEP 0/0a. It MUST match the `<TIER>` in the filename (`backlog-ops.py lint` enforces filename == body == bullet). This is what `run-backlog` reads first to gate its quality gates; the BACKLOG.md bullet `[Tier]` added later by `/add-to-backlog` is only a mirror. Do not omit this line.
+**Filename tier:** the `<TIER>` in the filename is always the **exec tier** (`XS`/`S`/`M`/`L`) — for WF tasks use the exec tier from the STEP 0a registry. Never put `WF` in the filename; WF-ness lives in the `**Backed by workflow:**` body field so `run-backlog` review-gating stays tier-driven.
 
-**Optional batch fields rule:** `**Context docs:**` / `**Depends on:**` / `**Requires:**` / `**Needs mockup:**` are filled with REAL values or their line is DELETED — never left as a template placeholder (a leftover `**Requires:** unity-editor` placeholder makes `run-backlog` defer a fully headless task).
+**Body tier (source of truth):** every template has a `**Tier:** X` line right under the title. Fill it with the exec tier you chose (must match the `<TIER>` in the filename). This is what `run-backlog` reads first to gate its quality gates — the BACKLOG.md bullet `[Tier]` added later by `/add-to-backlog` is only a mirror. Do not omit this line.
 
-**Workflow-backed write rule (when STEP 0a flagged a pure scaffold):**
-- Use `backlog/_TEMPLATE_WF.md` instead of the tier template. Fill `**Backed by workflow:** /new-xxx`, `**Workflow args:** ...` (exact format from the STEP 0a table), set `**Custom delta:** none`, and lift the command's / delegated skill's checklist into Acceptance criteria.
-- The **filename tier still reflects the registry exec tier** (`M` for both `/new-feature` & `/new-ui`) so `run-backlog` review-gating is unchanged.
-- A **hybrid** WF task (scaffold + custom logic) uses the normal `_TEMPLATE_M.md` / `_TEMPLATE_L.md` and just adds the `**Backed by workflow:**` + `**Workflow args:**` fields near the title.
-- A `/new-ui` mockup path also writes the resolved `**Mockup lane:** kit-composition|custom` beside those fields; omit it for supplied-image and `clone:` paths.
+For workflow-backed tasks (pure or hybrid), fill `**Backed by workflow:**` and `**Workflow args:**` with the values resolved in STEP 0a/2.
 
-**Required skills rule**:
-- If the draft has `required_skills`, write them directly under the title as `**Required skills:** ...`.
-- If the task is UI-scoped but `required_skills` omits `/create-ui`, fix the draft before writing.
-- If a UI-scoped task creates or edits `.cs` files but `required_skills` omits `/compile-check`, either add `/compile-check` or document why no compile check is needed.
+**Conditional guardrail rule** (tag-based — definitions live in `.claude/backlog-templates/_GUARDRAILS.md`, NOT pasted into the task):
+- Write a single `**Guardrails:**` line listing ONLY the applicable tags (uppercase, bracketed, space-separated), derived from the task-planner's `applicable_guardrails`. Example: `**Guardrails:** [SAVE] [ASYNC] [LOCALIZE]`. Map each `applicable_guardrails` value to its tag (`backend_security` → `[BACKEND-SECURITY]`, `android_build` → `[ANDROID-BUILD]`, `double_submit` → `[DOUBLE-SUBMIT]`, `loading_cooldown` → `[LOADING/COOLDOWN]`, `persist_restart` → `[PERSIST-RESTART]`, `mobile_perf` → `[MOBILE-PERF]`, `csv_config` → `[CSV-CONFIG]`, `cheat` → `[CHEAT]`, etc.).
+- DO NOT paste the full guardrail blocks/verify recipes into the task file — they are duplicated in every reviewer prompt and bloat tokens. The tag is enough; reviewers + qa-verifier look it up in `.claude/backlog-templates/_GUARDRAILS.md`.
+- `**Guardrails skipped:**` should only call out a guardrail a reader might *expect* to apply but you deliberately excluded, with a `not_applicable` reason of ≥10 chars (e.g. `backend_security (no backend write)`). If nothing is surprising, write `none`. Do NOT enumerate every unused tag.
+- If `applicable_guardrails` is missing or a reason is "n/a" / empty / <10 chars → include that tag by default. Safer to over-include.
 
-**Conditional guardrail rule** (tag-based — definitions live in `backlog/_GUARDRAILS.md`, NOT pasted into the task):
-- Write a single `**Guardrails:**` line listing ONLY the applicable tags (uppercase, bracketed, space-separated), derived from `applicable_guardrails`. Example: `**Guardrails:** [SAVE] [ASYNC] [LOCALIZE]`.
-- DO NOT paste the full guardrail blocks/verify recipes into the task file — they are duplicated in every reviewer prompt and bloat tokens. The tag is enough; reviewers look it up in `backlog/_GUARDRAILS.md`.
-- `**Guardrails skipped:**` should only call out a guardrail a reader might *expect* to apply but you deliberately excluded, with a `not_applicable` reason of ≥10 chars. If nothing is surprising, write `none`. Do NOT enumerate every unused tag.
-- When in doubt whether a tag applies, include the tag (cheap — one word) rather than over-explaining its exclusion.
-
-Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
+Write the file to `$BACKLOG_ROOT/planning/<filename-from-STEP-3>.md` (resolve `$BACKLOG_ROOT` with `git rev-parse --git-common-dir` — the path is outside the worktree, so a plain relative `backlog/planning/...` write would silently create a stray directory).
 
 ---
 
@@ -318,19 +317,18 @@ Write the file to `backlog/planning/<filename-from-STEP-3>.md`.
 Run only the checks for the current tier:
 
 ### WF — workflow-backed (pure scaffold)
-- [ ] `**Backed by workflow:**` names a real command in `.claude/commands/`.
-- [ ] `**Workflow args:**` is in the exact format that command expects (`FeatureName: Description`, PascalCase, for `/new-feature`; `FeatureName | groundTruth=<value>` for `/new-ui`).
-- [ ] Optional batch fields (`**Context docs:**` / `**Depends on:**` / `**Requires:**` / `**Needs mockup:**`) are either filled with REAL values or DELETED — never left as template placeholders (a leftover `**Requires:** unity-editor` placeholder makes run-backlog defer a fully headless task).
-- [ ] Acceptance criteria include "command checklist fully satisfied" + any delta criteria.
-- [ ] No contract-affecting `open_questions` remain (feature name, domain bucket, the gameplay rule the scaffold must satisfy).
-- [ ] `**Custom delta:**` is `none` — if it is NOT, this should have been a HYBRID M/L task, not a pure WF task. Re-route.
-- [ ] `/new-ui` task: `**Workflow args:**` carries `groundTruth=` with one of the four legal values (approved `.png` / `PENDING-APPROVAL:<...>.html` / `PENDING-MOCKUP` / `clone:<Prefab>`), resolved per STEP 0a item 2b, and `**Requires:** unity-editor` is present.
-- [ ] `/new-ui` without a supplied image records the chosen fast lane: `clone:<Prefab>`, or task field `**Mockup lane:** kit-composition|custom` + matching drafter `mockupLane`; kit-composition is used only when all blocks map to existing UI-kit tokens.
+- [ ] `**Backed by workflow:**` names a real file in `.claude/commands/`.
+- [ ] `**Workflow args:**` is in the exact format that workflow's arg parser expects (e.g. `Id: Description`, PascalCase + `Pack` for packages, ID in the correct range for skills).
+- [ ] Optional batch fields (`**Context docs:**` / `**Depends on:**` / `**Requires:**`) are either filled with REAL values or DELETED — never left as template placeholders (a leftover `**Requires:** unity-editor` placeholder makes run-backlog defer a fully headless task).
+- [ ] Acceptance criteria include "workflow checklist fully satisfied" + any delta criteria.
+- [ ] No contract-affecting `open_questions` remain (skill ID, IAP product-id, gameplay rule the scaffold must satisfy).
+- [ ] `**Custom delta:**` is `none` — if it is NOT, this should have been a HYBRID M/L task, not a pure WF task. Re-route. **One exception:** a cheat list from STEP 2 item 3b may sit in `**Custom delta:**` and still be a pure WF task — cheats are a dev affordance on the scaffold's own prefab/controller, not cross-system logic.
+- [ ] `/new-feature` / `/new-package` / `/new-ui` task: the **cheat decision** from STEP 2 item 3b is visible — either `[CHEAT]` on `**Guardrails:**` + the cheats named in `**Custom delta:**`, or `**Guardrails skipped:** cheat (<reason ≥10 chars>)`.
+- [ ] `/new-ui` task: `**Workflow args:**` carries `groundTruth=` with one of the four legal values (approved `.png` / `PENDING-APPROVAL:<...>.html` / `PENDING-MOCKUP` / `clone:<Prefab>`), resolved per STEP 2 item 2b.
 - (HYBRID tasks run the M/L checks below **plus** the first two checks here.)
 
 ### XS — minimal
 - [ ] Title describes the specific change (not "improve X").
-- [ ] `**Tier:**` body line present and matches the filename tier.
 - [ ] Description is 1 sentence and not ambiguous.
 - [ ] No guardrails section (XS cannot trigger any guard by definition).
 
@@ -340,9 +338,6 @@ Run only the checks for the current tier:
 - [ ] At least 1 regression criterion names the related feature.
 - [ ] No remaining ambiguity affecting behavior, completion criteria, or verification steps.
 - [ ] Does not expand beyond the scope provided by the user; if expansion is needed, the task must be bumped to M/L or ask the user.
-- [ ] **No duplicate deliverable** — no NEW file/class/CSV that already exists or is owned by another task (else `run-backlog` blocks on a duplicate-type / re-author conflict).
-- [ ] **No phantom reference** — every config/class/accessor the spec says to READ exists or is created by a named upstream task; referenced API method names are real.
-- [ ] **Paths real or conventional** — every path exists or matches the epic's actual folder tree; anything assumed-ahead-of-code is marked `[ASSUMED]` + raised as an `open_question`.
 - [ ] If there is user input, include the [BOUNDARY] guardrail.
 - [ ] If there is a user-facing mutation, include [DOUBLE-SUBMIT] + [LOADING/COOLDOWN].
 
@@ -350,13 +345,14 @@ Run only the checks for the current tier:
 - [ ] All S checks pass.
 - [ ] `open_questions` is empty or only contains low-risk implementation details that do not change the outcome.
 - [ ] `scope_control` has all fields: broad/not broad, affected areas, out_of_scope, test/regression plan, checkpoints, rollback/fallback.
-- [ ] UI-scoped task includes `**Required skills:** /create-ui` and concrete `/create-ui` acceptance criteria.
 - [ ] If `scope_control.is_broad_change = true`, there must be a compelling reason, a migration plan if touching data/schema/config/save, and a specific rollback/fallback.
-- [ ] `applicable_guardrails` list exists and matches the included blocks.
-- [ ] Each excluded guardrail has a `not_applicable` reason of ≥10 chars.
-- [ ] Mobile impact — GC alloc / APK size / draw call / save data / localize / CSV: each axis is evaluated, included, or justified.
+- [ ] A single `**Guardrails:**` tag line exists in the draft (tags only, no pasted block text) and matches the task-planner's `applicable_guardrails`.
+- [ ] `**Guardrails skipped:**` lists only deliberately-excluded tags a reader might expect, each with a reason ≥10 chars (or `none`).
+- [ ] Mobile impact — GC alloc / APK size / draw call / save data / localize / backend write / CSV: each axis is evaluated, included, or justified.
 - [ ] Verify steps cover (1) happy path, (2) edge case, (3) regression check on the related feature.
-- [ ] At least 3 manual verification steps.
+- [ ] At least 3 manual verification steps in the `**Required verification steps**` section.
+- [ ] **Cheat decision made explicitly** — either `[CHEAT]` is on the `**Guardrails:**` line WITH an acceptance criterion naming the concrete cheat buttons, or `**Guardrails skipped:**` carries `cheat (<reason ≥10 chars>)`. Silence is a fail. A verify step containing "wait until tomorrow" / "reach level N" / "after the reset" with no cheat is also a fail — that is exactly the state a cheat exists to reach ([.claude/skills/feature-cheat/SKILL.md](../feature-cheat/SKILL.md)).
+- [ ] **If the task builds a NEW UI screen** (authors a new `Resources/*.prefab` popup/panel): the screen was **split into its own `/new-ui` task** (which carries `groundTruth=` and got a `mockup-drafter` draft at planning time), and the logic task `**Depends on:**` it. Only if the screen is genuinely inseparable does it stay bundled with a `**Mockup:** groundTruth=...` marker (escape hatch). Either way — a task referencing `/new-ui` with no `groundTruth=` token is a hard `promote` blocker.
 
 ### L — full + phases
 - [ ] All M checks pass.
@@ -371,14 +367,12 @@ If any check fails, fix the draft before STEP 6.
 ## STEP 6 — Report
 
 Report to the user, in order:
-1. **Selected tier** + reason (which signal triggered it). If workflow-backed, also state **Backed by workflow** (`/new-xxx`) + the resolved **Workflow args** (including the `groundTruth` state for `/new-ui`), and whether it is **pure** (task-planner skipped — note the token saving) or **hybrid** (task-planner planned the delta only).
-2. Task title, priority, and created file path (in `backlog/planning/`).
-3. Required skills (if any), calling out `/create-ui` for UI-scoped tasks.
-4. UI split decision (if relevant): whether this task owns prefab authoring or a separate follow-up UI task should be created.
-5. **Pointer**: *"This task is in planning. When you want to queue it for `run-backlog` to run, use `/add-to-backlog` (or say 'add task to backlog')."*
-6. **Guardrails skipped** (if any) + reason.
-7. **Assumptions made** (if any) so the user can correct them now.
-8. **Scope-control summary**: broad/not broad, affected areas, out_of_scope, rollback/fallback if any.
-9. Top 3 acceptance criteria so the user can sanity-check the scope.
+1. **Selected tier** + reason (which signal triggered it). If workflow-backed, also state **Backed by workflow** (`/new-xxx`) + the resolved **Workflow args**, and whether it is **pure** (task-planner skipped — note the token saving) or **hybrid** (task-planner planned the delta only).
+2. Task title, priority, and created file path(s) (in `backlog/planning/`). **If a UI screen was split off**, report BOTH files — the `/new-ui` screen task and the logic task — note the `Depends on` link, and the mockup state: **approved** (auto-approve froze the PNG), `PENDING-APPROVAL` (auto-approve skipped — say why: open questions / `[?]` / no Chrome — and point to `/ui-mockup`), or `PENDING-MOCKUP` (drafter failed — say so).
+3. **Pointer**: *"This task is in planning. Use `/add-to-backlog` to queue it."* Only mention `/ui-mockup` when a mockup is still `PENDING-*`.
+4. **Guardrails skipped** (if any) + reason.
+5. **Assumptions made** (if any) so the user can correct them now.
+6. **Scope-control summary**: broad/not broad, affected areas, out_of_scope, rollback/fallback if any.
+7. Top 3 acceptance criteria so the user can sanity-check the scope.
 
 DO NOT commit. DO NOT modify `BACKLOG.md`. DO NOT create anything in `backlog/todo/`.

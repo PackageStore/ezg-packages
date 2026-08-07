@@ -11,7 +11,7 @@ kèm file `.sha256`. End user chỉ giữ bootstrap mỏng + manifest, nên logi
 `DefaultSetup/` mà muốn mọi máy nhận bản mới ở lần build kế tiếp → chạy skill này.
 
 > `DefaultSetup` được phân phối dưới dạng **tarball `.tgz`**, KHÔNG phải `.unitypackage`: nó chứa
-> `.claude/`, `.agents/`, `.mcp.json`, `ProjectSettings/`… (tooling ngoài `Assets/`) — thứ mà
+> `.claude/`, `.mcp.json`, `CLAUDE.md`, `ProjectSettings/`… (tooling ngoài `Assets/`) — thứ mà
 > `.unitypackage` không mang được. Đây là cơ chế publish đúng, xem mục "Publish DefaultSetup lên R2"
 > trong [templates/unity-project/README.md](../../../templates/unity-project/README.md).
 
@@ -29,7 +29,10 @@ cho game project.
    Node đọc thẳng `process.env` nên phải nạp bằng cờ `--env-file=.env` (Node ≥ 20.6).
 
 Lưu ý script sẽ tự động khi đóng gói:
-- **Dereference symlink** (`.agents/` → file thật) để tarball chạy được trên Windows.
+- **Loại hẳn `.agents/`** khỏi tarball. Link view này không được ship: symlink không extract ổn định trên
+  Windows, còn dereference (cách script làm trước đây) thì đóng gói nguyên một **bản copy** của
+  `.claude/`, và bản copy đó lệch ngay khi có ai sửa một skill. Project sinh ra tự tạo link thật bằng
+  `.claude/scripts/bootstrap.sh` / `bootstrap.ps1` — builder gọi sẵn ở cuối build.
 - **Loại** `.DS_Store` và `settings.local.json` (rác/cá nhân, không phân phối).
 - Giữ macOS resource fork (`._*`) ra ngoài tarball.
 

@@ -3,4 +3,4 @@ param(
     [string]$message
 )
 git commit -m "$message"
-git push --no-verify
+git push

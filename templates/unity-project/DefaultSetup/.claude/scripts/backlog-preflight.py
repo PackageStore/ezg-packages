@@ -6,13 +6,19 @@ JSON shape. Catches hard project-rule violations before spending LLM reviewer
 tokens. The orchestrator auto-fixes only `confidence=definite` findings and routes
 `contextual` findings to the reviewers.
 
+Why a Python twin: the .ps1 needs PowerShell, which is not present on a stock
+macOS dev box. This twin lets STEP 6b/7d run natively on macOS/Linux with
+identical verdicts. Keep the two files in lockstep when editing rules.
+
 Matching parity: PowerShell `-match` is case-insensitive by default, so every
 regex here uses re.IGNORECASE to produce the same verdicts as the .ps1 on the
-same diff.
+same diff. Exception: CREDENTIAL_ID_PATTERN scopes itself back to case-
+sensitive with an inline (?-i:...) group — the same group syntax works in .NET
+regex, so the two files stay verdict-identical.
 
 Usage:
-    python3 .agents/scripts/backlog-preflight.py
-    python3 .agents/scripts/backlog-preflight.py -Pretty
+    python3 .claude/scripts/backlog-preflight.py
+    python3 .claude/scripts/backlog-preflight.py -Pretty
 """
 
 import fnmatch
@@ -22,6 +28,12 @@ import re
 import subprocess
 import sys
 from collections import deque
+
+# Project-specific review surfaces (which filenames are "sensitive", whether a
+# direct client write to the datastore is banned) come from the profile so this
+# file stays byte-identical across every project that ships the agent system.
+# Running as a script puts this directory on sys.path, so the plain import works.
+from project_profile import profile
 from datetime import datetime
 
 IC = re.IGNORECASE
@@ -41,6 +53,15 @@ def invoke_git(args):
     return proc.stdout.splitlines()
 
 
+def invoke_git_soft(args):
+    """git that tolerates failure (path absent, or no HEAD version yet) — returns None, never raises."""
+    proc = subprocess.run(
+        ["git"] + args, cwd=REPO_ROOT,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    return proc.stdout.splitlines() if proc.returncode == 0 else None
+
+
 def is_code_line(line):
     t = line.strip()
     if len(t) == 0:
@@ -52,6 +73,113 @@ def is_code_line(line):
     if t.startswith("/*"):
         return False
     return True
+
+
+LOCALIZE_KEY_RE = re.compile(r"^(#[a-z0-9_]+),", IC)
+
+
+def localize_keys(lines):
+    keys = set()
+    for line in lines:
+        m = LOCALIZE_KEY_RE.match(line)
+        if m:
+            keys.add(m.group(1).lower())
+    return keys
+
+
+def test_localize_integrity(changed_files, findings):
+    """Two deterministic guards on the localize table — both are regressions we already shipped.
+
+    1. localize-key-loss. `CsvImportManager.BuildLocalizationCsvContent` rewrites
+       Localization.csv wholesale from the Google Sheet, and the Sheet does not contain keys
+       that were only ever added to the local file. Re-importing therefore deletes them with
+       no error: it cost 144 already-shipped keys in backlog/done/116, and the same trap is
+       recorded in backlog/done/104. Any staged removal of a key present in HEAD is a
+       regression, so this is `definite` — it blocks before the LLM reviewers ever run.
+    2. localize-escape-collision. The importer escapes ',' as '%%' and LocalizationCollection
+       unescapes with a left-to-right Replace("%%", ","), so a literal '%' immediately before
+       a comma becomes '%%%' and decodes as ',%' — "40,%" instead of "40%,". Only ADDED lines
+       are inspected, so the pre-existing rows carrying this artifact do not spam every diff
+       that happens to touch the file.
+    """
+    for f in changed_files:
+        if not f.lower().endswith("localization.csv"):
+            continue
+
+        staged = invoke_git_soft(["show", ":{}".format(f)])
+        if staged is None:
+            continue
+
+        head = invoke_git_soft(["show", "HEAD:{}".format(f)])
+        if head is not None:
+            lost = sorted(localize_keys(head) - localize_keys(staged))
+            if lost:
+                shown = ", ".join(lost[:8]) + (", ..." if len(lost) > 8 else "")
+                add_finding(
+                    findings, "localize-key-loss", "critical", "definite", f, None,
+                    "{} key(s) in HEAD are missing from the staged file: {}".format(len(lost), shown),
+                    "Do NOT overwrite Localization.csv wholesale — re-importing it from the Google "
+                    "Sheet drops keys that exist only locally. Merge instead: keep the freshly "
+                    "downloaded rows and re-append the local-only ones from "
+                    "`git show HEAD:<file>`. Add every NEW key through /add-localize so it lives "
+                    "in the Sheet and survives the next import.")
+
+        added = invoke_git_soft(["diff", "--staged", "-U0", "--", f]) or []
+        for line in added:
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            content = line[1:]
+            if LOCALIZE_KEY_RE.match(content) and "%%%" in content:
+                add_finding(
+                    findings, "localize-escape-collision", "critical", "definite", f, None,
+                    content[:160],
+                    "'%%%' decodes as ',%' not '%,'. The importer escapes ',' as '%%' and the "
+                    "reader replaces left-to-right, so a literal '%' directly before a comma "
+                    "collides. Reword so no '%' is immediately followed by a comma "
+                    "(e.g. 'shrinks 40% in area,' instead of 'shrinks 40%,').")
+
+
+UI_KIT_JSON = ".claude/ui-kit/ui-kit.json"
+
+
+def test_ui_kit_staleness(changed_files, findings):
+    """A staged screen-template edit must carry the regenerated UI kit with it.
+
+    The kit (`ui-kit.json` + `.css` + gallery) is extracted from the template
+    prefabs and read by mockup-drafter, the ui-spec validator and /new-ui. It has
+    no watcher, and drifting costs nothing at commit time: the kit simply keeps
+    describing the old prefabs while the whole UI test suite stands down with
+    "kit not generated yet". That is exactly how this repo shipped a kit
+    describing 46 templates against a folder of 48 for weeks. So the diff itself
+    is the checkpoint.
+
+    Only fires when the kit is TRACKED: a project may legitimately gitignore the
+    generated half and rebuild it at bootstrap, and nagging there would be noise
+    on every prefab commit forever.
+    """
+    templates_root = profile().ui_templates_root.replace("\\", "/").rstrip("/").lower()
+    if not templates_root:
+        return
+    touched = [f for f in changed_files
+               if f.replace("\\", "/").lower().startswith(templates_root + "/")
+               and f.lower().endswith((".prefab", ".prefab.meta"))]
+    if not touched:
+        return
+    if any(f.replace("\\", "/").lower() == UI_KIT_JSON.lower() for f in changed_files):
+        return
+    if invoke_git_soft(["ls-files", "--error-unmatch", UI_KIT_JSON]) is None:
+        return
+
+    shown = ", ".join(os.path.basename(f) for f in touched[:6])
+    add_finding(
+        findings, "ui-kit-stale", "major", "definite", touched[0], None,
+        "{} screen template file(s) staged without the regenerated kit: {}{}".format(
+            len(touched), shown, ", ..." if len(touched) > 6 else ""),
+        "Run `python3 .claude/scripts/ui-kit-sync.py` and stage .claude/ui-kit/ in the "
+        "same commit. The kit is generated FROM these prefabs, so leaving it behind "
+        "makes every later mockup describe UI that no longer exists — silently, "
+        "because the UI tests skip instead of failing when the kit is out of date. "
+        "See .claude/skills/ui-kit/SKILL.md.")
 
 
 def add_finding(findings, rule, severity, confidence, file, line, evidence, suggestion):
@@ -71,6 +199,7 @@ def add_finding(findings, rule, severity, confidence, file, line, evidence, sugg
 def test_file_usings(file, added_usings, needed_usings, findings):
     # The missing-using rule only applies to C# source. Asset YAML (.prefab/.asset/.unity/.meta)
     # serialize type names like "UnityEngine.UI.Button" that wrongly trip the namespace regex.
+    # (The diff scan below also only records needed usings for *.cs files, so this is belt-and-braces.)
     if not file.lower().endswith(".cs"):
         return
     for ns, occ in needed_usings.items():
@@ -90,16 +219,29 @@ def test_file_usings(file, added_usings, needed_usings, findings):
                     "Add 'using {};' at the top of the file.".format(ns))
 
 
-# Value-bearing / trust-boundary surfaces only. Plain progress-save files
-# (*DataPlayer*, *SaveData*, *PlayerPrefs*, *Persistence*) were removed: tampering
-# of non-value progress data is low-impact and is covered by the deterministic save
-# rules below + qa-verifier, so it should NOT auto-spawn the security-auditor.
-# Genuine secrets still flag via the credential content regexes during the diff scan.
-SENSITIVE_FILE_PATTERNS = [
-    "*Purchase*", "*IAP*", "*Receipt*", "*Payment*",
-    "*Auth*", "*Token*", "*Session*",
-    "*.env*", "*.config", "*Secrets*", "*Credential*",
-]
+# Sensitive surfaces that auto-spawn the security-auditor, from
+# `.claude/project-profile.json` (`sensitiveGlobs`). This project's defaults are
+# broad on purpose — a real backend (Supabase read + Cloudflare Worker write), a
+# leaderboard and IAP — and they live in project_profile.DEFAULTS so a tree with
+# no profile behaves exactly as before. A project with no backend trims the list
+# there rather than inheriting false positives.
+# Keep backlog-preflight.ps1 reading the same profile key.
+SENSITIVE_FILE_PATTERNS = profile().sensitive_globs
+
+# Resolved once: the scan loop runs these per changed line.
+_BACKEND_WRITE_BANNED = profile().backend_direct_write_banned
+_BACKEND_WRITE_PATTERN = profile().backend_direct_write_pattern
+_BACKEND_WRITE_ADVICE = profile().backend_direct_write_advice
+
+# Credential-LIKE identifier (e.g. SUPABASE_SERVICE_KEY). The scoped (?-i:...)
+# keeps it UPPER_SNAKE-only even though search() compiles everything with
+# IGNORECASE — without it, ordinary lowercase identifiers/JSON keys
+# (player_token, session_key, "access_token") false-positive as critical
+# findings. Confidence is `contextual` (not `definite`): legit SCREAMING_CONST
+# names like LEADERBOARD_CACHE_KEY match the same shape, so this routes to the
+# security-auditor for judgment instead of auto-fix/block. The actual-secret
+# rule (sk_/Bearer/eyJ values, below in main) stays definite.
+CREDENTIAL_ID_PATTERN = r"(?-i:[A-Z0-9_]{3,}_(KEY|SECRET|TOKEN|PASSWORD)\b)"
 
 NS_REQUIREMENTS = [
     (r"\.(Where|Select|ToList|FirstOrDefault|LastOrDefault|Any|All|OrderBy|OrderByDescending|ThenBy|ThenByDescending|GroupBy|Distinct|Skip|Take|Sum|Count|Max|Min|Average|SelectMany|Aggregate)\s*\(", "System.Linq"),
@@ -109,7 +251,13 @@ NS_REQUIREMENTS = [
     (r"\b(TextMeshProUGUI|TMP_Text|TMP_InputField|TextMeshPro)\b", "TMPro"),
     (r"\bAction\s*[<(]|\bFunc\s*<|\[Serializable\]", "System"),
     (r"\bList\s*<|\bDictionary\s*<|\bHashSet\s*<|\bQueue\s*<|\bStack\s*<", "System.Collections.Generic"),
-    (r"\b(Button|Slider|Toggle|Dropdown|ScrollRect|RawImage|Scrollbar)\b", "UnityEngine.UI"),
+    # Negative lookbehind on "[": Odin's attribute `[Button("...")]` is
+    # Sirenix.OdinInspector.Button, NOT UnityEngine.UI.Button. Without it every cheat file the
+    # [CHEAT] guardrail asks for (Odin [Button] on the controller) is blocked by a false critical.
+    # Lookbehind on "." for the same reason: `EditorGUILayout.Toggle(...)` / `GUILayout.Button(...)`
+    # are IMGUI calls, not UI components, so every EditorWindow drawing one was blocked. A real
+    # component reference is never preceded by a dot (`Button b`, `GetComponent<Button>()`).
+    (r"(?<![\[.])\b(Button|Slider|Toggle|Dropdown|ScrollRect|RawImage|Scrollbar)\b", "UnityEngine.UI"),
 ]
 
 
@@ -136,11 +284,14 @@ def main():
     sensitive_reasons = []
 
     for f in changed_files:
-        low = f.lower()
         for pattern in SENSITIVE_FILE_PATTERNS:
-            if fnmatch.fnmatch(low, pattern.lower()):
+            # PowerShell -like is case-insensitive; fnmatch is case-sensitive, so lower both.
+            if fnmatch.fnmatch(f.lower(), pattern.lower()):
                 sensitive_reasons.append({"type": "file-pattern", "file": f, "pattern": pattern})
                 break
+
+    test_localize_integrity(changed_files, findings)
+    test_ui_kit_staleness(changed_files, findings)
 
     current_file = None
     new_line = None
@@ -218,11 +369,7 @@ def main():
 
                 if search(r"\bPlayerPrefs\b", trimmed):
                     add_finding(findings, "data-persistence", "critical", "definite", current_file, line_number, trimmed,
-                                "Use PlayerDataManager.[Module] instead of PlayerPrefs/direct local persistence.")
-
-                if search(r"\bDataManager\s*\.\s*\w+\s*=", trimmed):
-                    add_finding(findings, "data-persistence", "critical", "definite", current_file, line_number, trimmed,
-                                "DataManager is read-only config. Do not assign values to DataManager properties at runtime.")
+                                "Use DataPlayer through PlayerDataManager instead of PlayerPrefs/direct local persistence.")
 
                 if search(r"\bConsole\.WriteLine\s*\(", trimmed):
                     add_finding(findings, "logging", "critical", "definite", current_file, line_number, trimmed,
@@ -250,34 +397,41 @@ def main():
                     add_finding(findings, "data-persistence", "critical", "contextual", current_file, line_number, trimmed,
                                 "Never call Save() from Update/FixedUpdate/LateUpdate or per-frame loops.")
 
-                if search(r"[A-Z0-9_]{3,}_(KEY|SECRET|TOKEN|PASSWORD)\b", trimmed):
-                    add_finding(findings, "credential", "critical", "definite", current_file, line_number, trimmed,
-                                "Do not add hardcoded credential-like identifiers or secrets to client code.")
+                # Direct client write to the datastore. Both the pattern and
+                # whether it is banned at all come from the profile: a project
+                # with no backend sets backend.kind to "none" and this rule
+                # stops firing instead of flagging code that cannot exist.
+                if _BACKEND_WRITE_BANNED and search(_BACKEND_WRITE_PATTERN, trimmed):
+                    add_finding(findings, "backend-security", "critical", "definite", current_file, line_number, trimmed,
+                                _BACKEND_WRITE_ADVICE)
+                    sensitive_reasons.append({"type": "direct-backend-write", "file": current_file, "line": line_number})
+
+                if search(CREDENTIAL_ID_PATTERN, trimmed):
+                    add_finding(findings, "credential", "critical", "contextual", current_file, line_number, trimmed,
+                                "Credential-like UPPER_SNAKE identifier. If it carries a real key/secret value, remove it from client code; if it is only a constant name, justify it to the security reviewer.")
                     sensitive_reasons.append({"type": "credential-pattern", "file": current_file, "line": line_number})
 
-                if search(r"(sk_[A-Za-z0-9_]+|Bearer\s+[A-Za-z0-9._-]+|eyJ[A-Za-z0-9._-]+)", trimmed):
+                # sk_/eyJ are word-bounded + case-scoped: unanchored `sk_` matched
+                # INSIDE ordinary identifiers (task_still, TASK_BASE under
+                # IGNORECASE) and flagged them critical-definite. Real Stripe keys
+                # are lowercase `sk_...`; a JWT header is literally `eyJ` (base64
+                # of '{"'), so exact case loses nothing.
+                if search(r"((?-i:\bsk_[A-Za-z0-9_]+)|Bearer\s+[A-Za-z0-9._-]+|(?-i:\beyJ[A-Za-z0-9._-]+))", trimmed):
                     add_finding(findings, "credential", "critical", "definite", current_file, line_number, trimmed,
                                 "Potential secret/JWT/Bearer token in staged diff. Remove from client/repo.")
                     sensitive_reasons.append({"type": "credential-pattern", "file": current_file, "line": line_number})
 
-                # Value-bearing currency/resource mutation — deterministic backstop so a
-                # currency write inside a save-named file (e.g. PlayerDungeonData.cs) still
-                # routes to the security-auditor even though save-file globs were removed.
-                # major/contextual: flags sensitivity, never blocks (has_blocking_definite stays false).
-                if (search(r"\b(AddCurrency|SetCurrency|AddResource|GrantCurrency|DeductCurrency|(Spend|Grant|Earn|Deduct|Consume)(Gold|Gem|Currency|Resource|Money|Coin|Cash))\b", trimmed)
-                        or search(r"\bCurrencyService\.(Spend|Grant|Earn|Add|Set|Deduct)", trimmed)):
-                    add_finding(findings, "value-write", "major", "contextual", current_file, line_number, trimmed,
-                                "Grants/spends a value-bearing currency or resource — verify amount/source is non-exploitable and (if applicable) server-validated.")
-                    sensitive_reasons.append({"type": "value-write", "file": current_file, "line": line_number})
-
+                # Using directive tracking (for missing-using check at file boundary)
                 mu = re.match(r"^using\s+([\w\.]+(?:\.[\w]+)*)\s*;", trimmed, IC)
                 if mu:
                     file_added_usings.add(mu.group(1))
 
-                for pattern, namespace in NS_REQUIREMENTS:
-                    if search(pattern, trimmed):
-                        if namespace not in file_needed_usings:
-                            file_needed_usings[namespace] = {"line": line_number, "evidence": trimmed}
+                # Namespace requirement detection (C# source files only — skip prefabs, assets, etc.)
+                if current_file is not None and current_file.lower().endswith(".cs"):
+                    for pattern, namespace in NS_REQUIREMENTS:
+                        if search(pattern, trimmed):
+                            if namespace not in file_needed_usings:
+                                file_needed_usings[namespace] = {"line": line_number, "evidence": trimmed}
 
             hunk_buffer.append(code)
             trim_buffer()
@@ -294,6 +448,7 @@ def main():
         if line.startswith("-") and not line.startswith("---"):
             continue
 
+    # Final file check for the last file in the diff
     if current_file is not None:
         test_file_usings(current_file, file_added_usings, file_needed_usings, findings)
 

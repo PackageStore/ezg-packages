@@ -1,7 +1,13 @@
 # Gemini CLI wrapper for the shared autonomous backlog loop.
 #
-# Default behavior mirrors the Claude wrapper by running headless with --yolo.
-# Use -NoSkipPermissions to omit --yolo.
+# Defaults: gemini-3.1-pro-preview + thinking-by-tier (XS/S/M/L budgets picked from
+# the BACKLOG.md task tier, exported as GEMINI_THINKING_BUDGET). Runs headless with
+# --yolo; use -NoSkipPermissions to omit --yolo.
+#
+# Usage:
+#   powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop-gemini.ps1
+#   ... -Model gemini-3.1-pro-preview -MaxIterations 5
+#   ... -NoAutoThinkingByTier -ThinkingTokens 10000
 
 [CmdletBinding()]
 param(
@@ -10,6 +16,12 @@ param(
     [AllowEmptyString()]
     [string]$Model = "gemini-3.1-pro-preview",
     [switch]$NoSkipPermissions,
+    # Where the agent works: Current = this checkout (keeps both Unity gates,
+    # dev must not edit concurrently); Worktree = sibling checkout on
+    # agent/dev-<base> (dev undisturbed, but NO compile check and NO runtime
+    # smoke - merge and run /compile-check afterwards).
+    [ValidateSet("Current", "Worktree")]
+    [string]$Mode = "Current",
     # Gemini thinking budget (tokens), exported as GEMINI_THINKING_BUDGET.
     # Pass 0 to disable thinking.
     [int]$ThinkingTokens = 10000,
@@ -39,6 +51,8 @@ if (-not $NoAutoThinkingByTier) {
 if ($NoSkipPermissions) {
     $coreArgs.NoSkipPermissions = $true
 }
+
+$coreArgs.Mode = $Mode
 
 & "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
 exit $LASTEXITCODE

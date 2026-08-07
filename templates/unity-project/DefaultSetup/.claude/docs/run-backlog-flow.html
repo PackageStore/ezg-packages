@@ -1,0 +1,836 @@
+<title>Backlog Pipeline — từ ý tưởng đến push</title>
+<style>
+  :root {
+    --bg: #F1EFEA;
+    --surface: #FBFAF6;
+    --surface-2: #E9E6DE;
+    --ink: #201D18;
+    --ink-soft: #57524A;
+    --ink-faint: #837C71;
+    --line: #DAD6CC;
+    --line-strong: #C6C1B4;
+    --ember: #DB4E22;
+    --ember-soft: #F6E3D8;
+    --teal: #0C8073;
+    --teal-soft: #D6ECE7;
+    --violet: #6247D6;
+    --violet-soft: #E7E1FB;
+    --alert: #C23B3B;
+    --alert-soft: #F7DEDC;
+    --node: #2A2621;
+    --node-ink: #F3EFE7;
+    --shadow: 0 1px 2px rgba(33,30,26,.05), 0 8px 24px -14px rgba(33,30,26,.30);
+    --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+    --maxw: 1160px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14120F; --surface: #1D1A16; --surface-2: #262119;
+      --ink: #F1EDE5; --ink-soft: #ABA394; --ink-faint: #7E7768;
+      --line: #322D26; --line-strong: #423A31;
+      --ember: #FF7A4D; --ember-soft: #35211a;
+      --teal: #2FC7B4; --teal-soft: #10322e;
+      --violet: #9C86FF; --violet-soft: #221d3a;
+      --alert: #FF6B6B; --alert-soft: #3a1616;
+      --node: #0E0C0A; --node-ink: #F3EFE7;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14120F; --surface: #1D1A16; --surface-2: #262119;
+    --ink: #F1EDE5; --ink-soft: #ABA394; --ink-faint: #7E7768;
+    --line: #322D26; --line-strong: #423A31;
+    --ember: #FF7A4D; --ember-soft: #35211a;
+    --teal: #2FC7B4; --teal-soft: #10322e;
+    --violet: #9C86FF; --violet-soft: #221d3a;
+    --alert: #FF6B6B; --alert-soft: #3a1616;
+    --node: #0E0C0A; --node-ink: #F3EFE7;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -16px rgba(0,0,0,.7);
+  }
+  :root[data-theme="light"] {
+    --bg: #F1EFEA; --surface: #FBFAF6; --surface-2: #E9E6DE;
+    --ink: #201D18; --ink-soft: #57524A; --ink-faint: #837C71;
+    --line: #DAD6CC; --line-strong: #C6C1B4;
+    --ember: #DB4E22; --ember-soft: #F6E3D8;
+    --teal: #0C8073; --teal-soft: #D6ECE7;
+    --violet: #6247D6; --violet-soft: #E7E1FB;
+    --alert: #C23B3B; --alert-soft: #F7DEDC;
+    --node: #2A2621; --node-ink: #F3EFE7;
+    --shadow: 0 1px 2px rgba(33,30,26,.05), 0 8px 24px -14px rgba(33,30,26,.30);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans); line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px 60px; }
+  code {
+    font-family: var(--font-mono); font-size: .84em; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 6px; padding: .05em .4em; white-space: nowrap;
+  }
+  h1,h2,h3,p,ul,ol { margin: 0; }
+
+  .toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 50;
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px;
+    border-radius: 100px; border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink-soft); font-family: var(--font-mono); font-size: .76rem;
+    cursor: pointer; box-shadow: var(--shadow);
+  }
+
+  /* ---------- header ---------- */
+  header { padding: 40px 0 18px; }
+  .kicker { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+  header h1 { font-size: clamp(1.7rem, 3.8vw, 2.5rem); letter-spacing: -.025em; font-weight: 720; margin-top: 8px; }
+  header h1 .em { color: var(--ember); }
+  .sub { color: var(--ink-soft); margin-top: 8px; max-width: 78ch; font-size: .95rem; }
+  .sub b { color: var(--ink); }
+
+  /* ---------- tabs ---------- */
+  .tabs {
+    display: flex; gap: 6px; margin: 22px 0 0; border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .tab {
+    appearance: none; background: none; border: none; cursor: pointer;
+    font-family: var(--font-sans); font-size: .9rem; font-weight: 620; color: var(--ink-faint);
+    padding: 10px 16px 12px; border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--ink-soft); }
+  .tab.active { color: var(--ember); border-bottom-color: var(--ember); }
+  .panel { display: none; padding-top: 26px; }
+  .panel.active { display: block; }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 18px;
+    padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); font-size: .78rem; color: var(--ink-soft);
+  }
+  .legend .li { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 11px; height: 11px; border-radius: 4px; flex: none; }
+
+  .scrollx { overflow-x: auto; padding-bottom: 8px; }
+  .scrollx svg { min-width: 1080px; width: 100%; height: auto; display: block; }
+
+  /* ---------- svg diagram ---------- */
+  .sv-lane   { font: 650 12px var(--font-mono); fill: var(--ink-faint); letter-spacing: .08em; }
+  .sv-node   { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.3; }
+  .sv-cmd    { stroke: var(--ember); stroke-width: 1.6; }
+  .sv-sys    { stroke: var(--violet); stroke-width: 1.4; }
+  .sv-dir    { fill: var(--surface-2); }
+  .sv-gate   { fill: var(--node); stroke: var(--node); }
+  .sv-title  { font: 640 13.5px var(--font-sans); fill: var(--ink); }
+  .sv-tcmd   { font: 650 13.5px var(--font-mono); fill: var(--ember); }
+  .sv-tsys   { font: 650 13px var(--font-mono); fill: var(--violet); }
+  .sv-tmono  { font: 640 12.5px var(--font-mono); fill: var(--ink); }
+  .sv-sub    { font: 400 11.5px var(--font-sans); fill: var(--ink-soft); }
+  .sv-gtitle { font: 650 13.5px var(--font-sans); fill: var(--node-ink); }
+  .sv-gsub   { font: 400 11.5px var(--font-sans); fill: var(--node-ink); opacity: .72; }
+  .sv-fix    { font: 600 10.5px var(--font-mono); fill: var(--node-ink); opacity: .65; }
+  .sv-flow   { stroke: var(--line-strong); stroke-width: 2; fill: none; }
+  .sv-feed   { stroke: var(--teal); stroke-width: 2; fill: none; }
+  .sv-branch { stroke: var(--violet); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  .sv-loop   { stroke: var(--ember); stroke-width: 1.8; fill: none; stroke-dasharray: 6 4; }
+  .sv-exit   { stroke: var(--alert); stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; opacity: .75; }
+  .sv-exit-s { stroke: var(--teal); stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; opacity: .75; }
+  .sv-chip   { fill: var(--alert-soft); stroke: var(--alert); stroke-opacity: .35; }
+  .sv-ctext  { font: 650 11px var(--font-mono); fill: var(--alert); }
+  .sv-chip-s { fill: var(--teal-soft); stroke: var(--teal); stroke-opacity: .35; }
+  .sv-ctext-s{ font: 650 11px var(--font-mono); fill: var(--teal); }
+  .sv-ann    { font: 400 10.5px var(--font-sans); fill: var(--ink-faint); }
+  .sv-lbl    { font: 600 11px var(--font-mono); fill: var(--teal); }
+  .sv-lbl-e  { font: 600 11px var(--font-mono); fill: var(--ember); }
+  .sv-lbl-v  { font: 600 10.5px var(--font-mono); fill: var(--violet); }
+  .sv-cap    { font: 400 11px var(--font-sans); fill: var(--ink-faint); }
+  .sv-wrap   { fill: color-mix(in srgb, var(--surface-2) 30%, transparent); stroke: var(--line-strong); stroke-width: 1.4; stroke-dasharray: 7 5; }
+  .sv-dec    { fill: var(--surface); stroke: var(--ink-faint); stroke-width: 1.3; stroke-dasharray: 5 4; }
+
+  .zoomh { display: flex; align-items: center; gap: 10px; margin: 34px 0 12px; font-weight: 680; font-size: 1.02rem; }
+  .zoomh .zn {
+    font-family: var(--font-mono); font-size: .68rem; color: var(--ember);
+    background: var(--ember-soft); border: 1px solid color-mix(in srgb, var(--ember) 40%, transparent);
+    border-radius: 6px; padding: 2px 8px; flex: none;
+  }
+  .zoomh code { font-size: .8em; }
+
+  .diagram-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 14px; }
+  .dn {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 15px;
+    background: var(--surface); font-size: .84rem; color: var(--ink-soft);
+  }
+  .dn b { color: var(--ink); }
+
+  /* ---------- content blocks ---------- */
+  h2 { font-size: 1.35rem; letter-spacing: -.015em; font-weight: 700; margin-bottom: 6px; }
+  .lead { color: var(--ink-soft); font-size: .93rem; max-width: 80ch; margin-bottom: 20px; }
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 15px 18px; box-shadow: var(--shadow);
+  }
+  .card h3 { font-size: 1rem; font-weight: 680; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card h3 .n {
+    font-family: var(--font-mono); font-size: .7rem; color: var(--ink-soft);
+    background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 1px 8px; flex: none;
+  }
+  .card p, .card li { font-size: .86rem; color: var(--ink-soft); }
+  .card p { margin-top: 6px; }
+  .card ul { padding-left: 18px; margin-top: 6px; }
+  .card li { margin: 4px 0; }
+  .card b { color: var(--ink); font-weight: 620; }
+  .chip {
+    font-family: var(--font-mono); font-size: .68rem; padding: 2px 8px; border-radius: 7px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .chip.script { background: var(--teal-soft); color: var(--teal); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
+  .chip.agent { background: var(--violet-soft); color: var(--violet); border-color: color-mix(in srgb, var(--violet) 40%, transparent); }
+  .chip.plain { background: var(--surface-2); color: var(--ink-soft); border-color: var(--line-strong); }
+
+  .tblwrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 620px; }
+  thead th {
+    text-align: left; font-family: var(--font-mono); font-size: .7rem; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-faint); background: var(--surface-2);
+    padding: 10px 14px; border-bottom: 1px solid var(--line);
+  }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.tok { font-family: var(--font-mono); font-weight: 650; color: var(--alert); white-space: nowrap; }
+  td.tok.soft { color: var(--teal); }
+  .yn { font-family: var(--font-mono); font-size: .8rem; }
+  .yn.y { color: var(--teal); }
+  .yn.n { color: var(--ink-faint); }
+  .yn.cond { color: var(--violet); }
+
+  pre.cmd {
+    margin: 0 0 20px; padding: 13px 16px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: .78rem; color: var(--ink);
+    overflow-x: auto; line-height: 1.7;
+  }
+  pre.cmd .c { color: var(--ink-faint); }
+
+  footer { margin-top: 40px; font-size: .8rem; color: var(--ink-faint); }
+  footer .mono { font-family: var(--font-mono); color: var(--ink-soft); }
+</style>
+
+<button class="toggle" id="themeToggle"><span id="toggleIcon">◑</span><span id="toggleText">Theme</span></button>
+
+<div class="wrap">
+
+  <header>
+    <div class="kicker">BlazeSurvivor · Autonomous Backlog</div>
+    <h1>Backlog Pipeline — <span class="em">từ ý tưởng đến push</span></h1>
+    <p class="sub">
+      Hệ thống có đúng <b>2 giai đoạn</b>: dev <b>lập kế hoạch</b> bằng 2 lệnh tay, rồi <b>loop tự thực thi</b>
+      từng task — code, qua 4 cổng chất lượng, commit, push — không cần người ngồi canh.
+    </p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="diagram">◉ Sơ đồ luồng</button>
+    <button class="tab" data-tab="planning">1 · Lập kế hoạch</button>
+    <button class="tab" data-tab="run">2 · Thực thi</button>
+    <button class="tab" data-tab="ref">Tra cứu</button>
+  </nav>
+
+  <!-- ══════════════════════ TAB: DIAGRAM ══════════════════════ -->
+  <section class="panel active" id="tab-diagram">
+
+    <div class="legend">
+      <span class="li"><span class="sw" style="background:var(--ember)"></span>lệnh dev gọi tay</span>
+      <span class="li"><span class="sw" style="background:var(--surface-2); border:1px solid var(--line-strong)"></span>thư mục backlog</span>
+      <span class="li"><span class="sw" style="background:var(--node); border:1px solid var(--line-strong); transform:rotate(45deg); border-radius:3px"></span>cổng chất lượng (tự sửa ×2 rồi mới chặn)</span>
+      <span class="li"><span class="sw" style="background:var(--alert)"></span>hard-stop — dừng loop</span>
+      <span class="li"><span class="sw" style="background:var(--teal)"></span>script tất định / không dừng loop</span>
+    </div>
+
+    <div class="scrollx">
+    <svg viewBox="0 0 1200 905" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sơ đồ luồng backlog: lập kế hoạch rồi thực thi tự động">
+      <defs>
+        <marker id="mA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--line-strong)"/>
+        </marker>
+        <marker id="mT" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--teal)"/>
+        </marker>
+        <marker id="mV" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--violet)"/>
+        </marker>
+        <marker id="mR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--alert)"/>
+        </marker>
+      </defs>
+
+      <!-- ═══ lane headers ═══ -->
+      <text class="sv-lane" x="40" y="30">GIAI ĐOẠN 1 · LẬP KẾ HOẠCH — DEV GỌI TAY</text>
+      <text class="sv-lane" x="480" y="30" style="fill:var(--ember)">GIAI ĐOẠN 2 · THỰC THI — TỰ ĐỘNG 100%</text>
+
+      <!-- ═══════════ LANE 1: PLANNING ═══════════ -->
+      <!-- A1: idea -->
+      <rect class="sv-node" x="40" y="58" width="300" height="44" rx="10"/>
+      <text class="sv-title" x="190" y="85" text-anchor="middle">Ý tưởng — 1 task lẻ, hoặc cả GDD</text>
+      <path class="sv-flow" d="M190 102 V126" marker-end="url(#mA)"/>
+
+      <!-- A2: /planning-task -->
+      <rect class="sv-node sv-cmd" x="40" y="130" width="300" height="76" rx="10"/>
+      <text class="sv-tcmd" x="56" y="153">/planning-task</text>
+      <text class="sv-sub" x="56" y="172">triage tier XS · S · M · L → viết spec đầy đủ</text>
+      <text class="sv-sub" x="56" y="189">scaffold thuần /new-* → thin-spec workflow-backed</text>
+
+      <!-- bypass: single task -->
+      <path class="sv-flow" d="M90 206 V362" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="80" y="290" text-anchor="end">task đơn</text>
+
+      <!-- branch to planning-system -->
+      <path class="sv-branch" d="M265 206 V242" marker-end="url(#mV)"/>
+      <text class="sv-lbl-v" x="276" y="228">cả GDD hệ thống</text>
+
+      <!-- A3: /planning-system -->
+      <rect class="sv-node sv-sys" x="120" y="246" width="280" height="78" rx="10"/>
+      <text class="sv-tsys" x="136" y="269">/planning-system</text>
+      <text class="sv-sub" x="136" y="288">GDD → TechSpec (audit 4 lens, có ABORT)</text>
+      <text class="sv-sub" x="136" y="305">→ sinh N task theo thứ tự dependency</text>
+      <path class="sv-flow" d="M200 324 V362" marker-end="url(#mA)"/>
+
+      <!-- A4: planning/ -->
+      <rect class="sv-node sv-dir" x="40" y="366" width="300" height="56" rx="10"/>
+      <text class="sv-tmono" x="56" y="389">backlog/planning/*.md</text>
+      <text class="sv-sub" x="56" y="407">spec chờ duyệt — chưa vào hàng đợi</text>
+      <path class="sv-flow" d="M190 422 V446" marker-end="url(#mA)"/>
+
+      <!-- A5: /add-to-backlog -->
+      <rect class="sv-node sv-cmd" x="40" y="450" width="300" height="64" rx="10"/>
+      <text class="sv-tcmd" x="56" y="473">/add-to-backlog</text>
+      <text class="sv-sub" x="56" y="492">dev duyệt task → promote: gán số NNN, xếp FIFO</text>
+      <path class="sv-flow" d="M190 514 V538" marker-end="url(#mA)"/>
+
+      <!-- A6: todo/ -->
+      <rect class="sv-node sv-dir" x="40" y="542" width="300" height="64" rx="10" style="stroke-width:1.6"/>
+      <text class="sv-tmono" x="56" y="566">todo/ — hàng đợi FIFO</text>
+      <text class="sv-sub" x="56" y="585">sống ở .git/backlog — per-dev, không commit</text>
+
+      <!-- caption lane 1 -->
+      <text class="sv-cap" x="40" y="638">Mọi transition qua backlog-ops.py — không hand-edit</text>
+      <text class="sv-cap" x="40" y="655">BACKLOG.md, không git mv tay.</text>
+      <text class="sv-cap" x="40" y="676">demote = về ĐẦU hàng · defer = xuống CUỐI hàng.</text>
+
+      <!-- feed lane1 → lane2 -->
+      <path class="sv-feed" d="M340 574 H420 V34 H648"/>
+      <text class="sv-lbl" x="432" y="50">backlog-ops pick — task ĐẦU hàng</text>
+
+      <!-- ═══════════ LANE 2: EXECUTION LOOP ═══════════ -->
+      <rect class="sv-wrap" x="468" y="56" width="368" height="820" rx="14"/>
+      <text class="sv-lane" x="484" y="78" style="letter-spacing:.04em">LOOP — MỖI TASK: 1 CỬA SỔ TERMINAL · CONTEXT MỚI</text>
+
+      <!-- entry arrow -->
+      <circle cx="655" cy="34" r="3" fill="var(--line-strong)"/>
+      <path class="sv-feed" d="M655 34 V88" marker-end="url(#mT)"/>
+
+      <!-- B1: PICK -->
+      <rect class="sv-node" x="490" y="92" width="330" height="76" rx="10"/>
+      <text class="sv-title" x="506" y="114">1 · PICK</text>
+      <text class="sv-sub" x="506" y="133">lấy task đầu TODO — task dở dang thì resume</text>
+      <text class="sv-sub" x="506" y="150">task cần Editor mà Editor chết → defer, làm task khác</text>
+      <path class="sv-exit" d="M820 104 H852" marker-end="url(#mR)"/>
+      <path class="sv-exit" d="M820 132 H852" marker-end="url(#mR)"/>
+      <path class="sv-exit-s" d="M820 160 H852" marker-end="url(#mT)"/>
+      <rect class="sv-chip" x="856" y="91" width="66" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="107">PAUSED</text>
+      <text class="sv-ann" x="932" y="107">backlog rỗng</text>
+      <rect class="sv-chip" x="856" y="119" width="128" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="135">EDITOR_REQUIRED</text>
+      <text class="sv-ann" x="994" y="135">mở Editor rồi chạy lại</text>
+      <rect class="sv-chip-s" x="856" y="147" width="80" height="24" rx="6"/>
+      <text class="sv-ctext-s" x="866" y="163">DEFERRED</text>
+      <text class="sv-ann" x="946" y="163">không dừng loop</text>
+      <path class="sv-flow" d="M655 168 V192" marker-end="url(#mA)"/>
+
+      <!-- B2: PREP -->
+      <rect class="sv-node" x="490" y="196" width="330" height="72" rx="10"/>
+      <text class="sv-title" x="506" y="218">2–4 · CHUẨN BỊ</text>
+      <text class="sv-sub" x="506" y="236">current: giữ nhánh đang mở · worktree: merge base</text>
+      <text class="sv-sub" x="506" y="252">start: todo → in-progress · nạp rules + spec + docs</text>
+      <path class="sv-exit" d="M820 232 H852" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="856" y="220" width="150" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="236">BASE_MERGE_CONFLICT</text>
+      <text class="sv-ann" x="1012" y="236">dev tự resolve</text>
+      <path class="sv-flow" d="M655 268 V292" marker-end="url(#mA)"/>
+
+      <!-- B3: IMPLEMENT -->
+      <rect class="sv-node" x="490" y="296" width="330" height="72" rx="10"/>
+      <text class="sv-title" x="506" y="318">5 · IMPLEMENT — orchestrator tự code</text>
+      <text class="sv-sub" x="506" y="336">task workflow-backed → chạy workflow inline + delta</text>
+      <text class="sv-sub" x="506" y="352">xong: git add -A — các cổng soi staged diff</text>
+      <path class="sv-flow" d="M655 368 V392" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="490" y="388" style="font-weight:600">4 CỔNG CHẤT LƯỢNG ▾</text>
+
+      <!-- G1: COMPILE -->
+      <rect class="sv-gate" x="490" y="396" width="330" height="62" rx="10"/>
+      <text class="sv-gtitle" x="506" y="418">◆ COMPILE</text>
+      <text class="sv-fix" x="806" y="415" text-anchor="end">↻ ×2</text>
+      <text class="sv-gsub" x="506" y="437">Unity MCP → dotnet → batchmode · worktree: skip</text>
+      <path class="sv-exit" d="M820 427 H852" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="856" y="415" width="128" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="431">COMPILE_BLOCKED</text>
+      <text class="sv-ann" x="994" y="431">lỗi CS sau 2 round</text>
+      <path class="sv-flow" d="M655 458 V482" marker-end="url(#mA)"/>
+
+      <!-- G2: REVIEW -->
+      <rect class="sv-gate" x="490" y="486" width="330" height="76" rx="10"/>
+      <text class="sv-gtitle" x="506" y="508">◆ REVIEW</text>
+      <text class="sv-fix" x="806" y="505" text-anchor="end">↻ ×2</text>
+      <text class="sv-gsub" x="506" y="527">preflight script bắt lỗi tất định trước, miễn phí</text>
+      <text class="sv-gsub" x="506" y="543">rồi code + perf? + security? — spawn song song</text>
+      <path class="sv-exit" d="M820 498 H852" marker-end="url(#mR)"/>
+      <path class="sv-exit" d="M820 524 H852" marker-end="url(#mR)"/>
+      <path class="sv-exit" d="M820 550 H852" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="856" y="486" width="94" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="502">NO_CHANGES</text>
+      <text class="sv-ann" x="960" y="502">diff rỗng</text>
+      <rect class="sv-chip" x="856" y="512" width="142" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="528">PREFLIGHT_BLOCKED</text>
+      <text class="sv-ann" x="1008" y="528">lỗi tất định</text>
+      <rect class="sv-chip" x="856" y="538" width="120" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="554">REVIEW_BLOCKED</text>
+      <text class="sv-ann" x="986" y="554">reviewer chặn</text>
+      <path class="sv-flow" d="M655 562 V586" marker-end="url(#mA)"/>
+
+      <!-- G3: VERIFY -->
+      <rect class="sv-gate" x="490" y="590" width="330" height="62" rx="10"/>
+      <text class="sv-gtitle" x="506" y="612">◆ VERIFY <tspan class="sv-gsub">· chỉ M/L</tspan></text>
+      <text class="sv-fix" x="806" y="609" text-anchor="end">↻ ×2</text>
+      <text class="sv-gsub" x="506" y="631">qa-verifier đối chiếu TỪNG tiêu chí hoàn thành với diff</text>
+      <path class="sv-exit" d="M820 621 H852" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="856" y="609" width="120" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="625">VERIFY_BLOCKED</text>
+      <text class="sv-ann" x="986" y="625">thiếu tiêu chí</text>
+      <path class="sv-flow" d="M655 652 V676" marker-end="url(#mA)"/>
+
+      <!-- G4: SMOKE -->
+      <rect class="sv-gate" x="490" y="680" width="330" height="76" rx="10"/>
+      <text class="sv-gtitle" x="506" y="702">◆ SMOKE <tspan class="sv-gsub">· chỉ M/L + Editor sống</tspan></text>
+      <text class="sv-fix" x="806" y="699" text-anchor="end">↻ ×2</text>
+      <text class="sv-gsub" x="506" y="721">vào play mode thật — boot, chạy recipe, đọc console</text>
+      <text class="sv-gsub" x="506" y="737">$SENSITIVE → currency net-zero · save/load roundtrip</text>
+      <path class="sv-exit" d="M820 718 H852" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="856" y="706" width="128" height="24" rx="6"/>
+      <text class="sv-ctext" x="866" y="722">RUNTIME_BLOCKED</text>
+      <text class="sv-ann" x="994" y="722">lỗi console runtime</text>
+      <path class="sv-flow" d="M655 756 V780" marker-end="url(#mA)"/>
+
+      <!-- B4: DONE/SHIP/REPORT -->
+      <rect class="sv-node sv-cmd" x="490" y="784" width="330" height="76" rx="10"/>
+      <text class="sv-title" x="506" y="806">8–10 · DONE → SHIP → REPORT</text>
+      <text class="sv-sub" x="506" y="824">commit + push thẳng nhánh làm việc — KHÔNG tạo PR</text>
+      <text class="sv-sub" x="506" y="841">report = bản giao DUY NHẤT các bước manual-verify</text>
+
+      <!-- loop back -->
+      <path class="sv-loop" d="M820 822 H1150 V34 H662"/>
+      <text class="sv-lbl-e" x="1150" y="26" text-anchor="end">TODO còn → task kế tiếp, context mới</text>
+    </svg>
+    </div>
+
+    <div class="diagram-notes">
+      <div class="dn"><b>Chỉ chip đỏ dừng được loop.</b> Mỗi cổng fail đều được tự sửa tối đa 2 round trước; DEFERRED (xanh) chỉ dời task xuống cuối hàng rồi chạy tiếp.</div>
+      <div class="dn"><b>Skip ≠ block.</b> Cổng thiếu điều kiện chạy (không Editor, worktree mode, diff chỉ .md/CSV) ghi <code>skipped + lý do</code> rồi đi tiếp — vì vậy manual-verify trong report luôn bắt buộc.</div>
+      <div class="dn"><b>Subagent không bao giờ sửa code.</b> Orchestrator là người viết duy nhất; reviewer/verifier chỉ đọc và ra verdict. Backlog nằm trong <code>.git/backlog/</code> nên report cuối là bản giao duy nhất.</div>
+    </div>
+
+    <!-- ═══════════ ZOOMS ═══════════ -->
+    <div class="zoomh" style="margin-top:44px;"><span class="zn">ZOOM 1</span>Bên trong <code>/planning-task</code> — cây quyết định triage</div>
+    <div class="scrollx">
+    <svg viewBox="0 0 1200 590" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bên trong planning-task">
+      <rect class="sv-node" x="80" y="16" width="380" height="44" rx="10"/>
+      <text class="sv-title" x="96" y="43">Ý định bất kỳ — “thêm daily quest”, “skill 305”…</text>
+      <path class="sv-flow" d="M270 60 V88" marker-end="url(#mA)"/>
+
+      <rect class="sv-dec" x="80" y="92" width="380" height="48" rx="10"/>
+      <text class="sv-title" x="96" y="121">Là cả một GDD / hệ thống mới?</text>
+      <path class="sv-branch" d="M460 116 H540" marker-end="url(#mV)"/>
+      <text class="sv-lbl-v" x="472" y="108">có</text>
+      <rect class="sv-node sv-sys" x="544" y="92" width="440" height="64" rx="10"/>
+      <text class="sv-tsys" x="560" y="117">dispatch /planning-system</text>
+      <text class="sv-sub" x="560" y="136">validate thiết kế trước khi sinh task — xem Zoom 2 ▾</text>
+      <path class="sv-flow" d="M270 140 V168" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="282" y="160">không</text>
+
+      <rect class="sv-dec" x="80" y="172" width="380" height="48" rx="10"/>
+      <text class="sv-title" x="96" y="201">Scaffold thuần khớp một /new-* workflow?</text>
+      <path class="sv-flow" d="M460 196 H540" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="472" y="188">có</text>
+      <rect class="sv-node" x="544" y="172" width="440" height="76" rx="10"/>
+      <text class="sv-title" x="560" y="196">Thin-spec workflow-backed</text>
+      <text class="sv-sub" x="560" y="214">chỉ ghi Backed by workflow + Workflow args</text>
+      <text class="sv-sub" x="560" y="230">KHÔNG spawn planner — tiết kiệm ~15–25K token</text>
+      <path class="sv-flow" d="M740 248 V476" marker-end="url(#mA)"/>
+      <path class="sv-flow" d="M270 220 V248" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="282" y="240">không</text>
+
+      <rect class="sv-dec" x="80" y="252" width="380" height="48" rx="10"/>
+      <text class="sv-title" x="96" y="281">Task cỡ nào? — triage tier</text>
+      <path class="sv-flow" d="M180 300 V344" marker-end="url(#mA)"/>
+      <path class="sv-flow" d="M360 300 V320 H570 V340" marker-end="url(#mA)"/>
+
+      <rect class="sv-node" x="80" y="348" width="300" height="64" rx="10"/>
+      <text class="sv-title" x="96" y="372">XS · S · M-đơn giản</text>
+      <text class="sv-sub" x="96" y="391">draft spec ngay tại main context</text>
+      <rect class="sv-node sv-sys" x="410" y="348" width="320" height="64" rx="10"/>
+      <text class="sv-tsys" x="426" y="372">task-planner (subagent)</text>
+      <text class="sv-sub" x="426" y="391">M-phức-tạp · L — viết spec chi tiết</text>
+      <text class="sv-cap" x="760" y="374">task lai (scaffold + logic custom):</text>
+      <text class="sv-cap" x="760" y="391">vẫn workflow-backed, planner chỉ plan phần delta</text>
+
+      <path class="sv-flow" d="M230 412 V476" marker-end="url(#mA)"/>
+      <path class="sv-flow" d="M570 412 V476" marker-end="url(#mA)"/>
+
+      <rect class="sv-node sv-dir" x="80" y="480" width="684" height="64" rx="10"/>
+      <text class="sv-tmono" x="96" y="505">backlog/planning/&lt;timestamp&gt;-&lt;TIER&gt;-slug.md</text>
+      <text class="sv-sub" x="96" y="524">timestamp từ backlog-ops.py — parallel-safe · không đụng BACKLOG.md</text>
+      <text class="sv-cap" x="80" y="574">Chạy nhiều /planning-task song song thoải mái — filename timestamp không bao giờ trùng nhau.</text>
+    </svg>
+    </div>
+
+    <div class="zoomh"><span class="zn">ZOOM 2</span>Bên trong <code>/planning-system</code> — validate thiết kế rồi mới sinh task</div>
+    <div class="scrollx">
+    <svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bên trong planning-system">
+      <rect class="sv-node" x="80" y="16" width="380" height="44" rx="10"/>
+      <text class="sv-title" x="96" y="43">GDD / design doc — cả một hệ thống</text>
+      <path class="sv-flow" d="M270 60 V88" marker-end="url(#mA)"/>
+
+      <rect class="sv-dec" x="80" y="92" width="380" height="44" rx="10"/>
+      <text class="sv-title" x="96" y="119">Economy đã validated chưa?</text>
+      <path class="sv-flow" d="M80 114 H48 V287 H74" marker-end="url(#mA)"/>
+      <text class="sv-cap" transform="rotate(-90 36 205)" x="36" y="205" text-anchor="middle">đã validated — bỏ qua 03</text>
+      <path class="sv-flow" d="M270 136 V164" marker-end="url(#mA)"/>
+      <text class="sv-cap" x="282" y="156">chưa</text>
+
+      <rect class="sv-node sv-sys" x="80" y="168" width="380" height="58" rx="10"/>
+      <text class="sv-tsys" x="96" y="191">03 · GDD-Final</text>
+      <text class="sv-sub" x="96" y="210">adversarial audit + rewrite → GDD/Final/ (có marker)</text>
+      <path class="sv-flow" d="M270 226 V254" marker-end="url(#mA)"/>
+
+      <rect class="sv-node sv-sys" x="80" y="258" width="380" height="58" rx="10"/>
+      <text class="sv-tsys" x="96" y="281">04 · Feature Analysis</text>
+      <text class="sv-sub" x="96" y="300">phân rã GDD → TechSpec/[Name]-Architecture.md</text>
+      <path class="sv-flow" d="M270 316 V344" marker-end="url(#mA)"/>
+
+      <rect class="sv-node sv-sys" x="80" y="348" width="380" height="76" rx="10"/>
+      <text class="sv-tsys" x="96" y="371">05 · Tech Spec + audit 4 lens</text>
+      <text class="sv-sub" x="96" y="390">sinh spec → 4 lens audit độc lập soi lại</text>
+      <text class="sv-sub" x="96" y="407">→ TechSpec/[Name]-TechSpec.md</text>
+      <path class="sv-exit" d="M460 386 H536" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="540" y="374" width="60" height="24" rx="6"/>
+      <text class="sv-ctext" x="550" y="390">ABORT</text>
+      <text class="sv-ann" x="608" y="390">thiết kế không đứng vững — dừng cả pipeline, báo dev</text>
+      <path class="sv-flow" d="M270 424 V452" marker-end="url(#mA)"/>
+
+      <rect class="sv-node sv-sys" x="80" y="456" width="380" height="58" rx="10"/>
+      <text class="sv-tsys" x="96" y="479">06 · Implementation Mapping</text>
+      <text class="sv-sub" x="96" y="498">→ TechSpec/[Name]-Implementation.md</text>
+      <path class="sv-flow" d="M270 514 V542" marker-end="url(#mA)"/>
+
+      <rect class="sv-node" x="80" y="546" width="380" height="98" rx="10"/>
+      <text class="sv-title" x="96" y="569">Batch-ground — sinh N task</text>
+      <text class="sv-sub" x="96" y="588">MỘT timestamp chung + NN topo = thứ tự thực thi</text>
+      <text class="sv-sub" x="96" y="605">mỗi task: Context docs · Depends on · Requires</text>
+      <text class="sv-sub" x="96" y="622">existence probe — không scaffold đè code có sẵn</text>
+      <path class="sv-branch" d="M460 578 H536" marker-end="url(#mV)"/>
+      <rect class="sv-node sv-sys" x="540" y="546" width="440" height="98" rx="10"/>
+      <text class="sv-tsys" x="556" y="569">Task UI → mockup tự động</text>
+      <text class="sv-sub" x="556" y="588">drafter vẽ wireframe từ UI-kit → auto-approve</text>
+      <text class="sv-sub" x="556" y="605">freeze PNG 1080×1920 + spec JSON nhúng sẵn cho /new-ui</text>
+      <text class="sv-sub" x="556" y="622">screen còn câu hỏi cấm-bịa → PENDING — chặn promote</text>
+      <path class="sv-flow" d="M270 644 V672" marker-end="url(#mA)"/>
+
+      <rect class="sv-node sv-dir" x="80" y="676" width="380" height="56" rx="10"/>
+      <text class="sv-tmono" x="96" y="700">backlog/planning/ — N task đúng thứ tự</text>
+      <text class="sv-sub" x="96" y="719">UI task xếp cuối · sẵn sàng /add-to-backlog</text>
+
+      <rect class="sv-wrap" x="540" y="92" width="440" height="140" rx="12"/>
+      <text class="sv-title" x="556" y="118">⏸ Chỉ dừng hỏi dev — 4 nhóm cấm-bịa</text>
+      <text class="sv-sub" x="556" y="141">economy / reward · save-migration</text>
+      <text class="sv-sub" x="556" y="158">backend / IAP / security · UX flow cốt lõi</text>
+      <text class="sv-sub" x="556" y="182">mỗi stage là subagent, trả OK / QUESTIONS / ABORT —</text>
+      <text class="sv-sub" x="556" y="199">ngoài 4 nhóm trên, pipeline tự quyết, không hỏi</text>
+
+      <text class="sv-cap" x="80" y="752">Idempotent — chạy lại tự probe artifact TechSpec đã có và resume đúng chỗ dừng. Không commit, chỉ git add.</text>
+    </svg>
+    </div>
+
+    <div class="zoomh"><span class="zn">ZOOM 3</span>Bên trong <code>/add-to-backlog</code> — cổng promote</div>
+    <div class="scrollx">
+    <svg viewBox="0 0 1200 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bên trong add-to-backlog">
+      <rect class="sv-node sv-cmd" x="40" y="40" width="280" height="64" rx="10"/>
+      <text class="sv-tcmd" x="56" y="66">/add-to-backlog</text>
+      <text class="sv-sub" x="56" y="85">liệt kê planning/ → dev chọn 1 · nhiều · all</text>
+      <path class="sv-flow" d="M320 72 H372" marker-end="url(#mA)"/>
+
+      <rect class="sv-node" x="376" y="24" width="430" height="150" rx="10" style="stroke:var(--teal)"/>
+      <text class="sv-tmono" x="392" y="50" style="fill:var(--teal)">backlog-ops.py promote</text>
+      <text class="sv-sub" x="392" y="72">gán số NNN kế tiếp · move planning/ → todo/</text>
+      <text class="sv-sub" x="392" y="89">append CUỐI hàng — FIFO, priority chỉ là tag</text>
+      <text class="sv-sub" x="392" y="106">warn nếu Depends on bị đứt</text>
+      <text class="sv-sub" x="392" y="123">self-lint index ↔ thư mục</text>
+      <path class="sv-exit" d="M591 174 V196" marker-end="url(#mR)"/>
+      <rect class="sv-chip" x="466" y="200" width="250" height="24" rx="6"/>
+      <text class="sv-ctext" x="476" y="216">CHẶN — mockup PENDING-*</text>
+      <text class="sv-ann" x="724" y="216">sửa qua /ui-mockup rồi promote lại</text>
+
+      <path class="sv-flow" d="M806 99 H858" marker-end="url(#mA)"/>
+      <rect class="sv-node sv-dir" x="862" y="67" width="300" height="64" rx="10"/>
+      <text class="sv-tmono" x="878" y="92">todo/ — cuối hàng FIFO</text>
+      <text class="sv-sub" x="878" y="111">chờ /run-backlog pick — sang lane thực thi</text>
+    </svg>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TAB: PLANNING ══════════════════════ -->
+  <section class="panel" id="tab-planning">
+    <h2>Giai đoạn 1 — Lập kế hoạch (dev gọi tay)</h2>
+    <p class="lead">Hai lệnh duy nhất dev cần nhớ: <code>/planning-task</code> để tạo spec, <code>/add-to-backlog</code> để xếp hàng. Mọi thứ khác tự động.</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3><span class="n">BƯỚC 1</span>/planning-task [ý định] <span class="chip plain">parallel-safe — chạy nhiều cái cùng lúc được</span></h3>
+        <p>Nhận một ý định bất kỳ và trả về một file spec trong <code>backlog/planning/</code>. Tự phân loại 3 nhánh:</p>
+        <ul>
+          <li><b>Scaffold thuần khớp một workflow <code>/new-*</code></b> (feature, skill, enemy, UI, package, class) → ghi <b>thin-spec workflow-backed</b> với <code>**Backed by workflow:**</code> + <code>**Workflow args:**</code>. Không cần planner — tiết kiệm ~15–25K token. Lúc thực thi, loop chạy đúng workflow đó thay vì code tự do.</li>
+          <li><b>Task thường</b> → triage tier <b>XS / S / M / L</b>. XS/S/M-đơn-giản: draft ngay tại chỗ. M-phức-tạp/L: spawn <span class="chip agent">task-planner</span> viết spec chi tiết. Task lai (scaffold + logic) vẫn workflow-backed, planner chỉ plan phần delta.</li>
+          <li><b>Input là cả GDD / design doc</b> → không tự xử mà dispatch <code>/planning-system</code> (card dưới).</li>
+        </ul>
+        <p>Filename <code>&lt;timestamp&gt;-&lt;TIER&gt;-slug.md</code>, timestamp lấy từ <code>backlog-ops.py timestamp</code> — vì vậy nhiều phiên planning chạy song song không đụng nhau, và không ai đụng vào <code>BACKLOG.md</code>.</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">BƯỚC 1+</span>/planning-system — khi input là cả một hệ thống <span class="chip agent">subagent per stage</span></h3>
+        <p>Design-first: validate thiết kế trước, sinh task sau. Chuỗi stage: <b>(gdd-final nếu economy chưa validated) → feature analysis → tech-spec (audit 4 lens, có quyền ABORT) → implementation mapping → batch-ground N task</b>.</p>
+        <ul>
+          <li>N task dùng <b>MỘT timestamp chung</b> + số thứ tự <code>NN</code> theo topo dependency — thứ tự promote chính là thứ tự thực thi.</li>
+          <li>Mỗi task mang <code>**Context docs:**</code> (trỏ TechSpec — số liệu economy/CSV lấy nguyên văn, cấm bịa), <code>**Depends on:**</code>, và <code>**Requires:** unity-editor</code> cho task UI.</li>
+          <li>Task UI sinh kèm <b>mockup tự động</b>: drafter vẽ wireframe từ UI-kit → auto-approve thành PNG 1080×1920 + spec JSON nhúng. Screen còn câu hỏi cấm-bịa ở lại <code>PENDING-APPROVAL</code> và bị chặn promote.</li>
+          <li>Pipeline chỉ dừng hỏi dev đúng <b>4 nhóm cấm-bịa</b>: economy/reward · save-migration · backend/IAP/security · UX flow cốt lõi. Còn lại tự quyết.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">BƯỚC 2</span>/add-to-backlog — duyệt và xếp hàng <span class="chip script">backlog-ops.py promote</span></h3>
+        <ul>
+          <li>Liệt kê task trong <code>planning/</code> → dev chọn 1 / nhiều / tất cả.</li>
+          <li><code>promote</code> làm phần còn lại một cách tất định: gán số <b>NNN</b>, chuyển file <code>planning/ → todo/</code>, append bullet <b>cuối</b> hàng FIFO, warn nếu đứt <code>Depends on</code>, chặn nếu mockup còn <code>PENDING-*</code>, tự lint.</li>
+          <li><b>Priority chỉ là tag</b> — không đổi thứ tự. Hàng đợi luôn là FIFO theo thời điểm promote.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">NỀN TẢNG</span>Backlog sống ở đâu và luật bất di bất dịch</h3>
+        <ul>
+          <li>Toàn bộ backlog nằm <b>ngoài</b> worktree: <code>$(git rev-parse --git-common-dir)/backlog/</code> = <code>&lt;repo&gt;/.git/backlog/</code>. Per-dev, không commit, không merge được — nhưng <b>mọi git worktree của cùng clone thấy chung một hàng đợi</b>.</li>
+          <li>4 thư mục = 4 trạng thái: <code>planning/</code> → <code>todo/</code> → <code>in-progress/</code> → <code>done/</code>. Index là <code>BACKLOG.md</code> cùng chỗ.</li>
+          <li><b>Mọi transition đi qua <code>backlog-ops.py</code></b> — không hand-edit BACKLOG.md, không <code>git add/mv</code> file backlog. Hand-edit từng làm hỏng index thật.</li>
+          <li>Clone mới: <code>python3 .claude/scripts/backlog-ops.py init</code> một lần.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TAB: RUN ══════════════════════ -->
+  <section class="panel" id="tab-run">
+    <h2>Giai đoạn 2 — Thực thi (tự động 100%)</h2>
+    <p class="lead">
+      Loop runner spawn mỗi task một cửa sổ terminal với context hoàn toàn mới, chạy <code>/run-backlog</code> trọn gói bên dưới,
+      cửa sổ tự đóng khi xong. Orchestrator là <b>người viết code duy nhất</b> — subagent chỉ đọc và ra verdict.
+    </p>
+
+    <div class="cards">
+      <div class="card">
+        <h3><span class="n">1</span>PICK <span class="chip script">backlog-ops.py pick</span></h3>
+        <ul>
+          <li>Lấy task <b>đầu</b> hàng TODO — không chọn lọc, không ưu tiên. Task <code>in-progress</code> dở dang → resume, nhảy thẳng bước 4.</li>
+          <li>Exit 2 = hàng rỗng → ghi <b>PAUSED</b>, loop dừng. Exit 3 = chưa <code>init</code> → init rồi pick lại.</li>
+          <li>Task có <code>**Requires:** unity-editor</code> → probe Editor, retry ~4 lần/20s (một lần im lặng có thể chỉ là domain-reload). Editor chết: còn task headless khác → <code>defer</code> task này xuống cuối hàng và <b>loop chạy tiếp</b>; mọi task đều cần Editor → <b>EDITOR_REQUIRED</b>, dừng.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">2–4</span>CHUẨN BỊ — branch · start · context</h3>
+        <ul>
+          <li><b>Branch:</b> mode <code>current</code> (mặc định) <b>bỏ qua hẳn</b> — không checkout, không merge, commit thẳng nhánh dev đang mở (checkout giữa chừng bắt Unity reimport cả project). Mode <code>worktree</code>: merge <code>origin/&lt;base&gt;</code> vào <code>agent/dev-&lt;base&gt;</code>; xung đột → <b>BASE_MERGE_CONFLICT</b>, không tự resolve.</li>
+          <li><b>Start:</b> <code>backlog-ops.py start NNN</code> — todo → in-progress trong một lệnh.</li>
+          <li><b>Context:</b> probe CodeGraph <b>một lần</b> quyết định cách tra code cho cả task; đọc rules + SKILL.md liên quan; task batch đọc <b>Context docs</b> — số liệu lấy nguyên văn từ TechSpec.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">5</span>IMPLEMENT</h3>
+        <ul>
+          <li>Task workflow-backed → đọc <code>.claude/commands/&lt;name&gt;.md</code>, thực thi <b>inline</b> + áp <code>Custom delta</code>. Task thường → code theo convention: FeatureBaseController · UIManager · TimeManager · UniTask · DataPlayer + SetupDefaultData() · TigerForge · DOTween SetUpdate(true) · localize toàn bộ text.</li>
+          <li>Xong: <code>git add -A</code>, <b>chưa commit</b> — cả 4 cổng soi trên staged diff.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">CỔNG 1</span>COMPILE <span class="chip plain">↻ tự sửa ×2 · worktree: skip</span></h3>
+        <ul>
+          <li>3 tier, <b>dừng ở tier đầu tiên chạy được</b>: Unity MCP (instant) → <code>dotnet build</code> (~10–40s) → Unity batchmode (~60–180s).</li>
+          <li>Còn lỗi sau 2 round sửa → <b>COMPILE_BLOCKED</b>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">CỔNG 2</span>REVIEW <span class="chip script">preflight</span> <span class="chip agent">code</span> <span class="chip agent">perf?</span> <span class="chip agent">security?</span> <span class="chip plain">↻ ×2</span></h3>
+        <ul>
+          <li><b>Preflight tất định chạy trước</b> (miễn phí, bắt <code>DateTime.Now</code>, coroutine mới, <code>PlayerPrefs</code>, direct Supabase write, credential…): diff rỗng → <b>NO_CHANGES</b>; critical không sửa nổi → <b>PREFLIGHT_BLOCKED</b>.</li>
+          <li>Rồi spawn reviewer <b>song song, theo tier</b> (xem tab Tra cứu): code-reviewer luôn (trừ XS) · performance-reviewer nếu diff chạm hot-path (Update/Instantiate/LINQ/pool/LoopListView2) · security-auditor nếu <b>$SENSITIVE</b> (Backend*/Purchase*/IAP*/Auth*/Leaderboard*/AntiCheat*, credential, ghi currency qua RewardManager — save tiến độ thuần <b>không</b> tính).</li>
+          <li>Reviewer chặn → tự sửa ×2 → còn chặn = <b>REVIEW_BLOCKED</b>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">CỔNG 3</span>VERIFY <span class="chip agent">qa-verifier</span> <span class="chip plain">chỉ M/L · ↻ ×2</span></h3>
+        <ul>
+          <li>Đối chiếu <b>từng dòng "Tiêu chí hoàn thành"</b> trong spec với diff — đúng convention chưa đủ, phải đúng yêu cầu; không tiêu chí nào được lặng lẽ bỏ qua. Xuất <code>manual_verify_steps</code> cho dev.</li>
+          <li>Fail sau 2 round → <b>VERIFY_BLOCKED</b>. Cuối bước: preflight chốt lần cuối. XS/S bỏ cổng này (manual-verify lấy thẳng từ spec).</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">CỔNG 4</span>SMOKE <span class="chip plain">chỉ M/L + Editor sống · ↻ ×2</span></h3>
+        <ul>
+          <li>Cổng duy nhất <b>chạy game thật</b>: console clear → play mode → boot ~20–30s → acceptance recipe (dùng <code>Cheat_*</code> nếu có) → đọc console → screenshot → thoát.</li>
+          <li><b>$SENSITIVE</b> → invariant suite: currency net-zero · save/load roundtrip · reset đúng scope.</li>
+          <li>Exception/error xuất phát từ đúng code trong diff → FAIL → sửa ×2 → <b>RUNTIME_BLOCKED</b>. Thiếu điều kiện chạy (worktree, không MCP, diff chỉ .md/CSV, Editor treo) → <b>skip có lý do, không bao giờ là block</b>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">8–10</span>DONE → SHIP → REPORT <span class="chip script">backlog-ops.py done · lint</span></h3>
+        <ul>
+          <li><b>DONE:</b> script chuyển in-progress → done; orchestrator viết summary: fix summary, verdict từng cổng, mode, manual_verify_steps <b>y nguyên</b>.</li>
+          <li><b>SHIP:</b> commit + <code>git push</code> thẳng nhánh làm việc. <b>Không tạo PR</b>. Backlog nằm trong <code>.git/</code> nên không dính commit.</li>
+          <li><b>REPORT:</b> bản giao <b>duy nhất</b> cho dev (DONE summary không theo commit): file đã đổi, commit, verdict + số round mỗi cổng, và <b>MANUAL VERIFY REMINDER</b> đánh số — worktree mode thì bước 1 luôn là <code>/compile-check</code>.</li>
+          <li>Xong → cửa sổ đóng → loop lấy task kế tiếp với context mới. Task blocked giữa chừng → <code>demote</code> về đầu TODO.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TAB: REFERENCE ══════════════════════ -->
+  <section class="panel" id="tab-ref">
+    <h2>Tra cứu nhanh</h2>
+    <p class="lead">Ba bảng + lệnh chạy loop — mọi con số của hệ thống nằm ở đây.</p>
+
+    <h3 style="margin-bottom:10px; font-size:1.05rem;">Cổng nào chạy cho tier nào</h3>
+    <div class="tblwrap scrollx">
+      <table>
+        <thead><tr><th>Tier</th><th>code-reviewer</th><th>perf-reviewer</th><th>security-auditor</th><th>qa-verifier</th><th>smoke</th></tr></thead>
+        <tbody>
+          <tr><td><b>XS</b></td><td class="yn n">—</td><td class="yn n">—</td><td class="yn cond">nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
+          <tr><td><b>S</b></td><td class="yn y">sonnet</td><td class="yn cond">sonnet nếu hot-path</td><td class="yn cond">nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
+          <tr><td><b>M / L</b></td><td class="yn y">opus</td><td class="yn cond">opus nếu hot-path</td><td class="yn cond">opus nếu $SENSITIVE</td><td class="yn y">sonnet</td><td class="yn cond">nếu Editor sống, không worktree</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-bottom:10px; font-size:1.05rem;">2 mode thực thi — chọn trước khi bật loop</h3>
+    <div class="tblwrap scrollx">
+      <table>
+        <thead><tr><th></th><th>current (mặc định)</th><th>worktree</th></tr></thead>
+        <tbody>
+          <tr><td>Làm việc ở</td><td>chính checkout đang mở</td><td><code>&lt;repo&gt;-agent-&lt;base&gt;</code> bên cạnh</td></tr>
+          <tr><td>Commit lên</td><td>nhánh đang mở</td><td><code>agent/dev-&lt;base&gt;</code> — dev merge tay sau</td></tr>
+          <tr><td>Dev code song song được?</td><td class="yn n">không — git add -A nuốt file dở</td><td class="yn y">được</td></tr>
+          <tr><td>COMPILE + SMOKE</td><td class="yn cond">best-effort (tự skip nếu thiếu tool)</td><td class="yn n">tắt hẳn — merge xong PHẢI chạy /compile-check đầu tiên</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-bottom:10px; font-size:1.05rem;">Hard-stop tokens — loop runner grep đúng các chuỗi này</h3>
+    <div class="tblwrap scrollx">
+      <table>
+        <thead><tr><th>Token</th><th>Từ đâu</th><th>Dev làm gì</th></tr></thead>
+        <tbody>
+          <tr><td class="tok">PAUSED</td><td>PICK — backlog rỗng</td><td><code>/add-to-backlog</code> nạp thêm rồi chạy lại</td></tr>
+          <tr><td class="tok">EDITOR_REQUIRED</td><td>PICK — mọi task còn lại cần Editor</td><td>Mở Editor, xoá <code>$BACKLOG_ROOT/state</code>, chạy lại</td></tr>
+          <tr><td class="tok soft">DEFERRED</td><td>PICK — 1 task bị dời, còn task khác</td><td>Không cần làm gì — loop tự chạy tiếp</td></tr>
+          <tr><td class="tok">BASE_MERGE_CONFLICT</td><td>CHUẨN BỊ (worktree)</td><td>Tự resolve merge rồi chạy lại</td></tr>
+          <tr><td class="tok">NO_CHANGES</td><td>REVIEW — implement không ra diff</td><td>Kiểm tra lại task spec</td></tr>
+          <tr><td class="tok">COMPILE_BLOCKED</td><td>CỔNG COMPILE</td><td rowspan="5" style="vertical-align:middle;">Sửa &amp; <code>/run-backlog</code> lại, hoặc <code>demote NNN</code> để bỏ qua task. Không có <code>--ship-anyway</code>.</td></tr>
+          <tr><td class="tok">PREFLIGHT_BLOCKED</td><td>CỔNG REVIEW (rule tất định)</td></tr>
+          <tr><td class="tok">REVIEW_BLOCKED</td><td>CỔNG REVIEW (LLM reviewer)</td></tr>
+          <tr><td class="tok">VERIFY_BLOCKED</td><td>CỔNG VERIFY</td></tr>
+          <tr><td class="tok">RUNTIME_BLOCKED</td><td>CỔNG SMOKE</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-bottom:10px; font-size:1.05rem;">Chạy loop</h3>
+    <pre class="cmd"><span class="c"># macOS / Linux — mỗi task 1 cửa sổ Terminal, tự đóng khi xong</span>
+bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier               <span class="c"># mode current</span>
+bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --mode worktree
+
+<span class="c"># Windows</span>
+powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1 -Mode Current
+
+<span class="c"># Bookkeeping / debug</span>
+python3 .claude/scripts/backlog-ops.py lint          <span class="c"># check index ↔ thư mục</span>
+python3 .claude/scripts/backlog-preflight.py -Pretty <span class="c"># chạy preflight tay trên staged diff</span>
+python3 -m unittest discover -s .claude/scripts/tests <span class="c"># regression test trước khi sửa 2 script trên</span></pre>
+
+    <p style="font-size:.84rem; color:var(--ink-soft);">
+      <b>--auto-model-by-tier:</b> XS/S → sonnet, M/L → opus.
+      <b>Base branch</b> = nhánh hiện tại lúc bắt đầu, lưu vào git config <code>blazesurvivor.agentBaseBranch</code>;
+      đổi base bằng <code>git config --unset</code> rồi chạy lại từ nhánh mới.
+    </p>
+  </section>
+
+  <footer>
+    Nguồn chân lý = <span class="mono">.claude/skills/run-backlog/SKILL.md</span> · <span class="mono">.claude/skills/planning-task/SKILL.md</span> · <span class="mono">backlog-ops.py</span>. Khi doc lệch code — tin code.
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    // tabs
+    var tabs = document.querySelectorAll('.tab');
+    var panels = document.querySelectorAll('.panel');
+    function activate(name) {
+      tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
+      panels.forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + name); });
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        activate(t.dataset.tab);
+        history.replaceState(null, '', '#' + t.dataset.tab);
+      });
+    });
+    var h = location.hash.replace('#', '');
+    if (h && document.getElementById('tab-' + h)) activate(h);
+
+    // theme
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    var icon = document.getElementById('toggleIcon');
+    var txt = document.getElementById('toggleText');
+    function current() {
+      var a = root.getAttribute('data-theme');
+      if (a) return a;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function paint() {
+      var d = current() === 'dark';
+      icon.textContent = d ? '☀' : '☾';
+      txt.textContent = d ? 'Light' : 'Dark';
+    }
+    btn.addEventListener('click', function () {
+      root.setAttribute('data-theme', current() === 'dark' ? 'light' : 'dark');
+      paint();
+    });
+    paint();
+  })();
+</script>

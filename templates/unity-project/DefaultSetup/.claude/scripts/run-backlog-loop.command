@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-clickable launcher (macOS Finder) for the backlog loop.
+# Double-clickable launcher (macOS Finder) for the BlazeSurvivor backlog loop.
 # Finder opens .command files in Terminal and runs them. We resolve our own
 # location so it works no matter what the current directory is.
 #
@@ -9,14 +9,22 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- defaults (change these to taste) -------------------------------------------
 # Auto mode picks the next task's [XS]/[S]/[M]/[L] tier from BACKLOG.md before
-# opening each task window:
+# opening each task window (BlazeSurvivor quality-first map):
 #   XS/S -> sonnet
 #   M/L  -> opus
 AUTO_MODEL_BY_TIER=1
 
 # Used only when AUTO_MODEL_BY_TIER=0.
-MODEL="opus"     # "" = CLI default; e.g. sonnet / opus
+MODEL="opus"                # "" = CLI default; e.g. sonnet / opus
 EFFORT="xhigh"              # low | medium | high | xhigh; "" = CLI default
+# Where the agent works.
+#   current  - THIS checkout, commits onto the branch already checked out. Keeps the
+#              compile check and the runtime smoke gate, but do not edit files while
+#              the loop runs (the agent stages with `git add -A`).
+#   worktree - a sibling checkout on agent/dev-<base>, so you keep working. Costs BOTH
+#              Unity gates (no .sln, no Editor there) - merge and run /compile-check.
+MODE="current"
+
 MAX_ITERATIONS=100
 THINKING_TOKENS=10000
 XS_THINKING_TOKENS=3000
@@ -25,7 +33,7 @@ M_THINKING_TOKENS=10000
 L_THINKING_TOKENS=10000
 # --------------------------------------------------------------------------------
 
-echo "Starting [Project Name] backlog loop..."
+echo "Starting BlazeSurvivor backlog loop..."
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     echo "  model=<auto by task tier>  max-iterations=$MAX_ITERATIONS"
     echo "  thinking: XS=$XS_THINKING_TOKENS S=$S_THINKING_TOKENS M=$M_THINKING_TOKENS L=$L_THINKING_TOKENS"
@@ -34,7 +42,7 @@ else
 fi
 echo ""
 
-ARGS=(--max-iterations "$MAX_ITERATIONS")
+ARGS=(--max-iterations "$MAX_ITERATIONS" --mode "$MODE")
 if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     ARGS+=(--auto-model-by-tier)
     ARGS+=(--xs-thinking-tokens "$XS_THINKING_TOKENS")

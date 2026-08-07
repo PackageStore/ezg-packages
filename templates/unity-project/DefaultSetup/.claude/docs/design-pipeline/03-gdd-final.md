@@ -165,6 +165,30 @@ KHÔNG được rewrite GDD.
 - F2P choke point
 - Over-dependence vào Ads
 
+> **CẤM tự kê backend làm mitigation (bắt buộc).** Dự án mặc định **offline / local-first** — IAP pack
+> chạy local pack pattern (CSV config + `PackageManager` local save + `RewardManager` grant client-side
+> + `TimeManager`); chỉ 2 file trong `2.BUS` chạm backend. Xem
+> [PROJECT_NOTES.md §7 Backend policy](../../PROJECT_NOTES.md) — nguồn chân lý, đọc trước khi audit
+> section này.
+>
+> Khi audit lộ ra exploit dạng client-tamper (tự grant reward, sửa purchase limit, đổi clock để
+> né expiry, re-roll random reward), **KHÔNG** được viết mitigation kiểu *"server-authoritative
+> grant" / "verify receipt server-side" / "RNG resolve server-side" / "authority timestamp từ
+> server" / "write qua trusted gateway"* vào Final GDD. Dự án **chủ động chấp nhận** nhóm risk này
+> cho pack — đó là product decision đã chốt, không phải lỗ hổng chờ audit vá.
+>
+> Thay vào đó: trả `status=QUESTIONS` với câu hỏi cụ thể (vd *"Chapter Pack có cần server-authoritative
+> grant không, hay theo local pack pattern như StarterPack?"*) và đặt marker `[DECISION NEEDED: …]`
+> tại chỗ. Đây đúng nhóm cấm-bịa `backend/IAP/security` — chỉ khác ở chỗ thứ bị bịa là **kiến trúc**,
+> không phải con số. Guard "cấm bịa giá trị" KHÔNG tự bắt được ca này, nên nó được ghi tường minh ở đây.
+>
+> **Vì sao nghiêm:** một dòng "server-authoritative" lọt vào Final GDD sẽ khớp predicate `EPIC`
+> ("có backend write") ở [README](README.md) → bật Decomposition Gate ở stage 04 → đẻ module Backend
+> → stage 05 bắt buộc §6b API Contract → cuối cùng ground ra hàng loạt task Supabase/Cloudflare cho
+> một feature lẽ ra offline. Đây chính là cách `ChapterPack` sinh ra module `ChapterPackBackend`
+> không ai yêu cầu. Mitigation hợp lệ cho pack là **thiết kế** (giới hạn scope reward, one-time
+> purchase, không đụng competitive balance), không phải **hạ tầng**.
+
 ## 1.6 Social / PvP / Guild Risk (Nếu có)
 - Toxic peer pressure
 - Whale stacking dominance

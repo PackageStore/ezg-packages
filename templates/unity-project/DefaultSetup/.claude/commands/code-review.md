@@ -8,7 +8,7 @@ description: Review code implementation of a completed feature
 When the user runs `/code-review [feature_name]`:
 
 1. **Understand Request**: The `feature_name` parameter is the name of the feature to be reviewed.
-2. **Collect Context**: Based on the `feature_name`, locate and read the relevant source files, CSV configs, and documentation. Prefer `codegraph_explore` over Grep/Read to map the feature's symbols and flow in one call (see `.agents/rules/core-system.md` → "Code Exploration — Codegraph First").
+2. **Collect Context**: Based on the `feature_name`, locate and read the relevant source files, CSV configs, and documentation. Prefer `codegraph_explore` over Grep/Read to map the feature's symbols and flow in one call (see `.claude/rules/core-system.md` → "Code Exploration — Codegraph First").
 3. **Review Execution**: Use the instructions below to perform a thorough technical code review of the feature.
 
 ---
@@ -32,7 +32,7 @@ Understand how the feature is implemented end-to-end, then produce a concise tec
 Review focus:
 1. Readability
 2. Maintainability
-3. Consistency with the codebase structure and [Project Name] conventions (`FeatureBaseController`, `UIManager`, `UniTask`, `TigerForge` events with `EventName`, `DOTween` Kill/SetUpdate(true), `PlayerDataManager.[Module]`, `DataManager` read-only, no magic numbers, localize for user-facing text — see `.agents/rules/`)
+3. Consistency with the codebase structure and [Project Name] conventions (`FeatureBaseController`, `UIManager`, `UniTask`, `TigerForge` events with `EventName`, `DOTween` Kill/SetUpdate(true), `PlayerDataManager.[Module]`, `DataManager` read-only, no magic numbers, localize for user-facing text — see `.claude/rules/`)
 4. Technical safety
    - error handling for external calls only
    - null/empty handling at boundaries

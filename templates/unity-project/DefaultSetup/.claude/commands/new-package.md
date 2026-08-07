@@ -6,7 +6,7 @@ description: Extract a module/folder into a clean UPM package and publish it
 
 When the user runs `/new-package [ModulePath]` (or asks to "đóng module X thành package UPM" / "package this module"):
 
-This workflow is a thin entry point — the full, deterministic procedure lives in the **`package-module` skill** (`.agents/skills/package-module/SKILL.md`). Invoke that skill and follow its steps. Do NOT reinvent the packing/publish flow.
+This workflow is a thin entry point — the full, deterministic procedure lives in the **`package-module` skill** (`.claude/skills/package-module/SKILL.md`). Invoke that skill and follow its steps. Do NOT reinvent the packing/publish flow.
 
 ## Summary of what `package-module` does ([Project Name])
 

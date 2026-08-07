@@ -15,6 +15,8 @@
 #   workflows -> commands     (Claude calls them "commands"; .agents calls them "workflows")
 #   scripts   -> scripts
 #   docs      -> docs
+#   backlog-templates -> backlog-templates
+#   ui-kit    -> ui-kit
 #
 # Run this script ONCE after cloning. Links are gitignored, not stored in git
 # (tracking links breaks `git switch` on Windows). Editing files under .claude/
@@ -34,6 +36,8 @@ LINKS=(
   "workflows:commands"
   "scripts:scripts"
   "docs:docs"
+  "backlog-templates:backlog-templates"
+  "ui-kit:ui-kit"
 )
 
 echo "=== .agents link check ==="
@@ -84,13 +88,22 @@ else
   echo "=== Done - some links failed (see errors above) ==="
 fi
 
-# Cổng "phải có codegraph": bootstrap sau clone cũng kiểm tra codegraph đã sẵn sàng
-# (CLI + .codegraph/ index của máy này + MCP config). Không chặn việc tạo link ở trên,
-# nhưng in cảnh báo loud nếu thiếu. Chạy `codegraph-doctor.sh --fix` để tự cài + index.
+# Cổng "phải có codegraph": kiểm tra codegraph đã sẵn sàng chưa (CLI + .codegraph/
+# index của máy này + MCP config) và in cảnh báo loud nếu thiếu. Chạy
+# `codegraph-doctor.sh --fix` để tự cài + index.
 echo ""
 CODEGRAPH_OK=1
 bash "$REPO_ROOT/.claude/scripts/codegraph-doctor.sh" || CODEGRAPH_OK=0
 
-if [ "$all_ok" -ne 1 ] || [ "$CODEGRAPH_OK" -ne 1 ]; then
+if [ "$CODEGRAPH_OK" -ne 1 ]; then
+  echo ""
+  echo "NOTE: link view vẫn tạo xong; codegraph index là bước riêng (xem 'fix:' ở trên)."
+fi
+
+# Exit code CHỈ phản ánh việc tạo link — đúng như tên script, và khớp với
+# sync-to-agents.ps1. Project vừa generate thì .codegraph/ chưa thể tồn tại (db bị
+# gitignore), nên nếu codegraph cũng chặn thì bootstrap của MỌI project mới đều báo
+# INCOMPLETE dù không có gì hỏng.
+if [ "$all_ok" -ne 1 ]; then
   exit 1
 fi

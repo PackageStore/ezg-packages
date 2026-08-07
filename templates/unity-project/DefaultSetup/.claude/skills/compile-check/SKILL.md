@@ -1,11 +1,13 @@
 ---
 name: compile-check
-description: Validate C# compilation of the current Unity project via Unity MCP after editing .cs files. Picks the Unity instance, forces a recompile, waits for it to finish, reads compilation errors, and fixes them (max 2 rounds). Use when the user says "compile check", or after finishing an ad-hoc code task outside /run-backlog.
+description: Validate C# compilation of this Unity project via Unity MCP after editing .cs files. Picks the Unity instance, forces a recompile, waits for it to finish, reads compilation errors, and fixes them (max 2 rounds). Use when the user says "compile check", or after finishing an ad-hoc code task outside /run-backlog.
 ---
 
 # Compile Check — Validate C# compilation via Unity MCP
 
-Confirm the project compiles cleanly through the running Unity Editor (via Unity MCP), and fix any compilation errors. This is the standalone, hand-invoked version of the standing rule in `.agents/rules/compile-validation.md`.
+Confirm this project compiles cleanly through the running Unity Editor (via Unity MCP), and fix any compilation errors. This is the standalone, hand-invoked version of the standing rule in `.claude/rules/compile-validation.md`.
+
+Solution file: the `solutionFile` key of `.claude/project-profile.json` — read it rather than guessing, since the name differs per project. Quickest: `python3 .claude/scripts/project_profile.py solutionFile`.
 
 `unity_get_compilation_errors` reads the **last** compilation cycle from `CompilationPipeline` — it does **not** trigger a recompile. So you must force a refresh and wait for compilation to finish before reading, otherwise you get stale results.
 
@@ -24,7 +26,7 @@ The agent edited `.cs` files on disk; Unity must re-import + recompile first.
 ```
 unity_execute_menu_item("Assets/Refresh")
 ```
-(or `unity_asset_import` on the changed files). 
+(or `unity_asset_import` on the changed files).
 
 ### 3 — Wait for compilation to finish
 ```
@@ -47,4 +49,4 @@ unity_get_compilation_errors  (severity: "error")
 ## Notes
 - Always target the right instance with `port` when multiple Editors are open.
 - Warnings are not blocking — filter `severity: "error"` for the gate; surface warnings only if the user asks.
-- This duplicates Tier 1 of `/run-backlog` STEP 5b, but for ad-hoc tasks outside the backlog pipeline.
+- This mirrors the compile-validation gate of `/run-backlog`, but for ad-hoc tasks outside the backlog pipeline.

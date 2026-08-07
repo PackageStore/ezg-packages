@@ -14,6 +14,8 @@
 #   workflows -> commands     (Claude calls them "commands"; .agents calls them "workflows")
 #   scripts   -> scripts
 #   docs      -> docs
+#   backlog-templates -> backlog-templates
+#   ui-kit    -> ui-kit
 #
 # Run this script ONCE after cloning. Links are gitignored, not stored in git
 # (tracking links breaks `git switch` on Windows). Editing files under .claude/
@@ -38,12 +40,14 @@ $onWindows = -not (Test-Path Variable:\IsWindows) -or $IsWindows
 
 # Name = link created under .agents\ ; Target = directory under .claude\
 $links = @(
-    @{ Name = "agents";    Target = "agents" },
-    @{ Name = "rules";     Target = "rules" },
-    @{ Name = "skills";    Target = "skills" },
-    @{ Name = "workflows"; Target = "commands" },
-    @{ Name = "scripts";   Target = "scripts" },
-    @{ Name = "docs";      Target = "docs" }
+    @{ Name = "agents";            Target = "agents" },
+    @{ Name = "rules";             Target = "rules" },
+    @{ Name = "skills";            Target = "skills" },
+    @{ Name = "workflows";         Target = "commands" },
+    @{ Name = "scripts";           Target = "scripts" },
+    @{ Name = "docs";              Target = "docs" },
+    @{ Name = "backlog-templates"; Target = "backlog-templates" },
+    @{ Name = "ui-kit";            Target = "ui-kit" }
 )
 
 Write-Host "=== .agents link check ===" -ForegroundColor Cyan

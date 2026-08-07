@@ -27,7 +27,7 @@ Chi tiết lý do chọn model: [model-assignment.md](model-assignment.md).
 
 **Hai chế độ chạy:**
 - **Automated (khuyến nghị):** `/planning-task <doc>` → STEP 0b dispatch `/planning-system` → orchestrator spawn subagent cho từng stage 03–06 (03 chỉ khi economy chưa validated), rồi batch-ground mapping thành N task trong `backlog/planning/`. Subagent nhận flag `invoked-by: planning-system` và trả **stage-result contract** `{status: OK|QUESTIONS|ABORT, artifact_path, questions[], abort_reason}` định nghĩa cuối mỗi stage file.
-- **Manual:** yêu cầu Claude chạy một stage cụ thể ("chạy stage 05-tech-spec với file X") — stage file là instruction đầy đủ. Đây KHÔNG phải slash command — stage file sống trong `.claude/docs/design-pipeline/`, không phải `.claude/commands/`.
+- **Manual:** yêu cầu Claude chạy một stage cụ thể ("chạy stage 05-tech-spec với file X") — stage file là instruction đầy đủ. Đây KHÔNG còn là slash command (đã chuyển từ `.claude/commands/` về docs).
 
 **Quy tắc xuyên suốt (mọi stage):**
 1. KHÔNG bịa quyết định thuộc 4 nhóm cấm — **giá trị economy/reward · save-migration · backend/IAP/security · UX flow cốt lõi**. Giá trị thiếu = marker `[DECISION NEEDED: <câu hỏi>]` + `status=QUESTIONS`, không phải chỗ sáng tác.

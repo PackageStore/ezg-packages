@@ -43,11 +43,15 @@ function buildTarball() {
   // Archive root is the DefaultSetup/ folder itself, so the logic extracts DefaultSetup/ (ProjectSettings/
   // plus the baked-in tooling like .claude/, .agents/, .mcp.json).
   //   --no-xattrs + COPYFILE_DISABLE : keep macOS resource forks (._*) out of the tarball.
-  //   --dereference                  : resolve .agents/ symlinks into real files so the tarball works on
-  //                                     Windows (where symlinks don't reliably extract).
+  //   --exclude=.agents              : the .agents/ link view is NOT shipped. Symlinks don't reliably
+  //                                     extract on Windows, and dereferencing them (what this script
+  //                                     used to do) ships a full COPY of .claude/ that silently
+  //                                     diverges the moment anyone edits a skill. bootstrap.sh /
+  //                                     bootstrap.ps1 create real links in the generated project.
   //   --exclude                      : drop junk / per-developer files that must not be distributed.
   execFileSync("tar", [
-    "--no-xattrs", "--dereference",
+    "--no-xattrs",
+    "--exclude=.agents",
     "--exclude=.DS_Store", "--exclude=settings.local.json",
     "-czf", out, "-C", TEMPLATE_DIR, "DefaultSetup",
   ], {

@@ -1,22 +1,26 @@
 #!/bin/bash
-# Core script to send Discord Direct Messages (DMs) to developers using Bot Token.
-# Gracefully degrades if not configured.
+# Core script to send Discord Direct Messages (DMs) to developers using a Bot Token.
+# Gracefully degrades (exit 0, no-op) if not configured — the loop never fails
+# just because notifications are off.
+#
+# Configure by adding to <repo>/.env (gitignored):
+#   DISCORD_BOT_TOKEN=...
+#   DISCORD_DEVELOPERS=userid1,userid2
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Load environment variables if .env exists
+# Load environment variables if .env exists.
 if [ -f "$PROJECT_ROOT/.env" ]; then
-  # Load non-comment lines
   export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
 fi
 
-if [ -z "$DISCORD_BOT_TOKEN" ] || [ "$DISCORD_BOT_TOKEN" = "YOUR_DISCORD_BOT_TOKEN_HERE" ]; then
+if [ -z "${DISCORD_BOT_TOKEN:-}" ] || [ "${DISCORD_BOT_TOKEN:-}" = "YOUR_DISCORD_BOT_TOKEN_HERE" ]; then
   echo "[Discord Send] DISCORD_BOT_TOKEN not configured in .env. Skipping notification."
   exit 0
 fi
 
-if [ -z "$DISCORD_DEVELOPERS" ] || [ "$DISCORD_DEVELOPERS" = "DEVELOPER_USER_ID_1,DEVELOPER_USER_ID_2" ]; then
+if [ -z "${DISCORD_DEVELOPERS:-}" ] || [ "${DISCORD_DEVELOPERS:-}" = "DEVELOPER_USER_ID_1,DEVELOPER_USER_ID_2" ]; then
   echo "[Discord Send] DISCORD_DEVELOPERS not configured in .env. Skipping notification."
   exit 0
 fi
@@ -24,15 +28,11 @@ fi
 MESSAGE="$1"
 EMBED_JSON="$2"
 
-# Parse comma-separated user IDs
+# Parse comma-separated user IDs.
 IFS=',' read -ra ADDR <<< "$DISCORD_DEVELOPERS"
 for USER_ID in "${ADDR[@]}"; do
-  # Trim spaces
-  USER_ID=$(echo "$USER_ID" | xargs)
-  
-  if [ -z "$USER_ID" ]; then
-    continue
-  fi
+  USER_ID=$(echo "$USER_ID" | xargs)   # trim
+  [ -z "$USER_ID" ] && continue
 
   echo "[Discord Send] Creating DM channel for user $USER_ID..."
   RESPONSE=$(curl -s -X POST \
@@ -41,7 +41,6 @@ for USER_ID in "${ADDR[@]}"; do
     -d "{\"recipient_id\": \"$USER_ID\"}" \
     "https://discord.com/api/v10/users/@me/channels")
 
-  # Extract Channel ID using jq if available, otherwise fallback to sed/grep
   if command -v jq >/dev/null 2>&1; then
     CHANNEL_ID=$(echo "$RESPONSE" | jq -r '.id')
   else
@@ -67,8 +66,7 @@ for USER_ID in "${ADDR[@]}"; do
       -d "{\"content\": \"$MESSAGE\"}" \
       "https://discord.com/api/v10/channels/$CHANNEL_ID/messages")
   fi
-  
-  # Log success or failure response summary
+
   if echo "$SEND_RESP" | grep -q '"id":'; then
     echo "[Discord Send] Notification successfully sent to developer $USER_ID."
   else

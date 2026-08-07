@@ -1,42 +1,54 @@
 ---
-description: Generate + review + APPROVE spec-first UI mockups for /new-ui tasks. New drafts use one authoritative .ui-spec.json rendered deterministically to 1080×2400 HTML; approval remains HUMAN-ONLY. Existing embedded-spec HTML remains compatible.
+description: Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their 1080×1920 PNG contract automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.
 ---
 
-# /ui-mockup — Mockup review & approval
+# /ui-mockup — Mockup generate & auto-approve
 
-The mockup pipeline has two halves with different owners:
+**Approval is the DEFAULT.** A drafted mockup is automatically frozen to its PNG contract — no human round. The dev only interacts when (a) the drafter left a forbidden-to-invent question / `[?]` placeholder, or (b) they want to edit/re-generate a design.
 
 | Half | Owner | Where it runs |
 |------|-------|---------------|
-| **Generate draft** | `mockup-drafter` subagent | Inline in `/planning-task` / `/planning-system` (N parallel sessions), or STEP 2 here as fallback |
-| **Approve** | **Human** (visual taste = 5th forbidden-to-invent group) | HERE, one interactive session, any time |
+| **Generate draft** | `mockup-drafter` subagent | Inline in `/planning-task` / `/planning-system` (N parallel sessions), or STEP 2 here |
+| **Auto-approve** | `ui-review.py auto-approve` (deterministic script) | Right after drafting — planning calls it, and STEP 3 here (STEP 3 adds `--open`: a dev-typed `/ui-mockup` always ends with the approved HTML open in the browser) |
+| **Edit / answer questions** | **Dev** via review dashboard (`ui-review.py serve`) | Only when auto-approve reports pending screens, or on demand |
 
-`groundTruth` states carried in a `/new-ui` task's `**Workflow args:**`:
+`groundTruth` states — carried in a `/new-ui` task's `**Workflow args:**`, OR on a dedicated
+`**Mockup:**` line for a HYBRID task whose `**Workflow args:**` belong to a non-`/new-ui`
+workflow (e.g. `/new-feature` that also authors a popup). The token is location-agnostic:
+`backlog-ops.py promote` and `ui-review.py` both match/flip it wherever it sits on a real line.
 
 ```
 groundTruth=PENDING-MOCKUP                                → no draft yet (drafter failed/skipped)
-groundTruth=PENDING-APPROVAL:TechSpec/Mockups/<F>/<S>.html → draft exists, waiting for human
+groundTruth=PENDING-APPROVAL:TechSpec/Mockups/<F>/<S>.html → draft exists, auto-approve not yet run
+                                                             or blocked by open questions/[?]
 groundTruth=TechSpec/Mockups/<F>/<S>.png                   → APPROVED (PNG exists ⇔ approved)
 groundTruth=clone:<ExistingPrefab>                         → escape hatch: no mockup needed,
-                                                             /new-ui copies that prefab's layout
-                                                             (resolve via ui-catalog/ui-tokens.json)
+                                                             /new-ui uses the spec-sheet path (§0a)
+groundTruth=none                                          → HYBRID escape: task only wires an
+                                                             existing screen, no new visual to design
 ```
 
-**Prerequisite for generating a draft:** the current project has exported `ui-catalog/ui-tokens.json`, and `ui-catalog/ui-kit.json` exists and is fresh. Run `python3 .claude/scripts/ui-kit-sync.py` after a catalog export or prefab change. If the catalog itself is absent, stop with an actionable prerequisite; never seed it from another game. A user-supplied visual contract or an unambiguous `clone:<ExistingPrefab>` path may bypass draft generation. New drafts also produce sibling `<Screen>.ui-spec.json`; the task contract deliberately remains the `.html`/`.png` `groundTruth` states above.
+A HYBRID task carrying the marker on a `**Mockup:**` line names its screen inline, e.g.
+`**Mockup:** groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>)` — STEP 1 reads `<Feature>/<Screen>`
+from that `screen=` hint instead of from `/new-ui` Workflow args.
+
+**Prerequisite:** `.claude/ui-kit/ui-kit.json` exists and is current — `python3 .claude/scripts/ui-kit-sync.py --check` (exit 1 = regenerate with the same script minus `--check`; lifecycle in skill `ui-kit`). New drafts also produce sibling `<Screen>.ui-spec.json`; the task contract deliberately remains the `.html`/`.png` `groundTruth` states above.
 
 ## Invocation
 
-- `/ui-mockup` (no args) — review mode: sweep `backlog/planning/` for every `PENDING-*` task (plus M/L tasks flagged `**Needs mockup:** yes`).
+- **Automatic** — `/planning-task` / `/planning-system` run drafting + auto-approve inline after writing planning tasks. Nothing to do.
+- `/ui-mockup` (no args) — sweep `backlog/planning/` for every `PENDING-*` task: draft the missing, auto-approve everything that validates, report the rest.
 - `/ui-mockup <task-file.md>` — one specific task.
-- `/ui-mockup <FeatureName>: <description>` — standalone (no backlog task yet): draft → review → approve → report the PNG path for a later manual `/new-ui`.
+- `/ui-mockup <FeatureName>: <description>` — standalone (no backlog task yet): draft → auto-approve → open the HTML → report the PNG path for a later manual `/new-ui`.
+- **Re-generate** — dev names a screen + what to change: run the edit path (STEP 4) for that screen, then auto-approve again. An already-approved screen can be re-generated freely; re-approval overwrites the same PNG path so tasks keep pointing at it.
 
 ## STEP 1 — Collect
 
 ```bash
-grep -l "PENDING-MOCKUP\|PENDING-APPROVAL\|\*\*Needs mockup:\*\* yes" backlog/planning/*.md
+grep -l "PENDING-MOCKUP\|PENDING-APPROVAL" backlog/planning/*.md
 ```
 
-Parse each hit: FeatureName + groundTruth state from `**Workflow args:**` (or the `**Needs mockup:**` flag), lane from `**Mockup lane:**`, and context docs from `**Context docs:**`. A `PENDING-MOCKUP` task missing lane must rerun the planning-task fast-lane classifier against ui-catalog and persist the result before spawning. Nothing pending and no args → report "no mockups waiting" and stop.
+Parse each hit for FeatureName + groundTruth state: from `**Workflow args:**` for a `/new-ui` task, or from the `**Mockup:** groundTruth=… (screen=<Feature>/<Screen>)` line for a HYBRID task not backed by `/new-ui`. Context docs come from `**Context docs:**`. Nothing pending and no args → report "no mockups waiting" and stop.
 
 ## STEP 2 — Draft the missing ones (`PENDING-MOCKUP` only)
 
@@ -45,67 +57,49 @@ Spawn `mockup-drafter` per screen — one parallel tool-use block, ≤10/wave (s
 ```
 Agent({ subagent_type: "mockup-drafter",
         description: "Mockup draft — <Feature>/<Screen>",
-        prompt: featureName/screenName/branch/lane + outputPath TechSpec/Mockups/<F>/<S>.html
+        prompt: featureName/screenName/branch + outputPath TechSpec/Mockups/<F>/<S>.html
                 + task-file path + its **Context docs:** paths })
 ```
 
-Per result: `created`/`recovered`/`exists` means a validated v1 pair; `legacy-exists` means a validated legacy HTML. Only these statuses may flip `PENDING-MOCKUP` → `PENDING-APPROVAL:<path.html>`, and only after confirming the returned HTML exists. `error` → keep `PENDING-MOCKUP`. Surface every `questions[]` entry during STEP 4.
+Per result: `created`/`recovered`/`exists` means a validated v1 pair; `legacy-exists` means a validated legacy HTML. Only these statuses may flip `PENDING-MOCKUP` → `PENDING-APPROVAL:<path.html>`, and only after confirming the returned HTML exists. `error` → keep `PENDING-MOCKUP`.
 
-## STEP 3 — UI Review Dashboard (assembled at review time, NEVER during planning)
-
-Run `python3 .claude/scripts/ui-review.py serve` (starts a token-protected loopback service on `127.0.0.1:4176` and opens the dashboard over `http://`; occupied port → automatically use an ephemeral port). Closing the browser does not lose state: reopen the printed URL while the process lives, or run `serve` again to rescan the filesystem queue. `serve` runs in the foreground; Ctrl-C stops only the service, never the pending state.
-
-The dashboard discovers pending v1 sidecars plus legacy HTML referenced by `groundTruth=PENDING-APPROVAL:*`, surfaces each screen's `questions[]` + `assumptions[]`, opens previews at true 1080×2400, and provides Refresh / per-screen / selected / approve-all controls. **Approval is script-only:** the dashboard calls the local API, which serially applies the existing spec-hash guard + validator, captures PNG, writes `<Screen>.ui-approval.json`, flips every matching planning task to `groundTruth=<png>`, stages only that screen/task, and returns the refreshed queue. No AI agent, custom protocol, Terminal, or browser reload is involved.
-
-Structured options marked ⚡ carry restricted JSON patches. Selecting them calls the local service, which hash-checks, patches the authoritative spec, removes answered questions, renders, and validates immediately — no AI session. If the same submission also has free-form input, deterministic patches apply first and AI receives only the remaining custom answers/notes against the new hash. Only that remainder, legacy string options, or bespoke visual edits use **AI Regenerate**. The service durably records those requests and launches a bounded `claude -p` edit session with `acceptEdits` (never `bypassPermissions`) and a renderer/validator allowlist. `generate --open` plus the OS URL handlers remain static compatibility fallbacks only. `_ui-review.html` is generated session state; do not commit it.
-
-Parallel-safety rule: planning sessions only write their own screen pair + task; filesystem is the persistent queue. The local HTTP server processes approval requests sequentially, and rejects any item whose submitted hash is stale. AI regenerate sessions never approve.
-
-## STEP 4 — Review loop (human)
-
-Tell the user to review the dashboard in the browser. Per screen:
-
-- **Fast lane:** `clone:<Prefab>` screens never enter the dashboard. `mockupLane=kit-composition` should normally finish as Review → optional ⚡ Apply choices → Approve. `mockupLane=custom` keeps the same gate but may require AI Regenerate.
-- **v1 sidecar exists:** edit only `<Screen>.ui-spec.json`, then run `python3 .claude/scripts/ui-spec-render.py <spec> --output <html>`. Never hand-edit generated HTML.
-- **Legacy HTML only:** it remains editable/approvable for backward compatibility. Optionally extract a v0 sidecar with `ui-spec-extract.py`; do not pretend it is strict v1.
-
-Iterate until the user says approve or park. **Never self-approve; never treat silence as approval.**
-
-Resolve all structured questions in one dashboard pass. Patched choices apply instantly; natural-language edit requests carry the exact HTML path, expected `specHash`, and human instructions. The AI must verify the hash, edit only the authoritative spec, then render/validate. The local dashboard observes the filesystem change; do not regenerate the dashboard and never approve a regenerated result automatically.
-
-## STEP 5 — Approve → export PNG (dashboard executes this gate)
-
-Before export, run:
+## STEP 3 — Auto-approve (deterministic, no AI, no human)
 
 ```bash
-python3 .claude/scripts/ui-spec-validator.py TechSpec/Mockups/<F>/<S>.html --mode approve
-python3 .claude/scripts/ui-spec-render.py TechSpec/Mockups/<F>/<S>.ui-spec.json \
-  --output TechSpec/Mockups/<F>/<S>.html --check   # v1 only
+python3 .claude/scripts/ui-review.py auto-approve --open            # sweep all pending screens
+python3 .claude/scripts/ui-review.py auto-approve --open --task backlog/planning/<task>.md   # scoped
 ```
 
-For `specVersion: 1`, either failure blocks approval. Legacy HTML emits `legacy_spec` warnings but remains approvable so existing planning/backlog tasks are not broken.
+**`--open` is MANDATORY when a dev typed `/ui-mockup`** (any invocation form in §Invocation, including the standalone and re-generate paths): show the design, don't just report a path. It costs **exactly one browser tab regardless of screen count** —
 
-macOS:
-```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu \
-  --hide-scrollbars --window-size=1080,2400 \
-  --screenshot="$(pwd)/TechSpec/Mockups/<F>/<S>.png" "file://$(pwd)/TechSpec/Mockups/<F>/<S>.html"
-sips -g pixelWidth -g pixelHeight TechSpec/Mockups/<F>/<S>.png   # expect 1080 × 2400
-```
-Windows:
-```powershell
-& "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new --disable-gpu `
-  --hide-scrollbars --window-size=1080,2400 --screenshot="<abs>.png" "file:///<abs>.html"
-```
-No Chrome on the machine → ask the user to open the HTML at 100% zoom and screenshot to the sibling `.png`, then run `python3 .claude/scripts/ui-review.py approve --existing-png --item TechSpec/Mockups/<F>/<S>.html=<SPEC_HASH>`. This validates the 1080×2400 PNG and completes the same evidence/task/staging gate.
+- **1 approved screen** → opens that screen's HTML (interactive, template-label toggle).
+- **N approved screens** → generates `TechSpec/Mockups/_approved-gallery.html` (PNG grid + per-screen links to HTML/PNG) and opens only that. Generated session state like `_ui-review.html`, gitignored — never commit it.
 
-## STEP 6 — Flip groundTruth + stage
+The JSON gains an `"opened"` field naming what was launched. Omit `--open` **only** when auto-approve runs from `/planning-task` / `/planning-system` or any headless/batch loop — a browser popping up mid-planning is noise. If the browser cannot launch (headless machine, `webbrowser` no-op), the JSON still reports every path — say so and move on.
 
-1. Task file `**Workflow args:**`: `PENDING-APPROVAL:<...>.html` → `TechSpec/Mockups/<F>/<S>.png`.
-2. `git add` the screen's `.ui-spec.json` (when present), `.html`, `.png`, `.ui-approval.json`, and the task file — **no commit**. `_ui-review.html` stays unstaged.
+For every pending screen that passes approve-mode validation, the script: re-renders `--check`, exports the frozen 1080×1920 PNG (headless Chrome), writes the hash-bound `<Screen>.ui-approval.json`, flips the task `groundTruth` → `.png`, and stages only that screen/task. Screens are left `pending` with a reason when:
 
-For v1, `.ui-spec.json` = editable source, HTML = generated review, PNG = frozen contract. Re-render and re-export to the same paths after changes; tasks keep pointing at the same PNG. Legacy HTML keeps its old behavior.
+- the drafter left `questions[]` or literal `[?]` placeholders (forbidden-to-invent group), or
+- validation/render/PNG export failed (e.g. no Chrome on the machine).
 
-## STEP 7 — Report
+No Chrome → ask the dev to open the HTML at 100% zoom, screenshot to the sibling `.png`, then run `python3 .claude/scripts/ui-review.py approve --existing-png --item <html>=<SPEC_HASH>`.
 
-Table: screen · state (approved / still pending / draft failed) · path, plus unanswered drafter `questions[]`. Remind: `/add-to-backlog` blocks on `mockup_warnings` while any task remains `PENDING-*` or a `clone:<Prefab>` target does not resolve through the current project's catalog or to one unambiguous prefab under `Assets/` — approve here first, or choose a real clone target.
+## STEP 4 — Dev review / edits (only when needed)
+
+Run `python3 .claude/scripts/ui-review.py serve` and hand the printed URL to the dev. The dashboard (styled per `.claude/docs/design-style/`) is token-protected, loopback-only, and shows ONLY screens that still need a human: it renders each 1080×1920 preview in-page, surfaces the drafter's `questions[]` as pickable options (⚡ options carry deterministic JSON patches applied server-side without AI), `assumptions[]` collapsible, and a free-text edit box per screen.
+
+- **⚡ Apply choices** — hash-checked, patches the authoritative spec, re-renders, re-validates. No AI.
+- **✦ AI Regenerate** — free-form visual requests spawn the bounded headless `claude -p` (scoped `Edit(TechSpec/Mockups/**)` under `--permission-mode default`, git-diff containment proof, live progress + ✕ Huỷ). Requests are durably queued in `TechSpec/Mockups/_regen-queue.jsonl` first.
+- **✓ Duyệt** — same deterministic approve gate as auto-approve (validator + hash guard + PNG freeze).
+
+Editing directly is also fine: edit only `<Screen>.ui-spec.json`, then `python3 .claude/scripts/ui-spec-render.py <spec> --output <html>`. Never hand-edit generated HTML. After edits, run STEP 3 again — auto-approve re-freezes the changed screens.
+
+`serve` falls back to an ephemeral port when 8765 is busy; `--no-open` for headless, `--no-auto-regen` to queue edits without spawning the agent. `_ui-review.html` is generated session state; do not commit it.
+
+Parallel-safety rule the whole pipeline obeys: planning sessions only ever write their OWN draft file + task file; filesystem remains the persistent queue. The loopback service processes approval requests serially, and every item is rejected if its submitted hash no longer matches disk. AI edit sessions never approve and only write the selected screen's authoritative spec/rendered HTML.
+
+## STEP 5 — Report
+
+Table: screen · state (approved / pending — reason / draft failed) · path. Approved screens have already been opened in the browser by STEP 3's `--open`; state in the report that they are open (or that the browser could not be launched). If a screen stayed `pending`, its HTML is NOT opened — run STEP 4's `serve` instead so the dev lands on the dashboard that can actually resolve it. For pending screens, tell the dev exactly what awaits them in the dashboard (which questions, which screens). Remind: `/add-to-backlog` blocks on `mockup_warnings` while any task remains `PENDING-*` — settle those screens here first, or set `groundTruth=clone:<Prefab>` for screens that just clone an existing layout.
+
+For v1, `.ui-spec.json` = editable source, HTML = generated review, PNG = frozen contract. Re-render and re-approve to the same paths after changes; tasks keep pointing at the same PNG. Legacy embedded-spec HTML remains compatible (approvable, `legacy_spec` warnings only).

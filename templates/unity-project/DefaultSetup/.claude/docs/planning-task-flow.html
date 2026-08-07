@@ -1,0 +1,1462 @@
+<title>Planning Task — Flow &amp; Cases</title>
+<style>
+  :root {
+    /* warm-neutral schematic ground */
+    --bg: #F1EFEA;
+    --bg-grid: rgba(33, 30, 26, 0.045);
+    --surface: #FBFAF6;
+    --surface-2: #E9E6DE;
+    --ink: #201D18;
+    --ink-soft: #57524A;
+    --ink-faint: #837C71;
+    --line: #DAD6CC;
+    --line-strong: #C6C1B4;
+
+    /* semantic family hues (encode the routing) */
+    --ember: #DB4E22;      /* brand blaze + tier family + emphasis */
+    --ember-soft: #F6E3D8;
+    --violet: #6247D6;     /* new-system, design-first */
+    --violet-soft: #E7E1FB;
+    --teal: #0C8073;       /* workflow-backed */
+    --teal-soft: #D6ECE7;
+
+    --node: #2A2621;       /* decision-gate control node */
+    --node-ink: #F3EFE7;
+
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 2px rgba(33,30,26,.05), 0 8px 24px -14px rgba(33,30,26,.30);
+    --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+    --maxw: 1080px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14120F;
+      --bg-grid: rgba(241, 237, 230, 0.04);
+      --surface: #1D1A16;
+      --surface-2: #262119;
+      --ink: #F1EDE5;
+      --ink-soft: #ABA394;
+      --ink-faint: #7E7768;
+      --line: #322D26;
+      --line-strong: #423A31;
+      --ember: #FF7A4D;
+      --ember-soft: #35211a;
+      --violet: #9C86FF;
+      --violet-soft: #221d3a;
+      --teal: #2FC7B4;
+      --teal-soft: #10322e;
+      --node: #0E0C0A;
+      --node-ink: #F3EFE7;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14120F;
+    --bg-grid: rgba(241, 237, 230, 0.04);
+    --surface: #1D1A16;
+    --surface-2: #262119;
+    --ink: #F1EDE5;
+    --ink-soft: #ABA394;
+    --ink-faint: #7E7768;
+    --line: #322D26;
+    --line-strong: #423A31;
+    --ember: #FF7A4D;
+    --ember-soft: #35211a;
+    --violet: #9C86FF;
+    --violet-soft: #221d3a;
+    --teal: #2FC7B4;
+    --teal-soft: #10322e;
+    --node: #0E0C0A;
+    --node-ink: #F3EFE7;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -16px rgba(0,0,0,.7);
+  }
+  :root[data-theme="light"] {
+    --bg: #F1EFEA;
+    --bg-grid: rgba(33, 30, 26, 0.045);
+    --surface: #FBFAF6;
+    --surface-2: #E9E6DE;
+    --ink: #201D18;
+    --ink-soft: #57524A;
+    --ink-faint: #837C71;
+    --line: #DAD6CC;
+    --line-strong: #C6C1B4;
+    --ember: #DB4E22;
+    --ember-soft: #F6E3D8;
+    --violet: #6247D6;
+    --violet-soft: #E7E1FB;
+    --teal: #0C8073;
+    --teal-soft: #D6ECE7;
+    --node: #2A2621;
+    --node-ink: #F3EFE7;
+    --shadow: 0 1px 2px rgba(33,30,26,.05), 0 8px 24px -14px rgba(33,30,26,.30);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 1px 1px, var(--bg-grid) 1px, transparent 0) 0 0 / 26px 26px,
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px; }
+
+  /* ---------- typographic primitives ---------- */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  .mono { font-family: var(--font-mono); }
+  code, .code {
+    font-family: var(--font-mono);
+    font-size: .84em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: .08em .42em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  h2 {
+    font-size: clamp(1.45rem, 3vw, 2.05rem);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  h3 { margin: 0; font-size: 1.06rem; letter-spacing: -.01em; font-weight: 650; }
+  p { margin: 0; }
+
+  /* ---------- hero ---------- */
+  header.hero {
+    padding: clamp(48px, 8vw, 92px) 0 clamp(30px, 5vw, 52px);
+    position: relative;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 6px 13px;
+    border: 1px solid var(--line-strong);
+    border-radius: 100px;
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    letter-spacing: .04em;
+    color: var(--ink-soft);
+  }
+  .hero-tag .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember); box-shadow: 0 0 0 3px var(--ember-soft); }
+  .hero h1 {
+    font-size: clamp(2.3rem, 6.4vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -.035em;
+    margin: 22px 0 0;
+    font-weight: 720;
+    text-wrap: balance;
+  }
+  .hero h1 .em { color: var(--ember); }
+  .hero-rule {
+    height: 3px; width: 128px; margin: 26px 0 24px;
+    background: linear-gradient(90deg, var(--ember), var(--violet) 55%, var(--teal));
+    border-radius: 3px;
+  }
+  .hero-lede {
+    font-size: clamp(1.05rem, 1.9vw, 1.28rem);
+    color: var(--ink-soft);
+    max-width: 62ch;
+    line-height: 1.55;
+  }
+  .hero-lede b { color: var(--ink); font-weight: 640; }
+
+  .sources {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 30px;
+  }
+  .source-chip {
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px 10px;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .source-chip::before { content: ""; width: 5px; height: 5px; border-radius: 1px; background: var(--ink-faint); }
+
+  /* ---------- section frame ---------- */
+  section { padding: clamp(36px, 6vw, 64px) 0; border-top: 1px solid var(--line); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 30px; flex-wrap: wrap; }
+  .sec-num {
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    color: var(--ember);
+    font-weight: 600;
+    letter-spacing: .05em;
+    padding-top: .35em;
+  }
+  .sec-sub { color: var(--ink-soft); font-size: 1rem; margin-top: 8px; max-width: 64ch; }
+
+  /* ---------- decision cascade ---------- */
+  .cascade { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+
+  .entry-node {
+    align-self: flex-start;
+    background: var(--node);
+    color: var(--node-ink);
+    border-radius: var(--radius-sm);
+    padding: 14px 20px;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    display: inline-flex; align-items: center; gap: 12px;
+  }
+  .entry-node .pin { color: var(--ember); font-weight: 700; }
+
+  .flow-arrow {
+    width: 2px; height: 30px; background: var(--line-strong);
+    margin-left: 34px; position: relative;
+  }
+  .flow-arrow.tagged::after {
+    content: attr(data-tag);
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-mono); font-size: .7rem; letter-spacing: .08em;
+    color: var(--ink-faint);
+    background: var(--bg);
+    padding: 2px 7px; border: 1px solid var(--line); border-radius: 5px;
+    white-space: nowrap;
+  }
+
+  .gate {
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    /* notched corner = schematic node */
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  }
+  .gate-top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 15px 18px;
+    border-bottom: 1px dashed var(--line);
+    flex-wrap: wrap;
+  }
+  .gate-diamond {
+    width: 22px; height: 22px; flex: none;
+    background: var(--node);
+    transform: rotate(45deg);
+    border-radius: 4px;
+    position: relative;
+  }
+  .gate-diamond::after {
+    content: ""; position: absolute; inset: 6px;
+    border: 2px solid var(--node-ink); border-radius: 2px; opacity: .55;
+  }
+  .gate-step {
+    font-family: var(--font-mono); font-weight: 700; font-size: .8rem;
+    letter-spacing: .06em; color: var(--ember);
+    background: var(--ember-soft); padding: 3px 9px; border-radius: 6px;
+  }
+  .gate-q { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+  .gate-cond { padding: 12px 18px 4px; color: var(--ink-soft); font-size: .92rem; }
+
+  .gate-out {
+    display: flex; align-items: stretch; gap: 12px;
+    padding: 14px 18px 16px;
+    flex-wrap: wrap;
+  }
+  .branch-label {
+    font-family: var(--font-mono); font-size: .72rem; font-weight: 700;
+    letter-spacing: .06em;
+    padding: 5px 10px; border-radius: 6px; align-self: center; flex: none;
+    white-space: nowrap;
+  }
+  .branch-label.yes { color: #0a7f57; background: #d6efe2; }
+  @media (prefers-color-scheme: dark) { .branch-label.yes { color: #58e0aa; background: #123226; } }
+  :root[data-theme="dark"] .branch-label.yes { color: #58e0aa; background: #123226; }
+  :root[data-theme="light"] .branch-label.yes { color: #0a7f57; background: #d6efe2; }
+
+  .case-chip {
+    display: inline-flex; flex-direction: column; gap: 2px;
+    padding: 9px 14px; border-radius: var(--radius-sm);
+    font-size: .92rem; line-height: 1.3;
+    border: 1px solid transparent;
+    min-width: 0;
+  }
+  .case-chip .cid { font-family: var(--font-mono); font-weight: 700; font-size: .76rem; letter-spacing: .04em; }
+  .case-chip .cwhat { font-weight: 550; }
+  .fam-a { background: var(--violet-soft); border-color: var(--violet); }
+  .fam-a .cid { color: var(--violet); }
+  .fam-b { background: var(--teal-soft); border-color: var(--teal); }
+  .fam-b .cid { color: var(--teal); }
+  .fam-t { background: var(--ember-soft); border-color: var(--ember); }
+  .fam-t .cid { color: var(--ember); }
+
+  .chip-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .converge {
+    align-self: flex-start;
+    margin: 6px 0 0 20px;
+    font-family: var(--font-mono); font-size: .8rem; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .converge b { color: var(--ink-soft); }
+
+  /* ---------- 6-step spine ---------- */
+  .spine {
+    margin-top: 34px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 6px;
+  }
+  .spine-head { padding: 12px 16px 4px; }
+  .spine-head .eyebrow { color: var(--ink-faint); }
+  .spine-head b { font-weight: 640; }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    padding: 10px 6px 6px;
+  }
+  .step {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 12px 13px;
+    display: flex; flex-direction: column; gap: 5px;
+    min-width: 0;
+  }
+  .step .sname { font-family: var(--font-mono); font-size: .74rem; font-weight: 700; letter-spacing: .04em; }
+  .step .sname .n { color: var(--ember); }
+  .step .sdesc { font-size: .8rem; color: var(--ink-soft); line-height: 1.4; }
+  @media (max-width: 860px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 460px) { .steps { grid-template-columns: 1fr; } }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+  .legend-item { display: inline-flex; align-items: center; gap: 9px; font-size: .88rem; color: var(--ink-soft); }
+  .legend-item .sw { width: 26px; height: 14px; border-radius: 4px; border: 1px solid; flex: none; }
+  .sw.a { background: var(--violet-soft); border-color: var(--violet); }
+  .sw.b { background: var(--teal-soft); border-color: var(--teal); }
+  .sw.t { background: var(--ember-soft); border-color: var(--ember); }
+  .legend-item b { color: var(--ink); font-weight: 620; }
+
+  /* ---------- case cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--fam, var(--line));
+    border-radius: var(--radius);
+    padding: 18px 18px 16px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 13px;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .card.a { --fam: var(--violet); }
+  .card.b { --fam: var(--teal); }
+  .card.t { --fam: var(--ember); }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(33,30,26,.06), 0 18px 40px -20px rgba(33,30,26,.5); }
+
+  .card-head { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    width: 40px; height: 40px; flex: none;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: 800; font-size: 1.15rem;
+    color: #fff;
+  }
+  .card.a .badge { background: var(--violet); }
+  .card.b .badge { background: var(--teal); }
+  .card.t .badge { background: var(--ember); }
+  .card-title .ctag { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .05em; color: var(--fam); font-weight: 700; text-transform: uppercase; }
+  .card-title .cname { font-weight: 680; font-size: 1.02rem; letter-spacing: -.01em; }
+
+  .trigger {
+    font-size: .88rem; color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    line-height: 1.45;
+  }
+  .trigger .qlabel { font-family: var(--font-mono); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .trigger em { color: var(--ink); font-style: italic; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; font-size: .84rem; }
+  .kv dt { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding-top: 1px; white-space: nowrap; }
+  .kv dd { margin: 0; color: var(--ink-soft); line-height: 1.4; }
+  .kv dd b { color: var(--ink); font-weight: 620; }
+  .pill {
+    display: inline-block; font-size: .74rem; font-family: var(--font-mono);
+    padding: 1px 7px; border-radius: 5px; border: 1px solid var(--line-strong);
+    background: var(--surface-2); color: var(--ink-soft);
+  }
+  .pill.no { color: var(--teal); border-color: var(--teal); background: var(--teal-soft); }
+  .pill.yes { color: var(--violet); border-color: var(--violet); background: var(--violet-soft); }
+
+  /* ---------- case A deep dive ---------- */
+  .stages { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+  .stage {
+    flex: 1 1 150px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 13px 14px;
+    position: relative;
+    min-width: 0;
+  }
+  .stage .sn { font-family: var(--font-mono); font-weight: 800; color: var(--violet); font-size: .82rem; }
+  .stage .st { font-weight: 660; margin: 3px 0 4px; font-size: .95rem; }
+  .stage .sd { font-size: .8rem; color: var(--ink-soft); line-height: 1.42; }
+
+  .profiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 8px 0 30px; }
+  .profile {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .profile.epic { border-color: var(--ember); background: linear-gradient(180deg, var(--ember-soft), var(--surface) 60%); }
+  .profile-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .profile-name .pn { font-family: var(--font-mono); font-weight: 800; letter-spacing: .04em; font-size: 1rem; }
+  .profile.lite .pn { color: var(--teal); }
+  .profile.standard .pn { color: var(--violet); }
+  .profile.epic .pn { color: var(--ember); }
+  .weight { display: flex; gap: 3px; }
+  .weight i { width: 7px; height: 16px; border-radius: 2px; background: var(--line-strong); }
+  .profile.lite .weight i:nth-child(-n+1),
+  .profile.standard .weight i:nth-child(-n+2),
+  .profile.epic .weight i:nth-child(-n+3) { background: currentColor; }
+  .profile.lite .weight { color: var(--teal); }
+  .profile.standard .weight { color: var(--violet); }
+  .profile.epic .weight { color: var(--ember); }
+  .profile .when { font-size: .82rem; color: var(--ink-soft); }
+  .profile .when b { color: var(--ink); font-weight: 640; }
+  .profile .diff { font-size: .84rem; line-height: 1.5; border-top: 1px dashed var(--line); padding-top: 11px; color: var(--ink-soft); }
+
+  /* ---------- data table ---------- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .87rem; min-width: 520px; }
+  thead th {
+    text-align: left; font-family: var(--font-mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600;
+    padding: 12px 16px; border-bottom: 1px solid var(--line-strong); background: var(--surface-2);
+  }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--ink-soft); vertical-align: top; line-height: 1.45; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { color: var(--ink); font-weight: 550; white-space: nowrap; }
+
+  /* ---------- batch traits ---------- */
+  .traits { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-top: 24px; }
+  .trait { display: flex; gap: 12px; padding: 15px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+  .trait .tnum { font-family: var(--font-mono); font-weight: 800; color: var(--ember); font-size: .95rem; flex: none; }
+  .trait .tbody { font-size: .87rem; color: var(--ink-soft); line-height: 1.48; }
+  .trait .tbody b { color: var(--ink); font-weight: 640; }
+
+  /* ---------- stop-asking callout ---------- */
+  .stopwrap {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden;
+    display: grid; grid-template-columns: 1.1fr 1fr;
+  }
+  @media (max-width: 780px) { .stopwrap { grid-template-columns: 1fr; } }
+  .stop-list { padding: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .stop-item { display: flex; gap: 13px; align-items: flex-start; }
+  .stop-item .n {
+    width: 26px; height: 26px; flex: none; border-radius: 7px;
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: 800; font-size: .82rem;
+    color: var(--ember); background: var(--ember-soft); border: 1px solid var(--ember);
+  }
+  .stop-item .t { font-size: .94rem; padding-top: 2px; }
+  .stop-item .t b { font-weight: 660; }
+  .stop-rule {
+    padding: 24px;
+    background: linear-gradient(160deg, var(--node), #1a1712);
+    color: var(--node-ink);
+    display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  }
+  .stop-rule .eyebrow { color: var(--ember); }
+  .stop-rule p { font-size: .96rem; line-height: 1.6; color: #e8e2d6; }
+  .stop-rule .marker { font-family: var(--font-mono); color: var(--ember); font-weight: 700; }
+  .stop-rule .zero { font-size: 1.9rem; font-weight: 780; letter-spacing: -.02em; color: #fff; }
+
+  /* ---------- after-run steps ---------- */
+  .after { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .after-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .after-card .ah { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .after-card .ah .idx { font-family: var(--font-mono); font-weight: 800; color: var(--teal); }
+  .after-card .ah h3 { font-size: .98rem; }
+  .after-card p { font-size: .87rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- gotchas ---------- */
+  .gotchas { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .gotcha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; position: relative; }
+  .gotcha::before {
+    content: "≠"; position: absolute; top: 14px; right: 16px;
+    font-family: var(--font-mono); font-size: 1.4rem; font-weight: 800; color: var(--ember); opacity: .35;
+  }
+  .gotcha h3 { font-size: .96rem; margin-bottom: 8px; padding-right: 24px; }
+  .gotcha p { font-size: .87rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- footer ---------- */
+  footer { border-top: 1px solid var(--line); padding: 34px 0 60px; color: var(--ink-faint); font-size: .82rem; }
+  footer .fnote { font-family: var(--font-mono); }
+
+  /* ---------- theme toggle ---------- */
+  .toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 50;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    color: var(--ink-soft); border-radius: 100px;
+    font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em;
+    padding: 7px 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: var(--shadow);
+  }
+  .toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .toggle:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+
+  /* ---------- tabs ---------- */
+  .tabs {
+    display: inline-flex; gap: 5px; padding: 5px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 13px; margin: 6px 0 2px;
+    max-width: 100%;
+  }
+  .tab-btn {
+    appearance: none; border: none; background: transparent;
+    font-family: var(--font-mono); font-size: .82rem; letter-spacing: .02em; font-weight: 600;
+    color: var(--ink-soft); padding: 9px 17px; border-radius: 9px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: color .15s ease, background .15s ease;
+  }
+  .tab-btn .dotm { font-size: .7em; color: var(--ink-faint); }
+  .tab-btn .tibadge {
+    font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 20px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-faint);
+  }
+  .tab-btn[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab-btn[aria-selected="true"] .dotm { color: var(--ember); }
+  .tab-btn[aria-selected="true"] .tibadge { border-color: var(--ember); color: var(--ember); }
+  .tab-btn:hover:not([aria-selected="true"]) { color: var(--ink); }
+  .tab-btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+  .panel[hidden] { display: none; }
+
+  /* ---------- diagram ---------- */
+  .dia-intro { padding: clamp(30px, 5vw, 46px) 0 6px; }
+  .diagram-note { color: var(--ink-soft); font-size: 1rem; max-width: 66ch; margin-top: 10px; line-height: 1.55; }
+  .diagram-note b { color: var(--ink); font-weight: 640; }
+  .dg-wrap {
+    overflow-x: auto; margin-top: 26px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); padding: 14px;
+    box-shadow: var(--shadow);
+  }
+  .dg { display: block; min-width: 1000px; width: 100%; height: auto; }
+  .dg text { text-anchor: middle; dominant-baseline: middle; }
+  .dg-box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
+  .dg-entry { fill: var(--node); stroke: var(--node); }
+  .dg-dia { fill: var(--surface); stroke: var(--ink-faint); stroke-width: 1.6; }
+  .dg-A { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.6; }
+  .dg-B { fill: var(--teal-soft); stroke: var(--teal); stroke-width: 1.6; }
+  .dg-T { fill: var(--ember-soft); stroke: var(--ember); stroke-width: 1.6; }
+  .dg-out { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.5; }
+  .dg-bracket { fill: none; stroke: var(--line-strong); stroke-width: 1.4; stroke-dasharray: 5 5; }
+  .dg-e { fill: none; stroke: var(--ink-faint); stroke-width: 1.7; }
+  .dg-eA { fill: none; stroke: var(--violet); stroke-width: 2; }
+  .dg-trunk { fill: none; stroke: var(--ink-faint); stroke-width: 1.7; }
+  .t-main { font: 650 14px var(--font-sans); fill: var(--ink); }
+  .t-mono { font: 600 12.5px var(--font-mono); fill: var(--ink); }
+  .t-sub  { font: 600 10px var(--font-mono); fill: var(--ink-faint); letter-spacing: .04em; }
+  .t-lab  { font: 700 10.5px var(--font-mono); fill: var(--ink-faint); letter-spacing: .07em; }
+  .t-white { fill: var(--node-ink); }
+  .t-vio { fill: var(--violet); } .t-teal { fill: var(--teal); } .t-emb { fill: var(--ember); }
+
+  .dg-legend { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-top: 22px; }
+  .dg-legend .li { display: inline-flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--ink-soft); }
+  .leg-dia { width: 17px; height: 17px; flex: none; transform: rotate(45deg); border: 1.6px solid var(--ink-faint); background: var(--surface); border-radius: 2px; }
+  .leg-r { width: 28px; height: 16px; flex: none; border-radius: 5px; }
+  .leg-r.node { background: var(--node); border: 1.6px solid var(--node); }
+  .leg-r.a { background: var(--violet-soft); border: 1.6px solid var(--violet); }
+  .leg-r.b { background: var(--teal-soft); border: 1.6px solid var(--teal); }
+  .leg-r.t { background: var(--ember-soft); border: 1.6px solid var(--ember); }
+  .leg-br { width: 28px; height: 16px; flex: none; border: 1.6px dashed var(--line-strong); border-radius: 5px; }
+
+  .dev-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .dev-chip {
+    font-family: var(--font-mono); font-size: .77rem; color: var(--ink-soft);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 13px; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .dev-chip::before { content: "▸"; color: var(--ember); font-weight: 700; }
+  .dev-chip b { color: var(--ink); font-weight: 640; }
+
+  @media (max-width: 560px) {
+    .dia-intro h2 { font-size: 1.5rem; }
+  }
+
+  /* ---------- reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card { transition: none; }
+    * { scroll-behavior: auto !important; }
+  }
+
+  @media (max-width: 620px) {
+    .gate-out { flex-direction: column; }
+    .flow-arrow { margin-left: 22px; }
+    .converge { margin-left: 10px; }
+  }
+</style>
+
+<button class="toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">
+  <span id="toggleIcon">◑</span><span id="toggleText">Theme</span>
+</button>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="hero-tag"><span class="dot"></span>BlazeSurvivor · Autonomous Backlog</span>
+    <h1>Planning&nbsp;Task<br><span class="em">Flow &amp; Cases</span></h1>
+    <div class="hero-rule"></div>
+    <p class="hero-lede">
+      <code>/planning-task</code> là <b>cửa vào duy nhất</b> cho mọi intent — tự phân loại
+      và route xuống đúng đường xử lý phù hợp, từ một CSV tweak 1 dòng cho tới cả một
+      GDD hệ thống mới. Tài liệu này bản đồ hoá cơ chế đó.
+    </p>
+    <div class="sources">
+      <span class="source-chip mono">skills/planning-task/SKILL.md</span>
+      <span class="source-chip mono">skills/planning-system/SKILL.md</span>
+      <span class="source-chip mono">docs/design-pipeline/</span>
+      <span class="source-chip mono">scripts/backlog-ops.py</span>
+      <span class="source-chip mono">workflows/ui-mockup.md · ui-kit/</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Chế độ xem">
+    <button class="tab-btn" id="tab-doc" role="tab" aria-selected="true" aria-controls="panel-doc">
+      <span class="dotm">●</span> Tài liệu
+    </button>
+    <button class="tab-btn" id="tab-dia" role="tab" aria-selected="false" aria-controls="panel-diagram">
+      <span class="dotm">◆</span> Diagram <span class="tibadge">dev</span>
+    </button>
+  </nav>
+
+  <div id="panel-doc" class="panel" role="tabpanel" aria-labelledby="tab-doc">
+
+  <!-- ================= FLOW ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>Flow tổng — một cửa vào, cascade phân loại</h2>
+        <p class="sec-sub">Ba cổng quyết định chạy theo đúng thứ tự ưu tiên: <b>0b</b> (new-system) trước <b>0a</b> (workflow-backed) trước <b>tier triage</b>. Cổng đầu tiên khớp sẽ chốt case.</p>
+      </div>
+    </div>
+
+    <div class="cascade">
+      <div class="entry-node mono"><span class="pin">/planning-task</span> &lt;intent | doc&gt;</div>
+
+      <div class="flow-arrow"></div>
+
+      <!-- GATE 0b -->
+      <div class="gate">
+        <div class="gate-top">
+          <span class="gate-diamond"></span>
+          <span class="gate-step">STEP 0b</span>
+          <span class="gate-q">NEW-SYSTEM?</span>
+        </div>
+        <p class="gate-cond">Fire khi CẢ HAI: <b>(1)</b> doc-scale — cả GDD nhiều section, HOẶC ≥2 module MỚI tương tác nhau; <b>(2)</b> KHÔNG gói được thành 1 task workflow-backed. Chạm economy đơn thuần <b>không</b> kích 0b — chỉ là tín hiệu tier.</p>
+        <div class="gate-out">
+          <span class="branch-label yes">CÓ →</span>
+          <div class="case-chip fam-a">
+            <span class="cid">CASE A</span>
+            <span class="cwhat">dispatch <span class="mono">/planning-system</span> — kéo cả pipeline thiết kế</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow tagged" data-tag="KHÔNG"></div>
+
+      <!-- GATE 0a -->
+      <div class="gate">
+        <div class="gate-top">
+          <span class="gate-diamond"></span>
+          <span class="gate-step">STEP 0a</span>
+          <span class="gate-q">WORKFLOW-BACKED?</span>
+        </div>
+        <p class="gate-cond">Intent scaffold thuần khớp một <span class="mono">/new-*</span> trong registry (<span class="mono">/new-feature</span>, <span class="mono">/new-skill</span>, <span class="mono">/new-package</span>…).</p>
+        <div class="gate-out">
+          <span class="branch-label yes">MATCH →</span>
+          <div class="chip-row">
+            <div class="case-chip fam-b">
+              <span class="cid">CASE B</span>
+              <span class="cwhat">WF pure — scaffold thuần</span>
+            </div>
+            <div class="case-chip fam-b">
+              <span class="cid">CASE C</span>
+              <span class="cwhat">Hybrid — scaffold + delta → vẫn qua tier triage</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow tagged" data-tag="KHÔNG MATCH"></div>
+
+      <!-- GATE 0 tier -->
+      <div class="gate">
+        <div class="gate-top">
+          <span class="gate-diamond"></span>
+          <span class="gate-step">STEP 0</span>
+          <span class="gate-q">TIER TRIAGE</span>
+        </div>
+        <p class="gate-cond">Không match workflow (hoặc HYBRID: 0a match + delta logic — vẫn phải qua cổng này) → phân theo độ phức tạp &amp; blast-radius. <b>Phân vân giữa 2 tier → chọn tier LỚN hơn</b>: gate review của run-backlog key theo tier và <b>không tự escalate</b> lúc thực thi — tier thấp oan = bỏ qua reviewer oan.</p>
+        <div class="gate-out">
+          <div class="chip-row">
+            <div class="case-chip fam-t"><span class="cid">CASE D</span><span class="cwhat">XS · hằng số, dead code</span></div>
+            <div class="case-chip fam-t"><span class="cid">CASE E</span><span class="cwhat">S · sửa ≤2 file</span></div>
+            <div class="case-chip fam-t"><span class="cid">CASE F</span><span class="cwhat">M-simple · pattern có sẵn</span></div>
+            <div class="case-chip fam-t"><span class="cid">CASE G</span><span class="cwhat">M-complex / L · nhiều subsystem</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="converge">▼&nbsp; <b>Mọi case B–G</b> hội tụ về spine chung STEP 1→6 (Case A đi riêng qua planning-system)</div>
+
+      <!-- 6-step spine -->
+      <div class="spine">
+        <div class="spine-head">
+          <span class="eyebrow">Spine chung · STEP 1 → 6</span>
+          <p style="margin-top:5px;font-size:.9rem;color:var(--ink-soft)">Sau khi chốt case, mọi task B–G đi qua cùng một dây chuyền ghi spec.</p>
+        </div>
+        <div class="steps">
+          <div class="step"><span class="sname"><span class="n">1</span> EXTRACT</span><span class="sdesc">Parse What / Why / Scope / Priority / Constraints. Clarify ≤3 câu/lượt — chỉ hỏi 5 nhóm cấm-bịa, không hỏi cái grep được.</span></div>
+          <div class="step"><span class="sname"><span class="n">2</span> DRAFT</span><span class="sdesc">XS: draft thẳng · S: grep 1–3 file · M-simple: main context · M-cx/L: task-planner → duyệt 2b · WF: đọc đúng 1 workflow file. Riêng <span class="mono">/new-ui</span> (2b): resolve groundTruth — ảnh user / <span class="mono">clone:&lt;Prefab&gt;</span> / spawn mockup-drafter → PENDING-APPROVAL.</span></div>
+          <div class="step"><span class="sname"><span class="n">3</span> FILENAME</span><span class="sdesc"><span class="mono">backlog-ops.py timestamp</span> → <span class="mono">&lt;ts&gt;-&lt;TIER&gt;-&lt;slug&gt;</span> — không NNN, không race check.</span></div>
+          <div class="step"><span class="sname"><span class="n">4</span> WRITE</span><span class="sdesc">Template theo tier/WF → <span class="mono">backlog/planning/</span> + dòng <span class="mono">Guardrails:</span> tags (tra <span class="mono">_GUARDRAILS.md</span>).</span></div>
+          <div class="step"><span class="sname"><span class="n">5</span> CHECK</span><span class="sdesc">Checklist theo tier: path thật · criteria đo được · scope-control · mobile impact · ≥3 verify steps (M/L).</span></div>
+          <div class="step"><span class="sname"><span class="n">6</span> REPORT</span><span class="sdesc">Tier + lý do chọn + assumptions + file → trỏ <span class="mono">/add-to-backlog</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CASES ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>Bảng case — 7 đường xử lý</h2>
+        <p class="sec-sub">Mỗi case khác nhau ở việc <b>có spawn subagent không</b>, dùng <b>template nào</b>, và <b>tốn bao nhiêu token</b>. Màu mã hoá theo họ đường đi.</p>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-item"><span class="sw a"></span><b>New-system</b> — design-first (A)</span>
+      <span class="legend-item"><span class="sw b"></span><b>Workflow-backed</b> — B pure · C hybrid</span>
+      <span class="legend-item"><span class="sw t"></span><b>Tier triage</b> — XS → L (D · E · F · G)</span>
+    </div>
+
+    <div class="cards">
+
+      <!-- A -->
+      <article class="card a">
+        <div class="card-head">
+          <div class="badge">A</div>
+          <div class="card-title"><span class="ctag">New-system</span><div class="cname">Ném cả GDD</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>“làm hệ thống Guild War theo doc này”</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>0b → <span class="mono">/planning-system</span>: (03-gdd-final nếu economy chưa validated) → 04-analysis → 05-tech-spec → 06-mapping → <b>batch-ground</b></dd>
+          <dt>Subagent</dt><dd><span class="pill yes">1/stage + task-planner (HYBRID)</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_WF</span> + M/L</dd>
+          <dt>Output</dt><dd><b>N file</b> <span class="mono">&lt;batchTS&gt;-&lt;NN&gt;-&lt;TIER&gt;-&lt;slug&gt;</span> theo topo order + bộ <span class="mono">TechSpec/*</span></dd>
+        </dl>
+      </article>
+
+      <!-- B -->
+      <article class="card b">
+        <div class="card-head">
+          <div class="badge">B</div>
+          <div class="card-title"><span class="ctag">WF pure</span><div class="cname">Scaffold thuần</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>“tạo package WeeklyGemPack” · “tạo skill 15 bắn 3 đạn homing”</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>0a match → skip planner, đọc đúng 1 workflow file</dd>
+          <dt>Subagent</dt><dd><span class="pill no">Không · tiết kiệm ~15–25K token</span> — riêng <span class="mono">/new-ui</span>: spawn mockup-drafter cho groundTruth</dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_WF</span></dd>
+          <dt>Output</dt><dd>1 file, exec tier lấy từ registry (thường <b>M</b>)</dd>
+        </dl>
+      </article>
+
+      <!-- C -->
+      <article class="card b">
+        <div class="card-head">
+          <div class="badge">C</div>
+          <div class="card-title"><span class="ctag">WF hybrid</span><div class="cname">Scaffold + delta</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>“tạo skill 15 VÀ wire vào evolution pool + rebalance CSV”</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>0a match + logic thêm → tier triage (hầu như M/L) → planner <b>plan delta only</b></dd>
+          <dt>Subagent</dt><dd><span class="pill yes">task-planner (delta)</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_M/L</span> + <span class="mono">Backed by workflow</span></dd>
+          <dt>Output</dt><dd>1 file M/L</dd>
+        </dl>
+      </article>
+
+      <!-- D -->
+      <article class="card t">
+        <div class="card-head">
+          <div class="badge">D</div>
+          <div class="card-title"><span class="ctag">Tier · XS</span><div class="cname">Chỉnh vi mô</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>“đổi hằng số spawn 5→7” · xoá dead code</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>Draft thẳng từ intent, không grep</dd>
+          <dt>Subagent</dt><dd><span class="pill no">Không</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_XS</span></dd>
+          <dt>Output</dt><dd>1 file <b>(~1K token)</b></dd>
+        </dl>
+      </article>
+
+      <!-- E -->
+      <article class="card t">
+        <div class="card-head">
+          <div class="badge">E</div>
+          <div class="card-title"><span class="ctag">Tier · S</span><div class="cname">Sửa nhỏ</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>Sửa logic 1 file · bug fix ≤2 file</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>Grep/Read 1–3 file xác nhận path rồi draft</dd>
+          <dt>Subagent</dt><dd><span class="pill no">Không</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_S</span></dd>
+          <dt>Output</dt><dd>1 file <b>(~3K token)</b></dd>
+        </dl>
+      </article>
+
+      <!-- F -->
+      <article class="card t">
+        <div class="card-head">
+          <div class="badge">F</div>
+          <div class="card-title"><span class="ctag">Tier · M-simple</span><div class="cname">Pattern có sẵn</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>1 save field mới / 1 screen theo pattern, 3–8 file, không wiring chéo</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>Draft ở main context (1–2 pass Grep/Read), tự sinh JSON như planner</dd>
+          <dt>Subagent</dt><dd><span class="pill no">Không</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_M</span></dd>
+          <dt>Output</dt><dd>1 file</dd>
+        </dl>
+      </article>
+
+      <!-- G -->
+      <article class="card t">
+        <div class="card-head">
+          <div class="badge">G</div>
+          <div class="card-title"><span class="ctag">Tier · M-complex / L</span><div class="cname">Đa subsystem</div></div>
+        </div>
+        <div class="trigger"><span class="qlabel">Kích hoạt</span><em>Nhiều subsystem tương tác · dependency chưa rõ · IAP flow · save migration</em></div>
+        <dl class="kv">
+          <dt>Đường đi</dt><dd>Spawn task-planner (JSON) → present bản rút gọn (2b) → user chỉnh → ghi</dd>
+          <dt>Subagent</dt><dd><span class="pill yes">task-planner (opus)</span></dd>
+          <dt>Template</dt><dd><span class="mono">_TEMPLATE_M/L</span></dd>
+          <dt>Output</dt><dd>1 file <b>(~15–25K token)</b></dd>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ================= CASE A DEEP DIVE ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>Case A chi tiết — <span class="mono" style="font-size:.72em;color:var(--violet)">/planning-system</span></h2>
+        <p class="sec-sub">Orchestrator design-first cho hệ thống mới lớn. Năm giai đoạn, tự co giãn theo profile chọn ở INTAKE; resume bằng <code>--from-mapping</code> (vào thẳng [2] PLAN). Sơ đồ nhánh nội bộ đầy đủ: tab <b>Diagram</b> → Sơ đồ 2.</p>
+      </div>
+    </div>
+
+    <div class="stages">
+      <div class="stage"><span class="sn">[0]</span><div class="st">INTAKE</div><div class="sd">FeatureName, PROFILE detection, idempotency probe, guards.</div></div>
+      <div class="stage"><span class="sn">[1]</span><div class="st">DESIGN</div><div class="sd">Subagent per stage, chạy theo profile; mỗi stage trả OK / QUESTIONS / ABORT (+ <span class="mono">profile_escalation</span>).</div></div>
+      <div class="stage"><span class="sn">[2]</span><div class="st">PLAN</div><div class="sd">Parse mapping §10.1–10.7 (EPIC: merge) → existence probe → route + gán exec tier per item (pure-WF / HYBRID / UI) → ownership map + topo order.</div></div>
+      <div class="stage"><span class="sn">[3]</span><div class="st">GROUND</div><div class="sd">1 batch timestamp + NN index → task-planner (HYBRID) + mockup-drafter (UI) fan-out ≤10/wave → tự viết N file → git add.</div></div>
+      <div class="stage"><span class="sn">[4]</span><div class="st">REPORT</div><div class="sd">Profile + bảng task + promote order + câu hỏi/giả định.</div></div>
+    </div>
+
+    <h3 style="margin-bottom:14px">Ba profile — pipeline tự co giãn</h3>
+    <div class="profiles">
+      <div class="profile lite">
+        <div class="profile-name"><span class="pn">LITE</span><span class="weight"><i></i><i></i><i></i></span></div>
+        <div class="when"><b>Khi:</b> Không economy/monetization/competitive/backend-write VÀ ≤5 sub-feature (tutorial, photo mode).</div>
+        <div class="diff"><b>Bỏ hẳn 03-gdd-final;</b> 05 bắt buộc 2 lens (Flow + Feasibility) — Lens 2/4 chỉ chạy khi spec lộ surface tương ứng; không simulation — cắt ~40–60% token design.<br><span class="mono" style="color:var(--teal)">04 → 05(trim) → 06</span></div>
+      </div>
+      <div class="profile standard">
+        <div class="profile-name"><span class="pn">STANDARD</span><span class="weight"><i></i><i></i><i></i></span></div>
+        <div class="when"><b>Khi:</b> Có economy/monetization HOẶC 6–15 sub-feature. <b>Mặc định khi thiếu tín hiệu.</b></div>
+        <div class="diff">Flow đầy đủ 4 lens audit.<br><span class="mono" style="color:var(--violet)">(03?) → 04 → 05 → 06</span></div>
+      </div>
+      <div class="profile epic">
+        <div class="profile-name"><span class="pn">EPIC</span><span class="weight"><i></i><i></i><i></i></span></div>
+        <div class="when"><b>Khi:</b> Backend write/PvP/social/guild HOẶC &gt;15 sub-feature HOẶC nhiều bounded context.</div>
+        <div class="diff">04 xuất <b>Module Split Plan</b> → 05+06 chạy per-module theo build order → merge dependency graph; 05 thêm <b>API Contract &amp; Server Authority</b> (bắt buộc khi có backend write).<br><span class="mono" style="color:var(--ember)">(03?) → 04+Gate → per-module 05→06</span></div>
+      </div>
+    </div>
+    <p style="font-size:.86rem;color:var(--ink-soft);margin:-14px 0 30px;line-height:1.55">
+      Stage được phép báo <span class="mono">profile_escalation</span> khi phát hiện profile sai (vd LITE lộ economy) → orchestrator <b>nâng</b> profile, chạy bổ sung stage thiếu — không làm lại từ đầu, <b>không bao giờ tự hạ</b>. Tương tự, 05 ở STANDARD gặp scope quá lớn trả <span class="mono">ABORT: suggest EPIC split</span> → nâng EPIC + chạy lại từ Decomposition Gate của 04 thay vì dừng hẳn.
+    </p>
+
+    <h3 style="margin-bottom:14px">Hành vi lúc dispatch — idempotent resume</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Tình huống lúc dispatch</th><th>Hành vi</th></tr></thead>
+        <tbody>
+          <tr><td>Chưa có artifact nào</td><td>Chạy full Stage 0→4</td></tr>
+          <tr><td><span class="mono">*-Implementation.md</span> đã có (không STALE)</td><td><b>Resume Stage 2</b> — bỏ qua toàn bộ design (đỡ tốn nhất)</td></tr>
+          <tr><td>Có Architecture/TechSpec nhưng thiếu mapping</td><td>Resume Stage 1 từ stage thiếu</td></tr>
+          <tr><td>Artifact mang banner <span class="mono">&lt;!-- STALE --&gt;</span></td><td>Coi như chưa có → chạy lại stage đó</td></tr>
+          <tr><td>Batch planning cũ còn dở (trùng slug)</td><td>Liệt kê + hỏi: tiếp phần thiếu / làm lại</td></tr>
+          <tr><td><span class="mono">in-progress/</span> có task (loop đang chạy)</td><td>Cảnh báo, chỉ tiếp khi user xác nhận</td></tr>
+          <tr><td>Stage trả <span class="mono">QUESTIONS</span></td><td>Hỏi ≤3 câu/lượt (max 2 vòng/stage) → re-spawn đúng stage</td></tr>
+          <tr><td>Stage 05 trả <span class="mono">ABORT</span> (Lens 3 — scope vượt năng lực)</td><td>STANDARD: <span class="mono">suggest EPIC split</span> → <b>nâng EPIC</b> + re-spawn 04 (Decomposition Gate), KHÔNG dừng. Chỉ dừng hẳn với “Yêu Cầu Tối Giản Hoá GDD” khi chia module cũng không cứu được (hoặc đã EPIC mà 1 module vẫn vượt) — không đẻ task rác</td></tr>
+          <tr><td>Subagent trả JSON sai format</td><td>Re-spawn 1 lần kèm nhắc contract; vẫn sai → dừng, báo user</td></tr>
+          <tr><td>Mapping có &gt;20 work item (kể cả UI)</td><td>Dừng hỏi có nên chia phase (fan-out cap: 10 HYBRID/wave)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin:30px 0 4px">Đặc điểm batch output</h3>
+    <div class="traits">
+      <div class="trait"><span class="tnum">NN</span><div class="tbody"><b>Một timestamp chung</b> cho cả batch + <span class="mono">NN</span> = thứ tự topo từ Dependency Graph → <span class="mono">promote</span> sort <span class="mono">(timestamp, index)</span> nên <b>NN chính là thứ tự thực thi</b>.</div></div>
+      <div class="trait"><span class="tnum">↳</span><div class="tbody">Mỗi task mang <span class="mono">Context docs</span> (trỏ TechSpec — không bịa lại số liệu), <span class="mono">Depends on</span> (promote warn khi đứt); riêng UI task thêm <span class="mono">Requires: unity-editor</span> + <span class="mono">groundTruth=</span> (mockup pipeline — xem §04).</div></div>
+      <div class="trait"><span class="tnum">TIER</span><div class="tbody">Batch <b>trộn nhiều tier</b>: pure-WF lấy exec tier theo registry (thường M, L nếu save + cross-system), HYBRID M/L, UI S–M. Tier từng task lái <b>review-gate</b> run-backlog + <span class="mono">--auto-model-by-tier</span> (XS/S → sonnet, M/L → opus).</div></div>
+      <div class="trait"><span class="tnum">UI</span><div class="tbody">UI screen tách thành task <span class="mono">/new-ui</span> riêng, xếp <b>cuối batch</b>; task <span class="mono">/new-feature</span> tương ứng skip step prefab.</div></div>
+      <div class="trait"><span class="tnum">L10n</span><div class="tbody">Localize <b>không bao giờ</b> là task riêng (không tạo git diff → <span class="mono">NO_CHANGES</span>) — fold vào task feature sở hữu string.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= MOCKUP PIPELINE ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>Mockup pipeline — UI ground truth</h2>
+        <p class="sec-sub">Task <span class="mono">/new-ui</span> không build từ mô tả text — nó cần <b>ground truth hình ảnh</b> (new-ui-guide §0a). Nguyên tắc xuyên suốt: <b>generate = autonomous (parallel-safe)</b> · <b>approve = human (serial, bất đồng bộ)</b> — duyệt visual là quyết định gu con người nhưng KHÔNG dừng planning.</p>
+      </div>
+    </div>
+
+    <div class="profiles">
+      <div class="profile lite">
+        <div class="profile-name"><span class="pn">GENERATE · autonomous</span></div>
+        <div class="when"><b>planning</b> (N phiên song song, parallel-safe)</div>
+        <div class="diff">Phát hiện task UI → spawn <b>mockup-drafter</b> per screen → đọc <span class="mono">.claude/ui-kit/</span> → ghi <span class="mono">&lt;S&gt;.ui-spec.json</span> rồi generate <span class="mono">&lt;S&gt;.html</span> — <b>chỉ ghi pair của screen</b>, không UI Review Dashboard, không shared state → task vẫn nhận <span class="mono">groundTruth=PENDING-APPROVAL:&lt;html&gt;</span>.</div>
+      </div>
+      <div class="profile standard">
+        <div class="profile-name"><span class="pn">APPROVE · human</span></div>
+        <div class="when"><b>/ui-mockup</b> (MỘT phiên interactive, lúc nào tiện)</div>
+        <div class="diff">grep <span class="mono">PENDING-*</span> trong <span class="mono">backlog/planning/</span> → draft nốt phần thiếu (<span class="mono">PENDING-MOCKUP</span>) → mở <b>static UI Review Dashboard</b> → button gọi <span class="mono">claude-cli://open</span> tại project với prompt hash-bound → validate + export <b>PNG 1080×1920</b> → regenerate dashboard bỏ card approved → flip <span class="mono">groundTruth=&lt;png&gt;</span> → git add (KHÔNG commit).</div>
+      </div>
+    </div>
+
+    <h3 style="margin:30px 0 14px">Bốn trạng thái <span class="mono">groundTruth=</span> trong <span class="mono">Workflow args</span></h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>groundTruth</th><th>Nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mono">…/&lt;S&gt;.png</span></td><td><b>Đã approve</b> — PNG là contract đóng băng; v1 sửa ở <span class="mono">.ui-spec.json</span> rồi generate HTML</td></tr>
+          <tr><td><span class="mono">PENDING-APPROVAL:&lt;html&gt;</span></td><td>Draft có rồi, chờ human duyệt ở <span class="mono">/ui-mockup</span></td></tr>
+          <tr><td><span class="mono">PENDING-MOCKUP</span></td><td>Chưa có draft (drafter fail/skip) — <span class="mono">/ui-mockup</span> sẽ draft nốt</td></tr>
+          <tr><td><span class="mono">clone:&lt;Prefab&gt;</span></td><td>Khỏi mockup — màn chỉ nhái layout prefab có sẵn (đường spec-sheet §0a)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="traits">
+      <div class="trait"><span class="tnum">block</span><div class="tbody"><span class="mono">backlog-ops.py promote --check</span> xuất <span class="mono">mockup_warnings</span> khi task còn <span class="mono">PENDING-*</span> — đây là <b>hard blocker</b>; phải approve thành PNG hoặc chuyển sang <span class="mono">clone:&lt;ExistingPrefab&gt;</span> hợp lệ trước khi promote.</div></div>
+      <div class="trait"><span class="tnum">JSON</span><div class="tbody"><span class="mono">.ui-spec.json</span> là nguồn duy nhất → generate HTML → <span class="mono">/new-ui</span> dùng cùng spec; task/backlog vẫn giữ path HTML/PNG. Legacy embedded spec tiếp tục tương thích.</div></div>
+      <div class="trait"><span class="tnum">kit</span><div class="tbody">UI-kit v0 extract từ template prefab YAML (không cần Unity sống): <span class="mono">ui-kit-sync.py</span> — chạy lại khi <span class="mono">Templates/</span> đổi; v1 (PNG thật qua MCP) thay CSS background, không đổi class/JSON shape.</div></div>
+      <div class="trait"><span class="tnum">M/L</span><div class="tbody">Task lai M/L tự dựng <b>màn mới</b> → <b>TÁCH màn thành task <span class="mono">/new-ui</span> riêng</b> (giống <span class="mono">/planning-system</span>): task <span class="mono">/new-ui</span> đi qua item 2b → <span class="mono">mockup-drafter</span> spawn ngay lúc planning → draft <span class="mono">PENDING-APPROVAL</span> sẵn để approve; task logic mang <span class="mono">Depends on</span> màn đó. Escape hatch (màn không tách được): 1 task + dòng <span class="mono">**Mockup:** groundTruth=PENDING-MOCKUP</span>. Backstop: <span class="mono">promote</span> hard-block task nhắc <span class="mono">/new-ui</span> mà thiếu token <span class="mono">groundTruth=</span>.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= STOP ASKING ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <div>
+        <h2>Khi nào hệ thống DỪNG HỎI user</h2>
+        <p class="sec-sub">Chỉ đúng 5 nhóm dưới đây — mọi thứ khác tự quyết + ghi assumption. Đây là ranh giới “cấm bịa”.</p>
+      </div>
+    </div>
+
+    <div class="stopwrap">
+      <div class="stop-list">
+        <div class="stop-item"><span class="n">1</span><span class="t"><b>Economy / reward</b> — giá IAP, số lượng, tỉ lệ drop</span></div>
+        <div class="stop-item"><span class="n">2</span><span class="t"><b>Save data</b> — migration, persist-restart</span></div>
+        <div class="stop-item"><span class="n">3</span><span class="t"><b>Backend / auth / IAP / security</b> — leaderboard</span></div>
+        <div class="stop-item"><span class="n">4</span><span class="t"><b>UX flow</b> — product behavior cốt lõi</span></div>
+        <div class="stop-item"><span class="n">5</span><span class="t"><b>Acceptance criteria</b> / verify steps bị mơ hồ</span></div>
+      </div>
+      <div class="stop-rule">
+        <span class="eyebrow">Quy tắc</span>
+        <p>Docs đầu vào đã chốt đủ số liệu = chạy <span class="zero">0 câu hỏi</span> full auto tới N task.</p>
+        <p>Giá trị thiếu thuộc nhóm cấm = marker <span class="marker">[DECISION NEEDED]</span> + câu hỏi — <b>không bao giờ tự bịa</b>.</p>
+        <p style="border-top:1px solid rgba(255,255,255,.14);padding-top:12px;font-size:.9rem">Riêng <span class="marker">duyệt mockup UI</span> (visual composition — nhóm cấm-bịa thứ 5, mở rộng của nhóm 4): xử lý <b>bất đồng bộ</b>, KHÔNG dừng pipeline — generate tự động lúc planning, approve gom một phiên ở <span class="mono">/ui-mockup</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AFTER RUN ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <div>
+        <h2>Sau khi chạy xong</h2>
+        <p class="sec-sub">File spec mới nằm ở <span class="mono">backlog/planning/</span> — chưa vào queue. Đường đi tiếp theo:</p>
+      </div>
+    </div>
+    <div class="after">
+      <div class="after-card">
+        <div class="ah"><span class="idx mono">→</span><h3>Nằm ở <span class="mono" style="font-size:.86em">planning/</span></h3></div>
+        <p><b>Chưa</b> vào queue, <b>không</b> touch <span class="mono">BACKLOG.md</span>, <b>không</b> commit. (Case A có <span class="mono">git add</span> để promote không chết trên file untracked.)</p>
+      </div>
+      <div class="after-card">
+        <div class="ah"><span class="idx mono">→</span><h3>User review → promote</h3></div>
+        <p>Task UI trước: <span class="mono">/ui-mockup</span> (duyệt UI Review Dashboard + approve → PNG → groundTruth; còn PENDING sẽ block qua <span class="mono">mockup_warnings</span>) → <span class="mono">/add-to-backlog</span> → <span class="mono">/run-backlog</span>. Batch case A: chọn <b>all trong 1 lần</b> promote để giữ đúng thứ tự; promote lẻ sẽ bị warn <span class="mono">dependency_warnings</span> nếu đứt <span class="mono">Depends on</span>.</p>
+      </div>
+      <div class="after-card">
+        <div class="ah"><span class="idx mono">→</span><h3>Task UI khi headless</h3></div>
+        <p>Task <span class="mono">Requires: unity-editor</span> khi loop chạy headless sẽ tự <span class="mono">defer</span> về cuối TODO. Nếu TOÀN BỘ còn lại đều cần Editor → loop pause <span class="mono">EDITOR_REQUIRED</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= GOTCHAS ================= -->
+  <section class="reveal">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <div>
+        <h2>Điểm dễ nhầm</h2>
+        <p class="sec-sub">Năm cặp khái niệm hay bị lẫn — mỗi cái là một “không phải”.</p>
+      </div>
+    </div>
+    <div class="gotchas">
+      <div class="gotcha">
+        <h3>“Tạo 1 package IAP” <span style="color:var(--ember)">không phải</span> new-system</h3>
+        <p>0b nhường 0a → thành <b>CASE B</b> (WF pure, tier M, sensitive), không kéo cả pipeline thiết kế ra. Chạm economy chỉ là tín hiệu <b>auto-bump tier</b>, không phải tín hiệu new-system.</p>
+      </div>
+      <div class="gotcha">
+        <h3>WF <span style="color:var(--ember)">không phải</span> tier</h3>
+        <p>Task workflow-backed vẫn mang exec tier thật (XS/S/M/L) trong filename. <b>Tier</b> quyết định review-gating của run-backlog (code-reviewer, qa-verifier); riêng <b>security-auditor</b> spawn theo <span class="mono">$SENSITIVE</span> của diff — <b>bất kể tier</b>, XS/S chạm Purchase*/Auth*/value-bearing vẫn bị audit. <b>WF</b> chỉ quyết định “load workflow trước khi implement”.</p>
+      </div>
+      <div class="gotcha">
+        <h3>Profile <span style="color:var(--ember)">không phải</span> tier</h3>
+        <p>Hai trục co giãn <b>độc lập</b>: <b>profile</b> (LITE/STANDARD/EPIC) scale độ sâu pipeline <b>thiết kế</b> của cả hệ thống (chỉ Case A); <b>tier</b> (XS/S/M/L) scale độ sâu spec + review-gate của <b>từng task</b>. Hệ thống EPIC vẫn đẻ ra task S; batch nào cũng trộn nhiều tier.</p>
+      </div>
+      <div class="gotcha">
+        <h3>Batch mode <span style="color:var(--ember)">không</span> đệ quy</h3>
+        <p>Khi <span class="mono">/planning-system</span> tái sử dụng drafting path của planning-task (flag <span class="mono">origin: planning-system</span>), STEP 0b/0a-dispatch bị tắt hoàn toàn. Depth cap = 1.</p>
+      </div>
+      <div class="gotcha">
+        <h3>Priority là tag, <span style="color:var(--ember)">không phải</span> thứ tự</h3>
+        <p>Queue chạy theo FIFO/task-order (<span class="mono">timestamp + NN</span>), không reorder theo HIGH/MEDIUM/LOW. Priority chỉ là nhãn.</p>
+      </div>
+    </div>
+  </section>
+
+  </div><!-- /panel-doc -->
+
+  <!-- ================= DIAGRAM PANEL (dev) ================= -->
+  <div id="panel-diagram" class="panel" role="tabpanel" aria-labelledby="tab-dia" hidden>
+    <div class="dia-intro">
+      <div class="sec-head" style="margin-bottom:0">
+        <span class="sec-num">◆</span>
+        <div>
+          <h2>Sơ đồ luồng — developer view</h2>
+          <p class="diagram-note">Hai sơ đồ. <b>Sơ đồ 1</b> — flowchart end-to-end: từ lệnh <code>/planning-task</code> qua <b>ba cổng quyết định</b> (thứ tự ưu tiên 0b ▸ 0a ▸ tier; cổng đầu tiên khớp chốt nhánh), rẽ ra <b>7 case</b>, hội tụ xuống <code>backlog/planning/</code> → <code>/add-to-backlog</code> → <code>/run-backlog</code>. <b>Sơ đồ 2</b> — mở nhánh nội bộ Case A (<code>/planning-system</code>, feature-spec): fork profile, vòng stage-result contract, PLAN/GROUND.</p>
+        </div>
+      </div>
+
+      <h3 style="margin:30px 0 0">Sơ đồ 1 — End-to-end: 3 cổng quyết định → 7 case → backlog</h3>
+      <div class="dg-wrap">
+        <svg class="dg" viewBox="0 0 1140 1000" role="img" aria-label="Sơ đồ luồng planning-task từ entry qua các cổng quyết định tới backlog">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+              <path d="M0.5,0.7 L9,5 L0.5,9.3 z" fill="var(--ink-faint)"/>
+            </marker>
+            <marker id="ahv" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+              <path d="M0.5,0.7 L9,5 L0.5,9.3 z" fill="var(--violet)"/>
+            </marker>
+          </defs>
+
+          <!-- ===== EDGES (drawn first, under nodes) ===== -->
+          <!-- spine -->
+          <path class="dg-e" d="M470,82 V116" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M470,222 V266" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M470,372 V416" marker-end="url(#ah)"/>
+          <!-- 0a MATCH (PURE) → B -->
+          <path class="dg-trunk" d="M595,322 H745"/>
+          <path class="dg-e" d="M745,322 L800,321" marker-end="url(#ah)"/>
+          <!-- HYBRID: 0a match + delta → vẫn qua tier triage → C -->
+          <path class="dg-e" d="M745,472 L800,373" marker-end="url(#ah)"/>
+          <!-- tier → D,E,F,G -->
+          <path class="dg-trunk" d="M595,472 H745"/>
+          <path class="dg-e" d="M745,472 L800,434" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M745,472 L800,478" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M745,472 L800,522" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M745,472 L800,566" marker-end="url(#ah)"/>
+          <!-- verdict bracket → spine -->
+          <path class="dg-e" d="M941,596 V668 H692" marker-end="url(#ah)"/>
+          <!-- spine → planning → add → run -->
+          <path class="dg-e" d="M470,706 V756" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M470,818 V832" marker-end="url(#ah)"/>
+          <path class="dg-e" d="M470,880 V904" marker-end="url(#ah)"/>
+          <!-- Case A lane (violet) -->
+          <path class="dg-eA" d="M345,172 H323" marker-end="url(#ahv)"/>
+          <path class="dg-eA" d="M205,199 V236" marker-end="url(#ahv)"/>
+          <path class="dg-eA" d="M205,300 V342" marker-end="url(#ahv)"/>
+          <path class="dg-eA" d="M205,405 V789 H248" marker-end="url(#ahv)"/>
+
+          <!-- edge labels -->
+          <text class="t-lab" x="332" y="158">CÓ</text>
+          <text class="t-lab" x="512" y="246">KHÔNG</text>
+          <text class="t-lab" x="668" y="308">MATCH · PURE</text>
+          <text class="t-lab" x="556" y="398">K. MATCH</text>
+          <text class="t-lab" x="668" y="458">THEO TIER</text>
+          <text class="t-lab" x="762" y="414">HYBRID</text>
+          <text class="t-lab" x="742" y="648">mọi B–G</text>
+
+          <!-- ===== VERDICT BRACKET ===== -->
+          <rect class="dg-bracket" x="788" y="298" width="306" height="300" rx="14"/>
+          <text class="t-lab" x="941" y="286">CASE VERDICT · B–G → STEP 1–6</text>
+
+          <!-- ===== NODES ===== -->
+          <!-- entry -->
+          <rect class="dg-entry" x="320" y="28" width="300" height="54" rx="12"/>
+          <text class="t-mono t-white" x="470" y="55">/planning-task &lt;intent | doc&gt;</text>
+
+          <!-- diamond 0b -->
+          <polygon class="dg-dia" points="470,122 595,172 470,222 345,172"/>
+          <text class="t-lab" x="470" y="164">STEP 0b</text>
+          <text class="t-main" x="470" y="182">NEW-SYSTEM?</text>
+
+          <!-- diamond 0a -->
+          <polygon class="dg-dia" points="470,272 595,322 470,372 345,322"/>
+          <text class="t-lab" x="470" y="314">STEP 0a</text>
+          <text class="t-main" x="470" y="332">WF-BACKED?</text>
+
+          <!-- diamond 0 tier -->
+          <polygon class="dg-dia" points="470,422 595,472 470,522 345,472"/>
+          <text class="t-lab" x="470" y="464">STEP 0</text>
+          <text class="t-main" x="470" y="482">TIER TRIAGE</text>
+
+          <!-- Case A lane -->
+          <rect class="dg-A" x="40" y="145" width="290" height="54" rx="12"/>
+          <text class="t-main t-vio" x="185" y="165">CASE A</text>
+          <text class="t-sub" x="185" y="183">new-system</text>
+
+          <rect class="dg-A" x="60" y="240" width="290" height="60" rx="12"/>
+          <text class="t-mono" x="205" y="262">/planning-system</text>
+          <text class="t-sub" x="205" y="282">(03?) → 04 → 05 → 06 THEO PROFILE · SƠ ĐỒ 2</text>
+
+          <rect class="dg-A" x="60" y="345" width="290" height="60" rx="12"/>
+          <text class="t-main" x="205" y="367">N task planning</text>
+          <text class="t-sub" x="205" y="386">&lt;batchTS&gt;-NN-TIER-slug</text>
+
+          <!-- Case B, C -->
+          <rect class="dg-B" x="800" y="300" width="290" height="42" rx="10"/>
+          <text class="t-main" x="945" y="322"><tspan class="t-teal" font-weight="700">CASE B</tspan> · WF pure</text>
+          <rect class="dg-B" x="800" y="352" width="290" height="42" rx="10"/>
+          <text class="t-main" x="945" y="374"><tspan class="t-teal" font-weight="700">CASE C</tspan> · Hybrid (qua tier triage)</text>
+
+          <!-- Case D E F G -->
+          <rect class="dg-T" x="800" y="414" width="290" height="40" rx="10"/>
+          <text class="t-main" x="945" y="435"><tspan class="t-emb" font-weight="700">CASE D</tspan> · XS</text>
+          <rect class="dg-T" x="800" y="458" width="290" height="40" rx="10"/>
+          <text class="t-main" x="945" y="479"><tspan class="t-emb" font-weight="700">CASE E</tspan> · S</text>
+          <rect class="dg-T" x="800" y="502" width="290" height="40" rx="10"/>
+          <text class="t-main" x="945" y="523"><tspan class="t-emb" font-weight="700">CASE F</tspan> · M-simple</text>
+          <rect class="dg-T" x="800" y="546" width="290" height="40" rx="10"/>
+          <text class="t-main" x="945" y="567"><tspan class="t-emb" font-weight="700">CASE G</tspan> · M-cx / L</text>
+
+          <!-- spine STEP 1-6 -->
+          <rect class="dg-out" x="250" y="636" width="440" height="70" rx="13"/>
+          <text class="t-main" x="470" y="660">STEP 1 → 6 · DRAFT SPEC</text>
+          <text class="t-sub" x="470" y="684">EXTRACT · DRAFT · FILENAME · WRITE · CHECK · REPORT</text>
+
+          <!-- backlog/planning -->
+          <rect class="dg-box" x="250" y="760" width="440" height="58" rx="12"/>
+          <text class="t-mono" x="470" y="780">backlog/planning/</text>
+          <text class="t-sub" x="470" y="800">CHƯA QUEUE · GIT ADD · KHÔNG COMMIT</text>
+
+          <!-- add-to-backlog -->
+          <rect class="dg-box" x="290" y="832" width="360" height="48" rx="11"/>
+          <text class="t-mono" x="470" y="857">/add-to-backlog</text>
+
+          <!-- run-backlog -->
+          <rect class="dg-box" x="290" y="904" width="360" height="48" rx="11"/>
+          <text class="t-mono" x="470" y="929">/run-backlog → agent/dev</text>
+        </svg>
+      </div>
+
+      <div class="dg-legend">
+        <span class="li"><span class="leg-dia"></span> Cổng quyết định</span>
+        <span class="li"><span class="leg-r node"></span> Entry / lệnh</span>
+        <span class="li"><span class="leg-r a"></span> Case A · new-system</span>
+        <span class="li"><span class="leg-r b"></span> Case B/C · workflow</span>
+        <span class="li"><span class="leg-r t"></span> Case D–G · tier</span>
+        <span class="li"><span class="leg-br"></span> Gom về STEP 1–6</span>
+      </div>
+
+      <h3 style="margin:40px 0 0">Sơ đồ 2 — Case A: nhánh nội bộ <span class="mono" style="font-size:.85em;color:var(--violet)">/planning-system</span> (feature-spec)</h3>
+      <p class="diagram-note" style="margin-top:8px">Phần bị nén thành một box ở sơ đồ 1, trải phẳng ra: <b>fork 3 profile</b> ở INTAKE, nhánh <b>03 conditional</b>, vòng <b>stage-result contract</b> áp cho từng stage (QUESTIONS re-spawn · ABORT nâng-EPIC / dừng-hẳn · <code>profile_escalation</code>), rồi <b>[2] PLAN → [3] GROUND</b> trước khi ra N task.</p>
+
+      <div class="dg-wrap">
+        <svg class="dg" viewBox="0 0 1140 1010" style="min-width:1000px" role="img" aria-label="Sơ đồ nhánh nội bộ planning-system: fork profile, stage-result contract, PLAN, GROUND">
+          <defs>
+            <marker id="ah2" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+              <path d="M0.5,0.7 L9,5 L0.5,9.3 z" fill="var(--ink-faint)"/>
+            </marker>
+            <marker id="ahv2" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+              <path d="M0.5,0.7 L9,5 L0.5,9.3 z" fill="var(--violet)"/>
+            </marker>
+          </defs>
+
+          <!-- ===== EDGES ===== -->
+          <path class="dg-e" d="M570,78 V106" marker-end="url(#ah2)"/>
+          <!-- profile fork -->
+          <path class="dg-e" d="M440,170 H205 V246" marker-end="url(#ah2)"/>
+          <path class="dg-e" d="M570,228 V246" marker-end="url(#ah2)"/>
+          <path class="dg-e" d="M700,170 H915 V246" marker-end="url(#ah2)"/>
+          <!-- lanes → contract band -->
+          <path class="dg-e" d="M205,352 V400" marker-end="url(#ah2)"/>
+          <path class="dg-e" d="M570,352 V400" marker-end="url(#ah2)"/>
+          <path class="dg-e" d="M915,352 V400" marker-end="url(#ah2)"/>
+          <!-- QUESTIONS ⟲ re-spawn đúng stage -->
+          <path class="dg-e" d="M620,448 V370" marker-end="url(#ah2)"/>
+          <!-- profile_escalation → INTAKE -->
+          <path class="dg-e" d="M96,538 H25 V150 H484" marker-end="url(#ah2)"/>
+          <!-- ABORT suggest EPIC split → re-spawn 04 Gate (lane EPIC) -->
+          <path class="dg-e" d="M1020,538 H1085 V308 H1076" marker-end="url(#ah2)"/>
+          <!-- ABORT Tối Giản Hóa GDD → DỪNG -->
+          <path class="dg-e" d="M450,572 V612 H150 V634" marker-end="url(#ah2)"/>
+          <!-- OK exit -->
+          <path class="dg-e" d="M570,600 V634" marker-end="url(#ah2)"/>
+          <!-- PLAN → GROUND → OUT -->
+          <path class="dg-e" d="M570,740 V774" marker-end="url(#ah2)"/>
+          <path class="dg-e" d="M570,864 V894" marker-end="url(#ah2)"/>
+          <!-- resume --from-mapping (nhảy thẳng [2] PLAN) -->
+          <path class="dg-eA" stroke-dasharray="6 5" d="M795,50 H1130 V682 H861" marker-end="url(#ahv2)"/>
+
+          <!-- edge labels -->
+          <text class="t-lab t-teal" x="330" y="158">LITE</text>
+          <text class="t-lab t-vio" x="676" y="240">STANDARD · MẶC ĐỊNH</text>
+          <text class="t-lab t-emb" x="800" y="158">EPIC</text>
+          <text class="t-lab" x="700" y="392">⟲ RE-SPAWN ĐÚNG STAGE</text>
+          <text class="t-lab" x="255" y="138">PROFILE_ESCALATION → NÂNG, KHÔNG BAO GIỜ HẠ</text>
+          <text class="t-lab" x="300" y="626">STALE · DỪNG</text>
+          <text class="t-lab" x="500" y="618">MỌI STAGE OK</text>
+          <text class="t-lab t-vio" x="995" y="668">--FROM-MAPPING · VÀO THẲNG [2]</text>
+          <text class="t-lab" transform="rotate(90 1097 420)" x="1097" y="420">NÂNG EPIC → RE-SPAWN 04 GATE</text>
+
+          <!-- ===== NODES ===== -->
+          <!-- entry -->
+          <rect class="dg-entry" x="345" y="22" width="450" height="56" rx="12"/>
+          <text class="t-mono t-white" x="570" y="44">/planning-system &lt;doc&gt;</text>
+          <text class="t-sub" x="570" y="64" style="fill:var(--node-ink);opacity:.72">AUTO-DISPATCH TỪ /planning-task 0b · HOẶC GỌI TRỰC TIẾP</text>
+
+          <!-- INTAKE diamond -->
+          <polygon class="dg-dia" points="570,112 700,170 570,228 440,170"/>
+          <text class="t-lab" x="570" y="146">STAGE 0 · INTAKE</text>
+          <text class="t-main" x="570" y="167">PROFILE?</text>
+          <text class="t-sub" x="570" y="188">PROBE · GUARDS</text>
+
+          <!-- profile lanes -->
+          <rect class="dg-B" x="50" y="252" width="310" height="100" rx="12"/>
+          <text class="t-lab t-teal" x="205" y="274">LITE</text>
+          <text class="t-mono" x="205" y="296">04 → 05(trim) → 06</text>
+          <text class="t-sub" x="205" y="318">BỎ HẲN 03 · LENS 1+3 BẮT BUỘC</text>
+          <text class="t-sub" x="205" y="336">LENS 2/4 THEO SURFACE · KHÔNG SIM</text>
+
+          <rect class="dg-A" x="415" y="252" width="310" height="100" rx="12"/>
+          <text class="t-lab t-vio" x="570" y="274">STANDARD</text>
+          <text class="t-mono" x="570" y="296">(03?) → 04 → 05 → 06</text>
+          <text class="t-sub" x="570" y="318">03 CHỈ KHI ECONOMY &amp;&amp; CHƯA VALIDATED</text>
+          <text class="t-sub" x="570" y="336">05 ĐỦ 4 LENS + SIMULATION</text>
+
+          <rect class="dg-T" x="760" y="252" width="310" height="100" rx="12"/>
+          <text class="t-lab t-emb" x="915" y="272">EPIC</text>
+          <text class="t-mono" x="915" y="292">(03?) → 04 + DECOMP GATE</text>
+          <text class="t-mono" x="915" y="312">⟳ PER-MODULE: 05 → 06</text>
+          <text class="t-sub" x="915" y="334">MERGE GRAPH · API CONTRACT KHI BE-WRITE</text>
+
+          <!-- stage-result contract band -->
+          <rect class="dg-bracket" x="80" y="406" width="980" height="194" rx="14"/>
+          <text class="t-lab" x="96" y="432" style="text-anchor:start">STAGE-RESULT CONTRACT — {STATUS, PROFILE_ESCALATION?} ÁP CHO TỪNG STAGE (SUBAGENT TUẦN TỰ)</text>
+
+          <rect class="dg-box" x="96" y="448" width="300" height="48" rx="9"/>
+          <text class="t-mono" x="246" y="468">OK → stage kế</text>
+          <text class="t-sub" x="246" y="486">ARTIFACT → INPUT STAGE SAU</text>
+
+          <rect class="dg-box" x="408" y="448" width="300" height="48" rx="9"/>
+          <text class="t-mono" x="558" y="468">QUESTIONS ⟲ re-spawn stage</text>
+          <text class="t-sub" x="558" y="486">HỎI ≤3 CÂU/LƯỢT · MAX 2 VÒNG/STAGE</text>
+
+          <rect class="dg-box" x="720" y="448" width="300" height="48" rx="9"/>
+          <text class="t-mono" x="870" y="468">JSON sai format</text>
+          <text class="t-sub" x="870" y="486">RE-SPAWN 1 LẦN · VẪN SAI → DỪNG</text>
+
+          <rect class="dg-box" x="96" y="508" width="300" height="64" rx="9"/>
+          <text class="t-mono" x="246" y="528">profile_escalation</text>
+          <text class="t-sub" x="246" y="546">NÂNG PROFILE · CHẠY BỔ SUNG STAGE THIẾU</text>
+          <text class="t-sub" x="246" y="562">KHÔNG BAO GIỜ TỰ HẠ</text>
+
+          <rect class="dg-T" x="408" y="508" width="300" height="64" rx="9"/>
+          <text class="t-mono" x="558" y="528">ABORT · "Tối Giản Hóa GDD"</text>
+          <text class="t-sub" x="558" y="546">SCOPE VÔ CỨU / 1 MODULE EPIC VẪN VƯỢT</text>
+          <text class="t-sub" x="558" y="562">BANNER STALE → DỪNG HẲN</text>
+
+          <rect class="dg-box" x="720" y="508" width="300" height="64" rx="9"/>
+          <text class="t-mono" x="870" y="528">ABORT · "suggest EPIC split"</text>
+          <text class="t-sub" x="870" y="546">TỪ 05 KHI ĐANG STANDARD (LENS 3)</text>
+          <text class="t-sub" x="870" y="562">NÂNG EPIC → RE-SPAWN 04 GATE · KHÔNG DỪNG</text>
+
+          <!-- STOP terminal -->
+          <rect class="dg-T" x="50" y="640" width="200" height="84" rx="12"/>
+          <text class="t-main t-emb" x="150" y="668">DỪNG PIPELINE</text>
+          <text class="t-sub" x="150" y="690">BÁO USER NGUYÊN VĂN</text>
+          <text class="t-sub" x="150" y="706">KHÔNG GROUND GÌ CẢ</text>
+
+          <!-- PLAN -->
+          <rect class="dg-box" x="285" y="640" width="570" height="100" rx="13"/>
+          <text class="t-mono" x="570" y="662">[2] PLAN — parse mapping §10.1–10.7 (EPIC: merge per-module)</text>
+          <text class="t-sub" x="570" y="682">EXISTENCE PROBE: CÓ CODE SẴN → CẤM PURE-WF (HẠ HYBRID / HỎI USER)</text>
+          <text class="t-sub" x="570" y="700">ROUTE: PURE-WF | HYBRID M/L (DELTA) · UI → /NEW-UI CUỐI BATCH + GROUNDTRUTH PROBE · L10N FOLD</text>
+          <text class="t-sub" x="570" y="718">EXEC TIER/ITEM: PURE-WF THEO REGISTRY · HYBRID M/L · UI S–M → BATCH TRỘN TIER</text>
+
+          <!-- GROUND -->
+          <rect class="dg-box" x="285" y="780" width="570" height="84" rx="13"/>
+          <text class="t-mono" x="570" y="802">[3] GROUND — MỘT batch timestamp · NN = topo order</text>
+          <text class="t-sub" x="570" y="822">HYBRID → TASK-PLANNER · UI → MOCKUP-DRAFTER FAN-OUT ≤10/WAVE · &gt;20 ITEM → HỎI CHIA PHASE</text>
+          <text class="t-sub" x="570" y="840">PURE-WF → ORCHESTRATOR DRAFT _TEMPLATE_WF · TỰ VIẾT N FILE → GIT ADD, KHÔNG COMMIT</text>
+
+          <!-- OUT -->
+          <rect class="dg-A" x="285" y="900" width="570" height="84" rx="13"/>
+          <text class="t-mono" x="570" y="922">[4] REPORT · N task → backlog/planning/</text>
+          <text class="t-sub" x="570" y="944">&lt;batchTS&gt;-&lt;NN&gt;-&lt;TIER&gt;-&lt;slug&gt; · CONTEXT DOCS · DEPENDS ON · REQUIRES (UI)</text>
+          <text class="t-sub" x="570" y="962">BATCH TRỘN TIER — TIER LÁI REVIEW-GATE + AUTO-MODEL-BY-TIER CỦA RUN-BACKLOG</text>
+        </svg>
+      </div>
+
+      <div class="dg-legend">
+        <span class="li"><span class="leg-r b"></span> Profile LITE</span>
+        <span class="li"><span class="leg-r a"></span> Profile STANDARD · batch output</span>
+        <span class="li"><span class="leg-r t"></span> Profile EPIC · ABORT-fatal / DỪNG</span>
+        <span class="li"><span class="leg-br"></span> Stage-result contract (per stage)</span>
+      </div>
+
+      <div class="dev-chips">
+        <span class="dev-chip">Ưu tiên cổng: <b>0b ▸ 0a ▸ tier</b></span>
+        <span class="dev-chip">Depth cap = <b>1</b> · batch không đệ quy</span>
+        <span class="dev-chip">Queue = <b>FIFO</b> (timestamp, NN)</span>
+        <span class="dev-chip">Artifacts → <b>TechSpec/&lt;Name&gt;-*.md</b></span>
+        <span class="dev-chip">Không touch <b>BACKLOG.md</b></span>
+        <span class="dev-chip">Model/stage: <b>03 opus · 04 sonnet · 05 opus · 06 sonnet</b></span>
+        <span class="dev-chip">Fan-out: <b>≤10 HYBRID/wave</b> · &gt;20 item → hỏi chia phase</span>
+      </div>
+    </div>
+  </div><!-- /panel-diagram -->
+
+  <footer>
+    <p class="fnote">Bản mô tả trực quan · nguồn chân lý = <span class="mono">SKILL.md</span> + <span class="mono">backlog-ops.py</span>. Khi doc lệch code, tin code.</p>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    var icon = document.getElementById('toggleIcon');
+    var txt = document.getElementById('toggleText');
+
+    function current() {
+      var attr = root.getAttribute('data-theme');
+      if (attr) return attr;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function paint() {
+      var d = current() === 'dark';
+      icon.textContent = d ? '☀' : '☾';
+      txt.textContent = d ? 'Light' : 'Dark';
+    }
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      paint();
+    });
+    paint();
+
+    // tabs
+    var tabs = [
+      { btn: document.getElementById('tab-doc'), panel: document.getElementById('panel-doc') },
+      { btn: document.getElementById('tab-dia'), panel: document.getElementById('panel-diagram') }
+    ];
+    function selectTab(i) {
+      tabs.forEach(function (t, j) {
+        var on = i === j;
+        t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.panel.hidden = !on;
+      });
+      // reveal any sections in the newly shown panel
+      tabs[i].panel.querySelectorAll('.reveal').forEach(function (e) { e.classList.add('in'); });
+    }
+    tabs.forEach(function (t, i) {
+      t.btn.addEventListener('click', function () { selectTab(i); });
+      t.btn.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+          ev.preventDefault();
+          var next = (i + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+          selectTab(next);
+          tabs[next].btn.focus();
+        }
+      });
+    });
+
+    // scroll reveal
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var els = document.querySelectorAll('.reveal');
+    if (reduce || !('IntersectionObserver' in window)) {
+      els.forEach(function (e) { e.classList.add('in'); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
+      els.forEach(function (e) { io.observe(e); });
+    }
+  })();
+</script>

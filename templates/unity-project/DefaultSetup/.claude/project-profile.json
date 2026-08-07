@@ -1,0 +1,51 @@
+{
+  "$comment": [
+    "Per-project knobs for the agent system. Every script in .claude/scripts/",
+    "reads this instead of hardcoding project facts, so those scripts stay",
+    "byte-identical to upstream and `sync-agent-system.sh` can refresh them",
+    "without clobbering local edits. Markdown files (skills, agents) name this",
+    "file and the key they need; the model resolves it when it reads them.",
+    "",
+    "Omitted keys fall back to project_profile.DEFAULTS. Run",
+    "`python3 .claude/scripts/project_profile.py` to print the merged result.",
+    "",
+    "build_unity_template rewrites projectName/solutionFile/gitConfigPrefix at",
+    "generation time. The rest is yours to tune as the project grows."
+  ],
+
+  "projectName": "__PROJECT_NAME__",
+  "solutionFile": "__PROJECT_NAME__.sln",
+  "gitConfigPrefix": "__PROJECT_SLUG__",
+  "defaultBaseBranch": "main",
+
+  "sourceRoot": "Assets/_Project",
+  "featuresRoot": "Assets/_Project/Features",
+  "gameplayRoot": "Assets/_Project/Features",
+  "uiTemplatesRoot": "Assets/Resources/Prefabs/Templates",
+
+  "$comment_sensitiveGlobs": [
+    "Filename globs that mark a diff sensitive and auto-spawn the",
+    "security-auditor. This base ships IAP, account sync and a two-tier save,",
+    "so those surfaces are covered. Backend/leaderboard/anti-cheat globs are",
+    "deliberately ABSENT — add them when the project actually grows one, or",
+    "every diff drags in a reviewer with nothing to review."
+  ],
+  "sensitiveGlobs": [
+    "*Purchase*", "*IAP*", "*Receipt*", "*Payment*",
+    "*DataPlayer*", "*SaveData*", "*PlayerPrefs*", "*Persistence*",
+    "*Auth*", "*Login*", "*Token*", "*Session*", "*Account*",
+    "*.env*", "*.config", "*Secrets*", "*Credential*"
+  ],
+
+  "$comment_backend": [
+    "No backend in the base template, so the direct-client-write rule is off.",
+    "Turn it on when a server lands: set kind, directWriteBanned true, and a",
+    "directWritePattern matching the call your client must not make."
+  ],
+  "backend": {
+    "kind": "none",
+    "directWriteBanned": false,
+    "directWritePattern": "",
+    "directWriteAdvice": ""
+  }
+}

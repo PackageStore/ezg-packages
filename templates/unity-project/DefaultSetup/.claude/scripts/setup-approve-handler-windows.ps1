@@ -1,4 +1,4 @@
-# Registers the ezg-ui-approve:// URL scheme on this Windows machine, pointed at
+# Registers the blazesurvivor-approve:// URL scheme on this Windows machine, pointed at
 # ui-review-approve-handler.py. Run once per machine. Per-user (HKCU, no admin needed).
 
 $ErrorActionPreference = "Stop"
@@ -19,14 +19,14 @@ if (-not $pythonCmd) {
 }
 $python = $pythonCmd.Source
 
-$keyPath = "HKCU:\Software\Classes\ezg-ui-approve"
+$keyPath = "HKCU:\Software\Classes\blazesurvivor-approve"
 New-Item -Path $keyPath -Force | Out-Null
-Set-ItemProperty -Path $keyPath -Name "(Default)" -Value "URL:EZG UI Approve Protocol"
+Set-ItemProperty -Path $keyPath -Name "(Default)" -Value "URL:Blaze Survivor Approve Protocol"
 Set-ItemProperty -Path $keyPath -Name "URL Protocol" -Value ""
 
 $cmdKeyPath = "$keyPath\shell\open\command"
 New-Item -Path $cmdKeyPath -Force | Out-Null
 Set-ItemProperty -Path $cmdKeyPath -Name "(Default)" -Value "`"$python`" `"$handler`" `"%1`""
 
-Write-Host "OK: ezg-ui-approve:// -> $handler (python: $python)"
+Write-Host "OK: blazesurvivor-approve:// -> $handler (python: $python)"
 Write-Host "Lan dau Windows co the hoi xac nhan mo ung dung lien ket - dong y 1 lan."

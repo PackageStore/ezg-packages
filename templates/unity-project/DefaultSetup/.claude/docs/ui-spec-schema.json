@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "ezg/unity-ui-spec-v1",
-  "title": "Unity UI Spec v1",
+  "$id": "blazesurvivor/ui-spec-v1",
+  "title": "BlazeSurvivor UI Spec v1",
   "type": "object",
   "required": [
     "specVersion",
@@ -20,7 +20,7 @@
     "screen": {"type": "string", "minLength": 1},
     "feature": {"type": "string", "minLength": 1},
     "branch": {"enum": ["Popup", "FullScreen"]},
-    "designResolution": {"const": [1080, 2400]},
+    "designResolution": {"const": [1080, 1920]},
     "contentRoot": {"type": "string", "minLength": 1},
     "containers": {
       "type": "array",
@@ -43,6 +43,9 @@
           "spacing": {"$ref": "#/$defs/vec2"},
           "columns": {"type": "integer", "minimum": 1},
           "childAlignment": {"$ref": "#/$defs/alignment"},
+          "scroll": {"enum": [false, "vertical", "horizontal", "loop"]},
+          "tabBar": {"type": "boolean"},
+          "section": {"$ref": "#/$defs/section"},
           "style": {"type": "object"}
         },
         "additionalProperties": true
@@ -78,7 +81,6 @@
       }
     },
     "assumptions": {"type": "array", "items": {"type": "string"}},
-    "mockupLane": {"enum": ["kit-composition", "custom"]},
     "questions": {
       "type": "array",
       "items": {
@@ -86,8 +88,9 @@
           {"type": "string"},
           {
             "type": "object",
+            "required": ["q"],
             "properties": {
-              "q": {"type": "string"},
+              "q": {"type": "string", "minLength": 1},
               "options": {
                 "type": "array",
                 "items": {
@@ -116,8 +119,7 @@
                   ]
                 }
               }
-            },
-            "required": ["q"]
+            }
           }
         ]
       }
@@ -156,6 +158,20 @@
         "middle-left", "center", "middle-right",
         "bottom-left", "bottom-center", "bottom-right"
       ]
+    },
+    "section": {
+      "type": "object",
+      "required": ["title", "localize"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "localize": {
+          "anyOf": [
+            {"const": "none"},
+            {"type": "string", "pattern": "^#.+"}
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

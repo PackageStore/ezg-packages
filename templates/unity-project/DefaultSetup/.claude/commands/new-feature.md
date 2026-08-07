@@ -4,7 +4,7 @@ description: Create a new Feature structure in the [Project Name] project
 
 // turbo-all
 # Create New Feature Workflow
-As a Unity Senior Developer, create a new feature structure following [Project Name] conventions. This workflow aligns with `/feature-development` and the `.agents/rules/` — read those for the full rules.
+As a Unity Senior Developer, create a new feature structure following [Project Name] conventions. This workflow aligns with `/feature-development` and the `.claude/rules/` — read those for the full rules.
 
 ## 1. ARGUMENT PARSING
 Parse `{{args}}` with format: `FeatureName: Description`
@@ -21,8 +21,8 @@ Parse `{{args}}` with format: `FeatureName: Description`
 
 ## 3. REFERENCE STUDY (before implementing)
 - **Base controller:** `Assets/_Project/Features/_Shared/UI/Framework/FeatureBaseController.cs` — coding style, naming, base structure.
-- **Conventions:** `.agents/rules/code-style.md`, `core-system.md`, `data-persistence.md`, `third-party.md`.
-- **Skill discovery (MANDATORY):** list `.agents/skills/` and, for EVERY technical requirement, read the matching `SKILL.md` before generating code (e.g. `event-manager`, `csv-config`, `pooling-manager`, `currency-preview`, `rewards-service`, `purchase-manager`).
+- **Conventions:** `.claude/rules/code-style.md`, `core-system.md`, `data-persistence.md`, `third-party.md`.
+- **Skill discovery (MANDATORY):** list `.claude/skills/` and, for EVERY technical requirement, read the matching `SKILL.md` before generating code (e.g. `event-manager`, `csv-config`, `pooling-manager`, `currency-preview`, `rewards-service`, `purchase-manager`).
 
 ## 4. DIRECTORY STRUCTURE
 Create under `Assets/_Project/Features/<Domain>/` (Domain ∈ `Meta, Monetization, Onboarding, Social, System, Events, Gameplay`; most UI screens → `Meta`):
@@ -66,10 +66,10 @@ Create under `Assets/_Project/Features/<Domain>/` (Domain ∈ `Meta, Monetizatio
 - Expose on the `DataManager` facade (`_Shared/GameData/DataManager.cs`); read via `DataManager.[FeatureName]`.
 
 ### E. Events — if the feature emits/listens cross-system
-- Use TigerForge `EventManager` with `EventName` constants (read `.agents/skills/event-manager/SKILL.md`). No hardcoded event strings.
+- Use TigerForge `EventManager` with `EventName` constants (read `.claude/skills/event-manager/SKILL.md`). No hardcoded event strings.
 
 ## 6. CSV DATA FILE — if Model/Collection exists
-📖 MUST READ `.agents/skills/csv-config/SKILL.md`.
+📖 MUST READ `.claude/skills/csv-config/SKILL.md`.
 - Path: `Assets/_Project/Features/<Domain>/[FeatureName]/CsvConfig/[FeatureName].csv` (file name = Collection name without `Collection`).
 - Columns `snake_case`, match Model field order. If reward/cost/resource → include the 6 fields `res_type, res_id, res_number, bonus, stage_bonus, custom_value`.
 - Data tables → add all rows; otherwise header + 1 example row.
@@ -78,7 +78,7 @@ Create under `Assets/_Project/Features/<Domain>/` (Domain ∈ `Meta, Monetizatio
 Delegate to `/new-ui [FeatureName]` (or the `create-ui` skill). It creates a prefab variant of `screen_template`, attaches the controller, and registers `GameEnums.Features`. Skip for pure data/service features.
 
 ## 8. COMPILE CHECK
-If any `.cs` file was created/edited, run `/compile-check` before reporting done (see `.agents/rules/compile-validation.md`).
+If any `.cs` file was created/edited, run `/compile-check` before reporting done (see `.claude/rules/compile-validation.md`).
 
 ## 9. FINAL CHECKLIST
 - [ ] Controller inherits `FeatureBaseController`; no `SetActive` for UI.

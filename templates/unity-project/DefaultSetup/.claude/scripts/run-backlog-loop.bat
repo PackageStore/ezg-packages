@@ -1,94 +1,54 @@
 @echo off
-REM [Project Name] - Run Backlog Loop entrypoint.
-REM Interactive: pick a provider, then a model. Forwards any extra args to the wrapper.
-REM Autonomous (redirected/empty stdin, e.g. spawned by /execute-backlog-tasks): every
-REM prompt falls back to its pre-set default (Claude + wrapper default model), so it
-REM never hangs and never errors on empty input.
-REM
-REM Usage:
-REM   run-backlog-loop.bat                 (interactive menu)
-REM   run-backlog-loop.bat -Model opus -MaxIterations 5   (extra args forwarded)
-
-setlocal enabledelayedexpansion
+setlocal
 set "SCRIPT_DIR=%~dp0"
-set "EXTRA_ARGS=%*"
 
 echo.
 echo  ==========================================
-echo   [Project Name] - Run Backlog Loop
+echo   BlazeSurvivor - Run Backlog Loop
 echo  ==========================================
 echo.
-echo  [1] Claude   (default)
+echo  [1] Claude
 echo  [2] Codex
 echo  [3] Gemini
 echo.
+set /p choice=" Select provider (1-3, default=1): "
 
-REM set /p leaves the variable at its pre-set default when stdin is empty/redirected,
-REM so an autonomous launch proceeds with Claude without hanging or erroring.
-set "PROVIDER_CHOICE=1"
-set /p "PROVIDER_CHOICE= Select provider (1-3) [default 1]: "
+if "%choice%"=="" goto claude
+if "%choice%"=="1" goto claude
+if "%choice%"=="2" goto codex
+if "%choice%"=="3" goto gemini
 
-if "%PROVIDER_CHOICE%"=="1" goto claude
-if "%PROVIDER_CHOICE%"=="2" goto codex
-if "%PROVIDER_CHOICE%"=="3" goto gemini
-
-echo  Invalid choice "%PROVIDER_CHOICE%" - defaulting to Claude.
-goto claude
+echo  Invalid choice.
+pause
+exit /b 1
 
 :claude
-set "WRAPPER=run-backlog-loop-claude.ps1"
-echo.
-echo  Model:
-echo   [1] sonnet   (wrapper default)
-echo   [2] opus
-echo   [3] haiku
-echo   [4] custom / pass-through (use -Model in args, or wrapper default)
-echo.
-set "MODEL_CHOICE=4"
-set /p "MODEL_CHOICE= Select model (1-4) [default 4]: "
-set "MODEL_ARG="
-if "%MODEL_CHOICE%"=="1" set "MODEL_ARG=-Model sonnet"
-if "%MODEL_CHOICE%"=="2" set "MODEL_ARG=-Model opus"
-if "%MODEL_CHOICE%"=="3" set "MODEL_ARG=-Model haiku"
+set "PROVIDER=claude"
 goto run
 
 :codex
-set "WRAPPER=run-backlog-loop-codex.ps1"
-echo.
-echo  Model:
-echo   [1] wrapper / CLI default   (default)
-echo   [2] custom  (type a model id)
-echo.
-set "MODEL_CHOICE=1"
-set /p "MODEL_CHOICE= Select model (1-2) [default 1]: "
-set "MODEL_ARG="
-if "%MODEL_CHOICE%"=="2" (
-    set "CODEX_MODEL="
-    set /p "CODEX_MODEL= Enter codex model id: "
-    if not "!CODEX_MODEL!"=="" set "MODEL_ARG=-Model !CODEX_MODEL!"
-)
+set "PROVIDER=codex"
 goto run
 
 :gemini
-set "WRAPPER=run-backlog-loop-gemini.ps1"
-echo.
-echo  Model:
-echo   [1] gemini-3.1-pro-preview   (wrapper default)
-echo   [2] custom  (type a model id)
-echo.
-set "MODEL_CHOICE=1"
-set /p "MODEL_CHOICE= Select model (1-2) [default 1]: "
-set "MODEL_ARG="
-if "%MODEL_CHOICE%"=="2" (
-    set "GEMINI_MODEL="
-    set /p "GEMINI_MODEL= Enter gemini model id: "
-    if not "!GEMINI_MODEL!"=="" set "MODEL_ARG=-Model !GEMINI_MODEL!"
-)
+set "PROVIDER=gemini"
 goto run
 
 :run
 echo.
-echo  Launching %WRAPPER% %MODEL_ARG% %EXTRA_ARGS%
+echo  Where should the agent work?
 echo.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%%WRAPPER%" %MODEL_ARG% %EXTRA_ARGS%
+echo  [1] This checkout        - keeps the compile check + runtime smoke gates.
+echo                             Do NOT edit files while the loop runs.
+echo  [2] Separate worktree    - you keep working undisturbed, but there is NO
+echo                             compile check and NO runtime smoke (the worktree
+echo                             has no .sln and no Unity Editor). Merge and run
+echo                             /compile-check yourself afterwards.
+echo.
+set /p modechoice=" Select mode (1-2, default=1): "
+
+if "%modechoice%"=="2" (set "MODE=Worktree") else (set "MODE=Current")
+
+echo.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%run-backlog-loop-core.ps1" -Provider %PROVIDER% -Mode %MODE% %*
 exit /b %errorlevel%

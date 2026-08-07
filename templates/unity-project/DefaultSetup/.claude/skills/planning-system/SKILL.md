@@ -1,11 +1,25 @@
 ---
 name: planning-system
-description: Design-first pipeline cho HỆ THỐNG MỚI LỚN (GDD/design doc nhiều phần) — validate thiết kế qua các stage trong .claude/docs/design-pipeline/ (04-feature-analysis → 05-tech-spec → 06-implementation-mapping, kèm 03-gdd-final khi economy chưa validated), rồi batch-ground mapping thành N task trong backlog/planning/ theo dependency order. Được dispatch tự động bởi /planning-task STEP 0b khi phát hiện new-system; user cũng có thể gọi trực tiếp với một doc, hoặc resume bằng "--from-mapping TechSpec/{Name}-Implementation.md". KHÔNG touch BACKLOG.md, KHÔNG tạo todo, KHÔNG commit.
+description: Design-first pipeline cho HỆ THỐNG MỚI LỚN (GDD/design doc nhiều phần) — validate thiết kế qua các stage trong .claude/docs/design-pipeline/ (04-feature-analysis → 05-tech-spec → 06-implementation-mapping, kèm 03-gdd-final khi economy chưa validated), rồi batch-ground mapping thành N task trong backlog/planning/ theo dependency order (mockup UI được draft + auto-approve ngay trong batch). Được dispatch tự động bởi /planning-task STEP 0b khi phát hiện new-system; user cũng có thể gọi trực tiếp với một doc, hoặc resume bằng "--from-mapping TechSpec/{Name}-Implementation.md". KHÔNG touch BACKLOG.md, KHÔNG tạo todo, KHÔNG commit.
 ---
 
 # Planning System — Design-first Batch Orchestrator
 
-Biến một **hệ thống mới lớn** (GDD / design doc) thành N task file grounded trong `backlog/planning/`, qua 4 stage:
+
+> **Where the backlog lives.** Every `backlog/...` path in this document is relative to
+> the backlog root, which is **NOT in the worktree**:
+>
+> ```bash
+> BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"   # i.e. <repo>/.git/backlog
+> ```
+>
+> It is per-developer bookkeeping — never committed, never merged (tracking it made every
+> dev branch carry its own index and collide on merge), and shared automatically by every
+> `git worktree` of the clone. So: **write task files to `$BACKLOG_ROOT/planning/`, glob
+> from there, and NEVER `git add` / `git mv` / commit anything under it.** If the
+> directory does not exist yet, run `python3 .claude/scripts/backlog-ops.py init` first.
+
+Biến một **hệ thống mới lớn** (GDD / design doc) thành N task file grounded trong `$BACKLOG_ROOT/planning/`, qua 4 stage:
 
 ```
 [0] INTAKE   → normalize input, FeatureName, PROFILE detection (LITE|STANDARD|EPIC), idempotency probe, guards
@@ -16,11 +30,11 @@ Biến một **hệ thống mới lớn** (GDD / design doc) thành N task file 
                mỗi stage trả {status: OK|QUESTIONS|ABORT, profile_escalation?} — QUESTIONS: hỏi user rồi re-spawn stage đó
 [2] PLAN     → parse mapping §10.1/10.2/10.3/10.4/10.5/10.6/10.7 (EPIC: merge các mapping per-module) → work-item list + ownership map + topo order
 [3] GROUND   → 1 batch timestamp + NN index → task-planner fan-out (delta only) → orchestrator TỰ viết N file
-               → mockup-drafter fan-out cho UI item (ui-spec + generated HTML, KHÔNG chờ approval) → git add
+               → mockup-drafter fan-out cho UI item → ui-review.py auto-approve (freeze PNG) → git add
 [4] REPORT   → danh sách task + promote order + câu hỏi/giả định còn lại → trỏ /add-to-backlog
 ```
 
-Đầu ra cuối **giống hệt** `/planning-task` thường: file `backlog/planning/<batchTS>-<NN>-<TIER>-<slug>.md`, tier XS/S/M/L thật trong filename, đi tiếp qua `/add-to-backlog` → `/run-backlog` không đổi. Khác biệt: thêm bộ artifact `TechSpec/<Name>-*.md` và các field `**Context docs:** / **Depends on:** / **Requires:**` trong body.
+Đầu ra cuối **giống hệt** `/planning-task` thường: file `backlog/planning/<batchTS>-<NN>-<TIER>-<slug>.md`, tier XS/S/M/L thật trong filename, đi tiếp qua `/add-to-backlog` → `/run-backlog`. Khác biệt: thêm bộ artifact `TechSpec/<Name>-*.md` và các field `**Context docs:** / **Depends on:** / **Requires:**` trong body.
 
 ---
 
@@ -87,45 +101,47 @@ Khi chạy: subagent theo [.claude/docs/design-pipeline/03-gdd-final.md](../../d
 **EPIC — merge trước khi parse:** đọc TẤT CẢ `TechSpec/<Name>-<Module>-Implementation.md`, ghép thành một work-list chung: (a) §10.1/10.4 nối theo build order của Module Split Plan; (b) dependency chéo module (format `[<Module>] <SubFeature>` trong §10.6) resolve thành edge thật giữa các item; (c) một item trùng deliverable giữa 2 module = lỗi merge → dừng hỏi user (ownership map bên dưới là công cụ kiểm). NN đánh liên tục xuyên toàn hệ thống (module 1 trước, trong module theo §10.6 nội bộ), batch-ground chạy theo **wave = module**.
 
 1. **§10.1 Sub-Features** → mỗi dòng = 1 work item code. Route:
-   - **Existence probe (bắt buộc, trước khi cho route pure-WF):** Glob/`codegraph_search` folder `Assets/_Project/Features/<Domain>/<SubFeature>/` + class `<SubFeature>Controller|<SubFeature>Service`. **Có hit → CẤM pure-WF**: hạ xuống HYBRID M (task-planner sẽ chạy check de-dup 2a của nó) hoặc nêu collision cho user quyết.
+   - **Existence probe (bắt buộc, trước khi cho route pure-WF):** Glob/`codegraph_search` folder `<featuresRoot>/<SubFeature>/` + class `<SubFeature>Manager|Controller`. **Có hit → CẤM pure-WF**: hạ xuống HYBRID M (task-planner sẽ chạy check de-dup 2a của nó) hoặc nêu collision cho user quyết.
    - Không hit + mapping không kèm logic ngoài scaffold → **pure-WF** `/new-feature` (exec tier M; L nếu save field + cross-system events per registry 0a).
    - Có logic/wiring/balance ngoài scaffold → **HYBRID M/L** (task-planner plan delta).
-2. **§10.4 UI Screens** → mỗi screen = 1 work item `/new-ui`-backed riêng (exec tier S–M), **kể cả root screen**: task `/new-feature` tương ứng sẽ ghi rõ trong Custom delta "SKIP workflow step 7 (UI prefab — `/new-ui`) — prefab do task <NN> đảm nhận". Mọi UI item: `**Required skills:** /create-ui /compile-check`, `**Requires:** unity-editor`, `depends_on` feature sở hữu nó, và xếp **cuối batch** (sau toàn bộ code item) để loop headless chạy hết phần code trước.
-   - **groundTruth + fast lane** — probe idempotent trước khi gán: PNG đã có → approved; chỉ có HTML → `PENDING-APPROVAL`. Khi `ui-catalog/ui-tokens.json` + `ui-kit.json` tồn tại, phân loại clone / kit-composition / custom như `/planning-task`. Fresh project chưa export catalog chỉ được dùng supplied image hoặc clone prefab resolve được dưới `Assets/`; trường hợp còn lại giữ `PENDING-MOCKUP`, lane `custom`, và báo prerequisite export catalog + chạy `ui-kit-sync.py`. Không bao giờ copy catalog từ game khác.
+2. **§10.4 UI Screens** → mỗi screen = 1 work item `/new-ui`-backed riêng (exec tier S–M), **kể cả root screen**: task `/new-feature` tương ứng sẽ ghi rõ trong Custom delta "SKIP workflow step 8 (UI prefab) — prefab do task <NN> đảm nhận". Mọi UI item: `**Requires:** unity-editor`, `depends_on` feature sở hữu nó, và xếp **cuối batch** (sau toàn bộ code item) để loop headless chạy hết phần code trước.
+   - **groundTruth (mockup pipeline)** — probe idempotent trước khi gán: `TechSpec/Mockups/<Feature>/<Screen>.png` đã có → `groundTruth=<png>` (approve từ trước); chỉ có `.html` → `PENDING-APPROVAL:<html>`; chưa có gì → tạm `PENDING-MOCKUP`, Stage 3.4b sẽ draft; mapping nói rõ screen chỉ clone layout prefab có sẵn → `clone:<Prefab>` (khỏi mockup). Giá trị ghi vào `**Workflow args:**` dạng `<Feature> | groundTruth=<value>`.
 3. **§10.2/10.3/10.5/10.7** → cắt đúng các dòng thuộc từng sub-feature, sẽ paste vào body task tương ứng (đường dẫn số liệu từ TechSpec vào task — implementer không phải bịa lại).
 4. **§10.6 Dependency Graph** → thứ tự topo cho code items; UI items nối đuôi. Gán `NN` = 01..N theo thứ tự này. UI screens cũng phải nằm trong graph — thiếu thì tự suy từ "screen thuộc feature nào".
 5. **Ownership map:** mỗi deliverable (class/CSV/prefab/EventName) thuộc đúng MỘT item; item khác chỉ *reference*. Map này inject vào mọi prompt task-planner và dùng cho sweep cuối Stage 3.
-6. **Localize:** KHÔNG bao giờ là task riêng (không tạo git diff độc lập đáng tin) — fold thành criterion trong task feature sở hữu string.
+6. **Localize:** KHÔNG bao giờ là task riêng (`/add-localize` không tạo git diff → run-backlog chết `NO_CHANGES`) — fold thành criterion trong task feature sở hữu string.
 7. **Fan-out cap:** >10 HYBRID item → chia wave ≤10, chạy wave tuần tự. >20 item tổng → dừng hỏi user có nên chia phase nhỏ hơn không.
 
 ## STAGE 3 — Ground (batch-write)
 
 1. **Mint MỘT batch timestamp:** `python3 .claude/scripts/backlog-ops.py timestamp` → `batchTS`. Pre-assign toàn bộ filename: `<batchTS>-<NN>-<TIER>-<slug>.md` (NN từ Stage 2 — `promote` sort `(timestamp, index)` nên NN **chính là** thứ tự thực thi).
-2. **HYBRID items — task-planner fan-out:** orchestrator (chính context này) spawn các [`task-planner`](../../agents/task-planner.md) subagent trong **một tool-use block song song** (≤10/wave). Mỗi prompt gồm: TIER + USER INTENT (từ mapping), các dòng §10.x của riêng sub-feature đó, ownership map, và clause: *"Artifact do task <NN'> trong batch này tạo ra được phép reference như 'produced by a named upstream task' — KHÔNG tính là phantom; ghi rõ nguồn."* Task-planner chỉ trả JSON — **orchestrator là người viết file** (task-planner không có quyền Write; đây là chủ đích).
+2. **HYBRID items — task-planner fan-out:** orchestrator (chính context này) spawn các `task-planner` subagent trong **một tool-use block song song** (≤10/wave). Mỗi prompt gồm: TIER + USER INTENT (từ mapping), các dòng §10.x của riêng sub-feature đó, ownership map, và clause: *"Artifact do task <NN'> trong batch này tạo ra được phép reference như 'produced by a named upstream task' — KHÔNG tính là phantom; ghi rõ nguồn."* Task-planner chỉ trả JSON — **orchestrator là người viết file** (task-planner không có quyền Write; đây là chủ đích).
 3. **Pure-WF items:** orchestrator draft trực tiếp bằng `_TEMPLATE_WF.md` (không subagent) — lift checklist của `/new-feature` thành criteria.
 4. **Viết N file tuần tự** (orchestrator, không ủy quyền). Mỗi file bắt buộc có:
    - `**Tier:**` khớp TIER trong filename.
    - `**Backed by workflow:**` + `**Workflow args:**` (WF/HYBRID).
-   - `**Mockup lane:** kit-composition|custom` — trên UI item non-clone chưa có supplied PNG, kể cả khi còn `PENDING-MOCKUP`.
    - `**Context docs:**` → `TechSpec/<Name>-Implementation.md`, `TechSpec/<Name>-TechSpec.md`.
    - `**Depends on:**` → filename planning của (các) task upstream, hoặc `none`.
    - `**Requires:** unity-editor` — CHỈ trên UI item.
-   - Description/Custom delta có paste sẵn các dòng mapping §10.x liên quan (Domain bucket, Manager Type, CSV columns + 6 resource fields, event rows, registration points) — số liệu economy lấy nguyên văn TechSpec.
+   - Description/Custom delta có paste sẵn các dòng mapping §10.x liên quan (Manager Type, CSV columns + 6 resource fields, event rows, registration points) — số liệu economy lấy nguyên văn TechSpec.
    - `**Guardrails:**` tags per quy tắc `/planning-task` STEP 4.
-4b. **Mockup-drafter fan-out (UI item còn `PENDING-MOCKUP`):** spawn [`mockup-drafter`](../../agents/mockup-drafter.md) song song ≤10/wave (cùng cap 3.2) — prompt gồm featureName/screenName/branch/**lane** + outputPath `TechSpec/Mockups/<F>/<S>.html` + path task file + `**Context docs:**`. Drafter phải phát structured patch cho lựa chọn rời rạc khi có thể để dashboard áp dụng tức thì; HTML chỉ là render artifact, không phải file user phải author. **Generate = autonomous, approve = human:** KHÔNG chờ user duyệt ở đây. Chỉ `created`/`recovered`/`exists` (validated spec+HTML pair) hoặc `legacy-exists` (validated legacy HTML), sau khi confirm HTML tồn tại, mới được đổi `PENDING-MOCKUP` → `PENDING-APPROVAL:<path.html>`; `error` giữ `PENDING-MOCKUP`.
+   - **Cheat decision (mọi item code sở hữu một feature):** feature có state tester không với tới trong vài tap (time gate/daily reset/cooldown, ngưỡng progression/unlock, yêu cầu resource, flow hiếm hoặc one-shot, thứ cần reset để test lại) → tag `[CHEAT]` + liệt kê cheat cụ thể + một criterion; ngược lại ghi `**Guardrails skipped:** cheat (<lý do>)`. Chrome `ButtonCheatMenu` đã có sẵn trong `FeatureTemplate`/`PackageTemplate` nên chi phí chỉ là `Cheat_*` + 2–5 nút — pattern: [.claude/skills/feature-cheat/SKILL.md](../feature-cheat/SKILL.md).
+     **Chia việc theo ownership, KHÔNG tách task cheat riêng:** method `Cheat_*` (Controller/Manager) thuộc task code sở hữu class đó; nút trong `ButtonCheatMenu/MenuParent` thuộc task `/new-ui` sở hữu prefab. Khi cả hai tồn tại, task `/new-ui` phải mang cùng danh sách cheat trong `**Custom delta:**` (tên nút · nhãn · method) và task code là `**Depends on:**` của nó — nếu không, nút sẽ được wire vào method chưa có.
+4b. **Mockup-drafter fan-out (UI item còn `PENDING-MOCKUP`):** spawn [`mockup-drafter`](../../agents/mockup-drafter.md) song song ≤10/wave (cùng cap 3.2) — prompt gồm featureName/screenName/branch + outputPath `TechSpec/Mockups/<F>/<S>.html` + path task file + `**Context docs:**`. Chỉ `created`/`recovered`/`exists` (validated v1 pair) hoặc `legacy-exists` (validated legacy HTML), sau khi confirm HTML tồn tại, mới được đổi `PENDING-MOCKUP` → `PENDING-APPROVAL:<path.html>`; `error` giữ `PENDING-MOCKUP`. Drafter chỉ ghi đúng cặp của screen đó (parallel-safe — không dashboard/shared state).
+4c. **Auto-approve (mặc định phê duyệt):** sau khi toàn bộ drafter xong, chạy MỘT lần `python3 .claude/scripts/ui-review.py auto-approve` — freeze mọi draft pass validation thành PNG contract + flip `groundTruth` → `.png` + stage. Screen còn `pending` (câu hỏi cấm-bịa / `[?]` / thiếu Chrome) giữ `PENDING-APPROVAL` và được liệt kê ở STAGE 4 để dev xử lý qua `/ui-mockup`.
 5. **Batch quality check** (thay cho STEP 2b/5 per-task của `/planning-task` — batch mode KHÔNG check-in user từng draft):
    - Per-file: đúng bộ check tier tương ứng trong `/planning-task` STEP 5 (WF/M/L).
    - Batch-level: (a) sweep ownership — không hai file nào cùng declare một deliverable; (b) mọi `**Depends on:**` trỏ tới filename có thật trong batch hoặc task đã tồn tại; (c) NN liên tục 01..N, không trùng.
-6. **Stage only paths that exist:** `git add backlog/planning/ TechSpec/`, và chỉ `git add GDD/` khi pipeline thực sự tạo artifact ở đó. KHÔNG commit. `backlog-ops promote` có fallback cho planning draft untracked, nhưng staging design artifacts vẫn tránh để run-backlog `git add -A` quét nhầm về sau.
+6. **`git add TechSpec/ GDD/`** (thêm vào index, KHÔNG commit) — để artifact không thành rác vương vãi cho `git add -A` của run-backlog quét nhầm về sau. **KHÔNG `git add` task file**: chúng nằm trong `$BACKLOG_ROOT` (bên trong `.git/`), không track được, và promote chỉ move bằng filesystem.
 
 ## STAGE 4 — Report
 
 Báo user, theo thứ tự:
 0. **Profile** đã chọn (LITE/STANDARD/EPIC) + lý do (predicate nào match) + escalation giữa chừng nếu có.
 1. Bảng N task: `NN · TIER · slug · backed-by · depends-on · requires` (EPIC: nhóm theo module).
-2. **Promote order:** một lệnh `/add-to-backlog` chọn cả batch là đủ — `promote` sort `(timestamp, NN)` tự giữ đúng thứ tự. Cảnh báo: promote lẻ tẻ có thể đứt dependency (script sẽ warn qua `dependency_warnings`).
-3. **UI tasks:** cần Unity Editor sống; loop headless sẽ tự `defer` chúng về cuối TODO — mở Editor rồi chạy tiếp là xong. Kèm bảng **mockup state** từng screen (approved / `PENDING-APPROVAL` / `PENDING-MOCKUP` / `clone:`) + nhắc: chạy `/ui-mockup` duyệt UI Review Dashboard **trước** `/add-to-backlog` — `mockup_warnings` là hard blocker nếu còn `PENDING-*`.
-4. **Revalidation:** batch dùng ngay theo thứ tự → không cần; nếu để lâu hoặc promote từng phần sau khi code base đổi → chạy `backlog/_REVALIDATION-PLAYBOOK.md` trước khi promote.
+2. **Promote order:** một lệnh `/add-to-backlog` chọn cả batch là đủ — `promote` sort `(timestamp, NN)` tự giữ đúng thứ tự. Promote lẻ tẻ có thể đứt dependency.
+3. **UI tasks:** cần Unity Editor sống; loop headless sẽ tự `defer` chúng về cuối TODO — mở Editor rồi chạy tiếp là xong. Kèm bảng **mockup state** từng screen (approved / `PENDING-APPROVAL` / `PENDING-MOCKUP` / `clone:`). Đa số screen đã **approved** tự động (STAGE 3.4c); screen còn `PENDING-*` cần dev xử lý qua `/ui-mockup` (trả lời câu hỏi cấm-bịa hoặc draft lại) trước khi promote.
+4. **Revalidation:** batch dùng ngay theo thứ tự → không cần; nếu để lâu hoặc promote từng phần sau khi code base đổi → chạy `.claude/backlog-templates/_REVALIDATION-PLAYBOOK.md` trước khi promote.
 5. Câu hỏi đã hỏi + trả lời, và mọi assumption đã tự quyết.
 6. Artifact design: `TechSpec/<Name>-Architecture.md` / `-TechSpec.md` / `-Implementation.md` (+ `GDD/Final/<Name>-Final.md` nếu có) để user review thiết kế.
 

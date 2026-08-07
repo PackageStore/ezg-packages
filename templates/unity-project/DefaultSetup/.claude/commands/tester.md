@@ -19,7 +19,7 @@ Sinh test cases theo 4 nhóm bắt buộc:
 1. **Happy Path Tests** — Core gameplay loop đúng flow; mỗi sub-feature theo Dependency Graph.
 2. **Edge Case Tests** — Tất cả edge cases trong TechSpec; boundary values của Economy (min/max resource); state transition hợp lệ và không hợp lệ.
 3. **Exploit / Abuse Tests** — Kế thừa trực tiếp từ Adversarial Audit của gdd-final; replay scenario F2P/Dolphin/Whale từ Simulation Phase.
-4. **Regression Tests** — CSV field validation (6 resource fields bắt buộc theo skill `.agents/skills/csv-config/SKILL.md`); data consistency cross-system.
+4. **Regression Tests** — CSV field validation (6 resource fields bắt buộc theo skill `.claude/skills/csv-config/SKILL.md`); data consistency cross-system.
 
 ### Phase 3 – Test Execution Report
 Format mỗi kết quả:
@@ -30,7 +30,7 @@ Format mỗi kết quả:
   Actual: ...
   Evidence: file:line hoặc log snippet
 ```
-> Để dò evidence trong code, ưu tiên `codegraph_explore`/`codegraph_search`, fallback `Grep`/`Read` (xem `.agents/rules/core-system.md`).
+> Để dò evidence trong code, ưu tiên `codegraph_explore`/`codegraph_search`, fallback `Grep`/`Read` (xem `.claude/rules/core-system.md`).
 
 ### Lưu kết quả:
 - Dùng `Write` lưu vào `TechSpec/[FeatureName]-TestReport.md`.
