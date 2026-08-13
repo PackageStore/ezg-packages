@@ -40,6 +40,20 @@ namespace Ezg.VoodooSdk.Editor
         {
             public PlatformKeys android = new();
             public PlatformKeys ios = new();
+
+            /// <summary>
+            /// Tên các loại tiền ảo dùng trong resource event, ví dụ ["Gold", "Gem"].
+            /// GA VỨT resource event có currency không nằm trong danh sách này — để rỗng = rớt hết.
+            /// Không bắt buộc điền: chỉ cần khi game có bắn resource event.
+            /// </summary>
+            public string[] resourceCurrencies = Array.Empty<string>();
+
+            /// <summary>
+            /// Tên các nhóm item dùng trong resource event, ví dụ ["Reward", "Shop", "Spend"].
+            /// Cùng luật với <see cref="resourceCurrencies"/>. Đây là nhóm THÔ — chi tiết đặt ở itemId,
+            /// vốn không bị GA kiểm tra theo danh sách.
+            /// </summary>
+            public string[] resourceItemTypes = Array.Empty<string>();
         }
 
         [Serializable]

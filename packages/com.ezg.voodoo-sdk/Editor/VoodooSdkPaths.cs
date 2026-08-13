@@ -34,8 +34,23 @@ namespace Ezg.VoodooSdk.Editor
         public const string FacebookSettingsAsset =
             TinySauceRoot + "/Analytics/Facebook/3rdParty/FacebookSDK/SDK/Resources/FacebookSettings.asset";
 
-        public const string GaMaxIntegrationScript =
-            TinySauceRoot + "/Analytics/GameAnalytics/3rdParty/GameAnalytics/Plugins/Scripts/ILRD/Max/GAMaxIntegration.cs";
+        /// <summary>Thư mục script runtime của SDK GameAnalytics do TinySauce bundle.</summary>
+        public const string GaScriptsRoot =
+            TinySauceRoot + "/Analytics/GameAnalytics/3rdParty/GameAnalytics/Plugins/Scripts";
+
+        public const string GaMaxIntegrationScript = GaScriptsRoot + "/ILRD/Max/GAMaxIntegration.cs";
+
+        /// <summary>
+        /// Asmdef ta tự tạo cho SDK GameAnalytics (bản vendor không có). Thiếu nó thì không asmdef nào
+        /// gọi được <c>GameAnalyticsSDK</c> — xem <see cref="VoodooSdkGaAsmdefPatcher"/>.
+        /// </summary>
+        public const string GaAsmdef = GaScriptsRoot + "/GameAnalytics.Scripts.asmdef";
+
+        /// <summary>
+        /// Settings asset của SDK GameAnalytics. Resource event bị loại nếu currency/itemType chưa
+        /// khai ở đây TRƯỚC lúc SDK init.
+        /// </summary>
+        public const string GaSettingsAsset = "Assets/Resources/GameAnalytics/Settings.asset";
 
         /// <summary>File TinySauce ghi đè ở mỗi lần build Android — ta sửa lại SAU nó.</summary>
         public const string AndroidManifest = "Assets/Plugins/Android/AndroidManifest.xml";

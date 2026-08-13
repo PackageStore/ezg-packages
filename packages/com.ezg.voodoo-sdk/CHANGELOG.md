@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-08-13
+### Added
+- **Assembly definition for the bundled GameAnalytics SDK.** Voodoo ships GameAnalytics with no asmdef, so the whole `GameAnalyticsSDK` namespace lands in `Assembly-CSharp-firstpass` — which assembly definitions cannot reference. The result is that no asmdef code (`com.ezg.tracking`, or the game's own assemblies) can call GameAnalytics at all, failing with "type or namespace not found" while the SDK sits right there in the project. `VoodooSdkGaAsmdefPatcher` writes a `GameAnalytics.Scripts` asmdef, mirroring what AppLovin MAX already does for its own vendored scripts, and re-creates it whenever TinySauce is re-imported. The `MaxSdk.Scripts` reference is only added when MAX is actually present.
+- **Up-front declaration of GameAnalytics resource currencies and item types**, via the new optional `gameAnalytics.resourceCurrencies` / `gameAnalytics.resourceItemTypes` config fields. GameAnalytics discards every resource event whose currency or item type was not registered in its settings asset before the SDK initializes, and the default lists are empty — so a fresh project silently drops 100% of its resource events. The patcher only adds missing entries, never removes what the project declared itself, and edits through `SerializedObject` so the package still compiles before TinySauce has been imported.
+- **`EZG_GAMEANALYTICS` scripting define**, added for Android and iOS when the GameAnalytics SDK is present. This is what enables the optional GameAnalytics sink assembly in `com.ezg.tracking` 0.2.0+.
+
 ## [0.1.2] - 2026-07-30
 ### Fixed
 - Apple Unity Plug-ins priming no longer misses the environment type. `Type.GetType` with a short assembly name only searches assemblies that are already loaded, so in batchmode it intermittently reported "not in project" even though the package was installed — and when that happened no native library was copied and the iOS link failed with hundreds of undefined `_NSString_*` / `_NSObject_*` symbols. Resolution now falls back to Unity's `TypeCache` and an assembly scan.

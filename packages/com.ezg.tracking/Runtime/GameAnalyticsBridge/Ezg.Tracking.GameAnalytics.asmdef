@@ -1,0 +1,19 @@
+{
+    "name": "Ezg.Tracking.GameAnalytics",
+    "rootNamespace": "Ezg.Tracking.Sinks",
+    "references": [
+        "Ezg.Tracking",
+        "GameAnalytics.Scripts"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "EZG_GAMEANALYTICS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

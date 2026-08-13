@@ -28,9 +28,11 @@ Unity -batchmode -quit -projectPath <proj> \
 | Sinh `Assets/Resources/TinySauce/Settings.asset` từ config | `VoodooSdkSettingsGenerator` |
 | Ghi FB App ID + client token vào `FacebookSettings.asset` | `VoodooSdkSettingsGenerator` |
 | Gỡ callback AppLovin đã bị xoá khỏi `GAMaxIntegration.cs` | `VoodooSdkGaIlrdPatcher` |
+| Tạo asmdef `GameAnalytics.Scripts` (bản vendor không có) | `VoodooSdkGaAsmdefPatcher` |
+| Khai báo resource currency/itemType cho GameAnalytics | `VoodooSdkGaResourcePatcher` |
 | Khôi phục Firebase Messaging + sửa `tools:replace` trong AndroidManifest | `VoodooSdkAndroidManifestFixer` |
 | Mồi Apple Unity Plug-ins khi build iOS batchmode | `VoodooSdkApplePlugInPrimer` |
-| Thêm define `NEWTONSOFT`, đưa prefab vào scene đầu | `VoodooSdkInstaller` |
+| Thêm define `NEWTONSOFT` + `EZG_GAMEANALYTICS`, đưa prefab vào scene đầu | `VoodooSdkInstaller` |
 | Chặn build sớm khi cấu hình sai | `VoodooSdkPreflight` |
 
 ## Tại sao vá lại không mất khi nâng cấp TinySauce

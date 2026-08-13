@@ -17,8 +17,12 @@ namespace Ezg.Tracking
     /// classes at all (recommended for new projects — zero boilerplate).</item>
     /// </list>
     /// This class knows nothing about any specific game.
+    /// <para>
+    /// The GameAnalytics sink lives in the other half of this partial class, in
+    /// <c>GameAnalytics/TrackingService.GameAnalytics.cs</c>.
+    /// </para>
     /// </summary>
-    public static class TrackingService
+    public static partial class TrackingService
     {
         #region Fields
 

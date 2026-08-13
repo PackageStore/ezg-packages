@@ -22,6 +22,12 @@ namespace Ezg.VoodooSdk.Editor
 
         private const string MenuRoot = "Tools/Voodoo SDK/";
         private const string NewtonsoftDefine = "NEWTONSOFT";
+
+        /// <summary>
+        /// Bật assembly <c>Ezg.Tracking.GameAnalytics</c> của <c>com.ezg.tracking</c> — sink GameAnalytics
+        /// nằm sau define này để project không có GA vẫn build được.
+        /// </summary>
+        private const string GameAnalyticsDefine = "EZG_GAMEANALYTICS";
         private const int ExitOk = 0;
         private const int ExitFail = 1;
 
@@ -100,10 +106,14 @@ namespace Ezg.VoodooSdk.Editor
 
             WarnAboutConflictingFacebookSdk();
             VoodooSdkGaIlrdPatcher.Apply(logWhenClean: false);
-            EnsureNewtonsoftDefine();
+            VoodooSdkGaAsmdefPatcher.Apply(logWhenClean: false);
+            EnsureDefines();
 
             if (!VoodooSdkSettingsGenerator.Generate(config, out error))
                 return false;
+
+            VoodooSdkGaResourcePatcher.Apply(config.gameAnalytics.resourceCurrencies,
+                                             config.gameAnalytics.resourceItemTypes);
 
             AddPrefabToFirstScene();
             AssetDatabase.Refresh();
@@ -130,20 +140,35 @@ namespace Ezg.VoodooSdk.Editor
         }
 
         /// <summary>
-        /// <c>AndroidPreBuild.GetTemplatePropertiesToAdd()</c> của TinySauce nằm sau
+        /// Thêm các scripting define mà bộ SDK cần:
+        ///
+        /// <c>NEWTONSOFT</c> — <c>AndroidPreBuild.GetTemplatePropertiesToAdd()</c> của TinySauce nằm sau
         /// <c>#if NEWTONSOFT</c>. Thiếu define này thì cơ chế merge gradle im lặng không chạy —
         /// không lỗi, chỉ thiếu dependency lúc build.
+        ///
+        /// <c>EZG_GAMEANALYTICS</c> — bật assembly sink GameAnalytics trong <c>com.ezg.tracking</c>.
+        /// Thiếu define thì mọi call GameAnalytics là no-op, cũng im lặng không lỗi.
         /// </summary>
-        private static void EnsureNewtonsoftDefine()
+        private static void EnsureDefines()
+        {
+            AddDefine(NewtonsoftDefine);
+
+            // Chỉ bật sink khi SDK GameAnalytics thật sự có mặt.
+            if (Directory.Exists(VoodooSdkPaths.Absolute(VoodooSdkPaths.GaScriptsRoot)))
+                AddDefine(GameAnalyticsDefine);
+        }
+
+        /// <summary>Thêm 1 define cho Android + iOS nếu chưa có. Idempotent.</summary>
+        private static void AddDefine(string define)
         {
             foreach (NamedBuildTarget target in new[] { NamedBuildTarget.Android, NamedBuildTarget.iOS })
             {
                 string symbols = PlayerSettings.GetScriptingDefineSymbols(target);
-                if (symbols.Split(';').Contains(NewtonsoftDefine))
+                if (symbols.Split(';').Contains(define))
                     continue;
 
-                PlayerSettings.SetScriptingDefineSymbols(target, NewtonsoftDefine + ";" + symbols);
-                Debug.Log($"[VoodooSdk] Đã thêm define {NewtonsoftDefine} cho {target.TargetName}.");
+                PlayerSettings.SetScriptingDefineSymbols(target, define + ";" + symbols);
+                Debug.Log($"[VoodooSdk] Đã thêm define {define} cho {target.TargetName}.");
             }
         }
 
