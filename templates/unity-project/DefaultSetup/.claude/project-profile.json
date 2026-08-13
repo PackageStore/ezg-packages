@@ -21,7 +21,7 @@
   "sourceRoot": "Assets/_Project",
   "featuresRoot": "Assets/_Project/Features",
   "gameplayRoot": "Assets/_Project/Features",
-  "uiTemplatesRoot": "Assets/Resources/Prefabs/Templates",
+  "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
 
   "$comment_sensitiveGlobs": [
     "Filename globs that mark a diff sensitive and auto-spawn the",
