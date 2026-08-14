@@ -1,5 +1,15 @@
 using GameAnalyticsSDK;
 using UnityEngine;
+using UnityEngine.Scripting;
+
+// Nothing references this assembly at compile time — the game calls TrackingService in the core
+// assembly, which reaches the sink only through IGameAnalyticsSink. The managed linker therefore sees
+// an assembly with zero incoming references and drops it wholesale from the player build, so
+// AutoRegister never runs and every GameAnalytics event silently disappears. The Editor and any
+// compile check look perfectly healthy; only a stripped IL2CPP build shows it.
+// AlwaysLinkAssembly exists precisely for assemblies that are reachable only via
+// RuntimeInitializeOnLoadMethod.
+[assembly: AlwaysLinkAssembly]
 
 namespace Ezg.Tracking.Sinks
 {
@@ -24,6 +34,7 @@ namespace Ezg.Tracking.Sinks
         ///     Registers this sink with <see cref="TrackingService" /> before any scene loads, so events raised
         ///     during startup are captured (queued by the engine) rather than lost.
         /// </summary>
+        [Preserve]
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void AutoRegister()
         {

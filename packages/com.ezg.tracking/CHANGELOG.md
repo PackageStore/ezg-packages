@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2] - 2026-08-14
+
+### Fixed
+- **The GameAnalytics sink never ran in a player build.** Nothing references `Ezg.Tracking.GameAnalytics` at compile time — game code calls `TrackingService` in the core assembly, which reaches the sink only through `IGameAnalyticsSink`, and the sink installs itself from a `RuntimeInitializeOnLoadMethod`. The managed linker therefore saw an assembly with no incoming references and dropped it from the build entirely, so nothing ever registered a sink and every GameAnalytics event was silently queued and lost. Confirmed by inspecting a built APK: `Ezg.Tracking.dll` and `Ezg.Tracking.UI.dll` were present in the IL2CPP metadata, `Ezg.Tracking.GameAnalytics.dll` was not. Fixed with `[assembly: AlwaysLinkAssembly]`, which Unity provides for exactly this case, plus `[Preserve]` on the registration method.
+
+  This failed invisibly: the Editor behaved correctly, compilation was clean, and no warning or error appeared at runtime — the events simply never arrived. Only a stripped IL2CPP build on a device shows it, so verify GameAnalytics integration on a real build rather than in the Editor.
+
 ## [0.2.1] - 2026-08-14
 
 ### Fixed
