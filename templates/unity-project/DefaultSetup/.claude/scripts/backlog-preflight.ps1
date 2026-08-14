@@ -278,14 +278,13 @@ if ($IncludeDiffStat -and $changedFiles.Count -gt 0) {
 $findings = [System.Collections.Generic.List[object]]::new()
 $sensitiveReasons = [System.Collections.Generic.List[object]]::new()
 
+# Must stay identical to project_profile.DEFAULTS["sensitiveGlobs"] — the Python
+# twin reads that, and the parity test compares the two implementations.
 $sensitiveFilePatternsFallback = @(
-    "*Backend*",
-    "*Supabase*",
-    "*Cloudflare*",
-    "*Worker*",
     "*Purchase*",
     "*IAP*",
     "*Receipt*",
+    "*Payment*",
     "*DataPlayer*",
     "*SaveData*",
     "*PlayerPrefs*",
@@ -294,12 +293,7 @@ $sensitiveFilePatternsFallback = @(
     "*Login*",
     "*Token*",
     "*Session*",
-    "*Leaderboard*",
-    "*Ranking*",
-    "*Social*",
-    "*AntiCheat*",
-    "*Validation*",
-    "*Integrity*",
+    "*Account*",
     "*.env*",
     "*.config",
     "*Secrets*",
@@ -311,9 +305,11 @@ if (-not $sensitiveFilePatterns) { $sensitiveFilePatterns = $sensitiveFilePatter
 
 # Backend write rule, same source as the Python twin.
 $backendCfg = Get-ProfileJson "backend"
-$backendWriteBanned  = if ($backendCfg) { [bool]$backendCfg.directWriteBanned } else { $true }
-$backendWritePattern = if ($backendCfg -and $backendCfg.directWritePattern) { [string]$backendCfg.directWritePattern } else { '(?i)supabase\s*\.\s*from\s*\([^\)]*\)\s*\.\s*(insert|update|upsert|delete)\b' }
-$backendWriteAdvice  = if ($backendCfg -and $backendCfg.directWriteAdvice) { [string]$backendCfg.directWriteAdvice } else { "Client writes must go through Cloudflare Worker, not direct Supabase mutation." }
+# Fallbacks mirror project_profile.DEFAULTS["backend"]: the base template ships
+# no backend, so the rule is off until a project's profile.json turns it on.
+$backendWriteBanned  = if ($backendCfg) { [bool]$backendCfg.directWriteBanned } else { $false }
+$backendWritePattern = if ($backendCfg -and $backendCfg.directWritePattern) { [string]$backendCfg.directWritePattern } else { '' }
+$backendWriteAdvice  = if ($backendCfg -and $backendCfg.directWriteAdvice) { [string]$backendCfg.directWriteAdvice } else { '' }
 
 foreach ($file in $changedFiles) {
     foreach ($pattern in $sensitiveFilePatterns) {

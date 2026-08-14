@@ -73,9 +73,9 @@ cd "$REPO_ROOT" || { echo "Cannot cd to repo root: $REPO_ROOT" >&2; exit 1; }
 profile_get() {
   python3 "$SCRIPT_DIR/project_profile.py" "$1" 2>/dev/null || printf '%s' "$2"
 }
-PROJECT_NAME="$(profile_get projectName BlazeSurvivor)"
-GIT_CFG_BASE_BRANCH="$(profile_get gitConfigPrefix blazesurvivor).agentBaseBranch"
-PROFILE_DEFAULT_BASE="$(profile_get defaultBaseBranch Android/Release)"
+PROJECT_NAME="$(profile_get projectName UnityProject)"
+GIT_CFG_BASE_BRANCH="$(profile_get gitConfigPrefix agent).agentBaseBranch"
+PROFILE_DEFAULT_BASE="$(profile_get defaultBaseBranch main)"
 
 # The backlog lives in the git COMMON dir (.git/backlog/), never in the tree: it
 # is per-developer bookkeeping, so tracking it made every dev branch carry its

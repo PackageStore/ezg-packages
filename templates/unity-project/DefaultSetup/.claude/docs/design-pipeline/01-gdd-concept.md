@@ -8,7 +8,7 @@ Stage sáng tạo đầu chuỗi: từ ý tưởng thô → concept doc (hook, m
 
 ## Prompt chuẩn
 
-Dựa vào tài liệu trong "Docs" của game Blaze Survivor, hãy đề xuất 1 mini-game limited-time event hoàn toàn mới.
+Dựa vào tài liệu trong "Docs" của game này, hãy đề xuất 1 mini-game limited-time event hoàn toàn mới.
 
 MỤC TIÊU:
 

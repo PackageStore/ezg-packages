@@ -32,7 +32,7 @@ def _kit_state():
         meta = json.loads(KIT_JSON.read_text(encoding="utf-8")).get("_meta", {})
     except (OSError, ValueError) as exc:
         return f"UI kit unreadable: {exc}"
-    source = REPO / meta.get("source", "Assets/Resources/Prefabs/Templates")
+    source = REPO / meta.get("source", "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates")
     if not source.is_dir():
         return f"prefab source {source} absent — kit cannot be validated here"
     return None

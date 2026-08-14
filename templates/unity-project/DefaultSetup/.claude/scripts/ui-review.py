@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from project_profile import profile
 from ui_spec_common import ROOT, apply_json_patch, canonical_json, load_spec, spec_hash
 
 
@@ -250,8 +251,13 @@ def render_dashboard_html(config: dict) -> tuple[str, list[dict]]:
     """Render dashboard in memory so a serve-session token is never written to disk."""
     screens = discover_screens()
     template = DASHBOARD_TEMPLATE.read_text(encoding="utf-8")
+    # Per-project, not hardcoded: the approve:// scheme is registered machine-wide,
+    # so two projects on the same base must not claim the same one (see
+    # setup-approve-handler-macos.sh). Both come from .claude/project-profile.json.
     source = (
         template
+        .replace("__PROJECT_TITLE__", escape(profile().project_name))
+        .replace("__APPROVE_SCHEME__", json.dumps(f"{profile().git_config_prefix}-approve"))
         .replace("__PROJECT__", json.dumps(str(ROOT), ensure_ascii=False))
         .replace("__SCREENS__", json.dumps(screens, ensure_ascii=False).replace("</", "<\\/"))
         .replace("__CONFIG__", json.dumps(config, ensure_ascii=False))
@@ -920,7 +926,7 @@ CONTENT_TYPES = {
 class ReviewRequestHandler(BaseHTTPRequestHandler):
     """Token-guarded loopback API with a narrowly scoped mockup file server."""
 
-    server_version = "BlazeUiReview/2"
+    server_version = "AgentUiReview/2"
 
     def log_message(self, *_args) -> None:
         return

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Blaze Survivor · UI Mockups</title>
+<title>__PROJECT_TITLE__ · UI Mockups</title>
 <style>
 /* Visual language: .claude/docs/design-style/tokens.dtcg.json (dark default + light). */
 :root{
@@ -255,7 +255,7 @@ body.modal-open{overflow:hidden}
 <main class="shell">
   <header class="hero">
     <div>
-      <div class="eyebrow">Blaze Survivor · UI Mockups</div>
+      <div class="eyebrow">__PROJECT_TITLE__ · UI Mockups</div>
       <h1>Mockup <span>Review</span></h1>
       <p class="subtitle">Mockup được <strong>tự động phê duyệt</strong> sau khi draft. Trang này chỉ dành cho hai việc: trả lời các câu hỏi drafter chưa dám tự quyết (nhóm cấm-bịa) và <strong>yêu cầu chỉnh sửa</strong> khi bạn muốn thay đổi thiết kế. Mọi approve đều khoá bằng spec hash.</p>
     </div>
@@ -284,7 +284,7 @@ body.modal-open{overflow:hidden}
   </div>
 </div>
 <script>
-const PROJECT=__PROJECT__,CONFIG=__CONFIG__,SERVER_MODE=!!CONFIG.serve,API_TOKEN=CONFIG.token||'';let SCREENS=__SCREENS__;
+const PROJECT=__PROJECT__,APPROVE_SCHEME=__APPROVE_SCHEME__,CONFIG=__CONFIG__,SERVER_MODE=!!CONFIG.serve,API_TOKEN=CONFIG.token||'';let SCREENS=__SCREENS__;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AUTO_RESOLVE_TEXT='Tự quyết toàn bộ phần còn mở của màn này: thay MỌI literal [?] trong spec bằng giá trị mẫu đại diện (kèm localize "dynamic") hoặc nội dung thật lấy nguyên văn từ Context docs/GDD/TechSpec của task; sau khi quyết xong thì xoá mọi câu hỏi còn lại (questions: []) và ghi từng quyết định vào assumptions[]. KHÔNG đổi layout/kích thước/template, chỉ điền giá trị.';
 function toast(s,ms){const e=document.getElementById('toast');e.textContent=s;e.style.display='block';clearTimeout(e.timer);e.timer=setTimeout(()=>e.style.display='none',ms||4800)}
@@ -384,11 +384,11 @@ async function approve(rows){
   }
   // Direct OS-level protocol handler — NO AI agent in the loop, so no Terminal/init/paste/Enter
   // dance at all. One-time setup per machine required: .claude/scripts/setup-approve-handler-
-  // macos.sh (or -windows.ps1) registers blazesurvivor-approve:// -> ui-review-approve-handler.py,
+  // macos.sh (or -windows.ps1) registers <gitConfigPrefix>-approve:// -> ui-review-approve-handler.py,
   // which just runs `ui-review.py approve` directly (bounded: it only ever approves specs whose
   // hash already matches what's on disk — see ui-review.py's own validation, not this page).
   const items=rows.map(s=>'item='+encodeURIComponent(s.html+'='+s.specHash)).join('&');
-  window.location.href='blazesurvivor-approve://approve?'+items;
+  window.location.href=APPROVE_SCHEME+'://approve?'+items;
   toast(`Đã gửi lệnh approve trực tiếp cho ${rows.length} màn — chờ notification xác nhận. Chưa chạy setup-approve-handler 1 lần trên máy? Xem .claude/scripts/setup-approve-handler-macos.sh (hoặc -windows.ps1).`,7000);
   // The handler runs out-of-process (fire-and-forget navigation), so this page can't know exactly
   // when it's done — reload once after a short fixed delay to pick up the new pending state.

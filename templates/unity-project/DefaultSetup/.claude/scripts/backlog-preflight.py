@@ -238,11 +238,11 @@ def is_source_file(path):
 
 
 # Sensitive surfaces that auto-spawn the security-auditor, from
-# `.claude/project-profile.json` (`sensitiveGlobs`). This project's defaults are
-# broad on purpose — a real backend (Supabase read + Cloudflare Worker write), a
-# leaderboard and IAP — and they live in project_profile.DEFAULTS so a tree with
-# no profile behaves exactly as before. A project with no backend trims the list
-# there rather than inheriting false positives.
+# `.claude/project-profile.json` (`sensitiveGlobs`). The defaults live in
+# project_profile.DEFAULTS and cover what the base template ships — IAP, account
+# sync, a two-tier save. A project that grows a backend, a leaderboard or an
+# anti-cheat surface widens the list in its own profile.json rather than every
+# project inheriting globs with nothing to match.
 # Keep backlog-preflight.ps1 reading the same profile key.
 SENSITIVE_FILE_PATTERNS = profile().sensitive_globs
 

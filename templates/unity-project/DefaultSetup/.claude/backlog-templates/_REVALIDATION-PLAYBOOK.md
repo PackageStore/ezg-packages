@@ -24,7 +24,7 @@ For each spec file, open it and cross-check against the **current** codebase (`c
 | Check | Question | Fail → |
 |---|---|---|
 | **1. Duplicate deliverable** | Does any NEW file/class/CSV/event it declares already exist, or is it owned by another task (`done`/`todo`/`planning`)? | 🔴 close or re-scope (recreating a class = `CS0101` duplicate-type → loop blocks) |
-| **2. Stale path / name** | Do its `Related files` paths + class names match where code actually lives now (`<sourceRoot>/2.BUS/...`, `<sourceRoot>/4.CORE/...`)? Or does it assume a tree that doesn't exist? | 🟡 fix the spec paths/names to the real canonical tree |
+| **2. Stale path / name** | Do its `Related files` paths + class names match where code actually lives now (`<featuresRoot>/<Domain>/<Feature>/...`, `<featuresRoot>/_Shared/...`)? Or does it assume a tree that doesn't exist? | 🟡 fix the spec paths/names to the real canonical tree |
 | **3. Phantom reference** | Does every config/class/accessor it tells the implementer to READ (`PlayerDataManager.X`, a CSV, an `EventName` const, a helper) actually exist or get created by a named upstream task? Are the API method names real? | 🟡 replace with the real owner/API, or add the missing upstream task |
 | **4. Dependency reality** | Are its `depends_on` ids real tasks? Are the deps satisfied/ordered before it? Is it hard-blocked on something unbuilt or a design decision? | 🟡 fix dep ids; 🔴 if blocked on a design decision → park in `planning/` with a BLOCKED banner |
 
@@ -37,8 +37,8 @@ For each spec file, open it and cross-check against the **current** codebase (`c
 When fixing stale paths/names, snap them to this project's established tree and patterns (paths below are profile keys — see `.claude/project-profile.json`):
 
 - Feature modules → `<featuresRoot>/<Feature>/...` (controller extends `FeatureBaseController`).
-- Gameplay / battle → `<gameplayRoot>/...`; player skills → `.../Skills/Skill<ID>/` (ID 1–5999), enemy/boss skills ID 6000–6999.
-- Core modules / framework → `<sourceRoot>/4.CORE/Modules/...` — **reference, never recreate** (`UIModule/FeatureBaseController.cs`, `UIManager`, `TimeManager`, `Utils.cs`).
+- Gameplay / battle → `<gameplayRoot>/...`, following whatever sub-layout that bucket already uses (mirror a sibling; don't invent an id scheme).
+- Core modules / framework → `<featuresRoot>/_Shared/...` — **reference, never recreate** (`UI/Framework/FeatureBaseController.cs`, `UI/Framework/UIManager.cs`, `Systems/TimeManager.cs`, `Systems/Utils.cs`).
 - Save data = EXTEND `DataPlayer` via `PlayerDataManager.[Module]` with a `SetupDefaultData()` fallback — never duplicate a save module.
 - Cross-system events = declare/reuse `EventName` constants for `TigerForge` — verify the const exists before a task emits it (a task that emits `EventName.OnX` must come AFTER the task that declares `OnX`).
 - Balance numbers/formulas live in CSV config — reference the existing CSV, do not hardcode or invent a parallel config class.

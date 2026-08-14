@@ -42,53 +42,57 @@ import subprocess
 from pathlib import Path
 
 
-# Defaults == this repo's behaviour before the profile existed. Do not "clean
-# these up" to generic values: a project with no profile.json must keep working
-# exactly as it did, and these are what the tests pin.
+# Defaults == the base template's own shape, and they mirror the shipped
+# `.claude/project-profile.json` key for key. Two reasons that matters: a
+# checkout whose profile went missing keeps behaving like the template it came
+# from instead of like some other game, and there is exactly one place to read
+# to know what a value means. Do NOT put a specific project's layout, branch or
+# threat surface here — that belongs in that project's profile.json.
 DEFAULTS = {
     # --- identity -----------------------------------------------------------
-    "projectName": "BlazeSurvivor",
-    "solutionFile": "BlazeSurvivor.sln",
+    # Neutral on purpose: build_unity_template writes the real name into
+    # project-profile.json at generation time. These only surface if that file
+    # is missing, where a generic label beats another project's name.
+    "projectName": "UnityProject",
+    "solutionFile": "UnityProject.sln",
     # git config namespace for loop bookkeeping (<prefix>.agentBaseBranch)
-    "gitConfigPrefix": "blazesurvivor",
+    "gitConfigPrefix": "agent",
     # last-resort base branch when HEAD is an agent branch and git config is empty
-    "defaultBaseBranch": "Android/Release",
+    "defaultBaseBranch": "main",
 
     # --- source layout ------------------------------------------------------
-    "sourceRoot": "Assets/_Game",
-    "featuresRoot": "Assets/_Game/2.BUS/Features",
-    "gameplayRoot": "Assets/_Game/2.BUS/GamePlay",
+    "sourceRoot": "Assets/_Project",
+    "featuresRoot": "Assets/_Project/Features",
+    "gameplayRoot": "Assets/_Project/Features",
     # where ui-kit-sync.py reads the screen template prefabs
-    "uiTemplatesRoot": "Assets/Resources/Prefabs/Templates",
+    "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
 
     # --- review surfaces ----------------------------------------------------
     # Filename globs that make a diff "sensitive" and auto-spawn the
-    # security-auditor. Broad on purpose here: this project has a real backend,
-    # a leaderboard and IAP. A project with none of that should trim the list
-    # rather than inherit false positives.
+    # security-auditor. Scoped to what the base template actually ships: IAP,
+    # account sync and a two-tier save. Backend/leaderboard/anti-cheat globs are
+    # deliberately absent — a project that grows one adds them to its own
+    # profile.json rather than every diff dragging in a reviewer with nothing
+    # to review.
     "sensitiveGlobs": [
-        "*Backend*", "*Supabase*", "*Cloudflare*", "*Worker*",
-        "*Purchase*", "*IAP*", "*Receipt*",
+        "*Purchase*", "*IAP*", "*Receipt*", "*Payment*",
         "*DataPlayer*", "*SaveData*", "*PlayerPrefs*", "*Persistence*",
-        "*Auth*", "*Login*", "*Token*", "*Session*",
-        "*Leaderboard*", "*Ranking*", "*Social*",
-        "*AntiCheat*", "*Validation*", "*Integrity*",
+        "*Auth*", "*Login*", "*Token*", "*Session*", "*Account*",
         "*.env*", "*.config", "*Secrets*", "*Credential*",
     ],
 
     # --- backend shape ------------------------------------------------------
     # Drives the backend-write rules. "kind" is free-form; the rules key off
     # `directWriteBanned`, which says client code must not mutate the datastore
-    # directly. Set kind to "none" in a project with no backend and the
-    # matching preflight rule stops firing.
+    # directly. The base template ships no backend, so the rule is off; a
+    # project that lands one sets kind + directWriteBanned + a
+    # directWritePattern matching the call its client must not make.
     "backend": {
-        "kind": "supabase+cloudflare-worker",
-        "directWriteBanned": True,
+        "kind": "none",
+        "directWriteBanned": False,
         # regex (python) matching a banned direct client write
-        "directWritePattern":
-            r"(?i)supabase\s*\.\s*from\s*\([^\)]*\)\s*\.\s*(insert|update|upsert|delete)\b",
-        "directWriteAdvice":
-            "Client writes must go through Cloudflare Worker, not direct Supabase mutation.",
+        "directWritePattern": "",
+        "directWriteAdvice": "",
     },
 }
 

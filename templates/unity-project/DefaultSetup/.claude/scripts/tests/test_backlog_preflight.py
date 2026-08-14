@@ -171,7 +171,7 @@ class CoreRuleTests(PreflightTestCase):
         self.assertEqual(self.findings(r, "time-manager"), [])
 
     def test_sensitive_filename_pattern_sets_sensitive(self):
-        self.stage("Assets/_Game/PurchaseManager.cs",
+        self.stage("Assets/_Project/PurchaseManager.cs",
                    "public class PurchaseManager { }\n")
         r = self.run_preflight()
         self.assertTrue(r["sensitive"]["value"])
@@ -223,7 +223,7 @@ class UiKitStalenessTests(PreflightTestCase):
     root applies here: the temp repo has no profile (see SCRIPT_DEPS).
     """
 
-    TEMPLATE = "Assets/Resources/Prefabs/Templates/PanelTemplate.prefab"
+    TEMPLATE = "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/PanelTemplate.prefab"
     KIT = ".claude/ui-kit/ui-kit.json"
 
     def commit_kit(self):
@@ -255,7 +255,7 @@ class UiKitStalenessTests(PreflightTestCase):
 
     def test_prefab_outside_the_templates_root_is_ignored(self):
         self.commit_kit()
-        self.stage("Assets/_Game/2.BUS/Features/Shop/Resources/Shop.prefab", "x: 1\n")
+        self.stage("Assets/_Project/Features/Monetization/Shop/Resources/Shop.prefab", "x: 1\n")
         self.assertEqual(self.findings(self.run_preflight(), "ui-kit-stale"), [])
 
 

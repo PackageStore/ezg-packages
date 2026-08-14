@@ -28,7 +28,7 @@ call here.
 
 ## 0. Preflight (once per session)
 
-1. `unity_list_instances` → if exactly one Blaze Survivor editor, note its `port`; if several,
+1. `unity_list_instances` → if exactly one editor for THIS project, note its `port`; if several,
    `unity_select_instance`. If none is running, the agent cannot proceed — ask the user to open
    the Unity project.
 2. `unity_scene_info` → note the active scene and whether it `isDirty`. Build under the scene's
@@ -352,7 +352,7 @@ per phase. `pass` → proceed to the next phase.
 
 ---
 
-## 6. Register so `UIManager.Show()` can open it (Blaze convention)
+## 6. Register so `UIManager.Show()` can open it (project convention)
 
 This repo opens features via `UIManager.Instance.Show(EnumBase.Features.X).Forget()`
 (see [ui-manager skill](.claude/skills/ui-manager/SKILL.md)). To make a new screen openable:

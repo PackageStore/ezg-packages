@@ -470,7 +470,7 @@ Note `compile-check: skipped (all 3 methods unavailable)` in the DONE summary Qu
 ### 6a + 6b. Snapshot the staged diff and run preflight — ONE call
 
 ```bash
-py .claude/scripts/backlog-snapshot.py --pretty       # Windows (python3 is a Store stub — PROJECT_NOTES §1)
+py .claude/scripts/backlog-snapshot.py --pretty       # Windows (python3 thường là Store stub — dùng `py`)
 # python3 .claude/scripts/backlog-snapshot.py --pretty  # macOS/Linux
 ```
 

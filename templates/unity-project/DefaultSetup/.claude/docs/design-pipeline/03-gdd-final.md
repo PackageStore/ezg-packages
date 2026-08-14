@@ -167,9 +167,9 @@ KHÔNG được rewrite GDD.
 
 > **CẤM tự kê backend làm mitigation (bắt buộc).** Dự án mặc định **offline / local-first** — IAP pack
 > chạy local pack pattern (CSV config + `PackageManager` local save + `RewardManager` grant client-side
-> + `TimeManager`); chỉ 2 file trong `2.BUS` chạm backend. Xem
-> [PROJECT_NOTES.md §7 Backend policy](../../PROJECT_NOTES.md) — nguồn chân lý, đọc trước khi audit
-> section này.
+> + `TimeManager`); rất ít file chạm backend, và base template mặc định **không có backend nào**. Xem
+> phần Architecture trong [CLAUDE.md](../../../CLAUDE.md) + `backend.kind` trong
+> `.claude/project-profile.json` — nguồn chân lý, đọc trước khi audit section này.
 >
 > Khi audit lộ ra exploit dạng client-tamper (tự grant reward, sửa purchase limit, đổi clock để
 > né expiry, re-roll random reward), **KHÔNG** được viết mitigation kiểu *"server-authoritative

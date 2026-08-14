@@ -62,7 +62,7 @@ Even when CodeGraph is up, use Grep for **text not indexed as symbols**: hardcod
 
 A perf issue's severity depends on **how often the code runs**. The same line is `block` in `Update` and `minor` in `Awake`. Always establish the execution context first (via `codegraph_callers`) before assigning severity.
 
-| Execution context | Examples (Survivor / bullet-hell) | Default severity for an allocation/cost |
+| Execution context | Examples (spawn-heavy action game) | Default severity for an allocation/cost |
 |---|---|---|
 | **Hot path** (per-frame / per-tick) | `Update`, `FixedUpdate`, `LateUpdate`, per-enemy AI/movement tick, per-projectile move/collision, nearest-target scan each frame, DOTween `OnUpdate` | **block** |
 | **Frequent event** | per-enemy-spawn in a wave loop, per-projectile-spawn, per-hit damage application, damage-number/floating-text spawn, list cell binding in a scroller | **major** |
@@ -86,7 +86,7 @@ When you cannot determine the context from the diff alone, use `codegraph_caller
 - `GameObject.Find`, `FindObjectOfType`, `FindObjectsOfType`, `Resources.Load`, `GetComponent`/`GetComponentInChildren` **not** cached in `Awake`/`Start` (i.e. called per-frame or per-event) → **block**.
 - `Camera.main` accessed repeatedly (it calls `FindGameObjectWithTag` internally) → **major** (cache it).
 - `transform` accessed many times in a tight loop instead of caching a local → **minor**.
-- Instantiating/Destroying `GameObject`s at runtime without object pooling — especially enemies, projectiles/bullets, skill VFX, floating damage text, list cells → **block** for repeated/per-wave spawns, **warn** for occasional. In a Survivor game these spawn surfaces are extreme; raw `Instantiate`/`Destroy` in spawn-heavy code is a finding.
+- Instantiating/Destroying `GameObject`s at runtime without object pooling — especially enemies, projectiles/bullets, skill VFX, floating damage text, list cells → **block** for repeated/per-wave spawns, **warn** for occasional. In a spawn-heavy genre these surfaces dominate the frame budget; raw `Instantiate`/`Destroy` in spawn-heavy code is a finding.
 - `SetActive` toggling large hierarchies every frame, or `Canvas`-rebuild-triggering changes per frame → **major**.
 
 ### 3. UI / Canvas / layout cost (uGUI is a common mobile bottleneck)

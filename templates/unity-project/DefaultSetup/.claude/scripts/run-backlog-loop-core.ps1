@@ -102,8 +102,8 @@ function Get-ProfileValue {
     } catch { }
     return $Fallback
 }
-$GitCfgBaseBranch   = (Get-ProfileValue "gitConfigPrefix"  "blazesurvivor") + ".agentBaseBranch"
-$ProfileDefaultBase = Get-ProfileValue "defaultBaseBranch" "Android/Release"
+$GitCfgBaseBranch   = (Get-ProfileValue "gitConfigPrefix"  "agent") + ".agentBaseBranch"
+$ProfileDefaultBase = Get-ProfileValue "defaultBaseBranch" "main"
 
 # The backlog lives in the git COMMON dir (.git/backlog/), never in the tree: it
 # is per-developer bookkeeping, so tracking it made every dev branch carry its

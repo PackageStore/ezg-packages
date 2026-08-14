@@ -137,7 +137,7 @@ public class Player[PackageName]Data
 
 - **Location:** `[PackageName]/Scripts/Controller/`
 - **Inheritance:** `DataPlayerBaseGeneric<Player[PackageName]Data>`
-- **Namespace:** `Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller`
+- **Namespace:** `Ezg.Feature.[PackageName]`
 - **Include:** `PlayerData` property
 - **Key methods:**
   - `GetEndTime(int packIndex)` — when package expires
@@ -148,7 +148,7 @@ public class Player[PackageName]Data
 
 ```csharp
 // using at top
-using Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller;
+using Ezg.Feature.[PackageName];
 
 // field
 private static [PackageName]Manager _[packageName];
@@ -165,7 +165,7 @@ public static [PackageName]Manager [PackageName]
 
 - **Location:** `[PackageName]/Scripts/Controller/`
 - **Inheritance:** `GameFeatureBaseController` (adds `FeatureType` for open/close events) — locate with `Glob **/GameFeatureBaseController.cs`
-- **Namespace:** `Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller`
+- **Namespace:** `Ezg.Feature.[PackageName]`
 - **Rules:**
   - `PurchaseTemplateController` reference for IAP
   - `UI_CooldownTimeView` for time-limited packages
@@ -174,16 +174,12 @@ public static [PackageName]Manager [PackageName]
   - `FeatureType` (TabGroup "Common", from the base class) is wired on the prefab during `/new-ui` (§10), not set in this class
 
 ```csharp
-using Assets._Game._2.BUS.Features.Package.Scripts.Controller;
-using Assets._Project.Core.Extensions.UI;
-using Assets.Scripts._2.BUS.DataConfigs;
-using BlackFace.Libraries.Modules.UIModule;
 using Sirenix.OdinInspector;
 using TigerForge;
 using UnityEngine;
 using System;
 
-namespace Assets._Game._2.BUS.Features.[PackageName].Scripts.Controller
+namespace Ezg.Feature.[PackageName]
 {
     internal class [PackageName]Controller : GameFeatureBaseController
     {
@@ -253,7 +249,7 @@ Pattern: `.Select(x => x.packId)` when each entry is a separate pack (same as `S
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `pack_id` | string | IAP product ID (e.g. `com.blackface.survivor.blaze.[package_name]_1`) |
+| `pack_id` | string | IAP product ID (e.g. `com.company.game.[package_name]_1`) |
 | `duration` | int | Availability seconds (86400 = 1 day) |
 | `comeback_after` | int | Cooldown before reappear (seconds) |
 | `profit` | int | Value multiplier shown to user (e.g. 1000 = x10) |
@@ -269,10 +265,10 @@ Pattern: `.Select(x => x.packId)` when each entry is a separate pack (same as `S
 
 ```csv
 pack_id,duration,comeback_after,profit,name,res_type,res_id,res_number,bonus,stage_bonus,custom_value
-com.blackface.survivor.blaze.[package]_1,86400,86400,1000,#[package]_1,1,22,1,,,
+com.company.game.[package]_1,86400,86400,1000,#[package]_1,1,22,1,,,
 ,,,,,1,2,200,,,
 ,,,,,1,16,10,,,
-com.blackface.survivor.blaze.[package]_2,86400,86400,1500,#[package]_2,3,2,1,,,
+com.company.game.[package]_2,86400,86400,1500,#[package]_2,3,2,1,,,
 ,,,,,1,2,500,,,
 ```
 
@@ -285,11 +281,6 @@ com.blackface.survivor.blaze.[package]_2,86400,86400,1500,#[package]_2,3,2,1,,,
 ```csharp
 // Controller
 using System;
-using Assets._Game._2.BUS.Features.Package.Scripts.Controller;
-using Assets._Project.Core.Extensions.UI;
-using Assets.Scripts._2.BUS.DataConfigs;
-using Assets.Scripts._4.CORE.GameSystems;
-using BlackFace.Libraries.Modules.UIModule;
 using Sirenix.OdinInspector;
 using TigerForge;
 using UnityEngine;
@@ -353,7 +344,7 @@ Typical package cheats (mirror `DailyLoginV2` / `Equipment` in style):
 - [ ] `DataManagerAutoGenerate.cs` updated with collection property
 - [ ] `GameSystems.InitAllPurchasePackage()` has `DataManager.[PackageName].dataGroups.Select(x => x.packId)`
 - [ ] CSV at `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv`
-- [ ] IAP product IDs: `com.blackface.survivor.blaze.[package_name]_N`
+- [ ] IAP product IDs: `com.company.game.[package_name]_N`
 - [ ] Localization keys for package names
 - [ ] `/new-ui [PackageName]` → prefab variant at `Features/[PackageName]/Resources/[PackageName].prefab` (Package branch)
 - [ ] Controller `_purchase`, `_packIndex`, `_cooldownTime` (if time-limited) bound

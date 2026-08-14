@@ -814,14 +814,14 @@ PlayerSettings:
   editorAssembliesCompatibilityLevel: 1
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: Tank
+  metroPackageName: UnityGameTemplate
   metroPackageVersion: 
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
   metroCertificateIssuer: 
   metroCertificateNotAfter: 0000000000000000
-  metroApplicationDescription: Tank
+  metroApplicationDescription: Unity Game Template
   wsaImages: {}
   metroTileShortName: 
   metroTileShowName: 0

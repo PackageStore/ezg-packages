@@ -26,7 +26,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 SCRIPT_SRC = REPO / ".claude" / "scripts" / "ui-kit-sync.py"
 SCRIPT_DEPS = ["project_profile.py"]
-DEFAULT_TEMPLATES = "Assets/Resources/Prefabs/Templates"
+DEFAULT_TEMPLATES = "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates"
 
 
 class UiKitCheckTests(unittest.TestCase):

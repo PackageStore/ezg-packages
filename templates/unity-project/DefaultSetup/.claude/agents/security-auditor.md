@@ -52,14 +52,17 @@ Compliance frameworks (GDPR/COPPA/Apple/Google policy) are NOT in scope of this 
 
 If the diff touches any of the following patterns, audit extremely carefully:
 
-- `<sourceRoot>/**/Backend*`, `*Supabase*`, `*Cloudflare*`, `*Worker*` — backend integration layer
-- `<sourceRoot>/**/Purchase*`, `*IAP*`, `*Receipt*` — monetization
+- `<sourceRoot>/**/Purchase*`, `*IAP*`, `*Receipt*`, `*Payment*` — monetization
 - `<sourceRoot>/**/DataPlayer*`, `*SaveData*`, `*PlayerPrefs*`, `*Persistence*` — save layer
-- `<sourceRoot>/**/Auth*`, `*Login*`, `*Token*`, `*Session*` — auth flow
-- `<sourceRoot>/**/Leaderboard*`, `*Ranking*`, `*Social*` — shared/multi-user surfaces
-- `<sourceRoot>/**/AntiCheat*`, `*Validation*`, `*Integrity*` — security controls themselves
+- `<sourceRoot>/**/Auth*`, `*Login*`, `*Token*`, `*Session*`, `*Account*` — auth + account sync
 - Any new file containing credential-like strings (regex `[A-Z0-9_]{3,}_(KEY|SECRET|TOKEN|PASSWORD)`)
 - `*.env*`, `*.config`, `*Secrets*`, `*Credential*`
+
+> This list mirrors `sensitiveGlobs` in `.claude/project-profile.json` (defaults in
+> `.claude/scripts/project_profile.py`) — the globs that actually spawn this agent. It covers what the
+> base template ships. A project that grows a **backend**, a **leaderboard** or an **anti-cheat**
+> surface adds the matching globs to its own `profile.json` **and** to this list; keep the two in step
+> (`test_preflight_twin_parity.py` fails if this brief advertises a glob that no longer triggers it).
 
 ## Specific checks
 

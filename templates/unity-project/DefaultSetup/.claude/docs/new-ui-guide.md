@@ -310,7 +310,7 @@ Chi tiết đầy đủ (guid, size, code pattern, recipe `unity_execute_code` �
 - Tên GameObject = PascalCase ngắn theo hành động; `content` Text = nhãn tiếng Anh ngắn; **không gắn `LocalizesUI`** (ngoại lệ duy nhất của luật localize ở §3b — cheat là dev-only).
 - Cùng một width cho mọi nút trong menu, height `150` (tham chiếu: `DailyLoginV2` 250×150, `Equipment` 200×150).
 - Xoá/đổi nút mẫu `ButtonNormal` ("Clear data") của template — không ship nguyên trạng.
-- `onClick` → đúng method `public Cheat_*` trên Controller; verify YAML có `m_MethodName` + `m_TargetAssemblyTypeName: <Feature>Controller, 2.BUS`.
+- `onClick` → đúng method `public Cheat_*` trên Controller; verify YAML có `m_MethodName` + `m_TargetAssemblyTypeName: <Feature>Controller, <assembly>` (tên assembly lấy từ asmdef chứa controller đó, đừng đoán).
 
 ---
 

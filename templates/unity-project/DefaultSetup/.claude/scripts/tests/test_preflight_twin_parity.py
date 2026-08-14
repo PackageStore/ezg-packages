@@ -100,7 +100,10 @@ class BackendRuleParity(unittest.TestCase):
     def test_ps1_fallback_pattern_matches_python_default(self):
         """The no-python3 fallback must still describe the same banned call."""
         ps1 = PS1.read_text(encoding="utf-8")
-        m = re.search(r"\$backendWritePattern = .*?else \{ '([^']+)' \}", ps1, re.S)
+        # `[^']*` (not `+`): the base template ships no backend, so the default
+        # pattern is the empty string — an empty fallback is the correct match,
+        # not a missing one.
+        m = re.search(r"\$backendWritePattern = .*?else \{ '([^']*)' \}", ps1, re.S)
         self.assertIsNotNone(m, "could not read the .ps1 backend-pattern fallback")
         # .NET and Python spell this regex identically; compare after collapsing
         # the escaping difference introduced by PowerShell single quotes.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "blazesurvivor/ui-spec-v1",
+  "$id": "ezg-unity-template/ui-spec-v1",
   "title": "UI Spec v1",
   "type": "object",
   "required": [

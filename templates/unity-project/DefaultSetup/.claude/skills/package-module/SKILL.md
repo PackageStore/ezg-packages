@@ -1,13 +1,15 @@
 ---
 name: package-module
-description: Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the Packages monorepo (MONOREPO_PATH — D:\Packages on Windows, $HOME/Packages on macOS/Linux), where the push to main triggers GitHub Actions (publish-packages.yml) to publish it to the bf-packages scoped registry. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
+description: Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
 ---
 
-# Package Module — UPM Extraction → `Packages` monorepo `main` Agent
+# Package Module — UPM Extraction → `ezg-packages` monorepo `main` Agent
 
-Take one **specified module** (a folder under `Assets/` in the current game repo), build a **clean, standards-compliant UPM package** from it, and **commit + push it straight to the `main` branch of the `Packages` monorepo** (`MONOREPO_PATH`). The push to `main` triggers the monorepo's GitHub Actions workflow `publish-packages.yml`, which scans every `package.json` under `Frameworks/`, `Modules/`, `Packages/` and runs `npm publish` for any whose version is not yet on the **bf-packages scoped registry**. **No feature branch, no PR** — pushing to `main` IS the publish trigger.
+Take one **specified module** (a folder under `Assets/` in the current game repo), build a **clean, standards-compliant UPM package** from it, and **commit + push it straight to the `main` branch of the `ezg-packages` monorepo** (`MONOREPO_PATH`). The push to `main` triggers the monorepo's GitHub Actions workflow `publish.yml` → `scripts/validate.mjs` (lint gate) → `scripts/publish.mjs`, which packs + **digitally signs** each package with the Unity Package Manager CLI (`upm pack`, required by Unity 6.3+) and uploads the tarball + metadata to the **Cloudflare R2** bucket behind the **Easygoing** scoped registry. **No feature branch, no PR** — pushing to `main` IS the publish trigger.
 
-> **Difference vs a flat `packages/<scope>.<name>/` monorepo:** the `Packages` monorepo groups packages into **three top-level categories** — `Frameworks/`, `Modules/`, `Packages/` — and each package folder is a **human-readable PascalCase name** (e.g. `B-PoolingManager`), NOT a dotted id. The dotted id lives only in `package.json.name`. Pick the category in STEP 0.
+> **Layout: flat, one folder per package id.** Every package lives at `packages/<scope>.<name>/` — the folder name IS the dotted package id (`packages/com.ezg.pooling/`). There are no category folders and no PascalCase folder names. `publish.mjs` walks `packages/*/package.json`, so a folder anywhere else is never published.
+>
+> **Publishing also refreshes the template.** `publish.mjs` chains `sync-unity-template-deps.mjs`, which writes the new version into `templates/unity-project/unity-template.json` and re-publishes `unity-template/latest.json`. That is what makes the package appear in Feature Hub's **UPM Packages** tab — you do not need a second step for it.
 
 ---
 
@@ -17,24 +19,20 @@ At the start of each run, resolve the following from user input or sensible defa
 
 ```
 MODULE_PATH      = required — full path (or repo-relative path) to the module folder in the game repo (repo-relative, e.g. under `<sourceRoot>/`, or absolute); SOURCE_ROOT is derived from it
-PACKAGE_CATEGORY = Frameworks | Modules | Packages — default Modules.
-                   Frameworks = universal infra with no game logic (Singleton-style).
-                   Modules    = functional gameplay/system module extracted from the game (DEFAULT for "đóng module X").
-                   Packages   = repacked third-party / general libs (rarely the target when extracting your own code).
-PACKAGE_SCOPE    = user-specified, default com.blackface              # forms com.blackface.<name>
-REGISTRY_URL     = user-specified, default https://npm-registry.blackface.workers.dev/
-REGISTRY_NAME    = scoped-registry display name, default bf-packages  # used in the install snippet
-MONOREPO_REMOTE  = user-specified, default https://github.com/PackageStore/Packages.git
+PACKAGE_SCOPE    = user-specified, default com.ezg              # forms com.ezg.<name>
+REGISTRY_URL     = user-specified, default https://upm-registry-worker.developer-a1f.workers.dev
+REGISTRY_NAME    = scoped-registry display name, default Easygoing  # used in the install snippet
+MONOREPO_REMOTE  = user-specified, default https://github.com/PackageStore/ezg-packages.git
 MONOREPO_PATH    = user-specified (or env MONOREPO_PATH), default per OS:
-                   Windows:      D:\Packages
-                   macOS/Linux:  $HOME/Packages
+                   Windows:      %USERPROFILE%\ezg-packages
+                   macOS/Linux:  $HOME/ezg-packages
                    # If a clone already exists at this path, use it in place; only auto-clone if it is missing
-PAT_FILE         = user-specified (or env BF_PACKAGES_PAT_FILE), default per OS:
-                   Windows: %LOCALAPPDATA%\bf-packages.pat
-                   macOS:   $HOME/Library/Application Support/bf-packages/bf-packages.pat
-                   Linux:   ${XDG_CONFIG_HOME:-$HOME/.config}/bf-packages/bf-packages.pat
-UNITY_VERSION    = user-specified (explicit value takes priority); default **2021.3** if not specified
-                   # existing repacks use 2019.4–2021.3; pick the LOWEST version the module actually needs so more projects can consume it.
+PAT_FILE         = user-specified (or env EZG_PACKAGES_PAT_FILE), default per OS:
+                   Windows: %LOCALAPPDATA%\ezg-packages.pat
+                   macOS:   $HOME/Library/Application Support/ezg-packages/ezg-packages.pat
+                   Linux:   ${XDG_CONFIG_HOME:-$HOME/.config}/ezg-packages/ezg-packages.pat
+UNITY_VERSION    = user-specified (explicit value takes priority); default **2022.3** if not specified
+                   # every com.ezg.* package on the registry ships "unity": "2022.3" — match it unless the module genuinely needs newer.
                    # do NOT auto-read from ProjectSettings/ProjectVersion.txt unless the user explicitly asks to match the game's version
 ```
 
@@ -42,20 +40,20 @@ UNITY_VERSION    = user-specified (explicit value takes priority); default **202
 
 ### Shell / OS compatibility
 
-Snippets are provided for both **macOS/Linux (zsh/bash)** and **Windows (PowerShell)** — use the one matching the current machine. The game repo is always the current working directory — never a hardcoded path. Only the monorepo has an OS-specific default: `D:\Packages` on **Windows**, `$HOME/Packages` on **macOS/Linux**. Quote every path. Do not use `%LOCALAPPDATA%` or backslash path examples on macOS.
+Snippets are provided for both **macOS/Linux (zsh/bash)** and **Windows (PowerShell)** — use the one matching the current machine. The game repo is always the current working directory — never a hardcoded path. Only the monorepo has an OS-specific default: `%USERPROFILE%\ezg-packages` on **Windows**, `$HOME/ezg-packages` on **macOS/Linux**. Quote every path. Do not use `%LOCALAPPDATA%` or backslash path examples on macOS.
 
 ### GitHub PAT — provided OUT-OF-BAND (never in this file)
 
 This skill file is committed to git, so the PAT must **never** be written here. The token is read at runtime from a source that is NOT tracked by git, in this priority order:
 
-1. **Environment variable `BF_PACKAGES_PAT`** (preferred — set it once per machine):
+1. **Environment variable `EZG_PACKAGES_PAT`** (preferred — set it once per machine):
    ```powershell
    # Windows PowerShell
-   setx BF_PACKAGES_PAT "<your-token>"     # persists for future shells; reopen the terminal afterward
+   setx EZG_PACKAGES_PAT "<your-token>"     # persists for future shells; reopen the terminal afterward
    ```
    ```bash
    # macOS zsh/bash, current shell
-   export BF_PACKAGES_PAT='<your-token>'
+   export EZG_PACKAGES_PAT='<your-token>'
    # To persist, add the export line to ~/.zshrc (or your shell profile) outside this repo.
    ```
 2. **A local secret file outside the repo** (fallback): `PAT_FILE` containing only the token on one line.
@@ -63,28 +61,28 @@ This skill file is committed to git, so the PAT must **never** be written here. 
 At STEP 4 the skill resolves the PAT like this (no token ever printed). Use the current shell's snippet:
 ```powershell
 # Windows PowerShell
-$repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { 'D:\Packages' }
-$patFile = if ($env:BF_PACKAGES_PAT_FILE) { $env:BF_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'bf-packages.pat' }
-$pat = $env:BF_PACKAGES_PAT
+$repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { (Join-Path $env:USERPROFILE 'ezg-packages') }
+$patFile = if ($env:EZG_PACKAGES_PAT_FILE) { $env:EZG_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'ezg-packages.pat' }
+$pat = $env:EZG_PACKAGES_PAT
 if ([string]::IsNullOrWhiteSpace($pat)) {
   if (Test-Path $patFile) { $pat = (Get-Content $patFile -Raw).Trim() }
 }
-if ([string]::IsNullOrWhiteSpace($pat)) { throw "BF_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
+if ([string]::IsNullOrWhiteSpace($pat)) { throw "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
 ```
 ```bash
 # macOS zsh/bash
-repo="${MONOREPO_PATH:-$HOME/Packages}"
-pat_file="${BF_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/bf-packages/bf-packages.pat}"
-pat="${BF_PACKAGES_PAT:-}"
+repo="${MONOREPO_PATH:-$HOME/ezg-packages}"
+pat_file="${EZG_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/ezg-packages/ezg-packages.pat}"
+pat="${EZG_PACKAGES_PAT:-}"
 if [ -z "$pat" ] && [ -f "$pat_file" ]; then
   pat="$(tr -d '\r\n' < "$pat_file")"
 fi
 if [ -z "$pat" ]; then
-  echo "BF_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
+  echo "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
   exit 1
 fi
 ```
-If neither source yields a token → **stop** at STEP 4 and ask the user to set `BF_PACKAGES_PAT`. Required scope: classic PAT with `repo`, or fine-grained PAT with **Contents: read+write** on `PackageStore/Packages`.
+If neither source yields a token → **stop** at STEP 4 and ask the user to set `EZG_PACKAGES_PAT`. Required scope: classic PAT with `repo`, or fine-grained PAT with **Contents: read+write** on `PackageStore/ezg-packages`.
 
 **PAT handling rules (security):**
 - **Never** put the PAT in this file or any tracked file, never print it, never echo it into logs.
@@ -102,22 +100,24 @@ If neither source yields a token → **stop** at STEP 4 and ask the user to set 
 | Role | Repo | This skill |
 |---|---|---|
 | **Source** (game) | the game repo — always the current working dir, whatever it is | **read-only** — reads `<MODULE_PATH>` |
-| **Target** (packages) | `Packages` monorepo at `MONOREPO_PATH` (existing clone of `PackageStore/Packages`) | commits + pushes **directly to `main`** adding/updating `<CATEGORY>/<FolderName>/` |
+| **Target** (packages) | `ezg-packages` monorepo at `MONOREPO_PATH` (existing clone of `PackageStore/ezg-packages`) | commits + pushes **directly to `main`** adding/updating `packages/<scope>.<name>/` |
 
 ---
 
-## Relationship to the monorepo's existing workflows
+## Relationship to the monorepo's existing tooling
 
-`PackageStore/Packages` already ships its own publishing toolchain under `.claude/commands/`. This skill **complements** it — it does NOT replace or fight it. Know the boundaries so you don't run two tools for the same job:
+`PackageStore/ezg-packages` ships its own publish/admin toolchain under `scripts/`. This skill **complements** it — it does NOT replace or fight it. Know the boundaries so you don't run two tools for the same job:
 
-| Existing in the monorepo | What it does | How this skill relates |
+| In the monorepo | What it does | How this skill relates |
 |---|---|---|
-| `publish-packages.yml` (GitHub Actions) | On push to `main`, scans `Frameworks/`, `Modules/`, `Packages/` and `npm publish`es any version not yet on the registry (no `--force`). | **This skill relies on it** — the skill only pushes to `main`; CI does the actual publish. Same path, no double-publish. |
-| `/create-package` | Scaffolds a UPM package from a folder **in place inside the monorepo**. | **Overlaps** with this skill's scaffolding. Use ONE per module: `/create-package` when you start from a folder already sitting in the monorepo; **this skill** when you EXTRACT a module from the game repo (cross-repo copy + audit + push). Never run both on the same module. |
-| `/publish` | Manual local `npm publish --force` reading `AUTH_TOKEN` from `npm-registry/.env`. | Different token + can overwrite versions. This skill never calls it; it lets CI publish. If someone uses `/publish --force`, the "immutable version" assumption no longer holds. |
-| `/push`, `/deploy`, `/remove-version` | git push (no `feat:` prefix), deploy the Worker, delete a version from R2. | Unrelated to extraction. This skill follows the `/push` no-prefix commit rule (STEP 6). |
+| `.github/workflows/publish.yml` | On push to `main` touching `packages/**`: `npm install` in `scripts/`, install the `upm` CLI, run `validate.mjs`, then `publish.mjs`. | **This skill relies on it** — the skill only pushes to `main`; CI does the actual publish. Same path, no double-publish. |
+| `scripts/validate.mjs` | Lints every `packages/*/package.json` (name/scope/version/unity/description). CI runs it **before** publishing — a bad manifest fails the run and nothing is published. | Run the same rules mentally at STEP 4; if CI fails here, fix the manifest and push again (no version bump needed — nothing was published). |
+| `scripts/publish.mjs` | Skips versions already on R2 · `upm pack` (signed) · computes integrity/shasum · merges registry metadata · uploads tarball + metadata to R2 · chains `sync-unity-template-deps.mjs`. | The publisher. Never invoke it from a game repo — it needs R2 credentials that live only in the maintainer's `scripts/.env` and in CI secrets. |
+| `scripts/list.mjs` · `unpublish.mjs` · `rollback.mjs` · `deprecate.mjs` | Maintainer admin (inspect / remove a version / repoint `latest` / deprecate), also exposed via `.github/workflows/admin.yml`. | Out of scope here. If a bad version ships, tell the user to roll back with those — do not try to overwrite a published version. |
 
-> **Placement is load-bearing:** CI only scans `Frameworks/**`, `Modules/**`, `Packages/**` at depth 2. A package placed at the workspace **root** (e.g. `<MONOREPO_PATH>/Foo/`) will **NOT** be auto-published. Always create the package inside one of the three category folders — never at the repo root.
+> **Placement is load-bearing:** `publish.mjs` globs `packages/*/package.json` — exactly one level deep. A package at the repo root, or nested deeper (`packages/Modules/Foo/`), is **never published**. Always `packages/<scope>.<name>/`.
+>
+> **Signing:** publishing runs `upm pack`, which needs the Unity service-account credentials configured as CI secrets. This is CI's job — you never sign locally.
 
 ---
 
@@ -125,37 +125,37 @@ If neither source yields a token → **stop** at STEP 4 and ask the user to set 
 
 | Thing | Rule | Example |
 |---|---|---|
-| Target folder | `<CATEGORY>/<FolderName>/` where `<FolderName>` is human-readable PascalCase/kebab — **not** a dotted id | `Modules/B-PoolingManager/`, `Frameworks/Singleton/` |
-| Package id (`name`) | `<PACKAGE_SCOPE>.<foldername-lowercased>` | `com.blackface.b-poolingmanager`, `com.blackface.singleton` |
-| `displayName` | human-readable title | `"B-Pooling Manager"`, `"Serializable Dictionary"` |
-| Runtime asmdef name | **Modules** → `Modules.<FolderName>`; **Frameworks/Packages** → `<FolderName>`. If the source folder already has an asmdef, reuse its name. | `Modules.B-PoolingManager`, `Singleton`, `SuperScrollView` |
-| Editor asmdef | `<RuntimeAsmdef>.Editor`, `includePlatforms: ["Editor"]` | `SerializableDictionary.Editor` |
-| `unity` field | Use the `UNITY_VERSION` resolved from config | `"2021.3"` |
-| Version | New package → `0.0.1`. Update → bump semver (ask patch/minor/major). Version is **immutable on the CI path** (push→`publish-packages.yml` skips an already-published version) — but the monorepo's manual `/publish` workflow uses `npm publish --force` and **can overwrite** a version. Treat versions as immutable anyway: always bump, never reuse. | — |
-| `description` | **Must be a clear, complete sentence** describing what the package does. Generic/placeholder text (`"one-line purpose"`, `"TODO"`, empty) is **not acceptable** — stop and ask for a real description. | `"Runtime object pooling manager for Unity GameObjects and typed controllers."` |
-| `author` | Default `author.name` to the **category label**, matching the existing packages in the monorepo: `Modules` → `"Modules"`, `Frameworks` → `"Frameworks"`, `Packages` → `"Extensions"`. The user may override; **never include an email**. | `Modules/B-PoolingManager` → `"Modules"`; `Packages/SerializableDictionary` → `"Extensions"` |
+| Target folder | `packages/<id>/` — the folder name **is** the dotted package id. No category folders, no PascalCase. | `packages/com.ezg.pooling/`, `packages/com.ezg.csv-reader/` |
+| Package id (`name`) | `<PACKAGE_SCOPE>.<name>` — lowercase, `kebab-case` for multi-word | `com.ezg.pooling`, `com.ezg.animation-sequencer` |
+| `displayName` | human-readable title, prefixed `EZG` | `"EZG Pooling"`, `"EZG CSV Reader"` |
+| Runtime asmdef name | `Ezg.Package.<PascalName>`, with `rootNamespace` set to the same string. If the source folder already has an asmdef, reuse its name only if it already matches this shape. | `Ezg.Package.Pooling` |
+| Editor asmdef | `<RuntimeAsmdef>.Editor`, `includePlatforms: ["Editor"]` | `Ezg.Package.Pooling.Editor` |
+| `unity` field | Use the `UNITY_VERSION` resolved from config | `"2022.3"` |
+| Version | New package → `0.0.1`. Update → bump semver (ask patch/minor/major). **Published versions are immutable**: `publish.mjs` skips any version whose tarball is already on R2, so re-pushing without a bump is a silent no-op. To undo a bad release use `rollback.mjs` / `unpublish.mjs` — never reuse a version number. | — |
+| `description` | **Must be a clear, complete sentence** describing what the package does. Generic/placeholder text (`"one-line purpose"`, `"TODO"`, empty) is **not acceptable** — stop and ask for a real description. `validate.mjs` gates on this. | `"Game-agnostic GameObject pooling for Unity…"` |
+| `author` | `{ "name": "EZG Studio" }` — matches every package on the registry. The user may override; **never include an email**. | `"author": { "name": "EZG Studio" }` |
 | Optional fields | `keywords` (2–4), `license` (`"MIT"`), `category`, `author.url` — include when known; the minimal published packages omit them. | — |
-| **package.json `dependencies`** | **ONLY registry-resolvable ids** already on bf-packages (typically `com.blackface.*`). Every other lib → asmdef `references` by name + a documented **peer requirement** in README. | `"com.blackface.singleton": "0.0.3"` |
+| **package.json `dependencies`** | **ONLY registry-resolvable ids** already on the Easygoing registry (typically `com.ezg.*`). Every other lib → asmdef `references` by name + a documented **peer requirement** in README. | `"com.ezg.core": "0.1.0"` |
 | Odin | `using Sirenix` / Odin attributes wrapped in `#if ODIN_INSPECTOR`. | — |
-| Layering | `Frameworks` (Layer 1) must never depend on a `Modules` (Layer 2) package. Layer 2 ↔ Layer 2 allowed but **acyclic**. | — |
+| Layering | A package must never depend on something less general than itself, and the dependency graph must stay **acyclic**. Infra (`com.ezg.core`, `com.ezg.singleton`…) never depends on a feature module. | — |
 
-### Layer model (for reference)
+### Generality model (for reference)
 
-Two-tier architecture — relevant for deciding dependency direction and which category folder to use:
+There are no category folders, so generality is a judgement call encoded in the dependency direction, not in a path:
 
-- **Layer 1 — Frameworks** (`Frameworks/`): universal infrastructure usable by any game (Singleton, etc.). Must NOT contain business logic of any specific game or depend on any Layer 2 module.
-- **Layer 2 — Modules** (`Modules/`): feature or system modules extracted from a game. Each module = one package. May depend on Layer 1 frameworks and on other Layer 2 modules (acyclic only).
-- **Packages/** is for repacked third-party libs (DOTween, UniTask, Odin…) — not normally produced by extracting your own code.
+- **Infra** — universal, game-agnostic building blocks (`com.ezg.core`, `com.ezg.singleton`, `com.ezg.dictionary`). Must NOT contain any specific game's business logic, and must not depend on a feature module.
+- **Feature/system modules** — extracted from a game (`com.ezg.iap`, `com.ezg.csv-reader`, `com.ezg.pooling`). One module = one package. May depend on infra and on each other, acyclically.
+- **Repacked third-party libs** live on the registry too (mirrored under the same scope list), but extracting your own code never produces one.
 
 **Business/SDK leak = hard stop** (see DEP-GATE). Examples of leaks that disqualify a module from packaging:
 - Hardcoded game-specific CSV key constants (e.g. `ItemMerge`, `CookingRecipes`)
-- Hardcoded `Assets/` paths for CSV/Resources (e.g. `Assets/_Game/.../CsvConfig/`)
+- Hardcoded `Assets/` paths for CSV/Resources (e.g. `<featuresRoot>/<Feature>/CsvConfig/`)
 - Direct references to game-specific singletons (`DataManager`, `DataPlayer`, `GameEnums.Features`, `UIManager` if game-specific)
 - Third-party SDK types without an asmdef boundary (Supabase, Cloudflare client, Google.Play.AssetDelivery compiled directly into a Framework)
 
 If a module has these leaks, stop and report — do not package unless the user explicitly accepts known debt (document it in README).
 
-**Known Odin pattern:** guard all `using Sirenix.*` and Odin attributes with `#if ODIN_INSPECTOR … #endif` so the package compiles in projects without Odin. Leave the semantic behavior intact, just guard the attribute syntax. (Odin itself is published as `com.sirenix.odininspector` on this registry, so a hard dependency is possible — but a guarded soft dependency is preferred for reusability.)
+**Known Odin pattern:** guard all `using Sirenix.*` and Odin attributes with `#if ODIN_INSPECTOR … #endif` so the package compiles in projects without Odin. Leave the semantic behavior intact, just guard the attribute syntax. Odin is a paid asset that ships **inside `Assets/`**, not on this registry — it can only ever be a guarded **peer requirement**, never a `package.json` dependency.
 
 ---
 
@@ -166,9 +166,9 @@ If a module has these leaks, stop and report — do not package unless the user 
 [1] AUDIT     → classify deps (registry-resolvable vs external peer libs) + leaks + editor split
 [2] DEP-GATE  → every registry dep must already be published (or pushed in this same run); record external peer libs; block on business/SDK leak
 [3] PLAN      → show package contents + deps + version; warn that push to main = immediate publish; get explicit confirmation
-[4] BUILD     → on monorepo main (pull first): create <CATEGORY>/<FolderName>/ (copy source + .meta, scaffold package.json/asmdef/README/CHANGELOG, wrap Odin, author metas for new files)
-[5] VERIFY    → npm publish --dry-run in the package folder (packs cleanly) + static dep check + .meta/GUID gates
-[6] PUSH      → commit on main + push origin main → CI (publish-packages.yml) publishes. No remote → stop at local commit + give push commands.
+[4] BUILD     → on monorepo main (pull first): create packages/<scope>.<name>/ (copy source + .meta, scaffold package.json/asmdef/README/CHANGELOG, wrap Odin, author metas for new files)
+[5] VERIFY    → validate.mjs (if the monorepo's scripts/ deps are installed) + npm pack --dry-run + static dep check + .meta/GUID gates
+[6] PUSH      → commit on main + push origin main → CI (publish.yml) publishes. No remote → stop at local commit + give push commands.
 [7] REPORT    → pushed commit, what CI is publishing, registry install snippet, + the separate Phase 2 (switch game to consumer — NOT done now)
 ```
 
@@ -179,9 +179,9 @@ STEP 0–3 are **non-destructive** (nothing written anywhere). STEP 4 onward wri
 ## STEP 0 — Identify the target
 
 1. Resolve the **source folder** from the `MODULE_PATH` the user provided — use it directly. `SOURCE_ROOT` is the parent tree. If the path is ambiguous or the folder doesn't exist, ask once to clarify.
-2. **Choose `PACKAGE_CATEGORY`** (`Frameworks` / `Modules` / `Packages`) using the Layer model — default `Modules` for an extracted gameplay/system module; `Frameworks` only for universal, game-agnostic infra. Confirm with the user if not obvious.
+2. **Judge generality** using the Generality model — is this reusable infra or a feature module? It does not change where the folder goes (always `packages/<id>/`), but it decides the allowed dependency direction and how game-specific the code is allowed to be.
 3. Derive the **folder name** (PascalCase/kebab, human-readable), the **package id** (`<PACKAGE_SCOPE>.<foldername-lowercased>`) and the **asmdef name** (per the Conventions table). Confirm with the user if derived rather than explicitly stated.
-4. **New vs update:** check `<MONOREPO_PATH>/<CATEGORY>/<FolderName>/package.json`. If absent there, query the registry (`npm view <id> version --registry <REGISTRY_URL>`).
+4. **New vs update:** check `<MONOREPO_PATH>/packages/<scope>.<name>/package.json`. If absent there, query the registry (`npm view <id> version --registry <REGISTRY_URL>`).
    - Missing → **new package**, version `0.0.1`.
    - Exists → **update**; read its current version and ask the bump level (patch / minor / major; default patch). The new version must be greater (registry versions are immutable).
 5. Detect whether the source folder **already has an asmdef** (Glob `*.asmdef`):
@@ -201,11 +201,11 @@ Use **codegraph first**; grep only for `using` directives, string literals, defi
    | Bucket | Goes where |
    |---|---|
    | Unity / BCL (`UnityEngine`, `System.*`) | nothing to declare (engine auto); `System.*` asmdef ref only if used |
-   | A package **already on bf-packages** (`com.blackface.*`, `com.cysharp.unitask`, `com.demigiant.dotween`, `com.sirenix.odininspector`, `com.tigerforge.easyeventmanager`, …) | asmdef `references` **+** `package.json` dependency (registry-resolvable). Must already be published → DEP-GATE. |
+   | A package **already on the Easygoing registry** — its scoped-registry scopes are exactly `com.ezg`, `com.cysharp`, `com.google`, `com.coffee` (e.g. `com.ezg.core`, `com.ezg.easy-event-manager`, `com.cysharp.unitask`) | asmdef `references` **+** `package.json` dependency (registry-resolvable). Must already be published → DEP-GATE. |
    | **External peer lib** NOT on the registry | asmdef `references` by name **+ documented as a peer requirement** in README. **Do NOT** put in `package.json` dependencies. |
    | Precompiled DLL (Firebase-style) | `overrideReferences: true` + `precompiledReferences: [...]` in asmdef; DLLs themselves are a peer requirement. |
 
-   > Note: DOTween, UniTask, Odin, EasyEventManager are **already on this registry** — if the host project consumes them from bf-packages, prefer a real `package.json` dependency; otherwise treat them as peer requirements. Confirm which model the consuming project uses.
+   > Note: UniTask (`com.cysharp.unitask`) and the `com.ezg.*` repacks (e.g. `com.ezg.easy-event-manager`) ARE on this registry → real `package.json` dependencies. DOTween and Odin are **not** (their scopes aren't registered) → asmdef reference + peer requirement. Confirm what the consuming project actually has before choosing.
 
 2. **Leak scan** (grep inside the folder):
    - Odin: `using Sirenix` / `[TabGroup]`/`[ShowIf]`/`[Button]`/`[Title]` → wrap in `#if ODIN_INSPECTOR` (STEP 4).
@@ -221,7 +221,7 @@ Produce a compact audit (kept in reasoning): outgoing deps by bucket, peer libs,
 
 ## STEP 2 — Dependency gate
 
-- **Registry dependencies must already be published** to bf-packages (check by `npm view <id> version --registry <REGISTRY_URL>` returning a version, or that `<MONOREPO_PATH>/<CATEGORY>/<dep-folder>/package.json` exists), **or** be pushed earlier in this same run. If a needed registry dep is unpublished → report which one to package first, then **stop**.
+- **Registry dependencies must already be published** to the Easygoing registry (check by `npm view <id> version --registry <REGISTRY_URL>` returning a version, or that `<MONOREPO_PATH>/packages/<dep-id>/package.json` exists), **or** be pushed earlier in this same run. If a needed registry dep is unpublished → report which one to package first, then **stop**.
 - **External peer libs** are **not** a blocker — they are documented as peer requirements.
 - **Business / SDK leak** → hard stop. Continue only if the user explicitly accepts shipping with leaks (discouraged; record as known debt in README) — better: narrow scope or file a cleanup task.
 
@@ -234,16 +234,15 @@ Present a **package summary card** and wait for explicit confirmation before doi
 ### New package — summary card
 
 ```
-Category       : <Frameworks|Modules|Packages>
 Package id     : <scope>.<name>@<version>
-Folder         : <CATEGORY>/<FolderName>/
+Folder         : packages/<scope>.<name>/
 Display name   : <displayName>
 Description    : <full description — must be a real sentence, not a placeholder>
 Source folder  : <MODULE_PATH>
 Asmdef         : <RuntimeAsmdef>  [+ <RuntimeAsmdef>.Editor]  (if editor code)
 Unity minimum  : <UNITY_VERSION>  ⚠️ UPM hides this package in projects below this version
 Registry       : <REGISTRY_URL>  (name: <REGISTRY_NAME>)
-Monorepo target: <CATEGORY>/<FolderName>/  →  main
+Monorepo target: packages/<scope>.<name>/  →  ezg-packages main
 
 Dependencies (package.json)  : <scope>.dep1@x.y.z | none
 Peer requirements (asmdef only, consumer must provide):
@@ -272,7 +271,7 @@ After showing the card, **review the `Description` field**:
 
 Then ask once:
 
-> **"Publish `<scope>.<name>@<version>` to the `Packages` monorepo `main`? Pushing is immediate (CI auto-publishes) and the version is immutable. (yes / plan-only / adjust)"**
+> **"Publish `<scope>.<name>@<version>` to the `ezg-packages` monorepo `main`? Pushing is immediate (CI auto-publishes) and the version is immutable. (yes / plan-only / adjust)"**
 
 Proceed only on explicit **yes**. On **adjust** — update the relevant fields and re-show the card. On **plan-only** — stop here.
 
@@ -285,30 +284,30 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
 0. **Resolve paths + PAT** (no token printed):
    ```powershell
    # Windows PowerShell
-   $repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { 'D:\Packages' }
-   $remote = 'https://github.com/PackageStore/Packages.git'
-   $patFile = if ($env:BF_PACKAGES_PAT_FILE) { $env:BF_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'bf-packages.pat' }
-   $pat = $env:BF_PACKAGES_PAT
+   $repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { (Join-Path $env:USERPROFILE 'ezg-packages') }
+   $remote = 'https://github.com/PackageStore/ezg-packages.git'
+   $patFile = if ($env:EZG_PACKAGES_PAT_FILE) { $env:EZG_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'ezg-packages.pat' }
+   $pat = $env:EZG_PACKAGES_PAT
    if ([string]::IsNullOrWhiteSpace($pat)) {
      if (Test-Path $patFile) { $pat = (Get-Content $patFile -Raw).Trim() }
    }
-   if ([string]::IsNullOrWhiteSpace($pat)) { throw "BF_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
-   $authUrl = "https://$pat@github.com/PackageStore/Packages.git"
+   if ([string]::IsNullOrWhiteSpace($pat)) { throw "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
+   $authUrl = "https://$pat@github.com/PackageStore/ezg-packages.git"
    ```
    ```bash
    # macOS zsh/bash
-   repo="${MONOREPO_PATH:-$HOME/Packages}"
-   remote='https://github.com/PackageStore/Packages.git'
-   pat_file="${BF_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/bf-packages/bf-packages.pat}"
-   pat="${BF_PACKAGES_PAT:-}"
+   repo="${MONOREPO_PATH:-$HOME/ezg-packages}"
+   remote='https://github.com/PackageStore/ezg-packages.git'
+   pat_file="${EZG_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/ezg-packages/ezg-packages.pat}"
+   pat="${EZG_PACKAGES_PAT:-}"
    if [ -z "$pat" ] && [ -f "$pat_file" ]; then
      pat="$(tr -d '\r\n' < "$pat_file")"
    fi
    if [ -z "$pat" ]; then
-     echo "BF_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
+     echo "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
      exit 1
    fi
-   authUrl="https://${pat}@github.com/PackageStore/Packages.git"
+   authUrl="https://${pat}@github.com/PackageStore/ezg-packages.git"
    ```
    If token resolution fails → **stop** and ask the user to set the PAT. All later steps use `$repo`.
 
@@ -337,7 +336,7 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
      - zsh/bash: `git -C "$repo" pull --ff-only "$authUrl" main`
    - **Never** leave the token in `origin`'s URL.
 
-2. **Create** `<CATEGORY>/<FolderName>/` with `Runtime/` (+ `Editor/` if editor code).
+2. **Create** `packages/<scope>.<name>/` with `Runtime/` (+ `Editor/` if editor code).
 
 3. **`package.json`** at the package root (`unity` from `UNITY_VERSION`, deps = registry-resolvable only):
    ```json
@@ -347,11 +346,11 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
      "version": "<x.y.z>",
      "unity": "<UNITY_VERSION>",
      "description": "<full description confirmed in STEP 3>",
-     "author": { "name": "<category label: Modules | Frameworks | Extensions>" },
+     "author": { "name": "EZG Studio" },
      "dependencies": { "<scope>.<dep>": "<version>" }
    }
    ```
-   - `author.name` defaults to the **category label** per the Conventions table (`Modules`/`Frameworks`/`Extensions`) to match the existing packages in the monorepo. Override only if the user asks.
+   - `author.name` is `"EZG Studio"` on every package in the monorepo — keep it. Override only if the user asks.
    - Optional fields to add when known: `"keywords": [...]`, `"license": "MIT"`, `"category": "..."`, `"author": { "name": "...", "url": "..." }`.
    - **`description` must be the real, user-confirmed sentence from the summary card** — not a placeholder. This text appears in the Unity Package Manager UI, the registry index, and consumer docs. If STEP 3 was skipped or the field is still a placeholder, **stop and ask** before writing.
    - **Do NOT add any email information** anywhere in the file.
@@ -412,9 +411,9 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
 
 10. **README.md** — purpose, "package ↔ source folder" mapping, registry dependencies, **peer requirements**, any known debt.
 
-11. **CHANGELOG.md** — follows [Keep a Changelog](https://keepachangelog.com) format. Place at package root (`<CATEGORY>/<FolderName>/CHANGELOG.md`).
+11. **CHANGELOG.md** — follows [Keep a Changelog](https://keepachangelog.com) format. Place at package root (`packages/<scope>.<name>/CHANGELOG.md`).
 
-    ⚠️ **Root-level files MUST each have a sibling `.meta` — author them.** `npm publish` works without them, but a registry-installed package lives in an **immutable** folder, so Unity cannot generate the missing metas itself and logs for every one: `Asset Packages/<id>/<file> has no meta file, but it's in an immutable folder. The asset will be ignored.` The correctly-published packages in the monorepo (`Singleton`, `B-PoolingManager`, `ProgressThread`, …) all ship `package.json.meta` + `README.md.meta` + `CHANGELOG.md.meta` alongside `Runtime.meta`. Author a meta for **every** root file the package ships — `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`/`LICENSE.md` if present — using deterministic hex GUIDs (seed `<scope>.<name>/<filename>`) per the GUID rules in STEP 4.9. Importer type by extension:
+    ⚠️ **Root-level files MUST each have a sibling `.meta` — author them.** Packing works without them, but a registry-installed package lives in an **immutable** folder, so Unity cannot generate the missing metas itself and logs for every one: `Asset Packages/<id>/<file> has no meta file, but it's in an immutable folder. The asset will be ignored.` The correctly-published packages in the monorepo (`com.ezg.pooling`, `com.ezg.core`, …) all ship `package.json.meta` + `README.md.meta` + `CHANGELOG.md.meta` alongside `Runtime.meta`. Author a meta for **every** root file the package ships — `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`/`LICENSE.md` if present — using deterministic hex GUIDs (seed `<scope>.<name>/<filename>`) per the GUID rules in STEP 4.9. Importer type by extension:
     - `package.json` → `PackageManifestImporter`
     - `*.md` / `LICENSE` / any other text → `TextScriptImporter`
 
@@ -474,34 +473,44 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
 
 ## STEP 5 — Verify (in the monorepo)
 
-1. **Dry-run pack** — there is no `publish.mjs`; CI uses plain `npm publish`, so verify with a dry run from the package folder (no auth needed for `--dry-run`):
-   ```powershell
-   # Windows PowerShell
-   $pkgDir = Join-Path $repo '<CATEGORY>/<FolderName>'
-   npm publish --dry-run --registry $REGISTRY_URL --prefix $pkgDir
-   # or: Push-Location $pkgDir; npm pack --dry-run --json | Out-Host; Pop-Location
-   ```
+1. **Manifest lint** — run the monorepo's own gate, the same one CI runs before publishing. It needs `scripts/`'s deps installed:
    ```bash
    # macOS zsh/bash
-   ( cd "$repo/<CATEGORY>/<FolderName>" && npm publish --dry-run --registry "$REGISTRY_URL" )
+   ( cd "$repo/scripts" && npm install --silent ) && node "$repo/scripts/validate.mjs"
    ```
-   Confirm the `name`, `version`, and the `files`/`Tarball Contents` list includes `.cs`, `.asmdef`, and `.meta` files (and `package.json`, `README.md`, `CHANGELOG.md`).
+   ```powershell
+   # Windows PowerShell
+   Push-Location (Join-Path $repo 'scripts'); npm install --silent; Pop-Location
+   node (Join-Path $repo 'scripts/validate.mjs')
+   ```
+   If `npm install` is not possible offline, skip this and say so — CI will run it anyway, and a failure there publishes nothing (fix + re-push, no version bump needed).
 
-2. **Static dep check** — every asmdef `references` name is either a package on bf-packages, a known peer lib, or a Unity/registry assembly; `package.json.dependencies` contains only registry-resolvable ids; no business/SDK leak remains; Odin is guarded.
+2. **Dry-run pack** — verify the tarball contents locally. Do **not** run `publish.mjs` from a game repo: it needs R2 credentials that only the maintainer and CI have.
+   ```bash
+   # macOS zsh/bash
+   ( cd "$repo/packages/<scope>.<name>" && npm pack --dry-run )
+   ```
+   ```powershell
+   # Windows PowerShell
+   Push-Location (Join-Path $repo 'packages/<scope>.<name>'); npm pack --dry-run; Pop-Location
+   ```
+   Confirm the `name`, `version`, and that the `Tarball Contents` list includes `.cs`, `.asmdef`, and `.meta` files (plus `package.json`, `README.md`, `CHANGELOG.md`). The **signature** is added by `upm pack` in CI — a local `npm pack` is unsigned, and that is expected.
+
+2. **Static dep check** — every asmdef `references` name is either a package on the Easygoing registry, a known peer lib, or a Unity/registry assembly; `package.json.dependencies` contains only registry-resolvable ids; no business/SDK leak remains; Odin is guarded.
 
 3. **Description quality gate** — open `package.json` and verify `"description"` is a meaningful, complete sentence (not empty, not `"<one-line purpose>"`, not a TODO). If it fails → stop and ask the user before proceeding to STEP 6.
 
 4. **`.meta` integrity** — each `.cs`/`.asmdef` has a sibling `.meta`; new asmdef + new folders have hand-authored metas; copied source kept its original meta. **GUID hex gate (mandatory):**
    ```powershell
    # Windows PowerShell
-   Get-ChildItem (Join-Path $repo '<CATEGORY>/<FolderName>') -Recurse -Filter *.meta | ForEach-Object {
+   Get-ChildItem (Join-Path $repo 'packages/<scope>.<name>') -Recurse -Filter *.meta | ForEach-Object {
      $g = (Select-String '^guid:\s*(\S+)' $_.FullName).Matches.Groups[1].Value
      if ($g -notmatch '^[0-9a-f]{32}$') { Write-Host "BAD GUID  $g  <-  $($_.FullName)" }
    }
    ```
    ```bash
    # macOS zsh/bash
-   find "$repo/<CATEGORY>/<FolderName>" -type f -name '*.meta' | while IFS= read -r file; do
+   find "$repo/packages/<scope>.<name>" -type f -name '*.meta' | while IFS= read -r file; do
      g="$(sed -nE 's/^guid:[[:space:]]*([^[:space:]]+).*/\1/p' "$file" | head -n 1)"
      if ! printf '%s' "$g" | grep -Eq '^[0-9a-f]{32}$'; then
        printf 'BAD GUID  %s  <-  %s\n' "$g" "$file"
@@ -513,13 +522,13 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
 5. **Meta presence gate** — every `.cs`, `.asmdef`, every subfolder under `Runtime/`/`Editor/`, **and every root-level file** (`package.json`, `README.md`, `CHANGELOG.md`, `LICENSE`/`LICENSE.md`) has a sibling `.meta`. Root metas are **required**, not optional — a registry-installed package is immutable so Unity warns about (and ignores) any file lacking one; see STEP 4.11. Quick check from the package folder:
    ```powershell
    # Windows PowerShell — lists any shipped file missing a sibling .meta
-   Get-ChildItem (Join-Path $repo '<CATEGORY>/<FolderName>') -Recurse -File |
+   Get-ChildItem (Join-Path $repo 'packages/<scope>.<name>') -Recurse -File |
      Where-Object { $_.Extension -ne '.meta' -and -not (Test-Path "$($_.FullName).meta") } |
      ForEach-Object { Write-Host "MISSING META  $($_.FullName)" }
    ```
    ```bash
    # macOS zsh/bash
-   find "$repo/<CATEGORY>/<FolderName>" -type f ! -name '*.meta' | while IFS= read -r f; do
+   find "$repo/packages/<scope>.<name>" -type f ! -name '*.meta' | while IFS= read -r f; do
      [ -f "$f.meta" ] || printf 'MISSING META  %s\n' "$f"
    done
    ```
@@ -534,9 +543,9 @@ Full compile-verification happens when the package is consumed (Phase 2 / smoke 
 1. Stage package changes:
    - PowerShell: `git -C $repo add -A`
    - zsh/bash: `git -C "$repo" add -A`
-2. Commit with a **plain, neutral message** — the monorepo's `/push` convention explicitly forbids generating a `feat:`/`fix:`/`refactor:` prefix, so do NOT add one. Use `Publish <id> v<version>` (or `Add <id> v<version>` for a new package). End with the `Co-Authored-By` line.
-   - PowerShell: `git -C $repo commit -m "Publish <id> v<version>"`
-   - zsh/bash: `git -C "$repo" commit -m "Publish <id> v<version>"`
+2. Commit using the monorepo's **Conventional Commits** style (`feat(...)`, `fix(...)`, `chore(...)` — check `git -C $repo log --oneline -10` and match what you see). Scope it with the package name: `feat(pooling): add com.ezg.pooling v0.0.1` / `fix(pooling): bump com.ezg.pooling to v0.1.3`. End with the `Co-Authored-By` line.
+   - PowerShell: `git -C $repo commit -m "feat(<name>): add <id> v<version>"`
+   - zsh/bash: `git -C "$repo" commit -m "feat(<name>): add <id> v<version>"`
 3. **Push to `main`:**
    ```powershell
    # Windows PowerShell
@@ -549,10 +558,10 @@ Full compile-verification happens when the package is consumed (Phase 2 / smoke 
    git -C "$repo" push "$authUrl" main
    ```
    - Non-fast-forward rejection → pull/rebase again, re-run STEP 5 dry-run, then push. Never `--force`.
-   - **Auth failure (401/403)** → PAT missing/expired. Stop and ask the user to refresh `BF_PACKAGES_PAT`.
+   - **Auth failure (401/403)** → PAT missing/expired. Stop and ask the user to refresh `EZG_PACKAGES_PAT`.
 4. **No remote at all** → stop after the local commit and give the `git remote add` / `push` commands.
 
-After the push, CI runs automatically (workflow `publish-packages.yml`, trigger `push` to `main` on `Frameworks/**`, `Modules/**`, `Packages/**`). It scans every `package.json` and runs `npm publish` for any whose version is not already on the registry (already-published versions are skipped — so a re-push without a version bump is a no-op). Watch with `gh run watch -R PackageStore/Packages` if `gh` is available; otherwise tell the user to check the **Actions** tab.
+After the push, CI runs automatically (workflow `publish.yml`, trigger `push` to `main` on `packages/**`). It runs `validate.mjs`, then `publish.mjs`, which signs (`upm pack`) and uploads to R2 any version whose tarball is not already there (already-published versions are skipped — so a re-push without a version bump is a no-op), then syncs `unity-template.json`. Watch with `gh run watch -R PackageStore/ezg-packages` if `gh` is available; otherwise tell the user to check the **Actions** tab.
 
 **Never `--force` push. Never rewrite `main` history. Never commit in the game repo.**
 
@@ -561,14 +570,15 @@ After the push, CI runs automatically (workflow `publish-packages.yml`, trigger 
 ## STEP 7 — Report
 
 1. **Pushed to `main`:** commit hash (or "committed locally — no remote yet, run: …").
-2. **Package:** `<scope>.<name>@<version>` under `<CATEGORY>/<FolderName>/`, asmdef `<RuntimeAsmdef>` (+ Editor), files added.
+2. **Package:** `<scope>.<name>@<version>` under `packages/<scope>.<name>/`, asmdef `<RuntimeAsmdef>` (+ Editor), files added.
 3. **CI is publishing:** verify shortly with `npm view <scope>.<name> version --registry <REGISTRY_URL>`.
-4. **Install snippet** once published (note: the scope in `scopedRegistries` must match the package-id prefix — use `com.blackface` for these packages):
+4. **Install snippet** once published — the scope in `scopedRegistries` must match the package-id prefix. A project generated from this template already has the `Easygoing` registry in `Packages/manifest.json`, so usually only the `dependencies` line is new:
    ```json
-   "scopedRegistries": [{ "name": "<REGISTRY_NAME>", "url": "<REGISTRY_URL>", "scopes": ["<PACKAGE_SCOPE>"] }],
+   "scopedRegistries": [{ "name": "Easygoing", "url": "<REGISTRY_URL>", "scopes": ["com.ezg", "com.cysharp", "com.google", "com.coffee"] }],
    "dependencies": { "<scope>.<name>": "<version>" }
    ```
-5. **Peer requirements:** external libs the consuming project must already have (and that are NOT on bf-packages).
+   The package also lands in Feature Hub's **UPM Packages** tab automatically (`publish.mjs` syncs `unity-template.json`) — installing from there is usually easier than hand-editing the manifest.
+5. **Peer requirements:** external libs the consuming project must already have (and that are NOT on the Easygoing registry).
 6. **Source repo: unchanged.** Then spell out **Phase 2** (separate, do later): after the version is published & smoke-tested, switch the game to consume it — remove `<MODULE_PATH>` from the game repo, add the `<scope>.<name>` dependency to `Packages/manifest.json`, add the assembly to consumer asmdefs, and let Unity recompile. Warn that keeping **both** the in-`Assets/` copy and a registry dependency causes a **duplicate-package conflict**, so Phase 2 removes the source in the same change.
 
 ---
