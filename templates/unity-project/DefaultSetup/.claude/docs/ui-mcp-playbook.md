@@ -74,10 +74,10 @@ the most reliable handle for `reparent`, `get_referenceable`, and `batch_wire`.
 ## 2. `instantiate` value formats
 
 `unity_asset_instantiate_prefab`:
-- `prefabPath` = **asset path**, e.g. `Assets/Resources/Prefabs/Templates/ButtonNormal.prefab`,
-  `Assets/Resources/Prefabs/Templates/FeatureTemplate.prefab`,
-  `Assets/Resources/Prefabs/Templates/PackageTemplate.prefab`,
-  `Assets/Resources/Prefabs/Templates/TimeLayoutTemplate.prefab`.
+- `prefabPath` = **asset path**, e.g. `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/ButtonNormal.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/PackageTemplate.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/TimeLayoutTemplate.prefab`.
 - `parent` = hierarchy path of the parent, e.g. `Canvas/[FeatureName]/Popup/content`.
 - Per `new-ui-guide.md` §3c **content-containment rule**: new elements go inside `Popup/content`
   (pop-up) or `FullScreen/Mid` (full-screen), **never** as a direct child of `Popup`/`FullScreen`.
@@ -165,7 +165,7 @@ values. Standard Unity serialized names (not yet live-verified on this MCP build
 
 ### Tab bar (new-ui-guide.md §3d — tabs live in `Bot/TabBottomTemplate`, never a row in `Mid`)
 
-The bar already exists on every `FeatureTemplate` variant but ships inactive, so the sequence is
+The bar already exists on every `screen_template` variant but ships inactive, so the sequence is
 activate → populate → wire, not "build a new row":
 
 1. `unity_gameobject_set_active { path: "<Feature>/FullScreen/Bot/TabBottomTemplate", active: true }`.
@@ -260,12 +260,11 @@ UI built blind via property writes is wrong more often than right. After each me
    >
    > **⚠ Canvas-corruption gotcha (verified — this bug shipped to a prefab):** this snippet
    > mutates the *live* canvas via `unity_execute_code`; if the prefab is later saved, whatever
-   > state the canvas is left in gets **baked into the prefab asset**. The `FeatureTemplate` root
+   > state the canvas is left in gets **baked into the prefab asset**. The `screen_template` root
    > canvas serializes `m_RenderMode: 1` (Screen Space – Camera) with `m_Camera: {fileID: 0}` —
    > so you MUST capture the original `renderMode`/`worldCamera`/`planeDistance` up front and
    > restore them in `finally`. Restoring to a hardcoded `ScreenSpaceOverlay` (the old bug)
-   > silently flips every FeatureTemplate-variant popup to Overlay (DungeonGuide.prefab shipped
-   > exactly this defect).
+   > silently flips every `screen_template`-variant popup to Overlay.
    >
    > **⚠ The live getter lies — do not restore from it (task 111 shipped this to a reviewer).**
    > Because the base's `m_Camera` is null, `Canvas.renderMode` *reads back* as
@@ -274,7 +273,7 @@ UI built blind via property writes is wrong more often than right. After each me
    > creates a `propertyPath: m_RenderMode` prefab override that differs from the base, which the
    > next `SaveAsPrefabAsset` bakes in. Verify with the **serialized** value
    > (`grep -n "propertyPath: m_RenderMode" <your>.prefab` must find nothing; compare
-   > `m_RenderMode` in `FeatureTemplate.prefab`), never with the runtime getter — and after any
+   > `m_RenderMode` in `screen_template.prefab`), never with the runtime getter — and after any
    > capture, clear an accidental override:
    >
    > ```csharp
@@ -376,7 +375,7 @@ This repo opens features via `UIManager.Instance.Show(EnumBase.Features.X).Forge
 `unity_asset_create_prefab` **does** produce a true Prefab Variant — the trick is the source
 GameObject must be an **instance of the base template**, not a plain GameObject. Verified live:
 
-1. `unity_asset_instantiate_prefab` the base (`FeatureTemplate.prefab` / `PackageTemplate.prefab`)
+1. `unity_asset_instantiate_prefab` the base (`screen_template.prefab` / `PackageTemplate.prefab`)
    into the scene — the scene object is now a prefab *instance* of the base.
 2. Assemble on that instance (all the steps above).
 3. `unity_asset_create_prefab(gameObjectPath = that instance, savePath = the feature Resources

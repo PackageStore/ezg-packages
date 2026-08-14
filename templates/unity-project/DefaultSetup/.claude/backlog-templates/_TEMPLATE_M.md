@@ -47,7 +47,7 @@ Mockup: groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>) — HYBRID/M/L ta
 - [ ] Functional criterion 1 | Verify: open scene X, do Y, confirm Z
 - [ ] Functional criterion 2 | Verify: ...
 - [ ] Regression: [specific feature name] still works | Verify: replay that flow in the Editor
-- [ ] [CHEAT] (when the tag applies) Cheats `<Btn1>` / `<Btn2>` exist under `ButtonCheatMenu/MenuParent` and drive `<the state a tester cannot reach>` | Verify: Play Mode, open the feature, tap the cheat button, confirm the state changes with no Console error
+- [ ] [CHEAT] (when the tag applies) Cheats `<Btn1>` / `<Btn2>` exist under `CheatMenu/Menu` and drive `<the state a tester cannot reach>` | Verify: Play Mode, open the feature, tap the cheat button, confirm the state changes with no Console error
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] No violations of rules in `.claude/rules/` | Verify: quick manual code review
 - [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings during the full flow | Verify: Play scene end-to-end, check Console
@@ -56,7 +56,7 @@ Mockup: groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>) — HYBRID/M/L ta
 
 <!-- [CHEAT] is a DECISION, not an optional extra: either the tag is here with a matching completion criterion,
      or `**Guardrails skipped:**` carries `cheat (<reason>)`. Silence = planning fail.
-     Pattern + design (mirror DailyLoginV2 / Equipment): .claude/skills/feature-cheat/SKILL.md -->
+     Pattern + design (mirror Features/System/GameCheat): .claude/skills/feature-cheat/SKILL.md -->
 
 
 **Guardrails skipped:** <only call out a guardrail you deliberately excluded that a reader might expect, + reason ≥10 chars each; else "none". Do NOT enumerate every unused tag.>

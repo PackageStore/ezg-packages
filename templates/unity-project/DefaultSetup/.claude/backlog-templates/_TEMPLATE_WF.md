@@ -56,7 +56,7 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
 **Completion criteria** (lift the workflow's own checklist, then append delta criteria):
 - [ ] Workflow checklist fully satisfied | Verify: run through the workflow's "CHECKLIST" / "FINAL CHECKLIST" section item by item
 - [ ] <delta criterion 1, if any> | Verify: ...
-- [ ] [CHEAT] (when the tag applies) each listed cheat button sits under `ButtonCheatMenu/MenuParent` and is wired to its `Cheat_*` method | Verify: Play Mode, open the feature, tap each cheat button, confirm the state changes with no Console error
+- [ ] [CHEAT] (when the tag applies) each listed cheat button sits under `CheatMenu/Menu` and is wired to its `Cheat_*` method | Verify: Play Mode, open the feature, tap each cheat button, confirm the state changes with no Console error
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings | Verify: Play the relevant scene end-to-end
 

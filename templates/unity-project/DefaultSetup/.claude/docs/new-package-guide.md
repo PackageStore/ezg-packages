@@ -325,9 +325,9 @@ Only package-specific fact to carry across: the controller to bind is `[PackageN
 
 📖 **MUST READ:** [`.claude/skills/feature-cheat/SKILL.md`](../skills/feature-cheat/SKILL.md) — prefab structure, sizes, labels, code pattern.
 
-`PackageTemplate.prefab` ships the same `ButtonCheatMenu` chrome as `FeatureTemplate` (identical transform, `CheatMenuController` + `GameCheatObjectController`), so the package prefab inherits it. Packages are almost always **worth cheating**: they are time-limited, purchase-gated, and one-shot — exactly the state a tester cannot reach in a few taps.
+The base screen prefab ships **no** cheat chrome, so instantiate `Templates/CheatMenu.prefab` into the pack prefab root yourself (`CheatMenuController` + `GameCheatObjectController` come on it). Packs are almost always **worth cheating**: they are time-limited, purchase-gated, and one-shot — exactly the state a tester cannot reach in a few taps.
 
-Typical package cheats (mirror `DailyLoginV2` / `Equipment` in style):
+Typical package cheats (mirror `Features/System/GameCheat` in style):
 
 - `ResetBuy` "Reset buy" → clear the purchased/claimed flag in `Player[PackageName]Data` so the pack can be bought again.
 - `Expire` "Expire now" / `+1 day` → move the cooldown/limited window (route through the manager's single time accessor, never `DateTime.Now`).
@@ -351,4 +351,4 @@ Typical package cheats (mirror `DailyLoginV2` / `Equipment` in style):
 - [ ] Localization keys for package names
 - [ ] `/new-ui [PackageName]` → prefab variant at `Features/[PackageName]/Resources/[PackageName].prefab` (Package branch)
 - [ ] Controller `_purchase`, `_packIndex`, `_cooldownTime` (if time-limited) bound
-- [ ] Cheat decision made explicitly (§10b): `Cheat_*` methods + buttons under `ButtonCheatMenu/MenuParent` (reset-buy / expire-window at minimum), or a stated reason why none are needed
+- [ ] Cheat decision made explicitly (§10b): `Cheat_*` methods + buttons under `CheatMenu/Menu` (reset-buy / expire-window at minimum), or a stated reason why none are needed

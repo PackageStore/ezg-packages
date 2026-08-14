@@ -118,18 +118,18 @@ project does not ship that system, which is not a finding.
 | `<sourceRoot>/.../Backend*` / `*Supabase*` / `*Cloudflare*` | `.claude/skills/backend-communication/SKILL.md` — **read** goes to Supabase, **write** MUST go through Cloudflare Worker |
 | New / modified CSV files | `.claude/skills/csv-config/SKILL.md` |
 | Skill CSV localize_index column | `.claude/skills/skill-csv-localize/SKILL.md` |
-| Task tagged `[CHEAT]`, or diff adds `Cheat_*` methods / `ButtonCheatMenu` children | `.claude/skills/feature-cheat/SKILL.md` — see "Cheat" below |
+| Task tagged `[CHEAT]`, or diff adds `Cheat_*` methods / `CheatMenu` children | `.claude/skills/feature-cheat/SKILL.md` — see "Cheat" below |
 
 ### Cheat
 
 Only judge this when the task carries `[CHEAT]` on its `**Guardrails:**` line (or the diff adds cheat code anyway).
 
-- Task tagged `[CHEAT]` but the diff has **no** `Cheat_*` method and no new child under `ButtonCheatMenu/MenuParent` = **block** (silently skipped criterion).
+- Task tagged `[CHEAT]` but the diff has **no** `Cheat_*` method and no new child under `CheatMenu/Menu` = **block** (silently skipped criterion).
 - Diff adds cheats the task never asked for = **warn** (scope creep; cheats are a planning decision).
 - `Cheat_*` code that bypasses the production path — hand-rolled currency/item grants instead of `RewardManager` / the manager's own setters, or a save write that skips the feature's normal save+emit sequence = **block** (a cheat that drifts from the real flow tests nothing).
-- Time cheat implemented with `DateTime.Now`/`DateTime.UtcNow` math, or a day-offset applied at call sites instead of inside the feature's single time accessor = **block** (`TimeManager` rule + the DailyLoginV2 `GetCheatNow()` pattern).
+- Time cheat implemented with `DateTime.Now`/`DateTime.UtcNow` math, or a day-offset applied at call sites instead of inside the feature's single time accessor = **block** (`TimeManager` rule — the offset belongs inside the one accessor that already wraps `TimeManager`).
 - `LocalizesUI` added to a cheat label = **warn** (cheat labels are deliberately not localized — the one documented exception to the localize rule).
-- `#if UNITY_EDITOR` around cheat code = **warn**, not block: the project gates visibility via `GameCheatObjectController` + `GameSystems.isCheat`, and neither reference feature (`DailyLoginV2`, `Equipment`) uses the directive.
+- `#if UNITY_EDITOR` around cheat code = **warn**, not block: the project gates visibility via `GameCheatObjectController` + `GameSystems.isCheat`, and `Features/System/GameCheat` does not use the directive either.
 - Cheat methods outside a `#region Cheats` or missing the Odin `[Button]` = **warn** (they become Inspector-invisible and drift from the convention).
 
 ### Localize

@@ -104,13 +104,13 @@ Carry both forward through §3: **image = visual truth, spec-sheet = numeric tru
 
 ### Feature branch
 
-Path: `Assets/Resources/Prefabs/Templates/FeatureTemplate.prefab`
+Path: `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`
 
 Use only as the structural baseline for the root prefab whose controller inherits `FeatureBaseController`. Other child/reusable UI prefabs are created new, not copied from this template.
 
 ### Package branch
 
-Path: `Assets/Resources/Prefabs/Templates/PackageTemplate.prefab`
+Path: `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/PackageTemplate.prefab`
 
 Ships a pre-wired `Popup/content/PurchaseTemplate` (`PurchaseTemplateController`) — never duplicate or replace it; the variant just reuses it.
 
@@ -161,7 +161,7 @@ Apply the §0 decision (Popup is the default state; Full-screen needs explicit e
 
 | Loại label | Ví dụ | Quy tắc |
 |---|---|---|
-| **STATIC** — caption cố định hiển thị trên UI | Title, button caption (Xác nhận/Hủy/Mua), tier label (Free/Premium), benefit line, badge | PHẢI có `LocalizesUI` + `LangKey` (`#lowercase_key`). Node đã ship sẵn component (Title, `ButtonClose/content`, `TapToCloseText` của `FeatureTemplate`) → chỉ set `LangKey`, **không gắn thêm cái thứ hai**. Node từ `TextTemplate` / `ButtonNormal`/`ButtonActive` `content` **không ship sẵn** → `AddComponent<LocalizesUI>` rồi set key. |
+| **STATIC** — caption cố định hiển thị trên UI | Title, button caption (Xác nhận/Hủy/Mua), tier label (Free/Premium), benefit line, badge | PHẢI có `LocalizesUI` + `LangKey` (`#lowercase_key`). Node đã ship sẵn component (Title, `ButtonClose/content`, `TapToCloseText` của `screen_template`) → chỉ set `LangKey`, **không gắn thêm cái thứ hai**. Node từ `TextTemplate` / `ButtonNormal`/`ButtonActive` `content` **không ship sẵn** → `AddComponent<LocalizesUI>` rồi set key. |
 | **DYNAMIC** — text do logic bind lúc runtime | Số lượng/giá trị (gem cost, ticket count), tên/ngày ("Bù điểm danh Ngày 10"), giá IAP từ SDK, countdown | **KHÔNG** có `LocalizesUI` (Awake sẽ clobber text logic vừa set). Node nguồn lỡ có sẵn component → remove nó. |
 
 - **Key: tái dụng trước, tạo mới sau.** Grep `<featuresRoot>/Misc/CsvConfig/Localization.csv` — các key generic có sẵn (`#free`, `#cancel`, `#buy`, `#unlock`…) dùng lại, không đẻ key trùng nghĩa. Key mới theo family `#[featurename]_[element]` (lowercase), đăng ký qua [`add-localize.md`](../workflows/add-localize.md) với VI+EN — key chưa đăng ký hiện raw key lúc runtime.
@@ -190,7 +190,7 @@ Consequence for the spec-sheet: `Top` renders after `content`, so **anything ins
 > `mockup-drafter` đọc). Thêm/sửa luật ở đây thì thêm luôn bên kia, nếu không nó chỉ được tuân
 > thủ một nửa. Vòng đời kit: skill [ui-kit](../skills/ui-kit/SKILL.md).
 
-Reuse from `Assets/Resources/Prefabs/Templates/` (ưu tiên reuse, đừng vẽ lại). Số px là kích thước gốc — giữ nguyên cho chrome cùng loại (§3e; mockup-drafter cảnh báo `inconsistent_chrome_size` nếu 2 instance khác cỡ).
+Reuse from `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/` (ưu tiên reuse, đừng vẽ lại). Số px là kích thước gốc — giữ nguyên cho chrome cùng loại (§3e; mockup-drafter cảnh báo `inconsistent_chrome_size` nếu 2 instance khác cỡ).
 
 | Category | Prefabs |
 |----------|---------|
@@ -208,10 +208,10 @@ Reuse from `Assets/Resources/Prefabs/Templates/` (ưu tiên reuse, đừng vẽ 
 
 **Thêm `MoneyTypes` mới lên top bar — CẤM sửa `ResourceViewTemplate.prefab` gốc**
 
-`ResourceViewTemplate` là **nested prefab instance** nằm trong `FeatureTemplate.prefab` và `PackageTemplate.prefab`, nên **mỗi feature prefab sở hữu top bar riêng của nó**. Thêm chip thẳng vào file template gốc `Assets/Resources/Prefabs/Templates/ResourceViewTemplate.prefab` là đẩy currency của một feature vào **mọi màn hình trong game** (dù để default-inactive thì mỗi màn vẫn phải nhớ bật/tắt) → **KHÔNG làm**. File template gốc chỉ đổi khi có quyết định riêng ở tầm toàn game, không phải khi ship một feature.
+`ResourceViewTemplate` là **nested prefab instance** nằm trong `screen_template.prefab` và `PackageTemplate.prefab`, nên **mỗi feature prefab sở hữu top bar riêng của nó**. Thêm chip thẳng vào file template gốc `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/ResourceViewTemplate.prefab` là đẩy currency của một feature vào **mọi màn hình trong game** (dù để default-inactive thì mỗi màn vẫn phải nhớ bật/tắt) → **KHÔNG làm**. File template gốc chỉ đổi khi có quyết định riêng ở tầm toàn game, không phải khi ship một feature.
 
 Đúng: instantiate `ResourceHomeTemplate` làm **child của bản instance `ResourceViewTemplate` bên trong chính feature prefab đó** (`<featuresRoot>/<Feature>/Resources/<Feature>.prefab` → `FullScreen/Top/ResourceViewTemplate`), lưu lại thành prefab override "Added GameObject" của feature. Template gốc **giữ nguyên byte**.
-1. Instantiate `Assets/Resources/Prefabs/Templates/ResourceHomeTemplate.prefab` vào node `ResourceViewTemplate` của feature prefab (cùng cỡ với Energy/Gold/Gem — cao 64), đặt đúng thứ tự trong `HorizontalLayoutGroup`.
+1. Instantiate `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/ResourceHomeTemplate.prefab` vào node `ResourceViewTemplate` của feature prefab (cùng cỡ với Energy/Gold/Gem — cao 64), đặt đúng thứ tự trong `HorizontalLayoutGroup`.
 2. Set `HomeResourceItemController._type` = `MoneyTypes` mới + gán `_value` / `_currencyImage` / `_buyButton`. Chip tự bám `EventId.ResourcesChanged` **và** `PlayerResource.GetCurrencyChangedEvent(_type)` trong `Start()` → tự live-update, KHÔNG cần viết code cập nhật.
 3. `OnClickBuy` (`HomeResourceItemController.cs`) chưa có nhánh cho currency mới ⇒ **tắt child `BuyButton` ("+")** của chip, tránh affordance chết.
 4. Currency cần hiện ở nhiều feature ⇒ lặp bước 1–3 ở từng feature prefab. Đó là chủ ý: phạm vi hiển thị là **structural** (chip chỉ tồn tại ở màn cần), không phải runtime.
@@ -219,7 +219,7 @@ Reuse from `Assets/Resources/Prefabs/Templates/` (ưu tiên reuse, đừng vẽ 
 
 Currency **không phải** `MoneyTypes` (state riêng của feature, vd `TorchBalance` trong `PlayerDungeonCoreData`) thì `HomeResourceItemController` không đọc được — dùng chip `ResourceHomeTemplate` / `CurrencyPreview` lẻ như bảng trên, đặt trong content của feature.
 
-**KHÔNG dùng cho UI feature thường** (liệt kê để agent nhận diện, tránh nhầm): `HpBar` / `MpBar` — thanh máu/mana world-space gắn trên nhân vật/enemy (gameplay HUD, không phải UI màn hình); `UnMaskTemplate` — lớp phủ full-screen khoét lỗ highlight, chỉ cho tutorial spotlight; `ButtonCheatMenu` — chrome cheat/dev, **đã có sẵn** trong `FeatureTemplate`/`PackageTemplate` nên KHÔNG instantiate lẻ và KHÔNG override transform của nó; thêm cheat = thả `ButtonNormal` vào `ButtonCheatMenu/MenuParent` (xem §4 "Cheat buttons"); `EventUITemplate`, `MenuBar`, `CheatItem`, `ItemLoopGridViewElement`, `ButtonClose` — chrome nội bộ do template cha sở hữu, KHÔNG instantiate lẻ (`ButtonClose` đã có sẵn trong `FeatureTemplate`; `MenuBar` nằm trong `FullScreen/Mid`+`Bot`; `ItemLoopGridViewElement` là item mẫu của `ScrollLoopTemplate`).
+**KHÔNG dùng cho UI feature thường** (liệt kê để agent nhận diện, tránh nhầm): `HpBar` / `MpBar` — thanh máu/mana world-space gắn trên nhân vật/enemy (gameplay HUD, không phải UI màn hình); `UnMaskTemplate` — lớp phủ full-screen khoét lỗ highlight, chỉ cho tutorial spotlight; `CheatMenu` — chrome cheat/dev, **đã có sẵn** trong `screen_template` nên KHÔNG instantiate lẻ và KHÔNG override transform của nó; thêm cheat = thả `ButtonNormal` vào `CheatMenu/Menu` (xem §4 "Cheat buttons"); `EventUITemplate`, `MenuBar`, `CheatItem`, `ItemLoopGridViewElement`, `ButtonClose` — chrome nội bộ do template cha sở hữu, KHÔNG instantiate lẻ (`ButtonClose` đã có sẵn trong `screen_template`; `MenuBar` nằm trong `FullScreen/Mid`+`Bot`; `ItemLoopGridViewElement` là item mẫu của `ScrollLoopTemplate`).
 
 #### Vùng cuộn — bắt buộc instantiate template, CẤM tự gắn `ScrollRect`
 
@@ -233,7 +233,7 @@ Nội dung cao hơn khung chứa ⇒ `unity_asset_instantiate_prefab` `ScrollVie
 
 #### Tab điều hướng — bắt buộc nằm trong `Bot/TabBottomTemplate`, CẤM dựng row tab trong `Mid`
 
-`FeatureTemplate` ship sẵn `FullScreen/Bot/TabBottomTemplate` (guid `61748bf3b3de6be4eaaf0dcb6907dcd2` — `Image` + `ToggleGroup` + `HorizontalLayoutGroup` + `UI_TabExtensions`, kèm 2 tab mẫu `Tab1`/`Tab2` dạng `TabToggleTextTemplate`) nhưng để **`m_IsActive = 0`**. Feature có tab phải **bật node này lên** và đặt toggle vào trong nó — không tự dựng một row tab khác ở chỗ khác.
+`screen_template` ship sẵn `FullScreen/Bot/TabBottomTemplate` (guid `61748bf3b3de6be4eaaf0dcb6907dcd2` — `Image` + `ToggleGroup` + `HorizontalLayoutGroup` + `UI_TabExtensions`, kèm 2 tab mẫu `Tab1`/`Tab2` dạng `TabToggleTextTemplate`) nhưng để **`m_IsActive = 0`**. Feature có tab phải **bật node này lên** và đặt toggle vào trong nó — không tự dựng một row tab khác ở chỗ khác.
 
 **Màn KHÔNG có tab thì để nguyên `TabBottomTemplate` inactive** — `Bot` chỉ còn `ButtonBack`. Bật thanh rỗng lên là ship một dải nền nâu chắn đáy màn (`BattleResultDungeon` dính đúng lỗi này). Mockup của màn không tab cũng KHÔNG được vẽ thanh đó (validator warn `tabbar_empty_chrome`) — vẽ thanh trong PNG chính là thứ khiến người build bật nó lên.
 
@@ -266,7 +266,7 @@ Hand-computing `m_AnchoredPosition` per sibling is this workflow's main visual f
 
 - Any container arranging **≥2 siblings in a row / column / grid** gets a `HorizontalLayoutGroup` / `VerticalLayoutGroup` / `GridLayoutGroup`; spacing/padding/cell size come from the §0c spec-sheet. Auto-sized content → add `ContentSizeFitter` (`PreferredSize` on the auto axis).
 - Absolute `m_AnchoredPosition` is for **single free-floating elements only** (a close button, one banner) or when cloning an existing absolutely-positioned prefab's exact numbers — never for chains of hand-spaced siblings.
-- The base templates ship with **no layout groups** on their containers (`FeatureTemplate`, `PackageTemplate` — verified) → add them via `unity_component_add`; exact `m_*` names and value formats in playbook §3. Templates that own an internal layout (`PurchaseTemplate`) keep it — don't fight it.
+- The base templates ship with **no layout groups** on their containers (`screen_template`, `PackageTemplate` — verified) → add them via `unity_component_add`; exact `m_*` names and value formats in playbook §3. Templates that own an internal layout (`PurchaseTemplate`) keep it — don't fight it.
 - Under a layout group with child-control on, size children via `LayoutElement` (`m_PreferredWidth/Height`), not `m_SizeDelta` — the group overrides it.
 
 ---
@@ -305,11 +305,11 @@ Task mang tag `[CHEAT]` (hoặc `**Custom delta:**` liệt kê cheat dạng `nam
 
 Chi tiết đầy đủ (guid, size, code pattern, recipe `unity_execute_code` để wire persistent `onClick`): [`.claude/skills/feature-cheat/SKILL.md`](../skills/feature-cheat/SKILL.md). Rút gọn:
 
-- `ButtonCheatMenu` **kế thừa** từ base template (anchor `(0,0)`, pos `(50,262)`, size `100×150`) — không đụng transform, không thêm/bớt component, không re-instantiate.
-- Mỗi cheat = 1 instance `ButtonNormal.prefab` (guid `7448b8ae11784d049a7ea997c3abb1fa`) làm con **trực tiếp** của `ButtonCheatMenu/MenuParent` (`HorizontalLayoutGroup` có sẵn — không thêm layout group mới).
+- `screen_template` **KHÔNG** ship sẵn cheat menu → instantiate `Templates/CheatMenu.prefab` (guid `ec2aa73aad0a4ea4ab74e7da72c63287`) làm con của prefab root, cạnh `full_screen_template`. Giữ nguyên component trên root (`CheatMenuController` + `GameCheatObjectController`), trỏ `_targetMenu` vào `Menu`.
+- Mỗi cheat = 1 instance `ButtonCheatTemplate.prefab` (guid `7322ef5c5cec00a4fab0c80fca752b4b`; bản on/off dùng `ToggleCheatTemplate.prefab`, guid `df02728a597bbdc4b901a2de81e50c4b`) làm con **trực tiếp** của `CheatMenu/Menu` (layout group có sẵn — không thêm cái mới).
 - Tên GameObject = PascalCase ngắn theo hành động; `content` Text = nhãn tiếng Anh ngắn; **không gắn `LocalizesUI`** (ngoại lệ duy nhất của luật localize ở §3b — cheat là dev-only).
-- Cùng một width cho mọi nút trong menu, height `150` (tham chiếu: `DailyLoginV2` 250×150, `Equipment` 200×150).
-- Xoá/đổi nút mẫu `ButtonNormal` ("Clear data") của template — không ship nguyên trạng.
+- Cùng một width cho mọi nút trong menu; giữ size kế thừa từ prefab, đừng tự đặt số.
+- Xoá/đổi 2 nút mẫu `Add Point` / `Remove Point` có sẵn trong `CheatMenu` — không ship nguyên trạng.
 - `onClick` → đúng method `public Cheat_*` trên Controller; verify YAML có `m_MethodName` + `m_TargetAssemblyTypeName: <Feature>Controller, <assembly>` (tên assembly lấy từ asmdef chứa controller đó, đừng đoán).
 
 ---
@@ -345,13 +345,13 @@ Legacy tasks without `specVersion: 1` do not require this report.
 | **Layout mode** | Exactly one of `Popup` (sib=1) / `FullScreen` (sib=2) active, never both/neither (Package → always `Popup`). |
 | **Containment** | No new node is a direct child of `Popup`/`FullScreen`; cooldown (if any) is at `Popup/content/CooldownTime`, not `Popup/CooldownTime`. |
 | **Open animation (`MainUI`)** | Controller's `MainUI` is **None** — `grep -n "MainUI:" <your>.prefab` → `MainUI: {fileID: 0}` (or no override at all). A full-screen screen with `MainUI` = `FullScreen` is a **fail**: it pops instead of fading (§0 "Layout mode → `MainUI`"). Assigned on purpose → deviation must be recorded at §0d. |
-| **Canvas render mode** | Root Canvas must **inherit** the base `FeatureTemplate` canvas — the base serializes `m_RenderMode: 1` (Screen Space – Camera) with a null `m_Camera`, so the variant must carry **no** `propertyPath: m_RenderMode` override (`grep -n "propertyPath: m_RenderMode" <your>.prefab` → no hits). **Never Screen Space – Overlay.** Check the *serialized* value, not `Canvas.renderMode`: with a null camera the runtime getter reads back `ScreenSpaceOverlay`, so "restoring" the mode from that getter silently creates the override (task 111 shipped exactly this; playbook §5 has the revert snippet). The §5 RenderTexture helper must restore the *original* mode — a hardcoded Overlay restore bakes Overlay into the prefab (DungeonGuide shipped this). A Feature-root prefab is always a **Variant** of `FeatureTemplate`, never a fresh Canvas. |
+| **Canvas render mode** | Root Canvas must **inherit** the base `screen_template` canvas — the base serializes `m_RenderMode: 1` (Screen Space – Camera) with a null `m_Camera`, so the variant must carry **no** `propertyPath: m_RenderMode` override (`grep -n "propertyPath: m_RenderMode" <your>.prefab` → no hits). **Never Screen Space – Overlay.** Check the *serialized* value, not `Canvas.renderMode`: with a null camera the runtime getter reads back `ScreenSpaceOverlay`, so "restoring" the mode from that getter silently creates the override (task 111 shipped exactly this; playbook §5 has the revert snippet). The §5 RenderTexture helper must restore the *original* mode — a hardcoded Overlay restore bakes Overlay into the prefab (DungeonGuide shipped this). A Feature-root prefab is always a **Variant** of `screen_template`, never a fresh Canvas. |
 | **Panel framing** | Every visible panel/card/frame is a **template instance** (`FrameTemplate`/`FrameTemplateInside`/`LayoutTemplate`/`ItemElement`, i.e. carries `m_SourcePrefab`), never a raw `Image` recoloured by hand. Spec containers carry no visible `background`/`border`/`boxShadow` (validator `container_style`); framing comes from a frame-template element anchored stretch. |
 | **Scrolling** | Mọi vùng cuộn là **template instance** (`ScrollViewTemplate` guid `8eb29c9ddda20e949a8fbcc106b669b1`, hoặc `ScrollLoopTemplate`), nội dung nằm trong `Viewport/Content`. Không `ScrollRect`/`RectMask2D` nào được gắn tay ngoài một instance đó — kiểm bằng `unity_execute_code`: mọi `ScrollRect` phải có `PrefabUtility.GetCorrespondingObjectFromSource` trỏ về một scroll template (§3d). |
 | **Titled sections** | Mỗi khối nội dung có tiêu đề là một instance `FrameTemplateInside` bọc thân khối (`VerticalLayoutGroup` + `ContentSizeFitter`), tiêu đề là instance `ButtonTitleTemplate` với `LayoutElement.ignoreLayout = true`, pivot/anchor `top-center`, `pos (0,30)`, `size (0,60)`, `TitleText` có `LocalizesUI` + key đã đăng ký; list cha `spacing ≥ 40`. Không nhãn `TextTemplate` rời đứng trên text trần (§3d). |
 | **Tabs** | Feature có tab điều hướng → `FullScreen/Bot/TabBottomTemplate` **active**, mọi `TabToggleIconTemplate`/`TabToggleTextTemplate` là con trực tiếp của một instance `TabBottomTemplate` (không có row tab tự dựng trong `Mid`), `UI_TabExtensions` trên thanh đó có `_toggleList`/`_objectList` cùng độ dài và controller không tự `AddListener(onValueChanged)` (§3d). |
-| **Cheat** | Task có `[CHEAT]` → mọi cheat button là instance `ButtonNormal` **con trực tiếp** của `ButtonCheatMenu/MenuParent`, cùng width & height `150`, nhãn KHÔNG có `LocalizesUI`, `onClick` trỏ tới một `public Cheat_*` có thật trên Controller (`grep -n "m_MethodName" <your>.prefab`), nút mẫu "Clear data" đã bị xoá/đổi, và `ButtonCheatMenu` không mang override transform nào. Task KHÔNG có `[CHEAT]` → prefab không được mọc thêm nút cheat nào. |
-| **Localize** | Mọi STATIC label có `LocalizesUI` + `LangKey` đăng ký (tái dụng key generic khi có; title = `#[featurename]_title`); mọi DYNAMIC label KHÔNG có `LocalizesUI` (§3b). Không node nào gắn 2 component. **Ngoại lệ:** nhãn cheat trong `ButtonCheatMenu/MenuParent` là dev-only → KHÔNG localize. |
+| **Cheat** | Task có `[CHEAT]` → prefab có một instance `CheatMenu` ở root, mọi cheat button là instance `ButtonCheatTemplate` **con trực tiếp** của `CheatMenu/Menu`, cùng width, nhãn KHÔNG có `LocalizesUI`, `onClick` trỏ tới một `public Cheat_*` có thật trên Controller (`grep -n "m_MethodName" <your>.prefab`), 2 nút mẫu `Add Point`/`Remove Point` đã bị xoá/đổi. Task KHÔNG có `[CHEAT]` → prefab không được mọc thêm nút cheat nào. |
+| **Localize** | Mọi STATIC label có `LocalizesUI` + `LangKey` đăng ký (tái dụng key generic khi có; title = `#[featurename]_title`); mọi DYNAMIC label KHÔNG có `LocalizesUI` (§3b). Không node nào gắn 2 component. **Ngoại lệ:** nhãn cheat trong `CheatMenu/Menu` là dev-only → KHÔNG localize. |
 | **Spec-sheet gate** | Spec-sheet existed before the first Unity mutation (§0c); interactive: user approved it at Checkpoint 0 (§0d). |
 | **Layout groups** | Every row/column/grid of ≥2 siblings is driven by a layout group with spec-sheet spacing/padding (§3e) — no hand-spaced sibling chains. |
 | **Pinned view** | Every checkpoint screenshot was taken at the pinned 1080×1920 Game view (playbook §0). |
