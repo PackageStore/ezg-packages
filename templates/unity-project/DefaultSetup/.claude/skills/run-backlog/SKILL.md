@@ -529,7 +529,7 @@ Set `$PERF_SENSITIVE = true` if ANY `*.cs` file in the diff touches a runtime ho
 
 - A per-frame method (`Update` / `FixedUpdate` / `LateUpdate`) or a loop over a gameplay collection (enemies, projectiles, etc.).
 - Spawn/despawn: `Instantiate(`, `Destroy(`, or object-pool calls — especially under `<gameplayRoot>` (enemies, projectiles, VFX, floating damage text).
-- List / scroll / UI binding or layout: `LoopListView2` binding, `LayoutRebuilder`, per-frame `Canvas`/`SetActive` churn.
+- List / scroll / UI binding or layout: recycling-scroller binding, `LayoutRebuilder`, per-frame `Canvas`/`SetActive` churn.
 - Allocation on a hot path: `new List/Dictionary/HashSet/StringBuilder`, LINQ (`.Where/.Select/.ToList`), or string concatenation in the contexts above.
 - The preflight already flagged a `mobile-performance` rule.
 

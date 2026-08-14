@@ -99,25 +99,23 @@ When the diff adds API calls that require specific namespaces, verify the `using
 
 If the diff touches any system below, read the corresponding SKILL.md to verify in more detail.
 
-**Skill directory names vary by project.** The base packages are shared but each
-project names its skill folders to taste — the notification skill is
-`notification-system` here and `base-notification` on the template. So treat the
+**Skill directory names vary by project.** The names below are the ones this base
+template ships. A project may rename or drop a skill folder, so treat the
 right-hand column as the topic to look for, not a literal path: if it does not
 resolve, list `.claude/skills/` and match by subject. A missing folder means the
 project does not ship that system, which is not a finding.
 
 | Diff touches | Check SKILL.md |
 |---|---|
-| `<sourceRoot>/.../Notification/*` | `.claude/skills/notification-system/SKILL.md` — `BaseNotification` inheritance, notification key registration |
-| `<sourceRoot>/.../UI/*CurrencyPreview*` | `.claude/skills/currency-preview-controller/SKILL.md` |
-| `<sourceRoot>/.../UI/*ItemPreview*` | `.claude/skills/item-preview-controller/SKILL.md` |
+| `<sourceRoot>/.../RedDot/*` / `*Notification*` | `.claude/skills/base-notification/SKILL.md` — `RedDotBadge` inheritance, id registration in `RedDotId` |
+| `<sourceRoot>/.../UI/*CurrencyPreview*` | `.claude/skills/currency-preview/SKILL.md` |
+| `<sourceRoot>/.../UI/*ItemPreview*` | `.claude/skills/item-preview/SKILL.md` |
 | `<sourceRoot>/.../UI/*CooldownTime*` | `.claude/skills/ui-cooldown-time-view/SKILL.md` |
-| `<sourceRoot>/.../LoopListView2*` | `.claude/skills/loop-list-view-2-padding/SKILL.md` — `PaddingTop`/`PaddingBot` usage |
-| `<sourceRoot>/.../Reward*` / `<sourceRoot>/.../Loot*` | `.claude/skills/reward-manager/SKILL.md` |
+| Long / recycling UI lists | `com.ezg.enhanced-scroller` (UPM) — no skill ships for it; read the package before hand-rolling a scroll list |
+| `<sourceRoot>/.../Reward*` / `<sourceRoot>/.../Loot*` | `.claude/skills/rewards-service/SKILL.md` |
 | `<sourceRoot>/.../Purchase*` / `<sourceRoot>/.../IAP*` | `.claude/skills/purchase-manager/SKILL.md` |
 | `<sourceRoot>/.../Backend*` / `*Supabase*` / `*Cloudflare*` | `.claude/skills/backend-communication/SKILL.md` — **read** goes to Supabase, **write** MUST go through Cloudflare Worker |
 | New / modified CSV files | `.claude/skills/csv-config/SKILL.md` |
-| Skill CSV localize_index column | `.claude/skills/skill-csv-localize/SKILL.md` |
 | Task tagged `[CHEAT]`, or diff adds `Cheat_*` methods / `CheatMenu` children | `.claude/skills/feature-cheat/SKILL.md` — see "Cheat" below |
 
 ### Cheat
@@ -135,7 +133,7 @@ Only judge this when the task carries `[CHEAT]` on its `**Guardrails:**` line (o
 ### Localize
 
 - All user-facing text (strings in UI, Notifications, popups) must go through the localize system. Hardcoded Vietnamese/English in code = **block**.
-- New localize keys must have an entry in the Google Sheet (via `/add-localize`). Diff adding a call to `Localize.Get("key.x")` where the key does not exist in the sheet = **warn** (the orchestrator might not know yet, but manual verification will detect it).
+- New localize keys must exist in the localize source sheet, not only in a generated file. Diff adding a call to `Localize.Get("key.x")` where the key does not exist in the sheet = **warn** (the orchestrator might not know yet, but manual verification will detect it).
 
 ### Backend Security
 

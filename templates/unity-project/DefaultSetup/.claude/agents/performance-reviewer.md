@@ -93,7 +93,7 @@ When you cannot determine the context from the diff alone, use `codegraph_caller
 
 - Changing a graphic/layout property (text, size, color, enabling/disabling a graphic) every frame → forces **Canvas rebuild (batching) + layout** → **major/block**.
 - `LayoutRebuilder.ForceRebuildLayoutImmediate` or `Canvas.ForceUpdateCanvases` called per-frame/per-item in a loop → **block**.
-- Long scrolling lists not using the project's recycling list view (`LoopListView2`) — instantiating one cell per data row → **block**.
+- Long scrolling lists not using the project's recycling list view (`com.ezg.enhanced-scroller`) — instantiating one cell per data row → **block**.
 - A single Canvas holding many dynamic elements where a tiny change dirties the whole canvas → **warn** (suggest splitting static vs dynamic into separate canvases).
 - Raycast targets left enabled on non-interactive graphics (text, decorative images) → **minor**.
 
@@ -113,7 +113,7 @@ When you cannot determine the context from the diff alone, use `codegraph_caller
 
 - The hottest surfaces are gameplay battle code under `<gameplayRoot>/` — enemy spawning/waves, enemy AI/movement ticks, and the skill projectiles `<gameplayRoot>/Skills/Skill<ID>/ProjectileSkill<ID>.cs`. Scrutinize these hardest; they run for hundreds of entities per frame.
 - Enemies, projectiles, VFX, and floating damage text are spawned in bulk and continuously — runtime spawns **must** go through object pooling, not raw `Instantiate`/`Destroy`. Raw instantiation in spawn-heavy code is a finding.
-- Long UI lists must use `LoopListView2` (recycling) — see `.claude/skills/loop-list-view-2-padding/SKILL.md`.
+- Long UI lists must recycle cells — use `com.ezg.enhanced-scroller` (UPM) rather than instantiating one cell per row.
 - Localized text lookups should not run every frame — cache the resolved string.
 - `TimeManager` provides game time; reading it is cheap, but do not recompute derived time values every frame.
 
@@ -141,7 +141,7 @@ Return EXACTLY one JSON object as your final message. No prose around it. No cod
       "execution_context": "hot-path" | "frequent-event" | "one-shot" | "unknown",
       "file": "<gameplayRoot>/.../File.cs:42",
       "issue": "what costs what, and how often it runs",
-      "suggestion": "concrete fix (cache it, pool it, move out of Update, use StringBuilder, use LoopListView2, etc.)"
+      "suggestion": "concrete fix (cache it, pool it, move out of Update, use StringBuilder, use a recycling scroller, etc.)"
     }
   ]
 }

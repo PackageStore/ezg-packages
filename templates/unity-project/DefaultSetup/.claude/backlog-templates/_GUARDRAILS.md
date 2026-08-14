@@ -15,7 +15,7 @@ The underlying rules are in `.claude/rules/` (`code-style`, `core-system`, `data
 | `[TIME]` | All time ops use `TimeManager`, NOT `DateTime.Now`. | grep `DateTime.Now` in new files. |
 | `[SAVE]` | Save data via `DataPlayer` / `PlayerDataManager.[Module]`; `SetupDefaultData()` fallback; no `Save()` in Update. For L: include a migration plan for existing users. | Check data class + fallback (+ migration plan for L). |
 | `[ASYNC]` | Uses `UniTask` (no Coroutine, no `async void`, no plain `Task`). | grep `Coroutine\|async void` in new files. |
-| `[LOCALIZE]` | All user-facing text goes through the localize system — no hardcoded strings. **New keys go in via `/add-localize` (which writes the Google Sheet), never by hand-editing `Localization.csv`.** See the note below before touching that file. | grep hardcoded strings in new files; `git diff --staged -- '*Localization.csv'` must show only additions. |
+| `[LOCALIZE]` | All user-facing text goes through the localize system — no hardcoded strings. **New keys go in through the localize pipeline (`com.ezg.localize`: sheet → `LocalizeDownloader` → regenerated `LanguageData` assets), never by hand-editing a generated file.** See the note below before touching that file. | grep hardcoded strings in new files; `git diff --staged -- '*Localization.csv'` must show only additions. |
 | `[EVENT]` | Cross-system communication via `TigerForge` + `EventName` constants. | grep direct method calls between features. |
 | `[DOTWEEN]` | New tweens have `OnComplete`/`Kill`; UI tweens use `SetUpdate(true)`. | Inspect tween calls. |
 | `[DOUBLE-SUBMIT]` | Tapping the action button twice fast → only 1 result. | Tap fast in Play Mode. |
@@ -47,8 +47,11 @@ feature built in tasks 096–115.
 
 **Rules:**
 
-1. **Add new keys with `/add-localize`.** It writes the Sheet (columns A–R, with `GOOGLETRANSLATE`
-   formulas for the other languages). A key added only to the local CSV is a key on a timer.
+1. **Add new keys at the source, not the generated file.** The localize sheet is the source; the CSVs
+   and `LanguageData` assets under `Resources/LocalizationData/{lang}/` are generated from it by
+   `LocalizeDownloader`. A key added only to a generated file is a key on a timer.
+   ⚠️ This project ships no `/add-localize` command — the exact steps depend on the game's localize
+   sheet setup; confirm them before automating.
 2. **Never re-download / "Force Reload all data CSV" as a way to pick up your own new key.** If you
    must re-import, treat it as a merge: keep the freshly downloaded rows, then re-append the
    local-only ones from `git show HEAD:<file>`, and diff the key sets before staging.

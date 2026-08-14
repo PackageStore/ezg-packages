@@ -134,8 +134,14 @@ Assign a sprite: `unity_search_assets` (`type:"Sprite"`/`"Texture2D"`) to get th
 - Legacy `Text` (`componentType:"Text"`): set `m_Text` (string) only.
 - TMP (`componentType:"TextMeshProUGUI"`): `m_text`, `m_fontColor` (Color), `m_fontSize` (float).
 - **`LocalizesUI`** (this repo's localize component — see `new-ui-guide.md` §3b): set the `LangKey`
-  field to `#[featurename]_title` (lowercase, `#` prefix). Then register the key via
-  [add-localize.md](.claude/commands/add-localize.md) — an unregistered key renders the raw key.
+  field to `#[featurename]_title` (lowercase, `#` prefix). Then register the key through the
+  project's localize pipeline (`com.ezg.localize`: add the row to the localize sheet, pull it with
+  `LocalizeDownloader`, regenerate the `LanguageData` assets) — an unregistered key renders raw.
+
+> ⚠️ **Localize naming is pending a rewrite.** This section describes `LocalizesUI` + `LangKey`; the
+> component this template actually ships is `LocalizeHelper` (`_Shared/Localize/LocalizeHelper.cs`)
+> with `Key` + `Category` fields, and `LocalizeCategory` is generated per project. Verify against the
+> real component before wiring, and do not look for an `/add-localize` command — there is none here.
 
 ### Layout groups (layout-group-first — new-ui-guide.md §3e)
 

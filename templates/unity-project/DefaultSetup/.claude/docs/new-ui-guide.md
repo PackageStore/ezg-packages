@@ -164,7 +164,7 @@ Apply the §0 decision (Popup is the default state; Full-screen needs explicit e
 | **STATIC** — caption cố định hiển thị trên UI | Title, button caption (Xác nhận/Hủy/Mua), tier label (Free/Premium), benefit line, badge | PHẢI có `LocalizesUI` + `LangKey` (`#lowercase_key`). Node đã ship sẵn component (Title, `ButtonClose/content`, `TapToCloseText` của `screen_template`) → chỉ set `LangKey`, **không gắn thêm cái thứ hai**. Node từ `TextTemplate` / `ButtonNormal`/`ButtonActive` `content` **không ship sẵn** → `AddComponent<LocalizesUI>` rồi set key. |
 | **DYNAMIC** — text do logic bind lúc runtime | Số lượng/giá trị (gem cost, ticket count), tên/ngày ("Bù điểm danh Ngày 10"), giá IAP từ SDK, countdown | **KHÔNG** có `LocalizesUI` (Awake sẽ clobber text logic vừa set). Node nguồn lỡ có sẵn component → remove nó. |
 
-- **Key: tái dụng trước, tạo mới sau.** Grep `<featuresRoot>/Misc/CsvConfig/Localization.csv` — các key generic có sẵn (`#free`, `#cancel`, `#buy`, `#unlock`…) dùng lại, không đẻ key trùng nghĩa. Key mới theo family `#[featurename]_[element]` (lowercase), đăng ký qua [`add-localize.md`](../workflows/add-localize.md) với VI+EN — key chưa đăng ký hiện raw key lúc runtime.
+- **Key: tái dụng trước, tạo mới sau.** Grep các file localize đã generate (`Assets/_Project/Localize/LocalizationData/{lang}/`) — các key generic có sẵn (`#free`, `#cancel`, `#buy`, `#unlock`…) dùng lại, không đẻ key trùng nghĩa. Key mới theo family `#[featurename]_[element]` (lowercase), đăng ký qua [`add-localize.md`](../workflows/add-localize.md) với VI+EN — key chưa đăng ký hiện raw key lúc runtime.
 - Title mặc định: `Popup/Top/Title` (có sẵn `LocalizesUI`) → `LangKey = #[featurename]_title`. Full-screen không có Title built-in; thêm dưới `FullScreen/Mid` nếu cần.
 - **UI spec là nguồn phân loại:** mỗi text element mang `"localize": "#key"` (static), `"dynamic"`, hoặc `"none"` cho visual glyph — builder gắn đúng theo đó, reviewer Phase C check lại.
 
@@ -181,7 +181,7 @@ Siblings elsewhere break the popup's centered layout (no scaling, no safe-area, 
 
 **A Variant cannot reorder the base's children — so `content` always draws under `Top`.** `Popup`'s child order (`background`, `content`, `Top`, `ButtonClose`) belongs to the base template, and Unity does not let a Prefab Variant override the sibling order it inherits. Task 060 verified this the expensive way: `SetSiblingIndex` on the instance **and** via `LoadPrefabContents` both revert on the asset — it burned a full `ui-visual-reviewer` round whose round-2 verdict was still "badge occluded 33%".
 
-Consequence for the spec-sheet: `Top` renders after `content`, so **anything inside `content` that reaches up into `Top`'s band is drawn underneath it**, no matter what you set. A mockup showing an element (badge, ribbon, hero art) overflowing onto the title bar is not buildable in a Variant. Keep the element fully inside `content` and record the deviation at §0d. Before copying a "precedent" the spec cites, open it — 060's spec pointed at `PremiumPassOfferPopup`, which does not exist in the repo, while the real precedent (`EarlyBirdBadge` in `DailyLoginV2PremiumOffer.prefab`) sits in `content/PurchaseArea` and does **not** overflow either.
+Consequence for the spec-sheet: `Top` renders after `content`, so **anything inside `content` that reaches up into `Top`'s band is drawn underneath it**, no matter what you set. A mockup showing an element (badge, ribbon, hero art) overflowing onto the title bar is not buildable in a Variant. Keep the element fully inside `content` and record the deviation at §0d. Before copying a "precedent" the spec cites, open it — specs routinely name a prefab that does not exist in this repo, and the real precedent usually sits inside `content` and does **not** overflow either.
 
 ### 3d. Template catalog
 
@@ -228,7 +228,7 @@ Nội dung cao hơn khung chứa ⇒ `unity_asset_instantiate_prefab` `ScrollVie
 - Template ships đủ 3 tầng chuẩn `ScrollViewTemplate` (`Image` + `ScrollRect`, vertical, Elastic) → `Viewport` (`Image` + `Mask`) → `Content` (top-stretch, pivot `(0,1)`). Tự gắn tay luôn thiếu tầng Viewport, làm `content` kiêm cả viewport lẫn nền panel.
 - Đặt instance làm con của content container (§3c), anchor `stretch` offsets `0,0,0,0`. Chỉnh 2 override bắt buộc: root `Image` `alpha = 0` (giữ `raycastTarget = true` để bắt drag trên vùng trống), `Viewport.Mask.showMaskGraphic = false`.
 - `Content` là nơi gắn `VerticalLayoutGroup`/`GridLayoutGroup` + `ContentSizeFitter` (`PreferredSize` trên trục cuộn) — **không** tạo thêm một node `Column` trung gian.
-- List dài, số item do CSV/runtime quyết định, hoặc cần recycle → dùng `ScrollLoopTemplate` (`LoopListView2`, xem skill `loop-list-view-2-padding`) thay vì `ScrollViewTemplate`.
+- List dài, số item do CSV/runtime quyết định, hoặc cần recycle → dùng `ScrollLoopTemplate` (recycling qua `com.ezg.enhanced-scroller`) thay vì `ScrollViewTemplate`.
 - Verify: `m_SourcePrefab.guid: 8eb29c9ddda20e949a8fbcc106b669b1` tồn tại trong prefab, và **không** `ScrollRect`/`RectMask2D` nào nằm ngoài một instance scroll-template. Task 064 (StageOverview) ship đúng lỗi này và lọt hết mọi gate vì luật này chưa tồn tại.
 
 #### Tab điều hướng — bắt buộc nằm trong `Bot/TabBottomTemplate`, CẤM dựng row tab trong `Mid`

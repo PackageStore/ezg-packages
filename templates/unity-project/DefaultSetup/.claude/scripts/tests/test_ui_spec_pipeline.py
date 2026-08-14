@@ -257,7 +257,7 @@ class UISpecPipelineTests(unittest.TestCase):
 
     def test_scroll_template_as_element_is_blocking(self):
         # Elements hold no children — a ScrollViewTemplate element would strand the
-        # scrolled body outside its Viewport/Content (the StageOverview defect).
+        # scrolled body outside its Viewport/Content (the scrolled-body-outside-viewport defect).
         spec = valid_spec()
         spec["containers"][2]["children"] = ["BuyButton", "ScrollBox"]
         spec["elements"].append({
@@ -288,7 +288,7 @@ class UISpecPipelineTests(unittest.TestCase):
         self.assertTrue(any(e["code"] == "scroll_value" for e in result["errors"]), result)
 
     def section_spec(self):
-        """Popup whose body is a titled info block (StageOverview / DungeonGuide pattern)."""
+        """Popup whose body is a titled info block (titled-block pattern)."""
         spec = valid_spec()
         spec["containers"][2]["gap"] = 40
         spec["containers"][2]["children"] = ["BuyButton", "loreSection"]
@@ -346,7 +346,7 @@ class UISpecPipelineTests(unittest.TestCase):
         self.assertIn("section_localize", codes)
 
     def test_tight_section_geometry_warns_without_blocking(self):
-        # The DungeonGuide fix: the pill hangs 30px above its frame, so a tight parent gap
+        # The titled-block fix: the pill hangs 30px above its frame, so a tight parent gap
         # or a shallow padding.top puts the title on top of neighbouring content.
         spec = self.section_spec()
         spec["containers"][2]["gap"] = 18
@@ -386,7 +386,7 @@ class UISpecPipelineTests(unittest.TestCase):
         self.assertIn('data-tabbar="true"', markup)
 
     def test_tab_toggles_outside_a_tabbar_container_are_blocking(self):
-        # The DungeonGuide defect: a hand-made tabRow inside Mid while the shipped
+        # The hand-made-tab-row defect: a hand-made tabRow inside Mid while the shipped
         # FullScreen/Bot TabBottomTemplate stays inactive.
         spec = fullscreen_tab_spec()
         spec["containers"] = [c for c in spec["containers"] if c["id"] != "tabBar"]

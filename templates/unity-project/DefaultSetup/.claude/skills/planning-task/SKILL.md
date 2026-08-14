@@ -81,7 +81,7 @@ Some `/new-*` workflows in `.claude/commands/` already specify a scaffold **dete
 | Create a new **UI prefab** from `screen_template.prefab` | `/new-ui` | S–M | no |
 | Create a new **class** following `FeatureBaseController` conventions | `/new-class` | S | no |
 
-> `/add-localize` is **not** a standalone WF task: it writes to a Google Sheet and produces **no local git diff**, so `run-backlog` would stop with `NO_CHANGES`. Treat localize as a sub-step folded into the parent feature task (the workflow / custom delta references it), never as its own backlog task.
+> Localize key registration is **not** a standalone WF task: it writes to the localize sheet and produces **no local git diff**, so `run-backlog` would stop with `NO_CHANGES`. Treat localize as a sub-step folded into the parent feature task (the workflow / custom delta references it), never as its own backlog task.
 
 > `/new-ui` tasks carry a **mockup ground truth** in `**Workflow args:**` (`FeatureName | groundTruth=...`) — resolved in STEP 2 item 2b via the mockup pipeline (`mockup-drafter` subagent + automatic `ui-review.py auto-approve`). Building UI from a text description alone is the documented main visual-failure mode (new-ui-guide.md §0a); the mockup is the cheap-medium design pass the Unity build later copies.
 

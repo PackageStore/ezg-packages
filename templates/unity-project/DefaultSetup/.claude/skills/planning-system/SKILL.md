@@ -109,7 +109,7 @@ Khi chạy: subagent theo [.claude/docs/design-pipeline/03-gdd-final.md](../../d
 3. **§10.2/10.3/10.5/10.7** → cắt đúng các dòng thuộc từng sub-feature, sẽ paste vào body task tương ứng (đường dẫn số liệu từ TechSpec vào task — implementer không phải bịa lại).
 4. **§10.6 Dependency Graph** → thứ tự topo cho code items; UI items nối đuôi. Gán `NN` = 01..N theo thứ tự này. UI screens cũng phải nằm trong graph — thiếu thì tự suy từ "screen thuộc feature nào".
 5. **Ownership map:** mỗi deliverable (class/CSV/prefab/EventName) thuộc đúng MỘT item; item khác chỉ *reference*. Map này inject vào mọi prompt task-planner và dùng cho sweep cuối Stage 3.
-6. **Localize:** KHÔNG bao giờ là task riêng (`/add-localize` không tạo git diff → run-backlog chết `NO_CHANGES`) — fold thành criterion trong task feature sở hữu string.
+6. **Localize:** KHÔNG bao giờ là task riêng (đăng ký key không tạo git diff → run-backlog chết `NO_CHANGES`) — fold thành criterion trong task feature sở hữu string.
 7. **Fan-out cap:** >10 HYBRID item → chia wave ≤10, chạy wave tuần tự. >20 item tổng → dừng hỏi user có nên chia phase nhỏ hơn không.
 
 ## STAGE 3 — Ground (batch-write)

@@ -79,7 +79,7 @@ Return ONE JSON object as the final message:
     "apk_size": "none | new-assets — mitigation: ...",
     "draw_call": "none | new-ui-or-vfx — mitigation: ...",
     "save_data": "none | adds-field — mitigation: SetupDefaultData() fallback + migration plan",
-    "localize": "none | new-strings — mitigation: add key via /add-localize",
+    "localize": "none | new-strings — mitigation: register the key in the localize pipeline",
     "backend_write": "none | writes-supabase — mitigation: route through Cloudflare Worker",
     "csv_config": "none | new-balance-values — mitigation: place in appropriate CSV"
   },
