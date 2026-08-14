@@ -58,7 +58,7 @@ Một số intent không phải là "một task" mà là **cả một hệ thố
 1. **Quy mô doc/hệ thống** — ít nhất một trong:
    - Input là cả một GDD/design doc nhiều section (không phải một thay đổi scoped), hoặc user ném file doc và bảo "làm feature này".
    - Intent tạo **≥2 feature module MỚI tương tác với nhau** (không phải sửa module có sẵn).
-2. **KHÔNG diễn đạt được thành MỘT task workflow-backed** — chạy registry match của STEP 0a trước như tie-break: nếu intent khớp trọn một dòng registry (vd. một package IAP lẻ → `/new-package`, một skill lẻ → `/new-skill`) thì **0b NHƯỜNG 0a**, kể cả khi intent chạm economy/IAP. Chạm economy đơn thuần KHÔNG đủ để kích 0b — nó chỉ là tín hiệu tier (auto-bump M) như hiện tại.
+2. **KHÔNG diễn đạt được thành MỘT task workflow-backed** — chạy registry match của STEP 0a trước như tie-break: nếu intent khớp trọn một dòng registry (vd. một package IAP lẻ → `/new-package`, một màn UI lẻ → `/new-ui`) thì **0b NHƯỜNG 0a**, kể cả khi intent chạm economy/IAP. Chạm economy đơn thuần KHÔNG đủ để kích 0b — nó chỉ là tín hiệu tier (auto-bump M) như hiện tại.
 
 **Idempotency (bắt buộc probe trước khi dispatch):** Glob `TechSpec/<FeatureName>-*.md`. Nếu artifact đã tồn tại → hệ thống này từng qua pipeline; KHÔNG chạy lại từ đầu — dispatch `/planning-system` ở **chế độ resume** (`--from-mapping TechSpec/<FeatureName>-Implementation.md` nếu mapping đã có, hoặc từ stage đầu tiên còn thiếu). Nói rõ với user đang resume từ stage nào.
 
@@ -78,9 +78,6 @@ Some `/new-*` workflows in `.claude/commands/` already specify a scaffold **dete
 |---|---|---|---|
 | Create a new **feature module** (controller + manager, optional save/CSV) | `/new-feature` | M (L if it adds a save field + cross-system events) | yes if it adds a `DataPlayer` field |
 | Create a new **IAP package** (PascalCase, ends with `Pack`) | `/new-package` | M | **yes** (IAP/purchase) |
-| Create a new **player skill** (ID 1–5999) | `/new-skill` | M | no |
-| Create a new **enemy/boss skill** (ID 6000–6999) | `/new-enemy-skill` | M | no |
-| Create a **COMPLETE enemy** end-to-end (animation + prefab + skills + `Enemies.csv` + localize) | `/new-enemy` | L | no |
 | Create a new **UI prefab** from `FeatureTemplate.prefab` | `/new-ui` | S–M | no |
 | Create a new **class** following `FeatureBaseController` conventions | `/new-class` | S | no |
 
@@ -162,8 +159,8 @@ Do not ask questions that can be answered by grepping/reading the codebase.
 
 This is the token-saving path. Do **NOT** spawn `task-planner`. Do **NOT** grep/read feature code.
 
-1. Read **only** the matched workflow file in `.claude/commands/` (e.g. `new-skill.md`).
-2. Build the `**Workflow args:**` string in the exact format that workflow's arg parser expects (e.g. `/new-skill` wants `SkillId: Description`; `/new-package` wants `PackageName: Description`, PascalCase ending in `Pack`).
+1. Read **only** the matched workflow file in `.claude/commands/` (e.g. `new-package.md`). Every row in the registry above must resolve to a real file there — if it does not, the row is stale: report it instead of routing to it.
+2. Build the `**Workflow args:**` string in the exact format that workflow's arg parser expects (e.g. `/new-package` wants `PackageName: Description`, PascalCase ending in `Pack`; `/new-feature` wants `FeatureName: Description`).
 
    **2b — `/new-ui` only: resolve `groundTruth` (mockup pipeline).** Append ` | groundTruth=<value>`:
    - User supplied a reference image path → that path (`Read` once to confirm it exists).

@@ -16,10 +16,10 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
 
 **Required skills:** <`/compile-check` for code-touching tasks; add `/new-ui` when `Backed by workflow` is `/new-ui`>
 
-**Backed by workflow:** `/new-skill`
-<!-- one of: /new-feature | /new-package | /new-skill | /new-enemy-skill | /new-ui | /new-class -->
+**Backed by workflow:** `/new-package`
+<!-- one of: /new-feature | /new-package (IAP pack) | /new-ui | /new-class -->
 
-**Workflow args:** `15: Skill fires 3 homing bullets`
+**Workflow args:** `WeeklyGemPack: Weekly gem bundle with bonus rewards`
 <!-- the EXACT args string run-backlog will feed the workflow's {{args}} / arg parser.
      /new-ui tasks MUST append the mockup-pipeline ground truth after the feature name:
        `FeatureName | groundTruth=TechSpec/Mockups/<F>/<S>.png`   approved mockup (via /ui-mockup)
@@ -51,7 +51,7 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
 - <anything the workflow does NOT generate that this task still needs, e.g. "wire the new skill into evolution pool X", "balance value Y in CSV", "extra event Z">
 - <CHEAT (/new-feature, /new-package, /new-ui): list each cheat as `name · label · method`, e.g. `NextDay · "+1 day" · Cheat_NextDay`. A cheat list here is still a PURE scaffold task — it is a dev affordance on the scaffold's own prefab/controller, not cross-system logic. Pattern: .claude/skills/feature-cheat/SKILL.md>
 
-**Guardrails:** <tags per `.claude/backlog-templates/_GUARDRAILS.md`. `/new-feature`, `/new-package`, `/new-ui` tasks MUST resolve `[CHEAT]` one way or the other — either the tag is here with the cheat list above, or `**Guardrails skipped:** cheat (<reason ≥10 chars>)`. Omit this line entirely for scaffolds with no applicable tag (`/new-skill`, `/new-class`).>
+**Guardrails:** <tags per `.claude/backlog-templates/_GUARDRAILS.md`. `/new-feature`, `/new-package`, `/new-ui` tasks MUST resolve `[CHEAT]` one way or the other — either the tag is here with the cheat list above, or `**Guardrails skipped:** cheat (<reason ≥10 chars>)`. Omit this line entirely for scaffolds with no applicable tag (`/new-class`).>
 
 **Completion criteria** (lift the workflow's own checklist, then append delta criteria):
 - [ ] Workflow checklist fully satisfied | Verify: run through the workflow's "CHECKLIST" / "FINAL CHECKLIST" section item by item

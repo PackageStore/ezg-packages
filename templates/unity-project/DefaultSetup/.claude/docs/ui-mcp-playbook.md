@@ -6,7 +6,7 @@ description: Reference doc (not a command) — executable Unity MCP layer for th
 
 This is the **executable layer** shared by [new-ui.md](../workflows/new-ui.md) (via
 [new-ui-guide.md](new-ui-guide.md)) and the Package branch of
-[new-package.md](../workflows/new-package.md) (via [new-package-guide.md](new-package-guide.md)).
+[/new-package](../commands/new-package.md) (via [new-package-guide.md](new-package-guide.md)).
 The guides decide *what* to build (template, layout mode, containment, catalog); this file is the
 deterministic *how* — the exact Unity MCP tool sequence, property paths, value formats, reference
 wiring, and the screenshot verify loop.

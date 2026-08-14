@@ -8,8 +8,6 @@ This document provides guidance on selecting the most appropriate AI model for e
 |----------|-------------------|-----------|
 | **/format-code** | **Gemini 3 Flash** | Simple, repetitive task focusing on code structure and XML documentation. Fast and quota-efficient. |
 | **/new-class** | **Gemini 3 Flash** | Boilerplate generation based on a clear template. Requires minimal reasoning. |
-| **/new-enemy-skill** | **Gemini 3 Pro (Low)** / **Claude Sonnet** | Moderate complexity. Needs to follow specific patterns and read documentation. |
-| **/new-skill** | **Claude Sonnet** | High complexity due to multiple CSV configurations and detailed documentation requirements. |
 | **/new-feature** | **Claude Sonnet (Thinking)** | Highest complexity. Requires architectural reasoning, multi-file creation, and deep system integration. |
 | **/new-package** | **Claude Sonnet** / **Thinking** | complex setup involving data models, controllers, and managers. Thinking mode recommended for complex packages. |
 | **/new-ui** | **Gemini 3 Pro (Low)** | Assembly-focused task using existing prefab templates with predictable scripting requirements. |
@@ -22,7 +20,7 @@ This document provides guidance on selecting the most appropriate AI model for e
 
 ### 🔧 Tier 2: Standard Development (**Claude Sonnet**)
 - **Usage**: Implementing features with clear patterns, standard logic, and well-defined requirements.
-- **Project Examples**: `/new-skill`, `/new-package`, most ad-hoc coding requests.
+- **Project Examples**: `/new-package`, `/new-class`, most ad-hoc coding requests.
 
 ### 🧠 Tier 3: Complex Reasoning (**Claude Sonnet Thinking**)
 - **Usage**: Designing new systems, handling complex integrations, or when requirements are large and detailed.

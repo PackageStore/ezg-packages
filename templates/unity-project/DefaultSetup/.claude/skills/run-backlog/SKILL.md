@@ -148,7 +148,7 @@ Extract from the task file:
 
 ### 1b. Requires gate (only when the task declares `**Requires:**`)
 
-Currently one requirement token is defined: `unity-editor` (the task authors prefabs / needs a live Editor, e.g. `/new-ui`- and `/new-enemy`-backed tasks).
+Currently one requirement token is defined: `unity-editor` (the task authors prefabs / needs a live Editor, e.g. `/new-ui`- and `/new-package`-backed tasks).
 
 #### 0. Worktree mode short-circuit — do NOT probe
 
@@ -338,7 +338,7 @@ DO NOT skip this step. This project's conventions are strict — violations will
 
 If STEP 1 found a `**Backed by workflow:**` line, the scaffold is specified deterministically by a `/new-*` workflow — do NOT re-derive it free-form.
 
-1. **Read the workflow file inline**: `.claude/commands/<name>.md` (e.g. `new-skill.md`). Follow its steps **inline as instructions** — do NOT invoke it as a slash command (you are already mid-orchestration; the Skill tool would fork the flow). Read any reference files / docs the workflow points to (e.g. `FeatureBaseController.cs`, `skill-functions-*.md`, the example features it names).
+1. **Read the workflow file inline**: `.claude/commands/<name>.md` (e.g. `new-package.md`). If that file does not exist, STOP with `WORKFLOW_MISSING` — do not improvise a scaffold the workflow was supposed to define. Follow its steps **inline as instructions** — do NOT invoke it as a slash command (you are already mid-orchestration; the Skill tool would fork the flow). Read any reference files / docs the workflow points to (e.g. `FeatureBaseController.cs`, the guide it names, the example features it names).
 1b. **Context docs as 0th-priority workflow input:** if `$CONTEXT_DOCS` includes a `TechSpec/<Name>-Implementation.md`, treat it as the workflow's structured input — for `/new-feature` this IS the "TechSpec attached file" its step 2 gives 0th priority (sections 10.1–10.7 drive Sub-Features, Save Data, CSV Columns, Events, Registration Points). Use the mapping rows already pasted in the task body first; open the full doc when they lack a detail.
 2. **Execute the workflow** using `$WF_ARGS` as its `{{args}}` / argument input. Generate exactly the files, registrations, and conventions the workflow prescribes (controller/manager, `PlayerDataManager`/`CsvAssetDir`/`DataManagerAutoGenerate` registrations, the right CSVs, naming rules, ID ranges, etc.). Honor every "DO NOT" the workflow states (e.g. enemy skills do NOT touch `SkillAffectConfig.csv`/`SkillInfo.csv`). If the `**Custom delta:**` says a workflow step is deferred to another queued task (e.g. "SKIP workflow step 8 — prefab is task NN"), skip that step and note it in the DONE summary instead of executing it.
 3. **Apply the `**Custom delta:**`** from the task body (the logic/wiring/balance beyond the scaffold). For a pure scaffold the delta is `none` — **except a cheat list** (`name · label · method`), which is a legal delta on a pure scaffold; implement it per the cheat bullet below.

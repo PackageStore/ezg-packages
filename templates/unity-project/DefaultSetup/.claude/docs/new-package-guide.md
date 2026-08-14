@@ -1,10 +1,13 @@
 ---
-description: Decision + code-gen layer for /new-package — args, references, directory, Model/Collection/Manager/Controller, DataManager/IAP registration, CSV, UI handoff, checklist. Loaded by .claude/commands/new-package.md. UI MCP details live in new-ui-guide.md + ui-mcp-playbook.md.
+description: Decision + code-gen layer for /new-package (IAP shop pack feature) — args, references, directory, Model/Collection/Manager/Controller, DataManager/IAP registration, CSV, UI handoff, checklist. Loaded by .claude/commands/new-package.md. UI MCP details live in new-ui-guide.md + ui-mcp-playbook.md. NOT about UPM packages — that is /package-module.
 ---
 
 # New Package Guide (IAP package feature)
 
-This is the **what-to-build** layer for [`new-package.md`](../workflows/new-package.md). UI prefab work is delegated to `/new-ui` ([new-ui-guide.md](new-ui-guide.md) + [ui-mcp-playbook.md](ui-mcp-playbook.md)).
+This is the **what-to-build** layer for [`/new-package`](../commands/new-package.md). UI prefab work is delegated to `/new-ui` ([new-ui-guide.md](new-ui-guide.md) + [ui-mcp-playbook.md](ui-mcp-playbook.md)).
+
+> "Package" here means an **IAP shop offer pack** — a feature inside this game. Extracting C# out of
+> `Assets/` into a reusable **UPM package** is a different workflow: [`/package-module`](../commands/package-module.md).
 
 CSV conventions: always read [`.claude/skills/csv-config/SKILL.md`](../skills/csv-config/SKILL.md) before writing package CSV.
 

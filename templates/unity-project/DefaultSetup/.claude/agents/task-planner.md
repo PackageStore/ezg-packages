@@ -26,7 +26,7 @@ Constraints: <constraints>
 
 Read the codebase sufficiently to produce a draft spec. **DO NOT implement. DO NOT modify files.** Terse — JSON only, no chain-of-thought prose, ≤2000 tokens.
 
-**Workflow-backed HYBRID tasks:** if the prompt says the scaffold is handled by a `/new-*` workflow (e.g. *"scaffold handled by /new-skill — plan the delta only"*), you are being spawned ONLY to plan the custom logic/wiring/balance **beyond** the scaffold. Do NOT list the workflow's scaffold files in `files_to_touch`, do NOT re-derive its registrations/conventions — those are the workflow's job. Plan only the delta. Pure scaffolds never reach you (the skill skips the subagent for those).
+**Workflow-backed HYBRID tasks:** if the prompt says the scaffold is handled by a `/new-*` workflow (e.g. *"scaffold handled by /new-package — plan the delta only"*), you are being spawned ONLY to plan the custom logic/wiring/balance **beyond** the scaffold. Do NOT list the workflow's scaffold files in `files_to_touch`, do NOT re-derive its registrations/conventions — those are the workflow's job. Plan only the delta. Pure scaffolds never reach you (the skill skips the subagent for those).
 
 ## Code lookup — prefer CodeGraph
 
