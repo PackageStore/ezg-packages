@@ -30,11 +30,13 @@ Create under `Assets/_Project/Features/<Domain>/` (Domain ∈ `Meta, Monetizatio
 [FeatureName]/
 ├── Scripts/
 │   ├── Controller/   # [FeatureName]Controller (FeatureBaseController) + static [FeatureName]Service
-│   └── Data/         # [FeatureName]PlayerData, [FeatureName]Model, [FeatureName]Collection
+│   └── Data/         # [FeatureName]PlayerData, [FeatureName]Model, [FeatureName]Collection, [FeatureName]EventName
 ├── CsvConfig/        # [FeatureName].csv (if Model/Collection needed)
 ├── Visuals/          # Art assets
 └── Resources/        # Prefabs / screens
 ```
+`Controller/` + `Data/` is the **complete** vocabulary — never create `Service/`, `Config/` or `Events/`
+sub-folders. Service lives in `Controller/`; Model/Collection **and** EventName live in `Data/`.
 
 ## 5. CODE GENERATION
 ### A. [FeatureName]Controller.cs (Controller/)
@@ -65,8 +67,11 @@ Create under `Assets/_Project/Features/<Domain>/` (Domain ∈ `Meta, Monetizatio
 - NO `[CreateAssetMenu]`, NO custom load function (auto-loaded by `com.ezg.csv-reader`).
 - Expose on the `DataManager` facade (`_Shared/GameData/DataManager.cs`); read via `DataManager.[FeatureName]`.
 
-### E. Events — if the feature emits/listens cross-system
-- Use TigerForge `EventManager` with `EventName` constants (read `.claude/skills/event-manager/SKILL.md`). No hardcoded event strings.
+### E. [FeatureName]EventName.cs (Data/) — if the feature emits/listens cross-system
+- File path: `Scripts/Data/[FeatureName]EventName.cs` — **no `Events/` folder**.
+- `public static partial class EventName { ... }` — the feature's own partial; never grow the shared
+  `_Shared/Systems/SystemEventName.cs`.
+- Use TigerForge `EventManager` with those `EventName` constants (read `.claude/skills/event-manager/SKILL.md`). No hardcoded event strings.
 
 ## 6. CSV DATA FILE — if Model/Collection exists
 📖 MUST READ `.claude/skills/csv-config/SKILL.md`.
@@ -85,7 +90,8 @@ If any `.cs` file was created/edited, run `/compile-check` before reporting done
 - [ ] Service is static; dependency direction respected.
 - [ ] (If persisting) PlayerData inherits `DataPlayerBaseGeneric<T>`, registered in `PlayerDataManager.cs`, defaults in `SetupDefaultData()`.
 - [ ] (If config) Collection has `dataGroups`, exposed on `DataManager`, CSV in `CsvConfig/`.
-- [ ] (If cross-system) events via TigerForge + `EventName` constant.
+- [ ] (If cross-system) events via TigerForge + `EventName` constant, partial in `Data/[FeatureName]EventName.cs`.
+- [ ] No `Service/`, `Config/` or `Events/` sub-folder created — only `Controller/` and `Data/`.
 - [ ] (If UI) `/new-ui [FeatureName]` invoked → screen prefab + `GameEnums.Features` registered.
 - [ ] Compile check passed (or skipped with reason).
 - [ ] List all `TODO` comments + summarize created files.

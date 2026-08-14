@@ -102,8 +102,8 @@ EventManager.StopListening(EventName.SomeName, handler);
 
 `EventName` is one `partial class` assembled from many files. Shared/system constants live in
 `Features/_Shared/Systems/SystemEventName.cs` + `EventNameCompat.cs`; every feature adds its own
-partial in `Features/{Domain}/{Feature}/Scripts/Events/{X}EventName.cs` (or `Scripts/Controller/`
-for the older ones) instead of growing the shared file.
+partial in `Features/{Domain}/{Feature}/Scripts/Data/{X}EventName.cs` (older features keep theirs in
+`Scripts/Controller/`) instead of growing the shared file. There is no `Scripts/Events/` folder.
 
 ### Async
 
@@ -156,8 +156,9 @@ someAsyncTask.Forget(); // fire-and-forget
 
 **There is no gameplay bucket yet** — this is a template. A new project creates its own
 (e.g. `Features/Gameplay/`, `Features/Combat/`…) and mirrors the standard feature layout
-(`Scripts/Controller`, `Scripts/Data`, `Scripts/Service`, `Scripts/Config`, `Scripts/Events`,
-`CsvConfig/`, `Resources/`, `Visuals/`). Never put single-feature code in `_Shared/`.
+(`Scripts/Controller` = controller + static Service, `Scripts/Data` = player data + CSV model/collection
++ EventName, plus `CsvConfig/`, `Resources/`, `Visuals/` — those two are the only `Scripts/` sub-folders).
+Never put single-feature code in `_Shared/`.
 
 Scenes shipped: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `BattleScene.unity`
 (empty placeholder for the game scene).
