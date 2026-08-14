@@ -136,6 +136,11 @@ namespace Ezg.Tracking
         /// <param name="value">The optional numeric value attached to the event.</param>
         public static void SendGameAnalyticsDesign(string eventId, float? value = null)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             string safeId = GameAnalyticsEventId.Sanitize(eventId);
             if (safeId == null)
             {
@@ -154,6 +159,11 @@ namespace Ezg.Tracking
         /// <param name="parts">The event-id parts, in order.</param>
         public static void SendGameAnalyticsDesignParts(float? value, params string[] parts)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             string safeId = GameAnalyticsEventId.Join(parts);
             if (safeId == null)
             {
@@ -179,6 +189,11 @@ namespace Ezg.Tracking
         public static void SendGameAnalyticsProgression(GaProgressionStatus status, string progression01,
             string progression02 = null, string progression03 = null, int? score = null)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             string safe01 = GameAnalyticsEventId.SanitizePart(progression01);
             if (safe01 == null)
             {
@@ -215,6 +230,11 @@ namespace Ezg.Tracking
         public static void SendGameAnalyticsBusiness(string currency, int amountInCents, string itemType,
             string itemId, string cartType = null)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             if (string.IsNullOrEmpty(currency))
             {
                 Debug.LogWarning("[TrackingService] GameAnalytics business event skipped — currency is empty.");
@@ -257,6 +277,11 @@ namespace Ezg.Tracking
         public static void SendGameAnalyticsResource(GaResourceFlow flow, string currency, float amount,
             string itemType, string itemId)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             if (!(amount > 0f))
             {
                 // GameAnalytics rejects zero/negative amounts; callers pass magnitude plus a flow direction.
@@ -287,6 +312,11 @@ namespace Ezg.Tracking
         public static void SendGameAnalyticsAd(GaAdAction action, GaAdType adType, string adSdkName,
             string adPlacement)
         {
+            if (!CanSendGameAnalytics)
+            {
+                return;
+            }
+
             string safeSdk = GameAnalyticsEventId.SanitizePart(adSdkName);
             string safePlacement = GameAnalyticsEventId.SanitizePart(adPlacement);
 
@@ -307,7 +337,7 @@ namespace Ezg.Tracking
         /// <param name="message">The error message; truncated by the SDK past 8192 characters.</param>
         public static void SendGameAnalyticsError(GaErrorSeverity severity, string message)
         {
-            if (string.IsNullOrEmpty(message))
+            if (!CanSendGameAnalytics || string.IsNullOrEmpty(message))
             {
                 return;
             }
@@ -320,19 +350,29 @@ namespace Ezg.Tracking
         #region Private Methods
 
         /// <summary>
-        ///     Routes one already-validated call to the sink, or queues it when the sink is missing or not ready
-        ///     yet.
+        ///     Whether it is worth building an event at all.
+        ///     <para>
+        ///         Checked <b>before</b> any sanitizing so that a project without GameAnalytics pays nothing: no
+        ///         string building, no closure, no queue growth. The sink is registered at
+        ///         <see cref="UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad" />, i.e. before any scene code
+        ///         runs, so a null sink here means the SDK is absent rather than late.
+        ///     </para>
+        /// </summary>
+        private static bool CanSendGameAnalytics => IsTracking && GameAnalyticsSink != null;
+
+        /// <summary>
+        ///     Routes one already-validated call to the sink, or queues it while the sink is still initializing.
         /// </summary>
         private static void Dispatch(Action<IGameAnalyticsSink> call)
         {
-            if (!IsTracking)
+            IGameAnalyticsSink sink = GameAnalyticsSink;
+
+            if (sink == null || !IsTracking)
             {
                 return;
             }
 
-            IGameAnalyticsSink sink = GameAnalyticsSink;
-
-            if (sink != null && sink.IsReady)
+            if (sink.IsReady)
             {
                 FlushGameAnalyticsQueue(sink);
                 Invoke(sink, call);

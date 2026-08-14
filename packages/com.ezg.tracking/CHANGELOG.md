@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-08-14
+
+### Fixed
+- **A project without GameAnalytics now really does pay nothing.** 0.2.0 claimed the GameAnalytics calls were no-ops when the SDK is absent, but they still sanitized their arguments (building strings) and then queued a closure that nothing would ever drain — so a game with no GameAnalytics burned allocations on every resource/design event and held 128 dead closures forever. Every sender now checks for a registered sink before doing any work, and the replay queue is only used when a sink exists but has not finished initializing. No behaviour change for projects that do have the SDK.
+
 ## [0.2.0] - 2026-08-13
 
 Adds GameAnalytics as a third sink, alongside Firebase and AppsFlyer. Purely additive — existing call sites and behaviour are untouched.
