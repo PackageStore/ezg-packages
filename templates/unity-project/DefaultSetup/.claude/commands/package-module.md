@@ -18,7 +18,7 @@ This workflow is a thin entry point — the full, deterministic procedure lives 
 - Takes one **specified module folder** (e.g. `Assets/_Project/Features/_Shared/<Module>`) and builds a clean, standards-compliant **UPM package** from it.
 - **Non-destructive**: the module stays in `Assets/` and keeps compiling.
 - Commits + pushes the package **straight to the `main` branch of the monorepo** (`ezg-packages`), at `packages/com.ezg.<name>/`. Pushing to `main` triggers GitHub Actions → `validate.mjs` → `publish.mjs`, which signs the tarball with `upm pack` and uploads it to the **Easygoing** scoped registry on Cloudflare R2. **No feature branch, no PR.**
-- Cross-platform (Windows PowerShell + macOS zsh/bash). GitHub PAT is provided out-of-band, never committed.
+- Cross-platform (Windows PowerShell + macOS zsh/bash). Authenticates over **SSH**; if not set up on this machine yet, auto-invokes `/setup-package-push` inline (no need to run it separately first — its only interactive step is a one-time browser approval). Falls back to a GitHub PAT provided out-of-band, never committed, only if SSH auto-onboarding can't complete.
 - Required input: `MODULE_PATH`. Other config (`PACKAGE_SCOPE=com.ezg`, `REGISTRY_URL`, `MONOREPO_REMOTE`, `UNITY_VERSION=2022.3`) has defaults — confirm on first run.
 - To only PLAN without writing to the monorepo, run the skill's STEP 0–3.
 

@@ -1,6 +1,6 @@
 ---
 name: package-module
-description: Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
+description: Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Authenticates to the monorepo over SSH; if SSH isn't set up on this machine, auto-invokes the /setup-package-push skill inline (one human step: gh auth login's browser approval) instead of stopping — falling back to a GitHub PAT only if that can't complete. Used when the user says "đóng module X thành package UPM" / "package this module" / "đẩy module X lên registry" / "extract X to a UPM package". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.
 ---
 
 # Package Module — UPM Extraction → `ezg-packages` monorepo `main` Agent
@@ -27,7 +27,7 @@ MONOREPO_PATH    = user-specified (or env MONOREPO_PATH), default per OS:
                    Windows:      %USERPROFILE%\ezg-packages
                    macOS/Linux:  $HOME/ezg-packages
                    # If a clone already exists at this path, use it in place; only auto-clone if it is missing
-PAT_FILE         = user-specified (or env EZG_PACKAGES_PAT_FILE), default per OS:
+PAT_FILE         = fallback only, used when SSH isn't set up — user-specified (or env EZG_PACKAGES_PAT_FILE), default per OS:
                    Windows: %LOCALAPPDATA%\ezg-packages.pat
                    macOS:   $HOME/Library/Application Support/ezg-packages/ezg-packages.pat
                    Linux:   ${XDG_CONFIG_HOME:-$HOME/.config}/ezg-packages/ezg-packages.pat
@@ -42,51 +42,47 @@ UNITY_VERSION    = user-specified (explicit value takes priority); default **202
 
 Snippets are provided for both **macOS/Linux (zsh/bash)** and **Windows (PowerShell)** — use the one matching the current machine. The game repo is always the current working directory — never a hardcoded path. Only the monorepo has an OS-specific default: `%USERPROFILE%\ezg-packages` on **Windows**, `$HOME/ezg-packages` on **macOS/Linux**. Quote every path. Do not use `%LOCALAPPDATA%` or backslash path examples on macOS.
 
-### GitHub PAT — provided OUT-OF-BAND (never in this file)
+### Git authentication — SSH first, PAT fallback
 
-This skill file is committed to git, so the PAT must **never** be written here. The token is read at runtime from a source that is NOT tracked by git, in this priority order:
+Resolved once per run, at STEP 4.0 (exact code there — this is the summary):
 
-1. **Environment variable `EZG_PACKAGES_PAT`** (preferred — set it once per machine):
-   ```powershell
-   # Windows PowerShell
-   setx EZG_PACKAGES_PAT "<your-token>"     # persists for future shells; reopen the terminal afterward
-   ```
-   ```bash
-   # macOS zsh/bash, current shell
-   export EZG_PACKAGES_PAT='<your-token>'
-   # To persist, add the export line to ~/.zshrc (or your shell profile) outside this repo.
-   ```
-2. **A local secret file outside the repo** (fallback): `PAT_FILE` containing only the token on one line.
+1. **SSH (preferred).** If `ssh -T git@github.com` reports "successfully authenticated", use the
+   SSH remote `git@github.com:PackageStore/ezg-packages.git` directly. No token to inject,
+   nothing to scrub from `origin` afterward.
+   - **Not set up on this machine yet? Auto-fix it, don't just tell the user.** At STEP 4.0,
+     when the SSH test fails, **invoke the `setup-package-push` skill inline right there**
+     (`.claude/skills/setup-package-push/SKILL.md`) as part of this same run — it installs `gh`
+     if missing, generates/registers an SSH key, and confirms Write access. Then re-run the SSH
+     test before deciding whether to fall back to a PAT. The one part that can't be silently
+     automated is `gh auth login`'s one-time browser approval (a GitHub security control) — if
+     you can't complete that yourself, hand the exact command to the user, wait for their
+     confirmation, then continue this same run. The user should not need to separately type
+     `/setup-package-push` themselves first.
+2. **GitHub PAT (fallback)** — only reached if the auto-onboarding above genuinely can't
+   complete (`gh` unavailable and can't be installed, or the account confirmed lacking Write
+   access to `PackageStore/ezg-packages` — an admin action outside any skill's control). This
+   skill file is committed to git, so the PAT must **never** be written here. The token is read
+   at runtime from a source that is NOT tracked by git, in this priority order:
+   - **Environment variable `EZG_PACKAGES_PAT`** (preferred over the file — set it once per machine):
+     ```powershell
+     # Windows PowerShell
+     setx EZG_PACKAGES_PAT "<your-token>"     # persists for future shells; reopen the terminal afterward
+     ```
+     ```bash
+     # macOS zsh/bash, current shell
+     export EZG_PACKAGES_PAT='<your-token>'
+     # To persist, add the export line to ~/.zshrc (or your shell profile) outside this repo.
+     ```
+   - **A local secret file outside the repo** (fallback): `PAT_FILE` containing only the token on one line.
 
-At STEP 4 the skill resolves the PAT like this (no token ever printed). Use the current shell's snippet:
-```powershell
-# Windows PowerShell
-$repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { (Join-Path $env:USERPROFILE 'ezg-packages') }
-$patFile = if ($env:EZG_PACKAGES_PAT_FILE) { $env:EZG_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'ezg-packages.pat' }
-$pat = $env:EZG_PACKAGES_PAT
-if ([string]::IsNullOrWhiteSpace($pat)) {
-  if (Test-Path $patFile) { $pat = (Get-Content $patFile -Raw).Trim() }
-}
-if ([string]::IsNullOrWhiteSpace($pat)) { throw "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
-```
-```bash
-# macOS zsh/bash
-repo="${MONOREPO_PATH:-$HOME/ezg-packages}"
-pat_file="${EZG_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/ezg-packages/ezg-packages.pat}"
-pat="${EZG_PACKAGES_PAT:-}"
-if [ -z "$pat" ] && [ -f "$pat_file" ]; then
-  pat="$(tr -d '\r\n' < "$pat_file")"
-fi
-if [ -z "$pat" ]; then
-  echo "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
-  exit 1
-fi
-```
-If neither source yields a token → **stop** at STEP 4 and ask the user to set `EZG_PACKAGES_PAT`. Required scope: classic PAT with `repo`, or fine-grained PAT with **Contents: read+write** on `PackageStore/ezg-packages`.
+   If neither source yields a token → **stop** at STEP 4 and report exactly what's blocking
+   (why SSH auto-onboarding couldn't complete, and that no PAT is set). Required PAT scope:
+   classic PAT with `repo`, or fine-grained PAT with **Contents: read+write** on
+   `PackageStore/ezg-packages`.
 
-**PAT handling rules (security):**
+**PAT handling rules (security, PAT fallback only):**
 - **Never** put the PAT in this file or any tracked file, never print it, never echo it into logs.
-- Inject it via the remote URL form `https://<PAT>@github.com/...` **only on the clone/fetch/push command itself**; immediately reset `origin` to the clean `MONOREPO_REMOTE` so the token isn't persisted in `.git/config`.
+- Inject it via the remote URL form `https://<PAT>@github.com/...` **only on the clone/fetch/push command itself**; immediately reset `origin` to the clean HTTPS remote so the token isn't persisted in `.git/config`.
 - Keep it in `$pat` (a shell variable) for the duration of the run only.
 
 > **This skill does NOT modify the game repo.** The module stays in `Assets/` and the game keeps compiling. We **copy** the source into the monorepo, never `git mv` it out. **Switching the game to consume the package from the registry (removing the in-`Assets/` copy + adding the manifest dependency) is a separate Phase 2** — see the end of this file. It is intentionally NOT automated here because the registry version does not exist until the push to `main` has triggered CI and it has published.
@@ -281,35 +277,84 @@ Proceed only on explicit **yes**. On **adjust** — update the relevant fields a
 
 All writes happen in the working clone under `MONOREPO_PATH`, directly on the **`main`** branch (no feature branch).
 
-0. **Resolve paths + PAT** (no token printed):
+0. **Resolve paths + auth (SSH first, auto-onboard if missing, PAT as last resort — no token ever printed):**
+
+   **First, probe SSH:**
    ```powershell
    # Windows PowerShell
    $repo = if ($env:MONOREPO_PATH) { $env:MONOREPO_PATH } else { (Join-Path $env:USERPROFILE 'ezg-packages') }
-   $remote = 'https://github.com/PackageStore/ezg-packages.git'
-   $patFile = if ($env:EZG_PACKAGES_PAT_FILE) { $env:EZG_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'ezg-packages.pat' }
-   $pat = $env:EZG_PACKAGES_PAT
-   if ([string]::IsNullOrWhiteSpace($pat)) {
-     if (Test-Path $patFile) { $pat = (Get-Content $patFile -Raw).Trim() }
-   }
-   if ([string]::IsNullOrWhiteSpace($pat)) { throw "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." }
-   $authUrl = "https://$pat@github.com/PackageStore/ezg-packages.git"
+   $sshRemote = 'git@github.com:PackageStore/ezg-packages.git'
+   $httpsRemote = 'https://github.com/PackageStore/ezg-packages.git'
+
+   $sshTest = ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1
+   $useSsh = $sshTest -match 'successfully authenticated'
    ```
    ```bash
    # macOS zsh/bash
    repo="${MONOREPO_PATH:-$HOME/ezg-packages}"
-   remote='https://github.com/PackageStore/ezg-packages.git'
-   pat_file="${EZG_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/ezg-packages/ezg-packages.pat}"
-   pat="${EZG_PACKAGES_PAT:-}"
-   if [ -z "$pat" ] && [ -f "$pat_file" ]; then
-     pat="$(tr -d '\r\n' < "$pat_file")"
+   ssh_remote='git@github.com:PackageStore/ezg-packages.git'
+   https_remote='https://github.com/PackageStore/ezg-packages.git'
+
+   use_ssh=false
+   if ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 | grep -qi 'successfully authenticated'; then
+     use_ssh=true
    fi
-   if [ -z "$pat" ]; then
-     echo "EZG_PACKAGES_PAT not set — set the env var or create PAT_FILE outside the repo (see Configuration)." >&2
-     exit 1
-   fi
-   authUrl="https://${pat}@github.com/PackageStore/ezg-packages.git"
    ```
-   If token resolution fails → **stop** and ask the user to set the PAT. All later steps use `$repo`.
+
+   **If that probe is false, auto-onboard right now — do not stop and tell the user to run
+   something separately.** Invoke the **`setup-package-push`** skill's procedure inline, as part
+   of this same run (`.claude/skills/setup-package-push/SKILL.md`): it installs `gh` if missing,
+   generates/registers an SSH key, and confirms Write access to `PackageStore/ezg-packages`. Its
+   one unavoidable interactive moment is `gh auth login`'s one-time browser approval (a GitHub
+   security control, not something to script around) — if you can't complete that yourself, hand
+   the user the exact command, wait for their confirmation, then continue this same run. Once it
+   finishes (either outcome), **re-run the SSH probe above** and update `$useSsh` / `use_ssh`
+   with the fresh result before continuing.
+
+   **Then pick the remote from the (possibly now-updated) result:**
+   ```powershell
+   # Windows PowerShell
+   if ($useSsh) {
+     $remote = $sshRemote
+     $authUrl = $sshRemote          # no token involved — used as-is everywhere below
+   } else {
+     $remote = $httpsRemote
+     $patFile = if ($env:EZG_PACKAGES_PAT_FILE) { $env:EZG_PACKAGES_PAT_FILE } else { Join-Path $env:LOCALAPPDATA 'ezg-packages.pat' }
+     $pat = $env:EZG_PACKAGES_PAT
+     if ([string]::IsNullOrWhiteSpace($pat)) {
+       if (Test-Path $patFile) { $pat = (Get-Content $patFile -Raw).Trim() }
+     }
+     if ([string]::IsNullOrWhiteSpace($pat)) {
+       throw "SSH auto-onboarding (setup-package-push) could not get push access to PackageStore/ezg-packages, and EZG_PACKAGES_PAT is not set. See Configuration to set the PAT, or resolve what setup-package-push reported."
+     }
+     $authUrl = "https://$pat@github.com/PackageStore/ezg-packages.git"
+   }
+   ```
+   ```bash
+   # macOS zsh/bash
+   if [ "$use_ssh" = true ]; then
+     remote="$ssh_remote"
+     authUrl="$ssh_remote"          # no token involved — used as-is everywhere below
+   else
+     remote="$https_remote"
+     pat_file="${EZG_PACKAGES_PAT_FILE:-$HOME/Library/Application Support/ezg-packages/ezg-packages.pat}"
+     pat="${EZG_PACKAGES_PAT:-}"
+     if [ -z "$pat" ] && [ -f "$pat_file" ]; then
+       pat="$(tr -d '\r\n' < "$pat_file")"
+     fi
+     if [ -z "$pat" ]; then
+       echo "SSH auto-onboarding (setup-package-push) could not get push access to PackageStore/ezg-packages, and EZG_PACKAGES_PAT is not set." >&2
+       echo "See Configuration to set the PAT, or resolve what setup-package-push reported." >&2
+       exit 1
+     fi
+     authUrl="https://${pat}@github.com/PackageStore/ezg-packages.git"
+   fi
+   ```
+   `ssh -T git@github.com` always exits non-zero (GitHub closes the channel after the greeting) —
+   check the printed text, never the exit code. If auth resolution fails entirely (auto-onboarding
+   ran and still couldn't get SSH working, and no PAT is set) → **stop** and report exactly what's
+   missing. All later steps use `$repo`/`$remote`/`$authUrl` exactly as before — they work
+   unchanged for both auth modes.
 
 1. **Ensure the clone exists & is fresh (use the existing clone at `MONOREPO_PATH`; only auto-clone if missing):**
    ```powershell
@@ -334,7 +379,7 @@ All writes happen in the working clone under `MONOREPO_PATH`, directly on the **
    - Fast-forward:
      - PowerShell: `git -C $repo pull --ff-only $authUrl main`
      - zsh/bash: `git -C "$repo" pull --ff-only "$authUrl" main`
-   - **Never** leave the token in `origin`'s URL.
+   - **Never** leave the token in `origin`'s URL (PAT fallback only — SSH mode has no token to leak).
 
 2. **Create** `packages/<scope>.<name>/` with `Runtime/` (+ `Editor/` if editor code).
 
@@ -558,7 +603,7 @@ Full compile-verification happens when the package is consumed (Phase 2 / smoke 
    git -C "$repo" push "$authUrl" main
    ```
    - Non-fast-forward rejection → pull/rebase again, re-run STEP 5 dry-run, then push. Never `--force`.
-   - **Auth failure (401/403)** → PAT missing/expired. Stop and ask the user to refresh `EZG_PACKAGES_PAT`.
+   - **Auth/permission failure** → SSH mode: re-invoke `setup-package-push` inline (same as STEP 4.0) to diagnose — key revoked, or account lost Write access. PAT mode: PAT missing/expired — ask the user to refresh `EZG_PACKAGES_PAT`.
 4. **No remote at all** → stop after the local commit and give the `git remote add` / `push` commands.
 
 After the push, CI runs automatically (workflow `publish.yml`, trigger `push` to `main` on `packages/**`). It runs `validate.mjs`, then `publish.mjs`, which signs (`upm pack`) and uploads to R2 any version whose tarball is not already there (already-published versions are skipped — so a re-push without a version bump is a no-op), then syncs `unity-template.json`. Watch with `gh run watch -R PackageStore/ezg-packages` if `gh` is available; otherwise tell the user to check the **Actions** tab.
