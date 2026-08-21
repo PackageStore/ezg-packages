@@ -1,0 +1,16 @@
+{
+  "name": "com.ezg.ezgkit",
+  "version": "0.1.0",
+  "displayName": "EZG EzgKit",
+  "description": "One-window Unity Editor setup kit that walks a new project through its per-project configuration in the order it must happen. Ships two pages: Marketing (pull a Google Sheet of store/ads identifiers and write them into PlayerSettings, AdsConfig, AppLovinSettings, FacebookSettings, AndroidManifest and GameConstant.cs) and Firebase (pick a service-account .json, provision the Android + iOS apps, then download google-services.json / GoogleService-Info.plist). Opening the window only ever reads; every write sits behind an explicit button. Also ships the shared EzgKitStyles / SetupGui drawing toolkit and the IEzgKitPage contract so a project can add its own setup tab.",
+  "unity": "2022.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "editor",
+    "setup",
+    "firebase",
+    "marketing"
+  ]
+}
