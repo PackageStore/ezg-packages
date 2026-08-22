@@ -26,6 +26,11 @@ const TEMPLATE_DIR = join(REPO_ROOT, "templates", "unity-project");
 const LOGIC_PATH = join(TEMPLATE_DIR, "build_unity_template.logic.sh");
 const SHA_PATH = `${LOGIC_PATH}.sha256`;
 
+// The two bootstrap files go up as well, so a developer whose copy is out of date can fetch a fresh
+// one with a single curl instead of waiting for someone to hand them the file. They are the only
+// artefacts the gateway serves without a token -- the bootstrap has no session yet when it runs.
+const BOOTSTRAP_FILES = ["build_unity_template.sh", "build_unity_template.command"];
+
 const LOGIC_KEY = (process.env.UNITY_TEMPLATE_SCRIPT_R2_KEY || "unity-template/build_unity_template.logic.sh").replace(/^\/+/, "");
 const SHA_KEY = `${LOGIC_KEY}.sha256`;
 const PUBLIC_URL = process.env.UNITY_TEMPLATE_SCRIPT_PUBLIC_URL ||
@@ -54,8 +59,18 @@ async function main() {
   await putObject(client, SHA_KEY, `${sha}\n`, "text/plain");
   console.log(`\n+ uploaded logic  -> r2://${BUCKET}/${LOGIC_KEY}`);
   console.log(`+ uploaded sha256 -> r2://${BUCKET}/${SHA_KEY}`);
+
+  for (const fileName of BOOTSTRAP_FILES) {
+    const key = `${LOGIC_KEY.replace(/[^/]+$/, "")}${fileName}`;
+    await putObject(client, key, readFileSync(join(TEMPLATE_DIR, fileName)), "text/x-shellscript");
+    console.log(`+ uploaded bootstrap -> r2://${BUCKET}/${key}`);
+  }
   console.log(`\nLive: ${PUBLIC_URL}`);
   console.log("End users will pick up this version on their next run.");
+  console.log("\nA developer with an outdated bootstrap can refresh it with:");
+  for (const fileName of BOOTSTRAP_FILES) {
+    console.log(`  curl -fLO ${PUBLIC_URL.replace(/[^/]+$/, "")}${fileName} && chmod +x ${fileName}`);
+  }
 }
 
 main().catch((err) => {

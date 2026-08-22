@@ -177,6 +177,22 @@ Script sẽ tìm Unity trong:
 ~/Applications/Unity/Hub/Editor
 ```
 
+## Lấy bootstrap
+
+Máy nào chưa có (hoặc đang giữ bản cũ trỏ về `pub-*.r2.dev` đã ngừng phục vụ) thì tải lại một lần:
+
+```bash
+# macOS — double-click được trong Finder
+curl -fLO https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.command && chmod +x build_unity_template.command
+
+# Windows (Git Bash)
+curl -fLO https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.sh && chmod +x build_unity_template.sh
+```
+
+Hai file này là thứ duy nhất tải được mà không cần đăng nhập — chúng chưa có phiên nào khi chạy và
+bản thân chúng không chứa gì bí mật. Sau đó không bao giờ phải tải lại: mỗi lần chạy chúng tự lấy
+build logic mới nhất từ server.
+
 ## Cách chạy nhanh
 
 Mở Git Bash tại thư mục `EzgFeatureHub`, sau đó chạy:
