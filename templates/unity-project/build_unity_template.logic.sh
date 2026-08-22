@@ -65,9 +65,16 @@ EZG_CRED_FILE="$EZG_CRED_DIR/credentials.json"
 # browser and fails loudly instead of waiting for a human.
 EZG_TOKEN="${EZG_TOKEN:-}"
 EZG_TOKEN_IS_SERVICE=0
-# Escape hatch for a fully local build (--no-auth or EZG_SKIP_AUTH=1): skips sign-in entirely. Only
-# useful with --template-file plus a populated PackageTemplate/, since the server will refuse anonymous.
+# Escape hatch for a fully local build (--no-auth or EZG_SKIP_AUTH=1): skips sign-in entirely.
 SKIP_AUTH="${EZG_SKIP_AUTH:-0}"
+# Cache for the one /auth/config probe per run: "1" = the server refuses anonymous callers, "0" = it
+# still serves them. Empty until asked.
+AUTH_ENFORCED=""
+# Skip the probe and demand a real sign-in whatever the server says. --login sets it, and the publish
+# step rewrites the default to 1 in the copy served from /boot/ -- that is the whole mechanism behind
+# "new bootstrap must log in, old r2.dev bootstrap stays open". Keep this line's exact shape;
+# upload-unity-template-script.mjs matches it verbatim and fails the publish if it ever drifts.
+AUTH_FORCE=0
 # Unity reads the registry token from here. UPM_USER_CONFIG_PATH is Unity's own override and is
 # honoured when set, which also makes this testable without touching the developer's real config.
 UPM_CONFIG_FILE="${UPM_USER_CONFIG_PATH:-$HOME/.upmconfig.toml}"
@@ -1354,12 +1361,30 @@ HELPER_PS1
   chmod +x "$EZG_CRED_DIR/refresh-session.sh" 2>/dev/null || true
 }
 
+# The server, not this script, decides whether a token is required -- ask it once per run. A probe
+# that fails counts as "not required": the client-side check only exists to fail early with a clear
+# message, so when in doubt let the download itself report the real error instead of blocking here.
+auth_is_enforced() {
+  [ "$AUTH_FORCE" = "1" ] && return 0
+
+  if [ -z "$AUTH_ENFORCED" ]; then
+    case "$(json_field "$(api_get_authed "$GATEWAY_URL/auth/config" "" || printf '{}')" enforced)" in
+      true) AUTH_ENFORCED=1 ;;
+      *)    AUTH_ENFORCED=0 ;;
+    esac
+  fi
+  [ "$AUTH_ENFORCED" = "1" ]
+}
+
 # Called once before anything is downloaded. Reuses a valid cached token, otherwise signs in.
 ensure_authenticated() {
   if [ "$SKIP_AUTH" = "1" ]; then
     log "Bỏ qua xác thực (--no-auth). Chỉ dùng được với template + package đã có sẵn trên máy."
     return 0
   fi
+
+  local required=1
+  auth_is_enforced || required=0
 
   # CI path: a service token is configured, so never open a browser -- fail loudly instead.
   if [ -n "$EZG_TOKEN" ] && [ "$EZG_TOKEN_IS_SERVICE" -eq 0 ]; then
@@ -1369,7 +1394,10 @@ ensure_authenticated() {
       write_upmconfig "$EZG_TOKEN"
       return 0
     fi
-    die "EZG_TOKEN không hợp lệ hoặc đã bị thu hồi. Cấp token mới từ /admin/tokens."
+    [ "$required" = "1" ] && die "EZG_TOKEN không hợp lệ hoặc đã bị thu hồi. Cấp token mới từ /admin/tokens."
+    log "WARNING: EZG_TOKEN không hợp lệ, nhưng máy chủ đang không bắt buộc đăng nhập nên vẫn build tiếp."
+    EZG_TOKEN=""
+    return 0
   fi
 
   local token
@@ -1380,6 +1408,11 @@ ensure_authenticated() {
     # Slide the idle window forward while we are here: a machine that builds regularly should never
     # meet the timeout, and the token we are about to hand Unity gets the full window.
     ezg_refresh_token || true
+  elif [ "$required" = "0" ]; then
+    # Server is serving anonymous callers, so a missing or stale token is not a reason to stop a
+    # whole build. Unity is fine too: an unusable token in ~/.upmconfig.toml is ignored the same way.
+    log "Máy chủ đang không bắt buộc đăng nhập — bỏ qua bước này. Muốn đăng nhập: ./$SCRIPT_NAME --login"
+    return 0
   else
     if [ ! -t 0 ] && [ ! -r /dev/tty ]; then
       die "Máy này chưa đăng nhập và không có terminal để hiển thị mã xác thực.
@@ -2981,6 +3014,7 @@ if [ -n "$AUTH_ACTION" ]; then
     logout) ezg_logout ;;
     login)
       SKIP_AUTH=0
+      AUTH_FORCE=1
       ensure_authenticated
       log "Token đã lưu ở: $EZG_CRED_FILE"
       log "Đã ghi thông tin đăng nhập registry vào: $UPM_CONFIG_FILE"
