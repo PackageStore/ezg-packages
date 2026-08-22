@@ -8,6 +8,8 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Toàn bộ nội dung template chuyển sang phân phối qua gateway có xác thực Google: chỉ tài khoản `@easygoing.vn` mới tải được manifest, asset, DefaultSetup, feature catalog và package `com.ezg.*`.
 
+Bước giải nén `.unitypackage` cũng được viết lại: nhanh hơn vài trăm lần và có tiến trình thật thay vì một dòng đứng im.
+
 **Added**
 - `build_unity_template.logic.sh` — đăng nhập Google bằng device pairing: xin mã ở `/auth/device/start`, mở trình duyệt, poll `/auth/device/poll` cho tới khi có session token. Token cache ở `~/.ezg/credentials.json` (chmod 600), lần chạy sau dùng lại. Mỗi lần chạy đều hỏi lại server (`/auth/whoami`) chứ không chỉ nhìn hạn trong token — admin thu hồi là có tác dụng ngay ở build kế tiếp.
 - `build_unity_template.logic.sh` — `write_upmconfig()` ghi `~/.upmconfig.toml` (`[npmAuth]` + `alwaysAuth = true`) để chính Unity xác thực được với scoped registry khi resolve `com.ezg.*`. Giữ nguyên entry của registry khác trong file.
@@ -16,10 +18,12 @@ Toàn bộ nội dung template chuyển sang phân phối qua gateway có xác t
 - Chạy không có terminal (CI/headless) mà chưa đăng nhập thì dừng ngay kèm hướng dẫn, thay vì in mã xác thực không ai đọc được rồi poll đủ 10 phút. `EZG_TOKEN` sai cũng fail ngay lập tức.
 
 **Fixed**
+- `build_unity_template.logic.sh` — giải nén `.unitypackage` chậm gấp hàng trăm lần vì đọc ngẫu nhiên trên một gzip stream. Trong `.unitypackage` thứ tự các entry của mỗi GUID là `asset.meta` → `asset` → `pathname`, nhưng code đọc `pathname` trước rồi mới quay lại `asset`; mỗi lần lùi như vậy Python phải tua về byte 0 và giải nén lại toàn bộ archive, tức O(số asset × dung lượng). Đo trên máy dev: `ezg.base.visuals` (132 MB) mất **10 phút**, `ezg.base.features` (42 MB) mất 43 giây, `TinySauce` (19 MB) mất 26 giây. Giờ đọc hai lượt tuần tự (`tarfile` mode `"r|gz"`: lượt 1 lấy `pathname`, lượt 2 ghi asset), không seek lùi lần nào — cùng bộ 5 package trên đi từ ~11 phút xuống **2,5 giây**, output byte-identical (kiểm bằng `diff -r`). Nhánh PowerShell (máy Windows không có Python) dùng `tar.exe` giải nén sẵn ra temp nên không dính lỗi này.
 - `--logout` giờ xoá luôn entry registry trong `~/.upmconfig.toml` (giữ nguyên entry của registry khác, file trống thì xoá hẳn). Trước đây nó để lại token đã bị thu hồi, khiến Unity resolve package fail bằng một lỗi 401 trần trụi.
 - Khung thông báo đăng nhập bị lệch mép phải: `printf` căn lề theo **byte**, mà chữ có dấu tiếng Việt là nhiều byte. Bỏ mép phải thay vì cố đo bề rộng hiển thị trong bash.
 
 **Changed**
+- Bước `[n/132] Extracting .unitypackage` giờ có tiến trình thật thay vì một dòng đứng im: một dòng tự vẽ lại tại chỗ, hiện số asset `x/y`, thanh bar và đường dẫn file đang ghi. Cửa sổ hẹp thì bar rụng trước, rồi tới đường dẫn — dòng không bao giờ được phép xuống hàng, vì dòng đã wrap thì `\r` chỉ tua lại được hàng cuối và để lại rác trên màn hình. Khi stderr không phải terminal (CI, pipe ra file) thì đổi sang nhịp 5 giây một dòng: in mỗi asset một dòng sẽ là mấy nghìn dòng và chôn mất các cảnh báo GUID trùng ngay bên dưới. Áp dụng cho cả nhánh Python lẫn PowerShell.
 - Phiên đăng nhập dùng cửa sổ **6 tiếng không-hoạt-động** (trần tuyệt đối 30 ngày), không phải hạn cứng. Ba chỗ tự gia hạn: builder khi chạy, launcher của project **trước khi** mở Unity, và Feature Hub mỗi lần domain reload. Thứ tự ở launcher là bắt buộc — Package Manager đọc token lúc tiến trình Unity khởi động và không tự đăng nhập lại được, nên gia hạn từ trong Editor là đã muộn cho lần resolve đầu tiên. Xem README mục "Thời hạn phiên".
 - Hai file bootstrap giờ được publish lên `/boot/`, nên máy có bản cũ tự `curl` về được thay vì chờ ai đó gửi file. Đây là điều kiện cần sau khi tắt public access của bucket — bản cũ trỏ `pub-*.r2.dev` đã ngừng chạy.
 - `~/.ezg/refresh-session.sh` + `.ps1`: helper gia hạn dùng chung cho mọi project, builder sinh ra mỗi lần đăng nhập thành công. Một bản cho mỗi máy thay vì một bản cho mỗi project, để sửa lỗi là mọi project hưởng.

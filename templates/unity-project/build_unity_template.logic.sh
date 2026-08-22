@@ -1916,25 +1916,37 @@ resolve_packages() {
 # We reconstruct Assets/ ourselves so we do not pay a full Unity launch per package and so the
 # copy works even while the project does not compile. The asset.meta files are copied byte for
 # byte (no re-encoding) so every GUID is preserved exactly.
+#
+# The archive is read in two forward-only passes (pathnames, then payloads) and each asset is
+# reported on a repainted status line. See the comments in the Python body for why random
+# access is not an option here.
 extract_unitypackages_with_python() {
   local python_bin="$1"
   local start_step="$2"
   local total_steps="$3"
   shift 3
-  "$python_bin" - "$PROJECT_PATH" "$start_step" "$total_steps" "$@" <<'PY'
+  PROGRESS_BAR_WIDTH="$PROGRESS_BAR_WIDTH" "$python_bin" - "$PROJECT_PATH" "$start_step" "$total_steps" "$@" <<'PY'
 import os
 import shutil
 import sys
 import tarfile
+import time
 
 project_path = sys.argv[1]
 start_step = int(sys.argv[2])
 total_steps = int(sys.argv[3])
 packages = sys.argv[4:]
 
-ALLOWED = ("asset", "asset.meta", "pathname", "preview.png")
+ASSET_ENTRIES = ("asset", "asset.meta")
+BAR_WIDTH = int(os.environ.get("PROGRESS_BAR_WIDTH") or 30)
+IS_TTY = sys.stderr.isatty()
+HEARTBEAT_SECONDS = 5.0
+NAME_WIDTH = 28
 seen = {}
 step = start_step
+line_width = 100
+render_width = 0
+last_render = 0.0
 
 def safe(rel):
     norm = os.path.normpath(rel)
@@ -1944,52 +1956,178 @@ def safe(rel):
         return None
     return norm
 
+def entry_of(member):
+    # Some exporters prefix every entry with "./" (AppLovin, Facebook, the
+    # com.google.play.* plugins), others do not (Odin, Firebase). Normalize the
+    # leading "./" so "<guid>/asset" and "./<guid>/asset" are treated the same.
+    name = member.name
+    while name.startswith("./"):
+        name = name[2:]
+    parts = name.split("/")
+    if len(parts) != 2:
+        return None, None
+    return parts[0], parts[1]
+
+def terminal_width():
+    try:
+        columns = os.get_terminal_size(sys.stderr.fileno()).columns
+    except Exception:
+        columns = 0
+    if columns <= 0:
+        try:
+            columns = int(os.environ.get("COLUMNS") or 0)
+        except ValueError:
+            columns = 0
+    return max(20, (columns if columns > 0 else 100) - 1)
+
+def short_name(name):
+    # ".unitypackage" is already implied by the step; the plugin name is the useful part.
+    stem = name[: -len(".unitypackage")] if name.endswith(".unitypackage") else name
+    return stem if len(stem) <= NAME_WIDTH else stem[: NAME_WIDTH - 3] + "..."
+
+def progress_bar(done, total):
+    filled = BAR_WIDTH if total <= 0 else int(BAR_WIDTH * done / total)
+    filled = max(0, min(BAR_WIDTH, filled))
+    return "#" * filled + "." * (BAR_WIDTH - filled)
+
+def tail(text, budget):
+    # Keep the end of the path: the file name is what identifies the asset, not "Assets/...".
+    if budget <= 0:
+        return ""
+    if len(text) <= budget:
+        return text
+    if budget <= 3:
+        return text[-budget:]
+    return "..." + text[-(budget - 3):]
+
+def render(line):
+    """Repaint the in-place status line, or drip-feed it when stderr is not a terminal."""
+    global render_width, last_render
+    now = time.monotonic()
+    if not IS_TTY:
+        # One line per asset would be thousands of lines and would bury the warnings below,
+        # so a piped/CI run only gets a heartbeat.
+        if now - last_render < HEARTBEAT_SECONDS:
+            return
+        last_render = now
+        print(line, file=sys.stderr)
+        return
+    if now - last_render < 0.1:
+        return
+    last_render = now
+    line = line[:line_width]
+    # Pad rather than emit an ANSI erase: conhost only honours \033[K when VT mode is on.
+    sys.stderr.write("\r" + line + " " * max(0, render_width - len(line)))
+    sys.stderr.flush()
+    render_width = len(line)
+
+def clear_status():
+    global render_width
+    if IS_TTY and render_width:
+        sys.stderr.write("\r" + " " * render_width + "\r")
+        sys.stderr.flush()
+        render_width = 0
+
+def warn(message):
+    clear_status()
+    print(message, file=sys.stderr)
+
+def status(prefix, done, total, rel):
+    """[131/132] ezg.base.visuals  612/1170  [######....]  .../Prefabs/Shop.prefab
+
+    The bar and then the path drop out on their own when the window is too narrow, so the
+    line never wraps -- a wrapped line leaves debris behind, since a lone CR only rewinds
+    the last row.
+    """
+    line = f"{prefix}  {done}/{total}"
+    room = line_width - len(line)
+    # The path outranks the bar: "x/y" already says how far along we are, so only spend
+    # columns on the bar once a readable slice of the path still fits beside it.
+    if room >= BAR_WIDTH + 26:
+        line = f"{line}  [{progress_bar(done, total)}]"
+        room = line_width - len(line)
+    if room >= 14:
+        line = line + "  " + tail(rel, room - 2)
+    render(line)
+
 for pkg in packages:
     step += 1
-    print(f"[{step}/{total_steps}] Extracting .unitypackage: {os.path.basename(pkg)}", file=sys.stderr)
-    with tarfile.open(pkg, "r:gz") as tf:
-        groups = {}
-        for member in tf.getmembers():
+    name = os.path.basename(pkg)
+    prefix = f"[{step}/{total_steps}] {short_name(name)}"
+    started = time.monotonic()
+    line_width = terminal_width()
+    last_render = 0.0
+    if not IS_TTY:
+        print(f"[{step}/{total_steps}] Extracting .unitypackage: {name}", file=sys.stderr)
+        last_render = time.monotonic()
+    else:
+        render(f"{prefix}  reading index...")
+
+    # Pass 1 -- read only the pathname entries, in stream mode ("r|gz") so the archive is
+    # inflated exactly once and never seeked. Random access ("r:gz") is what made this slow:
+    # a .unitypackage stores asset.meta, asset, pathname in that order, so reading pathname
+    # first and asset second is a backwards seek, and a backwards seek on a gzip stream
+    # rewinds to byte 0 and re-inflates. Once per asset that is O(assets x archive size) --
+    # ten minutes for a 130 MB package instead of two seconds.
+    paths = {}
+    with tarfile.open(pkg, "r|gz") as tf:
+        for member in tf:
             if not member.isfile():
                 continue
-            # Some exporters prefix every entry with "./" (AppLovin, Facebook, the
-            # com.google.play.* plugins), others do not (Odin, Firebase). Normalize the
-            # leading "./" so "<guid>/asset" and "./<guid>/asset" are treated the same.
-            name = member.name
-            while name.startswith("./"):
-                name = name[2:]
-            parts = name.split("/")
-            if len(parts) != 2 or parts[1] not in ALLOWED:
+            guid, entry = entry_of(member)
+            if entry != "pathname":
                 continue
-            groups.setdefault(parts[0], {})[parts[1]] = member
-
-        for guid, files in groups.items():
-            if "pathname" not in files:
-                continue
-            raw = tf.extractfile(files["pathname"]).read().decode("utf-8", "replace").splitlines()
+            raw = tf.extractfile(member).read().decode("utf-8", "replace").splitlines()
             rel = raw[0].strip().replace("\\", "/") if raw else ""
             if not rel:
                 continue
             norm = safe(rel)
             if norm is None:
-                print(f"  WARNING: skipping suspicious path: {rel}", file=sys.stderr)
+                warn(f"  WARNING: skipping suspicious path: {rel}")
+                continue
+            if guid in seen and seen[guid] != norm:
+                warn(f"  WARNING: GUID {guid} maps to two paths: '{seen[guid]}' and '{norm}'")
+            seen[guid] = norm
+            paths[guid] = norm
+
+    # Pass 2 -- stream the archive again, this time writing. The asset.meta files are copied
+    # byte for byte (no re-encoding) so every GUID is preserved exactly.
+    total_assets = len(paths)
+    handled = set()
+    with_asset = set()
+    with tarfile.open(pkg, "r|gz") as tf:
+        for member in tf:
+            if not member.isfile():
+                continue
+            guid, entry = entry_of(member)
+            if entry not in ASSET_ENTRIES:
+                continue
+            norm = paths.get(guid)
+            if norm is None:
                 continue
 
             target = os.path.join(project_path, norm)
-            if "asset" in files:
-                os.makedirs(os.path.dirname(target), exist_ok=True)
-                with tf.extractfile(files["asset"]) as src, open(target, "wb") as out:
-                    shutil.copyfileobj(src, out)
-            else:
-                os.makedirs(target, exist_ok=True)
-
-            if "asset.meta" in files:
-                with tf.extractfile(files["asset.meta"]) as src, open(target + ".meta", "wb") as out:
+            parent = os.path.dirname(target)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with tf.extractfile(member) as src:
+                with open(target if entry == "asset" else target + ".meta", "wb") as out:
                     shutil.copyfileobj(src, out)
 
-            if guid in seen and seen[guid] != norm:
-                print(f"  WARNING: GUID {guid} maps to two paths: '{seen[guid]}' and '{norm}'", file=sys.stderr)
-            seen[guid] = norm
+            if entry == "asset":
+                with_asset.add(guid)
+            if guid not in handled:
+                handled.add(guid)
+                status(prefix, len(handled), total_assets, norm)
+
+    # A group with a pathname but no asset entry is a folder, not a file.
+    for guid, norm in paths.items():
+        if guid not in with_asset:
+            os.makedirs(os.path.join(project_path, norm), exist_ok=True)
+
+    clear_status()
+    elapsed = time.monotonic() - started
+    print(f"[{step}/{total_steps}] Extracted {name}: {total_assets} asset(s) in {elapsed:.1f}s", file=sys.stderr)
 
 print(f"Extracted {len(packages)} .unitypackage file(s).", file=sys.stderr)
 PY
@@ -2013,12 +2151,92 @@ param(
   [string]$ProjectPath,
   [int]$StartStep,
   [int]$TotalSteps,
-  [string]$PackageListFile
+  [string]$PackageListFile,
+  [int]$BarWidth = 30
 )
 
 $ErrorActionPreference = "Stop"
 $tarExe = Join-Path $env:SystemRoot "System32\tar.exe"
 if (-not (Test-Path -LiteralPath $tarExe)) { $tarExe = "tar" }
+
+$nameWidth = 28
+$heartbeatSeconds = 5
+try { $script:IsTty = -not [Console]::IsErrorRedirected } catch { $script:IsTty = $false }
+$script:RenderWidth = 0
+$script:LineWidth = 100
+$script:SinceRender = [System.Diagnostics.Stopwatch]::StartNew()
+
+function Get-LineWidth {
+  $columns = 0
+  try { $columns = [Console]::WindowWidth } catch { $columns = 0 }
+  if ($columns -le 0) { $columns = 100 }
+  return [Math]::Max(20, $columns - 1)
+}
+
+function Get-ShortName([string]$name) {
+  # ".unitypackage" is already implied by the step; the plugin name is the useful part.
+  $stem = $name
+  if ($stem.EndsWith(".unitypackage")) { $stem = $stem.Substring(0, $stem.Length - 13) }
+  if ($stem.Length -le $nameWidth) { return $stem }
+  return $stem.Substring(0, $nameWidth - 3) + "..."
+}
+
+function Get-Tail([string]$text, [int]$budget) {
+  # Keep the end of the path: the file name is what identifies the asset, not "Assets/...".
+  if ($budget -le 0) { return "" }
+  if ($text.Length -le $budget) { return $text }
+  if ($budget -le 3) { return $text.Substring($text.Length - $budget) }
+  return "..." + $text.Substring($text.Length - ($budget - 3))
+}
+
+function Get-Bar([int]$done, [int]$total) {
+  if ($total -le 0) { $filled = $BarWidth } else { $filled = [int][Math]::Floor($BarWidth * $done / $total) }
+  $filled = [Math]::Max(0, [Math]::Min($BarWidth, $filled))
+  return ('#' * $filled) + ('.' * ($BarWidth - $filled))
+}
+
+function Write-Status([string]$line, [bool]$force = $false) {
+  if (-not $script:IsTty) {
+    # One line per asset would be thousands of lines and would bury the warnings below,
+    # so a piped/CI run only gets a heartbeat.
+    if ($force -or $script:SinceRender.Elapsed.TotalSeconds -lt $heartbeatSeconds) { return }
+    $script:SinceRender.Restart()
+    [Console]::Error.WriteLine($line)
+    return
+  }
+  if (-not $force -and $script:SinceRender.Elapsed.TotalMilliseconds -lt 100) { return }
+  $script:SinceRender.Restart()
+  if ($line.Length -gt $script:LineWidth) { $line = $line.Substring(0, $script:LineWidth) }
+  $pad = [Math]::Max(0, $script:RenderWidth - $line.Length)
+  # Pad rather than emit an ANSI erase: conhost only honours ESC[K when VT mode is on.
+  [Console]::Error.Write("`r" + $line + (' ' * $pad))
+  $script:RenderWidth = $line.Length
+}
+
+function Clear-Status {
+  if ($script:IsTty -and $script:RenderWidth -gt 0) {
+    [Console]::Error.Write("`r" + (' ' * $script:RenderWidth) + "`r")
+    $script:RenderWidth = 0
+  }
+}
+
+function Write-Warn([string]$message) {
+  Clear-Status
+  [Console]::Error.WriteLine($message)
+}
+
+function Write-AssetStatus([string]$prefix, [int]$done, [int]$total, [string]$rel) {
+  $line = "$prefix  $done/$total"
+  $room = $script:LineWidth - $line.Length
+  # The path outranks the bar: "x/y" already says how far along we are, so only spend
+  # columns on the bar once a readable slice of the path still fits beside it.
+  if ($room -ge ($BarWidth + 26)) {
+    $line = "$line  [" + (Get-Bar $done $total) + "]"
+    $room = $script:LineWidth - $line.Length
+  }
+  if ($room -ge 14) { $line = $line + "  " + (Get-Tail $rel ($room - 2)) }
+  Write-Status $line
+}
 
 $seen = @{}
 $step = $StartStep
@@ -2026,7 +2244,16 @@ $packages = @(Get-Content -LiteralPath $PackageListFile | Where-Object { -not [s
 
 foreach ($pkg in $packages) {
   $step++
-  [Console]::Error.WriteLine("[$step/$TotalSteps] Extracting .unitypackage: $([System.IO.Path]::GetFileName($pkg))")
+  $name = [System.IO.Path]::GetFileName($pkg)
+  $prefix = "[$step/$TotalSteps] " + (Get-ShortName $name)
+  $started = [System.Diagnostics.Stopwatch]::StartNew()
+  $script:LineWidth = Get-LineWidth
+  $script:SinceRender.Restart()
+  if ($script:IsTty) {
+    Write-Status "$prefix  unpacking archive..." $true
+  } else {
+    [Console]::Error.WriteLine("[$step/$TotalSteps] Extracting .unitypackage: $name")
+  }
 
   $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("ezg-upkg-" + [System.IO.Path]::GetRandomFileName())
   New-Item -ItemType Directory -Force -Path $tmp | Out-Null
@@ -2034,7 +2261,12 @@ foreach ($pkg in $packages) {
     & $tarExe -xzf $pkg -C $tmp
     if ($LASTEXITCODE -ne 0) { throw "tar failed to extract $pkg" }
 
-    foreach ($guidDir in (Get-ChildItem -LiteralPath $tmp -Directory)) {
+    $guidDirs = @(Get-ChildItem -LiteralPath $tmp -Directory)
+    $total = $guidDirs.Count
+    $done = 0
+
+    foreach ($guidDir in $guidDirs) {
+      $done++
       $pathnameFile = Join-Path $guidDir.FullName "pathname"
       if (-not (Test-Path -LiteralPath $pathnameFile)) { continue }
 
@@ -2042,9 +2274,11 @@ foreach ($pkg in $packages) {
       if ([string]::IsNullOrWhiteSpace($rel)) { continue }
       $rel = $rel.Trim().Replace("\", "/")
       if ($rel.StartsWith("/") -or $rel.Contains("..") -or ($rel -match '^[A-Za-z]:')) {
-        [Console]::Error.WriteLine("  WARNING: skipping suspicious path: $rel")
+        Write-Warn "  WARNING: skipping suspicious path: $rel"
         continue
       }
+
+      Write-AssetStatus $prefix $done $total $rel
 
       $target = Join-Path $ProjectPath ($rel -replace '/', '\')
       $assetFile = Join-Path $guidDir.FullName "asset"
@@ -2064,13 +2298,17 @@ foreach ($pkg in $packages) {
 
       $guid = $guidDir.Name
       if ($seen.ContainsKey($guid) -and $seen[$guid] -ne $rel) {
-        [Console]::Error.WriteLine("  WARNING: GUID $guid maps to two paths: '$($seen[$guid])' and '$rel'")
+        Write-Warn "  WARNING: GUID $guid maps to two paths: '$($seen[$guid])' and '$rel'"
       }
       $seen[$guid] = $rel
     }
   } finally {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
   }
+
+  Clear-Status
+  $elapsed = $started.Elapsed.TotalSeconds.ToString("0.0")
+  [Console]::Error.WriteLine("[$step/$TotalSteps] Extracted ${name}: $total asset(s) in ${elapsed}s")
 }
 
 [Console]::Error.WriteLine("Extracted $($packages.Count) .unitypackage file(s).")
@@ -2080,7 +2318,8 @@ PS1
     -ProjectPath "$project_arg" \
     -StartStep "$start_step" \
     -TotalSteps "$total_steps" \
-    -PackageListFile "$(to_unity_arg_path "$list_file")"
+    -PackageListFile "$(to_unity_arg_path "$list_file")" \
+    -BarWidth "$PROGRESS_BAR_WIDTH"
   rm -f "$temp_script" "$list_file"
 }
 
