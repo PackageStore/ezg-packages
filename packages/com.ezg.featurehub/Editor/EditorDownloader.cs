@@ -15,12 +15,12 @@ namespace Ezg.FeatureHub.Editor
         /// <summary>Tải nội dung text (JSON nhỏ) về bộ nhớ.</summary>
         public static void DownloadText(string url, Action<bool, string, string> onDone)
         {
-            var request = UnityWebRequest.Get(url);
+            var request = CreateRequest(url);
             Poll(request, request.SendWebRequest(), null, () =>
             {
                 bool ok = IsSuccess(request);
                 string text = ok ? request.downloadHandler.text : null;
-                string error = ok ? null : request.error;
+                string error = ok ? null : DescribeError(request);
                 request.Dispose();
                 onDone?.Invoke(ok, text, error);
             });
@@ -45,13 +45,13 @@ namespace Ezg.FeatureHub.Editor
                 return;
             }
 
-            var request = UnityWebRequest.Get(url);
+            var request = CreateRequest(url);
             request.downloadHandler = new DownloadHandlerFile(destPath) { removeFileOnAbort = true };
 
             Poll(request, request.SendWebRequest(), onProgress, () =>
             {
                 bool ok = IsSuccess(request);
-                string error = ok ? null : request.error;
+                string error = ok ? null : DescribeError(request);
                 request.Dispose();
                 onDone?.Invoke(ok, error);
             });
@@ -78,6 +78,32 @@ namespace Ezg.FeatureHub.Editor
                 onComplete?.Invoke();
             };
             EditorApplication.update += tick;
+        }
+
+        // Chỉ request tới gateway của EZG mới được mang token; file bên thứ ba (Firebase trên
+        // dl.google.com, package git...) phải đi tay không.
+        private static UnityWebRequest CreateRequest(string url)
+        {
+            var request = UnityWebRequest.Get(url);
+
+            if (EzgAuth.IsGatewayUrl(url))
+            {
+                string token = EzgAuth.Token;
+                if (!string.IsNullOrEmpty(token))
+                    request.SetRequestHeader("Authorization", "Bearer " + token);
+            }
+
+            return request;
+        }
+
+        // 401/403 từ gateway là "chưa đăng nhập", không phải lỗi mạng — nói thẳng cách xử lý thay vì
+        // để lộ ra một dòng "HTTP/1.1 401 Unauthorized" khó hiểu.
+        private static string DescribeError(UnityWebRequest request)
+        {
+            if (request.responseCode == 401 || request.responseCode == 403)
+                return EzgAuth.SignInHint;
+
+            return request.error;
         }
 
         private static bool IsSuccess(UnityWebRequest request)

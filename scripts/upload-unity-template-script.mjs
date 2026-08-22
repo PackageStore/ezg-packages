@@ -29,7 +29,7 @@ const SHA_PATH = `${LOGIC_PATH}.sha256`;
 const LOGIC_KEY = (process.env.UNITY_TEMPLATE_SCRIPT_R2_KEY || "unity-template/build_unity_template.logic.sh").replace(/^\/+/, "");
 const SHA_KEY = `${LOGIC_KEY}.sha256`;
 const PUBLIC_URL = process.env.UNITY_TEMPLATE_SCRIPT_PUBLIC_URL ||
-  "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/build_unity_template.logic.sh";
+  "https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.logic.sh";
 
 const DRY_RUN = hasFlag("--dry-run");
 

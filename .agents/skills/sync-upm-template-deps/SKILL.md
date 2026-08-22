@@ -87,7 +87,8 @@ trong `templates/unity-project/unity-template.json` rồi chạy lại script �
 ## Verify sau khi upload
 
 ```bash
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json \
+TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.ezg/credentials.json')))['access_token'])")
+curl -fsSL -H "Authorization: Bearer $TOKEN" https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json \
   | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).dependencies['<package-name>']"
 ```
 

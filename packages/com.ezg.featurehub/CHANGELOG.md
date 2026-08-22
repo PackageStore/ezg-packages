@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.1 — 2026-08-22
+
+**Fixed**
+- Bổ sung `EzgAuth.cs.meta`. Package cài từ registry là immutable nên Unity không tự sinh được file `.meta` còn thiếu; 0.2.0 phát hành thiếu file này.
+
+## 0.2.0 — 2026-08-22
+
+**Added**
+- `EzgAuth`: đọc token phiên từ `~/.ezg/credentials.json` (file do `build_unity_template` tạo) hoặc biến môi trường `EZG_TOKEN` cho máy CI. Một máy chỉ có một phiên dùng chung cho cả installer lẫn Feature Hub.
+
+**Changed**
+- Mọi URL catalog/template chuyển sang gateway `…workers.dev/template/…` (trước đây là bucket public `pub-*.r2.dev`).
+- `EditorDownloader` gắn `Authorization: Bearer` cho request tới gateway — và chỉ tới gateway; file bên thứ ba (Firebase trên `dl.google.com`) vẫn tải không kèm token.
+- Gặp 401/403 thì báo "cần đăng nhập" kèm lệnh `./build_unity_template.sh --login` thay vì để lộ lỗi HTTP thô.
+
 ## [0.1.8] - 2026-07-14
 ### Fixed
 - **Installing `com.ezg.featurehub` alone now works out of the box.** Feature Hub's editor code uses `Newtonsoft.Json` unconditionally (`FeatureHubService`, install record, import finalizer), but the dependency was never declared, so a fresh project without `com.unity.nuget.newtonsoft-json` failed to compile with `CS0246`. Because the compile failed, the `[InitializeOnLoad]` self-heal bootstrap never ran either — so it could not add the missing package the way it does for rlottie.

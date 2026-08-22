@@ -12,9 +12,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# Public R2 location of the build logic. Override with UNITY_TEMPLATE_SCRIPT_URL to point elsewhere
-# (e.g. a staging bucket). The matching ".sha256" sidecar is fetched from "<url>.sha256".
-DEFAULT_SCRIPT_URL="https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/build_unity_template.logic.sh"
+# Where the build logic lives. This one route stays public on purpose: the bootstrap has no session
+# yet when it runs, and the logic file holds no secrets -- it is the payload the logic then downloads
+# that requires a Google sign-in. Override with UNITY_TEMPLATE_SCRIPT_URL to point at staging.
+# The matching ".sha256" sidecar is fetched from "<url>.sha256".
+DEFAULT_SCRIPT_URL="https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.logic.sh"
 SCRIPT_URL="${UNITY_TEMPLATE_SCRIPT_URL:-$DEFAULT_SCRIPT_URL}"
 
 BOOTSTRAP_CACHE_DIR="$SCRIPT_DIR/.ezg-bootstrap"

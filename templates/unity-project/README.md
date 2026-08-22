@@ -188,12 +188,47 @@ Mở Git Bash tại thư mục `EzgFeatureHub`, sau đó chạy:
 Flow mặc định:
 
 ```text
+  ──────────────────────────────────────────────────────────
+   Máy này chưa đăng nhập. Cần tài khoản Google @easygoing.vn
+   để tải template và package của công ty.
+
+   Mã xác thực:  8NK3-G79H
+   Mở link:      https://upm-registry-worker.developer-a1f.workers.dev/auth/device?code=8NK3-G79H
+  ──────────────────────────────────────────────────────────
+
 Project name [UnityTemplateProject]:
 Detected Unity versions:
   1) 6000.2.6f2
   2) 6000.3.16f1
 Select Unity number [2]:
 ```
+
+Đăng nhập là bước **đầu tiên**, trước cả khi hỏi tên project — ai không có quyền thì biết ngay chứ
+không phải gõ xong mới báo lỗi.
+
+Bước này chỉ hiện ở **lần đầu trên mỗi máy**: trình duyệt tự mở, đăng nhập bằng Google công ty
+là script chạy tiếp — không phải gõ thêm lệnh nào. Token lưu ở `~/.ezg/credentials.json` và dùng lại
+cho các lần sau (mặc định 30 ngày), nên những lần chạy sau chỉ thấy một dòng:
+
+```text
+[10:12:03] Đã đăng nhập: ban@easygoing.vn
+```
+
+Script đồng thời ghi `~/.upmconfig.toml` để chính Unity xác thực được với scoped registry khi resolve
+`com.ezg.*`. Không cần chạy `--login` trước — cờ đó chỉ dùng khi muốn đăng nhập lại mà không build.
+
+### Thời hạn phiên
+
+Phiên sống **6 tiếng** (`SESSION_TTL_HOURS` phía worker). Hết hạn thì:
+
+- **Chạy builder**: tự phát hiện và mở lại luồng đăng nhập, không cần làm gì thêm.
+- **Unity đang mở sẵn**: Unity đọc token từ `~/.upmconfig.toml` và **không tự đăng nhập lại được**.
+  Resolve package `com.ezg.*` sẽ báo 401 (Package Manager hiện "cannot be found" hoặc lỗi mạng).
+  Cách xử lý: chạy `./build_unity_template.sh --login` rồi bấm Refresh trong Package Manager.
+
+Nói cách khác, TTL ngắn đánh đổi bằng việc mỗi ngày làm việc phải đăng nhập lại vài lần nếu hay
+resolve package. Muốn nới thì sửa `SESSION_TTL_HOURS` trong `worker/wrangler.toml` (bỏ hẳn dòng đó
+thì rơi về `SESSION_TTL_DAYS = 30`) rồi deploy lại worker — không cần đụng gì phía client.
 
 Nếu nhấn Enter ở `Project name`, script dùng tên mặc định:
 
@@ -238,7 +273,7 @@ Chỉ định file template JSON khác:
 Đọc template JSON từ server:
 
 ```bash
-./build_unity_template.sh --template-url "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
+./build_unity_template.sh --template-url "https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json"
 ```
 
 Khi dùng `--template-url`, script sẽ tải JSON về:
@@ -355,13 +390,13 @@ Nếu trong manifest đã có scoped registry cùng `name`, script sẽ thay th�
 Template JSON hiện đang được publish trên Cloudflare R2 tại:
 
 ```text
-https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json
+https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json
 ```
 
 Các file asset đi kèm nằm dưới:
 
 ```text
-https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/
+https://upm-registry-worker.developer-a1f.workers.dev/template/files/
 ```
 
 Khi một file trong `files.localPackages` hoặc `files.unityPackages` không có trong `PackageTemplate`, script sẽ tải từ `url` về `.ezg-cache`, kiểm tra `sha256`, rồi dùng file cache đó để copy/import. Sau khi install thành công, cache mặc định sẽ bị xóa.
@@ -453,8 +488,8 @@ R2_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_BUCKET=company-upm-registry
-UNITY_TEMPLATE_PUBLIC_BASE_URL=https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files
-UNITY_TEMPLATE_MANIFEST_PUBLIC_URL=https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json
+UNITY_TEMPLATE_PUBLIC_BASE_URL=https://upm-registry-worker.developer-a1f.workers.dev/template/files
+UNITY_TEMPLATE_MANIFEST_PUBLIC_URL=https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json
 ```
 
 Vì các script đọc thẳng từ `process.env` (không tự load `.env`), nạp file `.env` bằng
@@ -484,7 +519,7 @@ Script upload sẽ:
 Sau khi upload, lệnh install remote chuẩn là:
 
 ```bash
-./build_unity_template.sh --template-url "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
+./build_unity_template.sh --template-url "https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json"
 ```
 
 Không commit R2 credentials vào repo. Nếu credentials từng bị paste ra ngoài, hãy rotate token trong Cloudflare.
@@ -501,7 +536,7 @@ Mỗi entry:
 {
   "name": "AllIn1Bundle",
   "fileName": "AllIn1Bundle.unitypackage",
-  "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
+  "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn1Bundle.unitypackage",
   "category": "VFX & Shader",
   "sha256": "7d50f3bb…",
   "installedByDefault": false
@@ -517,7 +552,7 @@ Mỗi entry:
 Catalog được publish trên R2 tại:
 
 ```text
-https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/asset-catalog.json
+https://upm-registry-worker.developer-a1f.workers.dev/template/asset-catalog.json
 ```
 
 ### Thêm asset optional + publish catalog
@@ -581,8 +616,8 @@ unity-template/features/
 URL công khai:
 
 ```text
-https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/index.json
-https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/M001/catalog.json
+https://upm-registry-worker.developer-a1f.workers.dev/template/features/index.json
+https://upm-registry-worker.developer-a1f.workers.dev/template/features/M001/catalog.json
 ```
 
 ### Publish feature catalog lên R2
@@ -707,8 +742,8 @@ Script này sẽ:
 Dùng chung file `scripts/.env` với các script publish khác. Sau khi upload, kiểm tra nhanh:
 
 ```bash
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/build_unity_template.logic.sh | shasum -a 256
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/build_unity_template.logic.sh.sha256
+curl -fsSL https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.logic.sh | shasum -a 256
+curl -fsSL https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.logic.sh.sha256
 ```
 
 Hai giá trị phải khớp nhau.
@@ -743,8 +778,8 @@ Script này sẽ:
 Dùng chung file `scripts/.env` với các script publish khác. Sau khi upload, kiểm tra nhanh:
 
 ```bash
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz | shasum -a 256
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz.sha256
+curl -fsSL https://upm-registry-worker.developer-a1f.workers.dev/template/defaultsetup.tgz | shasum -a 256
+curl -fsSL https://upm-registry-worker.developer-a1f.workers.dev/template/defaultsetup.tgz.sha256
 ```
 
 Hai giá trị phải khớp nhau.
@@ -777,11 +812,13 @@ Có thể dùng biến môi trường để override hành vi:
 ```bash
 UNITY_PATH="/path/to/Unity"
 UNITY_VERSION="6000.3.16f1"
-UNITY_TEMPLATE_URL="https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
+UNITY_TEMPLATE_URL="https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json"
 KEEP_DOWNLOAD_CACHE=1
 UNITY_HUB_EDITORS_DIR="/path/to/Unity/Hub/Editor"
 AUTO_LAUNCH=0
 PAUSE_ON_EXIT="always"
+EZG_TOKEN="<service-token>"
+EZG_GATEWAY_URL="https://upm-registry-worker.developer-a1f.workers.dev"
 ```
 
 Ý nghĩa:
@@ -793,6 +830,11 @@ PAUSE_ON_EXIT="always"
 - `UNITY_HUB_EDITORS_DIR`: thư mục Unity Hub Editor custom.
 - `AUTO_LAUNCH`: đặt `0` để không tự động mở project trong Unity sau khi build, tương đương `--no-launch` (mặc định `1`).
 - `PAUSE_ON_EXIT`: điều khiển việc giữ cửa sổ lại sau khi chạy. Giá trị hỗ trợ: `always`, `auto`, `never`.
+- `EZG_TOKEN`: service token cho CI/máy build (lấy từ `/admin/tokens`). Có biến này thì script không
+  bao giờ mở trình duyệt; token sai là dừng ngay thay vì chờ đăng nhập.
+- `EZG_GATEWAY_URL`: đổi gateway xác thực/tải file, dùng khi test staging.
+- `EZG_SKIP_AUTH=1`: bỏ qua đăng nhập (tương đương `--no-auth`). Chỉ chạy được với `--template-file`
+  và `PackageTemplate/` đã có sẵn đủ file trên máy, vì server sẽ từ chối request không có token.
 
 ## Troubleshooting
 

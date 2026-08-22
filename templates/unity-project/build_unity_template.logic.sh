@@ -49,8 +49,28 @@ TEMPLATE_FILE="$SCRIPT_DIR/unity-template.json"
 TEMPLATE_FILE_PROVIDED=0
 # By default the script fetches the latest published manifest from the server every run. Pass
 # --template-file <path> (or --template-url "") to build from the local unity-template.json.
-DEFAULT_TEMPLATE_URL="https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json"
+DEFAULT_TEMPLATE_URL="https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json"
 TEMPLATE_URL="${UNITY_TEMPLATE_URL:-$DEFAULT_TEMPLATE_URL}"
+# Gateway that authenticates the developer (Google, company domain only) and serves everything the
+# build downloads. Every request to this host carries a bearer token; anything else (git deps, Unity's
+# own registry) is untouched.
+DEFAULT_GATEWAY_URL="https://upm-registry-worker.developer-a1f.workers.dev"
+GATEWAY_URL="${EZG_GATEWAY_URL:-$DEFAULT_GATEWAY_URL}"
+GATEWAY_URL="${GATEWAY_URL%/}"
+# Where the session token is cached between runs. One token per machine, reused until it expires or
+# an admin revokes it.
+EZG_CRED_DIR="${EZG_CRED_DIR:-$HOME/.ezg}"
+EZG_CRED_FILE="$EZG_CRED_DIR/credentials.json"
+# Pre-set by CI (a service token issued from /admin/tokens); when present the script never opens a
+# browser and fails loudly instead of waiting for a human.
+EZG_TOKEN="${EZG_TOKEN:-}"
+EZG_TOKEN_IS_SERVICE=0
+# Escape hatch for a fully local build (--no-auth or EZG_SKIP_AUTH=1): skips sign-in entirely. Only
+# useful with --template-file plus a populated PackageTemplate/, since the server will refuse anonymous.
+SKIP_AUTH="${EZG_SKIP_AUTH:-0}"
+# Unity reads the registry token from here. UPM_USER_CONFIG_PATH is Unity's own override and is
+# honoured when set, which also makes this testable without touching the developer's real config.
+UPM_CONFIG_FILE="${UPM_USER_CONFIG_PATH:-$HOME/.upmconfig.toml}"
 DOWNLOAD_CACHE_DIR="$SCRIPT_DIR/.ezg-cache"
 DOWNLOAD_CACHE_DIR_CUSTOM=0
 DOWNLOAD_CACHE_DIR_PREEXISTED=0
@@ -65,6 +85,9 @@ DEFAULT_UNITY_VERSION_CAP="6000.3"
 UNITY_VERSION_CAP="${UNITY_VERSION_CAP:-$DEFAULT_UNITY_VERSION_CAP}"
 SELECT_UNITY=0
 SKIP_IMPORT=0
+# "login"/"logout" make the script do just that and exit -- handy for re-authenticating a machine
+# without rebuilding a project.
+AUTH_ACTION=""
 # Unity build target baked into the generated project launcher (.command/.bat). When left empty it
 # defaults per host OS below (Windows -> Android, macOS -> iOS). Override with --build-target or
 # BUILD_TARGET to force a specific target regardless of host.
@@ -106,6 +129,9 @@ Options:
   --select-unity                 Force Unity version selection even in non-interactive runs.
   --skip-import                  Only create/update project and manifest; skip .unitypackage import.
   --build-target <target>        Unity build target for the generated launcher (default by host OS: Windows=Android, macOS=iOS).
+  --login                        Sign in (or refresh the cached session) and exit without building.
+  --logout                       Revoke this machine's session and delete the cached token.
+  --no-auth                      Skip Google sign-in (only works for a fully local --template-file build).
   --no-pause                     Do not wait for Enter before the window closes.
   --no-launch                    Do not auto-open the project in Unity after a successful build.
   -h, --help                     Show this help.
@@ -119,6 +145,9 @@ Environment overrides:
   KEEP_DOWNLOAD_CACHE=1          Same as --keep-cache.
   UNITY_HUB_EDITORS_DIR=<path>   Extra Unity Hub Editor folder to scan.
   AUTO_LAUNCH=0                  Same as --no-launch (default 1: open Unity after build).
+  EZG_TOKEN=<token>              Service token for CI; skips the interactive browser sign-in.
+  EZG_GATEWAY_URL=<url>          Override the authentication/download gateway (staging).
+  EZG_SKIP_AUTH=1                Same as --no-auth.
   PAUSE_ON_EXIT=always|auto|never
 
 Default interactive project folder:
@@ -364,6 +393,18 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || die "--build-target requires a value"
       BUILD_TARGET="$2"
       shift 2
+      ;;
+    --login)
+      AUTH_ACTION="login"
+      shift
+      ;;
+    --logout)
+      AUTH_ACTION="logout"
+      shift
+      ;;
+    --no-auth)
+      SKIP_AUTH=1
+      shift
       ;;
     --no-pause)
       PAUSE_ON_EXIT="never"
@@ -949,6 +990,348 @@ cleanup_download_cache() {
   log "Removed download cache: $DOWNLOAD_CACHE_DIR"
 }
 
+# ------------------------------------------------------------------------------------------------
+# Authentication
+#
+# Everything this script downloads (manifest, .unitypackage assets, DefaultSetup, and the UPM
+# packages Unity resolves later) is served by the EZG gateway and requires a Google sign-in on the
+# company domain. The handshake is:
+#
+#   1. ask the gateway for a pairing code               POST /auth/device/start
+#   2. open the browser at that code, developer signs in with Google
+#   3. poll until the browser half completes            POST /auth/device/poll  -> session token
+#
+# The token is cached in ~/.ezg/credentials.json and reused on later runs, and mirrored into
+# ~/.upmconfig.toml so Unity can authenticate against the scoped registry on its own.
+# ------------------------------------------------------------------------------------------------
+
+# True when a URL points at the gateway, i.e. when the request must carry our token. Third-party
+# downloads (git packages, Unity's registry) must never see it.
+url_is_gateway() {
+  case "$1" in
+    "$GATEWAY_URL"/*|"$GATEWAY_URL") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Read one top-level field out of a JSON document. Booleans come back lowercased so callers can
+# compare them the same way on both back ends.
+json_field() {
+  local json="$1" key="$2" python_bin
+
+  if python_bin="$(find_python)"; then
+    printf '%s' "$json" | "$python_bin" -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+value = data.get(sys.argv[1])
+if isinstance(value, bool):
+    print("true" if value else "false")
+elif value is not None:
+    print(value)
+' "$key" 2>/dev/null
+    return 0
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_JSON="$json" EZG_KEY="$key" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+      try { $data = $env:EZG_JSON | ConvertFrom-Json } catch { exit 0 }
+      $value = $data.$($env:EZG_KEY)
+      if ($null -ne $value) { Write-Output ($value.ToString().ToLowerInvariant() -replace "^(true|false)$", "$1") }' 2>/dev/null | tr -d '\r'
+    return 0
+  fi
+
+  die "Cannot parse the gateway response because neither Python nor PowerShell is available."
+}
+
+# POST a JSON body and capture both the status code and the response body. Prints the status; the
+# body lands in $3. Non-2xx is a normal outcome here (the poll loop reads 202/403/429), so this must
+# not die on it -- hence the explicit status plumbing on both back ends.
+api_post_json() {
+  local url="$1" body="$2" out="$3"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -sS -o "$out" -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+      --data "$body" "$url" 2>/dev/null || printf '000'
+    return 0
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_URL="$url" EZG_BODY="$body" EZG_OUT="$(to_unity_arg_path "$out")" \
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+        try {
+          $response = Invoke-WebRequest -Uri $env:EZG_URL -Method POST -ContentType "application/json" `
+            -Body $env:EZG_BODY -UseBasicParsing
+          [IO.File]::WriteAllText($env:EZG_OUT, $response.Content)
+          Write-Output ([int]$response.StatusCode)
+        } catch {
+          $failed = $_.Exception.Response
+          if ($failed) {
+            $reader = New-Object IO.StreamReader($failed.GetResponseStream())
+            [IO.File]::WriteAllText($env:EZG_OUT, $reader.ReadToEnd())
+            Write-Output ([int]$failed.StatusCode)
+          } else { Write-Output "000" }
+        }' 2>/dev/null | tr -d '\r'
+    return 0
+  fi
+
+  die "Cannot talk to the gateway because neither curl nor PowerShell is available."
+}
+
+# GET with the bearer token. Prints the body on success, nothing on failure.
+api_get_authed() {
+  local url="$1" token="$2"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS -H "Authorization: Bearer $token" "$url" 2>/dev/null
+    return $?
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_URL="$url" EZG_AUTH="Bearer $token" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+      try {
+        $response = Invoke-WebRequest -Uri $env:EZG_URL -Headers @{ Authorization = $env:EZG_AUTH } -UseBasicParsing
+        Write-Output $response.Content
+      } catch { exit 1 }' 2>/dev/null | tr -d '\r'
+    return $?
+  fi
+
+  return 1
+}
+
+open_browser() {
+  local url="$1"
+  if command -v open >/dev/null 2>&1; then open "$url" >/dev/null 2>&1 && return 0; fi
+  if command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 && return 0; fi
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_OPEN_URL="$url" powershell.exe -NoProfile -Command 'Start-Process $env:EZG_OPEN_URL' >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
+cached_token() {
+  [ -f "$EZG_CRED_FILE" ] || return 1
+  json_field "$(cat "$EZG_CRED_FILE" 2>/dev/null)" access_token
+}
+
+save_credentials() {
+  mkdir -p "$EZG_CRED_DIR" 2>/dev/null || true
+  chmod 700 "$EZG_CRED_DIR" 2>/dev/null || true
+  printf '%s\n' "$1" >"$EZG_CRED_FILE"
+  chmod 600 "$EZG_CRED_FILE" 2>/dev/null || true
+}
+
+# Ask the server, do not just trust the cached expiry: a revoked token still looks valid on disk, and
+# an admin kicking a machine out must take effect on the very next build.
+token_is_valid() {
+  local token="$1" body
+  [ -n "$token" ] || return 1
+  body="$(api_get_authed "$GATEWAY_URL/auth/whoami" "$token")" || return 1
+  [ "$(json_field "$body" authenticated)" = "true" ] || return 1
+  EZG_TOKEN_EMAIL="$(json_field "$body" email)"
+  return 0
+}
+
+# Mirror the token into Unity's own credential file. alwaysAuth makes UPM send the header for tarball
+# downloads too, not just metadata -- without it Unity resolves versions and then 401s on the download.
+# Any entry for a different registry in the file is preserved.
+write_upmconfig() {
+  local token="$1" python_bin
+
+  if python_bin="$(find_python)"; then
+    "$python_bin" - "$UPM_CONFIG_FILE" "$GATEWAY_URL" "$token" <<'PYUPM'
+import io, os, re, sys
+
+path, registry, token = sys.argv[1], sys.argv[2].rstrip("/"), sys.argv[3]
+existing = ""
+if os.path.exists(path):
+    with io.open(path, encoding="utf-8") as handle:
+        existing = handle.read()
+
+block_re = re.compile(r'^\[npmAuth\."%s/?"\].*?(?=^\[|\Z)' % re.escape(registry), re.MULTILINE | re.DOTALL)
+cleaned = block_re.sub("", existing).rstrip()
+block = '[npmAuth."%s"]\ntoken = "%s"\nalwaysAuth = true\n' % (registry, token)
+
+with io.open(path, "w", encoding="utf-8") as handle:
+    handle.write((cleaned + "\n\n" if cleaned else "") + block)
+try:
+    os.chmod(path, 0o600)
+except OSError:
+    pass
+PYUPM
+    return 0
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_UPMCONFIG="$(to_unity_arg_path "$UPM_CONFIG_FILE")" EZG_REGISTRY="$GATEWAY_URL" EZG_UPM_TOKEN="$token" \
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+        $path = $env:EZG_UPMCONFIG
+        $registry = $env:EZG_REGISTRY.TrimEnd("/")
+        $existing = ""
+        if (Test-Path -LiteralPath $path) { $existing = Get-Content -LiteralPath $path -Raw }
+        $pattern = "(?ms)^\[npmAuth\.""" + [regex]::Escape($registry) + "/?""\].*?(?=^\[|\z)"
+        $cleaned = ([regex]::Replace($existing, $pattern, "")).TrimEnd()
+        $block = "[npmAuth.""$registry""]`ntoken = ""$env:EZG_UPM_TOKEN""`nalwaysAuth = true`n"
+        if ($cleaned) { $out = $cleaned + "`n`n" + $block } else { $out = $block }
+        [IO.File]::WriteAllText($path, $out)' >/dev/null 2>&1
+    return 0
+  fi
+
+  log "WARNING: could not write $UPM_CONFIG_FILE (no Python/PowerShell); Unity may fail to download com.ezg.* packages."
+  return 0
+}
+
+# The interactive half: pair this machine with a Google account through the browser.
+ezg_login() {
+  local start_body status device_code user_code verify_url interval expires_in deadline body tmp
+
+  tmp="$(mktemp 2>/dev/null || printf '%s' "${TMPDIR:-/tmp}/ezg-auth.$$")"
+  status="$(api_post_json "$GATEWAY_URL/auth/device/start" \
+    "{\"hostname\":\"$(hostname 2>/dev/null || printf 'unknown')\",\"client\":\"build_unity_template\"}" "$tmp")"
+  start_body="$(cat "$tmp" 2>/dev/null || printf '{}')"
+
+  if [ "$status" != "200" ]; then
+    rm -f "$tmp"
+    die "Không kết nối được máy chủ xác thực ($GATEWAY_URL). Kiểm tra mạng rồi chạy lại. [HTTP $status]"
+  fi
+
+  device_code="$(json_field "$start_body" device_code)"
+  user_code="$(json_field "$start_body" user_code)"
+  verify_url="$(json_field "$start_body" verification_uri_complete)"
+  interval="$(json_field "$start_body" interval)"; interval="${interval:-3}"
+  expires_in="$(json_field "$start_body" expires_in)"; expires_in="${expires_in:-600}"
+  [ -n "$device_code" ] || { rm -f "$tmp"; die "Máy chủ xác thực trả về dữ liệu không hợp lệ."; }
+
+  printf '\n' >&2
+  printf '  ──────────────────────────────────────────────────────────\n' >&2
+  printf '   Máy này chưa đăng nhập. Cần tài khoản Google @easygoing.vn\n' >&2
+  printf '   để tải template và package của công ty.\n' >&2
+  printf '\n' >&2
+  printf '   Mã xác thực:  %s\n' "$user_code" >&2
+  printf '   Mở link:      %s\n' "$verify_url" >&2
+  printf '  ──────────────────────────────────────────────────────────\n\n' >&2
+  open_browser "$verify_url" || log "Không tự mở được trình duyệt — hãy copy link ở trên."
+
+  deadline=$(( $(date +%s) + expires_in ))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    sleep "$interval"
+    status="$(api_post_json "$GATEWAY_URL/auth/device/poll" "{\"device_code\":\"$device_code\"}" "$tmp")"
+    body="$(cat "$tmp" 2>/dev/null || printf '{}')"
+
+    case "$status" in
+      200)
+        save_credentials "$body"
+        EZG_TOKEN="$(json_field "$body" access_token)"
+        EZG_TOKEN_EMAIL="$(json_field "$body" email)"
+        rm -f "$tmp"
+        log "Đăng nhập thành công: $EZG_TOKEN_EMAIL"
+        return 0
+        ;;
+      202|429) : ;;                                     # authorization_pending / slow_down
+      403) rm -f "$tmp"; die "$(json_field "$body" message)" ;;
+      *)   rm -f "$tmp"; die "Đăng nhập thất bại [HTTP $status]: $(json_field "$body" message)" ;;
+    esac
+  done
+
+  rm -f "$tmp"
+  die "Hết thời gian chờ xác thực. Chạy lại script để lấy mã mới."
+}
+
+# Called once before anything is downloaded. Reuses a valid cached token, otherwise signs in.
+ensure_authenticated() {
+  if [ "$SKIP_AUTH" = "1" ]; then
+    log "Bỏ qua xác thực (--no-auth). Chỉ dùng được với template + package đã có sẵn trên máy."
+    return 0
+  fi
+
+  # CI path: a service token is configured, so never open a browser -- fail loudly instead.
+  if [ -n "$EZG_TOKEN" ] && [ "$EZG_TOKEN_IS_SERVICE" -eq 0 ]; then
+    EZG_TOKEN_IS_SERVICE=1
+    if token_is_valid "$EZG_TOKEN"; then
+      log "Dùng EZG_TOKEN có sẵn (${EZG_TOKEN_EMAIL:-service})."
+      write_upmconfig "$EZG_TOKEN"
+      return 0
+    fi
+    die "EZG_TOKEN không hợp lệ hoặc đã bị thu hồi. Cấp token mới từ /admin/tokens."
+  fi
+
+  local token
+  token="$(cached_token 2>/dev/null || true)"
+  if token_is_valid "$token"; then
+    EZG_TOKEN="$token"
+    log "Đã đăng nhập: $EZG_TOKEN_EMAIL"
+  else
+    if [ ! -t 0 ] && [ ! -r /dev/tty ]; then
+      die "Máy này chưa đăng nhập và không có terminal để hiển thị mã xác thực.
+  - Chạy tay một lần:  ./$SCRIPT_NAME --login
+  - Hoặc với CI:       đặt biến EZG_TOKEN (service token lấy từ /admin/tokens)."
+    fi
+    ezg_login
+  fi
+
+  write_upmconfig "$EZG_TOKEN"
+  return 0
+}
+
+# Remove just our registry's block from ~/.upmconfig.toml, leaving any other registry alone. When
+# nothing else is left the file is deleted, so "logged out" really means no leftovers.
+remove_upmconfig_entry() {
+  local python_bin
+
+  [ -f "$UPM_CONFIG_FILE" ] || return 0
+
+  if python_bin="$(find_python)"; then
+    "$python_bin" - "$UPM_CONFIG_FILE" "$GATEWAY_URL" <<'PYCLEAN'
+import io, os, re, sys
+
+path, registry = sys.argv[1], sys.argv[2].rstrip("/")
+with io.open(path, encoding="utf-8") as handle:
+    existing = handle.read()
+
+block_re = re.compile(r'^\[npmAuth\."%s/?"\].*?(?=^\[|\Z)' % re.escape(registry), re.MULTILINE | re.DOTALL)
+cleaned = block_re.sub("", existing).strip()
+
+if cleaned:
+    with io.open(path, "w", encoding="utf-8") as handle:
+        handle.write(cleaned + "\n")
+else:
+    os.remove(path)
+PYCLEAN
+    return 0
+  fi
+
+  if [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
+    EZG_UPMCONFIG="$(to_unity_arg_path "$UPM_CONFIG_FILE")" EZG_REGISTRY="$GATEWAY_URL" \
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+        $path = $env:EZG_UPMCONFIG
+        $registry = $env:EZG_REGISTRY.TrimEnd("/")
+        $existing = Get-Content -LiteralPath $path -Raw
+        $pattern = "(?ms)^\[npmAuth\.""" + [regex]::Escape($registry) + "/?""\].*?(?=^\[|\z)"
+        $cleaned = ([regex]::Replace($existing, $pattern, "")).Trim()
+        if ($cleaned) { [IO.File]::WriteAllText($path, $cleaned + "`n") } else { Remove-Item -LiteralPath $path }' >/dev/null 2>&1
+    return 0
+  fi
+
+  log "WARNING: không xoá được entry trong $UPM_CONFIG_FILE (thiếu Python/PowerShell)."
+  return 0
+}
+
+ezg_logout() {
+  local token
+  token="$(cached_token 2>/dev/null || true)"
+  if [ -n "$token" ]; then
+    api_get_authed "$GATEWAY_URL/auth/whoami" "$token" >/dev/null 2>&1 || true
+    if command -v curl >/dev/null 2>&1; then
+      curl -sS -X POST -H "Authorization: Bearer $token" "$GATEWAY_URL/auth/logout" >/dev/null 2>&1 || true
+    fi
+  fi
+  rm -f "$EZG_CRED_FILE"
+  remove_upmconfig_entry
+  log "Đã đăng xuất máy này (xoá token cache + entry registry trong $UPM_CONFIG_FILE)."
+}
+
 download_template_file() {
   local url="$1"
   local target="$2"
@@ -961,14 +1344,31 @@ download_template_file() {
   temp_target="${target}.download"
   rm -f "$temp_target"
 
+  # Only gateway URLs get the token. A third-party host (git dependency, Unity's own CDN) must never
+  # receive our credential, so the header is attached per-URL rather than globally.
+  local auth_token=""
+  if [ -n "$EZG_TOKEN" ] && url_is_gateway "$url"; then
+    auth_token="$EZG_TOKEN"
+  fi
+
   log "Downloading: $(basename "$target")"
   if command -v curl >/dev/null 2>&1; then
-    curl -fL --retry 3 --output "$temp_target" "$url"
+    if [ -n "$auth_token" ]; then
+      curl -fL --retry 3 -H "Authorization: Bearer $auth_token" --output "$temp_target" "$url"
+    else
+      curl -fL --retry 3 --output "$temp_target" "$url"
+    fi
   elif command -v wget >/dev/null 2>&1; then
-    wget -O "$temp_target" "$url"
+    if [ -n "$auth_token" ]; then
+      wget --header="Authorization: Bearer $auth_token" -O "$temp_target" "$url"
+    else
+      wget -O "$temp_target" "$url"
+    fi
   elif [ "$OS_NAME" = "windows" ] && command -v powershell.exe >/dev/null 2>&1; then
-    URL_FOR_DOWNLOAD="$url" TARGET_FOR_DOWNLOAD="$(to_unity_arg_path "$temp_target")" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\
-      Invoke-WebRequest -Uri \$env:URL_FOR_DOWNLOAD -OutFile \$env:TARGET_FOR_DOWNLOAD"
+    URL_FOR_DOWNLOAD="$url" TARGET_FOR_DOWNLOAD="$(to_unity_arg_path "$temp_target")" TOKEN_FOR_DOWNLOAD="$auth_token" \
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\
+        \$headers = @{}; if (\$env:TOKEN_FOR_DOWNLOAD) { \$headers['Authorization'] = 'Bearer ' + \$env:TOKEN_FOR_DOWNLOAD }; \
+        Invoke-WebRequest -Uri \$env:URL_FOR_DOWNLOAD -OutFile \$env:TARGET_FOR_DOWNLOAD -Headers \$headers"
   else
     die "Cannot download $(basename "$target") because curl, wget, and PowerShell are unavailable."
   fi
@@ -2200,6 +2600,28 @@ MonoBehaviour:
 PMSETTINGS
   log "Wrote PackageManagerSettings.asset with Missing Signature warning suppressed (oneTimeWarningShown=1)"
 }
+
+# --login / --logout run on their own and stop here. The EXIT backstops (launcher, cache cleanup)
+# are marked done first so they cannot touch a project or a cache this invocation never built.
+if [ -n "$AUTH_ACTION" ]; then
+  LAUNCHER_RAN=1
+  CACHE_CLEANED=1
+  case "$AUTH_ACTION" in
+    logout) ezg_logout ;;
+    login)
+      SKIP_AUTH=0
+      ensure_authenticated
+      log "Token đã lưu ở: $EZG_CRED_FILE"
+      log "Đã ghi thông tin đăng nhập registry vào: $UPM_CONFIG_FILE"
+      ;;
+  esac
+  SCRIPT_SUCCEEDED=1
+  exit 0
+fi
+
+# Sign in first: this gates everything the run downloads, and it also writes ~/.upmconfig.toml, which
+# Unity needs later when it resolves com.ezg.* from the same host.
+ensure_authenticated
 
 prompt_project_name
 

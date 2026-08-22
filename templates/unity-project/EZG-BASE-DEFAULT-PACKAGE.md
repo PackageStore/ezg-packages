@@ -32,7 +32,7 @@ templates/unity-project/DefaultSetup/
 {
   "name": "ezg.base.default",
   "fileName": "ezg.base.default.unitypackage",
-  "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.default.unitypackage",
+  "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.default.unitypackage",
   "category": "EZG Base",
   "sha256": "aba253f0b47c3f66fb2f088511bc12e9a5f75ea1504684026ae80d81c775cc93",
   "installedByDefault": true,
@@ -76,7 +76,8 @@ node --env-file=.env upload-unity-template-catalog.mjs --force   # --force để
 Kiểm tra file đã có trên R2:
 
 ```bash
-curl -sI "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.default.unitypackage" | grep content-length
+TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.ezg/credentials.json')))['access_token'])")
+curl -sI -H "Authorization: Bearer $TOKEN" "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.default.unitypackage" | grep content-length
 ```
 
 ## Lịch sử publish

@@ -5,7 +5,7 @@
     {
       "name": "DOTweenPro_1.0.381_core_1.2.825",
       "fileName": "DOTweenPro_1.0.381_core_1.2.825.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/DOTweenPro_1.0.381_core_1.2.825.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/DOTweenPro_1.0.381_core_1.2.825.unitypackage",
       "category": "Tween & Animation",
       "sha256": "5760b6a0e7787e8399f933598fc6a85f086bf2d48c6063379f63ad7db5ba0dfa",
       "installedByDefault": true,
@@ -14,7 +14,7 @@
     {
       "name": "Odin Inspector 4.0.1.3",
       "fileName": "Odin Inspector 4.0.1.3.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Odin%20Inspector%204.0.1.3.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Odin%20Inspector%204.0.1.3.unitypackage",
       "category": "Editor",
       "sha256": "a0098fcffaa94709db2f86ea1e6442940f87f24eb2a98db94c37ad4f8c8e2a0c",
       "installedByDefault": true,
@@ -23,7 +23,7 @@
     {
       "name": "Ultimate Editor Enhancer",
       "fileName": "Ultimate Editor Enhancer.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Ultimate%20Editor%20Enhancer.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Ultimate%20Editor%20Enhancer.unitypackage",
       "category": "Editor",
       "sha256": "881cf853909e365e6f1e8ef5af446a4dd53c075d5c42092649851ae563ca8655",
       "installedByDefault": true,
@@ -32,7 +32,7 @@
     {
       "name": "facebook-unity-sdk-18.0.0",
       "fileName": "facebook-unity-sdk-18.0.0.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/facebook-unity-sdk-18.0.0.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/facebook-unity-sdk-18.0.0.unitypackage",
       "category": "SDK",
       "sha256": "7d920b551caee39b9b55208fd6d8e2e913d5782d11733c4fcc281a2407745c6a",
       "installedByDefault": true,
@@ -41,7 +41,7 @@
     {
       "name": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3",
       "fileName": "AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AppLovin-MAX-Unity-Plugin-8.6.4-Android-13.6.3-iOS-13.6.3.unitypackage",
       "category": "Ads",
       "sha256": "88ff216a199579def1bbf50d9186a6525e4d49b2f8322c9a9746a002e944addc",
       "installedByDefault": true,
@@ -114,7 +114,7 @@
     {
       "name": "I2_TextAnimation",
       "fileName": "I2_TextAnimation.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/I2_TextAnimation.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/I2_TextAnimation.unitypackage",
       "category": "Tween & Animation",
       "sha256": "52712bfb0bd244674edde22c3186ae7f207390096a8c9480a26090f654614530",
       "installedByDefault": true,
@@ -123,7 +123,7 @@
     {
       "name": "com.google.android.appbundle-1.10.0",
       "fileName": "com.google.android.appbundle-1.10.0.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.android.appbundle-1.10.0.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/com.google.android.appbundle-1.10.0.unitypackage",
       "category": "Google Play",
       "sha256": "9c99e49c1f6144276429f729cb0c21ac94b4f2b9e548ce16d1154cb650e4960e",
       "installedByDefault": true,
@@ -132,7 +132,7 @@
     {
       "name": "com.google.play.common-1.9.2",
       "fileName": "com.google.play.common-1.9.2.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.common-1.9.2.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/com.google.play.common-1.9.2.unitypackage",
       "category": "Google Play",
       "sha256": "3d8a625f3caff396b2a939b6c3e18dfa7556425a279531ad75388005125b78f1",
       "installedByDefault": true,
@@ -141,7 +141,7 @@
     {
       "name": "com.google.play.core-1.8.6",
       "fileName": "com.google.play.core-1.8.6.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.core-1.8.6.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/com.google.play.core-1.8.6.unitypackage",
       "category": "Google Play",
       "sha256": "401427ea7817e1f01b1e0ecc687432d166b617a3ca77023148ba06ee8e559085",
       "installedByDefault": true,
@@ -150,7 +150,7 @@
     {
       "name": "com.google.play.assetdelivery-1.9.5",
       "fileName": "com.google.play.assetdelivery-1.9.5.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.assetdelivery-1.9.5.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/com.google.play.assetdelivery-1.9.5.unitypackage",
       "category": "Google Play",
       "sha256": "48634213d50afb92e7a663ab57b0b6e222cf9aa4bff8f57db4d6f1b0efce34ac",
       "installedByDefault": true,
@@ -159,7 +159,7 @@
     {
       "name": "com.google.play.review-1.8.4",
       "fileName": "com.google.play.review-1.8.4.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/com.google.play.review-1.8.4.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/com.google.play.review-1.8.4.unitypackage",
       "category": "Google Play",
       "sha256": "a819c77ec2d639c9655f0b11d29408a88bb3f6ece7f6da31dab8c4a3371b7864",
       "installedByDefault": true,
@@ -168,7 +168,7 @@
     {
       "name": "play-games-plugin-for-unity-2.1.0",
       "fileName": "play-games-plugin-for-unity-2.1.0.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/play-games-plugin-for-unity-2.1.0.unitypackage",
       "category": "Google Play",
       "sha256": "8386a3e9a96e30ec16454cdef900a1cede7c1cf9e0c30a5827ebe9c93cb9d687",
       "installedByDefault": true,
@@ -177,7 +177,7 @@
     {
       "name": "ezg.base.features",
       "fileName": "ezg.base.features.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.features.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features.unitypackage",
       "category": "EZG Base",
       "sha256": "6ec2a9d195b4f5b5b3101f65d671b617e5cd6f1be5aea9e561389f94e03d011d",
       "installedByDefault": true
@@ -185,7 +185,7 @@
     {
       "name": "ezg.base.default",
       "fileName": "ezg.base.default.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.default.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.default.unitypackage",
       "category": "EZG Base",
       "sha256": "c92ff146837438ae0403cf8ab62e7a235ba6f1746c2463348fe96038fbe28acb",
       "installedByDefault": true,
@@ -194,7 +194,7 @@
     {
       "name": "ezg.base.visuals",
       "fileName": "ezg.base.visuals.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/ezg.base.visuals.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals.unitypackage",
       "category": "EZG Base",
       "sha256": "2f44b35863935df629d86c364bdfe6e3b93f752d6d51267a9fe6b8d8817ab2c1",
       "installedByDefault": true
@@ -202,7 +202,7 @@
     {
       "name": "Epic Toon FX",
       "fileName": "Epic Toon FX.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Epic%20Toon%20FX.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Epic%20Toon%20FX.unitypackage",
       "category": "VFX & Shader",
       "sha256": "fb3aa356ff82a51a008927357e43c2f2040899c4618841989ed2250c9c0eba3d",
       "installedByDefault": true,
@@ -211,7 +211,7 @@
     {
       "name": "AllIn1Bundle",
       "fileName": "AllIn1Bundle.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1Bundle.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn1Bundle.unitypackage",
       "category": "VFX & Shader",
       "sha256": "47ab5a290c212f6baf76eda0d4a0322df5f3c9b42f3659771550eeba25e07007",
       "installedByDefault": false,
@@ -220,7 +220,7 @@
     {
       "name": "AllIn13DShader",
       "fileName": "AllIn13DShader.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn13DShader.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn13DShader.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4e4760b27b3146ecc64c2f1dce9801d427f995b4d60ee0b585768075189ca519",
       "installedByDefault": false,
@@ -229,7 +229,7 @@
     {
       "name": "AllIn1SpriteShader",
       "fileName": "AllIn1SpriteShader.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteShader.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn1SpriteShader.unitypackage",
       "category": "VFX & Shader",
       "sha256": "5657d0cc0594d0ec13e07437e16b5bf598c3b653397ec50c331e44ac9a0907da",
       "installedByDefault": false,
@@ -238,7 +238,7 @@
     {
       "name": "AllIn1SpriteLighting",
       "fileName": "AllIn1SpriteLighting.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1SpriteLighting.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn1SpriteLighting.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4b9858c31795ac6f927e277bd30c87b0dd1333111d00ea57fb7ea44e3e575b12",
       "installedByDefault": false,
@@ -247,7 +247,7 @@
     {
       "name": "AllIn1VfxToolkit",
       "fileName": "AllIn1VfxToolkit.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/AllIn1VfxToolkit.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/AllIn1VfxToolkit.unitypackage",
       "category": "VFX & Shader",
       "sha256": "00a7d40101b3a6d07a83697177c975843e6c9acd9033394b0587dc75b13ab615",
       "installedByDefault": false,
@@ -256,7 +256,7 @@
     {
       "name": "Amazing Assets",
       "fileName": "Amazing Assets.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Amazing%20Assets.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Amazing%20Assets.unitypackage",
       "category": "VFX & Shader",
       "sha256": "4a7a43bb069c3580f43948f5cda4cea21fc7437aae898deb3633b7acbf4ce395",
       "installedByDefault": false,
@@ -265,7 +265,7 @@
     {
       "name": "Feel",
       "fileName": "Feel.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/Feel.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Feel.unitypackage",
       "category": "Feedback",
       "sha256": "784dd0f870b348f85b103c527ea9403fcaf7990cf513c3fc10e77b5855fa7941",
       "installedByDefault": false,
@@ -274,7 +274,7 @@
     {
       "name": "GUI Pro-CasualGame",
       "fileName": "GUI Pro-CasualGame.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-CasualGame.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GUI%20Pro-CasualGame.unitypackage",
       "category": "GUI",
       "sha256": "7c9720c5b120e54e324673a1c3ba3a5df1ec899140ef97484a12a97dc0203576",
       "installedByDefault": false
@@ -282,7 +282,7 @@
     {
       "name": "GUI Pro-FantasyHero",
       "fileName": "GUI Pro-FantasyHero.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-FantasyHero.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GUI%20Pro-FantasyHero.unitypackage",
       "category": "GUI",
       "sha256": "a1934b3ac5efe4ba4f2010e6c30b517a25ae8c2a183fbc467553f6fa29d72449",
       "installedByDefault": false
@@ -290,7 +290,7 @@
     {
       "name": "GUI Pro-SuperCasual",
       "fileName": "GUI Pro-SuperCasual.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI%20Pro-SuperCasual.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GUI%20Pro-SuperCasual.unitypackage",
       "category": "GUI",
       "sha256": "a0878b6b3afb414566d89c2badb165ab666ee31891bce71b752d2c9d98ca22bd",
       "installedByDefault": false
@@ -298,7 +298,7 @@
     {
       "name": "GUI-CasualFantasy",
       "fileName": "GUI-CasualFantasy.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-CasualFantasy.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GUI-CasualFantasy.unitypackage",
       "category": "GUI",
       "sha256": "dd2e9fbfd49f8021e9bd8802c9ad8318b6bb3ad6d9f44ba51b9a20f9a97d91cd",
       "installedByDefault": false
@@ -306,7 +306,7 @@
     {
       "name": "GUI-LifeGame",
       "fileName": "GUI-LifeGame.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/GUI-LifeGame.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GUI-LifeGame.unitypackage",
       "category": "GUI",
       "sha256": "36b5233664a1b6969d2ab82e73e7c9b572fc6956f79860c778e2b4c569ae5203",
       "installedByDefault": false
@@ -314,7 +314,7 @@
     {
       "name": "A_Pathfinding_Project_Pro_v4.2.17",
       "fileName": "A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/A_Pathfinding_Project_Pro_v4.2.17.unitypackage",
       "category": "AI Pathfinding",
       "sha256": "a04afb68a68c5eedd86bc68108ccb6e675e3b4c4e9477da8af3cff2e554bd688",
       "installedByDefault": false,
@@ -323,7 +323,7 @@
     {
       "name": "KayKit - Medieval Hexagon Pack for Unity",
       "fileName": "KayKit - Medieval Hexagon Pack for Unity.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/KayKit%20-%20Medieval%20Hexagon%20Pack%20for%20Unity.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/KayKit%20-%20Medieval%20Hexagon%20Pack%20for%20Unity.unitypackage",
       "category": "3D Models",
       "sha256": "6210435aeed1477ffd78675e522f879bca608641aaae56b001520f66b51437cb",
       "installedByDefault": false,
@@ -332,7 +332,7 @@
     {
       "name": "KayKit - Forest Nature Pack for Unity",
       "fileName": "KayKit - Forest Nature Pack for Unity.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/KayKit%20-%20Forest%20Nature%20Pack%20for%20Unity.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/KayKit%20-%20Forest%20Nature%20Pack%20for%20Unity.unitypackage",
       "category": "3D Models",
       "sha256": "055882a995e09f0d3bd1dd901b285a53b012e4e7ce53102d63d6b935c7c95bdb",
       "installedByDefault": false,
@@ -341,7 +341,7 @@
     {
       "name": "TinySauce-8.2.0",
       "fileName": "TinySauce-8.2.0.unitypackage",
-      "url": "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files/TinySauce-8.2.0.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/TinySauce-8.2.0.unitypackage",
       "category": "SDK",
       "sha256": "609d15710639ab46e00a75eb12b4800d80858427b2c63c81d6dc66b6518bfaaa",
       "installedByDefault": false,

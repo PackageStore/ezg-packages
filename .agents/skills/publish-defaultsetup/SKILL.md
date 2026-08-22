@@ -59,8 +59,10 @@ Upload thật sẽ ghi 2 key:
 Hai giá trị dưới đây phải **khớp nhau** (hash của tarball live == nội dung file `.sha256` live):
 
 ```bash
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz | shasum -a 256
-curl -fsSL https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz.sha256
+# /template/* yêu cầu đăng nhập -- lấy token đã cache của máy này:
+TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.ezg/credentials.json')))['access_token'])")
+curl -fsSL -H "Authorization: Bearer $TOKEN" https://upm-registry-worker.developer-a1f.workers.dev/template/defaultsetup.tgz | shasum -a 256
+curl -fsSL -H "Authorization: Bearer $TOKEN" https://upm-registry-worker.developer-a1f.workers.dev/template/defaultsetup.tgz.sha256
 ```
 
 Khớp → xong: máy fresh sẽ tải bản DefaultSetup mới ở lần build kế tiếp. Lệch → upload bị lỗi/nửa chừng,

@@ -33,6 +33,21 @@ const PACKAGE_TEMPLATE_DIR = join(REPO_ROOT, "templates", "unity-project", "Pack
 const PREFIX = (process.env.UNITY_TEMPLATE_R2_PREFIX || "unity-template/files").replace(/^\/+|\/+$/g, "");
 const MANIFEST_KEY = (process.env.UNITY_TEMPLATE_MANIFEST_R2_KEY || "unity-template/latest.json").replace(/^\/+/, "");
 const PUBLIC_BASE_URL = (process.env.UNITY_TEMPLATE_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+// Bases that are OURS, i.e. the same bytes served from an address we control and have since moved.
+// A url under one of these is re-homed to PUBLIC_BASE_URL by --update-urls even when the file is not
+// present locally; anything else is a genuinely third-party download and is never rewritten.
+const OWNED_BASE_URLS = (
+  process.env.UNITY_TEMPLATE_OWNED_BASE_URLS ||
+  "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files"
+)
+  .split(",")
+  .map((value) => value.trim().replace(/\/+$/, ""))
+  .filter(Boolean)
+  .concat(PUBLIC_BASE_URL ? [PUBLIC_BASE_URL] : []);
+
+function isOwnedUrl(url) {
+  return OWNED_BASE_URLS.some((base) => typeof url === "string" && url.startsWith(`${base}/`));
+}
 const MANIFEST_PUBLIC_URL = process.env.UNITY_TEMPLATE_MANIFEST_PUBLIC_URL || "";
 const DRY_RUN = hasFlag("--dry-run");
 const FORCE = hasFlag("--force");
@@ -88,8 +103,17 @@ async function main() {
     // and keep the entry as-is in the manifest (external URL used at install time).
     if (!hasLocalFile) {
       if (entry.url) {
-        console.log(`~ external ${kind}: ${fileName} (no local file, keeping external url)`);
-        summary.push(`external ${fileName}`);
+        // The object is already on R2 (that is why there is no local copy). Its url still has to
+        // follow the storage when the public address changes, or the manifest keeps pointing at an
+        // address that is about to stop serving.
+        if (UPDATE_URLS && PUBLIC_BASE_URL && isOwnedUrl(entry.url)) {
+          entry.url = `${PUBLIC_BASE_URL}/${encodeURIComponent(basename(fileName))}`;
+          console.log(`~ re-homed ${kind}: ${fileName} -> ${entry.url}`);
+          summary.push(`re-home ${fileName}`);
+        } else {
+          console.log(`~ external ${kind}: ${fileName} (no local file, keeping external url)`);
+          summary.push(`external ${fileName}`);
+        }
         continue;
       }
       throw new Error(`Missing local template file and no url set: ${sourcePath}`);

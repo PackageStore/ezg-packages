@@ -4,6 +4,28 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-08-22
+
+Toàn bộ nội dung template chuyển sang phân phối qua gateway có xác thực Google: chỉ tài khoản `@easygoing.vn` mới tải được manifest, asset, DefaultSetup, feature catalog và package `com.ezg.*`.
+
+**Added**
+- `build_unity_template.logic.sh` — đăng nhập Google bằng device pairing: xin mã ở `/auth/device/start`, mở trình duyệt, poll `/auth/device/poll` cho tới khi có session token. Token cache ở `~/.ezg/credentials.json` (chmod 600), lần chạy sau dùng lại. Mỗi lần chạy đều hỏi lại server (`/auth/whoami`) chứ không chỉ nhìn hạn trong token — admin thu hồi là có tác dụng ngay ở build kế tiếp.
+- `build_unity_template.logic.sh` — `write_upmconfig()` ghi `~/.upmconfig.toml` (`[npmAuth]` + `alwaysAuth = true`) để chính Unity xác thực được với scoped registry khi resolve `com.ezg.*`. Giữ nguyên entry của registry khác trong file.
+- Cờ mới: `--login` (đăng nhập rồi thoát, không build), `--logout` (thu hồi phiên của máy này), `--no-auth` (bỏ qua xác thực, chỉ dùng được với `--template-file` + `PackageTemplate/` có sẵn). Biến môi trường: `EZG_TOKEN` (service token cho CI, không mở trình duyệt), `EZG_GATEWAY_URL`, `EZG_SKIP_AUTH`.
+- Đăng nhập chạy **trước** prompt hỏi tên project, không phải sau. Trước đó người double-click `.command` chỉ thấy `Project name:` và tưởng builder không hề bắt xác thực; ngoài ra bắt gõ tên project xong mới báo "không có quyền" là phí công của họ.
+- Chạy không có terminal (CI/headless) mà chưa đăng nhập thì dừng ngay kèm hướng dẫn, thay vì in mã xác thực không ai đọc được rồi poll đủ 10 phút. `EZG_TOKEN` sai cũng fail ngay lập tức.
+
+**Fixed**
+- `--logout` giờ xoá luôn entry registry trong `~/.upmconfig.toml` (giữ nguyên entry của registry khác, file trống thì xoá hẳn). Trước đây nó để lại token đã bị thu hồi, khiến Unity resolve package fail bằng một lỗi 401 trần trụi.
+- Khung thông báo đăng nhập bị lệch mép phải: `printf` căn lề theo **byte**, mà chữ có dấu tiếng Việt là nhiều byte. Bỏ mép phải thay vì cố đo bề rộng hiển thị trong bash.
+
+**Changed**
+- Phiên đăng nhập sống **6 tiếng**. Builder tự đăng nhập lại khi hết hạn; Unity thì không — nó đọc token từ `~/.upmconfig.toml` nên resolve package sẽ 401 cho tới khi chạy `--login`. Xem README mục "Thời hạn phiên".
+- `build_unity_template.sh` **và `build_unity_template.command`** (bootstrap macOS double-click — file riêng, không phải symlink) tải build logic từ `…workers.dev/boot/…` thay vì `pub-*.r2.dev`. Route `/boot/` cố ý để public: bootstrap chưa có token khi chạy, và file logic không chứa secret — thứ phải có token là payload mà nó tải sau đó. **Máy đang dùng bootstrap cũ cần thay file này một lần** trước khi tắt public access của R2 bucket.
+- `unity-template.json`, `asset-catalog.json`, `features/index.json` + `features/M001/catalog.json`: mọi URL thuộc storage của mình đổi sang `…/template/…` của gateway. URL bên thứ ba (8 gói Firebase trên `dl.google.com`) giữ nguyên.
+- `download_template_file()` chỉ gắn `Authorization: Bearer` khi URL thuộc gateway; host khác không bao giờ nhận token.
+- `scripts/upload-unity-template-assets.mjs` — `--update-urls` re-home cả entry không có file local (trước đây giữ nguyên URL cũ, tức 22/24 file sẽ vẫn trỏ về địa chỉ sắp ngừng phục vụ). Danh sách base "của mình" cấu hình qua `UNITY_TEMPLATE_OWNED_BASE_URLS`.
+
 ## 2026-08-07
 
 Nối agent system vào builder: project sinh ra đã personalize và bootstrap sẵn, thay vì bàn giao một `.claude/` còn nguyên placeholder và bắt dev tự chạy 1 lệnh mới dùng được.

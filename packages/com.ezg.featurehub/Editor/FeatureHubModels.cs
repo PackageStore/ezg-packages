@@ -9,17 +9,18 @@ namespace Ezg.FeatureHub.Editor
     public static class FeatureHubConstants
     {
         // Catalog .unitypackage (tải về → import → xóa temp).
+        // Từ v0.2.0 mọi URL đi qua gateway có xác thực Google — xem EzgAuth.
         public const string CATALOG_URL =
-            "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/asset-catalog.json";
+            "https://upm-registry-worker.developer-a1f.workers.dev/template/asset-catalog.json";
 
         // Template UPM (dependencies + scopedRegistries + localPackages .tgz).
         public const string TEMPLATE_URL =
-            "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/latest.json";
+            "https://upm-registry-worker.developer-a1f.workers.dev/template/latest.json";
 
         // Index các dự án feature đã làm (A002, ST001, R001, M001...). Mỗi project trỏ tới một
         // catalog.json riêng (shape giống asset-catalog.json) — tải lazy khi user chọn project.
         public const string FEATURES_INDEX_URL =
-            "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/features/index.json";
+            "https://upm-registry-worker.developer-a1f.workers.dev/template/features/index.json";
 
         // Thư mục temp tải file về (nằm trong Temp/ của project — đã gitignore).
         public const string TEMP_DIR_NAME = "EzgFeatureHub";

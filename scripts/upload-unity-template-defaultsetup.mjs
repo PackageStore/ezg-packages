@@ -30,7 +30,7 @@ const DEFAULT_SETUP_DIR = join(TEMPLATE_DIR, "DefaultSetup");
 const TGZ_KEY = (process.env.UNITY_TEMPLATE_DEFAULT_SETUP_R2_KEY || "unity-template/defaultsetup.tgz").replace(/^\/+/, "");
 const SHA_KEY = `${TGZ_KEY}.sha256`;
 const PUBLIC_URL = process.env.UNITY_TEMPLATE_DEFAULT_SETUP_PUBLIC_URL ||
-  "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/defaultsetup.tgz";
+  "https://upm-registry-worker.developer-a1f.workers.dev/template/defaultsetup.tgz";
 
 const DRY_RUN = hasFlag("--dry-run");
 

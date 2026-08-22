@@ -48,7 +48,7 @@ const FEATURES_DIR = join(REPO_ROOT, "templates", "Features");
 // Public read root, e.g. https://pub-xxxx.r2.dev/unity-template
 const PUBLIC_ROOT = (
   process.env.UNITY_TEMPLATE_PUBLIC_BASE_URL ||
-  "https://pub-d76b7e028ac14f9bb044ebd65bccd3d9.r2.dev/unity-template/files"
+  "https://upm-registry-worker.developer-a1f.workers.dev/template/files"
 ).replace(/\/files\/?$/, "");
 const R2_FEATURES_PREFIX = (process.env.UNITY_TEMPLATE_FEATURES_PREFIX || "unity-template/features")
   .replace(/^\/+|\/+$/g, "");
