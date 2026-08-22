@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-08-22
+
+**Added**
+- `Ezg > Đăng nhập EZG`: đăng nhập Google ngay trong Unity bằng đúng luồng ghép cặp thiết bị mà builder dùng (xin mã → mở trình duyệt → tự nhận kết quả). Phiên hết hạn giữa buổi làm không còn buộc phải bỏ Unity ra chạy lại `build_unity_template`.
+- `Ezg > Trạng thái phiên EZG`: in ra đang đăng nhập bằng email nào, còn bao lâu.
+- `EzgAuth` tự gia hạn phiên mỗi lần domain reload nếu còn dưới 2 tiếng (throttle 10 phút/lần). Phiên sống theo cửa sổ *không hoạt động*, nên Editor đang mở gần như không bao giờ chạm hạn.
+- `EzgAuth.WriteUpmConfig`: mỗi lần nhận token mới là ghi lại `~/.upmconfig.toml` để Package Manager dùng được ngay, giữ nguyên entry của registry khác.
+- `EditorDownloader.PostJson` — POST kèm bearer, trả cả status code vì luồng ghép cặp phân biệt trạng thái bằng 202/429/403.
+
+**Changed**
+- Dialog khi gặp 401 giờ mở thẳng cửa sổ đăng nhập thay vì bảo người dùng đi tìm shell script.
+
 ## 0.2.1 — 2026-08-22
 
 **Fixed**

@@ -20,7 +20,8 @@ Toàn bộ nội dung template chuyển sang phân phối qua gateway có xác t
 - Khung thông báo đăng nhập bị lệch mép phải: `printf` căn lề theo **byte**, mà chữ có dấu tiếng Việt là nhiều byte. Bỏ mép phải thay vì cố đo bề rộng hiển thị trong bash.
 
 **Changed**
-- Phiên đăng nhập sống **6 tiếng**. Builder tự đăng nhập lại khi hết hạn; Unity thì không — nó đọc token từ `~/.upmconfig.toml` nên resolve package sẽ 401 cho tới khi chạy `--login`. Xem README mục "Thời hạn phiên".
+- Phiên đăng nhập dùng cửa sổ **6 tiếng không-hoạt-động** (trần tuyệt đối 30 ngày), không phải hạn cứng. Ba chỗ tự gia hạn: builder khi chạy, launcher của project **trước khi** mở Unity, và Feature Hub mỗi lần domain reload. Thứ tự ở launcher là bắt buộc — Package Manager đọc token lúc tiến trình Unity khởi động và không tự đăng nhập lại được, nên gia hạn từ trong Editor là đã muộn cho lần resolve đầu tiên. Xem README mục "Thời hạn phiên".
+- `~/.ezg/refresh-session.sh` + `.ps1`: helper gia hạn dùng chung cho mọi project, builder sinh ra mỗi lần đăng nhập thành công. Một bản cho mỗi máy thay vì một bản cho mỗi project, để sửa lỗi là mọi project hưởng.
 - `build_unity_template.sh` **và `build_unity_template.command`** (bootstrap macOS double-click — file riêng, không phải symlink) tải build logic từ `…workers.dev/boot/…` thay vì `pub-*.r2.dev`. Route `/boot/` cố ý để public: bootstrap chưa có token khi chạy, và file logic không chứa secret — thứ phải có token là payload mà nó tải sau đó. **Máy đang dùng bootstrap cũ cần thay file này một lần** trước khi tắt public access của R2 bucket.
 - `unity-template.json`, `asset-catalog.json`, `features/index.json` + `features/M001/catalog.json`: mọi URL thuộc storage của mình đổi sang `…/template/…` của gateway. URL bên thứ ba (8 gói Firebase trên `dl.google.com`) giữ nguyên.
 - `download_template_file()` chỉ gắn `Authorization: Bearer` khi URL thuộc gateway; host khác không bao giờ nhận token.

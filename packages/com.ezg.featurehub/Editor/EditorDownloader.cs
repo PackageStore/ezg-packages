@@ -2,6 +2,7 @@
 // Dùng UnityWebRequest + poll qua EditorApplication.update để giữ async-friendly trong editor.
 using System;
 using System.IO;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -54,6 +55,31 @@ namespace Ezg.FeatureHub.Editor
                 string error = ok ? null : DescribeError(request);
                 request.Dispose();
                 onDone?.Invoke(ok, error);
+            });
+        }
+
+        /// <summary>
+        /// POST JSON tới gateway (đăng nhập / gia hạn phiên). Trả cả body khi lỗi vì server mô tả lý
+        /// do trong đó — luồng ghép cặp thiết bị phân biệt "đang chờ", "chờ quá nhanh" và "bị từ chối"
+        /// bằng chính status + body này.
+        /// </summary>
+        public static void PostJson(string url, string json, string bearer, Action<bool, string, long> onDone)
+        {
+            var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST)
+            {
+                uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json ?? "{}")),
+                downloadHandler = new DownloadHandlerBuffer(),
+            };
+            request.SetRequestHeader("Content-Type", "application/json");
+            if (!string.IsNullOrEmpty(bearer)) request.SetRequestHeader("Authorization", "Bearer " + bearer);
+
+            Poll(request, request.SendWebRequest(), null, () =>
+            {
+                bool ok = IsSuccess(request);
+                string body = request.downloadHandler?.text;
+                long code = request.responseCode;
+                request.Dispose();
+                onDone?.Invoke(ok, body, code);
             });
         }
 

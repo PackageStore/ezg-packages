@@ -219,16 +219,29 @@ Script đồng thời ghi `~/.upmconfig.toml` để chính Unity xác thực đ�
 
 ### Thời hạn phiên
 
-Phiên sống **6 tiếng** (`SESSION_TTL_HOURS` phía worker). Hết hạn thì:
+**6 tiếng là cửa sổ *không hoạt động*, không phải hạn cứng.** Máy đang dùng thì tự đẩy hạn về sau
+(`POST /auth/refresh`), chỉ máy bỏ không quá 6 tiếng mới phải đăng nhập lại. Trần tuyệt đối là 30
+ngày — gia hạn kiểu gì cũng phải gặp lại Google sau mốc đó.
 
-- **Chạy builder**: tự phát hiện và mở lại luồng đăng nhập, không cần làm gì thêm.
-- **Unity đang mở sẵn**: Unity đọc token từ `~/.upmconfig.toml` và **không tự đăng nhập lại được**.
-  Resolve package `com.ezg.*` sẽ báo 401 (Package Manager hiện "cannot be found" hoặc lỗi mạng).
-  Cách xử lý: chạy `./build_unity_template.sh --login` rồi bấm Refresh trong Package Manager.
+Ba chỗ tự gia hạn, phủ đủ các đường vào:
 
-Nói cách khác, TTL ngắn đánh đổi bằng việc mỗi ngày làm việc phải đăng nhập lại vài lần nếu hay
-resolve package. Muốn nới thì sửa `SESSION_TTL_HOURS` trong `worker/wrangler.toml` (bỏ hẳn dòng đó
-thì rơi về `SESSION_TTL_DAYS = 30`) rồi deploy lại worker — không cần đụng gì phía client.
+| Khi nào | Ai làm |
+|---|---|
+| Chạy builder | `ensure_authenticated` gia hạn ngay sau khi xác nhận token còn sống |
+| Mở project bằng launcher (`<Tên>.command` / `.bat`) | Launcher gọi `~/.ezg/refresh-session.sh` **trước khi** Unity khởi động |
+| Đang làm việc trong Unity | Feature Hub gia hạn mỗi lần domain reload nếu còn dưới 2 tiếng |
+
+Thứ tự ở dòng thứ hai là cố ý: Package Manager đọc token từ `~/.upmconfig.toml` lúc tiến trình Unity
+khởi động và **không tự đăng nhập lại được**, nên token phải còn hạn *trước khi* Unity chạy — gia hạn
+từ bên trong Editor là đã muộn cho lần resolve đầu tiên.
+
+Nếu vẫn gặp 401 (ví dụ mở project thẳng từ Unity Hub, không qua launcher, sau khi máy nghỉ lâu):
+menu **`Ezg > Đăng nhập EZG`** ngay trong Unity, xong bấm Refresh trong Package Manager. Không cần
+tìm lại shell script. Menu **`Ezg > Trạng thái phiên EZG`** in ra đang đăng nhập bằng email nào và
+còn bao lâu.
+
+Muốn đổi thời hạn thì sửa `SESSION_TTL_HOURS` / `SESSION_MAX_DAYS` trong `worker/wrangler.toml` rồi
+deploy lại worker — không đụng gì phía client.
 
 Nếu nhấn Enter ở `Project name`, script dùng tên mặc định:
 
