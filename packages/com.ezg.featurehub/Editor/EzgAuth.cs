@@ -25,9 +25,12 @@ namespace Ezg.FeatureHub.Editor
         private static long _cachedExpiresAt;
         private static DateTime _cachedStamp;
 
-        // Gia hạn khi phiên còn dưới ngưỡng này. Rộng tay để một buổi làm việc bình thường không bao
-        // giờ chạm hạn giữa chừng.
-        private const int RefreshWhenUnderSeconds = 2 * 3600;
+        // Gia hạn khi phiên còn dưới ngưỡng này. Phải rộng hơn hẳn một buổi làm việc, và phải tương
+        // xứng với cửa sổ nghỉ của server (7 ngày): ngưỡng 2 tiếng cũ chỉ là 1% của cửa sổ đó, nên
+        // phiên chỉ được đẩy hạn nếu tình cờ có một lần compile lại rơi đúng 2 tiếng cuối — trượt
+        // nhịp đó là phải đăng nhập lại dù máy vẫn dùng hằng ngày. 2 ngày cho biên an toàn 5 ngày,
+        // và vẫn nằm trong mốc "cháy quá nửa cửa sổ" mà server dùng để quyết định ghi KV.
+        private const int RefreshWhenUnderSeconds = 48 * 3600;
 
         // Chống gọi refresh dồn dập: mỗi lần compile lại script là một lần domain reload.
         private const string ThrottleKey = "Ezg.Auth.LastRefreshTicks";
@@ -179,7 +182,7 @@ namespace Ezg.FeatureHub.Editor
 
         /// <summary>
         /// Chạy mỗi lần domain reload: nếu phiên sắp hết hạn thì âm thầm gia hạn. Đây là thứ khiến
-        /// cửa sổ 6 tiếng gần như vô hình với người đang làm việc trong Editor.
+        /// cửa sổ nghỉ của server gần như vô hình với người đang làm việc trong Editor.
         /// </summary>
         [InitializeOnLoadMethod]
         private static void AutoRefreshOnLoad()

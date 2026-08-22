@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 2026-08-22
+
+**Changed**
+- Ngưỡng tự gia hạn phiên: dưới **2 ngày** thay vì dưới 2 tiếng. Gateway vừa nới cửa sổ không hoạt động từ 6 tiếng lên 7 ngày, mà ngưỡng 2 tiếng chỉ là 1% của cửa sổ đó — phiên chỉ được đẩy hạn nếu tình cờ có một lần compile lại rơi đúng 2 tiếng cuối. Trượt nhịp đó là phải đăng nhập lại dù máy vẫn dùng hằng ngày. 2 ngày cho biên an toàn 5 ngày.
+
 ## 0.3.0 — 2026-08-22
 
 **Added**
