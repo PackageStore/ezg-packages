@@ -7,17 +7,18 @@
  * a published SHA-256 sidecar. So whenever you edit the logic, run this to push the new version --
  * every user picks it up automatically on their next run, without replacing any local file.
  *
- * Two copies go up, from one source file. They differ by exactly one line -- AUTH_FORCE -- and which
- * door serves them:
- *   unity-template/build_unity_template.logic.sh              AUTH_FORCE=0, reached over the public
- *                                                             r2.dev domain by the OLD bootstrap.
- *                                                             Sign-in follows the server's
- *                                                             /auth/config, so today it is optional.
- *   unity-template/build_unity_template.logic.auth.sh         AUTH_FORCE=1, what the Worker hands to
+ * Two copies go up, from one source file, one per door:
+ *   unity-template/build_unity_template.logic.sh              reached over the public r2.dev domain
+ *                                                             by the OLD bootstrap.
+ *   unity-template/build_unity_template.logic.auth.sh         what the Worker hands to
  *                                                             /boot/build_unity_template.logic.sh,
- *                                                             i.e. the NEW bootstrap. Always signs in.
- * Each gets its own .sha256 sidecar, because the bootstrap verifies whatever it downloaded against
- * "<the url it used>.sha256" -- the two hashes must not be mixed up.
+ *                                                             i.e. the NEW bootstrap.
+ * Both carry AUTH_FORCE=1 and therefore demand a Google sign-in. They were allowed to differ for one
+ * day, while the team migrated off the r2.dev bootstrap: the old door served an AUTH_FORCE=0 copy so
+ * the stragglers kept building. That grace period is over -- publish with --legacy-open to hand the
+ * old door the open copy again, which is the whole rollback, no file to replace on anyone's disk.
+ * Each key gets its own .sha256 sidecar, because the bootstrap verifies whatever it downloaded
+ * against "<the url it used>.sha256" -- the two hashes must not be mixed up.
  *
  * Run:
  *   node --env-file=.env upload-unity-template-script.mjs --dry-run
@@ -47,6 +48,10 @@ const AUTH_LOGIC_KEY = LOGIC_KEY.replace(/\.sh$/, ".auth.sh");
 const AUTH_SHA_KEY = `${AUTH_LOGIC_KEY}.sha256`;
 const AUTH_FORCE_OFF = "\nAUTH_FORCE=0\n";
 const AUTH_FORCE_ON = "\nAUTH_FORCE=1\n";
+// Does the copy behind the old r2.dev door force sign-in too? It does, unless this publish is the
+// rollback: --legacy-open (or UNITY_TEMPLATE_LEGACY_AUTH=0) puts the pre-gate, sign-in-optional copy
+// back on that key for machines that still have not moved to the /boot/ bootstrap.
+const LEGACY_FORCES_AUTH = !hasFlag("--legacy-open") && process.env.UNITY_TEMPLATE_LEGACY_AUTH !== "0";
 const PUBLIC_URL = process.env.UNITY_TEMPLATE_SCRIPT_PUBLIC_URL ||
   "https://upm-registry-worker.developer-a1f.workers.dev/boot/build_unity_template.logic.sh";
 
@@ -66,15 +71,19 @@ function buildAuthVariant(logicText) {
 }
 
 async function main() {
-  const logic = readFileSync(LOGIC_PATH);
-  const sha = createHash("sha256").update(logic).digest("hex");
-  // Refresh the local sidecar so the repo always records the published hash.
-  writeFileSync(SHA_PATH, `${sha}\n`, "utf8");
-
-  const authLogic = Buffer.from(buildAuthVariant(logic.toString("utf8")), "utf8");
+  const source = readFileSync(LOGIC_PATH, "utf8");
+  const authLogic = Buffer.from(buildAuthVariant(source), "utf8");
   const authSha = createHash("sha256").update(authLogic).digest("hex");
 
+  // What the old r2.dev door serves: the same forced-sign-in copy, unless this is the rollback.
+  const logic = LEGACY_FORCES_AUTH ? authLogic : Buffer.from(source, "utf8");
+  const sha = createHash("sha256").update(logic).digest("hex");
+  // Refresh the local sidecar so the repo always records the hash published under LOGIC_KEY -- what
+  // an old bootstrap verifies against, which is not the hash of the source file when auth is forced.
+  writeFileSync(SHA_PATH, `${sha}\n`, "utf8");
+
   console.log(`logic : ${LOGIC_PATH}`);
+  console.log(`legacy (r2.dev, OLD bootstrap): AUTH_FORCE=${LEGACY_FORCES_AUTH ? "1 -- sign-in required" : "0 -- sign-in optional (--legacy-open)"}`);
   console.log(`sha256: ${sha}`);
   console.log(`keys  : ${LOGIC_KEY}`);
   console.log(`        ${SHA_KEY}`);

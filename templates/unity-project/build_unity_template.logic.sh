@@ -71,9 +71,11 @@ SKIP_AUTH="${EZG_SKIP_AUTH:-0}"
 # still serves them. Empty until asked.
 AUTH_ENFORCED=""
 # Skip the probe and demand a real sign-in whatever the server says. --login sets it, and the publish
-# step rewrites the default to 1 in the copy served from /boot/ -- that is the whole mechanism behind
-# "new bootstrap must log in, old r2.dev bootstrap stays open". Keep this line's exact shape;
-# upload-unity-template-script.mjs matches it verbatim and fails the publish if it ever drifts.
+# step rewrites the default to 1 in every copy it uploads: the one behind /boot/ and, since the
+# migration window closed, the one the pre-gate bootstrap still pulls from r2.dev. So the bootstrap a
+# machine happens to keep no longer decides whether its user logs in -- publishing with
+# --legacy-open is what puts the sign-in-optional copy back on the r2.dev key. Keep this line's exact
+# shape; upload-unity-template-script.mjs matches it verbatim and fails the publish if it ever drifts.
 AUTH_FORCE=0
 # Unity reads the registry token from here. UPM_USER_CONFIG_PATH is Unity's own override and is
 # honoured when set, which also makes this testable without touching the developer's real config.
