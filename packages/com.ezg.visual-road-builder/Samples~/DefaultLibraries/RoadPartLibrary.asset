@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14c21ff18c2f42c5b7d1b1506731283c, type: 3}
+  m_Name: RoadPartLibrary
+  m_EditorClassIdentifier: EZG.TechnicalArt.VisualRoadBuilder.Editor::EZG.TechnicalArt.VisualRoadBuilder.RoadPartLibrary
+  roadPlanAtlas: {fileID: 2800000, guid: c30156be99bdf4499b43b3c1a8f1a170, type: 3}
+  road1x1_side: {fileID: 8080215755326213513, guid: cbedfeebd7ea447aca89d4b82bd57c30, type: 3}
+  road1x1_side_rim: {fileID: 8080215755326213513, guid: b07607f4abbc9480a8b6e806ad1a38d5, type: 3}
+  road1x1_curve: {fileID: 8080215755326213513, guid: 1c613ee082d3d4ac7b400000a8a3ffb5, type: 3}
+  road1x1_curve_rim: {fileID: 8080215755326213513, guid: b4724119fb39a441fb9fd18009d26fef, type: 3}
+  road1x1_center: {fileID: 8080215755326213513, guid: 0879f8f9e735044498a2e8518269caaf, type: 3}
+  road2x2_turn: {fileID: 8080215755326213513, guid: fc71f54b72ee24617b9e57e8d7d2aaa7, type: 3}
+  road2x2_turn_rim: {fileID: 8080215755326213513, guid: 0b139be84ff1c4bf3bc663d3d662d448, type: 3}
+  road3x3_turn: {fileID: 8080215755326213513, guid: 77898595dba28409d9e8da8d6e0c2f1a, type: 3}
+  road3x3_turn_rim: {fileID: 8080215755326213513, guid: 0b03a4e08192d4afbba5fba3d6ec8c0c, type: 3}
+  road1x1_turn: {fileID: 8080215755326213513, guid: aeaac53a933204467814428ff2840668, type: 3}
+  road1x1_turn_rim: {fileID: 8080215755326213513, guid: 40bc27438b7904b1396546dd40b6385a, type: 3}
+  hway_to_road: {fileID: 8485138323456659037, guid: 3e97490eacb8b4515bee5f9bdf2c98dd, type: 3}
+  hway1x2_side: {fileID: 8485138323456659037, guid: 0480c1475b4f140f0a97c17d9ad85b71, type: 3}
+  hway1x2_side_rim: {fileID: 8485138323456659037, guid: ad277b63db3124b51a6c7d41c403e88e, type: 3}
+  stationPrefab: {fileID: 8485138323456659037, guid: f52a28f31f6bc474f9e066d50661a701, type: 3}
+  parkingPrefab: {fileID: 8485138323456659037, guid: 052d957b31541469ab7c65ab735352c0, type: 3}
+  road2_center_filler: {fileID: 8080215755326213513, guid: b69b06d61f5d34f41892a2fa6626e014, type: 3}
+  road2_curve: {fileID: 0}
+  road2_curve_rim: {fileID: 0}
+  hway_to_road2: {fileID: 0}
+  path_side_variants:
+  - prefab: {fileID: 8080215755326213513, guid: 013b7350047dc4433b0c2ef3d10387c4, type: 3}
+    weight: 0.17309989
+  - prefab: {fileID: 8080215755326213513, guid: 3d4f668b246d14c159ace041bd0396a0, type: 3}
+    weight: 0.221
+  - prefab: {fileID: 8080215755326213513, guid: 3a355ba5b3bcf4e64a9820493449fcf3, type: 3}
+    weight: 0.2577816
+  - prefab: {fileID: 8080215755326213513, guid: 02b839552082040ba94b6b892e1e6dd4, type: 3}
+    weight: 0.3481185
+  path_center_variants: []
+  path_curve_variants:
+  - prefab: {fileID: 8080215755326213513, guid: b8eea40ac07d4436a945c5dd46682220, type: 3}
+    weight: 1
+  path_turn_variants:
+  - prefab: {fileID: 8080215755326213513, guid: d5d44b4a7b50f4314aed68e449f94a4d, type: 3}
+    weight: 1
+  path_side: {fileID: 0}
+  path_center: {fileID: 0}
+  path_curve: {fileID: 0}
+  path_turn: {fileID: 0}

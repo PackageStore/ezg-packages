@@ -1,0 +1,1141 @@
+fileFormatVersion: 2
+guid: c30156be99bdf4499b43b3c1a8f1a170
+importerOverride:
+  nativeImporterType: 2089858483
+  scriptedImporterType:
+    serializedVersion: 2
+    Hash: b10b55a1aa6a1aa32521bc0cab59632e
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: b2a9591990af98743ba3ff7cf1000886, type: 3}
+  textureImporterSettings:
+    alphaSource: 1
+    mipMapMode: 0
+    enableMipMap: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+    convertToNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+    swizzle: 50462976
+    isReadable: 0
+    streamingMipmaps: 0
+    streamingMipmapsPriority: 0
+    vTOnly: 0
+    ignoreMipmapLimit: 0
+    nPOTScale: 1
+    sRGBTexture: 1
+    spriteMode: 2
+    spriteExtrude: 0
+    spriteMeshType: 1
+    alignment: 0
+    spritePivot: {x: 0.5, y: 0.5}
+    spritePixelsToUnits: 100
+    spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+    spriteGenerateFallbackPhysicsShape: 0
+    generateCubemap: 6
+    cubemapConvolution: 0
+    seamlessCubemap: 0
+    alphaIsTransparency: 1
+    spriteTessellationDetail: -1
+    textureType: 8
+    textureShape: 1
+    singleChannelComponent: 0
+    flipbookRows: 0
+    flipbookColumns: 0
+    ignorePngGamma: 0
+    cookieMode: 0
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 0
+    wrapV: 0
+    wrapW: 0
+    normalMap: 0
+    textureFormat: 0
+    maxTextureSize: 0
+    lightmap: 0
+    compressionQuality: 0
+    linearTexture: 0
+    grayScaleToAlpha: 0
+    rGBM: 0
+    cubemapConvolutionSteps: 0
+    cubemapConvolutionExponent: 0
+    maxTextureSizeSet: 0
+    compressionQualitySet: 0
+    textureFormatSet: 0
+    applyGammaDecoding: 0
+  singleSpriteImportData:
+  - name: 
+    originalName: 
+    pivot: {x: 0, y: 0}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    spriteID: ca0522ddbd72c471a9fdaa5a1cd2a2e5
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 0, y: 0}
+    spritePosition: {x: 0, y: 0}
+  multiSpriteImportData: []
+  layeredSpriteImportData:
+  - name: parking_area
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 1576
+      width: 512
+      height: 128
+    spriteID: 423922853ed5a45a7a2845cd20a377ba
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 4, y: 1576}
+    spritePosition: {x: 1792, y: 640}
+  - name: station_area
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 4
+      width: 535
+      height: 524
+    spriteID: e3ea5d70a43c3468ea830a01b149f197
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 4, y: 4}
+    spritePosition: {x: 1012, y: 506}
+  - name: hway_to_road_type2
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 536
+      width: 512
+      height: 512
+    spriteID: 306e8401956df4609a7a72a9152ed355
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 4, y: 536}
+    spritePosition: {x: 896, y: 1536}
+  - name: hway_to_road
+    originalName: 
+    pivot: {x: 0.75, y: 0.75}
+    alignment: 9
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 1056
+      width: 512
+      height: 512
+    spriteID: 7787feaf1307d4bbdba4d9b9ecf083a8
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 4, y: 1056}
+    spritePosition: {x: 1536, y: 1536}
+  - name: Highway_1x2_rim
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 548
+      y: 416
+      width: 152
+      height: 64
+    spriteID: 84c84a005383b4e4da8bbc2a353aa68c
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 548, y: 416}
+    spritePosition: {x: 296, y: 128}
+  - name: Highway_1x2
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 760
+      y: 288
+      width: 128
+      height: 64
+    spriteID: 18fb560fc0226415da94ae781a237cb7
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 760, y: 288}
+    spritePosition: {x: 320, y: 64}
+  - name: path_side
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 708
+      y: 416
+      width: 32
+      height: 32
+    spriteID: b91eefc4fe65642e39e6ad175661f331
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 708, y: 416}
+    spritePosition: {x: 160, y: 576}
+  - name: path_turn
+    originalName: 
+    pivot: {x: 0, y: 0}
+    alignment: 6
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 980
+      y: 76
+      width: 32
+      height: 32
+    spriteID: e2734c191f2da40dd9385f16e3ed9bcf
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 980, y: 76}
+    spritePosition: {x: 192, y: 512}
+  - name: path_curve
+    originalName: 
+    pivot: {x: 0, y: 1}
+    alignment: 1
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 896
+      y: 224
+      width: 32
+      height: 32
+    spriteID: 7948bf3e9c5a04a92a40f2a8b9b4542f
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 896, y: 224}
+    spritePosition: {x: 96, y: 512}
+  - name: Road_3x3_turn
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 548
+      y: 216
+      width: 192
+      height: 192
+    spriteID: 1aa33941c35ef4f0f8ee4b54f3a99529
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 548, y: 216}
+    spritePosition: {x: 640, y: 448}
+  - name: Road_2x2_turn
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 760
+      y: 152
+      width: 128
+      height: 128
+    spriteID: 8f4c1e5688dbd4d9f9de78db37b2466b
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 760, y: 152}
+    spritePosition: {x: 576, y: 704}
+  - name: Road_3x3_turn_rim
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 548
+      y: 4
+      width: 204
+      height: 204
+    spriteID: b423ae033f40e48b1a079b2727f3eecc
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 548, y: 4}
+    spritePosition: {x: 820, y: 1152}
+  - name: Road_2x2_turn_rim
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 760
+      y: 4
+      width: 140
+      height: 140
+    spriteID: 75a09850103d54d00b1628e319a67285
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 760, y: 4}
+    spritePosition: {x: 500, y: 832}
+  - name: Road_1x1_side_rim
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 896
+      y: 288
+      width: 76
+      height: 64
+    spriteID: 043e73fa9e1614f35a163406e99a8eba
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 896, y: 288}
+    spritePosition: {x: 244, y: 704}
+  - name: Road_1x1_turn_rim
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 896
+      y: 152
+      width: 64
+      height: 64
+    spriteID: 5b0b5347b80164259a78f50c5d85fede
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 896, y: 152}
+    spritePosition: {x: 384, y: 768}
+  - name: Road_1x1_curve_rim
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 908
+      y: 4
+      width: 64
+      height: 64
+    spriteID: d132da860eafb4ebab265bccc636d790
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 908, y: 4}
+    spritePosition: {x: 448, y: 704}
+  - name: Road_0.5x1_center
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 980
+      y: 4
+      width: 32
+      height: 64
+    spriteID: cf6563c4fdb8845089b30bc91cdc1963
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 980, y: 4}
+    spritePosition: {x: 384, y: 512}
+  - name: Road_1x1_center
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 908
+      y: 76
+      width: 64
+      height: 64
+    spriteID: 59f9eacfa52ee4f1994549be0712b51f
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 908, y: 76}
+    spritePosition: {x: 448, y: 512}
+  - name: Road_1x1_turn
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 980
+      y: 288
+      width: 32
+      height: 64
+    spriteID: 8605ab93913644e4fa4fb416c3625a17
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 980, y: 288}
+    spritePosition: {x: 416, y: 832}
+  - name: Road_1x1_curve
+    originalName: 
+    pivot: {x: 1, y: 0}
+    alignment: 8
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 831
+      y: 360
+      width: 64
+      height: 64
+    spriteID: e00cf06c4fa6347429ed6cd1f88646b3
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 832, y: 360}
+    spritePosition: {x: 449, y: 640}
+  - name: Road_1x1_side
+    originalName: 
+    pivot: {x: 1, y: 0.5}
+    alignment: 5
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 760
+      y: 360
+      width: 64
+      height: 64
+    spriteID: 2f8b148e865754d2389414e27081f6f5
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 760, y: 360}
+    spritePosition: {x: 256, y: 640}
+  spriteImportData: []
+  rigSpriteImportData: []
+  sharedRigSpriteImportData: []
+  mosaicSpriteImportData: []
+  sharedRigCharacterData:
+    bones: []
+    parts: []
+    dimension: {x: 0, y: 0}
+    characterGroups: []
+    pivot: {x: 0, y: 0}
+    boneReadOnly: 0
+  characterData:
+    bones: []
+    parts: []
+    dimension: {x: 0, y: 0}
+    characterGroups: []
+    pivot: {x: 0, y: 0}
+    boneReadOnly: 0
+  platformSettings:
+  - name: DefaultTexturePlatform
+    overridden: 0
+    ignorePlatformSupport: 0
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    androidETC2FallbackOverride: 0
+  - name: Standalone
+    overridden: 0
+    ignorePlatformSupport: 0
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    androidETC2FallbackOverride: 0
+  - name: Android
+    overridden: 1
+    ignorePlatformSupport: 0
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: 48
+    textureCompression: 1
+    compressionQuality: 100
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    androidETC2FallbackOverride: 0
+  - name: iPhone
+    overridden: 1
+    ignorePlatformSupport: 0
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: 48
+    textureCompression: 1
+    compressionQuality: 50
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    androidETC2FallbackOverride: 0
+  mosaicLayers: 1
+  characterMode: 1
+  documentPivot: {x: 0, y: 0}
+  documentAlignment: 7
+  importHiddenLayers: 0
+  layerMappingOption: 2
+  generatePhysicsShape: 0
+  paperDollMode: 0
+  keepDupilcateSpriteName: 1
+  generateTileAssets: 0
+  tilePaletteCellLayout: 0
+  tilePaletteHexagonLayout: 0
+  tilePaletteCellSize: {x: 1, y: 1, z: 0}
+  tilePaletteCellSizing: 0
+  transparencySortMode: 0
+  transparencySortAxis: {x: 0, y: 0, z: 1}
+  tileTemplate: {instanceID: 0}
+  padding: 4
+  spriteSizeExpand: 0
+  skeletonAssetReferenceID: 
+  pipeline: {instanceID: 0}
+  pipelineVersion: 
+  spriteCategoryList:
+    categories: []
+  spritePackingTag: 
+  resliceFromLayer: 0
+  pSDLayerImportSetting: []
+  psdLayers:
+  - name: raw_modules
+    spriteName: 
+    isGroup: 1
+    parentIndex: -1
+    spriteID: 41b732b4479ed4f649a437de337a4705
+    layerID: 107
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Highway
+    spriteName: 
+    isGroup: 1
+    parentIndex: 0
+    spriteID: b813a85d42f2e4df78811816f3e96961
+    layerID: 182
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Highway_2x2
+    spriteName: Highway_2x2
+    isGroup: 0
+    parentIndex: 1
+    spriteID: 15a1e126a43b84febb7bb32545fc4b34
+    layerID: 126
+    mosaicPosition: {x: 788, y: 1044}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Road
+    spriteName: 
+    isGroup: 1
+    parentIndex: 0
+    spriteID: 25203f5f92f47470a8353f4227dade1f
+    layerID: 180
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Road_outer_corner
+    spriteName: Road_outer_corner
+    isGroup: 0
+    parentIndex: 3
+    spriteID: 76a3e74b97fc54518861d5bb98a6dd22
+    layerID: 104
+    mosaicPosition: {x: 924, y: 1180}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Road_inner_corner
+    spriteName: Road_inner_corner
+    isGroup: 0
+    parentIndex: 3
+    spriteID: 23f0ef10eabe445afb22da452566adff
+    layerID: 105
+    mosaicPosition: {x: 924, y: 1044}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Road_1x1
+    spriteName: Road_1x1
+    isGroup: 0
+    parentIndex: 3
+    spriteID: 6cd5b900eca8546249c3e38c6df4316e
+    layerID: 106
+    mosaicPosition: {x: 788, y: 1444}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: modules
+    spriteName: 
+    isGroup: 1
+    parentIndex: -1
+    spriteID: caa0649a668784c789e1b584175ebf0b
+    layerID: 113
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: parking_area
+    spriteName: parking_area
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 423922853ed5a45a7a2845cd20a377ba
+    layerID: 334
+    mosaicPosition: {x: 4, y: 1576}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: station_area
+    spriteName: station_area
+    isGroup: 0
+    parentIndex: 7
+    spriteID: e3ea5d70a43c3468ea830a01b149f197
+    layerID: 320
+    mosaicPosition: {x: 4, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: hway_to_road_type2
+    spriteName: hway_to_road_type2
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 306e8401956df4609a7a72a9152ed355
+    layerID: 817
+    mosaicPosition: {x: 4, y: 536}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: hway_to_road
+    spriteName: hway_to_road
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 7787feaf1307d4bbdba4d9b9ecf083a8
+    layerID: 209
+    mosaicPosition: {x: 4, y: 1056}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Highway_1x2_rim
+    spriteName: Highway_1x2_rim
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 84c84a005383b4e4da8bbc2a353aa68c
+    layerID: 674
+    mosaicPosition: {x: 548, y: 416}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Highway_1x2
+    spriteName: Highway_1x2
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 18fb560fc0226415da94ae781a237cb7
+    layerID: 129
+    mosaicPosition: {x: 760, y: 288}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_cross
+    spriteName: Road_cross
+    isGroup: 0
+    parentIndex: 7
+    spriteID: b1d0c206f01d240b0be75f06efa91935
+    layerID: 117
+    mosaicPosition: {x: 4, y: 1180}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: RoadToStation
+    spriteName: RoadToStation
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 7676aeb4a567b4b5893910aaa2ddc54d
+    layerID: 265
+    mosaicPosition: {x: 548, y: 4}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_T
+    spriteName: Road_T
+    isGroup: 0
+    parentIndex: 7
+    spriteID: ff4f7c86727ba454c8b8b7a773cfd522
+    layerID: 116
+    mosaicPosition: {x: 268, y: 1180}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: path
+    spriteName: 
+    isGroup: 1
+    parentIndex: 7
+    spriteID: 56f7340c1ffd0419b8b8a00b1eb86cf0
+    layerID: 930
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: path_side
+    spriteName: path_side
+    isGroup: 0
+    parentIndex: 17
+    spriteID: b91eefc4fe65642e39e6ad175661f331
+    layerID: 1060
+    mosaicPosition: {x: 708, y: 416}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: path_turn
+    spriteName: path_turn
+    isGroup: 0
+    parentIndex: 17
+    spriteID: e2734c191f2da40dd9385f16e3ed9bcf
+    layerID: 1061
+    mosaicPosition: {x: 980, y: 76}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: path_curve
+    spriteName: path_curve
+    isGroup: 0
+    parentIndex: 17
+    spriteID: 7948bf3e9c5a04a92a40f2a8b9b4542f
+    layerID: 1062
+    mosaicPosition: {x: 896, y: 224}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Group 1
+    spriteName: 
+    isGroup: 1
+    parentIndex: 7
+    spriteID: bce99172aabf541f0b515b6fcd4c40ce
+    layerID: 521
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 1
+  - name: Road_3x3_turn
+    spriteName: Road_3x3_turn
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 1aa33941c35ef4f0f8ee4b54f3a99529
+    layerID: 741
+    mosaicPosition: {x: 548, y: 216}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_2x2_turn
+    spriteName: Road_2x2_turn
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 8f4c1e5688dbd4d9f9de78db37b2466b
+    layerID: 551
+    mosaicPosition: {x: 760, y: 152}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_3x3_turn_rim
+    spriteName: Road_3x3_turn_rim
+    isGroup: 0
+    parentIndex: 21
+    spriteID: b423ae033f40e48b1a079b2727f3eecc
+    layerID: 742
+    mosaicPosition: {x: 548, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_2x2_turn_rim
+    spriteName: Road_2x2_turn_rim
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 75a09850103d54d00b1628e319a67285
+    layerID: 779
+    mosaicPosition: {x: 760, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_3x3_turn_rim
+    spriteName: Road_3x3_turn_rim
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 2e6d8cbc379d5418fa42de77431c9a02
+    layerID: 509
+    mosaicPosition: {x: 548, y: 216}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side_rim copy 2
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 988a75eba3e7d47a38ce5429f711bbbd
+    layerID: 520
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side_rim copy
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 1e885fbd537b044978519482c7ffc2b7
+    layerID: 515
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side copy 4
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: e77575360cfda4af59f7ad50b43218c5
+    layerID: 519
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side copy 3
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: dafa9a920795244428fe7ed57e340ff2
+    layerID: 518
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side copy 2
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: abcae35ac978942ccb93c4b969cd004a
+    layerID: 517
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side copy
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 96f28909f39584d0b92e61c38a6fae50
+    layerID: 514
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_curve_rim copy
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 7acf5c72a8e564697aa450f27f9a1bea
+    layerID: 513
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_curve copy
+    spriteName: 
+    isGroup: 0
+    parentIndex: 21
+    spriteID: 6bbbd204dd6094302953b977c56954ba
+    layerID: 512
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_turn
+    spriteName: Road_turn
+    isGroup: 0
+    parentIndex: 7
+    spriteID: d3beaf849db6d467b9a7996288dc94c7
+    layerID: 115
+    mosaicPosition: {x: 532, y: 1180}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_2x2
+    spriteName: Road_2x2
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 57076ce81eb8544f689b38bd4cf4c2d8
+    layerID: 112
+    mosaicPosition: {x: 524, y: 332}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Road_1x1_side_rim
+    spriteName: Road_1x1_side_rim
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 043e73fa9e1614f35a163406e99a8eba
+    layerID: 379
+    mosaicPosition: {x: 896, y: 288}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_turn_rim
+    spriteName: Road_1x1_turn_rim
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 5b0b5347b80164259a78f50c5d85fede
+    layerID: 610
+    mosaicPosition: {x: 896, y: 152}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_curve_rim
+    spriteName: Road_1x1_curve_rim
+    isGroup: 0
+    parentIndex: 7
+    spriteID: d132da860eafb4ebab265bccc636d790
+    layerID: 431
+    mosaicPosition: {x: 908, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_0.5x1_center
+    spriteName: Road_0.5x1_center
+    isGroup: 0
+    parentIndex: 7
+    spriteID: cf6563c4fdb8845089b30bc91cdc1963
+    layerID: 707
+    mosaicPosition: {x: 980, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_center
+    spriteName: Road_1x1_center
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 59f9eacfa52ee4f1994549be0712b51f
+    layerID: 432
+    mosaicPosition: {x: 908, y: 76}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_turn
+    spriteName: Road_1x1_turn
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 8605ab93913644e4fa4fb416c3625a17
+    layerID: 611
+    mosaicPosition: {x: 980, y: 288}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_curve
+    spriteName: Road_1x1_curve
+    isGroup: 0
+    parentIndex: 7
+    spriteID: e00cf06c4fa6347429ed6cd1f88646b3
+    layerID: 413
+    mosaicPosition: {x: 832, y: 360}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_1x1_side
+    spriteName: Road_1x1_side
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 2f8b148e865754d2389414e27081f6f5
+    layerID: 377
+    mosaicPosition: {x: 760, y: 360}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Road_2x1
+    spriteName: Road_2x1
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 83842ebcc4f144696b50751a963d069d
+    layerID: 111
+    mosaicPosition: {x: 796, y: 1180}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  - name: Color Fill 1
+    spriteName: 
+    isGroup: 0
+    parentIndex: 7
+    spriteID: 86360b61c265d45f1a829fa901e39485
+    layerID: 333
+    mosaicPosition: {x: 0, y: 0}
+    flatten: 0
+    isImported: 0
+    isVisible: 0
+  mosaicPSDLayers: []
+  rigPSDLayers: []
+  sharedRigPSDLayers: []
+  importFileNodeState: 1
+  platformSettingsDirtyTick: 639204266909897040
+  spriteSizeExpandChanged: 0
+  generateGOHierarchy: 0
+  textureAssetName: 
+  prefabAssetName: 
+  spriteLibAssetName: 
+  skeletonAssetName: 
+  secondarySpriteTextures: []

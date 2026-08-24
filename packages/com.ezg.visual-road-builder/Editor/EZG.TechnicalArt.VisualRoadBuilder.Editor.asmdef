@@ -1,0 +1,16 @@
+{
+    "name": "EZG.TechnicalArt.VisualRoadBuilder.Editor",
+    "rootNamespace": "EZG.TechnicalArt.VisualRoadBuilder",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
