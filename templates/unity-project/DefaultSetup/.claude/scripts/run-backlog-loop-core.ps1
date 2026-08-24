@@ -2,7 +2,8 @@
 #
 # This file owns the loop behavior:
 #   - inspect BACKLOG.md
-#   - run one headless agent iteration
+#   - run one headless agent iteration in its own console window, titled
+#     "<projectName> - <task name>" so a stack of task windows stays readable
 #   - write per-iteration logs
 #   - stop on empty backlog, non-zero CLI exit, blocker sentinels, or MaxIterations
 #
@@ -104,6 +105,38 @@ function Get-ProfileValue {
 }
 $GitCfgBaseBranch   = (Get-ProfileValue "gitConfigPrefix"  "agent") + ".agentBaseBranch"
 $ProfileDefaultBase = Get-ProfileValue "defaultBaseBranch" "main"
+$ProjectName        = Get-ProfileValue "projectName"       "UnityProject"
+
+# --- Terminal window title -------------------------------------------------
+# A long loop stacks up one console window per task, so the title is the only
+# thing that tells them apart: "<project> - <task>". Twin of
+# format_window_title/set_window_title in run-backlog-loop.sh - keep the wording
+# identical so a Windows box and a Mac label their windows the same way.
+$WindowTitleMax = 120
+
+# Compose the title for task $TaskName ("" = the controller itself). Control
+# chars are folded and the result truncated: a pasted multi-line backlog title
+# would otherwise mangle the title bar, and Windows caps it anyway.
+function Format-WindowTitle {
+    param([AllowEmptyString()][string]$TaskName)
+
+    $task = ""
+    if ($TaskName) {
+        $task = (($TaskName -replace '[\r\n\t]', ' ') -replace '\s+', ' ').Trim()
+    }
+    $title = if ($task) { "$ProjectName - $task" } else { "$ProjectName - Backlog Loop" }
+    if ($title.Length -gt $WindowTitleMax) {
+        $title = $title.Substring(0, $WindowTitleMax - 3) + "..."
+    }
+    return $title
+}
+
+# Retitle THIS console window. Wrapped: a host without a real console (piped or
+# redirected) throws on the setter, and a cosmetic label must never stop a run.
+function Set-WindowTitle {
+    param([string]$Title)
+    try { $Host.UI.RawUI.WindowTitle = $Title } catch { }
+}
 
 # The backlog lives in the git COMMON dir (.git/backlog/), never in the tree: it
 # is per-developer bookkeeping, so tracking it made every dev branch carry its
@@ -1027,7 +1060,10 @@ function New-AgentInvocation {
 function Invoke-AgentInvocation {
     param(
         [hashtable]$Invocation,
-        [string]$LogPath
+        [string]$LogPath,
+        # "<project> - <task>", set on the spawned window so a stack of task
+        # windows is readable. Empty = leave the window titled by the host.
+        [AllowEmptyString()][string]$WindowTitle = ""
     )
 
     $cmdLine = Join-CmdLine -Command $Invocation.Command -Arguments $Invocation.Args
@@ -1109,6 +1145,14 @@ try {
     Add-Type -TypeDefinition $helper -ErrorAction SilentlyContinue
     [ConsoleHelper]::Disable()
 } catch {}
+
+# Name the window before the first line of output: "<project> - <task>" is what
+# tells one task window apart from the next in a long loop. Works for a plain
+# console window and for a Windows Terminal tab (it mirrors the console title).
+$windowTitle = '__WINDOW_TITLE__'
+if ($windowTitle) {
+    try { $Host.UI.RawUI.WindowTitle = $windowTitle } catch {}
+}
 
 $logPath = '__LOG_PATH__'
 $flagFile = '__FLAG_FILE__'
@@ -1581,6 +1625,7 @@ if ($code -ne 0) {
     $escapedHeaderEffort = $headerEffort.Replace("'", "''")
     $escapedHeaderApproval = $headerApproval.Replace("'", "''")
     $escapedHeaderSandbox = $headerSandbox.Replace("'", "''")
+    $escapedWindowTitle = $WindowTitle.Replace("'", "''")
     $scriptToRun = $scriptTemplate.Replace('__LOG_PATH__', $escapedLogPath)
     $scriptToRun = $scriptToRun.Replace('__FLAG_FILE__', $escapedFlagFile)
     $scriptToRun = $scriptToRun.Replace('__OUTPUT_MODE__', $escapedOutputMode)
@@ -1592,6 +1637,7 @@ if ($code -ne 0) {
     $scriptToRun = $scriptToRun.Replace('__HEADER_APPROVAL__', $escapedHeaderApproval)
     $scriptToRun = $scriptToRun.Replace('__HEADER_SANDBOX__', $escapedHeaderSandbox)
     $scriptToRun = $scriptToRun.Replace('__RUN_LINE__', $runLine)
+    $scriptToRun = $scriptToRun.Replace('__WINDOW_TITLE__', $escapedWindowTitle)
 
     # Windows CreateProcess caps the command line at ~32K chars, and -EncodedCommand
     # (base64 of UTF-16LE) blows past that for our ~12KB scriptTemplate. Write to a
@@ -1658,6 +1704,7 @@ if ($code -ne 0) {
     return $exitCode
 }
 
+Set-WindowTitle (Format-WindowTitle "")
 Write-Log "=== Backlog Loop Started ===" "Cyan"
 Write-Log "Provider:        $Provider" "Gray"
 Write-Log "Repo:            $RepoRoot" "Gray"
@@ -1812,7 +1859,7 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     Write-Log "Starting $Provider (iter log: $iterLog)" "Gray"
 
     $iterStart = Get-Date
-    $exitCode = Invoke-AgentInvocation -Invocation $invocation -LogPath $iterLog
+    $exitCode = Invoke-AgentInvocation -Invocation $invocation -LogPath $iterLog -WindowTitle (Format-WindowTitle $notifyInfo.Title)
     $iterDuration = (Get-Date) - $iterStart
     $completedIterations = $iter
 

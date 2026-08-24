@@ -33,7 +33,7 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
 ## STEP 1A — macOS / Linux
 
 1. Get the absolute repo root dynamically (do not hardcode): the directory containing `.claude/`.
-2. The `.sh` runner spawns one new Terminal window per task (via `osascript`) and waits for each to finish before spawning the next. You launch it once; it does the looping.
+2. The `.sh` runner spawns one new Terminal window per task (via `osascript`) and waits for each to finish before spawning the next. You launch it once; it does the looping. Each task window is titled **`<projectName> - <task name>`** (project name from `.claude/project-profile.json`), so a stack of windows stays readable; with `--inline` the current window is retitled per task instead.
 3. Run it in the background with `--auto-model-by-tier` so each task window uses the tier-mapped model/effort (quality-first map: **XS/S → sonnet**, **M/L → opus**, effort scaling XS=medium → L=xhigh):
 
    ```bash
@@ -59,4 +59,5 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
    ```
    (`run-backlog-loop.bat` prompts for provider; `run-backlog-loop.ps1` runs Claude headless directly.)
 3. The new window runs independently — do NOT wait for it to finish.
-4. Notify the user that the loop is running in the background.
+4. Each per-task console window is titled **`<projectName> - <task name>`** (same wording as the `.sh` path), so a stack of task windows stays readable.
+5. Notify the user that the loop is running in the background.

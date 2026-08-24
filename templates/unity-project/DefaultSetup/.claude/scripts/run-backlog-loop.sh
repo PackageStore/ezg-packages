@@ -4,7 +4,8 @@
 # This is the macOS/Linux twin of run-backlog-loop.ps1 (Windows). It is the
 # CONTROLLER: for each iteration it spawns a SEPARATE Terminal window that runs
 # exactly one /run-backlog task, then waits (via a flag file) for that window to
-# finish before spawning the next. A failed task keeps its window open so you can
+# finish before spawning the next. Each task window is titled
+# "<projectName> - <task name>" so a stack of them stays readable. A failed task keeps its window open so you can
 # read the error. Stops when the backlog is empty, a blocker sentinel is printed,
 # the CLI exits non-zero, an inactivity/time watchdog fires, a deterministic
 # outcome/receipt check fails (task still in in-progress/ despite a "clean" exit,
@@ -76,6 +77,51 @@ profile_get() {
 PROJECT_NAME="$(profile_get projectName UnityProject)"
 GIT_CFG_BASE_BRANCH="$(profile_get gitConfigPrefix agent).agentBaseBranch"
 PROFILE_DEFAULT_BASE="$(profile_get defaultBaseBranch main)"
+
+# --- Terminal window title -------------------------------------------------------
+# A long loop stacks up one window per task, so the title is the only thing that
+# tells them apart: "<project> - <task>". Twin of Format-WindowTitle /
+# Set-WindowTitle in run-backlog-loop-core.ps1 — keep the wording identical so a
+# Windows box and a Mac label their windows the same way.
+#
+# Two mechanisms, because they cover different terminals:
+#   * OSC 0 escape — Terminal.app, iTerm2 and every Linux emulator honour it, and
+#     it is the only one that works for --inline (no new window is opened) and on
+#     Linux (no osascript there).
+#   * AppleScript `custom title` — macOS only, set on the tab right after it is
+#     spawned, and it survives a child process that prints its own OSC title.
+WINDOW_TITLE_MAX=120
+
+# Compose the title for task "$1" ("" = the controller itself). Control chars are
+# stripped and the result truncated: a pasted multi-line backlog title would
+# otherwise break the escape sequence, not just the tab label.
+format_window_title() {
+  local task title
+  task="$(printf '%s' "${1:-}" | tr '\r\n\t' '   ' | tr -s ' ')"
+  task="${task#"${task%%[![:space:]]*}"}"
+  task="${task%"${task##*[![:space:]]}"}"
+  if [ -n "$task" ]; then
+    title="$PROJECT_NAME - $task"
+  else
+    title="$PROJECT_NAME - Backlog Loop"
+  fi
+  if [ "${#title}" -gt "$WINDOW_TITLE_MAX" ]; then
+    title="${title:0:$((WINDOW_TITLE_MAX - 3))}..."
+  fi
+  printf '%s' "$title"
+}
+
+# Retitle THIS window (controller window, and every task in --inline mode).
+set_window_title() {
+  [ -t 1 ] || return 0
+  printf '\033]0;%s\007' "$1"
+}
+
+# Escape for an AppleScript double-quoted literal: a task title with a quote or a
+# backslash would otherwise turn `osascript` into a syntax error and kill the spawn.
+applescript_quote() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
 
 # The backlog lives in the git COMMON dir (.git/backlog/), never in the tree: it
 # is per-developer bookkeeping, so tracking it made every dev branch carry its
@@ -446,6 +492,7 @@ build_cli_args() {
   fi
 }
 
+set_window_title "$(format_window_title "")"
 echo
 echo "=========================================="
 echo "  $PROJECT_NAME — Run Backlog Loop (controller)"
@@ -700,6 +747,7 @@ write_runner() {
   cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
 cd $(printf '%q' "$WORK_DIR") || exit 9
+printf '\033]0;%s\007' $(printf '%q' "$(format_window_title "${TASK_TITLE_NOTIF:-}")")
 export AGENT_BASE_BRANCH=$(printf '%q' "$LOOP_BASE_BRANCH")
 export MAX_THINKING_TOKENS=$(printf '%q' "${SELECTED_THINKING_TOKENS:-}")
 if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
@@ -804,7 +852,9 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   ITER_START=$(date +%s)
 
   if [ "$INLINE" -eq 1 ]; then
-    # Same-window execution.
+    # Same-window execution: no window to name, so retitle THIS one per task and
+    # hand it back to the controller title when the loop ends.
+    set_window_title "$(format_window_title "$TASK_TITLE_NOTIF")"
     if [ "${SELECTED_THINKING_TOKENS:-0}" -gt 0 ] 2>/dev/null; then
       export MAX_THINKING_TOKENS="$SELECTED_THINKING_TOKENS"
     else
@@ -819,7 +869,12 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   else
     # New Terminal window per task (macOS via osascript).
     write_runner "$i" "$log_file" "$flag_file" "$prompt_file" "$runner_file" "$pid_file"
-    win_id="$(osascript -e "tell application \"Terminal\"" -e "do script \"bash '$runner_file'\"" -e "return id of front window" -e "end tell" 2>/dev/null)" \
+    # The `custom title` set here is what actually sticks on Terminal.app; the
+    # runner's own OSC escape covers the moment before this runs (and any terminal
+    # that has no AppleScript). `try` around it so an OS/Terminal version without
+    # the property loses only the label, never the spawn.
+    win_title_as="$(applescript_quote "$(format_window_title "$TASK_TITLE_NOTIF")")"
+    win_id="$(osascript -e "tell application \"Terminal\"" -e "set taskTab to do script \"bash '$runner_file'\"" -e "try" -e "set custom title of taskTab to \"$win_title_as\"" -e "end try" -e "return id of front window" -e "end tell" 2>/dev/null)" \
       || { STOP_REASON="Failed to open Terminal window (grant Automation permission to Terminal, or use --inline)"; break; }
     echo "  Spawned task window; waiting for it to finish (monitoring inactivity)..."
     # Wait for the flag file with a timeout / inactivity check to avoid hanging on token-limit errors.
@@ -996,6 +1051,10 @@ Committed to $AGENT_BRANCH (pushed if the repo has a remote). Ready for manual v
 done
 
 [ -z "$STOP_REASON" ] && STOP_REASON="Reached MaxIterations ($MAX_ITERATIONS)"
+
+# --inline retitled this window per task; hand it back so the finished window is
+# not still labelled with whatever task ran last.
+set_window_title "$(format_window_title "")"
 
 echo
 echo "=========================================="

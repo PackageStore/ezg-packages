@@ -4,6 +4,11 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-08-24
+
+**Added**
+- Mỗi cửa sổ terminal mà backlog loop mở ra cho một task giờ mang tên `[Tên project] - [Tên task]`, nên chạy loop dài không còn phải đoán cửa sổ nào đang làm task nào. Áp dụng cho cả macOS (`run-backlog-loop.sh`) và Windows (`run-backlog-loop-core.ps1`); tên project lấy từ `.claude/project-profile.json`. Chạy `--inline` thì đổi tên chính cửa sổ đang chạy theo từng task, xong loop trả về `[Tên project] - Backlog Loop`.
+
 ## 2026-08-22
 
 Toàn bộ nội dung template chuyển sang phân phối qua gateway có xác thực Google: chỉ tài khoản `@easygoing.vn` mới tải được manifest, asset, DefaultSetup, feature catalog và package `com.ezg.*`.
