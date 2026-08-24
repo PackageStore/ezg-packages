@@ -24,7 +24,7 @@ add the package:
     }
   ],
   "dependencies": {
-    "com.ezg.visual-road-builder": "0.1.0"
+    "com.ezg.visual-road-builder": "0.1.1"
   }
 }
 ```
@@ -49,16 +49,25 @@ Create one via the Project window context menu:
 > Road Part Library) để Apply được."*
 > — Apply is blocked until a library is assigned.
 
-### 2. Road Plan Atlas (on the library)
+### 2. Road Plan Atlas (on the library) — optional
 
-Select the library asset and assign a multi-sprite PSD/texture to the
-**Road Plan Atlas** field. This is the 2D preview atlas; see
-[Atlas Requirements](#atlas-requirements) below.
+**Leave this field empty.** The package ships its own preview atlas at
+`Editor/icon_lib/_road_plan.psd`, and the library resolves it automatically
+when the field is empty (`RoadPartLibrary.ResolveRoadPlanAtlasPath()`). Assign
+the field only to override the preview art with your own multi-sprite
+PSD/texture; see [Atlas Requirements](#atlas-requirements) below.
 
-> **HelpBox (Info):** *"Gán Road Plan Atlas trong Part Library để hiển thị
-> preview đường."*
-> — The tool functions without it (colored squares replace previews), but
-> road art will not render on the canvas.
+The field accepts **any** asset belonging to the atlas file, not just a
+`Texture2D`. A `.psd` imported by the Unity **PSD Importer** has a
+`GameObject` as its main asset and the texture only as a sub-asset, so a
+`Texture2D`-only field could not hold it. The tool needs the asset *path*,
+which any of those objects provides.
+
+> **HelpBox (Info):** *"Không tìm thấy _road_plan.psd — gán Road Plan Atlas
+> trong Part Library để hiển thị preview đường."*
+> — Shown only when no atlas resolves at all. In that state the road, highway,
+> Road 2 and path layers draw **nothing** on the canvas (they bail on a null
+> slice); station and parking blocks still draw as colored boxes.
 
 ### 3. Save Folder
 
@@ -236,8 +245,27 @@ ScriptableObject assets.
 After importing the sample, you **must** populate the prefab slots with your
 own road tile meshes — the sample assets reference the source project's
 prefabs, which will appear as missing references in your project. The
-`roadPlanAtlas` reference (pointing to the shipped `_road_plan.psd`) resolves
-automatically.
+`roadPlanAtlas` field is left empty on purpose: the library falls back to the
+`_road_plan.psd` shipped inside this package, so the 2D preview works with no
+assignment.
+
+## Claude Code Skill
+
+The package carries the `VisualRoadBuilder` Claude Code skill — the deep
+solver guide plus the offline repro scripts (`canvas_decode.py`,
+`prefab_tiles.py`, `diff_tiles.py`, `solver_dump.cs`) used to diagnose a wrong
+junction without re-baking a level.
+
+Install it with **Tools > EZG Technical Art > Install Claude Skill**. The menu
+item copies `ClaudeSkill~/VisualRoadBuilder/` out of the installed package
+into `<projectRoot>/.claude/skills/VisualRoadBuilder/`, then reveals the
+folder. Start a new Claude Code session and `/VisualRoadBuilder` is available.
+
+Claude Code only discovers skills under `<projectRoot>/.claude/skills/`,
+`~/.claude/skills/`, or an installed plugin — it never scans `Packages/` or
+`Library/PackageCache/`, which is why the copy step exists. Re-run the menu
+item after a package update to refresh the skill; it asks before it overwrites
+an existing folder, and the overwrite discards local edits made there.
 
 ## Open Items
 

@@ -622,8 +622,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         /// Không có art → ô đó vẫn null (lớp tương ứng bỏ vẽ, không fallback ô màu).</summary>
         private void EnsureRoadSprites()
         {
-            // Required: mọi slice ĐÃ có trong psd (kể cả Road_0.5x1_center — D8). Road2 curve/curve_rim/
-            // hway_to_road2, PATH path_side/path_center/path_curve/path_turn CHƯA có art nên KHÔNG đưa
+            // Required: mọi slice ĐÃ có trong psd (kể cả Road_0.5x1_center — D8). Road2 curve/curve_rim,
+            // PATH path_center CHƯA có art nên KHÔNG đưa
             // vào đây — nếu vào, chain && không bao giờ true và hàm re-scan toàn bộ atlas mỗi lần gọi
             // (mỗi repaint), một regression hiệu năng editor thật (P7).
             if (_spTileSide != null && _spTileSideRim != null && _spTileCurve != null
@@ -657,12 +657,13 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     case "hway_to_road": if (_spRampHway == null) _spRampHway = s; break;
                     case "station_area":   if (_spStationArea == null)   _spStationArea = s;   break;
                     case "parking_area":   if (_spParkingArea == null)   _spParkingArea = s;   break;
-                    // Road 2 (D8/D9): Road_0.5x1_center đã có art (reuse); curve/curve_rim/ramp thì
-                    // chưa — case vẫn wire sẵn để tự nạp ngay khi psd bổ sung slice, không đổi code.
+                    // Road 2 (D8/D9): Road_0.5x1_center đã có art (reuse), ramp là slice
+                    // hway_to_road_type2; curve/curve_rim thì chưa — case vẫn wire sẵn để tự nạp ngay
+                    // khi psd bổ sung slice, không đổi code.
                     case "Road_0.5x1_center": if (_spRoad2CenterFiller == null) _spRoad2CenterFiller = s; break;
                     case "road2_curve":       if (_spRoad2Curve == null)        _spRoad2Curve = s;        break;
                     case "road2_curve_rim":   if (_spRoad2CurveRim == null)     _spRoad2CurveRim = s;     break;
-                    case "hway_to_road2":     if (_spRampHway2 == null)         _spRampHway2 = s;         break;
+                    case "hway_to_road_type2": if (_spRampHway2 == null)        _spRampHway2 = s;         break;
                     case "path_side":         if (_spPathSide == null)          _spPathSide = s;          break;
                     case "path_center":       if (_spPathCenter == null)        _spPathCenter = s;        break;
                     case "path_curve":        if (_spPathCurve == null)         _spPathCurve = s;         break;

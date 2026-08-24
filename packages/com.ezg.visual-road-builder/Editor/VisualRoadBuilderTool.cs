@@ -38,10 +38,25 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         private void OnEnable()
         {
             wantsMouseMove = true; // để vẽ ghost station theo hover chuột
+            DiscoverLibrary();
             ApplyDebugBoundaryDefault();
             LoadDebugBoundaryAlpha();
             MigrateWindowData();
             InitHistoryAndAutosave();
+        }
+
+        /// <summary>Đoán Part Library cho window CHƯA gán gì. Mọi field của window (kể cả _library và
+        /// 24 ô sprite) chỉ nằm trong file layout của MỘT máy, nên window mở lần đầu ở máy khác luôn
+        /// trắng: không có library thì không ra atlas path, và mọi nút "nạp lại từ PSD" im lặng không
+        /// làm gì. Đúng 1 RoadPartLibrary trong project thì nhận luôn — cùng cách
+        /// <c>DiscoverCanvasSaveDir</c> đoán save folder. Nhiều hơn 1 thì để user tự chọn.</summary>
+        private void DiscoverLibrary()
+        {
+            if (_library != null) return;
+            string[] guids = AssetDatabase.FindAssets("t:RoadPartLibrary");
+            if (guids.Length != 1) return;
+            _library = AssetDatabase.LoadAssetAtPath<RoadPartLibrary>(
+                AssetDatabase.GUIDToAssetPath(guids[0]));
         }
 
         private void OnDisable()

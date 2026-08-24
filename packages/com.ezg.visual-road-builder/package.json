@@ -1,9 +1,12 @@
 {
   "name": "com.ezg.visual-road-builder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Visual Road Builder",
   "description": "Editor window (menu Tools ▸ EZG Technical Art ▸ Visual Road Builder) for painting a modular road network on a half-cell grid canvas and baking it as tile prefab instances into a level prefab's RoadParent node. Paints roads, a wider Road 2 profile, highways with ramps, pedestrian paths, station and parking blocks, and scatter decor, then solves tile placement, corner fillets, sidewalk rims and overlap suppression before it writes the geometry. Canvas layouts save to per-level ScriptableObject files with full undo history. Authors visual geometry only — it generates no routing, pathfinding or runtime navigation data. Bring your own road tile prefabs and preview sprite atlas; the included sample libraries show the expected slot layout.",
   "unity": "2022.3",
+  "dependencies": {
+    "com.unity.2d.psdimporter": "8.1.0"
+  },
   "author": {
     "name": "EZG Studio"
   },

@@ -12,16 +12,14 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
         internal SpriteLoader(VisualRoadBuilderTool host) => _host = host;
 
-        /// <summary>Asset path của atlas đường, lấy từ <see cref="RoadPartLibrary.roadPlanAtlas"/>.
-        /// Trả "" khi library hoặc atlas chưa gán.</summary>
+        /// <summary>Asset path của atlas đường. Library tự lo phần fallback về _road_plan.psd ship kèm
+        /// package khi field <see cref="RoadPartLibrary.roadPlanAtlas"/> trống. Trả "" khi chưa gán library.</summary>
         internal string RoadPlanAtlasPath
         {
             get
             {
                 var lib = _host.GetLibrary();
-                return lib != null && lib.roadPlanAtlas != null
-                    ? AssetDatabase.GetAssetPath(lib.roadPlanAtlas)
-                    : string.Empty;
+                return lib != null ? lib.ResolveRoadPlanAtlasPath() : string.Empty;
             }
         }
 
@@ -45,8 +43,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         /// Không có art → ô đó vẫn null (lớp tương ứng bỏ vẽ, không fallback ô màu).</summary>
         internal void EnsureRoadSprites()
         {
-            // Required: mọi slice ĐÃ có trong psd (kể cả Road_0.5x1_center — D8). Road2 curve/curve_rim/
-            // hway_to_road2, PATH path_side/path_center/path_curve/path_turn CHƯA có art nên KHÔNG đưa
+            // Required: mọi slice ĐÃ có trong psd (kể cả Road_0.5x1_center — D8). Road2 curve/curve_rim,
+            // PATH path_center CHƯA có art nên KHÔNG đưa
             // vào đây — nếu vào, chain && không bao giờ true và hàm re-scan toàn bộ atlas mỗi lần gọi
             // (mỗi repaint), một regression hiệu năng editor thật (P7).
             if (_host.SpTileSide != null && _host.SpTileSideRim != null && _host.SpTileCurve != null
@@ -85,7 +83,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     case "Road_0.5x1_center": _host.SetSprite(ref _host._spRoad2CenterFiller, s); break;
                     case "road2_curve":       _host.SetSprite(ref _host._spRoad2Curve, s);         break;
                     case "road2_curve_rim":   _host.SetSprite(ref _host._spRoad2CurveRim, s);      break;
-                    case "hway_to_road2":     _host.SetSprite(ref _host._spRampHway2, s);          break;
+                    case "hway_to_road_type2": _host.SetSprite(ref _host._spRampHway2, s);         break;
                     case "path_side":         _host.SetSprite(ref _host._spPathSide, s);           break;
                     case "path_center":       _host.SetSprite(ref _host._spPathCenter, s);         break;
                     case "path_curve":        _host.SetSprite(ref _host._spPathCurve, s);          break;

@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -22,8 +23,47 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         // ── Atlas ──
         [Tooltip("Sprite atlas (_road_plan.psd) chứa mọi slice preview đường trên canvas 2D. "
                  + "Tên slice phải khớp với switch trong EnsureRoadSprites (Road_1x1_side, "
-                 + "Highway_1x2, station_area…). Để trống thì canvas không vẽ icon đường.")]
-        public Texture2D roadPlanAtlas;
+                 + "Highway_1x2, station_area…). Để TRỐNG thì tool tự dùng _road_plan.psd ship kèm "
+                 + "package — chỉ gán khi muốn atlas riêng. Ô này nhận MỌI asset của psd: psd nhập "
+                 + "bằng PSD Importer có main asset là GameObject chứ không phải Texture2D, mà tool "
+                 + "chỉ cần asset path.")]
+        public Object roadPlanAtlas;
+
+        private const string ShippedAtlasSubPath = "Editor/icon_lib/_road_plan.psd";
+        private const string ShippedAtlasName = "_road_plan";
+
+        private string _shippedAtlasPath;
+
+        /// <summary>Asset path của atlas preview đường. Ưu tiên <see cref="roadPlanAtlas"/>; field trống
+        /// hoặc reference chết thì tự tìm _road_plan.psd ship kèm package. Trả "" khi không có atlas nào.</summary>
+        public string ResolveRoadPlanAtlasPath()
+        {
+            if (roadPlanAtlas != null)
+            {
+                string assigned = AssetDatabase.GetAssetPath(roadPlanAtlas);
+                if (!string.IsNullOrEmpty(assigned)) return assigned;
+            }
+            if (string.IsNullOrEmpty(_shippedAtlasPath)) _shippedAtlasPath = FindShippedAtlas();
+            return _shippedAtlasPath;
+        }
+
+        private static string FindShippedAtlas()
+        {
+            var pkg = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(RoadPartLibrary).Assembly);
+            if (pkg != null)
+            {
+                string inPackage = pkg.assetPath + "/" + ShippedAtlasSubPath;
+                if (!string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(inPackage))) return inPackage;
+            }
+            // Tool chạy từ Assets/ (dev checkout): psd nằm cạnh code, không qua PackageManager.
+            foreach (string guid in AssetDatabase.FindAssets(ShippedAtlasName))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.EndsWith("/icon_lib/" + ShippedAtlasName + ".psd", System.StringComparison.Ordinal))
+                    return path;
+            }
+            return string.Empty;
+        }
 
         // ── Road: ô modular 0.5x0.5 ô, ghép nên mọi mảnh thẳng ──
         [FormerlySerializedAs("road1x1_core")]

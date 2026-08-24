@@ -86,9 +86,10 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 EditorGUILayout.HelpBox(
                     "Gán Part Library (Create > EZG Technical Art > Road Part Library) để Apply được.",
                     MessageType.Warning);
-            else if (_library.roadPlanAtlas == null)
+            else if (string.IsNullOrEmpty(_library.ResolveRoadPlanAtlasPath()))
                 EditorGUILayout.HelpBox(
-                    "Gán Road Plan Atlas trong Part Library để hiển thị preview đường.",
+                    "Không tìm thấy _road_plan.psd — gán Road Plan Atlas trong Part Library để hiển thị "
+                    + "preview đường.",
                     MessageType.Info);
             if (_applyTarget.SaveFolder == null)
                 EditorGUILayout.HelpBox(

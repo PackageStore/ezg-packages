@@ -23,12 +23,10 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
         // Icon thật của lớp Đường: sprite ô modular nạp từ atlas trong RoadPartLibrary,
         // vẽ đúng hình + xoay theo mask thay cho ô vuông cam.
-        /// <summary>Asset path của atlas đường, lấy từ <see cref="RoadPartLibrary.roadPlanAtlas"/>.
-        /// Trả "" khi library hoặc atlas chưa gán.</summary>
+        /// <summary>Asset path của atlas đường. Library tự lo phần fallback về _road_plan.psd ship kèm
+        /// package khi field <see cref="RoadPartLibrary.roadPlanAtlas"/> trống. Trả "" khi chưa gán library.</summary>
         private string RoadPlanAtlasPath =>
-            _library != null && _library.roadPlanAtlas != null
-                ? AssetDatabase.GetAssetPath(_library.roadPlanAtlas)
-                : string.Empty;
+            _library != null ? _library.ResolveRoadPlanAtlasPath() : string.Empty;
         // Mọi slice trong _road_plan.psd vẽ ở cùng tỉ lệ này → kích thước ô của 1 sprite suy ra
         // từ chính rect của nó (station_area 512 = 4 ô).
         private const float SpritePixelsPerCell = 128f;
