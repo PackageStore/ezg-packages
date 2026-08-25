@@ -22,6 +22,12 @@ namespace Ezg.FeatureHub.Editor
         public const string FEATURES_INDEX_URL =
             "https://upm-registry-worker.developer-a1f.workers.dev/template/features/index.json";
 
+        // Catalog tài sản AI của Claude (skill, command, agent, rule, docs...). Khác 3 nguồn trên ở
+        // chỗ nội dung KHÔNG nằm trong Assets/ mà là file tooling ở project root (.claude/...), nên
+        // payload là .zip có entry ghi theo path tương đối project root — xem FeatureHubAiInstaller.
+        public const string AI_INDEX_URL =
+            "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/index.json";
+
         // Thư mục temp tải file về (nằm trong Temp/ của project — đã gitignore).
         public const string TEMP_DIR_NAME = "EzgFeatureHub";
 
@@ -59,6 +65,14 @@ namespace Ezg.FeatureHub.Editor
 
     /// <summary>Trạng thái một .unitypackage so với record local.</summary>
     public enum UnityPackageStatus
+    {
+        NotInstalled,
+        Installed,
+        UpdateAvailable,
+    }
+
+    /// <summary>Trạng thái một AI item (skill/command/...) so với record local + file trên đĩa.</summary>
+    public enum AiItemStatus
     {
         NotInstalled,
         Installed,
@@ -122,6 +136,51 @@ namespace Ezg.FeatureHub.Editor
         public int schemaVersion;
         public string description;
         public List<FeatureProject> projects = new List<FeatureProject>();
+    }
+
+    // ---- ai/index.json ----
+
+    /// <summary>Một danh mục AI (Skills, Commands, Agents...). Chỉ để hiển thị tên + mô tả nhóm.</summary>
+    [System.Serializable]
+    public class AiCategory
+    {
+        public string id;            // khóa dùng trong AiItem.category, vd "Skills"
+        public string name;          // tên hiển thị, vd "Backlog Templates"
+        public string description;   // mô tả ngắn của nhóm
+        public int count;            // số item trong nhóm (server tính sẵn)
+    }
+
+    /// <summary>
+    /// Một tài sản AI cài lẻ được: 1 skill, 1 command, 1 agent, 1 rule... Payload là .zip mà mỗi
+    /// entry đã là path tương đối project root, nên cài = giải nén thẳng xuống project root.
+    /// </summary>
+    [System.Serializable]
+    public class AiItem
+    {
+        public string id;                              // "<Category>/<name>", vd "Skills/ui-kit"
+        public string name;
+        public string category;                        // trỏ tới AiCategory.id
+        public string description;
+        public string fileName;                        // "<name>.zip"
+        public string url;
+        public string sha256;                          // hash của .zip
+        public string installPath;                     // đích trong project, vd ".claude/skills/ui-kit"
+        public bool isDirectory;                       // installPath là thư mục hay 1 file
+        public List<string> files = new List<string>();// mọi file trong gói (path tương đối project)
+        public int fileCount;
+        public long size;
+        public bool installedByDefault;
+        public string source;                          // "defaultsetup" | "extra"
+    }
+
+    /// <summary>Catalog AI: danh mục + toàn bộ item. Data-driven như features/index.json.</summary>
+    [System.Serializable]
+    public class AiCatalog
+    {
+        public int schemaVersion;
+        public string description;
+        public List<AiCategory> categories = new List<AiCategory>();
+        public List<AiItem> items = new List<AiItem>();
     }
 
     // ---- unity-template.json (latest.json) ----
@@ -191,9 +250,26 @@ namespace Ezg.FeatureHub.Editor
         public string installedAtUtc;
     }
 
+    /// <summary>
+    /// Một AI item đã cài. Lưu cả danh sách file đã ghi để gỡ/cập nhật xóa đúng thứ mình tạo ra,
+    /// không đụng file khác mà user tự thêm vào cùng thư mục.
+    /// </summary>
+    [System.Serializable]
+    public class InstalledAiItem
+    {
+        public string id;
+        public string name;
+        public string category;
+        public string sha256;
+        public string installPath;
+        public List<string> files = new List<string>();
+        public string installedAtUtc;
+    }
+
     [System.Serializable]
     public class InstallRecord
     {
         public List<InstalledUnityPackage> unityPackages = new List<InstalledUnityPackage>();
+        public List<InstalledAiItem> aiItems = new List<InstalledAiItem>();
     }
 }

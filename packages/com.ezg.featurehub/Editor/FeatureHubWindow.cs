@@ -2,6 +2,9 @@
 //  Menu: Ezg > Feature Hub.
 //  Tab 1: .unitypackage (asset-catalog.json)  — tải về, import, xóa temp, ghi record local.
 //  Tab 2: UPM (unity-template.json)           — ghi vào Packages/manifest.json + scopedRegistries.
+//  Tab 3: Features (features/index.json)       — feature game theo dự án, cài/gỡ từng feature.
+//  Tab 4: AI Feature (ai/index.json)           — skill/command/agent... của Claude, ghi vào .claude/
+//                                                ở project root (không qua AssetDatabase).
 //  Giao diện: card expandable + icon động Lottie khắp nơi (rlottie render trong editor; icon
 //  ở trạng thái Idle, phát micro-animation khi hover -> sinh động mà nhẹ CPU).
 using System;
@@ -58,6 +61,10 @@ namespace Ezg.FeatureHub.Editor
         private bool _featuresLoading;
         private readonly Dictionary<string, AssetCatalog> _featureCatalogCache = new Dictionary<string, AssetCatalog>();
 
+        // Tab "AI Feature": catalog skill/command/agent... cài thẳng vào .claude/ ở project root.
+        private AiCatalog _aiCatalog;
+        private bool _aiLoading;
+
         private int _tab;
         private ImportMode _importMode = ImportMode.Ask;
         private string _search = string.Empty;
@@ -73,12 +80,15 @@ namespace Ezg.FeatureHub.Editor
         private VisualElement _tabUnity;
         private VisualElement _tabUpm;
         private VisualElement _tabFeatures;
+        private VisualElement _tabAi;
         private LottieElement _tabUnityIcon;
         private LottieElement _tabUpmIcon;
         private LottieElement _tabFeaturesIcon;
+        private LottieElement _tabAiIcon;
         private Label _tabUnityLabel;
         private Label _tabUpmLabel;
         private Label _tabFeaturesLabel;
+        private Label _tabAiLabel;
 
         #endregion
 
@@ -99,7 +109,7 @@ namespace Ezg.FeatureHub.Editor
             // .unitypackage (repack), tree-view này ném NullReferenceException khiến import treo
             // và KHÔNG ghi file nào. Silent bỏ qua dialog nên cài ổn định.
             _importMode = (ImportMode)EditorPrefs.GetInt(PREF_IMPORT_MODE, (int)ImportMode.Silent);
-            _tab = EditorPrefs.GetInt(PREF_TAB, 0);
+            _tab = Mathf.Clamp(EditorPrefs.GetInt(PREF_TAB, 0), 0, 3);
             _selectedProjectId = EditorPrefs.GetString(PREF_FEATURE_PROJECT, null);
 
             var root = rootVisualElement;
@@ -172,9 +182,11 @@ namespace Ezg.FeatureHub.Editor
             _tabUnity = BuildTabPill("Unity Packages", LottieLibrary.ARCHIVE, 0, out _tabUnityIcon, out _tabUnityLabel);
             _tabUpm = BuildTabPill("UPM Packages", LottieLibrary.SETTINGS, 1, out _tabUpmIcon, out _tabUpmLabel);
             _tabFeatures = BuildTabPill("Features", LottieLibrary.STAR, 2, out _tabFeaturesIcon, out _tabFeaturesLabel);
+            _tabAi = BuildTabPill("AI Feature", LottieLibrary.ACTIVITY, 3, out _tabAiIcon, out _tabAiLabel);
             bar.Add(_tabUnity);
             bar.Add(_tabUpm);
             bar.Add(_tabFeatures);
+            bar.Add(_tabAi);
 
             bar.Add(new VisualElement { style = { flexGrow = 1, minWidth = 8 } }); // spacer
 
@@ -276,6 +288,7 @@ namespace Ezg.FeatureHub.Editor
             ApplyPillStyle(_tabUnity, _tabUnityLabel, _tabUnityIcon, _tab == 0);
             ApplyPillStyle(_tabUpm, _tabUpmLabel, _tabUpmIcon, _tab == 1);
             ApplyPillStyle(_tabFeatures, _tabFeaturesLabel, _tabFeaturesIcon, _tab == 2);
+            ApplyPillStyle(_tabAi, _tabAiLabel, _tabAiIcon, _tab == 3);
         }
 
         private static void ApplyPillStyle(VisualElement pill, Label label, LottieElement icon, bool active)
@@ -330,6 +343,19 @@ namespace Ezg.FeatureHub.Editor
                 if (error != null)
                     Debug.LogWarning($"[FeatureHub] {error}");
                 if (_tab == 2)
+                    RebuildList();
+            });
+
+            // Catalog AI cũng tải độc lập, cùng lý do.
+            _aiLoading = true;
+            _aiCatalog = null;
+            FeatureHubService.LoadAiCatalog((catalog, error) =>
+            {
+                _aiLoading = false;
+                _aiCatalog = catalog ?? new AiCatalog();
+                if (error != null)
+                    Debug.LogWarning($"[FeatureHub] {error}");
+                if (_tab == 3)
                     RebuildList();
             });
         }
@@ -417,7 +443,8 @@ namespace Ezg.FeatureHub.Editor
             {
                 case 0: BuildUnityTab(); break;
                 case 1: BuildUpmTab(); break;
-                default: BuildFeaturesTab(); break;
+                case 2: BuildFeaturesTab(); break;
+                default: BuildAiTab(); break;
             }
 
             StaggerAppear();
@@ -649,6 +676,218 @@ namespace Ezg.FeatureHub.Editor
                 if (_selectedProjectId == project.id)
                     RebuildList();
             });
+        }
+
+        #endregion
+
+        #region UI — AI tab
+
+        private void BuildAiTab()
+        {
+            // Catalog tải độc lập với gate "ready" của 2 tab đầu -> tự hiện loading.
+            if (_aiLoading || _aiCatalog == null)
+            {
+                _listContainer.Add(LoadingCard());
+                return;
+            }
+
+            if (_aiCatalog.items == null || _aiCatalog.items.Count == 0)
+            {
+                _listContainer.Add(InfoCard("Chưa có tài sản AI nào trên server."));
+                return;
+            }
+
+            var filtered = _aiCatalog.items.Where(MatchSearchAi).ToList();
+            if (filtered.Count == 0)
+            {
+                _listContainer.Add(InfoCard("Không khớp từ khóa tìm kiếm."));
+                return;
+            }
+
+            _listContainer.Add(AiHintRow(filtered.Count));
+
+            int missing = filtered.Count(i => FeatureHubInstallRecord.GetAiStatus(i) != AiItemStatus.Installed);
+            if (missing > 0)
+                _listContainer.Add(SectionActionBar(
+                    $"Cài {missing} mục đang hiển thị còn thiếu", () => InstallAllAi(filtered)));
+
+            foreach (var group in filtered
+                         .GroupBy(i => string.IsNullOrEmpty(i.category) ? "Khác" : i.category)
+                         .OrderBy(g => AiCategoryOrder(g.Key))
+                         .ThenBy(g => g.Key))
+            {
+                _listContainer.Add(CategoryHeader(
+                    AiCategoryDisplayName(group.Key), group.Count(), AiCategoryIconKey(group.Key)));
+                foreach (var item in group.OrderBy(i => i.name))
+                    _listContainer.Add(BuildAiCard(item));
+            }
+        }
+
+        /// <summary>Dòng nhắc đích cài — tài sản AI KHÔNG vào Assets/ nên user cần biết nó đi đâu.</summary>
+        private VisualElement AiHintRow(int count)
+        {
+            return new Label($"{count} mục · cài vào thư mục .claude/ ở gốc project (ngoài Assets/) — " +
+                             "Claude Code nhận ngay, không cần restart Unity.")
+            {
+                style =
+                {
+                    color = C_MUTED, fontSize = 10, whiteSpace = WhiteSpace.Normal,
+                    paddingLeft = 12, paddingRight = 12, paddingTop = 6, paddingBottom = 2,
+                },
+            };
+        }
+
+        private VisualElement BuildAiCard(AiItem item)
+        {
+            var status = FeatureHubInstallRecord.GetAiStatus(item);
+            Color statusColor = AiStatusColor(status);
+
+            var detail = DetailContainer();
+            detail.Add(DetailRow("Trạng thái", AiStatusText(status)));
+            detail.Add(DetailRow("Danh mục", AiCategoryDisplayName(item.category)));
+            if (!string.IsNullOrEmpty(item.description))
+                detail.Add(DetailRow("Mô tả", item.description));
+            detail.Add(DetailRow("Đích cài", item.installPath));
+            detail.Add(DetailRow("Nội dung", item.isDirectory
+                ? $"Thư mục · {item.fileCount} file"
+                : "1 file"));
+            if (item.size > 0)
+                detail.Add(DetailRow("Kích thước", FormatSize(item.size)));
+            detail.Add(DetailRow("Nguồn", item.source == "extra" ? "AIFeatures (bổ sung)" : "DefaultSetup"));
+            if (!string.IsNullOrEmpty(item.sha256))
+                detail.Add(DetailRow("SHA-256", Short(item.sha256, 24)));
+            var record = FeatureHubInstallRecord.GetAi(item.id);
+            if (record != null)
+                detail.Add(DetailRow("Đã cài lúc", FormatTime(record.installedAtUtc)));
+            detail.Add(UrlRow(item.url));
+
+            Color btnColor = status == AiItemStatus.Installed ? C_PILL_OFF : C_ACCENT;
+            Color btnText = status == AiItemStatus.Installed ? C_TEXT : Color.white;
+            var actions = ActionRow();
+            if (status != AiItemStatus.NotInstalled)
+                actions.Add(StyledButton("Gỡ", C_DANGER_BG, C_DANGER, () => RunAiUninstall(item), 56));
+            actions.Add(StyledButton(AiActionText(status), btnColor, btnText, () => RunAiInstall(item), 88));
+
+            string subtitle = string.IsNullOrEmpty(item.description)
+                ? item.installPath
+                : Short(item.description, 96);
+
+            return ExpandableCard(
+                item.name, subtitle,
+                AiStatusIcon(status), statusColor,
+                StatusPill(AiStatusText(status), statusColor, status == AiItemStatus.Installed),
+                actions, detail);
+        }
+
+        #endregion
+
+        #region Actions — AI item
+
+        private void RunAiInstall(AiItem item)
+        {
+            if (_busy)
+                return;
+
+            // Ghi đè là chuyện thật sự xảy ra ở đây (khác .unitypackage: Unity tự merge), nên phải nói rõ.
+            if (FeatureHubAiInstaller.TargetExists(item))
+            {
+                string what = item.isDirectory
+                    ? $"Thư mục '{item.installPath}' sẽ bị THAY MỚI hoàn toàn (file lạ bên trong sẽ mất)."
+                    : $"File '{item.installPath}' sẽ bị GHI ĐÈ.";
+                if (!EditorUtility.DisplayDialog("Cài đè", $"{item.name}\n\n{what}\n\nTiếp tục?", "Cài đè", "Hủy"))
+                    return;
+            }
+
+            SetBusy(true);
+            FeatureHubAiInstaller.Install(
+                item,
+                p => SetStatus($"Đang tải {item.name}... {p:P0}"),
+                (ok, error) =>
+                {
+                    SetBusy(false);
+                    if (!ok && error != null)
+                        Debug.LogWarning($"[FeatureHub] {item.id}: {error}");
+                    SetStatus(ok ? $"Đã cài {item.name} → {item.installPath}" : $"Lỗi {item.name}: {error}");
+                    if (ok)
+                        FlashCheck();
+                    RebuildList();
+                });
+        }
+
+        private void RunAiUninstall(AiItem item)
+        {
+            if (_busy)
+                return;
+
+            if (!EditorUtility.DisplayDialog(
+                    "Gỡ cài đặt",
+                    $"Gỡ '{item.name}' khỏi project?\n\nSẽ XÓA: {item.installPath}\n\n" +
+                    "Hành động này KHÔNG thể hoàn tác.",
+                    "Gỡ", "Hủy"))
+                return;
+
+            SetBusy(true);
+            SetStatus($"Đang gỡ {item.name}...");
+            FeatureHubAiInstaller.Uninstall(item, (ok, error) =>
+            {
+                SetBusy(false);
+                if (!ok && error != null)
+                    Debug.LogWarning($"[FeatureHub] {item.id}: {error}");
+                SetStatus(ok ? $"Đã gỡ {item.name}" : $"Gỡ {item.name} lỗi: {error}");
+                if (ok)
+                    FlashCheck();
+                RebuildList();
+            });
+        }
+
+        /// <summary>Cài mọi mục ĐANG HIỂN THỊ mà project còn thiếu (tôn trọng ô tìm kiếm).</summary>
+        private void InstallAllAi(List<AiItem> visible)
+        {
+            if (_busy || visible == null)
+                return;
+
+            var queue = visible
+                .Where(i => FeatureHubInstallRecord.GetAiStatus(i) != AiItemStatus.Installed)
+                .ToList();
+
+            if (queue.Count == 0)
+            {
+                SetStatus("Không có mục nào còn thiếu trong danh sách đang hiển thị.");
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog(
+                    "Cài tất cả mục còn thiếu",
+                    $"Sẽ tải & ghi {queue.Count} mục vào .claude/ ở gốc project.\n" +
+                    "Mục đã có sẵn trên đĩa sẽ bị ghi đè bằng bản mới. Tiếp tục?",
+                    "Cài", "Hủy"))
+                return;
+
+            SetBusy(true);
+            RunAiQueue(queue, 0);
+        }
+
+        private void RunAiQueue(List<AiItem> queue, int index)
+        {
+            if (index >= queue.Count)
+            {
+                SetBusy(false);
+                SetStatus($"Hoàn tất {queue.Count} mục AI.");
+                FlashConfetti();
+                RebuildList();
+                return;
+            }
+
+            var item = queue[index];
+            FeatureHubAiInstaller.Install(
+                item,
+                p => SetStatus($"[{index + 1}/{queue.Count}] Đang tải {item.name}... {p:P0}"),
+                (ok, error) =>
+                {
+                    if (!ok && error != null)
+                        Debug.LogWarning($"[FeatureHub] {item.id}: {error}");
+                    RunAiQueue(queue, index + 1);
+                });
         }
 
         #endregion
@@ -1209,6 +1448,12 @@ namespace Ezg.FeatureHub.Editor
             return MatchSearchText(asset.name) || MatchSearchText(asset.category);
         }
 
+        private bool MatchSearchAi(AiItem item)
+        {
+            return MatchSearchText(item.name) || MatchSearchText(item.category) ||
+                   MatchSearchText(item.description) || MatchSearchText(item.installPath);
+        }
+
         private bool MatchSearchText(string text)
         {
             if (string.IsNullOrEmpty(_search))
@@ -1420,7 +1665,7 @@ namespace Ezg.FeatureHub.Editor
             return row;
         }
 
-        private VisualElement CategoryHeader(string text, int count)
+        private VisualElement CategoryHeader(string text, int count, string iconKey = null)
         {
             var row = new VisualElement
             {
@@ -1430,7 +1675,7 @@ namespace Ezg.FeatureHub.Editor
                     paddingLeft = 12, paddingTop = 12, paddingBottom = 3, marginTop = 2,
                 },
             };
-            var icon = IconIdle(CategoryIconKey(text), 18);
+            var icon = IconIdle(iconKey ?? CategoryIconKey(text), 18);
             if (icon != null)
             {
                 icon.style.marginRight = 6;
@@ -1505,6 +1750,15 @@ namespace Ezg.FeatureHub.Editor
             return s.Length <= max ? s : s.Substring(0, max) + "…";
         }
 
+        private static string FormatSize(long bytes)
+        {
+            if (bytes < 1024)
+                return $"{bytes} B";
+            if (bytes < 1024 * 1024)
+                return $"{bytes / 1024f:0.#} KB";
+            return $"{bytes / (1024f * 1024f):0.##} MB";
+        }
+
         private static string FormatTime(string iso)
         {
             if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
@@ -1521,6 +1775,28 @@ namespace Ezg.FeatureHub.Editor
             if (value.Contains("://") || value.StartsWith("git"))
                 return "Git / URL";
             return "Registry (semver)";
+        }
+
+        #endregion
+
+        #region Helpers — AI catalog
+
+        /// <summary>Thứ tự nhóm theo đúng thứ tự server khai báo; nhóm lạ đẩy xuống cuối.</summary>
+        private int AiCategoryOrder(string categoryId)
+        {
+            var categories = _aiCatalog?.categories;
+            if (categories == null)
+                return int.MaxValue;
+            int index = categories.FindIndex(c => c != null && c.id == categoryId);
+            return index < 0 ? int.MaxValue : index;
+        }
+
+        private string AiCategoryDisplayName(string categoryId)
+        {
+            if (string.IsNullOrEmpty(categoryId))
+                return "Khác";
+            var category = _aiCatalog?.categories?.Find(c => c != null && c.id == categoryId);
+            return string.IsNullOrEmpty(category?.name) ? categoryId : category.name;
         }
 
         #endregion
@@ -1547,6 +1823,28 @@ namespace Ezg.FeatureHub.Editor
             UnityPackageStatus.Installed => LottieLibrary.CHECK2,
             UnityPackageStatus.UpdateAvailable => LottieLibrary.UPDATE,
             _ => LottieLibrary.DOWNLOAD,
+        };
+
+        private static string AiStatusIcon(AiItemStatus s) => s switch
+        {
+            AiItemStatus.Installed => LottieLibrary.CHECK2,
+            AiItemStatus.UpdateAvailable => LottieLibrary.UPDATE,
+            _ => LottieLibrary.DOWNLOAD,
+        };
+
+        private static string AiCategoryIconKey(string categoryId) => categoryId switch
+        {
+            "Skills" => LottieLibrary.STAR,
+            "Commands" => LottieLibrary.ACTIVITY,
+            "Agents" => LottieLibrary.GITHUB,
+            "Rules" => LottieLibrary.ALERT,
+            "Docs" => LottieLibrary.FOLDER,
+            "Scripts" => LottieLibrary.SETTINGS,
+            "Harness" => LottieLibrary.BELL,
+            "Templates" => LottieLibrary.ARCHIVE,
+            "UiKit" => LottieLibrary.HEART,
+            "Config" => LottieLibrary.SETTINGS,
+            _ => LottieLibrary.FOLDER,
         };
 
         private static string UpmStatusIcon(UpmStatus s) => s switch
@@ -1578,6 +1876,27 @@ namespace Ezg.FeatureHub.Editor
         {
             UnityPackageStatus.Installed => "Cài lại",
             UnityPackageStatus.UpdateAvailable => "Cập nhật",
+            _ => "Cài",
+        };
+
+        private static string AiStatusText(AiItemStatus s) => s switch
+        {
+            AiItemStatus.Installed => "Đã cài",
+            AiItemStatus.UpdateAvailable => "Có bản mới",
+            _ => "Chưa cài",
+        };
+
+        private static Color AiStatusColor(AiItemStatus s) => s switch
+        {
+            AiItemStatus.Installed => C_SUCCESS,
+            AiItemStatus.UpdateAvailable => C_WARN,
+            _ => C_MUTED,
+        };
+
+        private static string AiActionText(AiItemStatus s) => s switch
+        {
+            AiItemStatus.Installed => "Cài lại",
+            AiItemStatus.UpdateAvailable => "Cập nhật",
             _ => "Cài",
         };
 

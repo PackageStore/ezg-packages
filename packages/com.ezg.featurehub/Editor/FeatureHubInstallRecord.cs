@@ -1,6 +1,8 @@
-// EZG Feature Hub — record các .unitypackage đã cài (lưu ở ProjectSettings/, không vào Assets).
-// .unitypackage không để lại dấu vết trong manifest nên phải tự track tên + sha256 để biết trạng thái.
+// EZG Feature Hub — record các thứ đã cài (lưu ở ProjectSettings/, không vào Assets):
+//  - .unitypackage: không để lại dấu vết trong manifest nên phải tự track tên + sha256.
+//  - AI item (.claude/...): track thêm danh sách file đã ghi để gỡ/cập nhật đúng thứ mình tạo ra.
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -99,6 +101,72 @@ namespace Ezg.FeatureHub.Editor
         {
             var record = Load();
             int removed = record.unityPackages.RemoveAll(p => p.name == assetName);
+            if (removed > 0)
+                Save(record);
+        }
+
+        #endregion
+
+        #region Public Methods — AI items
+
+        /// <summary>Record của một AI item theo id ("Skills/ui-kit"). Null nếu Feature Hub chưa cài nó.</summary>
+        public static InstalledAiItem GetAi(string id)
+        {
+            var record = Load();
+            return record.aiItems?.Find(i => i.id == id);
+        }
+
+        /// <summary>
+        /// Trạng thái một AI item. Có record -> so sha256 để biết có bản mới. Chưa có record nhưng
+        /// đích đã tồn tại trên đĩa -> coi là "Đã cài" (đến từ DefaultSetup lúc tạo project hoặc do
+        /// người khác commit vào repo); KHÔNG so sha vì không biết bản trên đĩa là version nào.
+        /// </summary>
+        public static AiItemStatus GetAiStatus(AiItem item)
+        {
+            if (item == null)
+                return AiItemStatus.NotInstalled;
+
+            var installed = GetAi(item.id);
+            if (installed != null)
+            {
+                if (!string.IsNullOrEmpty(item.sha256) &&
+                    !string.Equals(installed.sha256, item.sha256, StringComparison.OrdinalIgnoreCase))
+                    return AiItemStatus.UpdateAvailable;
+
+                return AiItemStatus.Installed;
+            }
+
+            return ProjectPathExists(item.installPath) ? AiItemStatus.Installed : AiItemStatus.NotInstalled;
+        }
+
+        /// <summary>Ghi nhận một AI item vừa cài xong, kèm danh sách file thật sự đã ghi ra đĩa.</summary>
+        public static void MarkAiInstalled(AiItem item, List<string> writtenFiles)
+        {
+            var record = Load();
+            if (record.aiItems == null)
+                record.aiItems = new List<InstalledAiItem>();
+
+            var entry = record.aiItems.Find(i => i.id == item.id);
+            if (entry == null)
+            {
+                entry = new InstalledAiItem { id = item.id };
+                record.aiItems.Add(entry);
+            }
+
+            entry.name = item.name;
+            entry.category = item.category;
+            entry.sha256 = item.sha256 ?? string.Empty;
+            entry.installPath = item.installPath;
+            entry.files = writtenFiles ?? new List<string>();
+            entry.installedAtUtc = DateTime.UtcNow.ToString("o");
+            Save(record);
+        }
+
+        /// <summary>Xóa record một AI item.</summary>
+        public static void RemoveAi(string id)
+        {
+            var record = Load();
+            int removed = record.aiItems?.RemoveAll(i => i.id == id) ?? 0;
             if (removed > 0)
                 Save(record);
         }

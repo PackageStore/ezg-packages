@@ -8,6 +8,8 @@ Open via the menu **`Ezg > Feature Hub`**.
 
 - **Unity Packages tab** — lists `.unitypackage` entries from a remote `asset-catalog.json`. Downloads each to `Temp/`, verifies its SHA-256, imports it via `AssetDatabase.ImportPackage` (silent or interactive), then records the install in `ProjectSettings/EzgFeatureHub/install-record.json` so status (installed / update available) survives across sessions.
 - **UPM Packages tab** — lists UPM dependencies from a remote `unity-template.json`. Writes the selected dependency (and any scoped registries) into `Packages/manifest.json`, downloads `.tgz` files for `file:` dependencies, then triggers a package resolve.
+- **Features tab** — per-project game features (`features/index.json` → `<PROJECT>/catalog.json`), installed/uninstalled one feature at a time.
+- **AI Feature tab** — Claude AI assets (skills, commands, agents, rules, docs, scripts, MCP config) from a remote `ai/index.json`, grouped by kind. Each item is a `.zip` whose entries are project-relative paths, so installing means verifying its SHA-256 and unpacking straight into the project root (`.claude/…`) — outside `Assets/`, so no `AssetDatabase` import and no domain reload. Entries outside the item's declared `installPath` are refused (zip-slip guard).
 - UI Toolkit window with animated **Lottie** icons rendered in the Editor via rlottie (idle state, micro-animation on hover).
 
 ## Package ↔ source folder

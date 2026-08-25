@@ -1,6 +1,7 @@
 // EZG Feature Hub — logic load catalog/template + cài đặt.
 //  - .unitypackage: tải về Temp/ -> verify sha256 -> AssetDatabase.ImportPackage -> xóa temp -> ghi record.
 //  - UPM: ghi vào Packages/manifest.json (+ scopedRegistries), tải .tgz cho dep "file:", rồi Client.Resolve().
+//  - AI item: chỉ LOAD catalog ở đây; cài/gỡ nằm ở FeatureHubAiInstaller vì đích là project root.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -114,6 +115,30 @@ namespace Ezg.FeatureHub.Editor
                 catch (Exception e)
                 {
                     onDone?.Invoke(null, $"Parse feature catalog lỗi: {e.Message}");
+                }
+            });
+        }
+
+        /// <summary>Tải catalog AI (ai/index.json): danh mục + mọi skill/command/agent cài lẻ được.
+        /// Cài đặt thực tế nằm ở FeatureHubAiInstaller (ghi thẳng project root, không qua AssetDatabase).</summary>
+        public static void LoadAiCatalog(Action<AiCatalog, string> onDone)
+        {
+            EditorDownloader.DownloadText(FeatureHubConstants.AI_INDEX_URL, (ok, text, error) =>
+            {
+                if (!ok)
+                {
+                    onDone?.Invoke(null, $"Tải AI catalog lỗi: {error}");
+                    return;
+                }
+
+                try
+                {
+                    var catalog = JsonConvert.DeserializeObject<AiCatalog>(text);
+                    onDone?.Invoke(catalog ?? new AiCatalog(), null);
+                }
+                catch (Exception e)
+                {
+                    onDone?.Invoke(null, $"Parse AI catalog lỗi: {e.Message}");
                 }
             });
         }

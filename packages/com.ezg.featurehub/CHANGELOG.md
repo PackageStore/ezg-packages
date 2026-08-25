@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-08-25
+
+**Added**
+- Tab **AI Feature**: cài lẻ từng skill / command / agent / rule / doc / script của Claude vào `.claude/` ở gốc project, chia nhóm theo loại. Trước đây `.claude/` chỉ đến với project **đúng một lần** lúc được sinh ra (`defaultsetup.tgz`), nên project cũ không có đường nào nhận skill viết sau đó.
+- `FeatureHubAiInstaller` — đường cài riêng cho tài sản AI: tải `.zip`, verify SHA-256, giải nén thẳng xuống project root. Không đụng `AssetDatabase`, không ImportPackage, không domain reload (đích nằm ngoài `Assets/`). Mọi entry nằm ngoài `installPath` của item đều bị từ chối (chặn zip-slip), và cờ `+x` được set lại cho `.sh`/`.command` vì `ZipArchive` của .NET bỏ qua unix mode.
+- Gỡ + phát hiện "đã có sẵn" cho tài sản AI: item chưa từng cài qua Feature Hub nhưng đã có trên đĩa (đến từ DefaultSetup) vẫn hiện "Đã cài"; install-record ghi thêm danh sách file đã ghi để gỡ/cập nhật xóa đúng thứ mình tạo ra.
+- Nút "Cài tất cả mục đang hiển thị còn thiếu" — tôn trọng ô tìm kiếm, nên lọc `backlog` rồi cài cả nhóm là được.
+
+**Changed**
+- Item dạng thư mục (skill) được **thay mới hoàn toàn** khi cập nhật, để bản mới không để sót file đã bị gỡ khỏi skill. Dialog xác nhận nói rõ điều này trước khi ghi đè.
+
 ## 0.3.1 — 2026-08-22
 
 **Changed**

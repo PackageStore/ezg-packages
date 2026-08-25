@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.featurehub",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "displayName": "EZG Feature Hub",
-  "description": "Editor tool (menu \"Ezg > Feature Hub\") that installs Unity packages into a project from a remote catalog. It downloads and imports .unitypackage files with SHA-256 verification, and writes UPM dependencies plus scoped registries into Packages/manifest.json. The UI Toolkit window shows animated Lottie icons rendered in-editor via rlottie.",
+  "description": "Editor tool (menu \"Ezg > Feature Hub\") that installs Unity packages into a project from a remote catalog. It downloads and imports .unitypackage files with SHA-256 verification, and writes UPM dependencies plus scoped registries into Packages/manifest.json. It also installs Claude AI assets (skills, commands, agents, rules) into the project's .claude/ folder from a remote catalog. The UI Toolkit window shows animated Lottie icons rendered in-editor via rlottie.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
