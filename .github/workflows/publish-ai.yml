@@ -1,0 +1,82 @@
+name: Publish AI catalog & DefaultSetup
+
+# Everything under DefaultSetup/ reaches a project through two independent channels, and until
+# now both were published by hand from a maintainer's machine:
+#   - ai/index.json + ai/files/**  -> Feature Hub's "AI Feature" tab, per-item install for
+#                                     projects that already exist
+#   - defaultsetup.tgz             -> the builder, for projects generated from now on
+# Publishing them here means a contributor needs push access to this repo and nothing else —
+# no Cloudflare account, no R2 key on their laptop — exactly like packages/** in publish.yml.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'templates/unity-project/DefaultSetup/**'
+      - 'templates/AIFeatures/**'
+      # ai-manifest.json's `sources` publishes repo skills in place, so editing one is a content change.
+      - '.agents/skills/**'
+      - 'scripts/upload-unity-template-ai.mjs'
+      - 'scripts/upload-unity-template-defaultsetup.mjs'
+  workflow_dispatch:
+
+# write: the refreshed templates/AIFeatures/index.json is committed back so the repo does not
+# drift from the catalog on R2.
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-ai
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install publish tooling
+        working-directory: scripts
+        run: npm install
+
+      # Uploads only the items whose sha256 differs from the live catalog, so an unrelated
+      # ProjectSettings edit does not re-push ~140 unchanged payloads.
+      - name: Publish AI catalog to R2
+        working-directory: scripts
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: company-upm-registry
+        run: node upload-unity-template-ai.mjs
+
+      # The tarball is rebuilt and re-uploaded every run: it is a single object with no per-item
+      # hash to compare against, and it must always match what is in the repo.
+      - name: Publish DefaultSetup tarball to R2
+        working-directory: scripts
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: company-upm-registry
+        run: node upload-unity-template-defaultsetup.mjs
+
+      # Keeps the committed catalog in step with R2 so a later local run shows no surprise diff.
+      # No loop: a push made with the default GITHUB_TOKEN does not start another workflow run.
+      # If anyone swaps this for a PAT, add a paths guard first or this will retrigger itself.
+      - name: Commit refreshed AI catalog
+        continue-on-error: true
+        run: |
+          if git diff --quiet -- templates/AIFeatures/index.json; then
+            echo "index.json already in sync — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add templates/AIFeatures/index.json
+          git commit -m "chore(ai): refresh AI catalog index"
+          git push

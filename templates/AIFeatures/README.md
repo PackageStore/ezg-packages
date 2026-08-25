@@ -4,7 +4,9 @@ Thư mục này phục vụ **tab AI Feature** trong EZG Feature Hub: nơi proje
 skill / command / agent / rule… của Claude, thay vì chỉ nhận trọn `.claude/` một lần lúc tạo project
 qua `defaultsetup.tgz`.
 
-Publish bằng script `scripts/upload-unity-template-ai.mjs` (xem skill `publish-ai-features`).
+Publish: **push lên `main`** là xong — workflow `.github/workflows/publish-ai.yml` chạy
+`scripts/upload-unity-template-ai.mjs` bằng R2 secrets của repo, nên người đóng góp chỉ cần quyền
+push, không cần R2 credentials. Xem skill `publish-ai-features`. Chạy tay vẫn được (cần `scripts/.env`).
 
 ## Ba nguồn nội dung
 

@@ -805,6 +805,15 @@ Zip được sinh **tất định** (timestamp cố định, deflate mức 9): n
 
 ### Publish AI catalog lên R2
 
+**Cách thường dùng: push lên `main`.** Workflow `.github/workflows/publish-ai.yml` trigger khi push
+chạm `templates/unity-project/DefaultSetup/**`, `templates/AIFeatures/**`, `.agents/skills/**` hoặc 2
+script publish; nó chạy cả `upload-unity-template-ai.mjs` lẫn `upload-unity-template-defaultsetup.mjs`
+bằng R2 secrets của repo, rồi commit ngược `templates/AIFeatures/index.json`. Người đóng góp skill chỉ
+cần **quyền push vào `PackageStore/ezg-packages`** — không cần tài khoản Cloudflare, không cần
+`scripts/.env`. Giống hệt cơ chế `packages/**` → `publish.yml`.
+
+Chạy tay (maintainer có `scripts/.env`, khi cần xem trước hoặc publish gấp):
+
 ```bash
 cd ../../scripts
 node --env-file=.env upload-unity-template-ai.mjs --dry-run              # xem trước (toàn bộ)
@@ -814,8 +823,9 @@ node --env-file=.env upload-unity-template-ai.mjs --item Skills/ui-kit   # 1 ite
 ```
 
 Cờ: `--dry-run`, `--force`, `--skip-files`, `--category <Id>`, `--item <Cat/name>`. Dùng chung
-`scripts/.env`. **Sửa nội dung một item đã publish thì phải `--force`** — mặc định script bỏ qua key
-đã tồn tại trên R2.
+`scripts/.env`. Script tự đọc `ai/index.json` live và chỉ đẩy lại item có **sha256 khác** — item đổi
+nội dung luôn được publish, item không đổi thì bỏ qua, nên chạy lại nhiều lần rất rẻ. `--force` chỉ
+cần khi có ai xoá tay object trên R2.
 
 `index.json` **luôn quét mọi item trên đĩa** kể cả khi chỉ upload một category, nên catalog không bao
 giờ lệch thực tế. Bản local ghi vào `templates/AIFeatures/index.json` để xem/commit.
@@ -823,8 +833,9 @@ giờ lệch thực tế. Bản local ghi vào `templates/AIFeatures/index.json`
 Curation (bỏ item, sửa mô tả, đánh dấu `installedByDefault`) nằm ở `templates/AIFeatures/ai-manifest.json`
 — xem `templates/AIFeatures/README.md`.
 
-Sửa file trong `DefaultSetup/.claude/` thường cần chạy **cả hai**: script này (cho project cũ) và
-`upload-unity-template-defaultsetup.mjs` (cho project sinh sau này).
+Sửa file trong `DefaultSetup/.claude/` cần chạy **cả hai**: script này (cho project cũ) và
+`upload-unity-template-defaultsetup.mjs` (cho project sinh sau này) — CI đã chạy sẵn cả hai, chỉ khi
+publish tay mới phải tự nhớ.
 
 ## Publish logic build lên R2
 

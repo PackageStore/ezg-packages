@@ -18,8 +18,9 @@
  *   2. Packs them into a deterministic .zip whose entry names are PROJECT-RELATIVE paths
  *      (e.g. ".claude/skills/ui-kit/SKILL.md") so the installer just writes entries under the
  *      project root — no path rewriting, and the archive is self-describing.
- *   3. Uploads it to  unity-template/ai/files/<Category>/<file>.zip  (skips existing keys; --force
- *      to overwrite — the zip is byte-stable, so an unchanged item keeps its sha256).
+ *   3. Uploads it to  unity-template/ai/files/<Category>/<file>.zip, but only when its sha256
+ *      differs from the one the live index.json records — an edited item keeps its key, so
+ *      "does the key exist" is the wrong question. Unchanged items cost nothing to re-run.
  *   4. Regenerates + uploads  unity-template/ai/index.json  (categories + every item on disk).
  *
  * The generated index.json is also written to templates/AIFeatures/index.json so it is
@@ -38,7 +39,8 @@
  *   --category <Id>       only (re)upload this category's payloads (index still covers everything)
  *   --item <Cat/name>     only (re)upload this single item (index still covers everything)
  *   --dry-run             print what would happen, touch nothing on R2 or disk
- *   --force               re-upload payloads even if the key already exists
+ *   --force               re-upload payloads even when the live catalog says they are current
+ *                         (only needed if an object was deleted from R2 by hand)
  *   --skip-files          upload index.json only, not the .zip payloads
  */
 import { createHash } from "node:crypto";
@@ -47,8 +49,8 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSy
 import { basename, dirname, extname, join, relative, sep } from "node:path";
 import {
   REPO_ROOT,
+  getJson,
   makeClient,
-  objectExists,
   putObject,
   hasFlag,
 } from "./registry-lib.mjs";
@@ -511,30 +513,46 @@ async function main() {
     return true;
   };
 
-  const client = DRY_RUN ? null : await makeClient();
+  const indexKey = `${R2_AI_PREFIX}/index.json`;
+
+  // What decides "needs uploading" is the CONTENT, not the key. An edited item keeps its key
+  // (<name>.zip), so a plain existence check would skip exactly the upload that matters — and
+  // forcing every run instead would re-push all ~140 payloads on every CI build. The live catalog
+  // already records each item's sha256, so one GET tells us precisely what changed.
+  let client = null;
+  const liveSha = new Map();
+  try {
+    client = await makeClient();
+    const live = await getJson(client, indexKey);
+    for (const item of live?.items || []) liveSha.set(item.id, item.sha256);
+  } catch (err) {
+    if (!DRY_RUN) throw err; // publish thật mà thiếu creds thì phải dừng
+    console.log(`~ dry-run: không đọc được catalog live (${err.message}) — coi như mọi item đều mới.\n`);
+  }
 
   // 1. payloads
+  const targets = items.filter(isTarget);
+  const outdated = targets.filter((item) => FORCE || liveSha.get(item.id) !== item.sha256);
+  const skipped = targets.length - outdated.length;
   let uploaded = 0;
-  let skipped = 0;
+
   if (!SKIP_FILES) {
-    for (const item of items.filter(isTarget)) {
+    for (const item of outdated) {
+      const state = liveSha.has(item.id) ? "đổi nội dung" : "mới";
       if (DRY_RUN) {
-        console.log(`~ dry-run ${item.id}`);
+        console.log(`~ dry-run ${item.id}  (${state})`);
         console.log(`    key    : ${item._key}`);
         console.log(`    files  : ${item.fileCount}  (${item.size} bytes zipped)`);
         console.log(`    target : ${item.installPath}`);
         console.log(`    sha256 : ${item.sha256}`);
         continue;
       }
-      if ((await objectExists(client, item._key)) && !FORCE) {
-        // Same key + byte-stable zip = same content; --force re-pushes after an edit.
-        skipped++;
-        continue;
-      }
       await putObject(client, item._key, item._zip, "application/zip");
-      console.log(`+ uploaded ${item._key}  (${item.fileCount} files)`);
+      console.log(`+ uploaded ${item._key}  (${item.fileCount} files, ${state})`);
       uploaded++;
     }
+    if (skipped > 0)
+      console.log(`= ${skipped} item không đổi so với catalog live — bỏ qua payload.`);
   }
 
   // 2. index.json — always covers EVERY item on disk so the catalog never drifts.
@@ -557,7 +575,6 @@ async function main() {
     items: items.map(({ _zip, _key, _rootAbs, _stagingPrefix, ...pub }) => pub),
   };
   const indexBody = `${JSON.stringify(index, null, 2)}\n`;
-  const indexKey = `${R2_AI_PREFIX}/index.json`;
   const indexLocal = join(EXTRA_DIR, "index.json");
 
   if (DRY_RUN) {
@@ -573,7 +590,7 @@ async function main() {
   for (const cat of categories) console.log(`  ${cat.id.padEnd(10)} ${cat.count} item`);
   console.log(`  total: ${items.length} item`);
   if (!DRY_RUN && !SKIP_FILES)
-    console.log(`  payload: ${uploaded} uploaded, ${skipped} skipped (đã có trên R2, dùng --force để đẩy lại)`);
+    console.log(`  payload: ${uploaded} uploaded, ${skipped} unchanged`);
 }
 
 main().catch((err) => {

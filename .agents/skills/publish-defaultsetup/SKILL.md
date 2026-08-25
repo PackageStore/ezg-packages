@@ -15,6 +15,11 @@ kèm file `.sha256`. End user chỉ giữ bootstrap mỏng + manifest, nên logi
 > `.unitypackage` không mang được. Đây là cơ chế publish đúng, xem mục "Publish DefaultSetup lên R2"
 > trong [templates/unity-project/README.md](../../../templates/unity-project/README.md).
 
+> **Từ nay không cần chạy tay nữa trong đa số trường hợp.** Push lên `main` chạm vào
+> `templates/unity-project/DefaultSetup/**` là workflow `.github/workflows/publish-ai.yml` tự đóng gói
+> + upload `defaultsetup.tgz` (và cả AI catalog) bằng R2 secrets của repo. Skill này giữ lại cho khi
+> cần publish gấp không chờ CI, hoặc cần xem trước bằng `--dry-run`.
+
 Đây là skill cấp repo cho maintainer của `ezg-packages` — KHÔNG nằm trong `DefaultSetup/`, không deploy
 cho game project.
 
