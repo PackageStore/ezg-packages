@@ -44,6 +44,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         // toạ độ theo NỬA Ô (x2 = x * 2) để snap bước 1/2 unit; rot 0..3 = hướng mặt (N/E/S/W,
         // yaw = rot * 90°).
         [SerializeField] internal List<int> Stations = new();
+        // Station 2: cùng encode với Stations, KHÔNG bao giờ đi vào Solver
+        [SerializeField] internal List<int> Stations2 = new();
         // Parking encode: (orient << 24) | (y2 << 12) | x2 — orient 0 = cạnh dài theo X, 1 = theo Z.
         [SerializeField] internal List<int> Parkings = new();
 

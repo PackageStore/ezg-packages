@@ -145,7 +145,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     Debug.Log($"[VisualRoadBuilder] Đã ghi {result.Road.Count} road" +
                         $" + {result.Road2.Count} road2 + {result.Path.Count} path" +
                         $" + {result.Highway.Count} highway + {result.HwDecor.Count} hw-decor" +
-                        $" + {_stations.Count} station + {_parkings.Count} parking vào '{_levelPrefab.name}/{rpn}'."); },
+                        $" + {_stations.Count} station + {_stations2.Count} station 2 + {_parkings.Count} parking vào '{_levelPrefab.name}/{rpn}'."); },
                 rot => BlockFacingStep(rot),
                 road2 => BlockPivotInsetFor(road2));
         }

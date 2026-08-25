@@ -15,16 +15,19 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             var fill = new Color(0.30f, 0.50f, 0.95f, 0.40f);
             var border = new Color(0.45f, 0.65f, 1f);
+            var fill2 = new Color(TileStation2.r, TileStation2.g, TileStation2.b, 0.40f);
+            var border2 = new Color(0.95f, 0.50f, 0.75f);
             var pFill = new Color(0.25f, 0.75f, 0.3f, 0.35f);
             var pBorder = new Color(0.35f, 0.95f, 0.4f);
 
             // Khối dưới con trỏ mới hiện viền + mũi tên (station ưu tiên hơn parking, khớp hit-test
             // của HandleStationInput) — nền canvas giữ sạch như art thật.
-            int hoverStation = -1, hoverParking = -1;
+            int hoverStation = -1, hoverStation2 = -1, hoverParking = -1;
             if (_mode == PaintMode.Station && !_eraserMode && _hoverCellValid)
             {
                 hoverStation = FindStationAt(_hoverCell);
-                if (hoverStation < 0) hoverParking = FindParkingAt(_hoverCell);
+                if (hoverStation < 0) hoverStation2 = FindStation2At(_hoverCell);
+                if (hoverStation < 0 && hoverStation2 < 0) hoverParking = FindParkingAt(_hoverCell);
             }
 
             for (int i = 0; i < _stations.Count; i++)
@@ -43,6 +46,23 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     DrawFacingArrow(r, rot, border);
                 }
                 DrawStationHookDots(canvas, x, y, rot, 1f);
+            }
+
+            for (int i = 0; i < _stations2.Count; i++)
+            {
+                DecodeStation(_stations2[i], out int x2s, out int y2s, out int rot2s);
+                int s2 = StationSize;
+                Rect r2 = BlockRect(canvas, new Vector2Int(x2s, y2s), s2, s2);
+                bool active2 = i == _draggingStation2 || i == hoverStation2;
+
+                if (_spStation2Area != null) DrawBlockSprite(r2, _spStation2Area, rot2s, 1f);
+                else EditorGUI.DrawRect(r2, fill2);
+
+                if (active2)
+                {
+                    DrawRectBorder(r2, 2f, border2);
+                    DrawFacingArrow(r2, rot2s, border2);
+                }
             }
 
             for (int i = 0; i < _parkings.Count; i++)
@@ -65,9 +85,9 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 DrawParkingHookDots(canvas, x2, y2, rot, 1f);
             }
 
-            if (!TryGhostBlock(out int ghostId, out bool ghostIsStation)) return;
+            if (!TryGhostBlock(out int ghostId, out GhostBlockKind ghostKind)) return;
 
-            if (ghostIsStation)
+            if (ghostKind == GhostBlockKind.Station)
             {
                 DecodeStation(ghostId, out int gx, out int gy, out int grot);
                 int s = StationSize;
@@ -75,6 +95,14 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 if (_spStationArea != null) DrawBlockSprite(r, _spStationArea, grot, 0.5f);
                 else EditorGUI.DrawRect(r, new Color(0.40f, 0.60f, 1f, 0.15f));
                 DrawStationHookDots(canvas, gx, gy, grot, 0.7f);
+            }
+            else if (ghostKind == GhostBlockKind.Station2)
+            {
+                DecodeStation(ghostId, out int gx, out int gy, out int grot);
+                int s = StationSize;
+                Rect r = BlockRect(canvas, new Vector2Int(gx, gy), s, s);
+                if (_spStation2Area != null) DrawBlockSprite(r, _spStation2Area, grot, 0.5f);
+                else EditorGUI.DrawRect(r, new Color(0.90f, 0.45f, 0.75f, 0.15f));
             }
             else
             {

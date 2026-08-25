@@ -158,6 +158,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             so.road2Edges = new List<int>(_doc.Road2Edges);
             so.pathEdges = new List<int>(_doc.PathEdges);
             so.stations = new List<int>(_doc.Stations);
+            so.stations2 = new List<int>(_doc.Stations2);
             so.parkings = new List<int>(_doc.Parkings);
             so.rampFlips = new List<int>(_doc.RampFlips);
             so.decors = _doc.Decors.ConvertAll(d => new RoadCanvasSave.DecorPlacement
@@ -179,6 +180,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             _doc.Road2Edges = new List<int>(so.road2Edges ?? new List<int>());
             _doc.PathEdges = new List<int>(so.pathEdges ?? new List<int>());
             _doc.Stations = new List<int>(so.stations ?? new List<int>());
+            _doc.Stations2 = new List<int>(so.stations2 ?? new List<int>());
             _doc.Parkings = new List<int>(so.parkings ?? new List<int>());
             _doc.RampFlips = new List<int>(so.rampFlips ?? new List<int>());
             _doc.RampFlips.Sort();

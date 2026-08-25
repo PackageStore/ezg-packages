@@ -77,6 +77,9 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             Section("Station (4x4 ô)");
             Prop("stationPrefab");
 
+            Section("Station 2 (4x4 ô, không nối đường)");
+            Prop("station2Prefab");
+
             Section("Parking slot (4x2 ô)");
             Prop("parkingPrefab");
         }

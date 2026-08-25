@@ -36,6 +36,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         internal readonly List<int> HwOrig = new(), HwStat = new();
         internal readonly List<int> HwDecOrig = new(), HwDecStat = new();
         internal readonly List<int> StationsOrig = new(), StationsStat = new();
+        internal readonly List<int> Stations2Orig = new(), Stations2Stat = new();
         internal readonly List<int> ParkingsOrig = new(), ParkingsStat = new();
         internal readonly List<DecorItem> DecorsOrig = new(), DecorsStat = new();
         internal readonly List<int> RampsOrig = new(), RampsStat = new();
@@ -92,6 +93,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             HwOrig.Clear(); HwStat.Clear();
             HwDecOrig.Clear(); HwDecStat.Clear();
             StationsOrig.Clear(); StationsStat.Clear();
+            Stations2Orig.Clear(); Stations2Stat.Clear();
             ParkingsOrig.Clear(); ParkingsStat.Clear();
             DecorsOrig.Clear(); DecorsStat.Clear();
             RampsOrig.Clear(); RampsStat.Clear();
@@ -180,6 +182,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             HwOrig.Clear(); HwStat.Clear();
             HwDecOrig.Clear(); HwDecStat.Clear();
             StationsOrig.Clear(); StationsStat.Clear();
+            Stations2Orig.Clear(); Stations2Stat.Clear();
             ParkingsOrig.Clear(); ParkingsStat.Clear();
             DecorsOrig.Clear(); DecorsStat.Clear();
             RampsOrig.Clear(); RampsStat.Clear();
@@ -236,6 +239,13 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     StationsOrig.Add(id);
                 else StationsStat.Add(id);
             }
+            foreach (int id in doc.Stations2)
+            {
+                BlockCodec.DecodeStation(id, out int x2, out int y2, out _);
+                if (SelectMoveGeometry.RectInBox(x2, y2, st2, st2, minX, minY, maxX, maxY))
+                    Stations2Orig.Add(id);
+                else Stations2Stat.Add(id);
+            }
 
             foreach (int id in doc.Parkings)
             {
@@ -263,7 +273,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             HasSelection = EdgesOrig.Count > 0 || HwOrig.Count > 0 || HwDecOrig.Count > 0
                 || Road2Orig.Count > 0 || PathOrig.Count > 0
-                || StationsOrig.Count > 0 || ParkingsOrig.Count > 0 || DecorsOrig.Count > 0;
+                || StationsOrig.Count > 0 || Stations2Orig.Count > 0
+                || ParkingsOrig.Count > 0 || DecorsOrig.Count > 0;
         }
 
         private static void PartitionEdges(List<int> src, int minX, int minY, int maxX, int maxY,

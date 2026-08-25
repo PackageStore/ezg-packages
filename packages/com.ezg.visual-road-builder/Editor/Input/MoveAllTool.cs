@@ -93,6 +93,15 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 dyMin = Math.Max(dyMin, -ay2);
                 dyMax = Math.Min(dyMax, maxY2 - ay2);
             }
+            foreach (int id in doc.Stations2)
+            {
+                BlockCodec.DecodeStation(id, out int ax2, out int ay2, out _);
+                any = true;
+                dxMin = Math.Max(dxMin, -ax2);
+                dxMax = Math.Min(dxMax, maxX2 - ax2);
+                dyMin = Math.Max(dyMin, -ay2);
+                dyMax = Math.Min(dyMax, maxY2 - ay2);
+            }
 
             foreach (int id in doc.Parkings)
             {
@@ -141,6 +150,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             {
                 BlockCodec.DecodeStation(doc.Stations[i], out int x2, out int y2, out int rot);
                 doc.Stations[i] = BlockCodec.EncodeStation(new Vector2Int(x2 + d.x, y2 + d.y), rot);
+            }
+            for (int i = 0; i < doc.Stations2.Count; i++)
+            {
+                BlockCodec.DecodeStation(doc.Stations2[i], out int x2, out int y2, out int rot);
+                doc.Stations2[i] = BlockCodec.EncodeStation(new Vector2Int(x2 + d.x, y2 + d.y), rot);
             }
 
             for (int i = 0; i < doc.Parkings.Count; i++)

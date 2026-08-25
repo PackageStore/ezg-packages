@@ -24,9 +24,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 result.Missing.Add("Station");
             if (doc.Parkings.Count > 0 && library.parkingPrefab == null)
                 result.Missing.Add("Parking");
+            if (doc.Stations2.Count > 0 && library.station2Prefab == null)
+                result.Missing.Add("Station 2");
 
             var blockingMissing = new HashSet<string>(result.Missing);
-            blockingMissing.IntersectWith(new[] { "Station", "Parking" });
+            blockingMissing.IntersectWith(new[] { "Station", "Parking", "Station 2" });
             if (blockingMissing.Count > 0)
             {
                 EditorUtility.DisplayDialog("Road Grid",
@@ -38,7 +40,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             if (result.Road.Count == 0 && result.Road2.Count == 0 && result.Path.Count == 0
                 && result.Highway.Count == 0 && result.HwDecor.Count == 0
-                && doc.Stations.Count == 0 && doc.Parkings.Count == 0 && doc.Decors.Count == 0)
+                && doc.Stations.Count == 0 && doc.Stations2.Count == 0 && doc.Parkings.Count == 0 && doc.Decors.Count == 0)
             {
                 EditorUtility.DisplayDialog("Road Grid", "Chưa vẽ gì.", "OK");
                 return;
@@ -126,6 +128,25 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                         Quaternion.Euler(0f, rot * 90f, 0f)
                         * library.stationPrefab.transform.localRotation;
                     go.name = $"{library.stationPrefab.name}_{sx2}_{sy2}";
+                }
+            }
+
+            if (doc.Stations2.Count > 0 && library.station2Prefab != null)
+            {
+                Transform st2Group = FindOrCreateGroup(root, "Stations2");
+                int st2Size = GridConst.StationSize;
+                foreach (int id in doc.Stations2)
+                {
+                    BlockCodec.DecodeStation(id, out int sx2, out int sy2, out int rot);
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(library.station2Prefab, st2Group);
+                    Vector2 piv = BlockCodec.StationPivotCell(sx2, sy2, st2Size, rot);
+                    go.transform.localPosition = new Vector3(
+                        (piv.x + origin.x) * cellSize, 0f,
+                        (piv.y + origin.y) * cellSize);
+                    go.transform.localRotation =
+                        Quaternion.Euler(0f, rot * 90f, 0f)
+                        * library.station2Prefab.transform.localRotation;
+                    go.name = $"{library.station2Prefab.name}_{sx2}_{sy2}";
                 }
             }
 

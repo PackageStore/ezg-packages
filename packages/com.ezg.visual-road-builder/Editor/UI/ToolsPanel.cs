@@ -36,13 +36,17 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         {
             ToolBrushItem[] items =
             {
-                new() { Name = "Road", Mode = PaintMode.Road, LayerOrKind = 0, IsRoadMode = true },
-                new() { Name = "Highway", Mode = PaintMode.Road, LayerOrKind = 1, IsRoadMode = true },
-                new() { Name = "HW Decor", Mode = PaintMode.Road, LayerOrKind = 2, IsRoadMode = true },
-                new() { Name = "Station", Mode = PaintMode.Station, LayerOrKind = 0, IsRoadMode = false },
-                new() { Name = "Park", Mode = PaintMode.Station, LayerOrKind = 1, IsRoadMode = false },
+                new() { Name = "Road 1", Mode = PaintMode.Road, LayerOrKind = 0, IsRoadMode = true },
                 new() { Name = "Road 2", Mode = PaintMode.Road, LayerOrKind = 3, IsRoadMode = true },
                 new() { Name = "Lối đi bộ", Mode = PaintMode.Road, LayerOrKind = 4, IsRoadMode = true },
+                new() { Name = "Highway", Mode = PaintMode.Road, LayerOrKind = 1, IsRoadMode = true },
+                new() { Name = "HW Decor", Mode = PaintMode.Road, LayerOrKind = 2, IsRoadMode = true },
+                // Ô trống cuối hàng đường: giữ 3 brush khối nằm chung một hàng, không để Station 1
+                // trôi lên cạnh HW Decor khi lưới tự dồn theo colCount.
+                new() { Name = null },
+                new() { Name = "Station 1", Mode = PaintMode.Station, LayerOrKind = 0, IsRoadMode = false },
+                new() { Name = "Station 2", Mode = PaintMode.Station, LayerOrKind = 3, IsRoadMode = false },
+                new() { Name = "Park", Mode = PaintMode.Station, LayerOrKind = 1, IsRoadMode = false },
             };
 
             const int colCount = 3;
@@ -53,7 +57,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 for (int j = 0; j < colCount; j++)
                 {
                     int index = i + j;
-                    if (index < items.Length)
+                    if (index < items.Length && items[index].Name != null)
                         DrawToolBrushButton(items[index]);
                     else
                         GUILayout.Label("", GUILayout.ExpandWidth(true));
@@ -67,7 +71,12 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         {
             bool isSelected = (_view.Mode == item.Mode) && (item.IsRoadMode
                 ? _view.EdgeLayer == item.LayerOrKind
-                : (_view.BlockKind == item.LayerOrKind || (_view.BlockKind == 2 && item.LayerOrKind == 1)));
+                : item.LayerOrKind switch
+                {
+                    0 => _view.BlockKind == 0,
+                    3 => _view.BlockKind == 3,
+                    _ => _view.BlockKind == 1 || _view.BlockKind == 2,
+                });
 
             Color prevBg = GUI.backgroundColor;
             if (isSelected)
@@ -84,6 +93,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
                 _view.Dragging = false;
                 _view.DraggingStation = -1;
+                _view.DraggingStation2 = -1;
                 _view.DraggingParking = -1;
                 _view.HasHover = false;
                 _view.MovingAll = false;
@@ -139,12 +149,13 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     (true, 2) => TileHwDecor,
                     (true, 3) => TileRoad2,
                     (false, 0) => TileStation,
+                    (false, 3) => TileStation2,
                     (false, _) => TileParking,
                     _ => Color.gray,
                 };
                 float w = 22f;
                 float h = 22f;
-                if (!item.IsRoadMode && item.LayerOrKind != 0) { w = 26f; h = 13f; }
+                if (!item.IsRoadMode && (item.LayerOrKind == 1 || item.LayerOrKind == 2)) { w = 26f; h = 13f; }
 
                 Rect r = new Rect(iconRect.x + (iconRect.width - w) * 0.5f, iconRect.y + (iconRect.height - h) * 0.5f, w, h);
                 EditorGUI.DrawRect(r, tileColor);
@@ -178,7 +189,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             if (_view.MoveAllMode) GUI.backgroundColor = new Color(0.35f, 0.85f, 1f);
             if (GUILayout.Button(new GUIContent(_view.MoveAllMode ? "✓ Move All (G)" : "Move All (G)",
                     "Toggle Move All (G) — không vẽ nữa; kéo chuột trái trên lưới để dịch chuyển " +
-                    "TOÀN BỘ layout (đường + highway + station + parking + decor) theo bước 1/2 ô."), GUILayout.Height(22f)))
+                    "TOÀN BỘ layout (đường + highway + station + station 2 + parking + decor) theo bước 1/2 ô."), GUILayout.Height(22f)))
             {
                 _view.MoveAllMode = !_view.MoveAllMode;
                 _view.EraserMode = false;
@@ -186,6 +197,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 ClearSelection();
                 _view.Dragging = false;
                 _view.DraggingStation = -1;
+                _view.DraggingStation2 = -1;
                 _view.DraggingParking = -1;
                 _view.HasHover = false;
                 _view.MovingAll = false;
@@ -197,8 +209,9 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             if (_selectMode) GUI.backgroundColor = new Color(0.35f, 0.85f, 1f);
             if (GUILayout.Button(new GUIContent(_selectMode ? "✓ Select & Move (Q)" : "Select & Move (Q)",
                     "Toggle Select & Move (Q) — không vẽ nữa; kéo chuột trái tạo khung chọn các ĐƯỜNG " +
-                    "(lớp Road) trong vùng, rồi kéo gizmo để dịch cả nhóm (snap 1/2 ô; 1 ô khi có road cần bridge). Tool tự nối lại " +
-                    "chỗ tách bằng đoạn thẳng (bridge)."), GUILayout.Height(22f)))
+                    "(lớp Road) trong vùng, rồi kéo gizmo để dịch cả nhóm (snap 1/2 ô; 1 ô khi có road cần bridge). " +
+                    "Ảnh hưởng road · highway · HW decor · Road 2 · lối đi bộ · station · station 2 · parking · decor. " +
+                    "Tool tự nối lại chỗ tách bằng đoạn thẳng (bridge)."), GUILayout.Height(22f)))
             {
                 ToggleSelectMode();
             }
@@ -207,7 +220,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             if (_view.EraserMode) GUI.backgroundColor = new Color(1f, 0.45f, 0.4f);
             if (GUILayout.Button(new GUIContent(_view.EraserMode ? "✓ Eraser Active (E)" : "Eraser (E)",
                     "Toggle Eraser (E) — không vẽ nữa; kéo chuột trên lưới để XOÁ mọi thứ con trỏ " +
-                    "chạm phải (đường + highway + hw decor + road 2 + lối đi bộ + station + parking + decor)."), GUILayout.Height(22f)))
+                    "chạm phải (đường + highway + hw decor + road 2 + lối đi bộ + station + station 2 + parking + decor)."), GUILayout.Height(22f)))
             {
                 ToggleEraser();
             }
@@ -215,13 +228,14 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             bool empty = _doc.Edges.Count == 0 && _doc.HighwayEdges.Count == 0 && _doc.HwDecorEdges.Count == 0
                          && _doc.Road2Edges.Count == 0 && _doc.PathEdges.Count == 0
-                         && _doc.Stations.Count == 0 && _doc.Parkings.Count == 0 && _doc.Decors.Count == 0;
+                         && _doc.Stations.Count == 0 && _doc.Stations2.Count == 0
+                         && _doc.Parkings.Count == 0 && _doc.Decors.Count == 0;
 
             using (new EditorGUI.DisabledScope(empty))
             {
                 GUI.backgroundColor = new Color(0.95f, 0.35f, 0.35f);
                 if (GUILayout.Button("Clear", GUILayout.Height(22f))
-                    && EditorUtility.DisplayDialog("Road Grid", "Xoá toàn bộ đường + highway + road 2 + lối đi bộ + station + parking + decor đã vẽ?", "Xoá", "Huỷ"))
+                    && EditorUtility.DisplayDialog("Road Grid", "Xoá toàn bộ đường + highway + road 2 + lối đi bộ + station + station 2 + parking + decor đã vẽ?", "Xoá", "Huỷ"))
                 {
                     _doc.Edges.Clear();
                     _doc.HighwayEdges.Clear();
@@ -229,6 +243,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     _doc.Road2Edges.Clear();
                     _doc.PathEdges.Clear();
                     _doc.Stations.Clear();
+                    _doc.Stations2.Clear();
                     _doc.Parkings.Clear();
                     _doc.Decors.Clear();
                     _doc.RampFlips.Clear();
@@ -242,7 +257,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         {
             bool empty = _doc.Edges.Count == 0 && _doc.HighwayEdges.Count == 0 && _doc.HwDecorEdges.Count == 0
                          && _doc.Road2Edges.Count == 0 && _doc.PathEdges.Count == 0
-                         && _doc.Stations.Count == 0 && _doc.Parkings.Count == 0 && _doc.Decors.Count == 0;
+                         && _doc.Stations.Count == 0 && _doc.Stations2.Count == 0
+                         && _doc.Parkings.Count == 0 && _doc.Decors.Count == 0;
             using (new EditorGUI.DisabledScope(_library == null || _applyTarget.LevelPrefab == null || empty))
             {
                 Color prevBg = GUI.backgroundColor;

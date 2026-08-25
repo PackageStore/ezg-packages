@@ -48,6 +48,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         private List<int> _pathEdges => _doc.PathEdges;
         private List<int> _rampFlips => _doc.RampFlips;
         private List<int> _stations => _doc.Stations;
+        private List<int> _stations2 => _doc.Stations2;
         private List<int> _parkings => _doc.Parkings;
         private List<DecorItem> _decors => _doc.Decors;
         private List<int> ActiveEdges => _doc.EdgesFor(_edgeLayer);
@@ -76,6 +77,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         private bool _erasing { get => _view.Erasing; set => _view.Erasing = value; }
         private Vector2Int _dragPoint { get => _view.DragPoint; set => _view.DragPoint = value; }
         private int _draggingStation { get => _view.DraggingStation; set => _view.DraggingStation = value; }
+        private int _draggingStation2 { get => _view.DraggingStation2; set => _view.DraggingStation2 = value; }
         private int _draggingParking { get => _view.DraggingParking; set => _view.DraggingParking = value; }
         private bool _hasHover { get => _view.HasHover; set => _view.HasHover = value; }
         private Vector2Int _hoverAnchor { get => _view.HoverAnchor; set => _view.HoverAnchor = value; }

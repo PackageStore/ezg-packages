@@ -30,6 +30,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             public List<int> road2Edges = new();
             public List<int> pathEdges = new();
             public List<int> stations = new();
+            public List<int> stations2 = new();
             public List<int> parkings = new();
             public List<DecorItem> decors = new();
             public List<int> rampFlips = new();

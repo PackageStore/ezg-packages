@@ -9,6 +9,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
     /// cắt region + xoay sẵn thành Texture2D (cache) rồi vẽ axis-aligned để được scroll-view clip.</summary>
     public sealed partial class VisualRoadBuilderTool
     {
+        [SerializeField] internal Sprite _spStation2Area;
+
         /// <summary>Lớp Đường: vẽ icon thật từ _road_plan.psd — mỗi điểm chọn piece theo số nhánh
         /// (thẳng/cua/ngã ba/ngã tư) rồi xoay khớp mask, đúng như lúc bake. Thiếu art → fallback ô cam.</summary>
         private void DrawRoadSprites(Rect canvas, List<int> edges)
@@ -45,11 +47,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             CollectParkingRoadKerb(_parkings, masks, suppress, parkingRoads, blockStrips, skin, null, false);
 
             var ghostRoads = new List<(RoadTilePart part, float x, float y, float yaw)>();
-            if (TryGhostBlock(out int ghostId, out bool ghostIsStation))
+            if (TryGhostBlock(out int ghostId, out GhostBlockKind ghostKind))
             {
-                if (ghostIsStation)
+                if (ghostKind == GhostBlockKind.Station)
                     CollectStationRoadPlacements(new[] { ghostId }, masks, suppress, ghostRoads, blockStrips, skin, null, false);
-                else
+                else if (ghostKind == GhostBlockKind.Parking)
                     CollectParkingRoadKerb(new[] { ghostId }, masks, suppress, ghostRoads, blockStrips, skin, null, false);
             }
 
@@ -428,12 +430,12 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             CollectParkingRoad2Kerb(_parkings, road2Masks, suppressed2, parking2Roads, blockStrips2, skin2, null, false);
 
             var ghost2Roads = new List<(RoadTilePart part, float x, float y, float yaw)>();
-            if (TryGhostBlock(out int ghostId, out bool ghostIsStation))
+            if (TryGhostBlock(out int ghostId2, out GhostBlockKind ghostKind2))
             {
-                if (ghostIsStation)
-                    CollectStationRoad2Placements(new[] { ghostId }, road2Masks, suppressed2, ghost2Roads, blockStrips2, skin2, null, false);
-                else
-                    CollectParkingRoad2Kerb(new[] { ghostId }, road2Masks, suppressed2, ghost2Roads, blockStrips2, skin2, null, false);
+                if (ghostKind2 == GhostBlockKind.Station)
+                    CollectStationRoad2Placements(new[] { ghostId2 }, road2Masks, suppressed2, ghost2Roads, blockStrips2, skin2, null, false);
+                else if (ghostKind2 == GhostBlockKind.Parking)
+                    CollectParkingRoad2Kerb(new[] { ghostId2 }, road2Masks, suppressed2, ghost2Roads, blockStrips2, skin2, null, false);
             }
 
             ApplyApronPlain(station2Roads, skin2);
@@ -656,6 +658,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                     case "Highway_1x2_rim": if (_spHighwayRim == null) _spHighwayRim = s; break;
                     case "hway_to_road": if (_spRampHway == null) _spRampHway = s; break;
                     case "station_area":   if (_spStationArea == null)   _spStationArea = s;   break;
+                    case "station_area_2": if (_spStation2Area == null)  _spStation2Area = s;  break;
                     case "parking_area":   if (_spParkingArea == null)   _spParkingArea = s;   break;
                     // Road 2 (D8/D9): Road_0.5x1_center đã có art (reuse), ramp là slice
                     // hway_to_road_type2; curve/curve_rim thì chưa — case vẫn wire sẵn để tự nạp ngay

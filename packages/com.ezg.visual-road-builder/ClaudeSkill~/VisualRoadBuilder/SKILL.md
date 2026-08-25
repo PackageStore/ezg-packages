@@ -45,6 +45,16 @@ lives only in the SO. `Apply` writes both; `Load`/`Restore` reads the SO.
 | Direction bits | `DirE = 1 (+X)`, `DirN = 2 (+Z)`, `DirW = 4 (-X)`, `DirS = 8 (-Z)`. |
 | Rotation | Yaw only, multiples of 90°, clockwise seen from above. `RotateCellsCW(x,y) = (y,-x)`. Never negative scale. |
 
+**Two station lists, one encode.** `RoadCanvasDoc` carries both `Stations` (station 1) and `Stations2`
+(station 2) as `List<int>`. Both use the identical station encode above. A station 1 and a station 2 at
+the same anchor and rot produce the **same int** — they are only distinguishable by which list they sit
+in. **Never feed station-2 ids into any id-keyed solver set** (especially `CollectResult.Road2Blocks`):
+the solver only knows station 1; a collision would make it suppress road tiles around a station 2 that
+has no road interaction at all.
+
+`BlockKind` in `ViewState` selects the active block brush: `0` station 1, `1` parking horizontal,
+`2` parking vertical, `3` station 2.
+
 **Serialization trap:** Unity writes `List<int>` in these SOs as a **compact little-endian hex blob**
 on one line, not a YAML list:
 ```
@@ -104,6 +114,10 @@ and they are shared by **four consumers**:
    diff in §6 a complete check even though the canvas cannot be screenshotted on macOS
    (`unity_screenshot_editor_window` is Windows-only).
 
+**Station 2 is entirely outside this invariant.** It is never passed to any collector, has no
+preview/mesh coupling to keep in sync, and the four shared enumerators above do not see it. It bakes
+directly from `RoadCanvasDoc.Stations2` via `RoadBaker.BuildInto` — decode, instantiate prefab, done.
+
 ---
 
 ## 4 — Solve pipeline
@@ -137,6 +151,10 @@ to `AddJunctionTiles` + `AddHalfStraights`. Finally **`DedupePlacements`** drops
 `RoadLayout` sets: `ReplacedByHalf`, `DroppedBetween`, `OffStride` (interior run node, no placement of
 its own), `FilletKerb`; plus the `TailHalfDir` dictionary (interior node → half-tile facing direction)
 for a run's odd remainder.
+
+**Station-2 blocks are inert in the solve pipeline.** They suppress nothing, contribute no blocked set,
+and a road bakes straight through underneath one. `CollectAll.Run` never reads `doc.Stations2`; only
+`RoadBaker.BuildInto` touches them (instantiate `station2Prefab` into `RoadParent/Stations2`).
 
 ---
 
@@ -329,7 +347,8 @@ guard that means, per edge, `raw[mi] != 0 && (raw[mi] & axis) != axis` (level_3 
 - **`canvas_decode.py` is a mirror, not the truth.** It reproduces `BuildMasks` +
   `IsStraightLikeMask` in Python for offline reasoning (no more `AddMidpointJunctions` step — deleted
   when edges became half-cell, §5). It knows all edge layers (`road`, `road2`, `path`, `highway`,
-  `hwdecor`) and handles `edgeSpanVersion` 0→1 split automatically. If the C# changes, update it or
+  `hwdecor`) and handles `edgeSpanVersion` 0→1 split automatically. **It does NOT decode the
+  `stations2` key** — station-2 blocks are invisible to it. If the C# changes, update it or
   fall back to in-Editor reflection.
 - **`ScriptableObject.CreateInstance` on this window runs `OnEnable`**, which registers the autosave
   editor tick. Always `DestroyImmediate` in a `finally` (the harness does).
@@ -352,6 +371,15 @@ guard that means, per edge, `raw[mi] != 0 && (raw[mi] & axis) != axis` (level_3 
   rely on the shared-solver invariant (§3) instead of asking the user for a screenshot.
 - **New `.cs` files need a matching `.meta`** with a fresh GUID, following the sibling files.
 - Menu path is `Tools/EZG Technical Art/Visual Road Builder` — *not* under `Tools/sm006/`.
+- **Backward compatibility: station-2 blocks are silently lost on 0.1.x.** A canvas saved with
+  `Stations2` entries and opened by a tool version that predates the field (0.1.x) silently discards
+  them — Unity's YAML deserializer drops unknown keys with no warning. The data is gone after the next
+  save; there is no error or dialog.
+- **`_spStation2Area` must stay OUT of the sprite readiness chain** in `RoadSprites.cs`. The
+  `station_area_2` slice does not exist in the shipped `_road_plan.psd`; including it in the `&&`
+  chain that gates `_roadSpritesReady` would make the chain never true, forcing a full atlas re-scan
+  every repaint (the logged P7 regression). Station 2 draws as a flat tinted rect via the fallback
+  path, same as parking.
 
 ---
 
@@ -361,13 +389,14 @@ guard that means, per edge, `raw[mi] != 0 && (raw[mi] & axis) != axis` (level_3 
 > single-job files organized into folders. The map below shows the **post-refactor** layout. If
 > the refactor is not yet complete, some files still live in the root as `.PartialName.cs` partials
 > of `VisualRoadBuilderTool` — consult the current directory listing. Level prefabs live under
-> `Assets/_Project/Visual/AssetPackSource/Shops/`; road2 tiles bake under `RoadParent/Road2`.
+> `Assets/_Project/Visual/AssetPackSource/Shops/`; road2 tiles bake under `RoadParent/Road2`;
+> station-2 blocks bake under `RoadParent/Stations2`.
 
 | Folder | File | Responsibility |
 |---|---|---|
 | (root) | `VisualRoadBuilderTool.cs` | EditorWindow shell: `OpenWindow`, `OnEnable/OnDisable/OnGUI`, `MenuPath`, `_library` |
 | | `EZG.TechnicalArt.VisualRoadBuilder.Editor.asmdef` | assembly definition — isolates from Assembly-CSharp-Editor |
-| `Model/` | `RoadCanvasDoc.cs` | map data container: edges (all layers), stations, parkings, decors, rampFlips, originCell, grid dims, `LatticeW/H`, `EdgesFor(layer)` |
+| `Model/` | `RoadCanvasDoc.cs` | map data container: edges (all layers), stations, stations2, parkings, decors, rampFlips, originCell, grid dims, `LatticeW/H`, `EdgesFor(layer)` |
 | | `EdgeCodec.cs` | `EncodeEdge`, `DecodeEdge`, `DecodeRampAnchor` |
 | | `BlockCodec.cs` | `EncodeStation/Parking`, `DecodeStation/Parking`, `StationPivotCell`, `ParkingPivotCell` |
 | | `MaskBuilder.cs` | `BuildMasks`, `BuildLegacyMasksFromEdges`, `PairHalfEdges` |
@@ -468,17 +497,17 @@ guard that means, per edge, `raw[mi] != 0 && (raw[mi] & axis) != axis` (level_3 
 | | `ToolStyles.cs` | `GUIStyle` / `GUIContent` constants |
 | `UI/` | `ControlColumn.cs` | right-side control panel layout |
 | | `SetupPanel.cs` | grid/target/library setup section |
-| | `ToolsPanel.cs` | tool buttons, layer switcher, paint mode |
+| | `ToolsPanel.cs` | tool buttons, layer switcher, paint mode. Brush grid (3 columns): row 1 `Road 1 / Road 2 / Lối đi bộ`, row 2 `Highway / HW Decor / [spacer]`, row 3 `Station 1 / Station 2 / Park`. The spacer is an explicit `ToolBrushItem` with `Name = null` — remove it and Station 1 jumps up beside HW Decor |
 | | `DecorSection.cs` | decor palette section |
 | | `DecorState.cs` | decor selection state |
 | | `SaveHistoryBar.cs` | save/load/history bar |
 | | `DebugPanel.cs` | debug boundary toggle panel |
-| `Library/` | `RoadPartLibrary.cs` | the tile prefab set (pivot conventions in tooltips); `roadPlanAtlas` field holds the sprite atlas reference |
+| `Library/` | `RoadPartLibrary.cs` | the tile prefab set (pivot conventions in tooltips); `roadPlanAtlas` field holds the sprite atlas reference; `station2Prefab` slot holds the station-2 block prefab |
 | | `RoadCanvasSave.cs` | the map SO |
 | | `DecorLibrary.cs` | decor item palette SO |
 | | `RoadPartLibraryEditor.cs` | custom inspector for `RoadPartLibrary` (3-tab Road/Highway/Building) |
 | `SO_lib/` | | ships `RoadPartLibrary.asset` + `DecorLibrary.asset` (the library SOs) |
 | `scripts/` | `solver_dump.cs` | full-Apply solver dump (all layers, dual-path pre/post-refactor) — paste into `unity_execute_code` |
 | | `prefab_tiles.py` | extract baked tiles from level prefab as CSV (all groups under RoadParent) |
-| | `canvas_decode.py` | offline lattice classification from `.asset` (all edge layers, handles edgeSpanVersion) |
+| | `canvas_decode.py` | offline lattice classification from `.asset` (all edge layers, handles edgeSpanVersion); does NOT decode `stations2` |
 | | `diff_tiles.py` | multiset diff of two tile CSVs — exit 0 = match |

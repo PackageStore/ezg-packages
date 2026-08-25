@@ -76,8 +76,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             EditorGUILayout.LabelField(
-                $"Pieces {total}     Highway {highwayTotal}     Station {_stations.Count}     " +
-                $"Parking {_parkings.Count}     Decor {_decors.Count}",
+                $"Pieces {total}  Highway {highwayTotal}  Station {_stations.Count}  Station 2 {_stations2.Count}  " +
+                $"Parking {_parkings.Count}  Decor {_decors.Count}",
                 EditorStyles.miniLabel);
             GUILayout.FlexibleSpace();
             if (_overlapHint)

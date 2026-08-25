@@ -14,6 +14,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             view.Panning = false;
             view.MovingAll = false;
             view.DraggingStation = -1;
+            view.DraggingStation2 = -1;
             view.DraggingParking = -1;
             view.CropDragHandle = -1;
             view.HasHover = false;

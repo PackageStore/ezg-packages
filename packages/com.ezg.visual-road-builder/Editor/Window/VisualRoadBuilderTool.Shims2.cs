@@ -52,15 +52,17 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             return new Vector2(fx, fy);
         }
 
-        private bool TryGhostBlock(out int id, out bool isStation)
+        private enum GhostBlockKind { Station, Parking, Station2 }
+
+        private bool TryGhostBlock(out int id, out GhostBlockKind kind)
         {
             id = 0;
-            isStation = _blockKind == 0;
+            kind = _blockKind switch { 0 => GhostBlockKind.Station, 3 => GhostBlockKind.Station2, _ => GhostBlockKind.Parking };
             if (_mode != PaintMode.Station || _eraserMode || !_hasHover
-                || _draggingStation >= 0 || _draggingParking >= 0) return false;
-            id = isStation
-                ? EncodeStation(_hoverAnchor, 0)
-                : EncodeParking(_hoverAnchor, _blockKind == 2 ? 1 : 0);
+                || _draggingStation >= 0 || _draggingParking >= 0 || _draggingStation2 >= 0) return false;
+            id = kind == GhostBlockKind.Parking
+                ? EncodeParking(_hoverAnchor, _blockKind == 2 ? 1 : 0)
+                : EncodeStation(_hoverAnchor, 0);
             return true;
         }
 

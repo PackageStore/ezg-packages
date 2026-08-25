@@ -9,7 +9,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
     {
         [SerializeField] internal float CellPixelSize = 22f;
         [SerializeField] internal PaintMode Mode = PaintMode.Road;
-        [SerializeField] internal int BlockKind; // mode Station đặt khối gì: 0 station, 1 parking ngang, 2 parking dọc
+        [SerializeField] internal int BlockKind; // mode Station đặt khối gì: 0 station, 1 parking ngang, 2 parking dọc, 3 station 2
         [SerializeField] internal int EdgeLayer; // 0 = đường, 1 = highway, 2 = highway decor, 3 = road2, 4 = path
         [SerializeField] internal Vector2 Scroll;
         [SerializeField] internal Vector2 ControlScroll;
@@ -30,6 +30,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         internal bool Erasing;
         internal Vector2Int DragPoint;
         internal int DraggingStation = -1; // index trong _stations, -1 = không kéo
+        internal int DraggingStation2 = -1; // index trong _stations2, -1 = không kéo
         internal int DraggingParking = -1; // index trong _parkings, -1 = không kéo
         internal bool HasHover;
         internal Vector2Int HoverAnchor;
@@ -47,6 +48,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         {
             1 => new Vector2Int(GridConst.ParkingLong, GridConst.ParkingShort),
             2 => new Vector2Int(GridConst.ParkingShort, GridConst.ParkingLong),
+            3 => new Vector2Int(GridConst.StationSize, GridConst.StationSize),
             _ => new Vector2Int(GridConst.StationSize, GridConst.StationSize),
         };
     }

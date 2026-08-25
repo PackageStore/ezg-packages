@@ -43,6 +43,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             DrawSpriteGroup("Building");
             DrawSpriteRow("Station Area", "station_area", ref _spStationArea);
+            DrawSpriteRow("Station Area 2", "station_area_2", ref _spStation2Area);
             DrawSpriteRow("Parking Area", "parking_area", ref _spParkingArea);
 
             EditorGUILayout.Space(4f);
@@ -57,7 +58,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 _spTileTurn3x3 = _spTileTurn3x3Rim = null;
                 _spHighway = _spHighwayRim = _spRampHway = null;
                 _spPathSide = _spPathCenter = _spPathCurve = _spPathTurn = null;
-                _spStationArea = _spParkingArea = null;
+                _spStationArea = _spStation2Area = _spParkingArea = null;
                 ClearRoadPieceCache();
                 ClearReadableCache();
                 EnsureRoadSprites();

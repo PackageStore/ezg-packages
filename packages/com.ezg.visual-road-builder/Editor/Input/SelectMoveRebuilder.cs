@@ -55,6 +55,15 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 doc.Stations.Add(BlockCodec.EncodeStation(new Vector2Int(x2 + d.x, y2 + d.y), rot));
             }
 
+            // --- Station 2.
+            doc.Stations2.Clear();
+            doc.Stations2.AddRange(_sel.Stations2Stat);
+            foreach (int id in _sel.Stations2Orig)
+            {
+                BlockCodec.DecodeStation(id, out int x2, out int y2, out int rot);
+                doc.Stations2.Add(BlockCodec.EncodeStation(new Vector2Int(x2 + d.x, y2 + d.y), rot));
+            }
+
             // --- Parking.
             doc.Parkings.Clear();
             doc.Parkings.AddRange(_sel.ParkingsStat);
@@ -157,6 +166,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
 
             int st2 = GridConst.StationSize * 2;
             foreach (int id in _sel.StationsOrig)
+            {
+                BlockCodec.DecodeStation(id, out int x2, out int y2, out _);
+                Fit(x2, x2 + st2, y2, y2 + st2);
+            }
+            foreach (int id in _sel.Stations2Orig)
             {
                 BlockCodec.DecodeStation(id, out int x2, out int y2, out _);
                 Fit(x2, x2 + st2, y2, y2 + st2);

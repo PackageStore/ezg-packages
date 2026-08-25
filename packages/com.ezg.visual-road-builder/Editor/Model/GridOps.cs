@@ -96,6 +96,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 BlockCodec.DecodeStation(id, out int x2, out int y2, out _);
                 return x2 < cutX2 || y2 < cutY2;
             });
+            _doc.Stations2.RemoveAll(id =>
+            {
+                BlockCodec.DecodeStation(id, out int x2, out int y2, out _);
+                return x2 < cutX2 || y2 < cutY2;
+            });
             _doc.Parkings.RemoveAll(id =>
             {
                 BlockCodec.DecodeParking(id, out int x2, out int y2, out _);
@@ -136,6 +141,19 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 }
                 BlockCodec.DecodeStation(_doc.Stations[i], out int x2, out int y2, out int rot);
                 _doc.Stations[i] = BlockCodec.EncodeStation(
+                    BlockCodec.ClampBlockAnchor(new Vector2Int(x2, y2), size, size,
+                        _doc.GridWidth, _doc.GridHeight), rot);
+            }
+
+            for (int i = _doc.Stations2.Count - 1; i >= 0; i--)
+            {
+                if (_doc.GridWidth - 1 < size || _doc.GridHeight - 1 < size)
+                {
+                    _doc.Stations2.RemoveAt(i);
+                    continue;
+                }
+                BlockCodec.DecodeStation(_doc.Stations2[i], out int x2, out int y2, out int rot);
+                _doc.Stations2[i] = BlockCodec.EncodeStation(
                     BlockCodec.ClampBlockAnchor(new Vector2Int(x2, y2), size, size,
                         _doc.GridWidth, _doc.GridHeight), rot);
             }

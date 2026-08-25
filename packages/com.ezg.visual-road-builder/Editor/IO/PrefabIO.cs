@@ -66,6 +66,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             Debug.Log($"[VisualRoadBuilder] Load '{_applyTarget.LevelPrefab.name}': " +
                       $"luoi {_doc.GridWidth}x{_doc.GridHeight}, " +
                       $"{_doc.Edges.Count} edge, {_doc.Stations.Count} station, " +
+                      $"{_doc.Stations2.Count} station 2, " +
                       $"{_doc.Parkings.Count} parking, {_doc.Decors.Count} decor.");
         }
 

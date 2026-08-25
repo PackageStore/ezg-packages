@@ -29,6 +29,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             _eraserPainting = false;
             _dragging = false;
             _draggingStation = -1;
+            _draggingStation2 = -1;
             _draggingParking = -1;
             _hasHover = false;
             _movingAll = false;
@@ -92,6 +93,11 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
             float px2 = f.x * 2f, py2 = f.y * 2f;
             int s2 = StationSize * 2;
             _stations.RemoveAll(id =>
+            {
+                DecodeStation(id, out int x2, out int y2, out _);
+                return px2 >= x2 && px2 <= x2 + s2 && py2 >= y2 && py2 <= y2 + s2;
+            });
+            _stations2.RemoveAll(id =>
             {
                 DecodeStation(id, out int x2, out int y2, out _);
                 return px2 >= x2 && px2 <= x2 + s2 && py2 >= y2 && py2 <= y2 + s2;

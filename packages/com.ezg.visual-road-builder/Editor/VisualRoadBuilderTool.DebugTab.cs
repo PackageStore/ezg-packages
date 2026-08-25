@@ -169,6 +169,20 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
                 });
             }
 
+            string station2Name = _library != null && _library.station2Prefab != null
+                ? _library.station2Prefab.name
+                : "station2";
+            foreach (int id in _stations2)
+            {
+                DecodeStation(id, out int x2, out int y2, out _);
+                items.Add(new DebugBoundaryItem
+                {
+                    Rect = BlockRect(canvas, new Vector2Int(x2, y2), s, s),
+                    Name = station2Name,
+                    Color = DebugStationColor,
+                });
+            }
+
             string parkingName = _library != null && _library.parkingPrefab != null
                 ? _library.parkingPrefab.name
                 : "parking";

@@ -18,6 +18,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         // xanh ngọc — tách biệt cam Road, đỏ Highway, trắng HW Decor, tím Road2
         private static readonly Color TilePath   = new(0.25f, 0.78f, 0.72f);
         internal static readonly Color TileStation = new(0.30f, 0.50f, 0.95f);
+        internal static readonly Color TileStation2 = new(0.85f, 0.35f, 0.65f);
         internal static readonly Color TileParking = new(0.30f, 0.80f, 0.40f);
         private static readonly Color TileEmpty   = new(0.16f, 0.16f, 0.16f);
 

@@ -117,6 +117,8 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
         // ── Building ──
         // Station: khối vuông 4x4 ô, pivot ở tâm khối.
         public GameObject stationPrefab;
+        [Tooltip("Station loại 2: khối 4x4 ô, pivot quy ước giống stationPrefab. Đặt nguyên khối, không nối đường.")]
+        public GameObject station2Prefab;
         // Parking slot: khối 4x2 ô, pivot tâm khối, cạnh DÀI dọc trục X, MẶT quay về +Z.
         public GameObject parkingPrefab;
 
