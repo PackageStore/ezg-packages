@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "description": "Curation cho AI catalog: bỏ bớt item và ghi đè metadata. Xem README.md cạnh file này.",
+  "exclude": [],
+  "overrides": {
+    "Config/CLAUDE.md": {
+      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới."
+    },
+    "Config/settings.json": {
+      "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có."
+    },
+    "Config/.mcp.json": {
+      "description": "Khai báo MCP server cho project — CÀI ĐÈ .mcp.json hiện có."
+    },
+    "Config/project-profile.json": {
+      "description": "Profile project (đường dẫn, quy ước) mà script AI đọc — CÀI ĐÈ file hiện có."
+    }
+  }
+}

@@ -751,6 +751,81 @@ AssetDatabase.ImportPackage(tmp, interactive: false);
 > `JsonUtility.FromJson` chạy thẳng. Nếu cần `unity-template.json` (có `dependencies` dạng map) thì
 > mới phải dùng parser khác (xem `FeatureHubService` cách hiện tại đang đọc template).
 
+## AI catalog (skill/command của Claude)
+
+`defaultsetup.tgz` mang trọn `.claude/` **đúng một lần**, lúc project được sinh ra. Project tạo tháng
+trước không có đường nào nhận skill viết tuần này. **AI catalog** giải quyết đúng chỗ đó: mỗi tài sản
+AI là **một `.zip` cài lẻ được**, project nào cũng cài / cập nhật / gỡ bất cứ lúc nào qua tab
+**AI Feature** của EZG Feature Hub.
+
+Hai cơ chế **bổ sung cho nhau**, không thay thế: `defaultsetup.tgz` cho project mới sinh, AI catalog
+cho project đang chạy.
+
+### Nguồn trên đĩa & layout R2
+
+Hai nguồn, item trùng id thì bản trong `AIFeatures/` thắng:
+
+| Nguồn | Dùng khi |
+|---|---|
+| `templates/unity-project/DefaultSetup/.claude/**` | item thuộc bộ mặc định (đa số) — script tự quét |
+| `templates/AIFeatures/<Category>/<item>` | item ngoài bộ mặc định, hoặc cố ý override |
+
+Category ↔ đích cài trong project (`installPath`):
+
+| Category | Đích | 1 item là |
+|---|---|---|
+| `Skills` | `.claude/skills/<name>` | 1 thư mục skill |
+| `Commands` | `.claude/commands/<name>.md` | 1 file `.md` |
+| `Agents` | `.claude/agents/<name>.md` | 1 file `.md` |
+| `Rules` | `.claude/rules/<name>.md` | 1 file `.md` |
+| `Docs` / `Scripts` / `Harness` / `Templates` / `UiKit` | `.claude/<thư mục tương ứng>/<name>` | file hoặc thư mục con |
+| `Config` | `.claude/settings.json`, `.claude/project-profile.json`, `.mcp.json`, `CLAUDE.md` | 1 file |
+
+Sau publish, cấu trúc trên R2:
+
+```text
+unity-template/ai/
+├─ index.json                          # catalog: categories[] + items[]
+└─ files/<Category>/<name>.zip         # payload từng item
+```
+
+URL công khai (qua gateway, cần đăng nhập như mọi `/template/*`):
+
+```text
+https://upm-registry-worker.developer-a1f.workers.dev/template/ai/index.json
+```
+
+Payload là `.zip` mà **mỗi entry đã là path tương đối project root** (vd
+`.claude/skills/ui-kit/SKILL.md`), nên cài = verify SHA-256 rồi giải nén thẳng xuống project root —
+không qua `AssetDatabase`, không domain reload. Feature Hub từ chối mọi entry nằm ngoài `installPath`
+của item (chặn zip-slip).
+
+Zip được sinh **tất định** (timestamp cố định, deflate mức 9): nội dung không đổi thì `sha256` không
+đổi, nên "Có bản mới" trong Feature Hub luôn là thay đổi thật.
+
+### Publish AI catalog lên R2
+
+```bash
+cd ../../scripts
+node --env-file=.env upload-unity-template-ai.mjs --dry-run              # xem trước (toàn bộ)
+node --env-file=.env upload-unity-template-ai.mjs                        # upload tất cả
+node --env-file=.env upload-unity-template-ai.mjs --category Skills      # 1 nhóm
+node --env-file=.env upload-unity-template-ai.mjs --item Skills/ui-kit   # 1 item
+```
+
+Cờ: `--dry-run`, `--force`, `--skip-files`, `--category <Id>`, `--item <Cat/name>`. Dùng chung
+`scripts/.env`. **Sửa nội dung một item đã publish thì phải `--force`** — mặc định script bỏ qua key
+đã tồn tại trên R2.
+
+`index.json` **luôn quét mọi item trên đĩa** kể cả khi chỉ upload một category, nên catalog không bao
+giờ lệch thực tế. Bản local ghi vào `templates/AIFeatures/index.json` để xem/commit.
+
+Curation (bỏ item, sửa mô tả, đánh dấu `installedByDefault`) nằm ở `templates/AIFeatures/ai-manifest.json`
+— xem `templates/AIFeatures/README.md`.
+
+Sửa file trong `DefaultSetup/.claude/` thường cần chạy **cả hai**: script này (cho project cũ) và
+`upload-unity-template-defaultsetup.mjs` (cho project sinh sau này).
+
 ## Publish logic build lên R2
 
 Khi sửa logic build (`build_unity_template.logic.sh`), publish lại để mọi end user nhận bản mới ở lần chạy kế tiếp — **không cần** họ tải lại `build_unity_template.sh`.

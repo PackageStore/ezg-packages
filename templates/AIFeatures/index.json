@@ -1,0 +1,2603 @@
+{
+  "schemaVersion": 1,
+  "description": "EZG Feature Hub — catalog of Claude AI assets (skills, commands, agents…).",
+  "categories": [
+    {
+      "id": "Agents",
+      "name": "Agents",
+      "description": "Subagent chuyên trách (review, QA, planner…).",
+      "count": 7
+    },
+    {
+      "id": "Commands",
+      "name": "Commands",
+      "description": "Slash command gọi tay (/new-ui, /push…).",
+      "count": 27
+    },
+    {
+      "id": "Config",
+      "name": "Config",
+      "description": "Cấu hình gốc — CÀI ĐÈ file hiện có của project, cân nhắc trước khi cài.",
+      "count": 4
+    },
+    {
+      "id": "Docs",
+      "name": "Docs",
+      "description": "Tài liệu tham chiếu cho pipeline AI.",
+      "count": 12
+    },
+    {
+      "id": "Harness",
+      "name": "Harness",
+      "description": "Launcher chạy harness/model ngoài.",
+      "count": 2
+    },
+    {
+      "id": "Rules",
+      "name": "Rules",
+      "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
+      "count": 7
+    },
+    {
+      "id": "Scripts",
+      "name": "Scripts",
+      "description": "Script hỗ trợ mà skill/command gọi tới.",
+      "count": 43
+    },
+    {
+      "id": "Skills",
+      "name": "Skills",
+      "description": "Playbook Claude tự nạp khi task khớp mô tả.",
+      "count": 27
+    },
+    {
+      "id": "Templates",
+      "name": "Backlog Templates",
+      "description": "Template task/backlog cho planning pipeline.",
+      "count": 8
+    },
+    {
+      "id": "UiKit",
+      "name": "UI Kit",
+      "description": "Contract UI kit mà mockup và /new-ui đọc.",
+      "count": 3
+    }
+  ],
+  "items": [
+    {
+      "id": "Agents/code-reviewer",
+      "name": "code-reviewer",
+      "category": "Agents",
+      "description": "Quality-focused code reviewer for backlog tasks in this Unity project. Reviews a staged diff against the task spec and returns a JSON verdict (pass / warn / block) for the orchestrator to act on. Does NOT cover deep security audits — that is the job of the security-auditor (Phase 4).",
+      "installPath": ".claude/agents/code-reviewer.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/code-reviewer.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "code-reviewer.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/code-reviewer.zip",
+      "sha256": "24084d7696df58b7fa1517680478ed452d4ce1fc65a7c05c55550ad7191769ba",
+      "size": 7575
+    },
+    {
+      "id": "Agents/mockup-drafter",
+      "name": "mockup-drafter",
+      "category": "Agents",
+      "description": "Generate one 1080×1920 UI draft as a spec-first pair: authoritative <Screen>.ui-spec.json plus generated <Screen>.html. Use for /planning-task, /planning-system, or /ui-mockup when grounding a /new-ui task. Parallel-safe: write only that screen's pair. Never approve, export PNG, edit task files, or invent economy values.",
+      "installPath": ".claude/agents/mockup-drafter.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/mockup-drafter.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "mockup-drafter.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/mockup-drafter.zip",
+      "sha256": "9fadef536f2f755aea88b887fe78a045d719e74f477c86e0684979628636c944",
+      "size": 5358
+    },
+    {
+      "id": "Agents/performance-reviewer",
+      "name": "performance-reviewer",
+      "category": "Agents",
+      "description": "Mobile-performance reviewer for backlog tasks in this Unity project (mobile-first, Android primary game). Audits a staged diff for GC allocations, hot-path cost, pooling, and rendering/UI overhead, and returns a JSON verdict (pass / warn / block). Does NOT cover code style/conventions (code-reviewer) or security (security-auditor).",
+      "installPath": ".claude/agents/performance-reviewer.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/performance-reviewer.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "performance-reviewer.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/performance-reviewer.zip",
+      "sha256": "88037b964ead27170846123e6394b8fdb996b174af389321f62c2a48489d6f0c",
+      "size": 5975
+    },
+    {
+      "id": "Agents/qa-verifier",
+      "name": "qa-verifier",
+      "category": "Agents",
+      "description": "Verifies if an implementation in this project has fully resolved the 'Completion Criteria' of the task spec. Reads the staged diff + modified files to cross-check each criterion. Optional: runs runtime checks via Unity MCP if the tool is available. Returns a JSON verdict (pass/warn/fail) and formats a clear list of 'Manual verification steps' for the user to run afterward.",
+      "installPath": ".claude/agents/qa-verifier.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/qa-verifier.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "qa-verifier.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/qa-verifier.zip",
+      "sha256": "e0072d32e1bb6c25ded76a5ae514f7e17e7a88afae29b95b239dca4cb31087fa",
+      "size": 6027
+    },
+    {
+      "id": "Agents/security-auditor",
+      "name": "security-auditor",
+      "category": "Agents",
+      "description": "Security-audits a diff in this project that touches the backend (Supabase/Cloudflare Worker), IAP/Purchase, save data, or anti-cheat. Returns structured JSON findings. Spawns in parallel with the code-reviewer when a diff touches sensitive files. Does NOT audit code quality (that is the job of the code-reviewer).",
+      "installPath": ".claude/agents/security-auditor.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/security-auditor.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "security-auditor.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/security-auditor.zip",
+      "sha256": "8b27463f8be595c6914fd7a9d0e88b3764ffbcc1ff884d8b6448d26174fe328d",
+      "size": 5658
+    },
+    {
+      "id": "Agents/task-planner",
+      "name": "task-planner",
+      "category": "Agents",
+      "description": "Drafts a backlog task spec (M/L tier) for this Unity project (mobile-first). Reads the codebase read-only (NEVER implements, NEVER modifies files) and returns ONE JSON object: files to touch, pattern to follow, scope-control, completion criteria, verify steps, applicable guardrails, mobile impact, and open questions. Spawned by the /planning-task skill for M/L tiers only.",
+      "installPath": ".claude/agents/task-planner.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/task-planner.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "task-planner.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/task-planner.zip",
+      "sha256": "d25e95b79eb1ebd41a38c0d36fb3dc5afe759a9cd84770afff35c69345abde35",
+      "size": 3967
+    },
+    {
+      "id": "Agents/ui-visual-reviewer",
+      "name": "ui-visual-reviewer",
+      "category": "Agents",
+      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
+      "installPath": ".claude/agents/ui-visual-reviewer.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/agents/ui-visual-reviewer.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-visual-reviewer.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
+      "sha256": "ad7eb5e770d19a8d6392bd91f40946c3401e52dd39fcb6557f3ccd9eb318e741",
+      "size": 4345
+    },
+    {
+      "id": "Commands/auto-build-setup",
+      "name": "auto-build-setup",
+      "category": "Commands",
+      "description": "Install or upgrade the shared ezg-autobuild GitLab CI module (iOS + Android) on this Unity project",
+      "installPath": ".claude/commands/auto-build-setup.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/auto-build-setup.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "auto-build-setup.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/auto-build-setup.zip",
+      "sha256": "49018ea04989511d9c5dff85b5dc8d0270b1c108f26932afcea31823b1a61352",
+      "size": 1424
+    },
+    {
+      "id": "Commands/build",
+      "name": "build",
+      "category": "Commands",
+      "description": "Build and push changes with flags. If no changes, push an empty commit with flags.",
+      "installPath": ".claude/commands/build.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/build.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "build.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/build.zip",
+      "sha256": "343f2b3581547fecb0c259d89f2487a0573b296143b6bc8801c6b37f67ea42b8",
+      "size": 739
+    },
+    {
+      "id": "Commands/code-review",
+      "name": "code-review",
+      "category": "Commands",
+      "description": "Review code implementation of a completed feature",
+      "installPath": ".claude/commands/code-review.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/code-review.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "code-review.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/code-review.zip",
+      "sha256": "7aae814c082269e157b1448f9a8441300c4bfda337090a21884efae3e3d2c3a8",
+      "size": 2401
+    },
+    {
+      "id": "Commands/csv-design",
+      "name": "csv-design",
+      "category": "Commands",
+      "description": "Rules for designing CSV files and their corresponding C# models/collections.",
+      "installPath": ".claude/commands/csv-design.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/csv-design.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "csv-design.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/csv-design.zip",
+      "sha256": "d7696b6eb9b5b996f0f154c933618e16de40d9f275de98f16882b0802a0e4e3f",
+      "size": 1149
+    },
+    {
+      "id": "Commands/design-pattern-rule",
+      "name": "design-pattern-rule",
+      "category": "Commands",
+      "description": "Rules for using core design pattern packages (Pooling, Factory, Singleton, EventManager).",
+      "installPath": ".claude/commands/design-pattern-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/design-pattern-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "design-pattern-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/design-pattern-rule.zip",
+      "sha256": "4141c2960b82b232c64d992a8ca1d45c07c084090c616ea836088935da3887e6",
+      "size": 861
+    },
+    {
+      "id": "Commands/feature-development",
+      "name": "feature-development",
+      "category": "Commands",
+      "description": "Master workflow for developing a complete feature from start to finish.",
+      "installPath": ".claude/commands/feature-development.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/feature-development.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "feature-development.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/feature-development.zip",
+      "sha256": "bd711683c9d24caf8df11b61e275868171ba037d67575a77014bbf5c23beece7",
+      "size": 1837
+    },
+    {
+      "id": "Commands/follow-code-rule",
+      "name": "follow-code-rule",
+      "category": "Commands",
+      "description": "Dependency rules between Service and PlayerData classes.",
+      "installPath": ".claude/commands/follow-code-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/follow-code-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "follow-code-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/follow-code-rule.zip",
+      "sha256": "1a0ef796b420f37c4f38506d55f13379163f8c739d7afe25f39cba8a06edf26a",
+      "size": 525
+    },
+    {
+      "id": "Commands/format-code",
+      "name": "format-code",
+      "category": "Commands",
+      "description": "Format code and add XML summaries to class methods",
+      "installPath": ".claude/commands/format-code.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/format-code.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "format-code.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/format-code.zip",
+      "sha256": "8a51475e663a29f6319edfb7fa4c5e988d7fbc9435bca760b4d8eaab08abe3ab",
+      "size": 1782
+    },
+    {
+      "id": "Commands/gameplay-rule",
+      "name": "gameplay-rule",
+      "category": "Commands",
+      "description": "Rules for organizing gameplay scripts.",
+      "installPath": ".claude/commands/gameplay-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/gameplay-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "gameplay-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gameplay-rule.zip",
+      "sha256": "3c346ab36488562d4e54ec238aff4d855fc53029d335ea38a7206ffdb823e296",
+      "size": 1219
+    },
+    {
+      "id": "Commands/gen-icon",
+      "name": "gen-icon",
+      "category": "Commands",
+      "description": "Generate a 2D UI game icon in a cute sticker art style",
+      "installPath": ".claude/commands/gen-icon.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/gen-icon.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "gen-icon.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gen-icon.zip",
+      "sha256": "8044ece44452e8d0bdb4f9bde9ffc5cfac4d99bf4028ba098184e81c32e82023",
+      "size": 721
+    },
+    {
+      "id": "Commands/new-class",
+      "name": "new-class",
+      "category": "Commands",
+      "description": "Create a new class following the project's FeatureBaseController style",
+      "installPath": ".claude/commands/new-class.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/new-class.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-class.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-class.zip",
+      "sha256": "8be859e0e20dd4a7a2b441d4a23471faa7e4848435a793c7ba4c09675635df03",
+      "size": 649
+    },
+    {
+      "id": "Commands/new-feature",
+      "name": "new-feature",
+      "category": "Commands",
+      "description": "Create a new Feature structure in the [Project Name] project",
+      "installPath": ".claude/commands/new-feature.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/new-feature.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-feature.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-feature.zip",
+      "sha256": "a5a0882896f79cf94615efc5ff076dbf0f6520e030b3167f0c655f9240038a13",
+      "size": 2971
+    },
+    {
+      "id": "Commands/new-package",
+      "name": "new-package",
+      "category": "Commands",
+      "description": "Create a new IAP shop package (offer pack) feature — data model, collection, manager, controller, CSV, UI",
+      "installPath": ".claude/commands/new-package.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/new-package.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-package.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-package.zip",
+      "sha256": "10664a681f11e1a5787d746ea4197b87a435e5a3e33c6e4e9e31ce61e95aa4eb",
+      "size": 1515
+    },
+    {
+      "id": "Commands/new-ui",
+      "name": "new-ui",
+      "category": "Commands",
+      "description": "Create a UI screen/popup prefab from the current Unity project's shared templates",
+      "installPath": ".claude/commands/new-ui.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/new-ui.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-ui.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-ui.zip",
+      "sha256": "45e12a8d36042a971d376383192f6af0a5a8ec04b32a4ad592bcbedc670a6056",
+      "size": 1561
+    },
+    {
+      "id": "Commands/package-module",
+      "name": "package-module",
+      "category": "Commands",
+      "description": "Extract a module/folder from Assets/ into a clean UPM package and publish it to the Easygoing registry",
+      "installPath": ".claude/commands/package-module.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/package-module.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "package-module.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/package-module.zip",
+      "sha256": "ecc638ead51225043312d0fc64c80c85f6a6c2562b2aec34d92c2c78d052bccc",
+      "size": 1589
+    },
+    {
+      "id": "Commands/push",
+      "name": "push",
+      "category": "Commands",
+      "description": "Commit and push changes with AI-generated commit message",
+      "installPath": ".claude/commands/push.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/push.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "push.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push.zip",
+      "sha256": "b446c18b6a4ddbd7e2f552455f1af97dec23aa78fb9a04be09d2c919e8a9e9a1",
+      "size": 901
+    },
+    {
+      "id": "Commands/qa-review",
+      "name": "qa-review",
+      "category": "Commands",
+      "description": "QA audit toàn bộ pipeline trước khi ship",
+      "installPath": ".claude/commands/qa-review.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/qa-review.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "qa-review.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/qa-review.zip",
+      "sha256": "6439f41d2c0740429389d7cf46d1f5524107a5e3ac7a6c021a2a6ffd831d1d89",
+      "size": 1430
+    },
+    {
+      "id": "Commands/service-rule",
+      "name": "service-rule",
+      "category": "Commands",
+      "description": "Rules for designing static Service classes that handle feature logic.",
+      "installPath": ".claude/commands/service-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/service-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "service-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/service-rule.zip",
+      "sha256": "9fa3ab783da8c37cbae8440d81ef64f21a85b5f68f566c5b373efcd9a38adf6b",
+      "size": 561
+    },
+    {
+      "id": "Commands/setup-package-push",
+      "name": "setup-package-push",
+      "category": "Commands",
+      "description": "One-time per-machine setup so /package-module can push to ezg-packages over SSH instead of a GitHub PAT",
+      "installPath": ".claude/commands/setup-package-push.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/setup-package-push.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "setup-package-push.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/setup-package-push.zip",
+      "sha256": "ed2690b5bd73aff381e4ad0d99efba213ca0c3a1036c67865e4374e2d81152fd",
+      "size": 1056
+    },
+    {
+      "id": "Commands/step1-init-feature",
+      "name": "step1-init-feature",
+      "category": "Commands",
+      "description": "Step 1 - Initialize feature folder structure and UI screen",
+      "installPath": ".claude/commands/step1-init-feature.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/step1-init-feature.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "step1-init-feature.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step1-init-feature.zip",
+      "sha256": "237de07f77b3643571784c3bd06b5e00bdf38740c575f19e6edd1edc3cf2f737",
+      "size": 1156
+    },
+    {
+      "id": "Commands/step2-design-data",
+      "name": "step2-design-data",
+      "category": "Commands",
+      "description": "Step 2 - Design data layer (CSV config + PlayerData)",
+      "installPath": ".claude/commands/step2-design-data.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/step2-design-data.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "step2-design-data.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step2-design-data.zip",
+      "sha256": "18a55319c72ade917c9e9b3ecde29129d0c27a17a0e3a787977184124c4900f3",
+      "size": 1199
+    },
+    {
+      "id": "Commands/step3-implement-logic",
+      "name": "step3-implement-logic",
+      "category": "Commands",
+      "description": "Step 3 - Implement feature logic (Service, Utils, Constants)",
+      "installPath": ".claude/commands/step3-implement-logic.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/step3-implement-logic.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "step3-implement-logic.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step3-implement-logic.zip",
+      "sha256": "acbf142cb0adc87340b83e8868dca652d2aef3751c8b0b448f7a0932e5c63205",
+      "size": 1151
+    },
+    {
+      "id": "Commands/tester",
+      "name": "tester",
+      "category": "Commands",
+      "description": "Kiểm thử tính năng dựa trên GDD Final và TechSpec",
+      "installPath": ".claude/commands/tester.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/tester.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "tester.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/tester.zip",
+      "sha256": "788be7d7bcc4333acc4f6e4035166756659476a21c1b637a086eec0fc4f1679b",
+      "size": 1329
+    },
+    {
+      "id": "Commands/ui-features-rule",
+      "name": "ui-features-rule",
+      "category": "Commands",
+      "description": "Folder structure for UI-based feature organization.",
+      "installPath": ".claude/commands/ui-features-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/ui-features-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-features-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-features-rule.zip",
+      "sha256": "adec6b373f022205934bf76a72670addeb6729f6b6d4eff4983495a22043e10d",
+      "size": 1392
+    },
+    {
+      "id": "Commands/ui-mockup",
+      "name": "ui-mockup",
+      "category": "Commands",
+      "description": "Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their 1080×1920 PNG contract automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.",
+      "installPath": ".claude/commands/ui-mockup.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/ui-mockup.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-mockup.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-mockup.zip",
+      "sha256": "abf4cdf5c2a45b06ea83c1d2121716d5ca7b95c9fcdc26d8da174edaedc814a0",
+      "size": 4207
+    },
+    {
+      "id": "Commands/user-data-rule",
+      "name": "user-data-rule",
+      "category": "Commands",
+      "description": "Rules for designing user data classes that persist player progress.",
+      "installPath": ".claude/commands/user-data-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/user-data-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "user-data-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/user-data-rule.zip",
+      "sha256": "b5f6172f1d00de811c3e20eed8433855e6e6c3466f15d063662c6c11e93b6709",
+      "size": 884
+    },
+    {
+      "id": "Commands/utils-constants-rule",
+      "name": "utils-constants-rule",
+      "category": "Commands",
+      "description": "Rules for organizing utility classes and constants.",
+      "installPath": ".claude/commands/utils-constants-rule.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/utils-constants-rule.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "utils-constants-rule.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/utils-constants-rule.zip",
+      "sha256": "450805a44dafb629949b27c05ae7817d16825fc15dca7e7da75088438151f9b8",
+      "size": 1026
+    },
+    {
+      "id": "Config/.mcp.json",
+      "name": ".mcp.json",
+      "category": "Config",
+      "description": "Khai báo MCP server cho project — CÀI ĐÈ .mcp.json hiện có.",
+      "installPath": ".mcp.json",
+      "isDirectory": false,
+      "files": [
+        ".mcp.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "mcp.json.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/mcp.json.zip",
+      "sha256": "e41e7fa763c89d0c1a5abdfadf02b6e5ef00845504b358b46601264ca2cc6d46",
+      "size": 378
+    },
+    {
+      "id": "Config/CLAUDE.md",
+      "name": "CLAUDE.md",
+      "category": "Config",
+      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới.",
+      "installPath": "CLAUDE.md",
+      "isDirectory": false,
+      "files": [
+        "CLAUDE.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "CLAUDE.md.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
+      "sha256": "1d84b5d519f23c95a4c83f49b198b4af2959d852b27410a0c753038d82882966",
+      "size": 10507
+    },
+    {
+      "id": "Config/project-profile.json",
+      "name": "project-profile.json",
+      "category": "Config",
+      "description": "Profile project (đường dẫn, quy ước) mà script AI đọc — CÀI ĐÈ file hiện có.",
+      "installPath": ".claude/project-profile.json",
+      "isDirectory": false,
+      "files": [
+        ".claude/project-profile.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "project-profile.json.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
+      "sha256": "a29c378e544526227b5da2e2345ec921a5432c707452d98a7516763542715b58",
+      "size": 1186
+    },
+    {
+      "id": "Config/settings.json",
+      "name": "settings.json",
+      "category": "Config",
+      "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có.",
+      "installPath": ".claude/settings.json",
+      "isDirectory": false,
+      "files": [
+        ".claude/settings.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "settings.json.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/settings.json.zip",
+      "sha256": "c5816ca82d4d97e2d26290e3c7980dcce6e498f8ae1886b8880b22f5708082c6",
+      "size": 203
+    },
+    {
+      "id": "Docs/design-pipeline",
+      "name": "design-pipeline",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/design-pipeline",
+      "isDirectory": true,
+      "files": [
+        ".claude/docs/design-pipeline/01-gdd-concept.md",
+        ".claude/docs/design-pipeline/02-gdd-production.md",
+        ".claude/docs/design-pipeline/03-gdd-final.md",
+        ".claude/docs/design-pipeline/04-feature-analysis.md",
+        ".claude/docs/design-pipeline/05-tech-spec.md",
+        ".claude/docs/design-pipeline/06-implementation-mapping.md",
+        ".claude/docs/design-pipeline/README.md",
+        ".claude/docs/design-pipeline/model-assignment.md"
+      ],
+      "fileCount": 8,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "design-pipeline.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip",
+      "sha256": "918df3a6204882274fd6ae0dd76bb44cbbc0552b4b15a83ba11b74b05611ac8e",
+      "size": 28061
+    },
+    {
+      "id": "Docs/design-style",
+      "name": "design-style",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/design-style",
+      "isDirectory": true,
+      "files": [
+        ".claude/docs/design-style/tokens.dtcg.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "design-style.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-style.zip",
+      "sha256": "78b0c267f96604d332cc607c90ac3800f48daf2c7327315aa9604564c628ce77",
+      "size": 1362
+    },
+    {
+      "id": "Docs/discord-notification",
+      "name": "discord-notification",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/discord-notification.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/discord-notification.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "discord-notification.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip",
+      "sha256": "1a62a7bdc65ca0a91f3c81617208ea19c57326b4a3e5157c0e94a0bcd96d7b30",
+      "size": 3585
+    },
+    {
+      "id": "Docs/GETTING-STARTED",
+      "name": "GETTING-STARTED",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/GETTING-STARTED.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/GETTING-STARTED.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "GETTING-STARTED.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
+      "sha256": "3287338e3a291e15d50bcd6bf359bf2f9d26bcff23d4cd71868b7ef4ef9153f5",
+      "size": 4687
+    },
+    {
+      "id": "Docs/new-package-guide",
+      "name": "new-package-guide",
+      "category": "Docs",
+      "description": "Decision + code-gen layer for /new-package (IAP shop pack feature) — args, references, directory, Model/Collection/Manager/Controller, DataManager/IAP registration, CSV, UI handoff, checklist. Loaded by .claude/commands/new-package.md. UI MCP details live in new-ui-guide.md + ui-mcp-playbook.md. NOT about UPM packages — that is /package-module.",
+      "installPath": ".claude/docs/new-package-guide.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/new-package-guide.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-package-guide.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-package-guide.zip",
+      "sha256": "a1d89dd1f6b88337241d10230a36b08176b457bab3cbf56e4b9ef37427dfa4e3",
+      "size": 4978
+    },
+    {
+      "id": "Docs/new-ui-guide",
+      "name": "new-ui-guide",
+      "category": "Docs",
+      "description": "Decision layer for /new-ui — ground truth + spec-sheet gate (Checkpoint 0), templates, layout, layout-group-first assembly phases, script binding, final verify. Loaded by .claude/commands/new-ui.md. MCP tool sequences live in ui-mcp-playbook.md.",
+      "installPath": ".claude/docs/new-ui-guide.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/new-ui-guide.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "new-ui-guide.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
+      "sha256": "1d84152b63f12bf89f895c9eaef2c0caf4102620c3d418a531004769aced4d5b",
+      "size": 17842
+    },
+    {
+      "id": "Docs/planning-task-flow",
+      "name": "planning-task-flow",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/planning-task-flow.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/planning-task-flow.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "planning-task-flow.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.zip",
+      "sha256": "0e57037ea6da9e92064ec6c1bce085138c88809dc3e3fb1275ac99ee1df11dc3",
+      "size": 8297
+    },
+    {
+      "id": "Docs/planning-task-flow.html",
+      "name": "planning-task-flow.html",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/planning-task-flow.html",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/planning-task-flow.html"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "planning-task-flow.html.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip",
+      "sha256": "7817aa484ad048b95d73c52f3b537f7fea5d9e39715ab8ece88631002a53801b",
+      "size": 20763
+    },
+    {
+      "id": "Docs/run-backlog-flow.html",
+      "name": "run-backlog-flow.html",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/run-backlog-flow.html",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/run-backlog-flow.html"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-flow.html.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip",
+      "sha256": "7b204e1814a10b4a53ebdd31cde6bc5182002192a95240d5fe9d8fa6cd2101ff",
+      "size": 15455
+    },
+    {
+      "id": "Docs/ui-mcp-playbook",
+      "name": "ui-mcp-playbook",
+      "category": "Docs",
+      "description": "Reference doc (not a command) — executable Unity MCP layer for the new-ui / new-package workflows. Lives in .claude/docs/ so it is not exposed as a slash command; pulled in by new-ui.md.",
+      "installPath": ".claude/docs/ui-mcp-playbook.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/ui-mcp-playbook.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-mcp-playbook.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-mcp-playbook.zip",
+      "sha256": "b6103f6823f1472cc96d5819d3023da498573324c6a04966edebb15ae7a08ad0",
+      "size": 10240
+    },
+    {
+      "id": "Docs/ui-spec-schema.json",
+      "name": "ui-spec-schema.json",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/ui-spec-schema.json",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/ui-spec-schema.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-spec-schema.json.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-spec-schema.json.zip",
+      "sha256": "0526983f3f15d205fb26fbc237ae68bdbdc77f37605c2d485adf863303c800a6",
+      "size": 1301
+    },
+    {
+      "id": "Docs/workflow-model-recommendations",
+      "name": "workflow-model-recommendations",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/workflow-model-recommendations.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/workflow-model-recommendations.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "workflow-model-recommendations.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
+      "sha256": "9ea6f382a6bfa24562a2ddc25d66fb822c66bbc939286924d73b86035e57a380",
+      "size": 1271
+    },
+    {
+      "id": "Harness/start-deepseek.bat",
+      "name": "start-deepseek.bat",
+      "category": "Harness",
+      "description": "",
+      "installPath": ".claude/harness/start-deepseek.bat",
+      "isDirectory": false,
+      "files": [
+        ".claude/harness/start-deepseek.bat"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "start-deepseek.bat.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Harness/start-deepseek.bat.zip",
+      "sha256": "cbfb5737a15018cb28c420082a078a72847f39d45cda1d56e61500ad8f518fb3",
+      "size": 1333
+    },
+    {
+      "id": "Harness/start-deepseek.command",
+      "name": "start-deepseek.command",
+      "category": "Harness",
+      "description": "",
+      "installPath": ".claude/harness/start-deepseek.command",
+      "isDirectory": false,
+      "files": [
+        ".claude/harness/start-deepseek.command"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "start-deepseek.command.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Harness/start-deepseek.command.zip",
+      "sha256": "6aa223115e584b79e3b6e6fae2e85c4fcbbc1b014e01148d92047ec5d1df6fad",
+      "size": 1564
+    },
+    {
+      "id": "Rules/code-style",
+      "name": "code-style",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/code-style.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/code-style.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "code-style.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/code-style.zip",
+      "sha256": "1891526bdcbf1c725f49da2aee75a9e7720b24dfc17fc2eda8a76ec70b81cfdd",
+      "size": 564
+    },
+    {
+      "id": "Rules/compile-validation",
+      "name": "compile-validation",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/compile-validation.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/compile-validation.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "compile-validation.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/compile-validation.zip",
+      "sha256": "887c7c68a5354821606f662fccbd591198443b90ab96f900977312c8aa6425b3",
+      "size": 1084
+    },
+    {
+      "id": "Rules/core-system",
+      "name": "core-system",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/core-system.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/core-system.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "core-system.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/core-system.zip",
+      "sha256": "e2053198ffe50c07cc86168997f1646e25c587a24aff35cdd2b4fc713ddc996d",
+      "size": 878
+    },
+    {
+      "id": "Rules/data-persistence",
+      "name": "data-persistence",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/data-persistence.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/data-persistence.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "data-persistence.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/data-persistence.zip",
+      "sha256": "ba59a34e6442cd5f96e83b674888a0ce4259200d62059e300b51cd84b442ffa9",
+      "size": 410
+    },
+    {
+      "id": "Rules/output-format",
+      "name": "output-format",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/output-format.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/output-format.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "output-format.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/output-format.zip",
+      "sha256": "84a4726b13eb5d8fda1e02d77d8fbf514d28f72ca1c0a0b63774729ebef45709",
+      "size": 580
+    },
+    {
+      "id": "Rules/project-structure",
+      "name": "project-structure",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/project-structure.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/project-structure.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "project-structure.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/project-structure.zip",
+      "sha256": "520072549b308cb66ea5ff26ffde55cbb509b1cf99903d5faf82007ea86cdecf",
+      "size": 1815
+    },
+    {
+      "id": "Rules/third-party",
+      "name": "third-party",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/third-party.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/third-party.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "third-party.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/third-party.zip",
+      "sha256": "5d23152be44211a971a6502530115e79999d785e69d456a2fb8e6caea6db1b9c",
+      "size": 382
+    },
+    {
+      "id": "Scripts/add_localize.py",
+      "name": "add_localize.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/add_localize.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/add_localize.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "add_localize.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/add_localize.py.zip",
+      "sha256": "ebddafa17ffcdef500b0141374a49623f659b594218d8501577ffd382f15c1f6",
+      "size": 2662
+    },
+    {
+      "id": "Scripts/backlog-ops.py",
+      "name": "backlog-ops.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/backlog-ops.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/backlog-ops.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backlog-ops.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-ops.py.zip",
+      "sha256": "8bf88b4d463c586bf72e00bf1c113c12f4691220fe1fc14993c3e4d13f5e3df0",
+      "size": 12925
+    },
+    {
+      "id": "Scripts/backlog-preflight.ps1",
+      "name": "backlog-preflight.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/backlog-preflight.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/backlog-preflight.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backlog-preflight.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip",
+      "sha256": "532d5a34b21258ec3a57664c4f19422975a384ffc72b1147621e5ac811a6516f",
+      "size": 8152
+    },
+    {
+      "id": "Scripts/backlog-preflight.py",
+      "name": "backlog-preflight.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/backlog-preflight.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/backlog-preflight.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backlog-preflight.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip",
+      "sha256": "f787ff0896d98df54d7e437f56f9508d5b86af498edb2899fae198e518d43d4b",
+      "size": 8612
+    },
+    {
+      "id": "Scripts/backlog-snapshot.py",
+      "name": "backlog-snapshot.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/backlog-snapshot.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/backlog-snapshot.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backlog-snapshot.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-snapshot.py.zip",
+      "sha256": "659f881d0e52182f71a36fa5cf496f9817aefd4661b6bfcbc93974688ceab661",
+      "size": 2819
+    },
+    {
+      "id": "Scripts/batch_add_localize.py",
+      "name": "batch_add_localize.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/batch_add_localize.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/batch_add_localize.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "batch_add_localize.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/batch_add_localize.py.zip",
+      "sha256": "3f1b4aa6740b1e269f5a9e3428bafab257e23df975a90298cdf8e3299dfe8881",
+      "size": 2726
+    },
+    {
+      "id": "Scripts/bootstrap.ps1",
+      "name": "bootstrap.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/bootstrap.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/bootstrap.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bootstrap.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
+      "sha256": "97d683e35f85bf2c2de2516bea3d2ac7ce24584945685a44bf1d7de899662c1b",
+      "size": 3441
+    },
+    {
+      "id": "Scripts/bootstrap.sh",
+      "name": "bootstrap.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/bootstrap.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/bootstrap.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bootstrap.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
+      "sha256": "56888910f74b2ec73febbef4c0ec215167e70ce055cadb5588448298b76d1cd3",
+      "size": 2938
+    },
+    {
+      "id": "Scripts/codegraph-doctor.sh",
+      "name": "codegraph-doctor.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/codegraph-doctor.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/codegraph-doctor.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "codegraph-doctor.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/codegraph-doctor.sh.zip",
+      "sha256": "dd3394ff9dcaf30d32e1fc669bd4349aba1f339ce616a35f602790688d7e83e5",
+      "size": 1882
+    },
+    {
+      "id": "Scripts/discord-send.ps1",
+      "name": "discord-send.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/discord-send.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/discord-send.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "discord-send.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.ps1.zip",
+      "sha256": "5d50418e73fe5a494bda3b0066ea78f2a269100922e90702187cf22eeb5b3954",
+      "size": 1404
+    },
+    {
+      "id": "Scripts/discord-send.sh",
+      "name": "discord-send.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/discord-send.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/discord-send.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "discord-send.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.sh.zip",
+      "sha256": "cde347b3234f4aed1003a61ee3a1fb75405a2bd23bd232b6e9dc421c68c30634",
+      "size": 1239
+    },
+    {
+      "id": "Scripts/git_prepare.ps1",
+      "name": "git_prepare.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_prepare.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_prepare.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_prepare.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.ps1.zip",
+      "sha256": "d69b6fd242d96ff5b77697557a6a3f8b85e58b9ea971c54b116a9a8e28299a7a",
+      "size": 331
+    },
+    {
+      "id": "Scripts/git_prepare.sh",
+      "name": "git_prepare.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_prepare.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_prepare.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_prepare.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.sh.zip",
+      "sha256": "2f680f9bc4784dbc40dd0e2af0df21f3d71690c28145633deec78d93a5e4a9cd",
+      "size": 803
+    },
+    {
+      "id": "Scripts/git_push.ps1",
+      "name": "git_push.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_push.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_push.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_push.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.ps1.zip",
+      "sha256": "c4c4911b5b6685243681513c9194318d02845f4ebe40726de7b17fe2da4bf522",
+      "size": 239
+    },
+    {
+      "id": "Scripts/git_push.sh",
+      "name": "git_push.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_push.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_push.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_push.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.sh.zip",
+      "sha256": "61c0f18fc5029bb3e5778c4f23bd4cc8ac2996f25d54377d770cb52232326561",
+      "size": 686
+    },
+    {
+      "id": "Scripts/notify.ps1",
+      "name": "notify.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/notify.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/notify.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "notify.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.ps1.zip",
+      "sha256": "fe4cad068c9120e3ec8a69e0e3db5076b561fedd08a3d3610ea88aca223ce923",
+      "size": 4123
+    },
+    {
+      "id": "Scripts/notify.sh",
+      "name": "notify.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/notify.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/notify.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "notify.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.sh.zip",
+      "sha256": "adf8ccaab896aa6afd980fdbc3c890aff5cc2163d03be8548a4e7c36f638a893",
+      "size": 2868
+    },
+    {
+      "id": "Scripts/project_profile.py",
+      "name": "project_profile.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/project_profile.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/project_profile.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "project_profile.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
+      "sha256": "85aeba993618b924c4c37d79f3f23ca95542c278153738f856d15895931e7804",
+      "size": 3914
+    },
+    {
+      "id": "Scripts/run-backlog-loop-claude.bat",
+      "name": "run-backlog-loop-claude.bat",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop-claude.bat",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop-claude.bat"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop-claude.bat.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.bat.zip",
+      "sha256": "415bdf7f8d4c75c3889b4b38a93845d66e1a38bd930ca911af0c49f02a210546",
+      "size": 363
+    },
+    {
+      "id": "Scripts/run-backlog-loop-claude.ps1",
+      "name": "run-backlog-loop-claude.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop-claude.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop-claude.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop-claude.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.ps1.zip",
+      "sha256": "8077bd341b0d22e83a6c8fee08dced1e32b05de6dd0ab9e2f195b5c956716551",
+      "size": 1385
+    },
+    {
+      "id": "Scripts/run-backlog-loop-codex.ps1",
+      "name": "run-backlog-loop-codex.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop-codex.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop-codex.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop-codex.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-codex.ps1.zip",
+      "sha256": "a3119eea66ee88e1c8a1996f1dc875d7cfcb0062d983aaaed8216944a936661a",
+      "size": 992
+    },
+    {
+      "id": "Scripts/run-backlog-loop-core.ps1",
+      "name": "run-backlog-loop-core.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop-core.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop-core.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop-core.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
+      "sha256": "7587e1036e73510553d16aab9a7b1ca04aca4e9072d319ac80bf260f1125feef",
+      "size": 24814
+    },
+    {
+      "id": "Scripts/run-backlog-loop-gemini.ps1",
+      "name": "run-backlog-loop-gemini.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop-gemini.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop-gemini.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop-gemini.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-gemini.ps1.zip",
+      "sha256": "77f2cf2266a145054c42cc4ed607eb535e68748a0b7da95038ac04e7f983ae00",
+      "size": 1036
+    },
+    {
+      "id": "Scripts/run-backlog-loop.bat",
+      "name": "run-backlog-loop.bat",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop.bat",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop.bat"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop.bat.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.bat.zip",
+      "sha256": "8a9840690493a96945946b8d199b7b0bf1bdbe4e98e1001bd1ce7f47a0fd93d5",
+      "size": 762
+    },
+    {
+      "id": "Scripts/run-backlog-loop.command",
+      "name": "run-backlog-loop.command",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop.command",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop.command"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop.command.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.command.zip",
+      "sha256": "ed342838f08b1d93db237d447a22ff9a7718f1b2d97db86e2763de6e3eee5af6",
+      "size": 1367
+    },
+    {
+      "id": "Scripts/run-backlog-loop.ps1",
+      "name": "run-backlog-loop.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.ps1.zip",
+      "sha256": "8a30c750c812b15279178a6dedcb9661dc4781e3dfc0d804c710577316e20539",
+      "size": 774
+    },
+    {
+      "id": "Scripts/run-backlog-loop.sh",
+      "name": "run-backlog-loop.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-loop.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-loop.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-loop.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
+      "sha256": "aaec117fccd686b68b5362a87b3381d2feae8781c08f675e372a57cdfc3dfc9d",
+      "size": 16975
+    },
+    {
+      "id": "Scripts/setup-approve-handler-macos.sh",
+      "name": "setup-approve-handler-macos.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/setup-approve-handler-macos.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/setup-approve-handler-macos.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "setup-approve-handler-macos.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-macos.sh.zip",
+      "sha256": "1934cb42d2a0202ab6b270e00597938947dae256da08c3feeb9b6be60ed6a2ce",
+      "size": 1245
+    },
+    {
+      "id": "Scripts/setup-approve-handler-windows.ps1",
+      "name": "setup-approve-handler-windows.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/setup-approve-handler-windows.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/setup-approve-handler-windows.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "setup-approve-handler-windows.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-windows.ps1.zip",
+      "sha256": "21f124eb66e4c8ba8b648a909af168c0f51d161fd591af0009797622ceb3f03e",
+      "size": 1147
+    },
+    {
+      "id": "Scripts/stream-render.py",
+      "name": "stream-render.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/stream-render.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/stream-render.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "stream-render.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/stream-render.py.zip",
+      "sha256": "65cec76dc449a38b21c4649cca0d9db69de3455c011fafc5c7c4ac1f8ffefb85",
+      "size": 2436
+    },
+    {
+      "id": "Scripts/sync-to-agents.command",
+      "name": "sync-to-agents.command",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/sync-to-agents.command",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/sync-to-agents.command"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "sync-to-agents.command.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.command.zip",
+      "sha256": "fb71ae32cfa1f4624fca80d0909f98a17f786cdc77be3c872d76e49f45cf8af4",
+      "size": 558
+    },
+    {
+      "id": "Scripts/sync-to-agents.ps1",
+      "name": "sync-to-agents.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/sync-to-agents.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/sync-to-agents.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "sync-to-agents.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.ps1.zip",
+      "sha256": "3c82adf8035e0ae02f91ce7b51428870a12f43f61604e15883547188ec81a4da",
+      "size": 1855
+    },
+    {
+      "id": "Scripts/sync-to-agents.sh",
+      "name": "sync-to-agents.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/sync-to-agents.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/sync-to-agents.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "sync-to-agents.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.sh.zip",
+      "sha256": "dbf7be24028012898bea0394e6ebfeed563706904f3b6b8bd07ce50525b537a8",
+      "size": 1768
+    },
+    {
+      "id": "Scripts/tests",
+      "name": "tests",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/tests",
+      "isDirectory": true,
+      "files": [
+        ".claude/scripts/tests/test_backlog_ops.py",
+        ".claude/scripts/tests/test_backlog_preflight.py",
+        ".claude/scripts/tests/test_preflight_twin_parity.py",
+        ".claude/scripts/tests/test_ui_kit_sync.py",
+        ".claude/scripts/tests/test_ui_review.py",
+        ".claude/scripts/tests/test_ui_spec_pipeline.py"
+      ],
+      "fileCount": 6,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "tests.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
+      "sha256": "351bc77d43f036d3c8b973a95276aea9e4d5a108e0561fde4fa39e6efbdc7c7b",
+      "size": 23922
+    },
+    {
+      "id": "Scripts/ui_spec_common.py",
+      "name": "ui_spec_common.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui_spec_common.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui_spec_common.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui_spec_common.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui_spec_common.py.zip",
+      "sha256": "9822bb2dabbeae40bbac3aeaa860f9c52dcd2bc44f6ef24cafaa85b9a5a5af50",
+      "size": 11204
+    },
+    {
+      "id": "Scripts/ui-build-report.py",
+      "name": "ui-build-report.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-build-report.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-build-report.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-build-report.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-build-report.py.zip",
+      "sha256": "2f4dec8b8e540cc394c3a7d5a0082bee310cf59cf62f9008804c607f66b18921",
+      "size": 2189
+    },
+    {
+      "id": "Scripts/ui-kit-sync.py",
+      "name": "ui-kit-sync.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-kit-sync.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-kit-sync.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-kit-sync.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip",
+      "sha256": "229b76a1e46a2cc7542d4c3ab33fa77c19e81061e7af182b93cf94e288c59708",
+      "size": 12824
+    },
+    {
+      "id": "Scripts/ui-review-approve-handler.py",
+      "name": "ui-review-approve-handler.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-review-approve-handler.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-review-approve-handler.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-review-approve-handler.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review-approve-handler.py.zip",
+      "sha256": "8577a2218477d3cf71c34f81c0d32cea5894847e1f058705e656f5437528a8b3",
+      "size": 1853
+    },
+    {
+      "id": "Scripts/ui-review.py",
+      "name": "ui-review.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-review.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-review.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-review.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review.py.zip",
+      "sha256": "d2cfb542d359cc1509a4336e4ffb5698246d27a70962721d777792404e6a521b",
+      "size": 17290
+    },
+    {
+      "id": "Scripts/ui-spec-extract.py",
+      "name": "ui-spec-extract.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-spec-extract.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-spec-extract.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-spec-extract.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-extract.py.zip",
+      "sha256": "ced2ed55e816f8a0585ba14b755c040e7973b189dc51bf3cae9ef774e143309c",
+      "size": 841
+    },
+    {
+      "id": "Scripts/ui-spec-render.py",
+      "name": "ui-spec-render.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-spec-render.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-spec-render.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-spec-render.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-render.py.zip",
+      "sha256": "c866e4609e8ae9922bef6de5f024a1289d42aba68c4d5c863793192f8ce899dd",
+      "size": 5236
+    },
+    {
+      "id": "Scripts/ui-spec-validator.py",
+      "name": "ui-spec-validator.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-spec-validator.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-spec-validator.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-spec-validator.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-validator.py.zip",
+      "sha256": "d94694a152c78a6650cab97600ee6b9fbdaea8be94bacff6855458e0dd131efa",
+      "size": 698
+    },
+    {
+      "id": "Scripts/ui-visual-diff.py",
+      "name": "ui-visual-diff.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-visual-diff.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-visual-diff.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-visual-diff.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-visual-diff.py.zip",
+      "sha256": "b8a55e8bed7b69a1dd811b028c699a7c6ac1cd6189a6f06a49f0e3909fd200ee",
+      "size": 1370
+    },
+    {
+      "id": "Skills/add-to-backlog",
+      "name": "add-to-backlog",
+      "category": "Skills",
+      "description": "Pick one or more tasks from backlog/planning/ into BACKLOG.md (assign NNN, move planning → todo, insert bullet). Bare invocation (no args) auto-picks ALL planning tasks. Used when the user says \"add task to backlog\" / \"pick task to backlog\" / \"promote task\". To CREATE a new task spec, use /planning-task. When intent is unclear between the two skills, confirm with the user first.",
+      "installPath": ".claude/skills/add-to-backlog",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/add-to-backlog/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "add-to-backlog.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-to-backlog.zip",
+      "sha256": "e2d7b8af8623bcfc15563f7ea3f953433d624f36a57ee564d920c97bd63fa38a",
+      "size": 5754
+    },
+    {
+      "id": "Skills/auto-build-setup",
+      "name": "auto-build-setup",
+      "category": "Skills",
+      "description": "Install or upgrade the shared GitLab CI build module `ezg-sm-space/ezg-autobuild` on THIS Unity project by running its own `installer/install.sh` non-interactively. Creates/refreshes the two build branches (default `IOS/AutoBuild` + `Android/AutoBuild`), overlays the thin `AutoBuild/fastlane/Fastfile` + `.gitlab-ci.yml` shims pinned to a module tag, overwrites the project's `AutoBuild.cs` with the module's contract version, and — on a FIRST install only — pushes CI/CD variables + daily pipeline schedules to GitLab from `AutoBuild/.env`. Use when the user says \"setup autobuild\", \"cài autobuild cho project này\", \"dựng CI build iOS/Android\", \"upgrade autobuild lên bản mới nhất\", \"cài lại autobuild\", \"rollback autobuild về vX.Y.Z\". Requires: `origin` on gitlab.com, a clean working tree, and (first install) a GitLab PAT with scope `api` + Maintainer on both this project and the module repo. Does NOT run any build and does NOT touch the Mac runner.",
+      "installPath": ".claude/skills/auto-build-setup",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/auto-build-setup/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "auto-build-setup.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-build-setup.zip",
+      "sha256": "189d29fbc324fb80e5a468821a31602a0809999a691f00547e1364f6fb3a608d",
+      "size": 9099
+    },
+    {
+      "id": "Skills/backend-communication",
+      "name": "backend-communication",
+      "category": "Skills",
+      "description": "Client-backend communication using Supabase (direct read) and Cloudflare Workers (validated write) via GameNetworkManager. Use when a feature reads server data, upserts/deletes records, or claims rewards with server-side validation.",
+      "installPath": ".claude/skills/backend-communication",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/backend-communication/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backend-communication.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/backend-communication.zip",
+      "sha256": "af8c3b68fc5a0edcdabf4c2b3cfe4a0bf8e3c1ab688bea6c123198fc863bc927",
+      "size": 2893
+    },
+    {
+      "id": "Skills/base-notification",
+      "name": "base-notification",
+      "category": "Skills",
+      "description": "Guide for creating notification indicators (red dots) by inheriting RedDotBadge over the reusable BaseRedDot package.",
+      "installPath": ".claude/skills/base-notification",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/base-notification/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "base-notification.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/base-notification.zip",
+      "sha256": "22096947e2fb8b600af7c1153c790591539264acd5af0ad56aca335ed1dbe556",
+      "size": 2371
+    },
+    {
+      "id": "Skills/compile-check",
+      "name": "compile-check",
+      "category": "Skills",
+      "description": "Validate C# compilation of this Unity project via Unity MCP after editing .cs files. Picks the Unity instance, forces a recompile, waits for it to finish, reads compilation errors, and fixes them (max 2 rounds). Use when the user says \"compile check\", or after finishing an ad-hoc code task outside /run-backlog.",
+      "installPath": ".claude/skills/compile-check",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/compile-check/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "compile-check.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/compile-check.zip",
+      "sha256": "2278c3420fc5db0fee097964c2875bc57274638c95f55ae15f158e8ebd8a5e1d",
+      "size": 1488
+    },
+    {
+      "id": "Skills/core-systems",
+      "name": "core-systems",
+      "category": "Skills",
+      "description": "Detailed reference for core project systems like Utils, TimeManager, and UIManager.",
+      "installPath": ".claude/skills/core-systems",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/core-systems/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "core-systems.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/core-systems.zip",
+      "sha256": "aad437838f246849885471a36f3775908369006535d32e5ca76c00a0c383d591",
+      "size": 1944
+    },
+    {
+      "id": "Skills/create-ui",
+      "name": "create-ui",
+      "category": "Skills",
+      "description": "Build, extend, and refactor Unity UI with the shared template prefabs under `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates`. Use when Codex needs to create a new feature screen or popup that inherits from `FeatureBaseController`, create a prefab variant from `Popup_Template/screen_template`, or assemble reusable UI blocks such as tabs, lists, sliders, input fields, item or currency previews, resource headers, and text boxes through Unity MCP.",
+      "installPath": ".claude/skills/create-ui",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/create-ui/SKILL.md",
+        ".claude/skills/create-ui/agents/openai.yaml",
+        ".claude/skills/create-ui/references/mcp-playbook.md",
+        ".claude/skills/create-ui/references/prefab-templates.md"
+      ],
+      "fileCount": 4,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "create-ui.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-ui.zip",
+      "sha256": "c6444e85cc102b6ac7ba4b97d97df9b0bc8212ed6c1c1995fa824e4e694ba1b9",
+      "size": 21574
+    },
+    {
+      "id": "Skills/csv-config",
+      "name": "csv-config",
+      "category": "Skills",
+      "description": "Guide for configuring CSV files and mapping them to C# models",
+      "installPath": ".claude/skills/csv-config",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/csv-config/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "csv-config.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/csv-config.zip",
+      "sha256": "af614c3ad4f07cfbe2e5268be4f6b73b4ffa36949b2587ed5e2ba4b01688fe47",
+      "size": 2521
+    },
+    {
+      "id": "Skills/currency-preview",
+      "name": "currency-preview",
+      "category": "Skills",
+      "description": "Guide for using CurrencyPreviewController to display currency/resource UI elements",
+      "installPath": ".claude/skills/currency-preview",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/currency-preview/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "currency-preview.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/currency-preview.zip",
+      "sha256": "0b742baef3ee1953e4a6c3c9ffd54154cef69b4dfcc54dc79b761fbc7d943777",
+      "size": 1661
+    },
+    {
+      "id": "Skills/event-manager",
+      "name": "event-manager",
+      "category": "Skills",
+      "description": "Guide for using TigerForge EasyEventManager - the event system for loose coupling between components",
+      "installPath": ".claude/skills/event-manager",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/event-manager/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "event-manager.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/event-manager.zip",
+      "sha256": "dc9a5d63f897532b8d4aa06420949bc77b711460de2e8533a8ef6f67685686be",
+      "size": 1621
+    },
+    {
+      "id": "Skills/execute-backlog-tasks",
+      "name": "execute-backlog-tasks",
+      "category": "Skills",
+      "description": "Automatically execute backlog tasks by launching the run-backlog loop runner. On macOS/Linux it runs run-backlog-loop.sh (which spawns one Terminal window per task); on Windows it falls back to the PowerShell/.bat runner. Triggers on requests like \"execute backlog tasks\", \"run backlog loop\", \"execute tasks in backlog\", \"run backlog\".",
+      "installPath": ".claude/skills/execute-backlog-tasks",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/execute-backlog-tasks/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "execute-backlog-tasks.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip",
+      "sha256": "b21a32054a31f28ffe7f48a069fa8120b1bc2cdbc02cb8ce6d931bf90e48e182",
+      "size": 2226
+    },
+    {
+      "id": "Skills/feature-cheat",
+      "name": "feature-cheat",
+      "category": "Skills",
+      "description": "Add a dev cheat menu to a feature — Cheat_* methods on the controller/service plus buttons wired under a CheatMenu instantiated into the feature prefab. Use whenever building or extending a feature that has state a tester would otherwise have to grind for (timers, daily resets, currency, inventory, progression, unlock flags). Reference implementation shipped by this template - Features/System/GameCheat.",
+      "installPath": ".claude/skills/feature-cheat",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/feature-cheat/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "feature-cheat.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/feature-cheat.zip",
+      "sha256": "ad20b3830ea4cd26c9da7b5897a91b42323ff5dfd0abb3b952c0f43b908868e0",
+      "size": 4776
+    },
+    {
+      "id": "Skills/game-systems",
+      "name": "game-systems",
+      "category": "Skills",
+      "description": "Guide for using GameSystems module - utility functions for UI, messages, scene management, and common game operations.",
+      "installPath": ".claude/skills/game-systems",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/game-systems/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "game-systems.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-systems.zip",
+      "sha256": "eecb8c1d3ad7f601186698f49d056a0848ecdf201f29bd64b1cc194554fbfd07",
+      "size": 1889
+    },
+    {
+      "id": "Skills/item-preview",
+      "name": "item-preview",
+      "category": "Skills",
+      "description": "Guide for using ItemPreviewController module to display resource items in UI",
+      "installPath": ".claude/skills/item-preview",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/item-preview/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "item-preview.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/item-preview.zip",
+      "sha256": "8c28f628fe0f09679ddbcdf86f8ca409ece26d9c857fcd2bc9cccb2150d63602",
+      "size": 1667
+    },
+    {
+      "id": "Skills/package-module",
+      "name": "package-module",
+      "category": "Skills",
+      "description": "Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Authenticates to the monorepo over SSH; if SSH isn't set up on this machine, auto-invokes the /setup-package-push skill inline (one human step: gh auth login's browser approval) instead of stopping — falling back to a GitHub PAT only if that can't complete. Used when the user says \"đóng module X thành package UPM\" / \"package this module\" / \"đẩy module X lên registry\" / \"extract X to a UPM package\". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.",
+      "installPath": ".claude/skills/package-module",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/package-module/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "package-module.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/package-module.zip",
+      "sha256": "c053d310cb42f945f0951b52732b78118a287c79ac083aa9b44b2610bfbbdfe0",
+      "size": 16504
+    },
+    {
+      "id": "Skills/planning-system",
+      "name": "planning-system",
+      "category": "Skills",
+      "description": "Design-first pipeline cho HỆ THỐNG MỚI LỚN (GDD/design doc nhiều phần) — validate thiết kế qua các stage trong .claude/docs/design-pipeline/ (04-feature-analysis → 05-tech-spec → 06-implementation-mapping, kèm 03-gdd-final khi economy chưa validated), rồi batch-ground mapping thành N task trong backlog/planning/ theo dependency order (mockup UI được draft + auto-approve ngay trong batch). Được dispatch tự động bởi /planning-task STEP 0b khi phát hiện new-system; user cũng có thể gọi trực tiếp với một doc, hoặc resume bằng \"--from-mapping TechSpec/{Name}-Implementation.md\". KHÔNG touch BACKLOG.md, KHÔNG tạo todo, KHÔNG commit.",
+      "installPath": ".claude/skills/planning-system",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/planning-system/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "planning-system.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-system.zip",
+      "sha256": "63056952becc6888d002f07ef547cee1e2968101eb4cd39fe5242b051ee00eb5",
+      "size": 8704
+    },
+    {
+      "id": "Skills/planning-task",
+      "name": "planning-task",
+      "category": "Skills",
+      "description": "Capture a new task into backlog/planning/ with full triage + spec (DO NOT touch BACKLOG.md). Used when the user says \"planning task\" / \"plan task\" / \"create planning task\" / \"draft task\" / \"create task X\". Multiple agents can run in parallel — the filename uses a timestamp, so it is unique. To PICK a planning task into BACKLOG.md, use /add-to-backlog. When intent is unclear between the two skills, confirm with the user first.",
+      "installPath": ".claude/skills/planning-task",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/planning-task/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "planning-task.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-task.zip",
+      "sha256": "e369a0d5fbdb79379161db3ead9ab2029cd49189d209e2dcaea4fb314a3b8084",
+      "size": 13671
+    },
+    {
+      "id": "Skills/pooling-manager",
+      "name": "pooling-manager",
+      "category": "Skills",
+      "description": "Guide for using PoolingManager to efficiently spawn and recycle GameObjects using object pooling pattern",
+      "installPath": ".claude/skills/pooling-manager",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/pooling-manager/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "pooling-manager.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/pooling-manager.zip",
+      "sha256": "f9b4858cc7304cd70dcaf30bdc497464855445e5c9f6ccd1b194198a8749a985",
+      "size": 1837
+    },
+    {
+      "id": "Skills/purchase-manager",
+      "name": "purchase-manager",
+      "category": "Skills",
+      "description": "Guide for using PurchaseManager to handle in-game purchases with resources, currencies, ads, and IAP",
+      "installPath": ".claude/skills/purchase-manager",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/purchase-manager/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "purchase-manager.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/purchase-manager.zip",
+      "sha256": "1d266d1f466d6fcd2470edc63e1d008b822eb2f76ab2cba4498afa5477fdc25f",
+      "size": 2305
+    },
+    {
+      "id": "Skills/push",
+      "name": "push",
+      "category": "Skills",
+      "description": "Commit and push changes with AI-generated commit message",
+      "installPath": ".claude/skills/push",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/push/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "push.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip",
+      "sha256": "27827cfec44502bc7e195395f0aac1dd77d1837e6d96cf8426fbcb69e60f10a3",
+      "size": 1054
+    },
+    {
+      "id": "Skills/rewards-service",
+      "name": "rewards-service",
+      "category": "Skills",
+      "description": "Guide for using RewardsService module to handle reward processing, distribution, and analytics tracking.",
+      "installPath": ".claude/skills/rewards-service",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/rewards-service/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "rewards-service.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/rewards-service.zip",
+      "sha256": "8b7bbb6e20dd57af18986ec40c27e6dee1e1d1e96d8f64af5161fb2c7bde9ebf",
+      "size": 2064
+    },
+    {
+      "id": "Skills/run-backlog",
+      "name": "run-backlog",
+      "category": "Skills",
+      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
+      "installPath": ".claude/skills/run-backlog",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/run-backlog/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
+      "sha256": "ac839be952eba5ecebfa97b2b38d7c9e257dfc25b5fdf558b30521b4d5b2fa8e",
+      "size": 26113
+    },
+    {
+      "id": "Skills/setup-package-push",
+      "name": "setup-package-push",
+      "category": "Skills",
+      "description": "One-time, per-machine setup that lets /package-module push to the ezg-packages monorepo over SSH instead of a GitHub PAT. Checks/installs the GitHub CLI (gh), runs its one-time browser login (gh auth login --git-protocol ssh --web), generates an SSH key if the machine doesn't have one, registers it on the user's GitHub account (gh ssh-key add), and verifies both SSH auth to github.com and Write access to PackageStore/ezg-packages. Idempotent — safe to re-run, exits early if everything already works. Used when the user says \"setup package push\", \"cài SSH cho package-module\", \"tôi chưa có SSH\", \"cấp quyền deploy package không cần PAT\". Requires the user already has (or an admin has granted) GitHub Write access to PackageStore/ezg-packages — this skill cannot grant that, only prove/verify it.",
+      "installPath": ".claude/skills/setup-package-push",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/setup-package-push/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "setup-package-push.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-package-push.zip",
+      "sha256": "ea27ea022b63137a08b00bee455d46ed96cadd8a141a8f332a53469b7a0e5442",
+      "size": 3793
+    },
+    {
+      "id": "Skills/time-manager",
+      "name": "time-manager",
+      "category": "Skills",
+      "description": "Guide for using TimeManager module for time operations, period checks, and online time synchronization.",
+      "installPath": ".claude/skills/time-manager",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/time-manager/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "time-manager.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/time-manager.zip",
+      "sha256": "2fdf48e51f7046f187ff272c9ae5c86e19851b080369767498b2b49c2ac6160c",
+      "size": 1819
+    },
+    {
+      "id": "Skills/ui-cooldown-time-view",
+      "name": "ui-cooldown-time-view",
+      "category": "Skills",
+      "description": "Display countdown timers (cooldowns) on the UI via UI_CooldownTimeView. Use for event end-times, IAP pack timers, or fixed daily/weekly/monthly rollovers shown on a UI Text.",
+      "installPath": ".claude/skills/ui-cooldown-time-view",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/ui-cooldown-time-view/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-cooldown-time-view.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-cooldown-time-view.zip",
+      "sha256": "3213f86cb4a8cb8c63ae1d5e662b607f7f5e14aa9ec64c9e4e85064cb105e28c",
+      "size": 1591
+    },
+    {
+      "id": "Skills/ui-kit",
+      "name": "ui-kit",
+      "category": "Skills",
+      "description": "Own the UI-kit contract that every mockup and /new-ui build reads — regenerate it from the screen template prefabs (ui-kit-sync.py), check whether it is stale (--check), and record composition rules a prefab cannot express in ui-kit-usage.json. Use when a template prefab under uiTemplatesRoot is added/renamed/edited, when the ui-spec validator reports kit_stale or unknown_template, when a review catches a mockup composing templates wrongly, or when the user says \"sync ui kit\" / \"update ui kit\" / \"kit stale\".",
+      "installPath": ".claude/skills/ui-kit",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/ui-kit/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-kit.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-kit.zip",
+      "sha256": "0961bbed7b73b8cd71d42d79aa4bdb8dcd82b858714987302d24fb01c74760dd",
+      "size": 2775
+    },
+    {
+      "id": "Skills/ui-manager",
+      "name": "ui-manager",
+      "category": "Skills",
+      "description": "UI system management - show/hide/layer control via UIManager. Use when opening/closing feature screens or popups, controlling UI layers/containers, queueing UI sequences, or locking touch input. Never use gameObject.SetActive on feature UI.",
+      "installPath": ".claude/skills/ui-manager",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/ui-manager/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-manager.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-manager.zip",
+      "sha256": "b78dbd9763d04e5e0f5b6e691c2231f1443804084ce945ab2581d20e3a828257",
+      "size": 1745
+    },
+    {
+      "id": "Templates/_GUARDRAILS",
+      "name": "_GUARDRAILS",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_GUARDRAILS.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_GUARDRAILS.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_GUARDRAILS.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_GUARDRAILS.zip",
+      "sha256": "fdde9253a291c81551a53142acba484102c13cd75639514bae29c7eab2263967",
+      "size": 3580
+    },
+    {
+      "id": "Templates/_REVALIDATION-PLAYBOOK",
+      "name": "_REVALIDATION-PLAYBOOK",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_REVALIDATION-PLAYBOOK.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_REVALIDATION-PLAYBOOK.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_REVALIDATION-PLAYBOOK.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_REVALIDATION-PLAYBOOK.zip",
+      "sha256": "e1c253842897d00ce3b187320663db433ee730110bafbe4c306efb9b2845750c",
+      "size": 3459
+    },
+    {
+      "id": "Templates/_TEMPLATE",
+      "name": "_TEMPLATE",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE.zip",
+      "sha256": "4029312d8a6fab4b07dd42779da1b81185d50623616643ec1ace9dc0adbdd597",
+      "size": 1680
+    },
+    {
+      "id": "Templates/_TEMPLATE_L",
+      "name": "_TEMPLATE_L",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE_L.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE_L.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE_L.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_L.zip",
+      "sha256": "df551fe5d70070b3d31f7c7cdb08cc07fe39204b6b1abc22dbebc3cb0f4cb0a7",
+      "size": 3149
+    },
+    {
+      "id": "Templates/_TEMPLATE_M",
+      "name": "_TEMPLATE_M",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE_M.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE_M.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE_M.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_M.zip",
+      "sha256": "d558cfdca2ac5347ca63639dffcac19a8a7b248b24f5eeb61d44c895a754f6cc",
+      "size": 2766
+    },
+    {
+      "id": "Templates/_TEMPLATE_S",
+      "name": "_TEMPLATE_S",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE_S.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE_S.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE_S.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_S.zip",
+      "sha256": "f37ee675b2e1cbccdcfdabb155b067757bba3d91340c4dd43d4864569f8f74be",
+      "size": 1220
+    },
+    {
+      "id": "Templates/_TEMPLATE_WF",
+      "name": "_TEMPLATE_WF",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE_WF.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE_WF.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE_WF.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_WF.zip",
+      "sha256": "ed06707dc2ce82ccde71a1db7f2f253341ea02c24f9abf725736ab62823dcfc9",
+      "size": 3021
+    },
+    {
+      "id": "Templates/_TEMPLATE_XS",
+      "name": "_TEMPLATE_XS",
+      "category": "Templates",
+      "description": "",
+      "installPath": ".claude/backlog-templates/_TEMPLATE_XS.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/backlog-templates/_TEMPLATE_XS.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "_TEMPLATE_XS.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_XS.zip",
+      "sha256": "a9d614600c423e13dafb7110759243c790d11fa91f49af7da5d570629d1ffde2",
+      "size": 745
+    },
+    {
+      "id": "UiKit/kit-preview.template.html",
+      "name": "kit-preview.template.html",
+      "category": "UiKit",
+      "description": "",
+      "installPath": ".claude/ui-kit/kit-preview.template.html",
+      "isDirectory": false,
+      "files": [
+        ".claude/ui-kit/kit-preview.template.html"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "kit-preview.template.html.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/kit-preview.template.html.zip",
+      "sha256": "05edcd5120ff88444898934f3b83084b51a204bf807d1e38cf85b21b4efc418f",
+      "size": 8040
+    },
+    {
+      "id": "UiKit/ui-kit-usage.json",
+      "name": "ui-kit-usage.json",
+      "category": "UiKit",
+      "description": "",
+      "installPath": ".claude/ui-kit/ui-kit-usage.json",
+      "isDirectory": false,
+      "files": [
+        ".claude/ui-kit/ui-kit-usage.json"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-kit-usage.json.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-kit-usage.json.zip",
+      "sha256": "f32a56afbd0f20a54c6cd2e02297c61ed776798566de17579295c2ee4d7399be",
+      "size": 1160
+    },
+    {
+      "id": "UiKit/ui-review-dashboard.template.html",
+      "name": "ui-review-dashboard.template.html",
+      "category": "UiKit",
+      "description": "",
+      "installPath": ".claude/ui-kit/ui-review-dashboard.template.html",
+      "isDirectory": false,
+      "files": [
+        ".claude/ui-kit/ui-review-dashboard.template.html"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-review-dashboard.template.html.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-review-dashboard.template.html.zip",
+      "sha256": "c3daf2d2618f644cb323ecd9f03b152ba2e82e73f0c3698d1b03391a0d669b8a",
+      "size": 13398
+    }
+  ]
+}
