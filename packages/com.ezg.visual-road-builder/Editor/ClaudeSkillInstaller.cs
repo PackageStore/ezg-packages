@@ -12,7 +12,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
     /// <see cref="UnityEditor.PackageManager.PackageInfo.resolvedPath"/>, không qua AssetDatabase.</summary>
     internal static class ClaudeSkillInstaller
     {
-        private const string MenuPath = "Tools/EZG Technical Art/Install Claude Skill";
+        private const string MenuPath = "Tools/EZG Technical Art/Visual Road Builder/Install Claude Skill";
         private const string SourceFolder = "ClaudeSkill~";
         private const string SkillName = "VisualRoadBuilder";
 

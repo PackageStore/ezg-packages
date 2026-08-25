@@ -5,6 +5,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-25
+
+### Changed
+- Menu reorganised into a `Visual Road Builder` submenu under `Tools > EZG Technical Art`. The
+  editor window is now **Tools > EZG Technical Art > Visual Road Builder > Editor**, and the skill
+  installer is **Tools > EZG Technical Art > Visual Road Builder > Install Claude Skill**. Unity
+  cannot treat one path as both a command and a submenu, so the two previous flat paths no longer
+  resolve — update any bookmark, shortcut binding or doc that referenced them.
+- README, package description and the shipped skill doc updated to quote the new paths.
+
 ## [0.2.0] - 2026-08-25
 
 ### Added

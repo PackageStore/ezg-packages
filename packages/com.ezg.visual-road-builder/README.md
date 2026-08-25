@@ -34,7 +34,7 @@ Or install via the Package Manager window: **Add package by name** →
 
 ## First-Run Setup
 
-Open the tool: **Tools > EZG Technical Art > Visual Road Builder**.
+Open the tool: **Tools > EZG Technical Art > Visual Road Builder > Editor**.
 
 Complete these assignments in order inside the **Target** foldout:
 
@@ -256,7 +256,7 @@ solver guide plus the offline repro scripts (`canvas_decode.py`,
 `prefab_tiles.py`, `diff_tiles.py`, `solver_dump.cs`) used to diagnose a wrong
 junction without re-baking a level.
 
-Install it with **Tools > EZG Technical Art > Install Claude Skill**. The menu
+Install it with **Tools > EZG Technical Art > Visual Road Builder > Install Claude Skill**. The menu
 item copies `ClaudeSkill~/VisualRoadBuilder/` out of the installed package
 into `<projectRoot>/.claude/skills/VisualRoadBuilder/`, then reveals the
 folder. Start a new Claude Code session and `/VisualRoadBuilder` is available.

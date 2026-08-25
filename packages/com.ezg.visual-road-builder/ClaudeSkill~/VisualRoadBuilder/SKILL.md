@@ -6,7 +6,7 @@ description: Deep guide + repro tooling for VisualRoadBuilderTool, the Editor wi
 # VisualRoadBuilder — the visual road painter for sm6 levels
 
 `VisualRoadBuilderTool` (`Packages/com.ezg.visual-road-builder/Editor/`,
-menu `Tools/EZG Technical Art/Visual Road Builder`) is an `EditorWindow` that paints a road network on a
+menu `Tools/EZG Technical Art/Visual Road Builder/Editor`) is an `EditorWindow` that paints a road network on a
 half-cell grid, then bakes **modular tile prefabs** into `level_N.prefab → RoadParent`.
 
 **Assembly:** `EZG.TechnicalArt.VisualRoadBuilder.Editor` (defined by the `.asmdef` in the tool folder).
@@ -23,7 +23,7 @@ This tool only authors **visual geometry**. It never touches routing.
 > map names. In another project, read those as *examples*: find the real folders from the tool's own
 > Save Folder and Level Prefab fields, then keep every rule below unchanged. The helper scripts take
 > paths as arguments, so nothing else needs editing. This skill ships with
-> `com.ezg.visual-road-builder` and is installed by `Tools ▸ EZG Technical Art ▸ Install Claude Skill`.
+> `com.ezg.visual-road-builder` and is installed by `Tools ▸ EZG Technical Art ▸ Visual Road Builder ▸ Install Claude Skill`.
 
 ---
 
@@ -370,7 +370,9 @@ guard that means, per edge, `raw[mi] != 0 && (raw[mi] & axis) != axis` (level_3 
 - **`unity_screenshot_editor_window` is Windows-only.** On macOS you cannot screenshot the canvas;
   rely on the shared-solver invariant (§3) instead of asking the user for a screenshot.
 - **New `.cs` files need a matching `.meta`** with a fresh GUID, following the sibling files.
-- Menu path is `Tools/EZG Technical Art/Visual Road Builder` — *not* under `Tools/sm006/`.
+- Menu path is `Tools/EZG Technical Art/Visual Road Builder/Editor` — *not* under `Tools/sm006/`.
+  `Install Claude Skill` sits beside it in the same submenu. Both moved in 0.2.1; a path that used to
+  be a leaf command cannot also be a submenu, so the old flat paths no longer resolve.
 - **Backward compatibility: station-2 blocks are silently lost on 0.1.x.** A canvas saved with
   `Stations2` entries and opened by a tool version that predates the field (0.1.x) silently discards
   them — Unity's YAML deserializer drops unknown keys with no warning. The data is gone after the next

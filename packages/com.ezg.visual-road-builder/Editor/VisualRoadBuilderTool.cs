@@ -20,7 +20,7 @@ namespace EZG.TechnicalArt.VisualRoadBuilder
     /// </summary>
     public sealed partial class VisualRoadBuilderTool : EditorWindow
     {
-        private const string MenuPath = "Tools/EZG Technical Art/Visual Road Builder";
+        private const string MenuPath = "Tools/EZG Technical Art/Visual Road Builder/Editor";
 
         [SerializeField] private RoadPartLibrary _library;
         [SerializeField] private RoadCanvasDoc _doc = new();
