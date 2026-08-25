@@ -2243,7 +2243,7 @@
       "id": "Skills/publish-ai-features",
       "name": "publish-ai-features",
       "category": "Skills",
-      "description": "Đóng gói từng tài sản AI của Claude (skill, command, agent, rule, docs, script, MCP config...) thành .zip rồi deploy lên Cloudflare R2 cho tab \"AI Feature\" của EZG Feature Hub. Dùng khi user nói \"publish AI skill\", \"đẩy skill/command lên server\", \"cập nhật AI feature\", \"deploy AI features\", \"update skill AI lên server\", hoặc sau khi sửa/thêm file trong .claude/ của DefaultSetup và muốn project đang chạy nhận được.",
+      "description": "Đưa một tài sản AI của Claude (skill, command, agent, rule, docs, script, MCP config...) lên server dùng chung — copy vào monorepo ezg-packages rồi commit + push main, GitHub Actions (publish-ai.yml) tự publish lên Cloudflare R2 cho tab \"AI Feature\" của EZG Feature Hub và cho defaultsetup.tgz. Chỉ cần quyền push vào PackageStore/ezg-packages, KHÔNG cần R2 credentials; nếu máy chưa có SSH thì tự gọi skill setup-package-push inline. Dùng khi user nói \"đẩy skill X lên server\", \"publish AI skill\", \"cập nhật AI feature\", \"deploy AI features\", \"chia sẻ command này cho các project khác\", hoặc sau khi sửa file trong .claude/ của DefaultSetup.",
       "installPath": ".claude/skills/publish-ai-features",
       "isDirectory": true,
       "files": [
@@ -2254,8 +2254,8 @@
       "source": "extra",
       "fileName": "publish-ai-features.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip",
-      "sha256": "910e76ca0ec04dedd6866b1a7f696da5432ff81cc43dda7e18cd40b6ed27f3e5",
-      "size": 3323
+      "sha256": "c0f4afc80ec603dd61829d651b42b5d89d3bed389415161c49d1a87f8d86d601",
+      "size": 5046
     },
     {
       "id": "Skills/purchase-manager",
