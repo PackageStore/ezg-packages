@@ -5,7 +5,7 @@
     {
       "id": "M001",
       "name": "M001",
-      "catalogUrl": "https://upm-registry-worker.developer-a1f.workers.dev/template/unity-template/features/M001/catalog.json",
+      "catalogUrl": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/M001/catalog.json",
       "featureCount": 47,
       "categories": [
         "Events",

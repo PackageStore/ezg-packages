@@ -65,12 +65,15 @@ const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest(
 
 /** Public URL for an R2 key (path-encoded, spaces & friends escaped per segment). */
 function publicUrl(key) {
+  // PUBLIC_ROOT already points at the bucket's "unity-template/" prefix — either literally
+  // (r2.dev: .../unity-template) or via the worker route (.../template). So drop that prefix
+  // from the key instead of from the root, or the path ends up doubled and 404s.
   const encoded = key
+    .replace(/^unity-template\//, "")
     .split("/")
     .map((seg) => encodeURIComponent(seg))
     .join("/");
-  // key already starts with "unity-template/..."; PUBLIC_ROOT ends with "/unity-template"
-  return `${PUBLIC_ROOT.replace(/\/unity-template$/, "")}/${encoded}`;
+  return `${PUBLIC_ROOT.replace(/\/+$/, "")}/${encoded}`;
 }
 
 /**
