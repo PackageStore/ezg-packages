@@ -10,6 +10,8 @@
  * Sources (an item found in BOTH is taken from AIFeatures/ — that folder is the override):
  *   1. templates/unity-project/DefaultSetup/  — the shipped baseline, mapped by KIND_MAP below
  *   2. templates/AIFeatures/<Category>/<item> — extra items that are NOT part of DefaultSetup
+ *   3. ai-manifest.json `sources`                — anything else in the repo, published in place
+ *                                                  (no copy to drift out of sync)
  *
  * For every item it:
  *   1. Collects the item's files (a directory item = the whole folder; a file item = one file).
@@ -42,7 +44,7 @@
 import { createHash } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
-import { basename, extname, join, relative, sep } from "node:path";
+import { basename, dirname, extname, join, relative, sep } from "node:path";
 import {
   REPO_ROOT,
   makeClient,
@@ -355,6 +357,30 @@ function scanDefaultSetup() {
 }
 
 /**
+ * Build an item whose files live somewhere else on disk than where they must land in a project.
+ * `parentAbs/entryName` is the source; the zip entries are rewritten to the install path so the
+ * archive stays self-describing (installer just writes entries under the project root).
+ */
+function makeStagedItem({ parentAbs, entryName, categoryId, name }) {
+  const targetDir = categoryTargetDir(categoryId);
+  const installPath = toPosix(targetDir === "." ? entryName : `${targetDir}/${entryName}`);
+  const item = makeItem({
+    rootAbs: parentAbs,
+    categoryId,
+    installPath: entryName,
+    name,
+    source: "extra",
+  });
+  if (!item) return null;
+
+  item.files = item.files.map((f) =>
+    f === entryName ? installPath : `${installPath}/${f.slice(entryName.length + 1)}`);
+  item.installPath = installPath;
+  item._stagingPrefix = entryName;
+  return item;
+}
+
+/**
  * Scan templates/AIFeatures/<Category>/<item>. These are items that do NOT ship with
  * DefaultSetup (or deliberately override one). The install path is derived from the category.
  */
@@ -364,43 +390,57 @@ function scanExtra() {
 
   for (const catDir of readdirSync(EXTRA_DIR, { withFileTypes: true })) {
     if (!catDir.isDirectory() || isJunk(catDir.name)) continue;
-    const categoryId = catDir.name;
-    const targetDir = categoryTargetDir(categoryId);
-    const catAbs = join(EXTRA_DIR, categoryId);
+    const catAbs = join(EXTRA_DIR, catDir.name);
 
     for (const entry of readdirSync(catAbs, { withFileTypes: true })) {
       if (isJunk(entry.name)) continue;
-      const isDirectory = entry.isDirectory();
-      const installPath = targetDir === "." ? entry.name : `${targetDir}/${entry.name}`;
-      // The staging layout is AIFeatures/<Category>/<item>, but the item must land at
-      // installPath in a project — so the zip entries are rewritten to installPath below.
-      const item = makeItem({
-        rootAbs: catAbs,
-        categoryId,
-        installPath: entry.name,
-        name: itemName(entry.name, isDirectory),
-        source: "extra",
+      const item = makeStagedItem({
+        parentAbs: catAbs,
+        entryName: entry.name,
+        categoryId: catDir.name,
+        name: itemName(entry.name, entry.isDirectory()),
       });
-      if (!item) continue;
-
-      const prefix = toPosix(installPath);
-      item.files = item.files.map((f) =>
-        f === entry.name ? prefix : `${prefix}/${f.slice(entry.name.length + 1)}`);
-      item.installPath = prefix;
-      item._stagingPrefix = entry.name;
-      items.push(item);
+      if (item) items.push(item);
     }
   }
   return items;
 }
 
-/** Optional curation file: { exclude: ["Cat/name"], overrides: { "Cat/name": {...} } }. */
+/**
+ * Publish something that already lives elsewhere in the repo, WITHOUT copying it into
+ * AIFeatures/ — a second copy would drift the first time someone edits one of them.
+ * manifest.sources maps "<Category>/<name>" to a repo-relative path.
+ */
+function scanManifestSources(sources) {
+  const items = [];
+  for (const [id, relPath] of Object.entries(sources)) {
+    const slash = id.indexOf("/");
+    if (slash <= 0) throw new Error(`sources: id phải là "<Category>/<name>", nhận: ${id}`);
+    const abs = join(REPO_ROOT, relPath);
+    if (!existsSync(abs)) throw new Error(`sources["${id}"]: không tìm thấy ${relPath}`);
+
+    const item = makeStagedItem({
+      parentAbs: dirname(abs),
+      entryName: basename(abs),
+      categoryId: id.slice(0, slash),
+      name: id.slice(slash + 1),
+    });
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+/** Optional curation file: { exclude, overrides, sources } — see templates/AIFeatures/README.md. */
 function loadManifest() {
   const path = join(EXTRA_DIR, "ai-manifest.json");
-  if (!existsSync(path)) return { exclude: [], overrides: {} };
+  if (!existsSync(path)) return { exclude: [], overrides: {}, sources: {} };
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
-    return { exclude: parsed.exclude || [], overrides: parsed.overrides || {} };
+    return {
+      exclude: parsed.exclude || [],
+      overrides: parsed.overrides || {},
+      sources: parsed.sources || {},
+    };
   } catch (err) {
     throw new Error(`ai-manifest.json không parse được: ${err.message}`);
   }
@@ -424,6 +464,7 @@ async function main() {
   const byId = new Map();
   for (const item of scanDefaultSetup()) byId.set(item.id, item);
   for (const item of scanExtra()) byId.set(item.id, item);
+  for (const item of scanManifestSources(manifest.sources)) byId.set(item.id, item);
 
   const items = [...byId.values()]
     .filter((item) => !manifest.exclude.some((rule) => matchesRule(rule, item.id)))

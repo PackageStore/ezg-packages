@@ -1,7 +1,10 @@
 {
   "schemaVersion": 1,
-  "description": "Curation cho AI catalog: bỏ bớt item và ghi đè metadata. Xem README.md cạnh file này.",
+  "description": "Curation cho AI catalog: publish thêm nguồn ngoài, bỏ bớt item, ghi đè metadata. Xem README.md cạnh file này.",
   "exclude": [],
+  "sources": {
+    "Skills/publish-ai-features": ".agents/skills/publish-ai-features"
+  },
   "overrides": {
     "Config/CLAUDE.md": {
       "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới."

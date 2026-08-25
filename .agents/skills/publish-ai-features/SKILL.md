@@ -15,8 +15,13 @@ trong Feature Hub cài lẻ vào project đang chạy.
 > Sửa file trong `DefaultSetup/.claude/` thường cần **cả hai**: `publish-ai-features` cho project cũ,
 > `publish-defaultsetup` cho project mới sinh sau này.
 
-Đây là skill cấp repo cho maintainer của `ezg-packages` — KHÔNG nằm trong `DefaultSetup/`, không deploy
-cho game project.
+Đây là skill cấp repo cho maintainer của `ezg-packages` — KHÔNG nằm trong `DefaultSetup/`, nên project
+game sinh mới không tự có nó.
+
+> Skill này **có mặt trong tab AI Feature** (khai báo qua `sources` trong `ai-manifest.json`, publish
+> thẳng từ `.agents/skills/` nên chỉ có một bản gốc duy nhất). Cài về đâu cũng được, nhưng muốn CHẠY
+> thì phải đứng trong một bản clone của repo `ezg-packages`: nó gọi `scripts/upload-unity-template-ai.mjs`
+> và cần R2 credentials trong `scripts/.env`. Cài vào project game chỉ để đọc/tham chiếu.
 
 ---
 
@@ -38,10 +43,11 @@ cho game project.
 |---|---|
 | Nằm trong bộ mặc định (đa số skill/command/agent hiện có) | `templates/unity-project/DefaultSetup/.claude/…` — script tự quét |
 | Ngoài bộ mặc định, hoặc cố ý override 1 item | `templates/AIFeatures/<Category>/<item>` |
+| Đã nằm sẵn chỗ khác trong repo (vd `.agents/skills/…`) | khai `sources` trong `ai-manifest.json`, publish tại chỗ — **không copy**, vì bản copy sẽ lệch ngay lần đầu có người sửa một trong hai |
 
 Category hợp lệ + đích cài tương ứng: xem bảng trong
 [templates/AIFeatures/README.md](../../../templates/AIFeatures/README.md).
-Trùng `<Category>/<name>` ở cả hai nơi → bản trong `AIFeatures/` thắng.
+Trùng `<Category>/<name>` → bản sau thắng theo thứ tự DefaultSetup → AIFeatures → `sources`.
 
 Muốn bỏ item khỏi catalog hoặc sửa mô tả/`installedByDefault`: sửa
 `templates/AIFeatures/ai-manifest.json` (`exclude`, `overrides`).
