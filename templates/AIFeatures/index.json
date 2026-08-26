@@ -48,7 +48,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 28
+      "count": 29
     },
     {
       "id": "Templates",
@@ -2238,6 +2238,30 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/pooling-manager.zip",
       "sha256": "f9b4858cc7304cd70dcaf30bdc497464855445e5c9f6ccd1b194198a8749a985",
       "size": 1837
+    },
+    {
+      "id": "Skills/psd-to-feature",
+      "name": "psd-to-feature",
+      "category": "Skills",
+      "description": "Dựng màn hình/scene Unity từ file PSD mockup của hoạ sĩ — xuất từng layer ra PNG + manifest toạ độ, set import settings, rồi viết Editor importer dựng lại prefab/scene đúng bố cục PSD và wire vào controller. Dùng khi được giao \"ghép PSD vào màn\", \"import PSD\", \"áp art mockup vào feature\", hoặc khi hoạ sĩ gửi bản PSD mới cần chạy lại.",
+      "installPath": ".claude/skills/psd-to-feature",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/psd-to-feature/SKILL.md",
+        ".claude/skills/psd-to-feature/reference/PsdLayout.cs",
+        ".claude/skills/psd-to-feature/reference/example_map.json",
+        ".claude/skills/psd-to-feature/reference/example_sprite_meta.json",
+        ".claude/skills/psd-to-feature/scripts/apply_sprite_meta.py",
+        ".claude/skills/psd-to-feature/scripts/export_overlay_frames.py",
+        ".claude/skills/psd-to-feature/scripts/psd_export.py"
+      ],
+      "fileCount": 7,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "psd-to-feature.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-feature.zip",
+      "sha256": "9049ef3a7ac310c87357c2bd9276166f70b41464d691df422b9a19a17d9b5629",
+      "size": 31243
     },
     {
       "id": "Skills/publish-ai-features",
