@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.1] - 2026-08-26
+### Changed
+- Overlay mặc định mở ở trạng thái **thu gọn** (`StatsOverlayConfig.StartCollapsed = true`) — chỉ còn
+  dòng header FPS, tap header để mở rộng. Trước đây mặc định mở rộng full bảng ngay khi app khởi động.
+
 ## [0.1.0] - 2026-08-03
 ### Added
 - Initial release extracted from sm006 `Assets/_Project/Core/Modules/StatsOverlay`.

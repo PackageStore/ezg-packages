@@ -64,7 +64,7 @@ StatsOverlay.IsVisible / IsCollapsed / IsInstalled
 ```
 
 `StatsOverlayConfig`: `RefreshInterval` (0.5s), `FontSize`, `Corner`, `Margin`, `BackgroundColor`,
-`TextColor`, `HeaderColor`, `ShowGraphics`, `ShowMemory`, `Draggable`, `StartCollapsed`, `SortingOrder`
+`TextColor`, `HeaderColor`, `ShowGraphics`, `ShowMemory`, `Draggable`, `StartCollapsed` (true), `SortingOrder`
 (32760), `ReferenceResolution` (1080×1920), `RespectSafeArea`.
 
 ## Giới hạn theo loại build (quan trọng)

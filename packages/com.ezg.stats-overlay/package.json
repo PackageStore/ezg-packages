@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.stats-overlay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "EZG Stats Overlay",
   "description": "Runtime stats overlay that always draws on top of the app — FPS, CPU main/render thread, GPU, batches, saved-by-batching, SetPass calls, draw calls, tris/verts, shadow casters, screen resolution and memory — the on-device equivalent of the Unity Editor Statistics window. Visibility is gated by a delegate the host game supplies, so it can be wired to a cheat or debug flag and stays invisible to players.",
   "unity": "2022.3",

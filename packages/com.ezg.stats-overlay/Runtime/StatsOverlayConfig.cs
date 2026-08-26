@@ -42,8 +42,8 @@ namespace EZG.StatsOverlay
         /// <summary>Cho phép kéo thả panel bằng chạm/chuột. Tap (không kéo) = thu gọn/mở rộng.</summary>
         public bool Draggable = true;
 
-        /// <summary>Mở app ở trạng thái thu gọn (chỉ còn dòng header FPS).</summary>
-        public bool StartCollapsed = false;
+        /// <summary>Mở app ở trạng thái thu gọn (chỉ còn dòng header FPS). Mặc định bật — tap header để mở rộng.</summary>
+        public bool StartCollapsed = true;
 
         /// <summary>Sorting order của canvas overlay — để rất cao cho nằm trên mọi UI game.</summary>
         public int SortingOrder = 32760;
