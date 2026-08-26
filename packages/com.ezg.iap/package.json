@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.iap",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "displayName": "EZG In-App Purchase",
   "description": "Standalone in-app purchase module wrapping Unity IAP with AppsFlyer Purchase Connector (ROI360) revenue reporting. Recovers pending and deferred orders on resume and guards against double-granting a re-delivered order through a persistent order ledger. All game-specific concerns (shop, player data, analytics, secrets) are pushed behind interfaces (IPurchasing, IIapProfile, IIapReporter, IIapOrderLedger) and an injected IapSecurityConfig, so the module references no game code and is reusable across projects. Ships an editor menu that generates the integration template for a new project.",
   "unity": "2022.3",

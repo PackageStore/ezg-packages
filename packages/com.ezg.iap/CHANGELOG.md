@@ -1,6 +1,8 @@
 # Changelog
 
-## [0.3.1] - 2026-08-26
+## [0.3.2] - 2026-08-26
+
+> 0.3.1 was published with a compile error on device (`MiniJson` is not visible outside Unity Purchasing) — use 0.3.2.
 
 ### Fixed
 - **iOS never granted rewards with Unity Purchasing 5 / StoreKit 2.** `CrossPlatformValidator.Validate` intentionally returns an empty array for Apple on StoreKit 2 (the native layer already verifies the transaction JWS), but `ValidatePurchase` required at least one receipt with a transaction id, so every iOS order was treated as forged: `ConfirmPurchase` ran (Apple charged the user) and no reward was granted. The StoreKit 2 path now validates the order through `IAppleOrderInfo` (transaction id, `jwsRepresentation` present, JWS payload `productId`/`bundleId` match, not revoked).

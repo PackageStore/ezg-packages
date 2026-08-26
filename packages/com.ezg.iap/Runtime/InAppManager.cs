@@ -698,29 +698,27 @@ namespace Ezg.Feature.IAP
                 }
 
                 var payloadJson = System.Text.Encoding.UTF8.GetString(DecodeBase64Url(parts[1]));
-                var payload = (Dictionary<string, object>)MiniJson.JsonDecode(payloadJson);
+                // JsonUtility thay MiniJson (MiniJson của Unity Purchasing không public ra ngoài assembly).
+                var payload = JsonUtility.FromJson<AppleJwsPayload>(payloadJson);
                 if (payload == null)
                 {
                     Debug.LogError("[IAP] JWS payload không parse được → từ chối.");
                     return false;
                 }
 
-                var jwsProductId = payload.ContainsKey("productId") ? payload["productId"] as string : null;
-                var jwsBundleId = payload.ContainsKey("bundleId") ? payload["bundleId"] as string : null;
-
-                if (jwsProductId != expectedProductId)
+                if (payload.productId != expectedProductId)
                 {
-                    Debug.LogError("[IAP] JWS productId '" + jwsProductId + "' ≠ product đang mua '" + expectedProductId + "' → từ chối.");
+                    Debug.LogError("[IAP] JWS productId '" + payload.productId + "' ≠ product đang mua '" + expectedProductId + "' → từ chối.");
                     return false;
                 }
 
-                if (!string.IsNullOrEmpty(jwsBundleId) && jwsBundleId != Application.identifier)
+                if (!string.IsNullOrEmpty(payload.bundleId) && payload.bundleId != Application.identifier)
                 {
-                    Debug.LogError("[IAP] JWS bundleId '" + jwsBundleId + "' ≠ app '" + Application.identifier + "' → từ chối.");
+                    Debug.LogError("[IAP] JWS bundleId '" + payload.bundleId + "' ≠ app '" + Application.identifier + "' → từ chối.");
                     return false;
                 }
 
-                if (payload.ContainsKey("revocationDate"))
+                if (payload.revocationDate > 0)
                 {
                     Debug.LogError("[IAP] Transaction đã bị revoke → từ chối.");
                     return false;
@@ -733,6 +731,15 @@ namespace Ezg.Feature.IAP
             }
 
             return true;
+        }
+
+        /// <summary>Các field cần đối chiếu trong payload JWS của StoreKit 2 (JWSTransactionDecodedPayload).</summary>
+        [Serializable]
+        private class AppleJwsPayload
+        {
+            public string productId;
+            public string bundleId;
+            public long revocationDate; // ms epoch; 0 = chưa revoke
         }
 
         private static byte[] DecodeBase64Url(string input)
