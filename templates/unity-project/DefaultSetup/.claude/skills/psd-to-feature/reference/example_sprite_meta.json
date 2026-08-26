@@ -1,0 +1,22 @@
+{
+  "_": "prop.ppu = bề ngang PSD (1112px) / bề ngang khung hình camera (8.0 unit) = 139. ui để 100 vì RectTransform tính theo pixel. border chỉ đặt cho sprite bị kéo giãn.",
+
+  "groups": {
+    "ui":   { "ppu": 100 },
+    "prop": { "ppu": 139 }
+  },
+
+  "borders": {
+    "ui/card_upgrade_bg":  [40, 40, 40, 40],
+    "ui/bar_frame":        [60, 40, 60, 40],
+    "ui/bar_track":        [50, 10, 50, 10],
+    "ui/bar_fill":         [28, 16, 28, 16],
+    "ui/pill_currency":    [32, 20, 32, 20],
+    "ui/nav_tab_selected": [30, 30, 30, 30],
+    "ui/nav_tab_normal":   [20, 20, 20, 20]
+  },
+
+  "pivots": {
+    "prop/mannequin": [0.5, 0]
+  }
+}

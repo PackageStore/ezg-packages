@@ -1,0 +1,28 @@
+{
+  "_": "Trích từ shop_map thật (Shop.psd -> Storefront). Phần tử thứ 3 là ghi chú — tên layer trong PSD lộn xộn nên không có nó thì sáu tháng sau không ai đoán ra 'Layer 219 copy' là gì.",
+
+  "manifest": "shop_layout.json",
+
+  "layers": {
+    "re_white coin":  ["ui", "pill_currency",    "nền pill trắng của ô tiền"],
+    "icon_gold":      ["ui", "icon_coin",        ""],
+    "icon +":         ["ui", "icon_plus",        "nút + ở mép phải pill"],
+    "shadow":         ["ui", "bar_frame",        "khung xám bo tròn của thanh milestone"],
+    "load_brown":     ["ui", "bar_track",        "rãnh nâu bên trong"],
+    "load_yallow":    ["ui", "bar_fill",         "phần cam chạy theo tiến độ"],
+    "re_popup":       ["ui", "card_upgrade_bg",  "nền thẻ nâng cấp, 9-slice"],
+    "Layer 219 copy": ["ui", "icon_coin_small",  "coin nhỏ cạnh giá trong thẻ upgrade"],
+    "re_green tap":   ["ui", "nav_tab_normal",   ""],
+    "tap":            ["ui", "nav_tab_selected", "tab đang chọn: rộng hơn + nền sáng hơn"],
+
+    "table":            ["prop", "counter",          "quầy"],
+    "Layer 331":        ["prop", "rug",              "thảm mép phải"],
+    "Layer 225 copy 5": ["prop", "shadow_ellipse",   "bóng đổ dùng lại cho mọi khối trang trí"],
+    "bug terarium":     ["prop", "terrarium_wide",   "bể kính dài, art 2026-08-06"],
+    "Layer 349":        ["prop", "terrarium_shadow", "bóng đổ dưới bể"]
+  },
+
+  "anchors": {
+    "Group 1 copy": "anchor_catcher"
+  }
+}
