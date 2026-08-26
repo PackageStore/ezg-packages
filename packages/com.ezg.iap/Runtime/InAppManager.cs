@@ -299,7 +299,10 @@ namespace Ezg.Feature.IAP
                 callbackPay = callBack;
                 productId = productID;
 
-                if (isTestIAP)
+                // isTestIAP CHỈ có hiệu lực khi host cho phép cheat (IIapProfile.IsCheatEnabled — ở build
+                // store host trả false). Bản cũ nhánh này không kiểm isCheatEnabled → bảng cheat/bất kỳ
+                // code nào gọi SetIsTestIAP(true) là mua sạch mọi gói miễn phí trên bản release.
+                if (isTestIAP && isCheatEnabled)
                 {
                     _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                     callBack?.Invoke();
@@ -566,59 +569,183 @@ namespace Ezg.Feature.IAP
 
         /// <summary>
         /// Validate receipt của order (thay cho logic trong ProcessPurchase ở v4).
-        /// Trả về true nếu hợp lệ; false nếu receipt giả mạo / bị huỷ / hoàn tiền.
+        /// Trả về true nếu hợp lệ; false nếu receipt giả mạo / bị huỷ / hoàn tiền / không khớp product đang mua.
         /// Ném exception cho lỗi tạm thời (để caller giữ order ở trạng thái pending → retry).
+        ///
+        /// Apple StoreKit 2 (iOS ≥ 15, mặc định của Unity Purchasing 5): <see cref="CrossPlatformValidator"/>
+        /// CỐ Ý trả mảng RỖNG cho Apple vì SDK đã verify JWS của transaction ở tầng native (changelog
+        /// com.unity.purchasing: "CrossPlatformValidator is no longer used for Apple since StoreKit2 does it").
+        /// Bản 0.3.0 đòi "≥1 receipt có transactionID" nên coi MỌI order iOS là receipt giả →
+        /// ConfirmPurchase (Apple đã thu tiền) mà không cấp quà. Giờ nhánh SK2 kiểm bằng dữ liệu
+        /// trên <see cref="IAppleOrderInfo"/> (transactionID + jwsRepresentation) thay vì result.
+        ///
+        /// Google Play / StoreKit 1: giữ verify chữ ký bằng tangle + bundle id (trong validator), thêm
+        /// kiểm receipt phải chứa ĐÚNG product đang mua và transactionID không rỗng. Thiếu tangle
+        /// (MissingStoreSecretException) → fail-closed, không cấp quà — host phải giữ Tangle khỏi bị strip.
         /// </summary>
-        private bool ValidatePurchase(Order order)
+        private bool ValidatePurchase(Order order, Product product)
         {
             bool validPurchase = true; // Presume valid for platforms with no R.V.
 
     #if RECEIPT_VALIDATION
-            // Receipt validation chỉ chạy trên device thật (xem macro RECEIPT_VALIDATION ở đầu file).
-            var validator = new CrossPlatformValidator(_config.GooglePlayTangle,
-                _config.AppleTangle, Application.identifier);
+            var orderInfo = order.Info;
+            var receipt = orderInfo != null ? orderInfo.Receipt : null;
+            var transactionId = orderInfo != null ? orderInfo.TransactionID : null;
+            var expectedProductId = product.definition.storeSpecificId;
+
+            if (string.IsNullOrEmpty(receipt) || string.IsNullOrEmpty(transactionId))
+            {
+                Debug.LogError("[IAP] Order thiếu receipt hoặc transactionID → không cấp quà. Product: " + expectedProductId);
+                return false;
+            }
 
             try
             {
-                // On Google Play, result has a single product ID.
-                // On Apple stores, receipts contain multiple products.
-                var result = validator.Validate(order.Info.Receipt);
-                foreach (IPurchaseReceipt productReceipt in result)
+                // Receipt validation chỉ chạy trên device thật (xem macro RECEIPT_VALIDATION ở đầu file).
+                var validator = new CrossPlatformValidator(_config.GooglePlayTangle,
+                    _config.AppleTangle, Application.identifier);
+
+                var result = validator.Validate(receipt);
+
+                if (result.Length == 0)
                 {
-                    Debug.Log(productReceipt.productID);
-                    Debug.Log(productReceipt.purchaseDate);
-                    Debug.Log(productReceipt.transactionID);
-                    if (productReceipt is GooglePlayReceipt google)
+                    // Chỉ Apple StoreKit 2 rơi vào đây: Google và StoreKit 1 luôn trả ≥1 receipt hoặc ném
+                    // IAPSecurityException. Mọi store khác mà trả rỗng thì coi là bất thường → từ chối.
+                    validPurchase = ValidateAppleStoreKit2Order(orderInfo, expectedProductId);
+                }
+                else
+                {
+                    var matchedProduct = false;
+                    foreach (IPurchaseReceipt productReceipt in result)
                     {
-                        switch (google.purchaseState)
+                        Debug.Log("[IAP] receipt: " + productReceipt.productID + " / " + productReceipt.transactionID +
+                                  " / " + productReceipt.purchaseDate);
+
+                        if (productReceipt is GooglePlayReceipt google)
                         {
-                            case GooglePurchaseState.Cancelled:
-                                Debug.Log("Canceled");
-                                validPurchase = false;
-                                break;
-                            case GooglePurchaseState.Refunded:
-                                Debug.Log("Refunded");
-                                validPurchase = false;
-                                break;
+                            switch (google.purchaseState)
+                            {
+                                case GooglePurchaseState.Cancelled:
+                                    Debug.Log("[IAP] Google purchaseState = Cancelled");
+                                    validPurchase = false;
+                                    break;
+                                case GooglePurchaseState.Refunded:
+                                    Debug.Log("[IAP] Google purchaseState = Refunded");
+                                    validPurchase = false;
+                                    break;
+                            }
+                        }
+
+                        // Apple StoreKit 1 app receipt chứa nhiều product; Google chỉ một. Receipt hợp lệ
+                        // nhưng KHÔNG chứa product đang mua = receipt của đơn khác bị đem dùng lại.
+                        if (!string.IsNullOrEmpty(productReceipt.transactionID) &&
+                            productReceipt.productID == expectedProductId)
+                        {
+                            matchedProduct = true;
                         }
                     }
-                }
 
-                // Yêu cầu có ít nhất một transactionID hợp lệ.
-                if (!result.Any(x => !string.IsNullOrEmpty(x.transactionID)))
-                {
-                    validPurchase = false;
+                    if (!matchedProduct)
+                    {
+                        Debug.LogError("[IAP] Receipt hợp lệ nhưng không chứa product đang mua '" + expectedProductId +
+                                       "' → không cấp quà.");
+                        validPurchase = false;
+                    }
                 }
             }
-            catch (IAPSecurityException)
+            catch (IAPSecurityException e)
             {
-                Debug.Log("Invalid receipt, not unlocking content");
+                // Chữ ký sai / bundle id lệch / thiếu tangle / receipt không parse được — đều là từ chối dứt
+                // khoát (không retry). Lỗi khác (không phải IAPSecurityException) ném ra ngoài để caller giữ
+                // order pending và store re-deliver lần sau.
+                Debug.LogError("[IAP] Invalid receipt (" + e.GetType().Name + "): " + e.Message);
                 validPurchase = false;
             }
     #endif
 
             return validPurchase;
         }
+
+    #if RECEIPT_VALIDATION
+        /// <summary>
+        /// Apple StoreKit 2: JWS của transaction đã được StoreKit + Unity native verify trước khi order tới
+        /// đây; client chỉ còn kiểm order có đúng hình dạng một transaction SK2 thật (order info kiểu Apple,
+        /// có jwsRepresentation, JWS payload khai đúng productId + bundle id). Chống spoof ở tầng native/jailbreak
+        /// thì chỉ server-side validation (App Store Server API) mới làm được — ngoài phạm vi module này.
+        /// </summary>
+        private static bool ValidateAppleStoreKit2Order(IOrderInfo orderInfo, string expectedProductId)
+        {
+            if (!(orderInfo is IAppleOrderInfo apple))
+            {
+                Debug.LogError("[IAP] Validator trả rỗng nhưng order không phải Apple → từ chối.");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(apple.jwsRepresentation))
+            {
+                Debug.LogError("[IAP] Order Apple StoreKit 2 không có jwsRepresentation → từ chối.");
+                return false;
+            }
+
+            // Đọc payload JWS (phần giữa, base64url) — chữ ký đã được native verify, ở đây chỉ đối chiếu nội dung.
+            try
+            {
+                var parts = apple.jwsRepresentation.Split('.');
+                if (parts.Length != 3)
+                {
+                    Debug.LogError("[IAP] jwsRepresentation không đúng dạng JWS → từ chối.");
+                    return false;
+                }
+
+                var payloadJson = System.Text.Encoding.UTF8.GetString(DecodeBase64Url(parts[1]));
+                var payload = (Dictionary<string, object>)MiniJson.JsonDecode(payloadJson);
+                if (payload == null)
+                {
+                    Debug.LogError("[IAP] JWS payload không parse được → từ chối.");
+                    return false;
+                }
+
+                var jwsProductId = payload.ContainsKey("productId") ? payload["productId"] as string : null;
+                var jwsBundleId = payload.ContainsKey("bundleId") ? payload["bundleId"] as string : null;
+
+                if (jwsProductId != expectedProductId)
+                {
+                    Debug.LogError("[IAP] JWS productId '" + jwsProductId + "' ≠ product đang mua '" + expectedProductId + "' → từ chối.");
+                    return false;
+                }
+
+                if (!string.IsNullOrEmpty(jwsBundleId) && jwsBundleId != Application.identifier)
+                {
+                    Debug.LogError("[IAP] JWS bundleId '" + jwsBundleId + "' ≠ app '" + Application.identifier + "' → từ chối.");
+                    return false;
+                }
+
+                if (payload.ContainsKey("revocationDate"))
+                {
+                    Debug.LogError("[IAP] Transaction đã bị revoke → từ chối.");
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[IAP] Không đọc được JWS payload: " + e.Message + " → từ chối.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private static byte[] DecodeBase64Url(string input)
+        {
+            var s = input.Replace('-', '+').Replace('_', '/');
+            switch (s.Length % 4)
+            {
+                case 2: s += "=="; break;
+                case 3: s += "="; break;
+            }
+            return Convert.FromBase64String(s);
+        }
+    #endif
 
         /// <summary>
         /// Cấp quà + lưu bền vững (KHÔNG analytics). Trả về true nếu đã cấp thành công.
@@ -859,7 +986,7 @@ namespace Ezg.Feature.IAP
             bool validPurchase;
             try
             {
-                validPurchase = ValidatePurchase(order);
+                validPurchase = ValidatePurchase(order, product);
             }
             catch (Exception e)
             {
@@ -895,6 +1022,8 @@ namespace Ezg.Feature.IAP
                 {
                     callbackPay = null;
                     Debug.Log("[IAP] Invalid receipt, not unlocking content.");
+                    // Báo cho UI biết đơn bị từ chối — trước đây im lặng, người chơi thấy như "bấm mua không ra gì".
+                    _purchasing.OnPurchaseFailed?.Invoke(PurchaseFailureReason.ValidationFailure.ToString());
                 }
             }
             finally

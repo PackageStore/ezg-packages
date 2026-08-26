@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] - 2026-08-26
+
+### Fixed
+- **iOS never granted rewards with Unity Purchasing 5 / StoreKit 2.** `CrossPlatformValidator.Validate` intentionally returns an empty array for Apple on StoreKit 2 (the native layer already verifies the transaction JWS), but `ValidatePurchase` required at least one receipt with a transaction id, so every iOS order was treated as forged: `ConfirmPurchase` ran (Apple charged the user) and no reward was granted. The StoreKit 2 path now validates the order through `IAppleOrderInfo` (transaction id, `jwsRepresentation` present, JWS payload `productId`/`bundleId` match, not revoked).
+- `isTestIAP` alone could skip the store on a release build — any code calling `SetIsTestIAP(true)` (e.g. a cheat panel) bought every pack for free. The flag now only takes effect when `IIapProfile.IsCheatEnabled` is true.
+
+### Changed
+- Google Play / StoreKit 1 validation additionally requires the receipt to contain the product being purchased with a non-empty transaction id (a valid receipt for a different order is rejected). `MissingStoreSecretException` (tangle stripped or missing) stays fail-closed — hosts must preserve the generated Tangle classes from managed stripping (link.xml).
+- A rejected receipt now raises `IPurchasing.OnPurchaseFailed("ValidationFailure")` so the UI can tell the player instead of failing silently.
+
 ## [0.3.0] - 2026-08-03
 
 ### Added
