@@ -38,25 +38,60 @@ luôn nằm cùng một chỗ.
 | Tổng quan | checklist theo bước + nút chạy hết | `EzgKitWindow.cs` |
 | Marketing | Google Sheet → PlayerSettings / AdsConfig / AppLovinSettings / FacebookSettings / AndroidManifest / GameConstant | `../Marketing/` ([README](../Marketing/README.md)) |
 | Firebase | chọn file service account `.json` → tạo app Android + iOS → tải `google-services.json` / `GoogleService-Info.plist` | `../Firebase/` |
+| Social | Discord invite / support link / email → `ProjectSettings/SocialConfig.json` → `GameConstant`; kiểm mọi link đi vào build, link hardcode, webhook/bot token Discord; nút *Kiểm Discord* | `../Social/` |
+| Readiness | bảng Ready / Warning / Error chỉ đọc cho PM: SKU IAP, Firebase config, key SDK, keystore/link store; nút *Tra App Store* + *Copy báo cáo* | `../Readiness/` |
+| **Nhà phát hành** → Ezg (trong nhà), Neptune, SayGame, … | mỗi tab = một BỘ SDK: cần gắn thêm / đã gắn — ID thay ở đâu / thừa; nút *Chuyển sang {X}* cài–gỡ–ghi ID–gắn define trong một lần bấm | `../Publisher/` |
 
-### Tab Firebase: một file key là đủ
+Bốn tab đầu là nhóm **Setup Ezg** (dựng dự án theo hạ tầng Ezg — làm tuần tự). Nhóm **Nhà phát hành**
+đứng riêng: mỗi publisher là một **bộ SDK trọn gói**, và bản "trong nhà" của Ezg cũng là một bộ như thế.
+Đi CPI test với Neptune → bấm *Chuyển sang Neptune*; xong → bấm *Chuyển sang Ezg (trong nha)* là về bản cũ.
+Header bar có ô *Phát hành* cho biết bộ SDK đang áp.
 
-Thứ **duy nhất** bắt buộc là file service account `.json`. `project_id` nằm sẵn trong file đó nên
-tool tự lấy — không phải gõ tay, và ô Project id được đánh dấu *(tự lấy)* chứ không phải *(bắt buộc)*.
+### Nhóm Nhà phát hành: một profile = một bộ SDK
 
-- Service account được gán role trên project **khác** với project sinh ra key → tool **không** tự ghi
-  đè, chỉ báo `File key thuộc project "X"` kèm nút **Dùng project của key**.
-- Không nhớ project id → nút **Dò project khả dụng** gọi `GET /v1beta1/projects` bằng chính key đó
-  rồi cho chọn trong danh sách. Dò ra đúng một project thì chọn luôn.
-- Còn lại đều tự có: package name / bundle id đọc từ PlayerSettings (tab Marketing ghi vào), tên app
-  mặc định theo Product Name.
-- Hai thứ **không** suy ra được từ file key nên vẫn là tuỳ chọn thật, bỏ trống vẫn chạy: **Apple ID**
-  (chỉ để Firebase link sang App Store) và **mật khẩu keystore** (chỉ để đăng ký SHA-1 — Analytics và
-  Crashlytics không cần).
+Với dev, đi với một publisher chỉ có một câu hỏi: **họ đòi SDK gì · mình đã gắn cái nào · cái nào thừa ·
+cái nào phải gắn thêm · ID nào phải thay ở đâu.** Tab trả lời bằng ba nhóm card:
 
-Đường dẫn file key nằm ở `EditorPrefs` theo máy, **không** vào `ProjectSettings/FirebaseSource.json`
-— nó là secret theo máy chứ không phải cấu hình dùng chung. `FirebaseServiceAccount.TryLoad` từ chối
-thẳng file key nằm trong repo.
+1. **Cần gắn thêm** — publisher đòi, project chưa có: nguồn cài theo thứ tự file kéo vào → cache → **tự
+   tải** (`SdkDownloader`: GitHub Releases cho Meta/GA/MAX, zip Google cho Firebase — đúng version + bộ
+   product đang cài) → UPM spec. Chỉ Google Play plugins không có nguồn tải → kéo file tay.
+   + danh sách ID sẽ phải điền.
+2. **Đã gắn — ID** — từng ID: giá trị hiện tại → giá trị phải có (publisher cấp thì phải KHỚP, lệch là đỏ;
+   game tự tạo thì trống là vàng), *Thay ở:* file/menu trong project, nút mở thẳng. Custom event bắt buộc
+   (AppsFlyer) kiểm tên + tham số + chỗ bắn.
+3. **SDK nền tảng — luôn giữ** — Apple GameKit (Game Center / Sign in with Apple), Google Play plugins (Play
+   Asset Delivery / In-App Review): của bản build, không thuộc publisher nào (`SdkInstallSpec.IsPlatform`),
+   mọi profile mặc nhiên giữ, không cần khai.
+4. **Thừa** — project có, publisher không đòi → *Chuyển sang* sẽ gỡ.
+
+Card SDK thiếu có ô tick **Import**, card SDK thừa có ô **Gỡ** — mặc định tick hết (một nút là xong), bỏ
+tick mục nào thì mục đó vào "Bỏ qua"; SDK bị chặn thì ô khoá kèm lý do.
+
+**Chuyển sang {X}** (`SdkSwitcher`) lập kế hoạch trước (card nào cũng in dòng "Sẽ cài / Sẽ gỡ / Chặn / Bỏ qua"),
+hỏi lại kèm toàn bộ kế hoạch, rồi thi hành theo thứ tự: export SDK sắp gỡ ra `.unitypackage` trong cache
+theo máy (`LocalApplicationData/Ezg/SdkCache/{game}/`, spec UPM vào `upm.json`) → xoá thư mục → import
+package cài thêm → gắn/gỡ define `EZG_SDK_*` (Android + iOS) → ghi ID publisher cấp (`GameConstant.cs` +
+field tương ứng trong `MarketingConfig.json`; Google Sheet vẫn phải đổi tay) → lưu `activePublisher` →
+`Client.AddAndRemove` (UPM, cuối cùng vì kéo theo resolve + domain reload).
+
+**Chặn:** switcher KHÔNG gỡ SDK mà code game (ngoài thư mục SDK) còn gọi thẳng — gỡ là vỡ compile và
+Editor không mở được tool nữa. Card báo số file, tên file, và define cần bọc. Trên template hiện tại
+Firebase / MAX / IAP / PAD / Meta / AppsFlyer đều còn tham chiếu thẳng (GameInitialize, AdsController,
+PurchaseManager…) → *Chuyển sang Neptune* hôm nay ghi được dev key + gắn GA + gỡ GameKit, còn 4 SDK kia
+"chặn". Muốn switch sạch: bọc lời gọi SDK trong `#if EZG_SDK_*` (task backlog riêng) — define đã được
+switcher gắn sẵn theo bộ SDK.
+
+`IPublisherProfile` (`../Publisher/IPublisherProfile.cs`) là DỮ LIỆU: `SdkRequirement[]` — mỗi SDK một
+`Why`, các `SdkIdSlot` (`Given(key, label, value)` = publisher cấp sẵn, `Own(key, label, howTo)` = game tự
+tạo), `RequiredEvent`. `SdkCatalog` là phần dùng chung: dò SDK, đọc ID theo key (`FacebookSettings.asset`,
+`GameConstant.cs`, `GA Settings.asset`), kiểm event, và `SdkInstallSpec` (UPM name/spec, thư mục Assets,
+trang release, regex tham chiếu code, define). Thêm publisher: `Profiles/{X}Profile.cs` theo mẫu
+`NeptuneProfile`, thêm vào `PublisherRegistry.Profiles`, thêm `EzgKitWindow.Tab` (+ menu). Thêm SDK catalog
+chưa biết: `SdkKind` + `Detect` + `ReadSlot`/`WhereOf` + `SpecOf`.
+
+Profile hiện có: **Ezg (trong nhà)** — Meta, AppsFlyer, Firebase, MAX, Unity IAP, Google Play plugins,
+Apple GameKit (ID từ `MarketingConfig.json`); **Neptune (Flick Different)** — Meta + AppsFlyer (dev key của
+Neptune, event `f_custom_playtime`) + GameAnalytics; **SayGame** — chưa có tài liệu, chỉ liệt kê SDK đang có.
 
 ## Ngôn ngữ hình ảnh dùng chung
 
@@ -116,24 +151,28 @@ số liệu bắn sang project người ta. Ca đó là **đỏ** và banner c�
 1. Implement `IEzgKitPage` (đặt file cạnh code của tool đó, không phải trong thư mục này):
    `Title` (ASCII), `Subtitle` (một câu "tab này để làm gì"), `Headline` (một dòng trạng thái),
    `Status` (`EzgStatus`), `RunAllLabel`, `Reload()`, `Draw()`, `RunAll()`.
-2. **`Status` và `Headline` phải RẺ — chỉ đọc field đã chụp sẵn.** Cửa sổ đọc hai getter này **mỗi
+2. **Quét source dùng `SourceIndex`** (`EzgKit/SourceIndex.cs`), không tự `EnumerateFiles` + `ReadAllText`:
+   text .cs cache trong RAM, kết quả dẫn xuất cache theo khoá (`SourceIndex.Get`), tự vô hiệu khi .cs đổi.
+   Mỗi bộ kiểm tự đọc đĩa là mỗi lần đổi tab thêm nửa giây.
+3. **`Status` và `Headline` phải RẺ — chỉ đọc field đã chụp sẵn.** Cửa sổ đọc hai getter này **mỗi
    lượt OnGUI** của **mọi** tab (để vẽ icon cột nav, chip đầu trang, thẻ bước). Đụng đĩa/mạng/
    `AssetDatabase` trong đó là biến mỗi cú nhích chuột thành hàng chục lần đọc file. Tệ hơn: nếu số
    widget vẽ ra phụ thuộc dữ liệu đọc từ đĩa, dữ liệu đổi giữa lượt Layout và lượt Repaint sẽ ném
    `ArgumentException: Getting control N's position in a group with only M controls`.
    Chụp trạng thái trong `Reload()` vào field, mọi thứ khác chỉ đọc field.
-3. **Không chạy việc nặng ngay trong lúc vẽ.** Ghi file, `AssetDatabase.Refresh()`, tải mạng, mở
+4. **Không chạy việc nặng ngay trong lúc vẽ.** Ghi file, `AssetDatabase.Refresh()`, tải mạng, mở
    dialog — bấm nút thì chỉ ghi một cờ, rồi thực thi sau khi vẽ xong (mẫu `_pendingTab` /
    `_runAllRequested` trong `EzgKitWindow`). `Refresh()` trên một file `.cs` kích hoạt recompile, mà
    domain reload xảy ra giữa một layout group đang mở là cửa sổ vỡ.
-4. **Dùng `using (new EditorGUILayout.ScrollViewScope(...))`**, đừng dùng cặp `BeginScrollView` /
+5. **Dùng `using (new EditorGUILayout.ScrollViewScope(...))`**, đừng dùng cặp `BeginScrollView` /
    `EndScrollView` thủ công: exception ném ra giữa chừng sẽ nhảy qua `End...` và để lại layout group
    mở, cửa sổ spam `Mismatched LayoutGroup` cho tới khi đóng mở lại.
-5. `Draw()` chỉ vẽ phần THÂN — cửa sổ đã vẽ tiêu đề + chip trạng thái.
-6. Dùng API của `EzgKitStyles` / `SetupGui`, đừng tự chế style riêng — đó chính là thứ lần bố cục lại
+6. `Draw()` chỉ vẽ phần THÂN — cửa sổ đã vẽ tiêu đề + chip trạng thái.
+7. Dùng API của `EzgKitStyles` / `SetupGui`, đừng tự chế style riêng — đó chính là thứ lần bố cục lại
    này dọn đi.
-7. Thêm vào `EzgKitWindow.BuildPages()` — đúng vị trí theo thứ tự phải chạy — và thêm một mục vào
-   enum `EzgKitWindow.Tab`.
+8. Thêm vào `EzgKitWindow.BuildPages()` — đúng vị trí theo thứ tự phải chạy — và thêm một mục vào
+   enum `EzgKitWindow.Tab`. (Tab cho một NHÀ PHÁT HÀNH thì không đi đường này: viết profile + đăng ký
+   `PublisherRegistry`, xem mục "Nhóm Nhà phát hành".)
 
 GUI cửa sổ không phải sửa: cột nav, tab Tổng quan và luồng chạy hết đều sinh từ danh sách page.
 
@@ -146,6 +185,11 @@ Toàn bộ menu của kit nằm dưới gốc `Ezg`.
 | `Ezg/EzgKit` | mở tab Tổng quan |
 | `Ezg/Marketing/Bang thong so (Marketing Dashboard)` | mở tab Marketing |
 | `Ezg/Firebase/Cai dat...` | mở tab Firebase |
+| `Ezg/Social (Discord - Support - Rating)` | mở tab Social — điền + ghi link cộng đồng/hỗ trợ, kiểm link |
+| `Ezg/Readiness (IAP - Firebase - SDK)` | mở tab Readiness — bảng trạng thái cho PM, chỉ đọc |
+| `Ezg/Nha phat hanh/Ezg (mac dinh trong nha)` | mở tab Ezg — bộ SDK mặc định, bấm về sau khi đi test với publisher |
+| `Ezg/Nha phat hanh/Neptune (CPI Test)` | mở tab Neptune — bộ SDK Neptune đòi, nút Chuyển sang Neptune |
+| `Ezg/Nha phat hanh/SayGame` | mở tab SayGame — placeholder chờ tài liệu |
 | `Ezg/Marketing/Setup All (1 Click)` | tải sheet + ghi vào project, không mở cửa sổ |
 | `Ezg/Marketing/Check Config (Dry Run)` | chỉ đối chiếu, không ghi |
 | `Ezg/Marketing/Apply Config (khong tai sheet)` | ghi từ JSON hiện có |

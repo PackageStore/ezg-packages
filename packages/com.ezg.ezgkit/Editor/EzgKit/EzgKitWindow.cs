@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using Ezg.Editor.Shared.Firebase;
 using Ezg.Editor.Shared.Marketing;
+using Ezg.Editor.Shared.Publisher;
+using Ezg.Editor.Shared.Readiness;
+using Ezg.Editor.Shared.Social;
 using UnityEditor;
 using UnityEngine;
 
@@ -51,12 +54,20 @@ namespace Ezg.Editor.Shared.EzgKit
     {
         #region Types
 
-        /// <summary>Thứ tự phải khớp <see cref="BuildPages" /> (Overview không có page riêng).</summary>
+        /// <summary>
+        ///     Thứ tự phải khớp <see cref="BuildPages" /> (Overview không có page riêng). 1–4 là nhóm
+        ///     "Setup Ezg"; từ 5 là nhóm "Nhà phát hành", theo đúng thứ tự <see cref="PublisherRegistry.Profiles" />.
+        /// </summary>
         internal enum Tab
         {
             Overview = 0,
             Marketing = 1,
             Firebase = 2,
+            Social = 3,
+            Readiness = 4,
+            Ezg = 5,
+            Neptune = 6,
+            SayGame = 7,
         }
 
         #endregion
@@ -66,7 +77,11 @@ namespace Ezg.Editor.Shared.EzgKit
         private const string OVERVIEW_TITLE = "Tổng quan";
 
         private const string OVERVIEW_SUBTITLE =
-            "Các bước dựng dự án mới từ code-template. Làm lần lượt từ trên xuống.";
+            "Setup Ezg: các bước dựng dự án từ code-template, làm lần lượt. Nhà phát hành: quy trình riêng với từng publisher.";
+
+        private const string SECTION_EZG = "SETUP EZG";
+        private const string SECTION_PUBLISHER = "NHÀ PHÁT HÀNH";
+        private const string PUBLISHER_NONE = "Ezg (mặc định — chưa chuyển)";
 
         /// <summary>Chip trạng thái đầu trang chỉ đủ chỗ cho một câu ngắn; dài hơn thì cắt + đưa vào tooltip.</summary>
         private const int HEADLINE_MAX = 60;
@@ -74,6 +89,12 @@ namespace Ezg.Editor.Shared.EzgKit
         [SerializeField] private int _tab;
 
         private IEzgKitPage[] _pages;
+
+        /// <summary>Số page đầu thuộc nhóm "Setup Ezg"; phần còn lại của <see cref="_pages" /> là nhà phát hành.</summary>
+        private int _ezgPageCount;
+
+        /// <summary>Nhà phát hành đang áp preset SDK (đọc từ PublisherConfig.json trong <see cref="ReloadAll" />).</summary>
+        private string _activePublisherLabel;
 
         /// <summary>Dùng lại giữa các lượt vẽ để không cấp phát <see cref="GUIContent" /> mỗi OnGUI.</summary>
         private GUIContent[] _navContents;
@@ -120,6 +141,21 @@ namespace Ezg.Editor.Shared.EzgKit
         [MenuItem("Ezg/Firebase/Cai dat...", false, 100)]
         internal static void OpenFirebase() => Open(Tab.Firebase);
 
+        [MenuItem("Ezg/Social (Discord - Support - Rating)", false, 100)]
+        internal static void OpenSocial() => Open(Tab.Social);
+
+        [MenuItem("Ezg/Readiness (IAP - Firebase - SDK)", false, 101)]
+        internal static void OpenReadiness() => Open(Tab.Readiness);
+
+        [MenuItem("Ezg/Nha phat hanh/Ezg (mac dinh trong nha)", false, 120)]
+        internal static void OpenEzgPublisher() => Open(Tab.Ezg);
+
+        [MenuItem("Ezg/Nha phat hanh/Neptune (CPI Test)", false, 121)]
+        internal static void OpenNeptune() => Open(Tab.Neptune);
+
+        [MenuItem("Ezg/Nha phat hanh/SayGame", false, 122)]
+        internal static void OpenSayGame() => Open(Tab.SayGame);
+
         internal static void Open(Tab tab)
         {
             var window = GetWindow<EzgKitWindow>(false, "EzgKit", true);
@@ -145,21 +181,35 @@ namespace Ezg.Editor.Shared.EzgKit
 
         private void BuildPages()
         {
-            // Thứ tự = thứ tự chạy trong luồng "chạy hết", và = thứ tự tab sau Overview.
-            _pages = new IEzgKitPage[]
+            // Nhóm "Setup Ezg": thứ tự = thứ tự chạy trong luồng "chạy hết", và = thứ tự tab sau Overview.
+            var ezg = new IEzgKitPage[]
             {
                 new MarketingSetupPage(),
                 new FirebaseSetupPage(),
+                // Ghi link social vào GameConstant sau Marketing (Marketing cũng ghi file đó — tuần tự).
+                new SocialSetupPage(),
+                // Chỉ đọc, không tham gia "chạy hết" (RunAllLabel = null): bảng Ready/Warning/Error
+                // cho PM sau khi hai bước trên đã ghi xong.
+                new ReadinessPage(),
             };
+            _ezgPageCount = ezg.Length;
+
+            // Nhóm "Nhà phát hành": một tab mỗi profile trong registry (Neptune, SayGame, …). Không tham
+            // gia "chạy hết" — áp preset của một publisher là quyết định riêng, bấm trong tab của họ.
+            var profiles = PublisherRegistry.Profiles;
+            _pages = new IEzgKitPage[ezg.Length + profiles.Length];
+            ezg.CopyTo(_pages, 0);
+            for (var i = 0; i < profiles.Length; i++) _pages[ezg.Length + i] = new PublisherPage(profiles[i]);
 
             // GUIContent rỗng dựng sẵn một lần, mỗi lượt vẽ chỉ gán lại icon/tooltip (hai thứ đổi
             // theo trạng thái page). Chữ của mục nav thì cố định — gán luôn ở đây để OnGUI không
-            // phải nối chuỗi mỗi mục mỗi lượt vẽ.
+            // phải nối chuỗi mỗi mục mỗi lượt vẽ. Page Ezg đánh số bước; page nhà phát hành không
+            // (chúng không phải bước tuần tự).
             _navContents = new GUIContent[_pages.Length + 1];
             for (var i = 0; i < _navContents.Length; i++) _navContents[i] = new GUIContent();
             _navContents[0].text = OVERVIEW_TITLE;
             for (var i = 1; i < _navContents.Length; i++)
-                _navContents[i].text = $"{i}.  {_pages[i - 1].Title}";
+                _navContents[i].text = i <= _ezgPageCount ? $"{i}.  {_pages[i - 1].Title}" : _pages[i - 1].Title;
         }
 
         /// <summary>Chụp lại trạng thái mọi page. Chỉ ĐỌC — mở cửa sổ không được ghi gì vào project.</summary>
@@ -171,6 +221,9 @@ namespace Ezg.Editor.Shared.EzgKit
             // Nối chuỗi đúng một lần ở đây thay vì mỗi lượt vẽ header.
             var version = PlayerSettings.bundleVersion;
             _versionLabel = string.IsNullOrEmpty(version) ? null : "v" + version;
+
+            var active = PublisherRegistry.Find(PublisherState.Load().activePublisher);
+            _activePublisherLabel = active == null ? PUBLISHER_NONE : active.DisplayName;
         }
 
         private void OnGUI()
@@ -244,6 +297,9 @@ namespace Ezg.Editor.Shared.EzgKit
                     MetaId("iOS", FirebaseAppProvisioner.IosBundle);
                     MetaSeparator();
                     MetaId(null, _versionLabel);
+                    MetaSeparator();
+                    // Nhà phát hành đang áp preset: dev key AppsFlyer trong build là của ai — phải thấy ở mọi tab.
+                    MetaId("Phát hành", _activePublisherLabel);
 
                     GUILayout.FlexibleSpace();
                 }
@@ -296,6 +352,11 @@ namespace Ezg.Editor.Shared.EzgKit
 
                     for (var i = 0; i < _navContents.Length; i++)
                     {
+                        // Nhãn nhóm: hai nhóm tab là hai việc khác nhau (dựng dự án theo Ezg / đi với
+                        // một nhà phát hành) — không có nhãn thì Neptune nhìn như "bước 5" của setup.
+                        if (i == 1) SectionLabel(SECTION_EZG);
+                        else if (i == 1 + _ezgPageCount) SectionLabel(SECTION_PUBLISHER);
+
                         // text đã gán sẵn trong BuildPages — ở đây chỉ đổi phần chạy theo trạng thái.
                         var content = _navContents[i];
 
@@ -323,6 +384,12 @@ namespace Ezg.Editor.Shared.EzgKit
                 EditorGUILayout.LabelField("Mở cửa sổ chỉ đọc, không ghi gì vào project.",
                     EzgKitStyles.Hint);
             }
+        }
+
+        private static void SectionLabel(string text)
+        {
+            GUILayout.Space(8f);
+            EditorGUILayout.LabelField(text, EzgKitStyles.Hint);
         }
 
         /// <summary>
@@ -442,15 +509,16 @@ namespace Ezg.Editor.Shared.EzgKit
 
                 DrawStepCards();
                 DrawRunAll();
+                DrawPublisherCards();
             }
         }
 
-        /// <summary>Mỗi page một thẻ bước: số bước tô theo trạng thái, headline, nút mở tab.</summary>
+        /// <summary>Mỗi page Ezg một thẻ bước: số bước tô theo trạng thái, headline, nút mở tab.</summary>
         private void DrawStepCards()
         {
-            EzgKitStyles.SectionHeader("Trạng thái từng bước");
+            EzgKitStyles.SectionHeader("Setup Ezg — trạng thái từng bước");
 
-            for (var i = 0; i < _pages.Length; i++)
+            for (var i = 0; i < _ezgPageCount; i++)
             {
                 var page = _pages[i];
 
@@ -480,9 +548,46 @@ namespace Ezg.Editor.Shared.EzgKit
             }
         }
 
+        /// <summary>
+        ///     Mỗi nhà phát hành một thẻ: tiến độ checklist + nút mở tab. Không có số bước — đi với
+        ///     publisher nào là chọn, không phải tuần tự; và không có nút chạy hết cho nhóm này.
+        /// </summary>
+        private void DrawPublisherCards()
+        {
+            if (_pages.Length <= _ezgPageCount) return;
+
+            EzgKitStyles.SectionHeader("Nhà phát hành",
+                $"Bộ SDK đang áp: {_activePublisherLabel}. Mỗi publisher là một bộ SDK trọn gói — bấm \"Chuyển sang\" trong tab của họ để cài SDK họ cần, gỡ SDK thừa, ghi ID.");
+
+            for (var i = _ezgPageCount; i < _pages.Length; i++)
+            {
+                var page = _pages[i];
+
+                using (new EzgKitStyles.CardScope())
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Label(page.Title, EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
+                        GUILayout.FlexibleSpace();
+                        EzgKitStyles.Pill(page.Status, page.Status == EzgStatus.None ? "Chưa có tài liệu" : ShortLabel(page.Status));
+                    }
+
+                    EditorGUILayout.LabelField(page.Headline, EditorStyles.wordWrappedLabel);
+
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        if (EzgKitStyles.SecondaryButton("Mở tab", GUILayout.Width(110), GUILayout.Height(24f)))
+                            Select(i + 1);
+
+                        GUILayout.FlexibleSpace();
+                    }
+                }
+            }
+        }
+
         private void DrawRunAll()
         {
-            EzgKitStyles.SectionHeader("Chạy hết");
+            EzgKitStyles.SectionHeader("Chạy hết (Setup Ezg)");
 
             using (new EzgKitStyles.CardScope())
             {

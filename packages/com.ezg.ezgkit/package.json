@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.ezgkit",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "displayName": "EZG EzgKit",
-  "description": "One-window Unity Editor setup kit that walks a new project through its per-project configuration in the order it must happen. Ships two pages: Marketing (pull a Google Sheet of store/ads identifiers and write them into PlayerSettings, AdsConfig, AppLovinSettings, FacebookSettings, AndroidManifest and GameConstant.cs) and Firebase (pick a service-account .json, provision the Android + iOS apps, then download google-services.json / GoogleService-Info.plist). Opening the window only ever reads; every write sits behind an explicit button. Also ships the shared EzgKitStyles / SetupGui drawing toolkit and the IEzgKitPage contract so a project can add its own setup tab.",
+  "description": "One-window Unity Editor setup kit that walks a new project through its per-project configuration in the order it must happen. Sidebar splits into two groups: Setup Ezg and Publishers (one tab per SDK set — Ezg in-house default, Neptune CPI test, SayGame placeholder — showing required vs installed vs extra SDKs and which IDs to change where, with a one-click Switch that caches and removes extra SDKs, installs missing ones, writes publisher IDs and toggles EZG_SDK_* defines; add a profile class to add a publisher). Setup Ezg ships: Marketing (pull a Google Sheet of store/ads identifiers and write them into PlayerSettings, AdsConfig, AppLovinSettings, FacebookSettings, AndroidManifest and GameConstant.cs) and Firebase (pick a service-account .json, provision the Android + iOS apps, then download google-services.json / GoogleService-Info.plist) and Readiness (read-only Ready / Warning / Error board for IAP SKUs, Firebase config, ads/attribution SDK keys and store/build settings, with a copy-for-PM text report). Opening the window only ever reads; every write sits behind an explicit button. Also ships the shared EzgKitStyles / SetupGui drawing toolkit and the IEzgKitPage contract so a project can add its own setup tab.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
@@ -11,6 +11,8 @@
     "editor",
     "setup",
     "firebase",
-    "marketing"
+    "marketing",
+    "publisher",
+    "sdk"
   ]
 }

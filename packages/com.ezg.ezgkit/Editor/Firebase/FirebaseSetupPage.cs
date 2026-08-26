@@ -524,6 +524,12 @@ namespace Ezg.Editor.Shared.Firebase
                 _keyDirty = true;
             }
 
+            // Lý do file bị từ chối hiện NGAY dưới ô, không chỉ ở card "Service account" phía dưới: thả
+            // file vào mà ô vẫn cảnh báo, còn lý do nằm ngoài màn hình thì nhìn như "không nhận".
+            // _keyError chỉ đổi ở đầu Draw (_keyDirty) nên số widget ổn định trong một lượt vẽ.
+            if (!string.IsNullOrEmpty(_keyPath) && !string.IsNullOrEmpty(_keyError))
+                EzgKitStyles.Banner(_keyError, EzgStatus.Warn);
+
             // Không còn là ô phải gõ (optional: true): giá trị mặc định lấy từ file key ở trên. Vẫn cho
             // sửa vì service account có thể được gán role trên project khác.
             var projectId = SetupGui.ManualField("Project id", _source.projectId,

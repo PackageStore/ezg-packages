@@ -117,7 +117,17 @@ namespace Ezg.Editor.Shared.EzgKit
             }
         }
 
-        /// <summary>Ô điền tay có kèm nút chọn file.</summary>
+        /// <summary>
+        ///     Ô điền tay có kèm nút chọn file, và NHẬN KÉO-THẢ: thả file từ Finder/Explorer (đường dẫn
+        ///     tuyệt đối qua <see cref="DragAndDrop.paths" />) hoặc kéo một asset từ Project window
+        ///     (quy về đường dẫn tuyệt đối) vào bất kỳ đâu trên hàng ô nhập. Bản trước không có — thả
+        ///     file vào là Unity trả lại, không có gì xảy ra, nhìn như "không nhận".
+        ///     <para>
+        ///         Lọc theo <paramref name="extension" /> ngay lúc rê qua (con trỏ Rejected thay vì Copy)
+        ///         để biết trước file có đúng loại không. Việc "file có hợp lệ về NỘI DUNG không" (vd key
+        ///         nằm trong repo) vẫn do page quyết sau khi nhận đường dẫn — ô này chỉ lo lấy đường dẫn.
+        ///     </para>
+        /// </summary>
         internal static string ManualFilePathField(string label, string value, string howTo, string title,
             string extension, FieldNeed need, params (string Label, string Url)[] links)
         {
@@ -134,15 +144,81 @@ namespace Ezg.Editor.Shared.EzgKit
 
                     if (GUILayout.Button("Chọn...", EditorStyles.miniButton, GUILayout.Width(70)))
                     {
-                        var picked = EditorUtility.OpenFilePanel(title, "~", extension);
+                        // "~" không được OpenFilePanel mở rộng trên mọi nền tảng — dùng home thật.
+                        var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+                        var picked = EditorUtility.OpenFilePanel(title, home, extension);
                         if (!string.IsNullOrEmpty(picked)) result = picked;
                     }
                 }
 
+                // Vùng thả = cả hàng ô nhập (icon + nhãn + text + nút). GetLastRect trả rect của
+                // HorizontalScope vừa đóng — đúng ở mọi event sau Layout, kể cả DragUpdated/DragPerform.
+                var dropped = HandleFileDrop(GUILayoutUtility.GetLastRect(), extension);
+                if (dropped != null) result = dropped;
+
                 EmptyNote(need, value);
+                if (string.IsNullOrEmpty(value))
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(EzgKitStyles.ICON_WIDTH + 4f);
+                        EditorGUILayout.LabelField($"Kéo file .{extension} từ Finder vào hàng trên, hoặc bấm Chọn...",
+                            EzgKitStyles.Hint);
+                    }
+
                 HowTo(label, howTo, links);
                 return result;
             }
+        }
+
+        /// <summary>
+        ///     Bắt DragUpdated/DragPerform trên <paramref name="rect" />. Trả về đường dẫn tuyệt đối của
+        ///     file vừa thả (đúng <paramref name="extension" />), hoặc null nếu không có gì.
+        ///     <para>
+        ///         Nguồn kéo: <see cref="DragAndDrop.paths" /> (file hệ điều hành → tuyệt đối; asset
+        ///         Project window → "Assets/..." tương đối, quy về tuyệt đối theo <c>Application.dataPath</c>).
+        ///         Có nhiều file thì lấy file đầu tiên đúng đuôi.
+        ///     </para>
+        /// </summary>
+        private static string HandleFileDrop(Rect rect, string extension)
+        {
+            var e = Event.current;
+            if (e.type != EventType.DragUpdated && e.type != EventType.DragPerform) return null;
+            if (!rect.Contains(e.mousePosition)) return null;
+
+            var match = FirstDraggedPath(extension);
+            DragAndDrop.visualMode = match == null ? DragAndDropVisualMode.Rejected : DragAndDropVisualMode.Copy;
+
+            if (e.type != EventType.DragPerform || match == null)
+            {
+                e.Use();
+                return null;
+            }
+
+            DragAndDrop.AcceptDrag();
+            e.Use();
+            GUI.changed = true;
+            return match;
+        }
+
+        private static string FirstDraggedPath(string extension)
+        {
+            var paths = DragAndDrop.paths;
+            if (paths == null || paths.Length == 0) return null;
+
+            var wanted = "." + extension.TrimStart('.');
+            var projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, ".."));
+            foreach (var path in paths)
+            {
+                if (string.IsNullOrEmpty(path)) continue;
+                if (!path.EndsWith(wanted, System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                // Asset kéo từ Project window tới dạng "Assets/..." (tương đối gốc project).
+                return System.IO.Path.IsPathRooted(path)
+                    ? path
+                    : System.IO.Path.GetFullPath(System.IO.Path.Combine(projectRoot, path));
+            }
+
+            return null;
         }
 
         private static string Label(string label, FieldNeed need) =>
