@@ -48,7 +48,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 29
+      "count": 30
     },
     {
       "id": "Templates",
@@ -2171,7 +2171,7 @@
       "id": "Skills/package-module",
       "name": "package-module",
       "category": "Skills",
-      "description": "Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Authenticates to the monorepo over SSH; if SSH isn't set up on this machine, auto-invokes the /setup-package-push skill inline (one human step: gh auth login's browser approval) instead of stopping — falling back to a GitHub PAT only if that can't complete. Used when the user says \"đóng module X thành package UPM\" / \"package this module\" / \"đẩy module X lên registry\" / \"extract X to a UPM package\". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3.",
+      "description": "Extract one specified module/folder from the current game repo into a clean UPM package and commit + push it directly to the main branch of the ezg-packages monorepo (MONOREPO_PATH — %USERPROFILE%\\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux), where the push to main triggers GitHub Actions (publish.yml) to sign and publish it to the Easygoing scoped registry on Cloudflare R2. NON-destructive to the source repo (the module stays in Assets/ and keeps compiling). Authenticates to the monorepo over SSH; if SSH isn't set up on this machine, auto-invokes the /setup-package-push skill inline (one human step: gh auth login's browser approval) instead of stopping — falling back to a GitHub PAT only if that can't complete. Used when the user says \"đóng module X thành package UPM\" / \"package this module\" / \"đẩy module X lên registry\" / \"extract X to a UPM package\". Switching the game to consume the package from the registry is a separate Phase 2 (documented, not done here). To only PLAN without writing to the monorepo, run STEP 0–3. Do NOT use for \"đóng module X thành unitypackage\" / \"publish unity package\" / \"đẩy X lên tab Unity Packages\" — those go to /publish-unity-package instead (different pipeline: raw .unitypackage snapshot back into Assets/, not a UPM registry package).",
       "installPath": ".claude/skills/package-module",
       "isDirectory": true,
       "files": [
@@ -2182,8 +2182,8 @@
       "source": "defaultsetup",
       "fileName": "package-module.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/package-module.zip",
-      "sha256": "c053d310cb42f945f0951b52732b78118a287c79ac083aa9b44b2610bfbbdfe0",
-      "size": 16504
+      "sha256": "67b190202389761c4eb8a632a0a5c772f168d5b4959e0e2fce3114bc7761a24e",
+      "size": 16589
     },
     {
       "id": "Skills/planning-system",
@@ -2280,6 +2280,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip",
       "sha256": "c0f4afc80ec603dd61829d651b42b5d89d3bed389415161c49d1a87f8d86d601",
       "size": 5046
+    },
+    {
+      "id": "Skills/publish-unity-package",
+      "name": "publish-unity-package",
+      "category": "Skills",
+      "description": "Export one specified file/folder from the current game repo (via Unity's AssetDatabase.ExportPackage, preserving GUID + path) into a standalone .unitypackage, add/update its entry in the ezg-packages monorepo's asset-catalog.json, and push both straight to the main branch of ezg-packages (MONOREPO_PATH — %USERPROFILE%\\ezg-packages on Windows, $HOME/ezg-packages on macOS/Linux). The push triggers GitHub Actions to publish it to Feature Hub's \"Unity Packages\" tab on Cloudflare R2. NON-destructive to the source repo. Authenticates to the monorepo over SSH; if SSH isn't set up on this machine, auto-invokes the /setup-package-push skill inline instead of stopping, falling back to a GitHub PAT only if that can't complete. Used when the user says \"đóng module X thành unitypackage\" / \"đóng gói X thành Unity package\" / \"publish unity package cho X\" / \"đẩy X lên tab Unity Packages\" / \"thêm X vào asset catalog\" / \"xuất .unitypackage cho X\". Do NOT use for \"đóng module X thành package UPM\" / \"package this module\" / \"extract X to a UPM package\" — those go to /package-module instead (different pipeline: UPM registry + Packages/manifest.json, not a raw file drop back into Assets/).",
+      "installPath": ".claude/skills/publish-unity-package",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/publish-unity-package/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "publish-unity-package.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-unity-package.zip",
+      "sha256": "169d14430c6e08e50646bc33ebdcbc4b63cec46717e778265246a9b65bf70141",
+      "size": 8039
     },
     {
       "id": "Skills/purchase-manager",
