@@ -346,6 +346,15 @@
       "sha256": "609d15710639ab46e00a75eb12b4800d80858427b2c63c81d6dc66b6518bfaaa",
       "installedByDefault": false,
       "markerPaths": [ "Assets/VoodooPackages/TinySauce" ]
+    },
+    {
+      "name": "ShowingObjectController",
+      "fileName": "ShowingObjectController.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ShowingObjectController.unitypackage",
+      "category": "EZG Shared",
+      "sha256": "5e3c93c0369ef1e6e045a75ca4a1140e7648b4bd30f5ff28503d3ac5de9f151d",
+      "installedByDefault": false,
+      "description": "Component anim hien/an danh sach object bang DOTween: 13 preset motion, tab Preview chay thu ngay trong Editor (khong can Play Mode), kenh kem fade/scale chay song song, bay VAO vi tri goc. Ban nay MOI hon file cung GUID dang nam trong ezg.base.features (ban cu chi co scale/move/fade co ban) - cai de len la len ban moi. Yeu cau DOTween + Odin + UniTask (da co san trong bootstrap) va Utils.cs/IExecute cua _Shared. Khong dat markerPaths co y: file cu tu ezg.base.features da nam san o duong dan do, neu dat marker thi Feature Hub se bao da cai va che mat ban update."
     }
   ]
 }
