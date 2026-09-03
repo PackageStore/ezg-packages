@@ -22,7 +22,7 @@
       "requiresPackages": {}
     },
     "Meta/Stamina": {
-      "description": "Energy/stamina economy: CSV config + x3-boost prefabs + Controller/Service/Data. Compile hoàn toàn độc lập. LƯU Ý runtime: nút mua stamina trong StaminaView gọi UIManager.Show(GameEnums.Features.StaminaPack) — màn hình đó thực ra được cài đặt ở Monetization/Shop/Offers/StaminaPack (game-specific, chưa publish lên hub). Thiếu feature đó thì nút mua không mở gì (không crash, chỉ vô tác dụng).",
+      "description": "Kinh tế stamina/energy: CSV StaminaConfig + prefab x3-boost + StaminaView + PlayerStaminaX3 + PlayerStaminaX3Service. Không tham chiếu type của feature nào khác (từ bản này — trước đó gọi FeatureService của System/UnlockFeature, nay type đó đã về _Shared/UnlockGate). LƯU Ý 1: prefab x3_stamina có component ButtonCampaignX3Stamina.cs thuộc Meta/HomeScene (chưa publish) — cài lẻ thì component đó thành Missing (Mono Script) trên prefab, phần còn lại vẫn chạy. LƯU Ý 2: nút mua stamina gọi UIManager.Show(GameEnums.Features.StaminaPack), màn đó cài đặt ở Monetization/Shop/Offers/StaminaPack (chưa publish) — thiếu thì nút không mở gì, không crash. Feature mang CSV riêng: sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* (DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package).",
       "markerPaths": [
         "Assets/_Project/Features/Meta/Stamina"
       ],
@@ -30,6 +30,76 @@
         "72db64c2b3eee438585411cf1cc7f4fa"
       ],
       "requires": [],
+      "requiresPackages": {}
+    },
+    "System/Settings": {
+      "description": "Màn cài đặt: nút nhạc/âm thanh (MusicButton, SoundButton), Discord, customer support, và data module PlayerSetting (CorePlayerSetting.cs) — module này được base tham chiếu qua PlayerDataManager.Settings, nên nó là dependency của AvatarSelect và ChangeName. Không tham chiếu type của feature nào khác. Điều kiện base: project đích phải nằm trên cùng template R001 — _Shared/GameData/PlayerDataManager.cs tham chiếu type data-module do feature sở hữu (Settings, UnlockFeature, WorldMap), nên base không tự compile nếu thiếu các module đó.",
+      "markerPaths": [
+        "Assets/_Project/Features/System/Settings"
+      ],
+      "markerGuids": [
+        "f088f7cccfc740aa9ac209eace037872"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/RequireInternet": {
+      "description": "Popup chặn khi mất mạng (RequireInternetController + screen_require_internet.prefab). Một file script, không CSV, không save, không tham chiếu feature nào. Cần đăng ký prefab vào luồng UIManager của project đích.",
+      "markerPaths": [
+        "Assets/_Project/Features/System/RequireInternet"
+      ],
+      "markerGuids": [
+        "fa59ca310e442404d83a24bca902fd8f"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/MapStageClearAI": {
+      "description": "Màn tổng kết sau khi clear stage (ScreenMapStageClearAI + scroller/view/button + MapStageClearServiceAI + PlayerMapStageClearAI + MapStageClearCollectionAI). Compile độc lập với mọi feature khác. LƯU Ý khi cài: code gọi GameEnums.Features.MapStageClearAi — enum này nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), phải tự thêm entry với giá trị số chưa dùng, rồi đăng ký screen_map_stage_clear_ai.prefab. Điều kiện base: project đích phải nằm trên cùng template R001 — _Shared/GameData/PlayerDataManager.cs tham chiếu type data-module do feature sở hữu (Settings, UnlockFeature, WorldMap), nên base không tự compile nếu thiếu các module đó.",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/MapStageClearAI"
+      ],
+      "markerGuids": [
+        "46e884b1b686546679a02f2b50c2cf9b"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Social/Mail": {
+      "description": "Hộp thư người chơi: danh sách mail, mở mail, claim reward (MailService + ScreenMailOpen + ScrollerMail + PlayerMail). CẦN BACKEND: MailService dùng Supabase trực tiếp (using Supabase) — AddMail/GetMails/OpenMail/ClaimRewardMail đọc-ghi bảng mail trên server, nên project đích phải có _Shared/Networking + cấu hình Supabase trong AppSecretsConfig và bảng tương ứng; thiếu thì màn mở được nhưng không có dữ liệu. Code gọi GameEnums.Features.Mail + MailOpen (tự thêm 2 entry enum). THIẾU 1 ASSET: prefab tham chiếu sprite group14copy5.png nằm trong LiveOps/Quest (chưa publish) — cài lẻ sẽ mất đúng 1 hình, không crash, không ảnh hưởng compile. Điều kiện base: project đích phải nằm trên cùng template R001 — _Shared/GameData/PlayerDataManager.cs tham chiếu type data-module do feature sở hữu (Settings, UnlockFeature, WorldMap), nên base không tự compile nếu thiếu các module đó.",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/Mail"
+      ],
+      "markerGuids": [
+        "bfaaa308ed00548f89ac7ae9e45f2600"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Social/AvatarSelect": {
+      "description": "Chọn avatar + khung avatar (AvatarSelectController, AvatarItemController, AvatarFrameController, AvatarHomeIconController) — 10 MB art đi kèm trong package. Ghi lựa chọn vào PlayerDataManager.Settings.dataBase.AvatarId/FrameId nên BẮT BUỘC cài System/Settings (đã khai ở requires). Sprite avatar/frame lấy qua DataManager.UserAvatars / UserFrame — nạp từ Resources của project theo PathUtils, KHÔNG nằm trong package: project đích phải có sẵn bộ sprite ở path đó, nếu không danh sách sẽ rỗng. Prefab có bundle name features__avatar_select. Điều kiện base: project đích phải nằm trên cùng template R001 — _Shared/GameData/PlayerDataManager.cs tham chiếu type data-module do feature sở hữu (Settings, UnlockFeature, WorldMap), nên base không tự compile nếu thiếu các module đó.",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/AvatarSelect"
+      ],
+      "markerGuids": [
+        "0e06442cffe714ce7882b000939aef05"
+      ],
+      "requires": [
+        "System/Settings"
+      ],
+      "requiresPackages": {}
+    },
+    "Social/ChangeName": {
+      "description": "Đổi tên người chơi + lọc từ khoá xấu (ScreenChangeNameController, ScreenEditText, CountCharInText, BanWordConfig + ChangeName CSV). Tự chứa hoàn toàn về asset (sprite riêng trong Visuals/ kể từ bản này). Ghi tên vào PlayerDataManager.Settings nên BẮT BUỘC cài System/Settings (đã khai ở requires). Code gọi GameEnums.Features.Shop để điều hướng sang shop — enum có sẵn ở base, nhưng nếu project đích không cài Monetization/Shop thì nút đó không mở gì. Prefab có bundle name features__change_name. Feature mang CSV riêng: sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* (DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package).",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/ChangeName"
+      ],
+      "markerGuids": [
+        "bce4e565c349e444da32f312ac166584"
+      ],
+      "requires": [
+        "System/Settings"
+      ],
       "requiresPackages": {}
     }
   }
