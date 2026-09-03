@@ -48,7 +48,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 31
+      "count": 36
     },
     {
       "id": "Templates",
@@ -2132,6 +2132,102 @@
       "size": 4776
     },
     {
+      "id": "Skills/figma-components",
+      "name": "figma-components",
+      "category": "Skills",
+      "description": "Build and grow the component layer of the project's Figma file — component sets, variant axes, State ladders, component properties, promotion of repeated screen art into masters, and instance adoption. Use when asked to \"add a component\", \"add states to a button\", \"make this reusable\", \"the Components page is thin\", \"extract this card into a component\", \"add a variant\", \"swap the copies for instances\", or when a screen holds art that repeats. Does NOT create variables or bind tokens (use figma-tokens), does NOT import screens from PSD (use psd-to-figma), does NOT import to Unity (use figma-to-unity), and does NOT run the structure or 9-slice gate (use figma-hygiene).",
+      "installPath": ".claude/skills/figma-components",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/figma-components/PROVENANCE.md",
+        ".claude/skills/figma-components/SKILL.md",
+        ".claude/skills/figma-components/reference/component-creation.md",
+        ".claude/skills/figma-components/reference/component-spec.md",
+        ".claude/skills/figma-components/reference/discovery-phase.md",
+        ".claude/skills/figma-components/reference/error-recovery.md",
+        ".claude/skills/figma-components/reference/patterns-guide.md",
+        ".claude/skills/figma-components/reference/slots-guide.md",
+        ".claude/skills/figma-components/scripts/addStateVariants.js",
+        ".claude/skills/figma-components/scripts/auditComponentCoverage.js",
+        ".claude/skills/figma-components/scripts/cleanupOrphans.js",
+        ".claude/skills/figma-components/scripts/createComponentWithVariants.js",
+        ".claude/skills/figma-components/scripts/promoteToComponent.js",
+        ".claude/skills/figma-components/scripts/validateComponent.js"
+      ],
+      "fileCount": 14,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "figma-components.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
+      "sha256": "abcf86d598d18033b604138a56c2396977e548d3df2f4321abaf5108b0232cda",
+      "size": 41300
+    },
+    {
+      "id": "Skills/figma-hygiene",
+      "name": "figma-hygiene",
+      "category": "Skills",
+      "description": "Pre-flight and post-flight contract gate for Figma design files. Checks structure (no flat screens, naming, grouping) and visual integrity (9-slice, component reuse, text style binding, layout grid). Enforces layout-grid and reuse design rules. Runs automatically before and after any Figma workflow, blocks on failure. Also invocable manually via /figma-hygiene.",
+      "installPath": ".claude/skills/figma-hygiene",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/figma-hygiene/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "figma-hygiene.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
+      "sha256": "cd2a084b44fc500e294886bc7ae443c9e956b84158d8fd6aa5cfcf25069e80cf",
+      "size": 3152
+    },
+    {
+      "id": "Skills/figma-to-unity",
+      "name": "figma-to-unity",
+      "category": "Skills",
+      "description": "Import Figma screens into Unity as UGUI prefabs with the UnityFigmaBridge (com.simonoliver.unityfigma). Use when asked to \"import a screen from Figma\", \"bring the Figma UI into Unity\", \"re-import a screen after the designer changed Figma\", or when given a figma.com/design link to a screen frame.",
+      "installPath": ".claude/skills/figma-to-unity",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/figma-to-unity/SKILL.md",
+        ".claude/skills/figma-to-unity/reference/prefab-contract.md"
+      ],
+      "fileCount": 2,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "figma-to-unity.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
+      "sha256": "f24c85402064c76f933173ec533e07dd242e4648eb59bbd8a29d77cf1443d46a",
+      "size": 6805
+    },
+    {
+      "id": "Skills/figma-tokens",
+      "name": "figma-tokens",
+      "category": "Skills",
+      "description": "Build and audit the design-token layer of the project's Figma file — variable collections, scopes, bindings, text/effect styles, and component descriptions. Use when asked to \"set up tokens\", \"create variables\", \"build the design system\", \"audit the design system\", \"find hardcoded colors\", \"bind values to variables\", \"fix ALL_SCOPES\", \"write component descriptions\", or when a Figma change needs a token instead of a pasted value. Does NOT import screens (use psd-to-figma), does NOT import to Unity (use figma-to-unity), and does NOT check structure or 9-slice (use figma-hygiene).",
+      "installPath": ".claude/skills/figma-tokens",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/figma-tokens/PROVENANCE.md",
+        ".claude/skills/figma-tokens/SKILL.md",
+        ".claude/skills/figma-tokens/reference/component-description-template.md",
+        ".claude/skills/figma-tokens/reference/naming-conventions.md",
+        ".claude/skills/figma-tokens/reference/token-taxonomy.md",
+        ".claude/skills/figma-tokens/scripts/audit-detached.js",
+        ".claude/skills/figma-tokens/scripts/audit-naming.js",
+        ".claude/skills/figma-tokens/scripts/audit-states.js",
+        ".claude/skills/figma-tokens/scripts/audit-tokens.js",
+        ".claude/skills/figma-tokens/scripts/fixHardcodedToTokens.js",
+        ".claude/skills/figma-tokens/scripts/inventory.js"
+      ],
+      "fileCount": 11,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "figma-tokens.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip",
+      "sha256": "eda3ae2b43ee9dfae783d31818784d2ce2b48cbfa1b9d54df249d36dcaf2c50b",
+      "size": 34328
+    },
+    {
       "id": "Skills/game-systems",
       "name": "game-systems",
       "category": "Skills",
@@ -2262,6 +2358,38 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-feature.zip",
       "sha256": "9049ef3a7ac310c87357c2bd9276166f70b41464d691df422b9a19a17d9b5629",
       "size": 31243
+    },
+    {
+      "id": "Skills/psd-to-figma",
+      "name": "psd-to-figma",
+      "category": "Skills",
+      "description": "Import a Photoshop screen into the project's Figma design file as editable layers — art as uploaded PNGs, text as real Figma text — then prove it matches the PSD numerically. Use when asked to \"import a PSD to Figma\", \"bring this screen into Figma\", \"add a new screen to the design file\", or whenever a .psd under the project's PSD source directory must become a Figma frame. Also use before editing an already-imported screen, because it defines the node naming, 9-slice, component-reuse and verify contracts that edit must not break.",
+      "installPath": ".claude/skills/psd-to-figma",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/psd-to-figma/SKILL.md",
+        ".claude/skills/psd-to-figma/reference/component-registry.md",
+        ".claude/skills/psd-to-figma/reference/contracts.md",
+        ".claude/skills/psd-to-figma/reference/nine-slice.md",
+        ".claude/skills/psd-to-figma/scripts/figma_extract.js",
+        ".claude/skills/psd-to-figma/scripts/figma_upload.py",
+        ".claude/skills/psd-to-figma/scripts/nine_slice_detect.py",
+        ".claude/skills/psd-to-figma/scripts/pipeline_config.py",
+        ".claude/skills/psd-to-figma/scripts/psd_export_icons.py",
+        ".claude/skills/psd-to-figma/scripts/psd_export_pngs.py",
+        ".claude/skills/psd-to-figma/scripts/psd_manifest.py",
+        ".claude/skills/psd-to-figma/scripts/requirements.txt",
+        ".claude/skills/psd-to-figma/scripts/verify_figma_vs_psd.py",
+        ".claude/skills/psd-to-figma/scripts/verify_nine_slice.py",
+        ".claude/skills/psd-to-figma/scripts/visual_diff.py"
+      ],
+      "fileCount": 15,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "psd-to-figma.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
+      "sha256": "c7f5aba098b5418a7d61045197eff29bbfc7cb9109ce04ece6ce0b2c5eb63527",
+      "size": 38959
     },
     {
       "id": "Skills/publish-ai-features",
