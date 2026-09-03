@@ -21,8 +21,6 @@ namespace UnityFigmaBridge.Editor.Settings
         private string m_TokenDraft;
 
         private Vector2 m_MainScrollPos;
-        private Vector2 m_PageScrollPos;
-        private Vector2 m_ScreenScrollPos;
         private readonly Dictionary<string, bool> m_PageFoldouts = new();
 
         [MenuItem("Tools/EZG Technical Art/Figma Bridge")]
@@ -59,13 +57,23 @@ namespace UnityFigmaBridge.Editor.Settings
             m_SelectedTab = GUILayout.Toolbar(m_SelectedTab, s_TabLabels);
             GUILayout.Space(8);
 
-            using var scroll = new EditorGUILayout.ScrollViewScope(m_MainScrollPos);
-            m_MainScrollPos = scroll.scrollPosition;
+            using (var scroll = new EditorGUILayout.ScrollViewScope(m_MainScrollPos))
+            {
+                m_MainScrollPos = scroll.scrollPosition;
 
+                if (m_SelectedTab == 0)
+                    DrawSetupTab();
+                else
+                    DrawTokenTab(prev != 1);
+            }
+
+            // Outside the scroll view, so a long screen list never pushes it out of reach
             if (m_SelectedTab == 0)
-                DrawSetupTab();
-            else
-                DrawTokenTab(prev != 1);
+            {
+                GUILayout.Space(4);
+                if (GUILayout.Button("Sync Document", GUILayout.Height(32)))
+                    UnityFigmaBridgeImporter.SyncDocument();
+            }
         }
 
         private void DrawSetupTab()
@@ -95,7 +103,7 @@ namespace UnityFigmaBridge.Editor.Settings
             if (m_Settings.OnlyImportSelectedPages)
             {
                 GUILayout.Space(20);
-                var changed = ListPages("Select Pages to import", m_Settings.PageDataList, ref m_PageScrollPos);
+                var changed = ListPages("Select Pages to import", m_Settings.PageDataList);
                 if (changed)
                 {
                     EditorUtility.SetDirty(m_Settings);
@@ -109,10 +117,6 @@ namespace UnityFigmaBridge.Editor.Settings
                 EditorUtility.SetDirty(m_Settings);
                 AssetDatabase.SaveAssetIfDirty(m_Settings);
             }
-
-            GUILayout.Space(20);
-            if (GUILayout.Button("Sync Document", GUILayout.Height(32)))
-                UnityFigmaBridgeImporter.SyncDocument();
         }
 
         private void DrawSettingsFields()
@@ -128,8 +132,6 @@ namespace UnityFigmaBridge.Editor.Settings
                 enterChildren = false;
                 if (prop.propertyPath == "m_Script") continue;
                 EditorGUILayout.PropertyField(prop, true);
-                if (prop.propertyPath == nameof(UnityFigmaBridgeSettings.ImageFillFolder))
-                    DrawResolvedOutputFolders();
             }
             m_SerializedSettings.ApplyModifiedProperties();
 
@@ -138,20 +140,6 @@ namespace UnityFigmaBridge.Editor.Settings
             EditorGUILayout.HelpBox(
                 isValid ? $"Valid Figma Document URL - FileID: {fileId}" : "Invalid Figma Document URL",
                 isValid ? MessageType.Info : MessageType.Error);
-        }
-
-        /// <summary>
-        /// Blank folder fields fall back to defaults, so show where the output actually goes
-        /// </summary>
-        private void DrawResolvedOutputFolders()
-        {
-            var folders = FigmaPaths.Resolve(m_Settings, "<document name>", warnOnInvalid: false);
-            EditorGUILayout.HelpBox(
-                $"Screens: {folders.Screens}\n" +
-                $"Components: {folders.Components}\n" +
-                $"Pages: {folders.Pages}\n" +
-                $"Image fills: {folders.ImageFills}",
-                MessageType.None);
         }
 
         private void DrawTokenTab(bool justSwitched)
@@ -254,25 +242,20 @@ namespace UnityFigmaBridge.Editor.Settings
                     return applyChanges;
                 }
 
-                using (var scrollViewScope = new EditorGUILayout.ScrollViewScope(m_ScreenScrollPos,
-                           GUILayout.MaxHeight(320)))
+                // Refresh writes rows in document order, so a run of rows sharing a page id is
+                // exactly one page and needs no sorting
+                var rowIndex = 0;
+                while (rowIndex < overrideList.Count)
                 {
-                    // Refresh writes rows in document order, so a run of rows sharing a page id is
-                    // exactly one page and needs no sorting
-                    var rowIndex = 0;
-                    while (rowIndex < overrideList.Count)
-                    {
-                        var pageId = overrideList[rowIndex].PageNodeId ?? "";
-                        var groupEnd = rowIndex;
-                        while (groupEnd < overrideList.Count &&
-                               (overrideList[groupEnd].PageNodeId ?? "") == pageId) groupEnd++;
+                    var pageId = overrideList[rowIndex].PageNodeId ?? "";
+                    var groupEnd = rowIndex;
+                    while (groupEnd < overrideList.Count &&
+                           (overrideList[groupEnd].PageNodeId ?? "") == pageId) groupEnd++;
 
-                        if (ListScreenPageGroup(settings, overrideList, rowIndex, groupEnd, pageId))
-                            applyChanges = true;
+                    if (ListScreenPageGroup(settings, overrideList, rowIndex, groupEnd, pageId))
+                        applyChanges = true;
 
-                        rowIndex = groupEnd;
-                    }
-                    m_ScreenScrollPos = scrollViewScope.scrollPosition;
+                    rowIndex = groupEnd;
                 }
 
                 if (!settings.OnlyImportListedScreens)
@@ -356,7 +339,7 @@ namespace UnityFigmaBridge.Editor.Settings
         /// <summary>
         /// List all pages in the settings file
         /// </summary>
-        private bool ListPages(string listTitle, IReadOnlyList<FigmaPageData> dataList, ref Vector2 scrollPos)
+        private bool ListPages(string listTitle, IReadOnlyList<FigmaPageData> dataList)
         {
             var applyChanges = false;
             using (new EditorGUILayout.VerticalScope()) {
@@ -379,17 +362,12 @@ namespace UnityFigmaBridge.Editor.Settings
                 }
                 GUILayout.Space(5);
 
-                using (var scrollViewScope = new EditorGUILayout.ScrollViewScope(scrollPos))
-                {
-                    foreach (var data in dataList) {
-                        var isChecked = data.Selected;
-                        data.Selected = EditorGUILayout.ToggleLeft(data.Name, data.Selected);
-                        if (isChecked != data.Selected) {
-                            applyChanges = true;
-                        }
-
+                foreach (var data in dataList) {
+                    var isChecked = data.Selected;
+                    data.Selected = EditorGUILayout.ToggleLeft(data.Name, data.Selected);
+                    if (isChecked != data.Selected) {
+                        applyChanges = true;
                     }
-                    scrollPos = scrollViewScope.scrollPosition;
                 }
 
                 return applyChanges;

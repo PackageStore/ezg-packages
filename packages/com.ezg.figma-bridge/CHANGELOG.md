@@ -9,6 +9,11 @@
   the project yet.
 - Field tooltips are Vietnamese: one line of description, then one example line. The two inline
   hints the folder field draws are Vietnamese too.
+- The window dropped the resolved-folder summary box under the output folders, because each
+  field now shows its own path.
+- The Pages and Screens lists no longer sit in their own scroll boxes that shrank with the
+  window. The tab has one scroll bar, the lists draw every row, and Sync Document is pinned
+  below the scroll area so a long list cannot push it out of reach.
 
 ## [0.2.0] - 2026-09-03
 ### Changed
