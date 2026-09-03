@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "project": "M001",
+  "displayName": "M001",
+  "description": "M001 game features — install per-feature via EZG Feature Hub.",
+  "$comment": [
+    "Authored metadata per feature, keyed '<Category>/<Name>'. Wins over anything derived",
+    "from the .unitypackage. markerPaths = what Feature Hub deletes on uninstall, so it must",
+    "name the feature's own folder(s) and never a container like Assets/_Project.",
+    "requires = other features in THIS project's catalog; requiresPackages = UPM id -> version."
+  ],
+  "features": {
+    "_Shared/IAPIntegration": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/_Shared/IAPIntegration"
+      ],
+      "markerGuids": [
+        "adcd9d708405640f7838b99025c94fa4"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/_Shared": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/_Shared"
+      ],
+      "markerGuids": [
+        "b8a9787acbd2cfd4595d07972e1f043d"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/BattleRoyale": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/BattleRoyale"
+      ],
+      "markerGuids": [
+        "9ecdfa8e78ada5a4d96474ef488f762d"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/FortuneMeetsCookie": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/FortuneMeetsCookie"
+      ],
+      "markerGuids": [
+        "c1dabc7ae051a9e4ebea014bd3620976"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/HappinessExpress": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/HappinessExpress"
+      ],
+      "markerGuids": [
+        "c7ae0de1f30522f4e9096c4ef6ced90d"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/PetalPlateParty": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/PetalPlateParty"
+      ],
+      "markerGuids": [
+        "c3c40e244621ffd41a6274a48c3e23d5"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/PizzaTowerRace": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/PizzaTowerRace"
+      ],
+      "markerGuids": [
+        "114351a71489f8f46a1603be2dde19a5"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Events/SpeedFeastRace": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Events/SpeedFeastRace"
+      ],
+      "markerGuids": [
+        "e3b7e8bf236dedd49bd6bf935d63d46e"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/ChefsBook": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/ChefsBook"
+      ],
+      "markerGuids": [
+        "b11280f3db799be4d977dd2062c866b8"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/Inventory": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Inventory"
+      ],
+      "markerGuids": [
+        "e289e485abe1f5d40973f366d9dbcd12"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/ItemInfo": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/ItemInfo"
+      ],
+      "markerGuids": [
+        "b41804dcf51771d4ebbf60b9b189a903"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/LevelUp": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/LevelUp"
+      ],
+      "markerGuids": [
+        "1a496ecc88625d24a9c13e5ec3ba9f3a"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/MapEditor": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/MapEditor"
+      ],
+      "markerGuids": [
+        "1ca3daa028193b041b5036c6a42e1ab4"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/NewEquipment": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/NewEquipment"
+      ],
+      "markerGuids": [
+        "3ef6027ae1e62ac4ea92b9ae9d8128f9"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/OpenZoneBuildUpGoal": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OpenZoneBuildUpGoal"
+      ],
+      "markerGuids": [
+        "bc75531ab7290944586c87fefd9d279b"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/OrderMania": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OrderMania"
+      ],
+      "markerGuids": [
+        "ed5f88cc4b407c94d8cf6b979feb1a67"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/OrderManiaReward": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/OrderManiaReward"
+      ],
+      "markerGuids": [
+        "1f648d4396e0c9946862a353054f6e2b"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/RenovationCompleted": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/RenovationCompleted"
+      ],
+      "markerGuids": [
+        "9339bb8ffd11b714ba4b0f34e6de099f"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Meta/SelectTheme": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/SelectTheme"
+      ],
+      "markerGuids": [
+        "f97e305e90e230548ac0bdfa8bb98a66"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/BattlePass": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BattlePass"
+      ],
+      "markerGuids": [
+        "10b405fd8ad610f4090aa56ef5fd4ba2"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/BattlePassPackage": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BattlePassPackage"
+      ],
+      "markerGuids": [
+        "36ae1128b5f6b804aade6d92e21adc30"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/BigFlashSale": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BigFlashSale"
+      ],
+      "markerGuids": [
+        "ade0adf8e9c34154fb072b5007a3d6cf"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/BuyCurrency": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/BuyCurrency"
+      ],
+      "markerGuids": [
+        "7e08e9bfb83559d44bf8eaa2b80de2ec"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/ChainPack": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/ChainPack"
+      ],
+      "markerGuids": [
+        "809c832367aeed84a8ef4c92723fc270"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/ChoiceChest": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/ChoiceChest"
+      ],
+      "markerGuids": [
+        "80478a50e0285ca499938beeafbe4338"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/DiscountGemRaw": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/DiscountGemRaw"
+      ],
+      "markerGuids": [
+        "055a918143af9a44d9da90fadef60776"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/EnergyPack": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/EnergyPack"
+      ],
+      "markerGuids": [
+        "d18ddf7afc135ab41b11ccd078113730"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/EnergyTrilogy": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/EnergyTrilogy"
+      ],
+      "markerGuids": [
+        "e1f77c95e1daf8c4595fbaef81f8dac2"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/InfinityPack": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/InfinityPack"
+      ],
+      "markerGuids": [
+        "f8f63609209287c42b7071e157dc2ac2"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/LuckySpin": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/LuckySpin"
+      ],
+      "markerGuids": [
+        "26bb0c23bcc150b449c3880a54fe35d8"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/OpenningPack": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/OpenningPack"
+      ],
+      "markerGuids": [
+        "9786327c442661448a00e9bbbb714696"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/OpenStarChest": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/OpenStarChest"
+      ],
+      "markerGuids": [
+        "64779720b0d8d3a4bb3ae8485ed4abaf"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/PiggyBank": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/PiggyBank"
+      ],
+      "markerGuids": [
+        "5a918c1730776d94e9c5926fc579698e"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/QuickBreak": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/QuickBreak"
+      ],
+      "markerGuids": [
+        "a81bcfe00c3544d4c9912256cb2c0ef8"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/SpeedPackage": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/SpeedPackage"
+      ],
+      "markerGuids": [
+        "67612c6b317b2764ea3feadc6c29787b"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/StarterPack": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/StarterPack"
+      ],
+      "markerGuids": [
+        "d1545e5ecf45fd44ab62baf1c863758a"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Monetization/WatchRateItemGen": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/WatchRateItemGen"
+      ],
+      "markerGuids": [
+        "42cc3830cfdd636429920abc0f4a76cb"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "Onboarding/VideoIntro": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/Onboarding/VideoIntro"
+      ],
+      "markerGuids": [
+        "c08bb2a4c08e44c4381d983acd03b194"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/ConfirmExpandItem": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ConfirmExpandItem"
+      ],
+      "markerGuids": [
+        "5d41b40c76c28a04eb776c797f962ccc"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/ConfirmSellRareItem": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ConfirmSellRareItem"
+      ],
+      "markerGuids": [
+        "8b860b24e2ce21c46b6b1c8ed215f70b"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/DailyReward": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/DailyReward"
+      ],
+      "markerGuids": [
+        "9c70211bfa3b318448b076e402f4d310"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/NotEnoughCurrency": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/NotEnoughCurrency"
+      ],
+      "markerGuids": [
+        "101dd058e6203e542abca22ab84b1679"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/PopupConfirm": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/PopupConfirm"
+      ],
+      "markerGuids": [
+        "b6020db2a3d068a44896526044e1d1b5"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/PopupNextTheme": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/PopupNextTheme"
+      ],
+      "markerGuids": [
+        "a063370a94d3e09448b1e49908605180"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/RewardEventPopup": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/RewardEventPopup"
+      ],
+      "markerGuids": [
+        "63f3f7c1af7726f4d83d5f79932acbb7"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/ScreenMaskChangeScene": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ScreenMaskChangeScene"
+      ],
+      "markerGuids": [
+        "19894a20e32f8a447b541a5ff197042c"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    },
+    "System/VideoBonuses": {
+      "description": "",
+      "markerPaths": [
+        "Assets/_Project/Features/System/VideoBonuses"
+      ],
+      "markerGuids": [
+        "7def504bdb6ede04fa73dae44f61d0f2"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    }
+  }
+}

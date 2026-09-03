@@ -18,6 +18,13 @@
   "gitConfigPrefix": "__PROJECT_SLUG__",
   "defaultBaseBranch": "main",
 
+  "$comment_featureHub": [
+    "Mã dự án trên EZG Feature Hub (tab Features), vd \"M001\". /publish-feature đọc key này để",
+    "biết publish vào catalog nào. Để trống = skill sẽ liệt kê project đang có cho bạn chọn rồi",
+    "ghi ngược mã vào đây. Không phải projectName — nhiều repo có thể cùng một mã dự án."
+  ],
+  "featureHubProjectId": "",
+
   "sourceRoot": "Assets/_Project",
   "featuresRoot": "Assets/_Project/Features",
   "gameplayRoot": "Assets/_Project/Features",

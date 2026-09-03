@@ -73,6 +73,18 @@ export async function getJson(client, key) {
   }
 }
 
+/** Raw object bytes as a Buffer, or null when the key does not exist. */
+export async function getObject(client, key) {
+  const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+  try {
+    const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    return Buffer.from(await res.Body.transformToByteArray());
+  } catch (err) {
+    if (err?.$metadata?.httpStatusCode === 404 || err?.name === "NoSuchKey") return null;
+    throw err;
+  }
+}
+
 export async function putObject(client, key, body, contentType) {
   const { PutObjectCommand } = await import("@aws-sdk/client-s3");
   await client.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }));

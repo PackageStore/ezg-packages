@@ -59,6 +59,9 @@ DEFAULTS = {
     "gitConfigPrefix": "agent",
     # last-resort base branch when HEAD is an agent branch and git config is empty
     "defaultBaseBranch": "main",
+    # EZG Feature Hub project code (Features tab), e.g. "M001". Empty on purpose:
+    # /publish-feature refuses to guess it and makes the dev pick instead.
+    "featureHubProjectId": "",
 
     # --- source layout ------------------------------------------------------
     "sourceRoot": "Assets/_Project",
