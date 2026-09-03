@@ -4,9 +4,11 @@
 ### Changed
 - Folder fields lost the browse button: the field is Unity's own folder object field, picked with
   its own picker or by dropping a folder in.
-- A folder field now always shows the path it writes to - the folder's own path when one is set,
-  the default in grey when the field is blank, or the path plus "created on import" when the
-  folder is not in the project yet.
+- A folder field now always shows the path it writes to: the folder's own path when one is set,
+  the default in grey when the field is blank, or the path plus a note when the folder is not in
+  the project yet.
+- Field tooltips are Vietnamese: one line of description, then one example line. The two inline
+  hints the folder field draws are Vietnamese too.
 
 ## [0.2.0] - 2026-09-03
 ### Changed

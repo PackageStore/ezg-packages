@@ -1,7 +1,7 @@
 # EZG Unity Figma Bridge
 
-Imports a Figma document into Unity as native UGUI prefabs — screens, components, variants,
-image fills and fonts — driven from an editor window and a settings asset.
+Imports a Figma document into Unity as native UGUI prefabs: screens, components, variants,
+image fills and fonts, driven from an editor window and a settings asset.
 
 ## Install
 

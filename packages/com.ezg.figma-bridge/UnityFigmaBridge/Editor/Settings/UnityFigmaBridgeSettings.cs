@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -10,84 +10,93 @@ namespace UnityFigmaBridge.Editor.Settings
     public class UnityFigmaBridgeSettings : ScriptableObject, IFolderDefaults
     {
 
-        [Tooltip("The FIGMA Document URL to import")]
+        // Tooltips are Vietnamese for the team that uses this: one line of description, then one
+        // example line. Unity draws tooltips as plain text, so no markup here.
+        [Tooltip("URL tài liệu Figma cần import.\nVí dụ: https://www.figma.com/design/aBc123/Ten-File")]
         public string DocumentUrl;
 
-        [Tooltip("Generate logic and linking of screens based on FIGMA's 'Prototype' settings")]
+        [Tooltip("Tự sinh liên kết chuyển screen theo Prototype của Figma.\nVí dụ: nút Play mở screen Game.")]
         public bool BuildPrototypeFlow=true;
 
         [Space(10)]
-        [Tooltip("Scene used for prototype assets, including canvas")]
+        [Tooltip("Scene chứa canvas và asset runtime của prototype.\nVí dụ: Assets/Scenes/Main.unity")]
         public string RunTimeAssetsScenePath;
 
-        [Tooltip("Enable Auto layout components (Horizontal/Vertical layout) (EXPERIMENTAL)")]
+        [Tooltip("Bật Horizontal/Vertical Layout Group theo auto layout của Figma (thử nghiệm).\n" +
+                 "Ví dụ: frame auto layout dọc thành Vertical Layout Group.")]
         public bool EnableAutoLayout = false;
 
-        [Tooltip("C# Namespace filter for binding MonoBehaviours for screens. Use this to ensure it will only bind to MonoBehaviours in that namespace (eg specify 'MyGame.UI' to only bind MyGame.UI.PlayScreen node to 'PlayScreen')")]
+        [Tooltip("Chỉ bind MonoBehaviour trong namespace này vào screen.\nVí dụ: MyGame.UI")]
         public string ScreenBindingNamespace="";
 
-        [Tooltip("Scale for rendering server images")]
+        [Tooltip("Tỉ lệ khi Figma render ảnh trên server.\nVí dụ: 3 cho ảnh gấp 3 lần kích thước thiết kế.")]
         public int ServerRenderImageScale=3;
 
-        [Tooltip("Tick this to enable downloading missing fonts from Google Fonts")]
+        [Tooltip("Tải font còn thiếu từ Google Fonts.\nVí dụ: Figma dùng Roboto, bridge tải Roboto.ttf.")]
         public bool EnableGoogleFontsDownloads = true;
 
-        [Tooltip("Generate a C# file containing all found screens")]
+        [Tooltip("Sinh file C# chứa tên mọi screen tìm được.\n" +
+                 "Ví dụ: dùng ScreenNames.SHOP thay cho tên dạng chuỗi.")]
         public bool CreateScreenNameCSharpFile = false;
 
-        [Tooltip("If false, the generator will not attempt to build any nodes marked for export")]
+        [Tooltip("Dựng cả node được Figma đánh dấu export.\n" +
+                 "Ví dụ: icon đặt Export PNG vẫn thành GameObject.")]
         public bool GenerateNodesMarkedForExport = true;
 
-        [Tooltip("If true, download only selected pages and screens")]
+        [Tooltip("Chỉ tải các page được chọn trong danh sách bên dưới.\n" +
+                 "Ví dụ: bỏ page nháp khỏi lần import.")]
         public bool OnlyImportSelectedPages = false;
 
         [HideInInspector]
         public List<FigmaPageData> PageDataList = new ();
 
         [Header("Output Folders")]
-        [FolderPath, Tooltip("Root folder for generated assets. Blank = Assets/_Project/UI")]
+        [FolderPath, Tooltip("Thư mục gốc cho mọi asset sinh ra. Để trống dùng Assets/_Project/UI.\n" +
+                             "Ví dụ: Assets/_Project/UI")]
         public string AssetsRootFolder = "";
 
-        [FolderPath, Tooltip("Folder for screen prefabs. Blank = <root>/Screens")]
+        [FolderPath, Tooltip("Thư mục chứa prefab screen. Để trống dùng thư mục gốc kèm /Screens.\n" +
+                             "Ví dụ: Assets/_Project/UI/Screens")]
         public string ScreenPrefabFolder = "";
 
-        [FolderPath, Tooltip("Folder for component prefabs. Blank = <root>/Components")]
+        [FolderPath, Tooltip("Thư mục chứa prefab component. Để trống dùng thư mục gốc kèm /Components.\n" +
+                             "Ví dụ: Assets/_Project/UI/Components")]
         public string ComponentPrefabFolder = "";
 
-        [FolderPath, Tooltip("Folder for page prefabs. Blank = <root>/Pages")]
+        [FolderPath, Tooltip("Thư mục chứa prefab page. Để trống dùng thư mục gốc kèm /Pages.\n" +
+                             "Ví dụ: Assets/_Project/UI/Pages")]
         public string PagePrefabFolder = "";
 
-        [FolderPath, Tooltip("Parent folder for image fills. Sprites go in a subfolder named after the " +
-                             "Figma document, so two documents never share one folder. Blank = <root>/Sprites")]
+        [FolderPath, Tooltip("Thư mục cha của sprite. Mỗi tài liệu Figma có một thư mục con riêng. " +
+                             "Để trống dùng thư mục gốc kèm /Sprites.\n" +
+                             "Ví dụ: Assets/_Project/UI/Sprites/TenTaiLieu")]
         public string ImageFillFolder = "";
 
         [HideInInspector]
         public List<FigmaScreenNameOverride> ScreenNameOverrides = new();
 
         [Header("Screen Names")]
-        [Tooltip("When true, a frame with no ScreenNameOverrides row is not imported. Rows are " +
-                 "filled by the Refresh button, so this only affects frames added to the Figma " +
-                 "document since the last refresh.")]
+        [Tooltip("Chỉ import screen có trong danh sách bên dưới.\n" +
+                 "Ví dụ: frame mới trong Figma bị bỏ qua đến khi bấm Refresh.")]
         public bool OnlyImportListedScreens = false;
 
-        [Tooltip("Where downloaded .ttf files and generated TMP font assets go. Blank uses " +
-                 "'Assets/TextMesh Pro/Fonts', beside TMP's own fonts, because these are TMP " +
-                 "assets rather than Figma output.")]
+        [Tooltip("Thư mục chứa file .ttf tải về và font asset TMP. " +
+                 "Để trống dùng Assets/TextMesh Pro/Fonts.\n" +
+                 "Ví dụ: Assets/TextMesh Pro/Fonts")]
         public string FontsFolder = "";
 
-        [Tooltip("Where generated font material presets go. Blank uses the fonts folder, so a " +
-                 "font's variants sit next to the font asset they derive from.")]
+        [Tooltip("Thư mục chứa material preset của font. Để trống dùng chung thư mục font.\n" +
+                 "Ví dụ: Assets/TextMesh Pro/Fonts")]
         public string FontMaterialPresetsFolder = "";
 
         [Header("Image Fills")]
-        [Tooltip("Name downloaded image fills after the Figma node that uses them, grouped by " +
-                 "owning component or screen, instead of the imageRef content hash. A component " +
-                 "owns its art even when a screen also reaches it, because a component prefab is " +
-                 "shared across screens. Turn off only to get raw imageRef filenames back.")]
+        [Tooltip("Đặt tên sprite theo node Figma dùng nó, thay cho mã hash imageRef.\n" +
+                 "Ví dụ: btn_play.png thay cho 3f9a2c81.png")]
         public bool NameImageFillsByNodePath = true;
 
         [Header("Nine-Slice")]
-        [Tooltip("When true, the nine-slice pass collapses slice_ROW_COL grids into a single Image.Type.Sliced")]
+        [Tooltip("Gộp lưới slice_ROW_COL thành một Image kiểu Sliced.\n" +
+                 "Ví dụ: 9 ô slice thành 1 sprite có border.")]
         public bool CollapseSliceGrids = true;
 
         string IFolderDefaults.DefaultFolder(string propertyPath)

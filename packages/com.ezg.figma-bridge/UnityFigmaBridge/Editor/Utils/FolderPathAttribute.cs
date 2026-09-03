@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace UnityFigmaBridge.Editor.Utils
@@ -45,24 +45,12 @@ namespace UnityFigmaBridge.Editor.Utils
             var defaultFolder = string.IsNullOrEmpty(path) ? DefaultFolderFor(property) : null;
 
             EditorGUI.BeginChangeCheck();
-            var picked = EditorGUI.ObjectField(position, FieldLabel(label, path, defaultFolder), folder,
-                typeof(DefaultAsset), false) as DefaultAsset;
+            var picked = EditorGUI.ObjectField(position, label, folder, typeof(DefaultAsset), false) as DefaultAsset;
             if (EditorGUI.EndChangeCheck()) Apply(property, picked, label.text);
 
             DrawPathOverlay(position, path, folder, defaultFolder);
 
             EditorGUI.EndProperty();
-        }
-
-        private static GUIContent FieldLabel(GUIContent label, string path, string defaultFolder)
-        {
-            var hint = defaultFolder != null
-                ? $"Blank: the import uses {defaultFolder}."
-                : AssetDatabase.IsValidFolder(path) ? null : "This folder does not exist yet. It is created on import.";
-
-            if (hint == null) return label;
-            return new GUIContent(label.text,
-                string.IsNullOrEmpty(label.tooltip) ? hint : $"{label.tooltip}\n\n{hint}");
         }
 
         private static string DefaultFolderFor(SerializedProperty property)
@@ -94,7 +82,7 @@ namespace UnityFigmaBridge.Editor.Utils
 
                 var content = folder != null
                     ? new GUIContent(path, EditorGUIUtility.ObjectContent(folder, typeof(DefaultAsset)).image)
-                    : new GUIContent(defaultFolder != null ? $"Default: {defaultFolder}" : $"{path}  (created on import)");
+                    : new GUIContent(defaultFolder != null ? $"Mặc định: {defaultFolder}" : $"{path}  (sẽ tạo khi import)");
                 var style = folder != null ? s_PathStyle : s_DefaultStyle;
 
                 var pad = EditorStyles.objectField.padding.left;
