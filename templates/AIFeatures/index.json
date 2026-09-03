@@ -2196,8 +2196,8 @@
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "f24c85402064c76f933173ec533e07dd242e4648eb59bbd8a29d77cf1443d46a",
-      "size": 6805
+      "sha256": "749b4c646de290deb1391719c20ee163acd158aa63dfdb9be7c0b13eb8457e6c",
+      "size": 6843
     },
     {
       "id": "Skills/figma-tokens",
