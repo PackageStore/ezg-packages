@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "project": "R001",
+  "displayName": "R001",
+  "description": "R001 game features — install per-feature via EZG Feature Hub.",
+  "$comment": [
+    "Authored metadata per feature, keyed '<Category>/<Name>'. Wins over anything derived",
+    "from the .unitypackage. markerPaths = what Feature Hub deletes on uninstall, so it must",
+    "name the feature's own folder(s) and never a container like Assets/_Project.",
+    "requires = other features in THIS project's catalog; requiresPackages = UPM id -> version."
+  ],
+  "features": {
+    "LiveOps/SevenDay": {
+      "description": "7-day login event (daily quest + reward chest + IAP pack). KHÔNG self-contained ở mức compile: cần project đích đã có sẵn LiveOps/Quest, Meta/WorldMap và Monetization/Shop (game-specific, chưa publish lên hub) — feature này không khai requires vì catalog R001 chưa có 3 feature đó.",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/SevenDay"
+      ],
+      "markerGuids": [
+        "4278c34070980ea4ca4c1bf607690d04"
+      ],
+      "requires": [],
+      "requiresPackages": {}
+    }
+  }
+}
