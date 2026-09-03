@@ -38,6 +38,7 @@ namespace UnityFigmaBridge.Editor.Utils
             public string Pages;
             public string Screens;
             public string Components;
+            public string ImageFillParent;
             public string ImageFills;
             public string ServerRenderedImages;
         }
@@ -59,6 +60,7 @@ namespace UnityFigmaBridge.Editor.Utils
                 Pages = NormalisePath(settings.PagePrefabFolder, $"{root}/Pages", warnOnInvalid),
                 Screens = NormalisePath(settings.ScreenPrefabFolder, $"{root}/Screens", warnOnInvalid),
                 Components = NormalisePath(settings.ComponentPrefabFolder, $"{root}/Components", warnOnInvalid),
+                ImageFillParent = imageFillParent,
                 ImageFills = $"{imageFillParent}/{documentFolder}",
                 ServerRenderedImages = $"{root}/ServerRenderedImages",
             };

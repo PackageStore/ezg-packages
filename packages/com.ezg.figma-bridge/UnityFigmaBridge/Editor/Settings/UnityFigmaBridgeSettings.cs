@@ -7,7 +7,7 @@ using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Settings
 {
-    public class UnityFigmaBridgeSettings : ScriptableObject
+    public class UnityFigmaBridgeSettings : ScriptableObject, IFolderDefaults
     {
 
         [Tooltip("The FIGMA Document URL to import")]
@@ -89,6 +89,20 @@ namespace UnityFigmaBridge.Editor.Settings
         [Header("Nine-Slice")]
         [Tooltip("When true, the nine-slice pass collapses slice_ROW_COL grids into a single Image.Type.Sliced")]
         public bool CollapseSliceGrids = true;
+
+        string IFolderDefaults.DefaultFolder(string propertyPath)
+        {
+            var folders = FigmaPaths.Resolve(this, "<document name>", warnOnInvalid: false);
+            switch (propertyPath)
+            {
+                case nameof(AssetsRootFolder): return folders.Root;
+                case nameof(ScreenPrefabFolder): return folders.Screens;
+                case nameof(ComponentPrefabFolder): return folders.Components;
+                case nameof(PagePrefabFolder): return folders.Pages;
+                case nameof(ImageFillFolder): return folders.ImageFillParent;
+                default: return null;
+            }
+        }
 
         public string FileId {
             get

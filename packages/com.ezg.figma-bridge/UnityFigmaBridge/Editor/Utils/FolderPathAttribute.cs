@@ -13,6 +13,15 @@ namespace UnityFigmaBridge.Editor.Utils
     {
     }
 
+    /// <summary>
+    /// Implemented by the object that owns [FolderPath] fields, so a blank field can show the
+    /// folder the import falls back to instead of an empty object slot.
+    /// </summary>
+    public interface IFolderDefaults
+    {
+        string DefaultFolder(string propertyPath);
+    }
+
     [CustomPropertyDrawer(typeof(FolderPathAttribute))]
     public sealed class FolderPathDrawer : PropertyDrawer
     {
@@ -36,8 +45,11 @@ namespace UnityFigmaBridge.Editor.Utils
 
             var path = property.stringValue;
             var folderExists = !string.IsNullOrEmpty(path) && AssetDatabase.IsValidFolder(path);
+            var defaultFolder = string.IsNullOrEmpty(path) ? DefaultFolderFor(property) : null;
 
-            if (folderExists || string.IsNullOrEmpty(path))
+            if (defaultFolder != null)
+                DrawDefaultField(fieldRect, property, label, defaultFolder);
+            else if (folderExists || string.IsNullOrEmpty(path))
                 DrawObjectField(fieldRect, property, label, folderExists ? path : null);
             else
                 DrawMissingFolderField(fieldRect, property, label, path);
@@ -47,6 +59,60 @@ namespace UnityFigmaBridge.Editor.Utils
 
             if (browse)
                 Browse(property, label.text, folderExists ? path : null);
+        }
+
+        private static string DefaultFolderFor(SerializedProperty property)
+        {
+            return property.serializedObject.targetObject is IFolderDefaults defaults
+                ? defaults.DefaultFolder(property.propertyPath)
+                : null;
+        }
+
+        /// <summary>
+        /// Blank field: show the default the import will use, greyed out. A folder dropped on it
+        /// or a click on it still sets the field.
+        /// </summary>
+        private static void DrawDefaultField(Rect rect, SerializedProperty property, GUIContent label, string defaultFolder)
+        {
+            var content = new GUIContent(label.text,
+                $"{label.tooltip}\n\nBlank: the import uses {defaultFolder}. Drop a folder here, click, or browse to override.".Trim());
+            var valueRect = EditorGUI.PrefixLabel(rect, content);
+
+            var evt = Event.current;
+            if (valueRect.Contains(evt.mousePosition))
+            {
+                if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
+                {
+                    var dropped = DraggedFolderPath();
+                    DragAndDrop.visualMode = dropped == null ? DragAndDropVisualMode.Rejected : DragAndDropVisualMode.Link;
+                    if (evt.type == EventType.DragPerform && dropped != null)
+                    {
+                        DragAndDrop.AcceptDrag();
+                        property.stringValue = dropped;
+                    }
+                    evt.Use();
+                }
+                else if (evt.type == EventType.MouseDown && evt.button == 0)
+                {
+                    evt.Use();
+                    property.serializedObject.ApplyModifiedProperties();
+                    Browse(property, label.text, null);
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUI.TextField(valueRect, $"Default: {defaultFolder}");
+        }
+
+        private static string DraggedFolderPath()
+        {
+            foreach (var obj in DragAndDrop.objectReferences)
+            {
+                if (obj is not DefaultAsset) continue;
+                var path = AssetDatabase.GetAssetPath(obj);
+                if (AssetDatabase.IsValidFolder(path)) return path;
+            }
+            return null;
         }
 
         private static void DrawObjectField(Rect rect, SerializedProperty property, GUIContent label, string existingPath)

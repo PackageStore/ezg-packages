@@ -10,7 +10,8 @@
 - The five output folder fields are folder pickers (drag a folder or browse) instead of text.
   They still serialize as project-relative paths, so a folder that does not exist yet is created
   on import and a wiped output folder does not break the settings asset.
-- The Figma Bridge window shows the resolved output folders under the fields.
+- A blank folder field shows the default it falls back to, greyed out, instead of an empty
+  object slot; the Figma Bridge window also lists the resolved output folders under the fields.
 - `Assets` itself is accepted as a folder value.
 
 ## [0.1.0] - 2026-09-03
