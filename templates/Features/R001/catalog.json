@@ -16,6 +16,20 @@
         "4278c34070980ea4ca4c1bf607690d04"
       ],
       "description": "7-day login event (daily quest + reward chest + IAP pack). KHÔNG self-contained ở mức compile: cần project đích đã có sẵn LiveOps/Quest, Meta/WorldMap và Monetization/Shop (game-specific, chưa publish lên hub) — feature này không khai requires vì catalog R001 chưa có 3 feature đó."
+    },
+    {
+      "name": "Stamina",
+      "fileName": "Stamina.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Stamina.unitypackage",
+      "sha256": "3a56c60f78f068b0cef1cc1f9c7bb4e1a2d428bd9346e2ad1d909be831742afc",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Stamina"
+      ],
+      "markerGuids": [
+        "72db64c2b3eee438585411cf1cc7f4fa"
+      ],
+      "description": "Energy/stamina economy: CSV config + x3-boost prefabs + Controller/Service/Data. Compile hoàn toàn độc lập. LƯU Ý runtime: nút mua stamina trong StaminaView gọi UIManager.Show(GameEnums.Features.StaminaPack) — màn hình đó thực ra được cài đặt ở Monetization/Shop/Offers/StaminaPack (game-specific, chưa publish lên hub). Thiếu feature đó thì nút mua không mở gì (không crash, chỉ vô tác dụng)."
     }
   ]
 }

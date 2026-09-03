@@ -20,6 +20,17 @@
       ],
       "requires": [],
       "requiresPackages": {}
+    },
+    "Meta/Stamina": {
+      "description": "Energy/stamina economy: CSV config + x3-boost prefabs + Controller/Service/Data. Compile hoàn toàn độc lập. LƯU Ý runtime: nút mua stamina trong StaminaView gọi UIManager.Show(GameEnums.Features.StaminaPack) — màn hình đó thực ra được cài đặt ở Monetization/Shop/Offers/StaminaPack (game-specific, chưa publish lên hub). Thiếu feature đó thì nút mua không mở gì (không crash, chỉ vô tác dụng).",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Stamina"
+      ],
+      "markerGuids": [
+        "72db64c2b3eee438585411cf1cc7f4fa"
+      ],
+      "requires": [],
+      "requiresPackages": {}
     }
   }
 }
