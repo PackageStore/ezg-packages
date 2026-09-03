@@ -1,12 +1,11 @@
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
 namespace UnityFigmaBridge.Editor.Utils
 {
     /// <summary>
-    /// Draws a string path as a folder picker: drag a folder from the Project window or browse for
-    /// one. The value stays a string so a folder that does not exist yet still resolves and gets
+    /// Draws a string path as Unity's own folder object field: drag a folder in, or use the field's
+    /// picker. The value stays a string so a folder that does not exist yet still resolves and gets
     /// created on import, and so a wiped output folder does not leave a dangling reference.
     /// </summary>
     public sealed class FolderPathAttribute : PropertyAttribute
@@ -25,10 +24,11 @@ namespace UnityFigmaBridge.Editor.Utils
     [CustomPropertyDrawer(typeof(FolderPathAttribute))]
     public sealed class FolderPathDrawer : PropertyDrawer
     {
-        private const float BrowseButtonWidth = 28f;
-        private const float Gap = 2f;
+        // Width of the field's own picker button, kept clear of the overlay
+        private const float PickerButtonWidth = 19f;
 
-        private static readonly GUIContent s_BrowseContent = new("...", "Browse for a folder");
+        private static GUIStyle s_PathStyle;
+        private static GUIStyle s_DefaultStyle;
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
@@ -40,25 +40,29 @@ namespace UnityFigmaBridge.Editor.Utils
 
             label = EditorGUI.BeginProperty(position, label, property);
 
-            var fieldRect = new Rect(position.x, position.y, position.width - BrowseButtonWidth - Gap, position.height);
-            var buttonRect = new Rect(fieldRect.xMax + Gap, position.y, BrowseButtonWidth, position.height);
-
             var path = property.stringValue;
-            var folderExists = !string.IsNullOrEmpty(path) && AssetDatabase.IsValidFolder(path);
+            var folder = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             var defaultFolder = string.IsNullOrEmpty(path) ? DefaultFolderFor(property) : null;
 
-            if (defaultFolder != null)
-                DrawDefaultField(fieldRect, property, label, defaultFolder);
-            else if (folderExists || string.IsNullOrEmpty(path))
-                DrawObjectField(fieldRect, property, label, folderExists ? path : null);
-            else
-                DrawMissingFolderField(fieldRect, property, label, path);
+            EditorGUI.BeginChangeCheck();
+            var picked = EditorGUI.ObjectField(position, FieldLabel(label, path, defaultFolder), folder,
+                typeof(DefaultAsset), false) as DefaultAsset;
+            if (EditorGUI.EndChangeCheck()) Apply(property, picked, label.text);
 
-            var browse = GUI.Button(buttonRect, s_BrowseContent, EditorStyles.miniButton);
+            DrawPathOverlay(position, path, folder, defaultFolder);
+
             EditorGUI.EndProperty();
+        }
 
-            if (browse)
-                Browse(property, label.text, folderExists ? path : null);
+        private static GUIContent FieldLabel(GUIContent label, string path, string defaultFolder)
+        {
+            var hint = defaultFolder != null
+                ? $"Blank: the import uses {defaultFolder}."
+                : AssetDatabase.IsValidFolder(path) ? null : "This folder does not exist yet. It is created on import.";
+
+            if (hint == null) return label;
+            return new GUIContent(label.text,
+                string.IsNullOrEmpty(label.tooltip) ? hint : $"{label.tooltip}\n\n{hint}");
         }
 
         private static string DefaultFolderFor(SerializedProperty property)
@@ -69,60 +73,47 @@ namespace UnityFigmaBridge.Editor.Utils
         }
 
         /// <summary>
-        /// Blank field: show the default the import will use, greyed out. A folder dropped on it
-        /// or a click on it still sets the field.
+        /// The object field shows an asset name, or "None" when nothing is assigned, and neither
+        /// says which folder the import writes to. Redraw the field's text area over the top with
+        /// the path itself, leaving the picker button as the field drew it.
         /// </summary>
-        private static void DrawDefaultField(Rect rect, SerializedProperty property, GUIContent label, string defaultFolder)
+        private static void DrawPathOverlay(Rect position, string path, DefaultAsset folder, string defaultFolder)
         {
-            var content = new GUIContent(label.text,
-                $"{label.tooltip}\n\nBlank: the import uses {defaultFolder}. Drop a folder here, click, or browse to override.".Trim());
-            var valueRect = EditorGUI.PrefixLabel(rect, content);
+            var valueRect = new Rect(position.x + EditorGUIUtility.labelWidth + 2f, position.y,
+                position.width - EditorGUIUtility.labelWidth - 2f, position.height);
+            var textRect = new Rect(valueRect.x, valueRect.y,
+                Mathf.Max(0f, valueRect.width - PickerButtonWidth), valueRect.height);
 
-            var evt = Event.current;
-            if (valueRect.Contains(evt.mousePosition))
+            // Called on every event so the group's control id stays in step across passes
+            GUI.BeginGroup(textRect);
+            if (Event.current.type == EventType.Repaint && textRect.width > 0f)
             {
-                if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
-                {
-                    var dropped = DraggedFolderPath();
-                    DragAndDrop.visualMode = dropped == null ? DragAndDropVisualMode.Rejected : DragAndDropVisualMode.Link;
-                    if (evt.type == EventType.DragPerform && dropped != null)
-                    {
-                        DragAndDrop.AcceptDrag();
-                        property.stringValue = dropped;
-                    }
-                    evt.Use();
-                }
-                else if (evt.type == EventType.MouseDown && evt.button == 0)
-                {
-                    evt.Use();
-                    property.serializedObject.ApplyModifiedProperties();
-                    Browse(property, label.text, null);
-                }
-            }
+                s_PathStyle ??= new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
+                s_DefaultStyle ??= new GUIStyle(s_PathStyle) { fontStyle = FontStyle.Italic };
+                s_DefaultStyle.normal.textColor = Dimmed(EditorStyles.label.normal.textColor);
 
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUI.TextField(valueRect, $"Default: {defaultFolder}");
+                var content = folder != null
+                    ? new GUIContent(path, EditorGUIUtility.ObjectContent(folder, typeof(DefaultAsset)).image)
+                    : new GUIContent(defaultFolder != null ? $"Default: {defaultFolder}" : $"{path}  (created on import)");
+                var style = folder != null ? s_PathStyle : s_DefaultStyle;
+
+                var pad = EditorStyles.objectField.padding.left;
+                EditorStyles.objectField.Draw(new Rect(0f, 0f, valueRect.width, valueRect.height),
+                    GUIContent.none, false, false, false, false);
+                style.Draw(new Rect(pad, 0f, textRect.width - pad, textRect.height),
+                    content, false, false, false, false);
+            }
+            GUI.EndGroup();
         }
 
-        private static string DraggedFolderPath()
+        private static Color Dimmed(Color color)
         {
-            foreach (var obj in DragAndDrop.objectReferences)
-            {
-                if (obj is not DefaultAsset) continue;
-                var path = AssetDatabase.GetAssetPath(obj);
-                if (AssetDatabase.IsValidFolder(path)) return path;
-            }
-            return null;
+            color.a *= 0.65f;
+            return color;
         }
 
-        private static void DrawObjectField(Rect rect, SerializedProperty property, GUIContent label, string existingPath)
+        private static void Apply(SerializedProperty property, DefaultAsset picked, string fieldName)
         {
-            var current = existingPath == null ? null : AssetDatabase.LoadAssetAtPath<DefaultAsset>(existingPath);
-
-            EditorGUI.BeginChangeCheck();
-            var picked = EditorGUI.ObjectField(rect, label, current, typeof(DefaultAsset), false) as DefaultAsset;
-            if (!EditorGUI.EndChangeCheck()) return;
-
             if (picked == null)
             {
                 property.stringValue = "";
@@ -133,66 +124,7 @@ namespace UnityFigmaBridge.Editor.Utils
             if (AssetDatabase.IsValidFolder(pickedPath))
                 property.stringValue = pickedPath;
             else
-                Debug.LogWarning($"[FigmaBridge] '{pickedPath}' is not a folder, so {label.text} was left unchanged.");
-        }
-
-        /// <summary>
-        /// An object field would show "None" for a path whose folder is not in the project yet, so
-        /// the path is shown as text until the import creates the folder.
-        /// </summary>
-        private static void DrawMissingFolderField(Rect rect, SerializedProperty property, GUIContent label, string path)
-        {
-            var missingLabel = new GUIContent(label.text, $"{label.tooltip}\n\nFolder does not exist yet. It is created on import.".Trim());
-
-            EditorGUI.BeginChangeCheck();
-            var edited = EditorGUI.TextField(rect, missingLabel, path);
-            if (EditorGUI.EndChangeCheck()) property.stringValue = edited.Trim();
-        }
-
-        private static void Browse(SerializedProperty property, string title, string existingPath)
-        {
-            var startFolder = existingPath == null ? Application.dataPath : Path.GetFullPath(existingPath);
-            var absolute = EditorUtility.OpenFolderPanel(title, startFolder, "");
-            if (string.IsNullOrEmpty(absolute))
-            {
-                GUIUtility.ExitGUI();
-                return;
-            }
-
-            if (TryGetProjectRelativePath(absolute, out var assetPath))
-            {
-                property.stringValue = assetPath;
-                property.serializedObject.ApplyModifiedProperties();
-            }
-            else
-            {
-                EditorUtility.DisplayDialog("Invalid Folder",
-                    "Choose a folder inside this project's Assets folder.", "OK");
-            }
-
-            // A modal panel inside OnGUI leaves the layout stack half-built for this event
-            GUIUtility.ExitGUI();
-        }
-
-        private static bool TryGetProjectRelativePath(string absolutePath, out string assetPath)
-        {
-            var full = Path.GetFullPath(absolutePath).Replace('\\', '/').TrimEnd('/');
-            var dataPath = Path.GetFullPath(Application.dataPath).Replace('\\', '/').TrimEnd('/');
-
-            if (full == dataPath)
-            {
-                assetPath = "Assets";
-                return true;
-            }
-
-            if (full.StartsWith(dataPath + "/"))
-            {
-                assetPath = "Assets" + full.Substring(dataPath.Length);
-                return true;
-            }
-
-            assetPath = null;
-            return false;
+                Debug.LogWarning($"[FigmaBridge] '{pickedPath}' is not a folder, so {fieldName} was left unchanged.");
         }
     }
 }
