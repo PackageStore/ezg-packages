@@ -1,0 +1,23 @@
+{
+  "name": "com.ezg.figma-bridge",
+  "displayName": "EZG Unity Figma Bridge",
+  "description": "Imports a Figma document into Unity as native UGUI prefabs — screens, components, variants, image fills and fonts — driven from an editor window and a settings asset. Output paths are configurable per project; supports selective screen import, 9-slice plate collapse, node-named image fills and component-set axis-intent output.",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "unity",
+    "figma",
+    "ugui",
+    "importer"
+  ],
+  "license": "MIT",
+  "unity": "6000.3",
+  "version": "0.1.0",
+  "type": "library",
+  "hideInEditor": false,
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.ugui": "2.0.0"
+  }
+}
