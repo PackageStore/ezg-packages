@@ -1,0 +1,4 @@
+psd-tools==1.18.0
+Pillow
+aggdraw
+scikit-image
