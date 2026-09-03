@@ -80,6 +80,20 @@
       ]
     },
     {
+      "name": "GiftCode",
+      "fileName": "GiftCode.unitypackage",
+      "category": "Social",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Social/GiftCode.unitypackage",
+      "sha256": "f5976086293732b808787b07483b2830f1d3c06148d59b470b6a723f380f15fa",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/GiftCode"
+      ],
+      "markerGuids": [
+        "1d5e94cfae1a4e6fb039f44eab84cdfb"
+      ],
+      "description": "Đổi gift code: GiftCodeWindow (màn nhập code) + GiftCodeService (validate + claim) + GiftCodeAdder (công cụ admin tạo code) + PlayerGiftCode + GiftCodePack + screen_gift_code.prefab. Không tham chiếu type của feature nào khác, không dùng PlayerDataManager/DataManager facade, không cần entry GameEnums.Features — asset chỉ trỏ tới base (_Shared/UI, _Shared/Localize) và third-party. CẦN BACKEND: GiftCodeService/GiftCodeAdder đọc-ghi qua FirestoreManager.Instance (Firebase Firestore), nên project đích phải có _Shared/Firebase + cấu hình Firestore trong AppSecretsConfig và collection code tương ứng; thiếu thì màn mở được nhưng không validate được code. LƯU Ý BẢO MẬT: ClaimCode đưa thẳng các dòng reward cấu hình từ Firestore vào RewardsService.ReceiveRewards mà KHÔNG validate biên, nên một dòng reward sai/âm trên server sẽ cấp sai — hãy tự chốt validate phía server hoặc thêm bound-check trước khi bật cho người dùng thật. ĐIỀU KIỆN BASE (đo 2026-09-03): chỉ cài được vào project ĐANG nằm trên cùng codebase R001 — lớp _Shared của R001 có 184 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 94 file, trỏ tới 39 feature, nên base tự nó phụ thuộc phần lớn cây feature; 'requires' dưới đây chỉ nói về phụ thuộc feature→feature."
+    },
+    {
       "name": "Mail",
       "fileName": "Mail.unitypackage",
       "category": "Social",

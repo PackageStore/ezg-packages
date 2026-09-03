@@ -20,7 +20,7 @@
       "id": "R001",
       "name": "R001",
       "catalogUrl": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/catalog.json",
-      "featureCount": 8,
+      "featureCount": 9,
       "categories": [
         "LiveOps",
         "Meta",
