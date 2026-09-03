@@ -289,7 +289,7 @@ namespace UnityFigmaBridge.Editor
             // Build a list of page IDs to download
             var downloadPageIdList = downloadPageNodeList.Select(p => p.id).ToList();
             
-            FigmaPaths.Configure(s_UnityFigmaBridgeSettings);
+            FigmaPaths.Configure(s_UnityFigmaBridgeSettings, figmaFile.name);
             ComponentManager.ResetProcessedSets();
 
             if (s_UnityFigmaBridgeSettings.NameImageFillsByNodePath)

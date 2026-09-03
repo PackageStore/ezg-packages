@@ -12,7 +12,7 @@ namespace UnityFigmaBridge.Editor.Utils
 {
     public static class FigmaPaths
     {
-        private const string DefaultRoot = "Assets/Figma";
+        private const string DefaultRoot = "Assets/_Project/UI";
 
         // Fonts and their material presets are TextMeshPro assets, and TMP is a hard requirement of
         // this package, so they default beside TMP's own fonts rather than under the Figma root. A
@@ -24,7 +24,7 @@ namespace UnityFigmaBridge.Editor.Utils
         public static string FigmaPagePrefabFolder { get; private set; } = $"{DefaultRoot}/Pages";
         public static string FigmaScreenPrefabFolder { get; private set; } = $"{DefaultRoot}/Screens";
         public static string FigmaComponentPrefabFolder { get; private set; } = $"{DefaultRoot}/Components";
-        public static string FigmaImageFillFolder { get; private set; } = $"{DefaultRoot}/ImageFills";
+        public static string FigmaImageFillFolder { get; private set; } = $"{DefaultRoot}/Sprites";
         public static string FigmaServerRenderedImagesFolder { get; private set; } = $"{DefaultRoot}/ServerRenderedImages";
         public static string FigmaFontMaterialPresetsFolder { get; private set; } = DefaultFontsRoot;
         public static string FigmaFontsFolder { get; private set; } = DefaultFontsRoot;
@@ -32,15 +32,59 @@ namespace UnityFigmaBridge.Editor.Utils
         private static Dictionary<string, FigmaScreenNameOverride> s_ScreenNameLookup;
         private static bool s_OnlyImportListedScreens;
 
-        public static void Configure(UnityFigmaBridgeSettings settings)
+        public struct OutputFolders
         {
-            var root = NormalisePath(settings.AssetsRootFolder, DefaultRoot);
-            FigmaAssetsRootFolder = root;
-            FigmaPagePrefabFolder = NormalisePath(settings.PagePrefabFolder, $"{root}/Pages");
-            FigmaScreenPrefabFolder = NormalisePath(settings.ScreenPrefabFolder, $"{root}/Screens");
-            FigmaComponentPrefabFolder = NormalisePath(settings.ComponentPrefabFolder, $"{root}/Components");
-            FigmaImageFillFolder = NormalisePath(settings.ImageFillFolder, $"{root}/ImageFills");
-            FigmaServerRenderedImagesFolder = $"{root}/ServerRenderedImages";
+            public string Root;
+            public string Pages;
+            public string Screens;
+            public string Components;
+            public string ImageFills;
+            public string ServerRenderedImages;
+        }
+
+        /// <summary>
+        /// Resolve every output folder from the settings without touching the static state, so the
+        /// window can preview them. <paramref name="documentFolder"/> is the already-safe folder
+        /// name the image fills of one Figma document go under; see <see cref="DocumentFolderName"/>.
+        /// <paramref name="warnOnInvalid"/> is off for the preview, which runs every repaint.
+        /// </summary>
+        public static OutputFolders Resolve(UnityFigmaBridgeSettings settings, string documentFolder,
+            bool warnOnInvalid = true)
+        {
+            var root = NormalisePath(settings.AssetsRootFolder, DefaultRoot, warnOnInvalid);
+            var imageFillParent = NormalisePath(settings.ImageFillFolder, $"{root}/Sprites", warnOnInvalid);
+            return new OutputFolders
+            {
+                Root = root,
+                Pages = NormalisePath(settings.PagePrefabFolder, $"{root}/Pages", warnOnInvalid),
+                Screens = NormalisePath(settings.ScreenPrefabFolder, $"{root}/Screens", warnOnInvalid),
+                Components = NormalisePath(settings.ComponentPrefabFolder, $"{root}/Components", warnOnInvalid),
+                ImageFills = $"{imageFillParent}/{documentFolder}",
+                ServerRenderedImages = $"{root}/ServerRenderedImages",
+            };
+        }
+
+        /// <summary>
+        /// Folder name for one Figma document's image fills, derived from the document's name so
+        /// the sprites of two documents imported into one project stay apart.
+        /// </summary>
+        public static string DocumentFolderName(string documentName)
+        {
+            if (string.IsNullOrWhiteSpace(documentName)) return "Document";
+            // Path.GetInvalidFileNameChars() lets '\\' through on macOS, and the name becomes one
+            // path segment, so both separators go regardless of platform
+            return MakeValidFileName(documentName.Trim().Replace('\\', '_').Replace('/', '_'));
+        }
+
+        public static void Configure(UnityFigmaBridgeSettings settings, string documentName)
+        {
+            var folders = Resolve(settings, DocumentFolderName(documentName));
+            FigmaAssetsRootFolder = folders.Root;
+            FigmaPagePrefabFolder = folders.Pages;
+            FigmaScreenPrefabFolder = folders.Screens;
+            FigmaComponentPrefabFolder = folders.Components;
+            FigmaImageFillFolder = folders.ImageFills;
+            FigmaServerRenderedImagesFolder = folders.ServerRenderedImages;
 
             // Deliberately not derived from root: these are TMP assets, not Figma output.
             FigmaFontsFolder = NormalisePath(settings.FontsFolder, DefaultFontsRoot);
@@ -59,13 +103,14 @@ namespace UnityFigmaBridge.Editor.Utils
             }
         }
 
-        private static string NormalisePath(string value, string fallback)
+        private static string NormalisePath(string value, string fallback, bool warnOnInvalid = true)
         {
             if (string.IsNullOrWhiteSpace(value)) return fallback;
-            var trimmed = value.TrimEnd('/','\\').Trim();
-            if (!trimmed.StartsWith("Assets/") && !trimmed.StartsWith("Assets\\"))
+            var trimmed = value.Trim().Replace('\\', '/').TrimEnd('/');
+            if (trimmed != "Assets" && !trimmed.StartsWith("Assets/"))
             {
-                Debug.LogWarning($"[FigmaPaths] Path '{trimmed}' does not start with Assets/; using default '{fallback}'");
+                if (warnOnInvalid)
+                    Debug.LogWarning($"[FigmaPaths] Path '{trimmed}' does not start with Assets/; using default '{fallback}'");
                 return fallback;
             }
             return trimmed;

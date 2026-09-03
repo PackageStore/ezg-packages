@@ -94,11 +94,11 @@ whatever the settings asset holds; read it there rather than assuming a folder.
 
 | Setting field | Default (blank = this) |
 |---|---|
-| `AssetsRootFolder` | `Assets/Figma` |
+| `AssetsRootFolder` | `Assets/_Project/UI` |
 | `ScreenPrefabFolder` | `<root>/Screens` |
 | `ComponentPrefabFolder` | `<root>/Components` |
 | `PagePrefabFolder` | `<root>/Pages` |
-| `ImageFillFolder` | `<root>/ImageFills` |
+| `ImageFillFolder` | `<root>/Sprites`; image fills always land in `<ImageFillFolder>/<Figma document name>` |
 
 Non-configurable folders derived from root: `ServerRenderedImages`,
 `FontMaterialPresets`, `Fonts`.

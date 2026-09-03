@@ -128,6 +128,8 @@ namespace UnityFigmaBridge.Editor.Settings
                 enterChildren = false;
                 if (prop.propertyPath == "m_Script") continue;
                 EditorGUILayout.PropertyField(prop, true);
+                if (prop.propertyPath == nameof(UnityFigmaBridgeSettings.ImageFillFolder))
+                    DrawResolvedOutputFolders();
             }
             m_SerializedSettings.ApplyModifiedProperties();
 
@@ -136,6 +138,20 @@ namespace UnityFigmaBridge.Editor.Settings
             EditorGUILayout.HelpBox(
                 isValid ? $"Valid Figma Document URL - FileID: {fileId}" : "Invalid Figma Document URL",
                 isValid ? MessageType.Info : MessageType.Error);
+        }
+
+        /// <summary>
+        /// Blank folder fields fall back to defaults, so show where the output actually goes
+        /// </summary>
+        private void DrawResolvedOutputFolders()
+        {
+            var folders = FigmaPaths.Resolve(m_Settings, "<document name>", warnOnInvalid: false);
+            EditorGUILayout.HelpBox(
+                $"Screens: {folders.Screens}\n" +
+                $"Components: {folders.Components}\n" +
+                $"Pages: {folders.Pages}\n" +
+                $"Image fills: {folders.ImageFills}",
+                MessageType.None);
         }
 
         private void DrawTokenTab(bool justSwitched)

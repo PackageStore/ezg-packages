@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0] - 2026-09-03
+### Changed
+- Output folder defaults moved to `Assets/_Project/UI`: screens in `Screens`, components in
+  `Components`, pages in `Pages`, image fills in `Sprites/<Figma document name>`. Blank fields
+  use these.
+- `ImageFillFolder` is now the parent folder: image fills always go in a subfolder named after
+  the Figma document, so two documents imported into one project never share sprites.
+- The five output folder fields are folder pickers (drag a folder or browse) instead of text.
+  They still serialize as project-relative paths, so a folder that does not exist yet is created
+  on import and a wiped output folder does not break the settings asset.
+- The Figma Bridge window shows the resolved output folders under the fields.
+- `Assets` itself is accepted as a folder value.
+
 ## [0.1.0] - 2026-09-03
 ### Added
 - Initial release of `com.ezg.figma-bridge`: Figma document import into Unity as native UGUI

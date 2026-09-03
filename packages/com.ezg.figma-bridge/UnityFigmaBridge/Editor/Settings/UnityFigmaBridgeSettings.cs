@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Settings
 {
@@ -44,19 +45,20 @@ namespace UnityFigmaBridge.Editor.Settings
         public List<FigmaPageData> PageDataList = new ();
 
         [Header("Output Folders")]
-        [Tooltip("Root folder for generated assets. Blank = Assets/Figma")]
+        [FolderPath, Tooltip("Root folder for generated assets. Blank = Assets/_Project/UI")]
         public string AssetsRootFolder = "";
 
-        [Tooltip("Folder for screen prefabs. Blank = <root>/Screens")]
+        [FolderPath, Tooltip("Folder for screen prefabs. Blank = <root>/Screens")]
         public string ScreenPrefabFolder = "";
 
-        [Tooltip("Folder for component prefabs. Blank = <root>/Components")]
+        [FolderPath, Tooltip("Folder for component prefabs. Blank = <root>/Components")]
         public string ComponentPrefabFolder = "";
 
-        [Tooltip("Folder for page prefabs. Blank = <root>/Pages")]
+        [FolderPath, Tooltip("Folder for page prefabs. Blank = <root>/Pages")]
         public string PagePrefabFolder = "";
 
-        [Tooltip("Folder for image fills. Blank = <root>/ImageFills")]
+        [FolderPath, Tooltip("Parent folder for image fills. Sprites go in a subfolder named after the " +
+                             "Figma document, so two documents never share one folder. Blank = <root>/Sprites")]
         public string ImageFillFolder = "";
 
         [HideInInspector]

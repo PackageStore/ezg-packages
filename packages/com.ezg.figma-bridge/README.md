@@ -31,9 +31,11 @@ The settings asset drives every path and toggle. The fields worth knowing:
 
 | Field | Controls |
 |---|---|
-| `ScreenPrefabFolder` | where screen prefabs are written |
-| `ComponentPrefabFolder` | where component prefabs are written |
-| `ImageFillFolder` | where downloaded image fills are written as sprites |
+| `AssetsRootFolder` | root for every generated asset; blank = `Assets/_Project/UI` |
+| `ScreenPrefabFolder` | where screen prefabs are written; blank = `<root>/Screens` |
+| `ComponentPrefabFolder` | where component prefabs are written; blank = `<root>/Components` |
+| `PagePrefabFolder` | where page prefabs are written; blank = `<root>/Pages` |
+| `ImageFillFolder` | parent of the sprite folders; image fills go in `<folder>/<Figma document name>`; blank = `<root>/Sprites` |
 | `OnlyImportListedScreens` | import just the named screens instead of every frame |
 | `CollapseSliceGrids` | collapse a 9-slice plate into one sprite with borders |
 
