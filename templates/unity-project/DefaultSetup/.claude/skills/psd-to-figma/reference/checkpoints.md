@@ -14,8 +14,8 @@ instruction is to read its checkpoint and continue from `next`.
   component set for `components`, `all` for a whole-run stage (`data`, `art`,
   `gate`).
 
-`.progress/` is a data-dir concern and is gitignored by the project; it is never
-written under the skill's `scripts/`.
+`.progress/` is a data-dir concern, covered by the `<data>/.gitignore` the scripts
+write on their first run; it is never written under the skill's `scripts/`.
 
 ## Fields
 

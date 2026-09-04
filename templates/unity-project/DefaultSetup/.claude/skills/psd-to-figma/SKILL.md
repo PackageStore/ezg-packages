@@ -18,7 +18,8 @@ Adding a screen means adding an entry to `screens.json`, not writing a new
 generator. `<scripts>` is this skill's `scripts/` dir; `<data>` is the project's
 data dir; `<key>` is a screen key from `screens.json`. Run each script as
 `python3 <scripts>/<name> --data-dir <data>` (`python3` = the skill's `.venv`);
-the project root comes from `paths.projectRoot` in `psd2figma.json`.
+the project root comes from `paths.projectRoot` in `psd2figma.json`. The first
+run writes `<data>/.gitignore`, so generated artifacts never enter the project's git.
 
 ## Before anything
 
@@ -73,8 +74,8 @@ unchanged, and stops on a collision (exit 3, the stem named). `status` lists
 stale stages without running; `run --stages a,b` limits the set, `--screen <key>`
 filters the gate, `--force` reruns regardless. Upload and Figma stages are never
 run by the runner — they need the MCP. Runner state lives under
-`<data>/.pipeline/` and checkpoints under `<data>/.progress/` (both gitignored) —
-see `reference/checkpoints.md`.
+`<data>/.pipeline/` and checkpoints under `<data>/.progress/` (both covered by
+`<data>/.gitignore`) — see `reference/checkpoints.md`.
 
 Build **components first, screens second** — a screen is assembled from
 instances, never loose art. Record every component, 9-slice application and text

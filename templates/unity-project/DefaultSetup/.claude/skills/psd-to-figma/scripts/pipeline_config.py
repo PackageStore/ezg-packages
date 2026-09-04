@@ -11,6 +11,11 @@ in a data directory that this module locates at runtime.
 `argv` is the remaining arguments for the caller's own argparse, so each script
 keeps its existing flags (--screen, --structure-only, ...) working unchanged.
 
+The first run against a data dir writes `<data>/.gitignore` covering the
+generated artifacts (PNG dirs, indexes, reports, runner state, lock files) so a
+project's git tree never carries them. The file is created once and never
+rewritten; edit it freely.
+
 Hard rule: Path(__file__) is NEVER used here to locate data, the project root,
 or the PSD directory. Data is anchored on the resolved data directory; scripts
 may use their own Path(__file__) only to find script siblings (e.g. a .js).
@@ -23,6 +28,24 @@ import sys
 from pathlib import Path
 
 CONFIG_NAME = "psd2figma.json"
+
+DATA_GITIGNORE = """# Written once by the psd-to-figma pipeline: generated artifacts only.
+# Project tables (psd2figma.json, screens.json, node_names.json, text_styles.json,
+# accepted_debt.json, component_ids.json, nine_slice.json, image_hashes.json,
+# style_ids*.json) and the gate inputs (psd_manifest.json, figma_extract_*.json)
+# stay tracked. Edit freely; the scripts never rewrite this file.
+assets/
+icons/
+diff/
+.pipeline/
+.progress/
+*.lock
+assets_index.json
+icons_index.json
+verify_report.md
+verify_report.json
+diff_report.md
+"""
 
 
 def _fatal(message):
@@ -77,6 +100,12 @@ class Config:
         return json.loads(p.read_text(encoding="utf-8"))
 
 
+def ensure_data_gitignore(data_dir):
+    p = data_dir / ".gitignore"
+    if not p.exists():
+        p.write_text(DATA_GITIGNORE, encoding="utf-8")
+
+
 def resolve(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -113,6 +142,7 @@ def resolve(argv=None):
             f"{CONFIG_NAME}."
         )
     settings = json.loads(config_path.read_text(encoding="utf-8"))
+    ensure_data_gitignore(data_dir)
 
     if ns.project_root:
         project_root = _abs(ns.project_root, cwd)
