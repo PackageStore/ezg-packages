@@ -5,6 +5,7 @@ Effects are baked into pixels; layer opacity is NOT baked (preserved as
 metadata for Figma node opacity, set by plan 19).
 """
 
+import hashlib
 import json
 import sys
 
@@ -12,14 +13,9 @@ from PIL import Image
 from psd_tools import PSDImage
 
 from pipeline_config import resolve
+from psd_opacity import bakes_fill_opacity, has_enabled_effects
 
 MAX_BYTES = 10 * 1024 * 1024  # 10 MB upload_assets limit
-
-
-def has_enabled_effects(layer):
-    if not layer.effects:
-        return False
-    return any(e.enabled for e in layer.effects)
 
 
 def find_layer(psd, psd_name, psd_left, psd_top, psd_right, psd_bottom):
@@ -37,7 +33,7 @@ def find_layer(psd, psd_name, psd_left, psd_top, psd_right, psd_bottom):
 
 
 def export_layer_image(layer):
-    if has_enabled_effects(layer):
+    if bakes_fill_opacity(layer):
         img = layer.composite(viewport=layer.bbox)
     else:
         img = layer.topil()
@@ -47,11 +43,40 @@ def export_layer_image(layer):
     return img.convert("RGBA")
 
 
+def allow_shared_reason(allow_shared, key, errors):
+    if key not in allow_shared:
+        return False
+    reason = allow_shared.get(key)
+    if not (isinstance(reason, str) and reason.strip()):
+        msg = f"ALLOWSHARED MISSING REASON: {key}"
+        if msg not in errors:
+            errors.append(msg)
+    return True
+
+
+def render_digest(entry, psd_cache, screens):
+    psd = psd_cache[entry["screen"]]
+    si = screens[entry["screen"]]
+    dx, dy = si["dx"], si["dy"]
+    psd_left = entry["x"] - dx
+    psd_top = entry["y"] - dy
+    layer = find_layer(psd, entry["psdName"], psd_left, psd_top,
+                       psd_left + entry["w"], psd_top + entry["h"])
+    if layer is None:
+        return None
+    try:
+        img = export_layer_image(layer)
+    except Exception:
+        return None
+    return hashlib.sha1(img.tobytes()).hexdigest()
+
+
 def main():
     cfg, _ = resolve()
     export = cfg.settings.get("export", {})
     skip_assets = set(export.get("skipAssets", []))
     tie_break = export.get("tieBreak", {})
+    allow_shared = export.get("allowShared", {})
     psd_dir = cfg.psd_dir
     assets_dir = cfg.path("assets")
     assets_index = cfg.path("assets_index.json")
@@ -75,6 +100,15 @@ def main():
                 and entry["h"] == tie_break[key]["h"]):
             asset_map[key] = entry
 
+    stem_layers = {}
+    for entry in layers:
+        if entry["role"] != "art":
+            continue
+        key = entry["asset"]
+        if key in skip_assets:
+            continue
+        stem_layers.setdefault(key, []).append(entry)
+
     print(f"Unique art assets to export: {len(asset_map)}")
 
     psd_cache = {}
@@ -88,8 +122,13 @@ def main():
 
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    index = {}
+    if assets_index.exists():
+        with open(assets_index) as f:
+            index = json.load(f)
+    else:
+        index = {}
     errors = []
+    winner_digest = {}
 
     for key, entry in sorted(asset_map.items()):
         screen = entry["screen"]
@@ -100,6 +139,9 @@ def main():
                 from PIL import Image as _Img
                 with _Img.open(str(existing)) as _im:
                     ew, eh = _im.size
+                    winner_digest[key] = (
+                        hashlib.sha1(_im.convert("RGBA").tobytes()).hexdigest(),
+                        ew, eh, entry)
                 index[key] = {"file": f"assets/{key}.png", "w": ew, "h": eh,
                               "bytes": nbytes}
                 print(f"  {key}: {ew}x{eh}  {nbytes:,} bytes  [preserved, PSD absent]")
@@ -135,6 +177,9 @@ def main():
                 f"got {w}x{h}")
             continue
 
+        winner_digest[key] = (hashlib.sha1(img.tobytes()).hexdigest(),
+                              w, h, entry)
+
         out = assets_dir / f"{key}.png"
         img.save(str(out), "PNG")
         nbytes = out.stat().st_size
@@ -142,8 +187,20 @@ def main():
         if nbytes > MAX_BYTES:
             errors.append(f"TOO LARGE {key}: {nbytes} bytes > 10 MB")
 
+        baked = "fill" if bakes_fill_opacity(layer) else "none"
+        fo = entry.get("fillOpacity")
+        if fo is not None:
+            lo = entry.get("layerOpacity", 1.0)
+            expected = lo if baked == "fill" else round(lo * fo, 4)
+            if abs(entry["opacity"] - expected) > 2e-4:
+                errors.append(
+                    f"OPACITY PATH MISMATCH {entry['psdName']!r} ({key}): "
+                    f"manifest opacity {entry['opacity']} != {expected} for "
+                    f"bakedOpacity={baked!r}")
+                continue
+
         index[key] = {"file": f"assets/{key}.png", "w": w, "h": h,
-                      "bytes": nbytes}
+                      "bytes": nbytes, "bakedOpacity": baked}
         print(f"  {key}: {w}x{h}  {nbytes:,} bytes"
               f"  [effects baked]" if has_enabled_effects(layer) else
               f"  {key}: {w}x{h}  {nbytes:,} bytes")
@@ -152,10 +209,52 @@ def main():
         json.dump(index, f, indent=2)
     print(f"\nWrote {assets_index.name} ({len(index)} entries)")
 
+    collisions = []
+    for key in sorted(winner_digest):
+        if allow_shared_reason(allow_shared, key, errors):
+            continue
+        w_digest, w, h, w_entry = winner_digest[key]
+        for other in stem_layers.get(key, []):
+            if other is w_entry or other["screen"] not in psd_cache:
+                continue
+            if (other["w"], other["h"]) != (w, h):
+                continue
+            od = render_digest(other, psd_cache, screens)
+            if od is None:
+                errors.append(
+                    f"COLLISION CHECK: could not render "
+                    f"{other['psdName']!r} in {other['screen']} for {key}")
+                continue
+            if od != w_digest:
+                collisions.append(
+                    f"STEM COLLISION {key}: "
+                    f"{w_entry['screen']}/{w_entry['psdName']} {w}x{h} vs "
+                    f"{other['screen']}/{other['psdName']} "
+                    f"{other['w']}x{other['h']}")
+                break
+
+    icons_index = cfg.load_optional("icons_index.json")
+    if icons_index:
+        for stem in sorted(set(index) & set(icons_index)):
+            if allow_shared_reason(allow_shared, stem, errors):
+                continue
+            collisions.append(
+                f"STEM COLLISION {stem}: assets_index.json vs "
+                f"icons_index.json (namespace overlap)")
+
+    if collisions:
+        print("\nCOLLISIONS:")
+        for c in collisions:
+            print(f"  {c}")
+
     if errors:
         print("\nERRORS:")
         for e in errors:
             print(f"  {e}")
+
+    if collisions:
+        sys.exit(3)
+    if errors:
         sys.exit(1)
 
     print(f"\nDone: {len(index)} assets exported.")

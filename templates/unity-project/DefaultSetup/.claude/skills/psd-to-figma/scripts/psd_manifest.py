@@ -2,7 +2,7 @@
 """
 PSD Manifest Generator — single source of truth for the import.
 
-Reads both PSDs, applies the Menu dx=-16 shift, classifies every layer,
+Reads every PSD listed in screens.json, applies each screen's dx/dy shift, classifies every layer,
 and writes psd_manifest.json. Idempotent: running twice produces
 byte-identical output.
 """
@@ -16,6 +16,7 @@ from pathlib import Path
 from psd_tools import PSDImage
 
 from pipeline_config import resolve
+from psd_opacity import opacity_fields
 
 _CFG, _ARGV = resolve()
 
@@ -28,14 +29,30 @@ SCREENS = OrderedDict(_CFG.load("screens").items())
 _NAMES = _CFG.load("nodeNames")
 SKIP_NAMES = set(_NAMES["skipNames"])
 SKIP_ARTBOARD = _NAMES["skipArtboard"]
-# UpgradeRow content box origin (inside the 2px outside stroke)
+# Repeating-row content box origin (inside the outside stroke)
 ROW_CONTENT_ORIGIN = tuple(_NAMES["rowContentOrigin"])
-# UpgradeRow art box origin (includes stroke)
+# Repeating-row art box origin (includes stroke)
 ROW_ART_ORIGIN = tuple(_NAMES["rowArtOrigin"])
 ROW_PITCH = _NAMES["rowPitch"]
 NODE_NAMES = _NAMES["nodeNames"]
 ASSET_KEYS = _NAMES["assetKeys"]
 TEXT_STYLES = _NAMES["textStyles"]
+GROUP_CONTEXT_NAMES = _NAMES.get("groupContextNames", {})
+
+ADJUSTMENT_KINDS = {
+    "brightnesscontrast", "levels", "curves", "exposure", "vibrance",
+    "huesaturation", "colorbalance", "blackandwhite", "photofilter",
+    "channelmixer", "colorlookup", "invert", "posterize", "threshold",
+    "gradientmap", "selectivecolor",
+}
+
+
+def resolve_key(table, screen_key, name, x, y):
+    return table.get(
+        f"{screen_key}/{name}@{x},{y}",
+        table.get(f"{screen_key}/{name}", table.get(name)),
+    )
+
 
 def classify_layer(layer, screen_key):
     """Return role: 'art', 'text', or 'skip'."""
@@ -52,6 +69,14 @@ def classify_layer(layer, screen_key):
     if w == 0 and h == 0:
         return "skip"
 
+    # Skip: clip layers (fold into their base, never emitted as art)
+    if getattr(layer, "clipping", False):
+        return "skip"
+
+    # Skip: adjustment layers (a masked adjustment can have a non-zero bbox)
+    if layer.kind in ADJUSTMENT_KINDS:
+        return "skip"
+
     # Skip: hidden layers
     if not layer.visible:
         return "skip"
@@ -64,7 +89,7 @@ def classify_layer(layer, screen_key):
     return "art"
 
 
-def get_text_type(layer):
+def get_text_type(layer, screen_key):
     """Extract text type info from a type layer."""
     ed = layer.engine_dict
     rd = layer.resource_dict
@@ -111,7 +136,7 @@ def get_text_type(layer):
             if getattr(e, 'enabled', True):
                 enabled_effects.append(type(e).__name__)
 
-    style_name = TEXT_STYLES.get(layer.name, "Unknown")
+    style_name = resolve_key(TEXT_STYLES, screen_key, layer.name, layer.bbox[0], layer.bbox[1]) or "Unknown"
 
     result = OrderedDict([
         ("style", style_name),
@@ -141,15 +166,18 @@ def process_layer(layer, screen_key, dx, dy, parent_group=None):
     x = raw_x + dx
     y = raw_y + dy
 
-    opacity = round(int(layer.opacity) / 255.0, 4)
+    if role in ("art", "text"):
+        opacity, fill_o, layer_o = opacity_fields(layer, is_text=role == "text")
+    else:
+        opacity = round(int(layer.opacity) / 255.0, 4)
+        fill_o = layer_o = None
 
     name = layer.name
-    qname = f"{screen_key}/{name}"
-    node = NODE_NAMES.get(qname, NODE_NAMES.get(name, name))
+    node = resolve_key(NODE_NAMES, screen_key, name, raw_x, raw_y) or name
 
-    # For BTN_main inside groups, use the group context for the node name
-    if name == "BTN_main" and parent_group:
-        node = f"Btn_{parent_group}"
+    group_prefix = GROUP_CONTEXT_NAMES.get(name)
+    if group_prefix and parent_group:
+        node = group_prefix + parent_group
 
     entry = OrderedDict()
     entry["screen"] = screen_key
@@ -158,7 +186,7 @@ def process_layer(layer, screen_key, dx, dy, parent_group=None):
     entry["role"] = role
 
     if role == "art":
-        asset = ASSET_KEYS.get(qname, ASSET_KEYS.get(name, name.lower().replace(" ", "_")))
+        asset = resolve_key(ASSET_KEYS, screen_key, name, raw_x, raw_y) or name.lower().replace(" ", "_")
         entry["asset"] = asset
 
     entry["x"] = x
@@ -166,9 +194,12 @@ def process_layer(layer, screen_key, dx, dy, parent_group=None):
     entry["w"] = w
     entry["h"] = h
     entry["opacity"] = opacity
+    if fill_o is not None:
+        entry["fillOpacity"] = fill_o
+        entry["layerOpacity"] = layer_o
 
     if role == "text":
-        entry["type"] = get_text_type(layer)
+        entry["type"] = get_text_type(layer, screen_key)
 
     if parent_group:
         entry["group"] = parent_group
@@ -210,10 +241,9 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
         abs_x = raw_x + dx
         abs_y = raw_y + dy
 
-        opacity = round(int(layer.opacity) / 255.0, 4)
+        opacity, fill_o, layer_o = opacity_fields(layer, is_text=role == "text")
         name = layer.name
-        qname = f"{screen_key}/{name}"
-        node = NODE_NAMES.get(qname, NODE_NAMES.get(name, name))
+        node = resolve_key(NODE_NAMES, screen_key, name, raw_x, raw_y) or name
 
         entry = OrderedDict()
         entry["screen"] = screen_key
@@ -222,7 +252,7 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
         entry["role"] = role
 
         if role == "art":
-            asset = ASSET_KEYS.get(qname, ASSET_KEYS.get(name, name.lower().replace(" ", "_")))
+            asset = resolve_key(ASSET_KEYS, screen_key, name, raw_x, raw_y) or name.lower().replace(" ", "_")
             entry["asset"] = asset
 
         entry["x"] = abs_x
@@ -230,6 +260,9 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
         entry["w"] = w
         entry["h"] = h
         entry["opacity"] = opacity
+        if fill_o is not None:
+            entry["fillOpacity"] = fill_o
+            entry["layerOpacity"] = layer_o
 
         # Row-local offsets for component building
         entry["rowLocal"] = OrderedDict([
@@ -242,7 +275,7 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
         ])
 
         if role == "text":
-            entry["type"] = get_text_type(layer)
+            entry["type"] = get_text_type(layer, screen_key)
 
         entry["isRowChild"] = True
         results.append(entry)
@@ -260,8 +293,11 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
     def _walk(layer, parent_group=None):
         name = layer.name
 
-        # For menu: groups contain children we process individually
         if hasattr(layer, '__iter__') and layer.kind in ("group", "artboard"):
+            # A clipped group folds into its base; skip it and its whole subtree.
+            if getattr(layer, "clipping", False) and name != SKIP_ARTBOARD:
+                layers.append(process_layer(layer, screen_key, dx, dy, parent_group))
+                return
             if name == SKIP_ARTBOARD:
                 # Skip the artboard wrapper itself, process children
                 entry = process_layer(layer, screen_key, dx, dy)
@@ -270,7 +306,7 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
                     _walk(child)
                 return
 
-            # Named groups (Shop, Boots, talent, etc.)
+            # Named groups
             group_name = name.replace(" - Smart Object Group", "")
             entry = OrderedDict([
                 ("screen", screen_key),
@@ -309,6 +345,53 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
             _walk(layer)
 
     return layers, unclassified
+
+
+def compute_collisions(layers, export):
+    exempt = set(export.get("plates", [])) | set(export.get("skipAssets", []))
+    exempt |= set(export.get("tieBreak", {})) | set(export.get("allowShared", {}))
+    node_uses = OrderedDict()
+    for e in layers:
+        if e["role"] != "text":
+            continue
+        style = e.get("type", {}).get("style", "Unknown")
+        if style == "Unknown":
+            continue
+        node_uses.setdefault(e["node"], []).append((e["screen"], style))
+
+    node_styles = []
+    for node, uses in node_uses.items():
+        if len({s for _, s in uses}) < 2:
+            continue
+        seen = []
+        for screen, style in uses:
+            if (screen, style) not in seen:
+                seen.append((screen, style))
+        node_styles.append(OrderedDict([
+            ("node", node),
+            ("uses", [OrderedDict([("screen", s), ("style", st)])
+                      for s, st in seen]),
+        ]))
+
+    stem_uses = OrderedDict()
+    for e in layers:
+        if e["role"] != "art" or e["asset"] in exempt:
+            continue
+        stem_uses.setdefault(e["asset"], []).append(e)
+
+    stem_sizes = []
+    for stem, uses in stem_uses.items():
+        if len({(u["w"], u["h"]) for u in uses}) < 2:
+            continue
+        stem_sizes.append(OrderedDict([
+            ("stem", stem),
+            ("uses", [OrderedDict([("screen", u["screen"]),
+                                   ("psdName", u["psdName"]),
+                                   ("w", u["w"]), ("h", u["h"])])
+                      for u in uses]),
+        ]))
+
+    return OrderedDict([("nodeStyles", node_styles), ("stemSizes", stem_sizes)])
 
 
 def build_manifest():
@@ -351,6 +434,7 @@ def build_manifest():
         all_unclassified.extend(unclassified)
 
     manifest["layers"] = all_layers
+    manifest["collisions"] = compute_collisions(all_layers, _CFG.settings.get("export", {}))
 
     # Print summary
     role_counts = {}
@@ -391,6 +475,21 @@ def main():
         f.write("\n")
 
     print(f"\nWrote {OUTPUT}")
+
+    col = manifest["collisions"]
+    node_styles, stem_sizes = col["nodeStyles"], col["stemSizes"]
+    print(f"\nCollisions: {len(node_styles)} node-style, "
+          f"{len(stem_sizes)} stem-size")
+    for e in node_styles:
+        detail = ", ".join(f"{u['screen']}={u['style']}" for u in e["uses"])
+        print(f"  nodeStyle {e['node']}: {detail}")
+    for e in stem_sizes:
+        sizes = ", ".join(f"{w}x{h}" for w, h in
+                          sorted({(u["w"], u["h"]) for u in e["uses"]}))
+        print(f"  stemSize {e['stem']}: {sizes}")
+
+    if "--strict" in _ARGV and (node_styles or stem_sizes):
+        sys.exit(3)
 
 
 if __name__ == "__main__":

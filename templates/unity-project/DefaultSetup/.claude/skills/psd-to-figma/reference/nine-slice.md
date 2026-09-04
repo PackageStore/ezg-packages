@@ -3,22 +3,21 @@
 Figma has **no native 9-slice**. `scaleMode` is only `FILL | FIT | CROP | TILE`.
 Community plugins exist but cannot be launched over MCP — the Figma MCP bridge
 runs inside its own plugin sandbox, and Figma runs one plugin at a time. Build
-the structure directly with the Plugin API.
+the structure with `nineSliceFrame` (see `plugin-helpers.md`); this file is the
+measurement contract that produces its `border` argument and the formula it
+applies.
 
 ## Structure
 
-A container (FRAME, or a COMPONENT when the plate is shared) holding up to nine
-rectangles, `clipsContent: true`, no fill of its own. Constraints per cell:
-
-|            | left    | centre     | right   |
-|------------|---------|------------|---------|
-| **top**    | MIN/MIN | STRETCH/MIN| MAX/MIN |
-| **middle** | MIN/STRETCH | STRETCH/STRETCH | MAX/STRETCH |
-| **bottom** | MIN/MAX | STRETCH/MAX| MAX/MAX |
-
-Every cell carries the **same image hash** with a different `imageTransform`.
-Do not upload one PNG per cell — that is what the plugin does, and it adds nine
-assets per plate for no benefit.
+`nineSliceFrame(parent, name, hash, w, h, border, opts)` builds it: a
+`clipsContent` FRAME with no fill of its own, holding the slice cells (nine when
+every border side is non-zero, or a single full-span band on an axis whose two
+sides are both zero). Every cell is a rectangle carrying the **same image hash**
+with a different `imageTransform`; constraints are MIN/STRETCH/MAX per band so
+corners stay fixed and the middle stretches, and children are named
+`slice_<row>_<col>` so the extract folds the frame to one leaf. Do not upload
+one PNG per cell — that is what the plugin does, and it adds nine assets per
+plate for no benefit. The helper throws when a border exceeds its axis (P-8).
 
 ## imageTransform
 
@@ -50,6 +49,12 @@ running the full length of that axis leaves no band uniform enough to stretch.
 Such art is either sliced on the other axis only, or left unsliced. Record which,
 and why, in `nine_slice.json` — a missing band is a measurement, not an
 oversight to re-litigate later.
+
+Re-running the detector refreshes only the measured fields (`size`, `border`,
+`band`, `tol`, `sliceable`) and preserves every hand-added key on an entry
+(`applied`, `axisNote`, `notes`, …), so those notes survive re-detection; a stem
+dropped from `export.plates` is kept and marked `"stale": true` rather than
+deleted.
 
 ## Rules
 

@@ -3,7 +3,7 @@ visual_diff.py -- Region-based visual comparison of Figma renders vs PSD composi
 
 Produces per-region mean/max channel deltas plus diff PNGs.
 """
-import json, sys, os
+import argparse, json, sys, os
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -71,8 +71,51 @@ def run(cfg) -> dict:
     return results
 
 
+def known_screen_keys(cfg, screen_regions) -> list:
+    screens = cfg.load_optional("screens")
+    if isinstance(screens, dict):
+        return list(screens.keys())
+    if isinstance(screens, list):
+        return list(screens)
+    return list(screen_regions.keys())
+
+
+def screen_report(cfg, screen, regions, diff_dir, frame) -> dict:
+    if not regions:
+        return {"screen": screen, "regions": []}
+    f, p = load_pair(screen, diff_dir)
+    out = []
+    for name, (x, y, w, h) in regions.items():
+        out.append({"screen": screen, "region": name,
+                    **region_stats(f, p, x, y, w, h)})
+    out.append({"screen": screen, "region": "_overall",
+                **region_stats(f, p, 0, 0, frame["w"], frame["h"])})
+    make_diff_png(f, p, diff_dir / f"diff_{screen}.png")
+    return {"screen": screen, "regions": out}
+
+
+def run_screens(cfg, requested) -> list:
+    diff_dir = cfg.path("diff")
+    screen_regions = cfg.load("diffRegions")
+    frame = cfg.settings["frame"]
+    known = known_screen_keys(cfg, screen_regions)
+    unknown = [k for k in requested if k not in known]
+    if unknown:
+        print(f"unknown screen key(s): {', '.join(unknown)}", file=sys.stderr)
+        print(f"known keys: {', '.join(known)}", file=sys.stderr)
+        sys.exit(2)
+    return [screen_report(cfg, k, screen_regions.get(k, {}), diff_dir, frame)
+            for k in requested]
+
+
 if __name__ == "__main__":
     cfg, argv = resolve()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--screen", action="append")
+    args = parser.parse_args(argv)
     MANIFEST = cfg.load("psd_manifest.json")
-    results = run(cfg)
-    print(json.dumps(results, indent=2))
+    if args.screen:
+        print("\n".join(json.dumps(o) for o in run_screens(cfg, args.screen)))
+    else:
+        results = run(cfg)
+        print(json.dumps(results, indent=2))

@@ -23,8 +23,33 @@ python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(json.dumps(d,
 | `style_ids.json` | text style name → style id | "which style do I bind this TEXT to?" |
 | `accepted_debt.json` | node → pinned deviation and reason | "is this deviation known?" |
 
-Sidecar files named `<stem>.<plan>.json` are per-plan snapshots. The unsuffixed
-file is current; the gate merges the sidecars where it says it does.
+The unsuffixed files are the single source; there are no per-plan snapshot
+files to fold in afterwards. Record every component, 9-slice application and
+text style through `registry_add.py`, which locks the target, deep-merges one
+entry, validates it, and replaces the file atomically — so parallel builders
+write straight into the current file without clobbering each other.
+
+```
+registry_add.py --data-dir <data> component --entry entry.json [--replace]
+registry_add.py --data-dir <data> nine-slice-applied --stem <stem> --entry applied.json [--replace]
+registry_add.py --data-dir <data> style --entry styles.json --sidecar <name>
+```
+
+- `entry.json` maps one or more component names to their bodies. A new name is
+  added; an existing one is deep-merged — `variants`, `instances` and `children`
+  key-wise, `notes` appended (deduplicated, capped at 2000 characters per call).
+  A scalar that disagrees (`setId`, `property`, an id) exits 4 and leaves the
+  file untouched unless you pass `--replace`. Every id must match `\d+:\d+`, and
+  a body with `variants` needs a `setId`; a bad id in the entry being written
+  exits 3.
+- `nine-slice-applied` writes the `applied` payload for one stem into
+  `nine_slice.json`; the detector's own fields are left as they are.
+- `style` merges text styles into the named style file and adds that file to
+  `psd2figma.json.styleIdFiles` when it is not already listed. Text styles keep
+  the additive multi-file layout (one SSOT plus extra style files the gate
+  merges in order); component and 9-slice ids do not.
+- Output is one `registry:` line per changed key; a no-op prints
+  `registry: (no changes)`. Exit codes: 0 ok, 2 usage, 3 validation, 4 conflict.
 
 ## Page layout
 
@@ -86,3 +111,13 @@ the reason:
 **Never "helpfully" de-duplicate a pair listed there**, even if the hashes turn
 out identical. An override is a recorded decision; collapsing it silently
 reverses a product call.
+
+## Deferred component swaps
+
+A component may cover art that still exists as a loose copy on a screen already
+verified against its PSD. Swapping such a copy to an instance is a separate,
+gated change — the screen's gate must re-run after it, because the instance box
+can differ from the copy by a pixel. Record each pending swap as *component →
+loose copy (screen / node) → gate to re-run* in the project's `<data>/README.md`,
+together with the project's pre-existing debt, designer notes and screen-unique
+node renames. None of that project knowledge belongs in this reference.

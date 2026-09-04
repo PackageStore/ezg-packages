@@ -79,27 +79,34 @@ def main():
     if os.path.exists(dest):
         with open(dest) as fh:
             existing = json.load(fh)
-    out = {}
+    out = dict(existing)
     for name in plates:
         r = analyse(name, assets_dir)
         w, h = r["size"]
         border = [r["x"]["lo"], r["y"]["lo"], r["x"]["hi"], r["y"]["hi"]]
-        entry = {
+        detected = {
             "size": [w, h],
             "border": {"left": border[0], "top": border[1], "right": border[2], "bottom": border[3]},
             "band": [r["x"]["band"], r["y"]["band"]],
             "tol": [r["x"]["tol"], r["y"]["tol"]],
             "sliceable": {"x": r["x"]["band"] >= 2, "y": r["y"]["band"] >= 2},
         }
-        if name in existing and "applied" in existing[name]:
-            entry["applied"] = existing[name]["applied"]
+        entry = dict(out.get(name, {}))
+        entry.update(detected)
+        entry.pop("stale", None)
         out[name] = entry
         print(f"{name:18s} {w:4d}x{h:<4d} border L{border[0]:<4d} T{border[1]:<4d} "
               f"R{border[2]:<4d} B{border[3]:<4d}  band={r['x']['band']}x{r['y']['band']} "
               f"tol={r['x']['tol']},{r['y']['tol']}")
+    plate_set = set(plates)
+    stale = [name for name in out if name not in plate_set]
+    for name in stale:
+        out[name]["stale"] = True
     with open(dest, "w") as fh:
         json.dump(out, fh, indent=2)
     print("\nwrote", dest)
+    if stale:
+        print("stale (not in export.plates):", ", ".join(stale))
 
 
 if __name__ == "__main__":

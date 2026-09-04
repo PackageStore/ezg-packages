@@ -1,37 +1,20 @@
-// ==== GENERATED CONFIG — REPLACE PER PROJECT ==================================
-// This block is project data, not technique. It is pasted into the Figma Plugin
-// API sandbox (via the use_figma MCP tool), so this script cannot read the
-// filesystem, import a module, or take argparse flags — the values are injected
-// here instead of loaded. Regenerate this block from
-//   tools/psd2figma/figma_extract_config.json
-// whose keys map to CONFIG fields one-to-one:
-//   pageName      -> CONFIG.pageName       (the page holding the screen frames)
-//   frames        -> CONFIG.frames         (frameName -> output key; drives
-//                                           figma_extract_<key>.json)
-//   clipLeafNames -> CONFIG.clipLeafNames  (clip-box leaves standing in for a
-//                                           Photoshop paragraph box, treated as
-//                                           leaves and their text clipped)
-//   rowFilter.screen   -> CONFIG.rowFilter.screen   (screen the row skip applies to)
-//   rowFilter.keepRow  -> CONFIG.rowFilter.keepRow  (id prefix of the row kept)
-//   rowFilter.skipRows -> CONFIG.rowFilter.skipRows (id prefixes of rows skipped)
-const CONFIG = {
-  pageName: 'Screens',
-  frames: {
-    'Menu': 'menu',
-    'Upgrade_Gold': 'upgrade_gold',
-    'Boost': 'boost',
-    'Vip_Offer': 'vip_offer',
-    'NET_Info': 'NET_info',
-    'NET_Popup': 'NET_popup',
-    'NET_Collection_Net': 'NET_collection_net',
-  },
-  clipLeafNames: ['Text_Desc', 'Card_Slot_3'],
-  rowFilter: {
-    screen: 'Upgrade_Gold',
-    keepRow: 'I23:21;',
-    skipRows: ['I23:33;', 'I23:46;', 'I23:59;', 'I23:72;', 'I23:85;'],
-  },
-};
+// ==== INJECTED CONFIG ========================================================
+// figma_extract_gen.py replaces the placeholder line below with the CONFIG
+// object, read from the project's extract config file, then prints the runnable
+// script. The script is pasted into the Figma Plugin API sandbox via the
+// use_figma MCP tool, so it cannot read the filesystem, import a module, or take
+// flags -- the config values are injected rather than loaded. Do not paste this
+// template as-is; generate it first.
+/*__CONFIG__*/
+{
+  const _page = figma.root.children.find(p => p.name === CONFIG.pageName);
+  if (!_page) throw new Error('figma_extract: page not found: ' + CONFIG.pageName);
+  await figma.setCurrentPageAsync(_page);
+  for (const _fname of Object.keys(CONFIG.frames)) {
+    if (!_page.children.some(c => c.name === _fname))
+      throw new Error('figma_extract: frame not found on page ' + CONFIG.pageName + ': ' + _fname);
+  }
+}
 // ==== END GENERATED CONFIG ===================================================
 
 // Re-measure all screens for verify_figma_vs_psd.py.
@@ -41,7 +24,7 @@ const CONFIG = {
 // Leaf rule: RECTANGLE and TEXT always; a node is a leaf when it is a 9-slice
 // container (every child named slice_*) or when it is a clip-box leaf (see
 // CONFIG.clipLeafNames — a clipping box standing in for a Photoshop paragraph
-// box). Filled frames (Banner) are emitted and still descended into.
+// box). Filled frames are emitted and still descended into.
 //
 // The row filter keeps only Row#1 on CONFIG.rowFilter.screen: the PSD manifest
 // defines one row, and the row pitch is verified separately. The skip is guarded
@@ -49,7 +32,7 @@ const CONFIG = {
 const page = figma.root.children.find(p => p.name === CONFIG.pageName);
 await figma.setCurrentPageAsync(page);
 
-// A plate may be a plain frame, or a Btn_Plate component/instance whose root holds
+// A plate may be a plain frame, or a plate component/instance whose root holds
 // the slices directly. All three count as one leaf: the slices are implementation.
 const SLICE_HOSTS = ['FRAME', 'INSTANCE', 'COMPONENT'];
 function isSliceFrame(n) {
