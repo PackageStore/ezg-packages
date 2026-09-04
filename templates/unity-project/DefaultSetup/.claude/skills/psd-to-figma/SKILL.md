@@ -18,8 +18,7 @@ Adding a screen means adding an entry to `screens.json`, not writing a new
 generator. `<scripts>` is this skill's `scripts/` dir; `<data>` is the project's
 data dir; `<key>` is a screen key from `screens.json`. Run each script as
 `python3 <scripts>/<name> --data-dir <data>` (`python3` = the skill's `.venv`);
-the project root comes from `paths.projectRoot` in `psd2figma.json`. The first
-run writes `<data>/.gitignore`, so generated artifacts never enter the project's git.
+the project root comes from `psd2figma.json`; the first run writes `<data>/.gitignore`.
 
 ## Before anything
 
