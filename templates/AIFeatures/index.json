@@ -2404,8 +2404,8 @@
       "source": "defaultsetup",
       "fileName": "psd-to-figma.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
-      "sha256": "967e38a29735039c944c4b0fa9c99f42c975ebb8560e48b9689e2e811f73e2d5",
-      "size": 85331
+      "sha256": "f7f14c5b579547f351c03d640d61c94c2620fb94fc7e94e582b37409f9457fed",
+      "size": 85800
     },
     {
       "id": "Skills/publish-ai-features",
