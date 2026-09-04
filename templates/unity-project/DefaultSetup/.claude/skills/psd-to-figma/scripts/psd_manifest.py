@@ -28,6 +28,9 @@ SCREENS = OrderedDict(_CFG.load("screens").items())
 
 _NAMES = _CFG.load("nodeNames")
 SKIP_NAMES = set(_NAMES["skipNames"])
+# Screen-scoped un-skip: a "<screen>/<layer name>" entry here keeps a layer that
+# skipNames would otherwise drop, for the screen that actually renders it.
+KEEP_NAMES = set(_NAMES.get("keepNames", []))
 SKIP_ARTBOARD = _NAMES["skipArtboard"]
 # Repeating-row content box origin (inside the outside stroke)
 ROW_CONTENT_ORIGIN = tuple(_NAMES["rowContentOrigin"])
@@ -61,8 +64,12 @@ def classify_layer(layer, screen_key):
     x, y = bbox[0], bbox[1]
     w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 
-    # Skip: wrapper artboard
-    if name in SKIP_NAMES:
+    # Skip: wrapper artboard, or a screen-scoped skip entry. A skipNames entry
+    # may be a bare layer name (every screen), "<screen>/<name>", or
+    # "<screen>/<name>@<x>,<y>" when the same name repeats within one screen.
+    if (f"{screen_key}/{name}@{x},{y}" in SKIP_NAMES
+            or f"{screen_key}/{name}" in SKIP_NAMES
+            or (name in SKIP_NAMES and f"{screen_key}/{name}" not in KEEP_NAMES)):
         return "skip"
 
     # Skip: zero-area
@@ -308,10 +315,13 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
 
             # Named groups
             group_name = name.replace(" - Smart Object Group", "")
+            group_node = resolve_key(
+                NODE_NAMES, screen_key, name, layer.bbox[0], layer.bbox[1]
+            ) or f"Group_{group_name}"
             entry = OrderedDict([
                 ("screen", screen_key),
                 ("psdName", name),
-                ("node", f"Group_{group_name}"),
+                ("node", group_node),
                 ("role", "group"),
                 ("x", layer.bbox[0] + dx),
                 ("y", layer.bbox[1] + dy),

@@ -26,7 +26,8 @@ python3 <scripts>/psd_export_icons.py --data-dir <data>
 python3 <scripts>/nine_slice_detect.py --data-dir <data>
 ```
 
-Upload is Figma-side (MCP): call `upload_assets` through `use_figma` to mint one
+Upload is Figma-side (MCP): call `upload_assets` with `scaleMode: "FIT"` — never
+`FILL`, which crops the asset in its placement frame (**P-26**) — to mint one
 single-use submit URL per asset, save them to a JSON list, then merge hashes:
 
 ```bash
@@ -57,6 +58,11 @@ python3 <scripts>/figma_upload.py <urls.json> --data-dir <data>   # add --new-on
 
 - P-4 delete the placement frames `upload_assets` drops (by recorded id, via
   `deleteByIds`); remove those ids from the checkpoint after deletion.
+- P-25 those placement frames are the only thing referencing a fresh image, so
+  delete them **after** the screens are built, never before: `getImageByHash`
+  returns null for an unreferenced hash and the build fails `image not found for
+  hash`. Probe every recorded hash before a build and re-upload the dead ones —
+  the hash is content-addressed, so image_hashes.json does not change.
 - P-8 a 9-slice border that exceeds its axis collapses the middle band — the
   detector records `sliceable:false`; place such art unsliced.
 

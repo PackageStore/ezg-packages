@@ -60,7 +60,7 @@ brief carrying its inputs, exact commands, acceptance, traps and hand-off.
 | Stage | Brief | What it runs |
 |---|---|---|
 | Data | `reference/briefs/data.md` | `psd_manifest.py [--strict]` → `psd_manifest.json` |
-| Art | `reference/briefs/art.md` | `psd_export_pngs.py`, `psd_export_icons.py`, upload, `nine_slice_detect.py` |
+| Art | `reference/briefs/art.md` | `psd_export_pngs.py`, `psd_export_icons.py`, upload (`scaleMode: "FIT"`), `nine_slice_detect.py` |
 | Components | `reference/briefs/components.md` | `figma_helpers.js` via `use_figma`; record with `registry_add.py` |
 | Screen build | `reference/briefs/screen-build.md` | build; `figma_extract_gen/save.py`; `verify_figma_vs_psd.py --screen <key>` |
 | Screen verify | `reference/briefs/screen-verify.md` | re-extract; gate `--json`; `visual_diff.py --screen <key>` |
