@@ -22,8 +22,9 @@ namespace UnityFigmaBridge.Editor.Fonts
         }
 
         /// <summary>
-        /// Adds every requested character to the font atlas. Returns the characters the font file
-        /// itself has no glyph for, which is the only case TextMeshPro must fall back for.
+        /// Adds every requested character to the font atlas. Returns the characters that are still
+        /// not in the font after that - no glyph in the font file, or no room left in a single-atlas
+        /// font - which is the only case TextMeshPro must fall back for.
         /// </summary>
         public static uint[] AddCharactersToFont(TMP_FontAsset tmpFontAsset, IEnumerable<uint> unicodes)
         {
@@ -33,8 +34,19 @@ namespace UnityFigmaBridge.Editor.Fonts
             if (tmpFontAsset.atlasPopulationMode == AtlasPopulationMode.Static)
                 return wanted.Where(unicode => !tmpFontAsset.HasCharacter((int)unicode)).ToArray();
 
-            tmpFontAsset.TryAddCharacters(wanted, out var missingUnicodes);
-            return missingUnicodes ?? System.Array.Empty<uint>();
+            // Only ask for what the table does not hold yet. TMP_FontAsset.TryAddCharacters answers
+            // `false` with the WHOLE request echoed back as "missing" whenever it had nothing to add
+            // (every character already baked), so its out-parameter cannot be trusted on a re-import.
+            // Control characters and TMP's synthesized ones (tab, line feed, zero width space...)
+            // are already in the table after ReadFontAssetDefinition and never need a glyph.
+            var toAdd = wanted.Where(unicode => !tmpFontAsset.HasCharacter((int)unicode)).ToArray();
+            if (toAdd.Length == 0) return System.Array.Empty<uint>();
+
+            tmpFontAsset.TryAddCharacters(toAdd, out _);
+
+            // The character table is the source of truth: whatever TryAddCharacters could bake is in
+            // it now, whatever it could not (no glyph, atlas full) is not.
+            return toAdd.Where(unicode => !tmpFontAsset.HasCharacter((int)unicode)).ToArray();
         }
 
         /// <summary>
