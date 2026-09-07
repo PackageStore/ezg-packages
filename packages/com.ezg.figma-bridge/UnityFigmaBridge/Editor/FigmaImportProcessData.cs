@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Fonts;
+using UnityFigmaBridge.Editor.PostProcess;
 using UnityFigmaBridge.Editor.Settings;
 using UnityFigmaBridge.Runtime.UI;
 
@@ -26,17 +27,17 @@ namespace UnityFigmaBridge.Editor
         /// Details of components used and created for this file
         /// </summary>
         public FigmaBridgeComponentData ComponentData;
-        
+
         /// <summary>
         /// Mapping of document fonts to TextMeshPro fonts and material variants
         /// </summary>
         public FigmaFontMap FontMap;
-        
+
         /// <summary>
         /// Nodes that should be used for server-side rendering substitution
         /// </summary>
         public List<ServerRenderNodeData> ServerRenderNodes = new List<ServerRenderNodeData>();
-        
+
         /// <summary>
         /// this is set when the figma unity UI document is generated
         /// </summary>
@@ -46,17 +47,22 @@ namespace UnityFigmaBridge.Editor
         /// Generated page prefabs
         /// </summary>
         public List<GameObject> PagePrefabs = new();
-        
+
         /// <summary>
         /// Generated screens
         /// </summary>
         public List<GameObject> ScreenPrefabs = new List<GameObject>();
-        
+
+        /// <summary>
+        /// Screen prefab asset path to the frame node it was generated from
+        /// </summary>
+        public Dictionary<string, Node> ScreenPrefabNodes = new();
+
         /// <summary>
         /// Count of flowScreen prefabs created with a specific name (to prevent name collision)
         /// </summary>
         public Dictionary<string, int> ScreenPrefabNameCounter = new();
-        
+
         /// <summary>
         /// Count of page prefab created with a specific name (to prevent name collision)
         /// </summary>
@@ -71,11 +77,46 @@ namespace UnityFigmaBridge.Editor
         /// List of all page nodes to import
         /// </summary>
         public List<Node> SelectedPagesForImport = new();
-        
+
         /// <summary>
         /// Allow faster lookup of nodes by ID
         /// </summary>
         public Dictionary<string,Node> NodeLookupDictionary = new();
+
+        /// <summary>
+        /// Component instances placed into each prefab (screen, page or component), keyed by the
+        /// prefab asset path. Recorded while the placeholders are replaced, before the temporary
+        /// markers are stripped - the last moment the component origin is still known.
+        /// </summary>
+        public Dictionary<string, List<FigmaInstanceSource>> InstanceSources = new();
+
+        /// <summary>
+        /// With PlainImages on: nodes whose stroke, corner radius, gradient or non-rectangular
+        /// shape a plain Image could not draw.
+        /// </summary>
+        public List<ShapeOnlyNode> ShapeOnlyNodes = new();
+
+        /// <summary>
+        /// Shape-only records made while building pages, before their screen or component prefab
+        /// exists; resolved to a prefab path once the pages are saved (root object still alive).
+        /// </summary>
+        public List<(ShapeOnlyNode record, GameObject root)> ShapeOnlyPendingRoots = new();
+
+        /// <summary>
+        /// Asset path of the prefab whose contents are being edited by the component pass, so
+        /// records made during that pass know which prefab they belong to. Null while building pages.
+        /// </summary>
+        public string CurrentPrefabPath;
+
+        /// <summary>
+        /// With NumberDuplicateSiblings on: every "parent/name -> name_N" rename, for one summary log.
+        /// </summary>
+        public List<string> DuplicateSiblingRenames = new();
+
+        /// <summary>
+        /// True when the import was rebuilt from the cached document without the network.
+        /// </summary>
+        public bool Offline;
     }
 
     /// <summary>
@@ -87,22 +128,22 @@ namespace UnityFigmaBridge.Editor
         /// Count of component names
         /// </summary>
         private Dictionary<string, int> ComponentNameCount = new();
-        
+
         /// <summary>
         /// List of all missing component definitions on the file
         /// </summary>
         public List<string> MissingComponentDefinitionsList=new();
-        
+
         /// <summary>
         /// Mapping of NodeIDs to components
         /// </summary>
         public Dictionary<string, ComponentMappingEntry> ComponentInstances = new();
-        
+
         /// <summary>
-        /// Node definitions for externally referenced components 
+        /// Node definitions for externally referenced components
         /// </summary>
         public FigmaFileNodes ExternalComponentDefinitions;
-        
+
         /// <summary>
         /// Get count of prefabs created with a specific component name (to prevent name collision)
         /// </summary>
@@ -140,7 +181,7 @@ namespace UnityFigmaBridge.Editor
                     ComponentPrefab = componentPrefab
                 };
         }
-        
+
         public List<GameObject> AllComponentPrefabs => (from prefabPair in ComponentInstances where prefabPair.Value.ComponentPrefab != null select prefabPair.Value.ComponentPrefab).ToList();
 
         /// <summary>
@@ -154,7 +195,7 @@ namespace UnityFigmaBridge.Editor
         }
     }
 
-   
+
     /// <summary>
     /// Individual entry for component mapping
     /// </summary>

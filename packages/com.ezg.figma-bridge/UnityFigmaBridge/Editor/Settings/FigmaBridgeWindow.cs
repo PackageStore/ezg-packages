@@ -31,6 +31,15 @@ namespace UnityFigmaBridge.Editor.Settings
             window.Show();
         }
 
+        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Sync Document")]
+        public static void MenuSyncDocument() => UnityFigmaBridgeImporter.SyncDocument();
+
+        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Re-import from cache (offline)")]
+        public static void MenuSyncOffline() => UnityFigmaBridgeImporter.SyncDocumentOffline();
+
+        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Run Post-Processors (no Sync)")]
+        public static void MenuRunPostProcessors() => UnityFigmaBridgeImporter.RunPostProcessorsOnly();
+
         private void OnEnable()
         {
             m_Settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
@@ -73,6 +82,23 @@ namespace UnityFigmaBridge.Editor.Settings
                 GUILayout.Space(4);
                 if (GUILayout.Button("Sync Document", GUILayout.Height(32)))
                     UnityFigmaBridgeImporter.SyncDocument();
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var hasCache = System.IO.File.Exists(FigmaApiUtils.CachedDocumentPath);
+                    using (new EditorGUI.DisabledScope(!hasCache))
+                    {
+                        if (GUILayout.Button(new GUIContent("Re-import from cache (offline)",
+                                hasCache
+                                    ? "Rebuild every output from Assets/FigmaOutput.json and the sprites already on disk. No Figma API call."
+                                    : "No cached document yet - run Sync Document online once."), GUILayout.Height(24)))
+                            UnityFigmaBridgeImporter.SyncDocumentOffline();
+                    }
+
+                    if (GUILayout.Button(new GUIContent("Run Post-Processors (no Sync)",
+                            "Run every IFigmaImportPostProcessor in the project against the prefabs on disk."), GUILayout.Height(24)))
+                        UnityFigmaBridgeImporter.RunPostProcessorsOnly();
+                }
             }
         }
 

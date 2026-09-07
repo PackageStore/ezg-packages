@@ -53,6 +53,47 @@ These are on by default and shape the output:
   in `Assets/TextMesh Pro/Fonts`. A family Figma names but Google does not serve needs a
   substitute set in the settings asset.
 
+## Post-processing and offline work (0.3.0)
+
+The prefabs the bridge writes are raw output: no controller, no project templates, every fill
+an `Image`. A project shapes them into its own screens with a **post-processor**:
+
+```csharp
+using UnityFigmaBridge.Editor.PostProcess;
+
+public sealed class MyScreenBuilder : IFigmaImportPostProcessor
+{
+    public int Order => 100;
+    public void OnDocumentImported(FigmaImportContext ctx)
+    {
+        foreach (var screen in ctx.Screens)           // raw screen prefab + its component instances
+            foreach (var instance in screen.Instances) // NodeName, HierarchyPath, ComponentPrefabPath, SourcePathChain
+                { /* map instance.ComponentPrefabPath to a project template, build a variant, ... */ }
+    }
+}
+```
+
+Drop the class in any Editor assembly; `TypeCache` finds it. It runs at the end of every
+`Sync Document`, and again from **Run Post-Processors (no Sync)** without touching the network:
+each import writes a `<Screen>.instances.json` sidecar beside the screen prefab carrying the
+instance data the prefab itself no longer holds once the bridge markers are stripped.
+
+**Re-import from cache (offline)** rebuilds the whole output from `Assets/FigmaOutput.json` (the
+document the last online Sync cached) and the sprites already on disk. Fills that were never
+downloaded are listed in one warning. This is the way to iterate on settings when the Figma seat's
+API quota (20 Tier-1 requests a month on a View/Collab seat) is spent.
+
+Settings added in 0.3.0 and what they are for:
+
+| Setting | Use it when |
+|---|---|
+| `PlainImages` | the shipped prefab must not depend on the bridge's `FigmaImage` shader. Stroke / corner / gradient nodes are listed in `ctx.ShapeOnlyNodes`. |
+| `AddLayoutElements = OnlyUnderAutoLayout` | nothing reads the per-node `LayoutElement`; only children of auto-layout frames keep one. |
+| `FontOverride` | the project has one font and Figma's family should never be downloaded. |
+| `TextFitMode = FixedRectAutoSize` | the real font differs from Figma's, so auto-resized labels need a padded fixed rect and TMP auto-size instead of a `ContentSizeFitter`. |
+| `ButtonNamePattern = ""` | the project adds its own Button stack; the bridge must not guess buttons from names. |
+| `NumberDuplicateSiblings` | bindings resolve nodes by name and Figma has two siblings with one name. |
+
 ## Companion skill
 
 `figma-to-unity` in Feature Hub's AI Feature tab drives this package from Claude Code, and

@@ -224,6 +224,7 @@ namespace UnityFigmaBridge.Editor.Utils
 
             EnsureDirectory(FigmaScreenPrefabFolder);
             CleanFigmaPrefabs(FigmaScreenPrefabFolder);
+            CleanInstanceSidecars(FigmaScreenPrefabFolder);
 
             EnsureDirectory(FigmaComponentPrefabFolder);
             EnsureDirectory(FigmaImageFillFolder);
@@ -251,6 +252,22 @@ namespace UnityFigmaBridge.Editor.Utils
 
             if (removed > 0)
                 Debug.Log($"[FigmaPaths] {folder}: removed {removed} legacy font material preset(s)");
+        }
+
+        /// <summary>
+        /// Every import rewrites the <c>*.instances.json</c> sidecars for the screens it produces;
+        /// one left over from a screen that is no longer imported would describe a prefab that
+        /// no longer matches it.
+        /// </summary>
+        private static void CleanInstanceSidecars(string folder)
+        {
+            var removed = 0;
+            foreach (var file in new DirectoryInfo(folder).GetFiles("*.instances.json"))
+            {
+                if (AssetDatabase.DeleteAsset($"{folder}/{file.Name}")) removed++;
+                else if (File.Exists(file.FullName)) { File.Delete(file.FullName); removed++; }
+            }
+            if (removed > 0) Debug.Log($"[FigmaPaths] {folder}: removed {removed} instance sidecar(s)");
         }
 
         private static void EnsureDirectory(string path)

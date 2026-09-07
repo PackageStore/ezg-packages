@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Nodes;
+using UnityFigmaBridge.Editor.PostProcess;
 using UnityFigmaBridge.Editor.PrototypeFlow;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
@@ -126,6 +127,9 @@ namespace UnityFigmaBridge.Editor.Components
         {
             var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
             var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
+            figmaImportProcessData.CurrentPrefabPath = assetPath;
+            if (!figmaImportProcessData.InstanceSources.TryGetValue(assetPath, out var instanceSources))
+                figmaImportProcessData.InstanceSources[assetPath] = instanceSources = new List<FigmaInstanceSource>();
             // Get all placeholders within this prefab - these will be replaced
             var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaComponentNodeMarker>();
             
@@ -149,7 +153,20 @@ namespace UnityFigmaBridge.Editor.Components
                 var sourceComponentPrefab = figmaImportProcessData.ComponentData.GetComponentPrefab(placeholder.ComponentId);
 
                 if (sourceComponentPrefab == null) continue;
-                
+
+                // Remember where this instance came from: once the placeholder is gone and the
+                // markers are stripped, nothing in the prefab says which component it was.
+                var sourceComponentPrefabPath = AssetDatabase.GetAssetPath(sourceComponentPrefab);
+                instanceSources.Add(new FigmaInstanceSource
+                {
+                    NodeId = placeholder.NodeId,
+                    NodeName = placeholder.name,
+                    ComponentId = placeholder.ComponentId,
+                    ComponentPrefabPath = sourceComponentPrefabPath,
+                    HierarchyPath = PostProcessorRunner.HierarchyPathWithinPrefab(placeholder.transform),
+                    SourcePathChain = new[] { sourceComponentPrefabPath }
+                });
+
                 // Instantiate
                 var addedReplacementComponent = (GameObject)PrefabUtility.InstantiatePrefab(sourceComponentPrefab,placeholder.transform.parent);
                 // Copy transform data
@@ -213,6 +230,7 @@ namespace UnityFigmaBridge.Editor.Components
             }
 
             PrefabUtility.UnloadPrefabContents(prefabContents);
+            figmaImportProcessData.CurrentPrefabPath = null;
         }
 
         /// <summary>
@@ -227,8 +245,13 @@ namespace UnityFigmaBridge.Editor.Components
             // There are two cases that this would be a substitution - either the component instance itself,
             // or the original component node could have be a substitution (would have an image component that is NOT a FigmaImage)
             // TODO - Optimise and remove need for Image component check
+            // With PlainImages on every image is a plain Image, so the subclass check would call
+            // everything a substitution; the marker set at generation says which ones really are.
             var existingImageComponent = nodeObject.GetComponent<Image>();
-            var isSubstitution = FigmaNodeManager.NodeIsSubstitution(node, figmaImportProcessData) || (existingImageComponent != null && existingImageComponent is not FigmaImage);
+            var nodeMarker = nodeObject.GetComponent<FigmaNodeObject>();
+            var isSubstitution = FigmaNodeManager.NodeIsSubstitution(node, figmaImportProcessData)
+                                 || (nodeMarker != null && nodeMarker.ServerRendered)
+                                 || (!figmaImportProcessData.Settings.PlainImages && existingImageComponent != null && existingImageComponent is not FigmaImage);
             if (!isSubstitution)
             {
                 try
@@ -253,12 +276,12 @@ namespace UnityFigmaBridge.Editor.Components
             // If this is a substitution, ignore children (as they wont exist) and apply absolute bounds transform (as rotation already applied)
             if (isSubstitution)
             {
-                NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true);
+                NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
                 return;
             }
-            
+
             // Setup transform based on node properties
-            NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true);
+            NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
             
             // Apply recursively for all children
             if (node.children == null) return;

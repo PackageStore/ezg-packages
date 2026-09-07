@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using UnityFigmaBridge.Editor.Components;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.NineSlice;
+using UnityFigmaBridge.Editor.PostProcess;
 using UnityFigmaBridge.Editor.PrototypeFlow;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
@@ -45,7 +46,24 @@ namespace UnityFigmaBridge.Editor.Nodes
                 if (!downloadPageIdList.Contains(createdPages[i].Item1.id)) continue;
                SaveFigmaPageAsPrefab(createdPages[i].Item1, createdPages[i].Item2,figmaImportProcessData);
             }
-            
+
+            // Shape-only records made while the pages were built can now be tied to the screen or
+            // component prefab their root was connected to - the roots are destroyed just below.
+            foreach (var (record, root) in figmaImportProcessData.ShapeOnlyPendingRoots)
+            {
+                if (root == null) continue;
+                var path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(root);
+                if (!string.IsNullOrEmpty(path)) record.PrefabPath = path;
+            }
+            figmaImportProcessData.ShapeOnlyPendingRoots.Clear();
+
+            if (figmaImportProcessData.DuplicateSiblingRenames.Count > 0)
+            {
+                Debug.LogWarning($"[FigmaAssetGenerator] {figmaImportProcessData.DuplicateSiblingRenames.Count} node(s) " +
+                                 "shared a name with a sibling and were numbered (rename them in Figma to keep " +
+                                 "bindings stable):\n  " + string.Join("\n  ", figmaImportProcessData.DuplicateSiblingRenames));
+            }
+
             // Destroy all page objects
             foreach (var createdPage in createdPages)
             {
@@ -63,6 +81,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             
             // At the very end, we want to apply figmaNode behaviour where required
             BehaviourBindingManager.BindBehaviours(figmaImportProcessData);
+
+            // Hand the finished raw output to whatever the project plugged in
+            PostProcessorRunner.Run(PostProcessorRunner.BuildContext(figmaImportProcessData));
         }
 
 
@@ -123,16 +144,21 @@ namespace UnityFigmaBridge.Editor.Nodes
             var nodeGameObject = new GameObject(figmaNode.name, typeof(RectTransform));
             nodeGameObject.transform.SetParent(parentTransform, false);
             var nodeRectTransform = nodeGameObject.transform as RectTransform;
-            
+
+            if (figmaImportProcessData.Settings.NumberDuplicateSiblings)
+                NumberDuplicateSibling(nodeGameObject, parentTransform, figmaImportProcessData);
+
             // In some cases we want nodes to be substituted a server-rendered bitmap. Check to see if this is needed
             var matchingServerRenderEntry = figmaImportProcessData.ServerRenderNodes.FirstOrDefault((testNode) => testNode.SourceNode.id == figmaNode.id);
-            
+
             // Apply transform. For server render entries, use absolute bounding box
-            if (matchingServerRenderEntry!=null) NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0);
-            else NodeTransformManager.ApplyFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0);
-            
+            if (matchingServerRenderEntry!=null) NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0, figmaImportProcessData.Settings);
+            else NodeTransformManager.ApplyFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0, figmaImportProcessData.Settings);
+
             // Add on a figmaNode to store the reference to the FIGMA figmaNode id
-            nodeGameObject.AddComponent<FigmaNodeObject>().NodeId=figmaNode.id;
+            var figmaNodeMarker = nodeGameObject.AddComponent<FigmaNodeObject>();
+            figmaNodeMarker.NodeId=figmaNode.id;
+            figmaNodeMarker.ServerRendered = matchingServerRenderEntry != null;
 
             // If this is a Figma mask object we'll add a mask component (but dont render) 
             if (figmaNode.isMask)
@@ -284,6 +310,37 @@ namespace UnityFigmaBridge.Editor.Nodes
             }
             
             figmaImportProcessData.ScreenPrefabs.Add(screenPrefab);
+            var screenPrefabPath = AssetDatabase.GetAssetPath(screenPrefab);
+            if (!string.IsNullOrEmpty(screenPrefabPath)) figmaImportProcessData.ScreenPrefabNodes[screenPrefabPath] = node;
+        }
+
+        /// <summary>
+        ///     Two siblings with one name cannot both be reached by name, so the later one becomes
+        ///     Name_1, Name_2, ... in sibling order. Recorded for one summary warning per import.
+        /// </summary>
+        private static void NumberDuplicateSibling(GameObject nodeGameObject, RectTransform parentTransform, FigmaImportProcessData figmaImportProcessData)
+        {
+            var baseName = nodeGameObject.name;
+            var hasDuplicate = false;
+            for (var i = 0; i < parentTransform.childCount; i++)
+            {
+                var sibling = parentTransform.GetChild(i);
+                if (sibling == nodeGameObject.transform) continue;
+                if (sibling.name != baseName) continue;
+                hasDuplicate = true;
+                break;
+            }
+            if (!hasDuplicate) return;
+
+            var suffix = 1;
+            string candidate;
+            do
+            {
+                candidate = $"{baseName}_{suffix++}";
+            } while (parentTransform.Find(candidate) != null);
+
+            nodeGameObject.name = candidate;
+            figmaImportProcessData.DuplicateSiblingRenames.Add($"{parentTransform.name}/{baseName} -> {candidate}");
         }
         
         /// <summary>

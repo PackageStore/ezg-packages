@@ -1,12 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Settings
 {
+    /// <summary>Which nodes receive a LayoutElement.</summary>
+    public enum LayoutElementMode
+    {
+        /// <summary>Every node, as in 0.2 (the element carries the Figma size as preferred size).</summary>
+        Always,
+        /// <summary>Only nodes whose parent frame uses Figma auto layout - the only place a layout group reads it.</summary>
+        OnlyUnderAutoLayout
+    }
+
+    /// <summary>How a text node's rect relates to its glyphs.</summary>
+    public enum TextFitMode
+    {
+        /// <summary>Auto-resized text gets a ContentSizeFitter, so the rect follows the glyphs (0.2 behaviour).</summary>
+        ContentSizeFitter,
+        /// <summary>The rect is fixed (padded), TMP auto-sizes the font down to fit and ellipsises the rest.</summary>
+        FixedRectAutoSize
+    }
+
+    /// <summary>Texture compression written into imported sprites.</summary>
+    public enum SpriteCompressionMode
+    {
+        Uncompressed,
+        Compressed
+    }
+
     public class UnityFigmaBridgeSettings : ScriptableObject, IFolderDefaults
     {
 
@@ -15,8 +41,9 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("URL tài liệu Figma cần import.\nVí dụ: https://www.figma.com/design/aBc123/Ten-File")]
         public string DocumentUrl;
 
-        [Tooltip("Tự sinh liên kết chuyển screen theo Prototype của Figma.\nVí dụ: nút Play mở screen Game.")]
-        public bool BuildPrototypeFlow=true;
+        [Tooltip("Tự sinh liên kết chuyển screen theo Prototype của Figma (mở scene runtime, thêm PrototypeFlowController).\n" +
+                 "Ví dụ: nút Play mở screen Game. Mặc định tắt từ 0.3.0.")]
+        public bool BuildPrototypeFlow=false;
 
         [Space(10)]
         [Tooltip("Scene chứa canvas và asset runtime của prototype.\nVí dụ: Assets/Scenes/Main.unity")]
@@ -98,6 +125,49 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Gộp lưới slice_ROW_COL thành một Image kiểu Sliced.\n" +
                  "Ví dụ: 9 ô slice thành 1 sprite có border.")]
         public bool CollapseSliceGrids = true;
+
+        [Header("Output Shape")]
+        [Tooltip("Dùng Image thường thay cho FigmaImage (mất viền/bo góc/gradient; node đó được liệt kê cho post-processor).\n" +
+                 "Ví dụ: prefab ship không phụ thuộc shader của bridge.")]
+        public bool PlainImages = false;
+
+        [Tooltip("Gắn LayoutElement cho node nào. OnlyUnderAutoLayout: chỉ con của frame auto layout.\n" +
+                 "Ví dụ: Always giữ nếp 0.2, mỗi node một LayoutElement.")]
+        public LayoutElementMode AddLayoutElements = LayoutElementMode.Always;
+
+        [Tooltip("Node trùng tên trong cùng cha được đánh số Name_1, Name_2 theo thứ tự anh em.\n" +
+                 "Ví dụ: hai Btn_Blue thành Btn_Blue và Btn_Blue_1.")]
+        public bool NumberDuplicateSiblings = false;
+
+        [Tooltip("Regex (không phân biệt hoa thường) trên tên node để gắn Button. Để trống: không gắn theo tên.\n" +
+                 "Ví dụ: button | ^Btn_")]
+        public string ButtonNamePattern = "button";
+
+        [Header("Text")]
+        [Tooltip("Font TMP dùng cho mọi text, bỏ qua font của Figma và không tải Google Fonts.\n" +
+                 "Ví dụ: font duy nhất của project.")]
+        public TMP_FontAsset FontOverride;
+
+        [Tooltip("ContentSizeFitter: rect bám chữ (nếp 0.2). FixedRectAutoSize: rect cố định có lề, chữ tự co, dư thì cắt bằng dấu ba chấm.\n" +
+                 "Ví dụ: FixedRectAutoSize khi font thật khác font Figma.")]
+        public TextFitMode TextFitMode = TextFitMode.ContentSizeFitter;
+
+        [Tooltip("Hệ số nới rộng rect chữ auto-size theo chiều ngang (FixedRectAutoSize).\nVí dụ: 1.25 = rộng thêm 25%.")]
+        public float TextWidthPadding = 1.25f;
+
+        [Tooltip("Hệ số nới rect chữ auto-size theo chiều dọc (FixedRectAutoSize).\nVí dụ: 1.1 = cao thêm 10%.")]
+        public float TextHeightPadding = 1.1f;
+
+        [Tooltip("characterSpacing của TMP cho mọi text.\nVí dụ: -0.7 khớp cách chữ của Figma nhất.")]
+        public float CharacterSpacing = -0.7f;
+
+        [Header("Sprites")]
+        [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +
+                 "Ví dụ: bật khi ảnh được scale nhỏ nhiều lần trong world space.")]
+        public bool SpriteMipmaps = false;
+
+        [Tooltip("Nén texture cho sprite tải về.\nVí dụ: Uncompressed để giữ đúng màu khi soi pixel.")]
+        public SpriteCompressionMode SpriteCompression = SpriteCompressionMode.Uncompressed;
 
         string IFolderDefaults.DefaultFolder(string propertyPath)
         {

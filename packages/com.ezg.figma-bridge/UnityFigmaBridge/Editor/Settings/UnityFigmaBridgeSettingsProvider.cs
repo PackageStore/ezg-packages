@@ -14,10 +14,18 @@ namespace UnityFigmaBridge.Editor.Settings
         public UnityFigmaBridgeSettingsProvider(string path, SettingsScope scopes, IEnumerable<string> keywords = null)
             : base(path, scopes, keywords)
         {
+        }
+
+        // EditorStyles is not ready while Unity discovers [SettingsProvider] methods at startup;
+        // building the styles in the constructor threw and the provider was dropped
+        // ("Cannot create Settings Provider"). They are built on first draw instead.
+        private void EnsureStyles()
+        {
+            if (m_RedStyle != null) return;
             m_RedStyle = new GUIStyle(EditorStyles.label);
             m_RedStyle.normal.textColor = UnityEngine.Color.red;
-            
-            m_GreenStyle= new GUIStyle(EditorStyles.label);
+
+            m_GreenStyle = new GUIStyle(EditorStyles.label);
             m_GreenStyle.normal.textColor = UnityEngine.Color.green;
         }
 
@@ -48,6 +56,7 @@ namespace UnityFigmaBridge.Editor.Settings
 
         public override void OnGUI(string searchContext)
         {
+            EnsureStyles();
             if (unityFigmaBridgeSettingsAsset == null)
             {
                 GUILayout.Label("Create Unity Figma Bridge Settings Asset");
