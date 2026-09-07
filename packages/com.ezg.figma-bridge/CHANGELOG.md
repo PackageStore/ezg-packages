@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-09-07
+### Fixed
+- `[FontManager] '<font>' has no glyph for N character(s)` was logged as an error on every
+  re-import for characters the font already had. `TMP_FontAsset.TryAddCharacters` returns `false`
+  and echoes the whole request as "missing" when it has nothing left to add, and the bridge took
+  that at face value. Characters are now checked against the font's character table before and
+  after baking; only the ones still absent are reported.
+- Re-importing with some frames excluded deleted the `*.instances.json` sidecar of **every**
+  screen while keeping the excluded screens' prefabs, so `Run Post-Processors (no Sync)` lost the
+  instance data for them. Only sidecars whose prefab no longer exists are removed now.
+
 ## [0.3.0] - 2026-09-07
 ### Changed (defaults)
 - `BuildPrototypeFlow` now defaults to **off**. Building the prototype flow opens the runtime

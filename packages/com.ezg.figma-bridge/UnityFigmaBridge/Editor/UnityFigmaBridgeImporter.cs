@@ -28,7 +28,7 @@ namespace UnityFigmaBridge.Editor
     public static class UnityFigmaBridgeImporter
     {
         /// <summary>Package version, written into sidecars so a stale one can be told apart.</summary>
-        public const string PACKAGE_VERSION = "0.3.0";
+        public const string PACKAGE_VERSION = "0.3.1";
 
         /// <summary>
         ///     When true (or in batch mode) no modal dialog is shown: every message goes to the

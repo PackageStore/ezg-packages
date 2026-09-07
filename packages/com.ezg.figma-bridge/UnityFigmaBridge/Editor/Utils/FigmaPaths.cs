@@ -255,19 +255,23 @@ namespace UnityFigmaBridge.Editor.Utils
         }
 
         /// <summary>
-        /// Every import rewrites the <c>*.instances.json</c> sidecars for the screens it produces;
-        /// one left over from a screen that is no longer imported would describe a prefab that
-        /// no longer matches it.
+        /// Every import rewrites the <c>*.instances.json</c> sidecar of each screen it produces, so
+        /// only a sidecar whose prefab is gone is stale. Screens excluded from this import keep both
+        /// their prefab (see <see cref="CleanFigmaPrefabs"/>) and their sidecar, so the
+        /// post-processors can still run on them from disk.
         /// </summary>
         private static void CleanInstanceSidecars(string folder)
         {
             var removed = 0;
             foreach (var file in new DirectoryInfo(folder).GetFiles("*.instances.json"))
             {
+                var screenName = file.Name.Substring(0, file.Name.Length - ".instances.json".Length);
+                if (File.Exists(Path.Combine(folder, screenName + ".prefab"))) continue;
+
                 if (AssetDatabase.DeleteAsset($"{folder}/{file.Name}")) removed++;
                 else if (File.Exists(file.FullName)) { File.Delete(file.FullName); removed++; }
             }
-            if (removed > 0) Debug.Log($"[FigmaPaths] {folder}: removed {removed} instance sidecar(s)");
+            if (removed > 0) Debug.Log($"[FigmaPaths] {folder}: removed {removed} orphan instance sidecar(s)");
         }
 
         private static void EnsureDirectory(string path)

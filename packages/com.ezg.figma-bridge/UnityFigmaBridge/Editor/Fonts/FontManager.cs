@@ -222,8 +222,9 @@ namespace UnityFigmaBridge.Editor.Fonts
             if (missingUnicodes.Length == 0) return;
 
             var missingCharacters = string.Join(" ", missingUnicodes.Select(unicode => char.ConvertFromUtf32((int)unicode)));
-            Debug.LogError($"[FontManager] '{fontMapEntry.FontAsset.name}' has no glyph for " +
+            Debug.LogError($"[FontManager] '{fontMapEntry.FontAsset.name}' could not bake " +
                            $"{missingUnicodes.Length} character(s) the document uses: {missingCharacters}. " +
+                           "The font file has no glyph for them (or the atlas is full and multi-atlas is off). " +
                            "TextMeshPro renders these from a fallback font. Choose a family in Figma that covers them.");
         }
 
