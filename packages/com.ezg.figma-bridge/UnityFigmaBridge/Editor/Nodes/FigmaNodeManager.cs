@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Fonts;
+using UnityFigmaBridge.Editor.PostProcess;
+using UnityFigmaBridge.Editor.Settings;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
 using Color = UnityEngine.Color;
@@ -19,6 +21,12 @@ namespace UnityFigmaBridge.Editor.Nodes
         private const float FigmaStrokeWeightToTmpOutline = 0.1f;
 
         /// <summary>
+        /// In FixedRectAutoSize mode TMP may shrink a label down to this fraction of the design
+        /// size before it falls back to an ellipsis.
+        /// </summary>
+        private const float AutoSizeMinRatio = 0.5f;
+
+        /// <summary>
         /// Applies the Figma Node properties to a Unity Game object (components created in CreateUnityComponentsForNode)
         /// </summary>
         /// <param name="nodeGameObject"></param>
@@ -26,6 +34,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="figmaImportProcessData"></param>
         public static void ApplyUnityComponentPropertiesForNode(GameObject nodeGameObject,Node node, FigmaImportProcessData figmaImportProcessData)
         {
+            var settings = figmaImportProcessData.Settings;
 
             switch (node.type)
             {
@@ -39,6 +48,13 @@ namespace UnityFigmaBridge.Editor.Nodes
                     var needsImageComponent = node.fills.Length > 0 || node.strokes.Length > 0;
                     if (NodeIsSubstitution(node, figmaImportProcessData)) break;
                     if (!needsImageComponent) break;
+
+                    if (settings != null && settings.PlainImages)
+                    {
+                        ApplyPlainImage(nodeGameObject, node, figmaImportProcessData);
+                        break;
+                    }
+
                     // Create as needed (in case an override has specified new properties)
                     var figmaImage = nodeGameObject.GetComponent<FigmaImage>();
                     if (figmaImage == null) figmaImage = nodeGameObject.AddComponent<FigmaImage>();
@@ -79,8 +95,8 @@ namespace UnityFigmaBridge.Editor.Nodes
 
                     SetupFill(figmaImage,node);
                     SetupStroke(figmaImage, node);
-                    
-                    
+
+
                     break;
                 case NodeType.LINE:
                     break;
@@ -107,12 +123,13 @@ namespace UnityFigmaBridge.Editor.Nodes
                         return;
                     }
                     text.font = matchingFontMapping.FontAsset;
-                    
+
                     text.text = node.characters;
                     text.color = FigmaDataUtils.GetUnityFillColor(node.fills[0]);
                     text.fontSize = node.style.fontSize;
-                    text.characterSpacing = -0.7f; // Figma handles spacing a little differently
-                   
+                    // Figma handles spacing a little differently; the default -0.7 matched it best
+                    text.characterSpacing = settings != null ? settings.CharacterSpacing : -0.7f;
+
                     text.horizontalAlignment = node.style.textAlignHorizontal switch
                     {
                         TypeStyle.TextAlignHorizontal.LEFT => HorizontalAlignmentOptions.Left,
@@ -129,7 +146,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                         TypeStyle.TextAlignVertical.BOTTOM => VerticalAlignmentOptions.Bottom,
                         _ => VerticalAlignmentOptions.Top,
                     };
-                    
+
                     // Add on styling attributes depending on text case
                     text.fontStyle |= node.style.textCase switch
                     {
@@ -138,7 +155,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                         TypeStyle.TextCase.SMALL_CAPS => FontStyles.SmallCaps,
                         _ => 0
                     };
-                    
+
                     // Add on styling attributes depending on text decoration
                     text.fontStyle |= node.style.textDecoration switch
                     {
@@ -146,7 +163,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                         TypeStyle.TextDecoration.STRIKETHROUGH => FontStyles.Strikethrough,
                         _ => 0
                     };
-                    
+
                     // We only use TextMeshPro's italic functionality for now
                     if (node.style.italic) text.fontStyle |= FontStyles.Italic;
 
@@ -161,12 +178,23 @@ namespace UnityFigmaBridge.Editor.Nodes
                             hasShadowEffect = true;
                         }
                     }
-                    
-                    // Handle text auto resize
-                    if (node.style.textAutoResize != TypeStyle.TextAutoResize.NONE)
+
+                    if (settings != null && settings.TextFitMode == TextFitMode.FixedRectAutoSize)
                     {
+                        // The rect is fixed (padded by NodeTransformManager); the glyphs adapt to it
+                        // instead of the rect adapting to the glyphs.
+                        var existingFitter = nodeGameObject.GetComponent<ContentSizeFitter>();
+                        if (existingFitter != null) UnityEngine.Object.DestroyImmediate(existingFitter);
+                        text.enableAutoSizing = true;
+                        text.fontSizeMax = node.style.fontSize;
+                        text.fontSizeMin = node.style.fontSize * AutoSizeMinRatio;
+                        text.overflowMode = TextOverflowModes.Ellipsis;
+                    }
+                    else if (node.style.textAutoResize != TypeStyle.TextAutoResize.NONE)
+                    {
+                        // Handle text auto resize
                         var contentSizeFitter = UnityUiUtils.GetOrAddComponent<ContentSizeFitter>(nodeGameObject);
-                        
+
                         switch (node.style.textAutoResize)
                         {
                             case TypeStyle.TextAutoResize.NONE:
@@ -187,10 +215,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                                 break;
                         }
                     }
-                    
+
                     // If no material variation, ignore
                     if (!hasShadowEffect && node.strokes.Length == 0) return;
-                    
+
                     var shadowColor = hasShadowEffect
                         ? FigmaDataUtils.ToUnityColor(shadowEffect.color) : UnityEngine.Color.white;
                     var outlineColor = node.strokes.Length > 0
@@ -209,8 +237,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                         hasShadowEffect, shadowColor, node.strokes.Length>0, outlineColor, outlineWidth);
                     text.fontMaterial = effectMaterialPreset;
 
-                    
-                    
+
+
                     break;
                 case NodeType.SLICE:
                     break;
@@ -224,7 +252,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                 case NodeType.CONNECTOR:
                     break;
             }
-            
+
             // Setup opacity - this is done by applying a CanvasGroup
             // Only apply if the opacity is less than 1, or of there is a CanvasGroup already
             if (node.opacity < 1 || nodeGameObject.GetComponent<CanvasGroup>()!=null)
@@ -235,6 +263,106 @@ namespace UnityFigmaBridge.Editor.Nodes
             }
             // Setup visibility
             nodeGameObject.SetActive(node.visible);
+        }
+
+        /// <summary>
+        ///     PlainImages mode: the node becomes a stock <see cref="Image"/> instead of a
+        ///     <see cref="FigmaImage"/>. Done at generation time rather than as a pass over the
+        ///     finished prefabs so that a component instance's overrides (sprite, colour) land on
+        ///     the component that survives, instead of on one that a later pass deletes.
+        ///
+        ///     Sprite, colour and visibility carry over. Stroke, corner radius, gradient and the
+        ///     ellipse/star shapes have no plain-Image equivalent; the node still gets a flat
+        ///     Image so the layout is visible, and it is listed in
+        ///     <see cref="FigmaImportProcessData.ShapeOnlyNodes"/> for the post-processor.
+        /// </summary>
+        private static void ApplyPlainImage(GameObject nodeGameObject, Node node, FigmaImportProcessData figmaImportProcessData)
+        {
+            var image = nodeGameObject.GetComponent<Image>();
+            if (image is FigmaImage)
+            {
+                UnityEngine.Object.DestroyImmediate(image);
+                image = null;
+            }
+            if (image == null) image = nodeGameObject.AddComponent<Image>();
+
+            var firstFill = node.fills != null && node.fills.Length > 0 ? node.fills[0] : null;
+            Sprite sprite = null;
+            if (firstFill != null && firstFill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(firstFill.imageRef))
+                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForImageFill(firstFill.imageRef));
+
+            image.sprite = sprite;
+
+            if (firstFill == null)
+                image.color = new Color(1f, 1f, 1f, 0f); // stroke only: nothing a flat Image can draw
+            else if (IsGradient(firstFill) && firstFill.gradientStops != null && firstFill.gradientStops.Length > 0)
+                image.color = AverageGradientColor(firstFill);
+            else
+                image.color = FigmaDataUtils.GetUnityFillColor(firstFill);
+
+            image.enabled = firstFill == null || firstFill.visible;
+
+            if (sprite != null && sprite.border != Vector4.zero) image.type = Image.Type.Sliced;
+            else if (sprite != null && firstFill.scaleMode == Paint.ScaleMode.TILE) image.type = Image.Type.Tiled;
+            else image.type = Image.Type.Simple;
+            image.preserveAspect = sprite != null && firstFill.scaleMode == Paint.ScaleMode.FIT;
+
+            var hasStroke = node.strokes != null && node.strokes.Length > 0 && node.strokeWeight > 0;
+            var cornerRadius = MaxCornerRadius(node);
+            var isGradient = firstFill != null && IsGradient(firstFill);
+            var isShape = node.type == NodeType.ELLIPSE || node.type == NodeType.STAR;
+            if (!hasStroke && cornerRadius <= 0f && !isGradient && !isShape) return;
+
+            var record = new ShapeOnlyNode
+            {
+                PrefabPath = figmaImportProcessData.CurrentPrefabPath ?? string.Empty,
+                HierarchyPath = PostProcessorRunner.HierarchyPathWithinPrefab(nodeGameObject.transform),
+                NodeId = node.id,
+                NodeName = node.name,
+                HasSprite = sprite != null,
+                StrokeWidth = hasStroke ? node.strokeWeight : 0f,
+                CornerRadius = cornerRadius,
+                FillType = firstFill?.type.ToString() ?? "NONE",
+                Shape = node.type.ToString()
+            };
+            figmaImportProcessData.ShapeOnlyNodes.Add(record);
+            if (string.IsNullOrEmpty(record.PrefabPath))
+                figmaImportProcessData.ShapeOnlyPendingRoots.Add((record, HierarchyRootWithinPrefab(nodeGameObject.transform)));
+        }
+
+        private static bool IsGradient(Paint paint)
+        {
+            return paint.type == Paint.PaintType.GRADIENT_LINEAR || paint.type == Paint.PaintType.GRADIENT_RADIAL ||
+                   paint.type == Paint.PaintType.GRADIENT_ANGULAR || paint.type == Paint.PaintType.GRADIENT_DIAMOND;
+        }
+
+        private static Color AverageGradientColor(Paint paint)
+        {
+            var sum = Vector4.zero;
+            foreach (var stop in paint.gradientStops)
+                sum += new Vector4(stop.color.r, stop.color.g, stop.color.b, stop.color.a);
+            sum /= paint.gradientStops.Length;
+            return new Color(sum.x, sum.y, sum.z, sum.w * paint.opacity);
+        }
+
+        private static float MaxCornerRadius(Node node)
+        {
+            if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length > 0)
+            {
+                var max = 0f;
+                foreach (var radius in node.rectangleCornerRadii) max = Mathf.Max(max, radius);
+                return max;
+            }
+            return Mathf.Max(0f, node.cornerRadius);
+        }
+
+        /// <summary>Topmost ancestor that still carries a bridge marker: the screen or component root.</summary>
+        private static GameObject HierarchyRootWithinPrefab(Transform transform)
+        {
+            var current = transform;
+            while (current.parent != null && current.parent.GetComponent<FigmaNodeObject>() != null)
+                current = current.parent;
+            return current.gameObject;
         }
 
         private static void SetupStroke(FigmaImage figmaImage, Node node)
@@ -333,7 +461,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Fill;
                     break;
                 case Paint.ScaleMode.TILE:
-                    // Use the image size to determine UVs. 
+                    // Use the image size to determine UVs.
                     figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Tile;
                     // Apply scaling factor from document
                     figmaImage.ImageScaleFactor = fill.scalingFactor;

@@ -43,8 +43,15 @@ namespace UnityFigmaBridge.Editor.Fonts
     {
         public List<FigmaFontMapEntry> FontMapEntries = new List<FigmaFontMapEntry>();
 
+        /// <summary>
+        /// Set when the settings name a FontOverride: one entry answers every lookup, so every
+        /// text node and every material preset is built on that single font asset.
+        /// </summary>
+        public FigmaFontMapEntry OverrideEntry;
+
         public FigmaFontMapEntry GetFontMapping(string fontFamily, int fontWeight)
         {
+            if (OverrideEntry != null) return OverrideEntry;
             return FontMapEntries.FirstOrDefault(fontMapEntry => fontMapEntry.FontFamily == fontFamily && fontMapEntry.FontWeight == fontWeight);
         }
     }
@@ -70,7 +77,12 @@ namespace UnityFigmaBridge.Editor.Fonts
         /// Generates a map of fonts found in the document and font to map to, downloading any font
         /// the project does not already hold and baking every character the document uses.
         /// </summary>
-        public static async Task<FigmaFontMap> GenerateFontMapForDocument(FigmaFile figmaFile, bool enableGoogleFontsDownload)
+        /// <param name="fontOverride">
+        ///     When set, every text in the document uses this asset: no project search, no Google
+        ///     Fonts download. The characters the document uses are still baked into it.
+        /// </param>
+        public static async Task<FigmaFontMap> GenerateFontMapForDocument(FigmaFile figmaFile, bool enableGoogleFontsDownload,
+            TMP_FontAsset fontOverride = null)
         {
             var fontMap = new FigmaFontMap();
             var textNodes = new List<Node>();
@@ -93,6 +105,26 @@ namespace UnityFigmaBridge.Editor.Fonts
                 }
 
                 fontMapEntry.RequiredCharacters.UnionWith(TextMeshProFontUtils.ToCodePoints(textNode.characters));
+            }
+
+            if (fontOverride != null)
+            {
+                var overrideEntry = new FigmaFontMapEntry
+                {
+                    FontFamily = fontOverride.name,
+                    FontWeight = 0,
+                    FontAsset = fontOverride
+                };
+                overrideEntry.RequiredCharacters.UnionWith(TextMeshProFontUtils.BaseCharacterSet);
+                foreach (var entry in fontMap.FontMapEntries)
+                    overrideEntry.RequiredCharacters.UnionWith(entry.RequiredCharacters);
+                fontMap.OverrideEntry = overrideEntry;
+                BakeRequiredCharacters(overrideEntry);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[FontManager] FontOverride '{fontOverride.name}' replaces " +
+                          $"{fontMap.FontMapEntries.Count} Figma font(s): " +
+                          string.Join(", ", fontMap.FontMapEntries.Select(e => $"{e.FontFamily} {e.FontWeight}")));
+                return fontMap;
             }
 
             var allProjectFontAssets = AssetDatabase.FindAssets($"t:TMP_FontAsset").Select(guid => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guid))).ToList();

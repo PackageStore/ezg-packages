@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.3.0] - 2026-09-07
+### Changed (defaults)
+- `BuildPrototypeFlow` now defaults to **off**. Building the prototype flow opens the runtime
+  scene and adds a `PrototypeFlowController` to its canvas, which is too large a side effect for
+  a default. Existing settings assets keep whatever value they have serialized.
+- Imported sprites no longer enable mipmaps (`SpriteMipmaps` = off). UI sprites are drawn at
+  or near native size; mipmaps only blurred them. Wrap mode is now `Clamp` for every fill except
+  the ones some node draws with scale mode TILE, which keep `Repeat`.
+
+### Added
+- **Post-processor hook.** Implement `UnityFigmaBridge.Editor.PostProcess.IFigmaImportPostProcessor`
+  in any Editor assembly and it runs at the end of every import (found via `TypeCache`, no
+  registration). The `FigmaImportContext` carries the settings, the document, the font map, every
+  screen prefab with the component instances placed in it (recorded before the bridge strips its
+  markers, so the component origin of each instance is known, nested ones included), the
+  component id → prefab path map and the shape-only node list below.
+- **`Run Post-Processors (no Sync)`** (window button + menu) re-runs the processors on the
+  prefabs already on disk. Each import writes a `<Screen>.instances.json` sidecar beside the
+  screen prefab so this works offline with the same instance data.
+- **`Re-import from cache (offline)`** (window button + menu) rebuilds every output from the
+  document cached by the last online Sync (`Assets/FigmaOutput.json`) and the sprites already on
+  disk, without one Figma API call. Fills or server renders never downloaded are listed in one
+  warning, not fetched. Use it when the seat's API quota is spent.
+- `PlainImages`: every fill becomes a stock `Image` instead of a `FigmaImage`. Sprite, colour,
+  visibility, `Sliced` (when the sprite has a border), `Tiled` (TILE fills) and `preserveAspect`
+  (FIT fills) carry over. Stroke, corner radius, gradient and ellipse/star shapes cannot be drawn
+  by a plain Image; the node still gets a flat Image and is listed in
+  `FigmaImportContext.ShapeOnlyNodes` with what was lost. Done at generation time, not as a pass
+  over finished prefabs, so component-instance overrides (sprite, colour) survive.
+- `AddLayoutElements`: `Always` (0.2 behaviour) or `OnlyUnderAutoLayout`, which gives a
+  `LayoutElement` only to children of a Figma auto-layout frame. A component instance now keeps
+  one `LayoutElement` instead of gaining a second on every instantiation.
+- `FontOverride`: one `TMP_FontAsset` for every text in the document. No project font search,
+  no Google Fonts download; the characters the document uses are still baked into it and every
+  effect material preset is derived from it.
+- `TextFitMode`: `ContentSizeFitter` (0.2 behaviour) or `FixedRectAutoSize`, where an
+  auto-resized text keeps a fixed rect grown by `TextWidthPadding` / `TextHeightPadding`
+  (aligned edge stays put), with TMP auto-size down to half the design size and an ellipsis
+  beyond that. `CharacterSpacing` exposes the value that used to be a hard-coded -0.7.
+- `SpriteCompression`: `Uncompressed` (default) or `Compressed` for imported sprites.
+- `ButtonNamePattern`: the rule that turned any node whose name contains "button" into a
+  `Button` is now a case-insensitive regex (default `button`). Blank switches name matching off.
+- `NumberDuplicateSiblings`: siblings sharing one name become `Name`, `Name_1`, `Name_2` in
+  sibling order, with one summary warning per import listing every rename.
+- API errors name the HTTP status and, for 429, the `retry-after` and rate-limit tier headers,
+  instead of every failure reading as "check your token and url".
+
 ## [0.2.1] - 2026-09-03
 ### Changed
 - Folder fields lost the browse button: the field is Unity's own folder object field, picked with

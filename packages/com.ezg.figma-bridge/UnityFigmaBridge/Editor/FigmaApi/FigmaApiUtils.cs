@@ -33,6 +33,50 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     public static class FigmaApiUtils
     {
         private static string WRITE_FILE_PATH = "FigmaOutput.json";
+
+        /// <summary>Where the last downloaded document is cached; the offline re-import reads it back.</summary>
+        public static string CachedDocumentPath => Path.Combine("Assets", WRITE_FILE_PATH).Replace('\\', '/');
+
+        private static readonly JsonSerializerSettings s_DocumentJsonSettings = new JsonSerializerSettings
+        {
+            // Ignore missing members and null fields that sometimes come from Figma
+            DefaultValueHandling = DefaultValueHandling.Include,
+            MissingMemberHandling = MissingMemberHandling.Ignore,
+            NullValueHandling = NullValueHandling.Ignore,
+        };
+
+        /// <summary>Deserialize the cached document, or null when there is none or it does not parse.</summary>
+        public static FigmaFile LoadCachedDocument()
+        {
+            var path = CachedDocumentPath;
+            if (!File.Exists(path)) return null;
+            try
+            {
+                return JsonConvert.DeserializeObject<FigmaFile>(File.ReadAllText(path), s_DocumentJsonSettings);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[FigmaApiUtils] Cached document '{path}' did not parse: {e.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        ///     One line naming the HTTP status and, for rate limiting, the headers that say how long
+        ///     to wait and which quota tier applied. Figma folds every failure into a generic
+        ///     "check your token" otherwise.
+        /// </summary>
+        private static string DescribeFailure(UnityWebRequest request)
+        {
+            var line = $"HTTP {request.responseCode} {request.error}";
+            var retryAfter = request.GetResponseHeader("retry-after");
+            if (!string.IsNullOrEmpty(retryAfter)) line += $"; retry-after {retryAfter}s";
+            var rateLimitType = request.GetResponseHeader("x-figma-rate-limit-type");
+            if (!string.IsNullOrEmpty(rateLimitType)) line += $"; rate-limit-type {rateLimitType}";
+            var planTier = request.GetResponseHeader("x-figma-plan-tier");
+            if (!string.IsNullOrEmpty(planTier)) line += $"; plan-tier {planTier}";
+            return line;
+        }
         
         /// <summary>
         /// Encapsulate download data
@@ -48,6 +92,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             public FigmaFileType FileType;
             public string Url;
             public string FilePath;
+            /// <summary>Figma imageRef for ImageFill items; null for server renders.</summary>
+            public string ImageRef;
         }
         
         
@@ -102,21 +148,13 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (webRequest.result == UnityWebRequest.Result.ProtocolError ||
                 webRequest.result == UnityWebRequest.Result.ConnectionError)
             {
-                throw new Exception($"Error downloading FIGMA document: {webRequest.error} url - {url}");
+                throw new Exception($"{DescribeFailure(webRequest)}\nError downloading FIGMA document, url - {url}");
             }
 
             try
             {
-                // Create a settings object to ignore missing members and null fields that sometimes come from Figma
-                JsonSerializerSettings settings = new JsonSerializerSettings()
-                {
-                    DefaultValueHandling = DefaultValueHandling.Include,
-                    MissingMemberHandling = MissingMemberHandling.Ignore,
-                    NullValueHandling = NullValueHandling.Ignore,
-                };
-                
                 // Deserialize the document
-                figmaFile = JsonConvert.DeserializeObject<FigmaFile>(webRequest.downloadHandler.text, settings);
+                figmaFile = JsonConvert.DeserializeObject<FigmaFile>(webRequest.downloadHandler.text, s_DocumentJsonSettings);
 
                 Debug.Log($"Figma file downloaded, name {figmaFile.name}");
             }
@@ -153,7 +191,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 webRequest.result == UnityWebRequest.Result.ConnectionError)
             {
                 throw new Exception(
-                    $"Error downloading FIGMA Server Rendered Images: {webRequest.error} url - {serverRenderUrl}");
+                    $"{DescribeFailure(webRequest)}\nError downloading FIGMA Server Rendered Images, url - {serverRenderUrl}");
             }
 
             try
@@ -189,7 +227,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
             if (webRequest.result is UnityWebRequest.Result.ProtocolError or UnityWebRequest.Result.ConnectionError)
             {
-                throw new Exception($"Error downloading FIGMA Image Fill Data: {webRequest.error} url - {imageFillUrl}");
+                throw new Exception($"{DescribeFailure(webRequest)}\nError downloading FIGMA Image Fill Data, url - {imageFillUrl}");
             }
             try
             {
@@ -225,7 +263,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
             if (webRequest.result is UnityWebRequest.Result.ProtocolError or UnityWebRequest.Result.ConnectionError)
             {
-                throw new Exception($"Error downloading components: {webRequest.error} url - {componentsUrl}");
+                throw new Exception($"{DescribeFailure(webRequest)}\nError downloading components, url - {componentsUrl}");
             }
             try
             {
@@ -267,7 +305,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     {
                         Url=keyPair.Value,
                         FilePath = FigmaPaths.GetPathForImageFill(keyPair.Key),
-                        FileType = FigmaDownloadQueueItem.FigmaFileType.ImageFill
+                        FileType = FigmaDownloadQueueItem.FigmaFileType.ImageFill,
+                        ImageRef = keyPair.Key
                     });
                 }
             }
@@ -303,7 +342,13 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// Download required files and process
         /// </summary>
         /// <param name="downloadItems"></param>
-        public static async Task DownloadFiles(List<FigmaDownloadQueueItem> downloadItems, UnityFigmaBridgeSettings settings)
+        /// <param name="settings">Sprite import settings come from here (mipmaps, compression).</param>
+        /// <param name="tiledImageRefs">
+        ///     Image fills some node draws with scale mode TILE; only those import with wrap mode
+        ///     Repeat. Everything else clamps, so a stretched sprite never bleeds its opposite edge.
+        /// </param>
+        public static async Task DownloadFiles(List<FigmaDownloadQueueItem> downloadItems, UnityFigmaBridgeSettings settings,
+            HashSet<string> tiledImageRefs = null)
         {
             var downloadCount = downloadItems.Count;
             var downloadIndex = 0;
@@ -335,16 +380,19 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     textureImporter.textureType = TextureImporterType.Sprite;
                     textureImporter.spriteImportMode = SpriteImportMode.Single;
                     textureImporter.alphaIsTransparency = true;
-                    textureImporter.mipmapEnabled = true; // We'll enable mip maps to stop issues at lower resolutions
-                    textureImporter.textureCompression = TextureImporterCompression.Uncompressed;
+                    textureImporter.mipmapEnabled = settings != null && settings.SpriteMipmaps;
+                    textureImporter.textureCompression = settings != null && settings.SpriteCompression == SpriteCompressionMode.Compressed
+                        ? TextureImporterCompression.Compressed
+                        : TextureImporterCompression.Uncompressed;
                     textureImporter.sRGBTexture = true;
 
 
                     switch (downloadItem.FileType)
                     {
                         case FigmaDownloadQueueItem.FigmaFileType.ImageFill:
-                            // We'll want to allow repeating textures to support "tile" mode
-                            textureImporter.wrapMode = TextureWrapMode.Repeat;
+                            // Only a fill drawn in "tile" mode needs a repeating texture
+                            var isTiled = tiledImageRefs != null && downloadItem.ImageRef != null && tiledImageRefs.Contains(downloadItem.ImageRef);
+                            textureImporter.wrapMode = isTiled ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
                             break;
                         case FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage:
                             // For server rendered images we want to clamp the texture

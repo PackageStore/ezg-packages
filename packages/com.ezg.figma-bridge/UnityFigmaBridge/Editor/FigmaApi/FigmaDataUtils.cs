@@ -253,6 +253,31 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
         
         /// <summary>
+        /// Image fill ids that at least one node in the document draws with scale mode TILE.
+        /// </summary>
+        public static HashSet<string> GetTiledImageFillIds(FigmaFile file)
+        {
+            var tiled = new HashSet<string>();
+            CollectTiledImageFillIds(file.document, tiled);
+            return tiled;
+        }
+
+        private static void CollectTiledImageFillIds(Node node, HashSet<string> tiled)
+        {
+            if (node == null) return;
+            if (node.fills != null)
+            {
+                foreach (var fill in node.fills)
+                {
+                    if (fill == null || fill.type != Paint.PaintType.IMAGE) continue;
+                    if (fill.scaleMode == Paint.ScaleMode.TILE && !string.IsNullOrEmpty(fill.imageRef)) tiled.Add(fill.imageRef);
+                }
+            }
+            if (node.children == null) return;
+            foreach (var childNode in node.children) CollectTiledImageFillIds(childNode, tiled);
+        }
+
+        /// <summary>
         /// Recursively search for nodes of a specific type
         /// </summary>
         /// <param name="node"></param>
