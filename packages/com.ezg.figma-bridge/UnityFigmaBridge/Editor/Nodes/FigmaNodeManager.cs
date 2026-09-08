@@ -93,7 +93,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                             : new Vector4(node.cornerRadius, node.cornerRadius, node.cornerRadius, node.cornerRadius);
                     }
 
-                    SetupFill(figmaImage,node);
+                    SetupFill(figmaImage, node, figmaImportProcessData);
                     SetupStroke(figmaImage, node);
 
 
@@ -288,8 +288,14 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             var firstFill = node.fills != null && node.fills.Length > 0 ? node.fills[0] : null;
             Sprite sprite = null;
+            var isPattern = false;
             if (firstFill != null && firstFill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(firstFill.imageRef))
                 sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForImageFill(firstFill.imageRef));
+            else if (firstFill != null && firstFill.type == Paint.PaintType.PATTERN)
+            {
+                sprite = LoadPatternSourceSprite(firstFill, figmaImportProcessData);
+                isPattern = sprite != null;
+            }
 
             image.sprite = sprite;
 
@@ -302,10 +308,16 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             image.enabled = firstFill == null || firstFill.visible;
 
-            if (sprite != null && sprite.border != Vector4.zero) image.type = Image.Type.Sliced;
+            if (isPattern)
+            {
+                // Image.Tiled draws tiles of (sprite size / pixelsPerUnitMultiplier)
+                image.type = Image.Type.Tiled;
+                image.pixelsPerUnitMultiplier = PatternRenderToTileRatio(firstFill, figmaImportProcessData);
+            }
+            else if (sprite != null && sprite.border != Vector4.zero) image.type = Image.Type.Sliced;
             else if (sprite != null && firstFill.scaleMode == Paint.ScaleMode.TILE) image.type = Image.Type.Tiled;
             else image.type = Image.Type.Simple;
-            image.preserveAspect = sprite != null && firstFill.scaleMode == Paint.ScaleMode.FIT;
+            image.preserveAspect = sprite != null && !isPattern && firstFill.scaleMode == Paint.ScaleMode.FIT;
 
             var hasStroke = node.strokes != null && node.strokes.Length > 0 && node.strokeWeight > 0;
             var cornerRadius = MaxCornerRadius(node);
@@ -384,7 +396,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             }
         }
 
-        private static void SetupFill(FigmaImage figmaImage, Node node)
+        private static void SetupFill(FigmaImage figmaImage, Node node, FigmaImportProcessData figmaImportProcessData)
         {
             if (node.fills.Length > 0)
             {
@@ -393,6 +405,15 @@ namespace UnityFigmaBridge.Editor.Nodes
                 {
                     case Paint.PaintType.IMAGE:
                         SetupImageFill(figmaImage, firstFill);
+                        break;
+                    case Paint.PaintType.PATTERN:
+                        figmaImage.sprite = LoadPatternSourceSprite(firstFill, figmaImportProcessData);
+                        if (figmaImage.sprite != null)
+                        {
+                            // FigmaImage.Tile draws tiles of (sprite size * ImageScaleFactor)
+                            figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Tile;
+                            figmaImage.ImageScaleFactor = 1f / PatternRenderToTileRatio(firstFill, figmaImportProcessData);
+                        }
                         break;
                     case Paint.PaintType.GRADIENT_LINEAR:
                     case Paint.PaintType.GRADIENT_RADIAL:
@@ -439,6 +460,40 @@ namespace UnityFigmaBridge.Editor.Nodes
                             new Color(0, 0, 0, 0); // Transparent fill - TODO find neater solution
         }
 
+
+        /// <summary>
+        ///     Sprite for a PATTERN fill: the server render of the node it repeats (queued by
+        ///     <see cref="FigmaDataUtils.FindAllServerRenderNodesInFile"/>). Null when that render is not on
+        ///     disk (offline re-import, or the source lives outside the document); the node then imports as
+        ///     a flat Image, like any fill whose bitmap is missing.
+        /// </summary>
+        private static Sprite LoadPatternSourceSprite(Paint fill, FigmaImportProcessData figmaImportProcessData)
+        {
+            if (string.IsNullOrEmpty(fill.sourceNodeId)) return null;
+            var renderNodes = figmaImportProcessData.ServerRenderNodes;
+            if (renderNodes.Find(entry => entry.SourceNode.id == fill.sourceNodeId) == null) return null;
+
+            var path = FigmaPaths.GetPathForServerRenderedImage(fill.sourceNodeId, renderNodes);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+                Debug.LogWarning($"[FigmaBridge] PATTERN fill: render '{path}' of source node '{fill.sourceNodeId}' is not on disk - the fill imports without a sprite until an online Sync downloads it.");
+            else if (!string.IsNullOrEmpty(fill.tileType) && fill.tileType != "RECTANGULAR")
+                Debug.LogWarning($"[FigmaBridge] PATTERN fill with tileType {fill.tileType} is drawn as a rectangular tile grid (UGUI has no hexagonal tiling).");
+            return sprite;
+        }
+
+        /// <summary>
+        ///     Rendered pixels per Figma unit of one tile. The source is rendered at
+        ///     <c>ServerRenderImageScale</c>x and Figma scales the tile by the fill's <c>scalingFactor</c>,
+        ///     so a tile of the render must be shrunk by renderScale / scalingFactor to land at design size.
+        /// </summary>
+        private static float PatternRenderToTileRatio(Paint fill, FigmaImportProcessData figmaImportProcessData)
+        {
+            var settings = figmaImportProcessData.Settings;
+            var renderScale = settings != null && settings.ServerRenderImageScale > 0 ? settings.ServerRenderImageScale : 1f;
+            var scalingFactor = fill.scalingFactor > 0f ? fill.scalingFactor : 1f;
+            return renderScale / scalingFactor;
+        }
 
         /// <summary>
         /// Setup image fill depending on parameters

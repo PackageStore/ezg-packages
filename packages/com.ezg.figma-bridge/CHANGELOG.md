@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.2] - 2026-09-08
+### Added
+- **Pattern fills.** A node filled with Figma's *pattern* paint (`fills[].type == "PATTERN"`,
+  another node repeated across the shape) imported as a flat white `Image` because a pattern
+  carries no `imageRef`. The bridge now server-renders the fill's `sourceNodeId` once
+  (`ServerRenderedImages/<id>.png`, wrap mode Repeat) and draws the fill as `Image.Type.Tiled`
+  (or `FigmaImage` Tile) with the tile shrunk by `ServerRenderImageScale / scalingFactor` so it
+  lands at design size. Hexagonal `tileType`s are drawn as a rectangular grid with a warning. An
+  offline re-import without the render on disk logs the missing file, like a missing image fill.
+
+### Removed
+- The three action menu items added in 0.3.0 (`Tools/EZG Technical Art/Figma Bridge - Sync Document`,
+  `… - Re-import from cache (offline)`, `… - Run Post-Processors (no Sync)`). The bridge is back to
+  one menu item, `Tools/EZG Technical Art/Figma Bridge`, which opens the window; the three actions
+  are buttons there. Scripts and MCP call `UnityFigmaBridgeImporter.SyncDocument()`,
+  `SyncDocumentOffline()` and `RunPostProcessorsOnly()` directly instead of the menu paths.
+
 ## [0.3.1] - 2026-09-07
 ### Fixed
 - `[FontManager] '<font>' has no glyph for N character(s)` was logged as an error on every

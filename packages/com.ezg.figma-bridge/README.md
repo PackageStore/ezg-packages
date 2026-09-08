@@ -47,6 +47,9 @@ These are on by default and shape the output:
   sprite carrying `Sprite.border`, not as nine child images.
 - **Node-named image fills.** Sprites are named after the node and its owner rather than the
   Figma `imageRef` hash, so a re-import produces stable, readable asset names.
+- **Pattern fills.** A Figma *pattern* paint (a node repeated across a shape) has no bitmap of
+  its own; the bridge server-renders the source node once into `ServerRenderedImages/` and draws
+  the fill as a tiled `Image` at design tile size. Costs one render request per distinct source.
 - **Axis-intent output.** A component set writes `axis-intent.json` beside its variant prefabs
   recording each variant axis. Variants are separate prefabs; there is no runtime state code.
 - **Fonts.** Font families named by the document are fetched live from Google Fonts and placed

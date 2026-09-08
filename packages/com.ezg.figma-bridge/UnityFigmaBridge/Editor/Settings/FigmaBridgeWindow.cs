@@ -23,22 +23,21 @@ namespace UnityFigmaBridge.Editor.Settings
         private Vector2 m_MainScrollPos;
         private readonly Dictionary<string, bool> m_PageFoldouts = new();
 
-        [MenuItem("Tools/EZG Technical Art/Figma Bridge")]
+        /// <summary>
+        ///     The bridge's only menu item: it opens the window. Sync / offline re-import / post-processors
+        ///     are buttons in the window; scripts and MCP call <see cref="UnityFigmaBridgeImporter.SyncDocument"/>,
+        ///     <see cref="UnityFigmaBridgeImporter.SyncDocumentOffline"/> and
+        ///     <see cref="UnityFigmaBridgeImporter.RunPostProcessorsOnly"/> directly.
+        /// </summary>
+        public const string MENU_PATH = "Tools/EZG Technical Art/Figma Bridge";
+
+        [MenuItem(MENU_PATH)]
         public static void Open()
         {
             var window = GetWindow<FigmaBridgeWindow>("Figma Bridge");
             window.minSize = new Vector2(360, 480);
             window.Show();
         }
-
-        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Sync Document")]
-        public static void MenuSyncDocument() => UnityFigmaBridgeImporter.SyncDocument();
-
-        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Re-import from cache (offline)")]
-        public static void MenuSyncOffline() => UnityFigmaBridgeImporter.SyncDocumentOffline();
-
-        [MenuItem("Tools/EZG Technical Art/Figma Bridge - Run Post-Processors (no Sync)")]
-        public static void MenuRunPostProcessors() => UnityFigmaBridgeImporter.RunPostProcessorsOnly();
 
         private void OnEnable()
         {

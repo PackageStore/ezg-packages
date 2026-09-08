@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -18,7 +18,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     public enum ServerRenderType
     {
         Substitution, // We want to replace a complex node with an image
-        Export // We want to export this image
+        Export, // We want to export this image
+        PatternSource // The node a PATTERN fill repeats; rendered once, imported with wrap Repeat and tiled
     }
         
     /// <summary>
@@ -94,6 +95,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             public string FilePath;
             /// <summary>Figma imageRef for ImageFill items; null for server renders.</summary>
             public string ImageRef;
+            /// <summary>Figma node id for ServerRenderedImage items; null for image fills.</summary>
+            public string NodeId;
         }
         
         
@@ -328,7 +331,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                         {
                             Url = keyPair.Value,
                             FilePath = FigmaPaths.GetPathForServerRenderedImage(keyPair.Key, serverRenderNodes),
-                            FileType = FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage
+                            FileType = FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage,
+                            NodeId = keyPair.Key
                         });
                     }
                 }
@@ -347,8 +351,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         ///     Image fills some node draws with scale mode TILE; only those import with wrap mode
         ///     Repeat. Everything else clamps, so a stretched sprite never bleeds its opposite edge.
         /// </param>
+        /// <param name="repeatNodeIds">
+        ///     Server-rendered nodes that are the source of a PATTERN fill; they tile, so they import
+        ///     with wrap mode Repeat like a TILE image fill. Other server renders clamp.
+        /// </param>
         public static async Task DownloadFiles(List<FigmaDownloadQueueItem> downloadItems, UnityFigmaBridgeSettings settings,
-            HashSet<string> tiledImageRefs = null)
+            HashSet<string> tiledImageRefs = null, HashSet<string> repeatNodeIds = null)
         {
             var downloadCount = downloadItems.Count;
             var downloadIndex = 0;
@@ -395,8 +403,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                             textureImporter.wrapMode = isTiled ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
                             break;
                         case FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage:
-                            // For server rendered images we want to clamp the texture
-                            textureImporter.wrapMode = TextureWrapMode.Clamp;
+                            // Server renders clamp, except the source of a PATTERN fill which is tiled
+                            var isPatternSource = repeatNodeIds != null && downloadItem.NodeId != null && repeatNodeIds.Contains(downloadItem.NodeId);
+                            textureImporter.wrapMode = isPatternSource ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
                             break;
                             
                     }

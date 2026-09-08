@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -329,7 +329,68 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false);
             }
 
+            AddPatternSourceNodes(file, renderSubstitutionNodeList, downloadPageIdList);
             return renderSubstitutionNodeList;
+        }
+
+        /// <summary>
+        ///     Ids of the nodes that PATTERN fills repeat, for fills on nodes the import reaches (a
+        ///     selected page, or inside a component definition) - the same reach rule as image fills.
+        ///     A PATTERN fill carries no imageRef; the source node is its only pixel data.
+        /// </summary>
+        public static HashSet<string> GetPatternSourceNodeIds(FigmaFile file, List<string> downloadPageIdList)
+        {
+            var sourceIds = new HashSet<string>();
+            if (file?.document?.children == null) return sourceIds;
+            foreach (var page in file.document.children)
+                CollectPatternSourceNodeIds(page, sourceIds, downloadPageIdList.Contains(page.id), false);
+            return sourceIds;
+        }
+
+        private static void CollectPatternSourceNodeIds(Node node, HashSet<string> sourceIds, bool isSelectedPage,
+            bool withinComponentDefinition)
+        {
+            if (node == null || !node.visible) return;
+            if (node.fills != null && (isSelectedPage || withinComponentDefinition))
+            {
+                foreach (var fill in node.fills)
+                {
+                    if (fill == null || fill.type != Paint.PaintType.PATTERN || !fill.visible) continue;
+                    if (!string.IsNullOrEmpty(fill.sourceNodeId)) sourceIds.Add(fill.sourceNodeId);
+                }
+            }
+            if (node.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+                CollectPatternSourceNodeIds(childNode, sourceIds, isSelectedPage, withinComponentDefinition);
+        }
+
+        /// <summary>
+        ///     Queue the source node of every reachable PATTERN fill for one server render
+        ///     (<see cref="ServerRenderType.PatternSource"/>). The fill is then drawn as a tiled Image of
+        ///     that render. A source already queued for another reason keeps its entry - the file path is
+        ///     the same either way.
+        /// </summary>
+        private static void AddPatternSourceNodes(FigmaFile file, List<ServerRenderNodeData> renderNodeList,
+            List<string> downloadPageIdList)
+        {
+            var sourceIds = GetPatternSourceNodeIds(file, downloadPageIdList);
+            if (sourceIds.Count == 0) return;
+            var nodeLookup = BuildNodeLookupDictionary(file);
+            foreach (var sourceId in sourceIds)
+            {
+                if (renderNodeList.Exists(entry => entry.SourceNode.id == sourceId)) continue;
+                if (!nodeLookup.TryGetValue(sourceId, out var sourceNode))
+                {
+                    Debug.LogWarning($"[FigmaBridge] A PATTERN fill repeats node '{sourceId}', which is not in this document (external library?). The fill imports without a sprite.");
+                    continue;
+                }
+                renderNodeList.Add(new ServerRenderNodeData
+                {
+                    RenderType = ServerRenderType.PatternSource,
+                    SourceNode = sourceNode
+                });
+            }
         }
 
         /// <summary>

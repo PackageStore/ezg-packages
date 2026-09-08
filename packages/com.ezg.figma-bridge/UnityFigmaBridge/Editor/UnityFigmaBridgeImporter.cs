@@ -483,6 +483,8 @@ namespace UnityFigmaBridge.Editor
             // Track fills that are actually used. This is needed as FIGMA has a way of listing any bitmap used rather than active
             var foundImageFills = FigmaDataUtils.GetAllImageFillIdsFromFile(figmaFile,downloadPageIdList);
             var tiledImageFills = FigmaDataUtils.GetTiledImageFillIds(figmaFile);
+            // Source nodes of PATTERN fills tile too, so their server render imports with wrap Repeat
+            var patternSourceNodeIds = FigmaDataUtils.GetPatternSourceNodeIds(figmaFile, downloadPageIdList);
 
             if (!offline)
             {
@@ -507,7 +509,7 @@ namespace UnityFigmaBridge.Editor
                     FigmaApiUtils.GenerateDownloadQueue(activeFigmaImageFillData,foundImageFills, serverRenderData, serverRenderNodes);
 
                 // Download all required files
-                await FigmaApiUtils.DownloadFiles(downloadList, s_UnityFigmaBridgeSettings, tiledImageFills);
+                await FigmaApiUtils.DownloadFiles(downloadList, s_UnityFigmaBridgeSettings, tiledImageFills, patternSourceNodeIds);
             }
             else
             {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace UnityFigmaBridge.Editor.FigmaApi
@@ -838,6 +838,20 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// A reference to the GIF embedded in this node, if the image is a GIF. To download the image using this reference, use the GET file images endpoint to retrieve the mapping from image references to image URLs
         /// </summary>
         public string gifRef;
+
+        // For PATTERN paints (Figma "pattern" fill: another node repeated across the shape)
+
+        /// <summary>
+        /// Node the pattern repeats; only present if type is PATTERN. The bridge renders it server-side
+        /// once and draws the fill as a tiled Image (scalingFactor above applies to the tile as well).
+        /// </summary>
+        public string sourceNodeId;
+
+        /// <summary>
+        /// RECTANGULAR, HORIZONTAL_HEXAGONAL or VERTICAL_HEXAGONAL; only present if type is PATTERN.
+        /// UGUI can only tile a rectangular grid, the hexagonal layouts are drawn rectangular.
+        /// </summary>
+        public string tileType;
 
     }
     /// <summary>
