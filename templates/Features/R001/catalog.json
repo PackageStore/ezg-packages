@@ -4,6 +4,206 @@
   "description": "R001 game features — install per-feature via EZG Feature Hub.",
   "assets": [
     {
+      "name": "_Core",
+      "fileName": "_Core.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/_Core.unitypackage",
+      "sha256": "2ed0e5cd1e2762542d7575ff844ace7a854160d8b4574ca92bfe2c961eca1a90",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/_Core"
+      ],
+      "markerGuids": [
+        "0679c8cdbdbd549a6936812a12069dd9"
+      ],
+      "description": "Gameplay/_Core — 817 script, 139 prefab, 10 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (15 feature): Gameplay/Modes, Gameplay/SpeedGame, Gameplay/Victory, LiveOps/LuckyWheel, LiveOps/Quest, Meta/Card, Meta/Collectibles, Meta/Hero, Meta/ItemInventory, Meta/WorldMap, Monetization/Shop, Onboarding/SplashScene, Onboarding/Tutorial, System/GameCheat, System/ShowRateInfo. LƯU Ý enum: code gọi GameEnums.Features.CardShowInfoInBattleNew, GameEnums.Features.CardShowInfoInBattleNew_2, GameEnums.Features.Confirm, GameEnums.Features.PickFavor, GameEnums.Features.PickFavorReward, GameEnums.Features.ShopLevelChanged… — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (EventRoomOptionStat.csv, Favor.csv, FavorAppear.csv, FavorCommon.csv, FavorCost.csv, FavorRandom.csv, FavorRateShow.csv, Trait.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Modes",
+      "fileName": "Modes.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/Modes.unitypackage",
+      "sha256": "64ac5a287391bcc9eae50603697f567e90bd5a95e9369f00d6275d687f4ff91f",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/Modes"
+      ],
+      "markerGuids": [
+        "89d89c3da17ff4c6d9df08cb565e9e1f"
+      ],
+      "description": "Gameplay/Modes — 234 script, 33 prefab, 21 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (13 feature): Gameplay/SpeedGame, Gameplay/Victory, Gameplay/_Core, LiveOps/Quest, Meta/Card, Meta/Hero, Meta/ItemInventory, Meta/MapStageClearAI, Meta/WorldMap, Monetization/DungeonPrivilege, Onboarding/SplashScene, Onboarding/Tutorial, System/GameCheat. LƯU Ý enum: code gọi GameEnums.Features.ConfirmRevive, GameEnums.Features.DungeonSubMode, GameEnums.Features.FightWarning, GameEnums.Features.Lose, GameEnums.Features.PauseIngame, GameEnums.Features.PickSpellFusion… — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (ChallengeStat.csv, DungeonCommon.csv, DungeonFloorReward_1.csv, DungeonFloorReward_2.csv, DungeonFloorReward_3.csv, DungeonFloorReward_4.csv, DungeonFloorReward_5.csv, DungeonTheme_1.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Paused",
+      "fileName": "Paused.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/Paused.unitypackage",
+      "sha256": "821e4c6050dc3e3b46927e365047d3ecbdebc500b18d4d42e9743f3a3b02f661",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/Paused"
+      ],
+      "markerGuids": [
+        "4008bba2de89a4e77aa0d160cd5348d9"
+      ],
+      "description": "Gameplay/Paused — 1 script, 1 prefab. Phụ thuộc feature→feature đã khai đủ trong 'requires': Gameplay/SpeedGame. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "Gameplay/SpeedGame"
+      ]
+    },
+    {
+      "name": "Resources",
+      "fileName": "Resources.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/Resources.unitypackage",
+      "sha256": "1b9ee511bfa7d19ac277061316af955b28b21560e5958d5d764551d573dce0e7",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/Resources"
+      ],
+      "markerGuids": [
+        "ed503ca3fff954b879d68e4deda1eaed"
+      ],
+      "description": "Gameplay/Resources — 1 script, 854 prefab, ~1336.9 MB art. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "SpeedGame",
+      "fileName": "SpeedGame.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/SpeedGame.unitypackage",
+      "sha256": "65cd06724f0db93efc6a8f9068f06f1aaf261e10b95946322b4d468496c2f30a",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/SpeedGame"
+      ],
+      "markerGuids": [
+        "fd9d2fffa0c744421a02ef9250a3527b"
+      ],
+      "description": "Gameplay/SpeedGame — 6 script. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (3 feature): Gameplay/_Core, Monetization/Shop, Onboarding/Tutorial. LƯU Ý enum: code gọi GameEnums.Features.GameSpeedPackX3 — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "UI",
+      "fileName": "UI.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/UI.unitypackage",
+      "sha256": "0de17ef822064506ea73ada594342747444a59b00b57f0e30317e2f79de3d125",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/UI"
+      ],
+      "markerGuids": [
+        "dd0f8a9abf247492b88d33b7dcd27de9"
+      ],
+      "description": "Gameplay/UI — 29 script, 10 prefab, ~1.2 MB art. Phụ thuộc feature→feature đã khai đủ trong 'requires': Gameplay/Modes, Gameplay/SpeedGame, Gameplay/_Core, Meta/ItemInventory, Meta/WorldMap, Monetization/DungeonPrivilege, Monetization/Shop, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.AllSourceOwn, GameEnums.Features.DungeonPrivilege, GameEnums.Features.DungeonSubMode, GameEnums.Features.DungeonSubModeDetail, GameEnums.Features.ShowReward — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "Gameplay/Modes",
+        "Gameplay/SpeedGame",
+        "Gameplay/_Core",
+        "Meta/ItemInventory",
+        "Meta/WorldMap",
+        "Monetization/DungeonPrivilege",
+        "Monetization/Shop",
+        "System/RewardPopup"
+      ]
+    },
+    {
+      "name": "Victory",
+      "fileName": "Victory.unitypackage",
+      "category": "Gameplay",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Gameplay/Victory.unitypackage",
+      "sha256": "a748053b2737242508aaf60d1299370d0db78921cb7dcac443bf13c12aeb29a4",
+      "markerPaths": [
+        "Assets/_Project/Features/Gameplay/Victory"
+      ],
+      "markerGuids": [
+        "04baf17680edfd34ea954586759b725a"
+      ],
+      "description": "Gameplay/Victory — 16 script, 1 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (9 feature): Gameplay/Modes, Gameplay/_Core, LiveOps/Quest, Meta/HomeScene, Meta/MapChest, Meta/Stamina, Meta/WorldMap, Onboarding/Tutorial, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.ShowReward — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "_BaseEvent",
+      "fileName": "_BaseEvent.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/_BaseEvent.unitypackage",
+      "sha256": "08c83fab5fc60c484ae57069c703f99b7bb7994f3df8797a7e79cb87d1e608fa",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/_BaseEvent"
+      ],
+      "markerGuids": [
+        "ff0cde41492d14ab6b668a446552da4b"
+      ],
+      "description": "LiveOps/_BaseEvent — 12 script, 1 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (3 feature): Monetization/Shop, Onboarding/SplashScene, System/GameCheat. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Christmas",
+      "fileName": "Christmas.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/Christmas.unitypackage",
+      "sha256": "ff0a9f9ad7e876d797e156120a9406f814e505a97f131020b2679201bbc7c89f",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/Christmas"
+      ],
+      "markerGuids": [
+        "3130e30f1f1c04d769230f26d15467ad"
+      ],
+      "description": "LiveOps/Christmas — 33 script, 23 prefab, 8 CSV. Phụ thuộc feature→feature đã khai đủ trong 'requires': LiveOps/Quest, LiveOps/_BaseEvent, Monetization/Shop. LƯU Ý enum: code gọi GameEnums.Features.BuyMultiple — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (ChristmasChestDaily.csv, ChristmasDailyCheckinRewards.csv, ChristmasDailyQuest.csv, ChristmasPack.csv, ChristmasRollConfig.csv, ChristmasRollCost.csv, ChristmasShopExchangeEquipment.csv, ChristmasShopExchangeMaterial.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "LiveOps/Quest",
+        "LiveOps/_BaseEvent",
+        "Monetization/Shop"
+      ]
+    },
+    {
+      "name": "DailyReward",
+      "fileName": "DailyReward.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/DailyReward.unitypackage",
+      "sha256": "14a0d85806e25ec998b9f4ada3ab54ff78618f528cc505af35495ca4ed869040",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/DailyReward"
+      ],
+      "markerGuids": [
+        "d71db924d9a649e4b7b79cbae5bb65cc"
+      ],
+      "description": "LiveOps/DailyReward — 1 script. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "LuckyDraw",
+      "fileName": "LuckyDraw.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/LuckyDraw.unitypackage",
+      "sha256": "ec90462d001d7c4f054e555ed17a2266e8643bd8a91d7a791006f0e6909b3200",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/LuckyDraw"
+      ],
+      "markerGuids": [
+        "54c141d0a16c94fc0a05d98a6d1e73cd"
+      ],
+      "description": "LiveOps/LuckyDraw — 6 script, 2 prefab, 1 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (4 feature): LiveOps/_BaseEvent, Meta/IdleReward, Monetization/Shop, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.Confirm — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (LuckyDraw.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "LuckyWheel",
+      "fileName": "LuckyWheel.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/LuckyWheel.unitypackage",
+      "sha256": "1e5b96fb57a09ed2ef25dc3b61fd37d84bac50a0f7a8eb23aa64afc521e04e33",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/LuckyWheel"
+      ],
+      "markerGuids": [
+        "0850ed50e9accc744b885848b73b372b"
+      ],
+      "description": "LiveOps/LuckyWheel — 12 script, 6 prefab, 2 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (4 feature): Gameplay/_Core, LiveOps/Quest, Monetization/Shop, Social/Account. Feature mang CSV riêng (LuckyWheel.csv, PlayReward.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Quest",
+      "fileName": "Quest.unitypackage",
+      "category": "LiveOps",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/LiveOps/Quest.unitypackage",
+      "sha256": "58456c3beedfe990d97197c5f3d4ba223997e34be9870ec795a2b550b53d153d",
+      "markerPaths": [
+        "Assets/_Project/Features/LiveOps/Quest"
+      ],
+      "markerGuids": [
+        "884be0ae801ea5c46af9060fab21ee75"
+      ],
+      "description": "LiveOps/Quest — 45 script, 15 prefab, 9 CSV, ~8.8 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (6 feature): Meta/IdleReward, Meta/Talent, Meta/WorldMap, Monetization/Shop, Onboarding/Tutorial, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.ShowReward — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (Achievement.csv, ChestQuest.csv, ChestWeekly.csv, DailyQuest.csv, DailyRandomQuestPool.csv, QuestUnlockPool_1.csv, QuestUnlockPool_2.csv, WeeklyQuest.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
       "name": "SevenDay",
       "fileName": "SevenDay.unitypackage",
       "category": "LiveOps",
@@ -16,6 +216,118 @@
         "4278c34070980ea4ca4c1bf607690d04"
       ],
       "description": "7-day login event (daily quest + reward chest + IAP pack). KHÔNG self-contained ở mức compile: cần project đích đã có sẵn LiveOps/Quest, Meta/WorldMap và Monetization/Shop (game-specific, chưa publish lên hub) — feature này không khai requires vì catalog R001 chưa có 3 feature đó."
+    },
+    {
+      "name": "Card",
+      "fileName": "Card.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Card.unitypackage",
+      "sha256": "669dcf4759626c42f155b71f29c78046f79167e62227a7f7978b7f0e0891fd5f",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Card"
+      ],
+      "markerGuids": [
+        "98a2225832416472b80e1d06f2ffe268"
+      ],
+      "description": "Meta/Card — 24 script, 7 prefab, 7 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (5 feature): Gameplay/_Core, LiveOps/Quest, Meta/Hero, Meta/WorldMap, Monetization/Shop. LƯU Ý enum: code gọi GameEnums.Features.CardInfo, GameEnums.Features.CardInfo_2, GameEnums.Features.CardUpgradeEquip — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (Card.csv, CardCommon.csv, CardHeroDeck.csv, CardLevelShop.csv, CardSfx.csv, CardSlot.csv, TFTRateShop.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Collectibles",
+      "fileName": "Collectibles.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Collectibles.unitypackage",
+      "sha256": "8b0b6760eefe44f929d794833112441b8d553ebe2bbc8ac3f5964f6a8d7bf0ba",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Collectibles"
+      ],
+      "markerGuids": [
+        "ec2d4451f542c49de9b53aba76987358"
+      ],
+      "description": "Meta/Collectibles — 50 script, 16 prefab, 1 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (4 feature): Gameplay/_Core, Meta/Card, Meta/ItemInventory, Monetization/Shop. LƯU Ý enum: code gọi GameEnums.Features.CollectibleUpgrade — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (Collectible.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Hero",
+      "fileName": "Hero.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Hero.unitypackage",
+      "sha256": "8263631b8bde95fa662bcb2c796c52be2ce75aef9875b54abf89b89573242e9c",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Hero"
+      ],
+      "markerGuids": [
+        "78b74780a5099401f8b6fe21386bd51b"
+      ],
+      "description": "Meta/Hero — 23 script, 7 prefab, 2 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (7 feature): Gameplay/_Core, Meta/Card, Meta/Collectibles, Meta/ItemInventory, Meta/Talent, Meta/WorldMap, Monetization/HeroUnlockPack. LƯU Ý enum: code gọi GameEnums.Features.CardShowInfoOutGame, GameEnums.Features.Hero_20002UnlockPack, GameEnums.Features.none — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (HeroLevel.csv, HeroUnlock.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "HomeScene",
+      "fileName": "HomeScene.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/HomeScene.unitypackage",
+      "sha256": "190e99794a2c421d946a0b6936fdf76a504523ce59eca90ebfc1ba383d103929",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/HomeScene"
+      ],
+      "markerGuids": [
+        "f1cd65d51aceb6f4b9b1481157f7cc33"
+      ],
+      "description": "Meta/HomeScene — 11 script, 3 prefab, 1 CSV, ~23.1 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (13 feature): Gameplay/Modes, Gameplay/_Core, LiveOps/SevenDay, LiveOps/_BaseEvent, Meta/Card, Meta/ItemInventory, Meta/MapChest, Meta/Stamina, Meta/WorldMap, Monetization/Shop, Onboarding/SplashScene, Onboarding/Tutorial, System/Rating. LƯU Ý enum: code gọi GameEnums.Features.MainMenu, GameEnums.Features.StaminaPack — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (stage.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "IdleReward",
+      "fileName": "IdleReward.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/IdleReward.unitypackage",
+      "sha256": "7369473d877c205da0b9cc020a4632705d4d1d68fc968eec9f50df1ae7ec5a3f",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/IdleReward"
+      ],
+      "markerGuids": [
+        "d4038697f21e14ef6992caae6de4e958"
+      ],
+      "description": "Meta/IdleReward — 17 script, 8 prefab, 3 CSV, ~1.0 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (6 feature): Gameplay/Victory, LiveOps/Quest, Meta/WorldMap, Monetization/Shop, Social/Account, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.IdleCard, GameEnums.Features.IdleReward, GameEnums.Features.IdleTaxUpgradeTokenGuide, GameEnums.Features.QuickEarning — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (IdleCard.csv, IdleRewardLevel.csv, QuickEarnIdleReward.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Item",
+      "fileName": "Item.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Item.unitypackage",
+      "sha256": "0486bc99c6b06e1df8fa063178424b49c9dfde8c0ce2312536544b8ed16a10aa",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Item"
+      ],
+      "markerGuids": [
+        "cb0b0ebba6c0d43b99f4939c0901f138"
+      ],
+      "description": "Meta/Item — 2 script, 4 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (1 feature): Monetization/Shop. Feature mang CSV riêng (Item.csv, ItemGradeStat.csv, ItemUpgrade.csv, ItemUpgradeRarity.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "ItemInventory",
+      "fileName": "ItemInventory.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/ItemInventory.unitypackage",
+      "sha256": "3801bd80594d8255b13f3b4d4010522a9e09e58eb956d62c7c444112e51ce041",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/ItemInventory"
+      ],
+      "markerGuids": [
+        "95a9849496708044cadcdcbe0a7cf236"
+      ],
+      "description": "Meta/ItemInventory — 45 script, 15 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (7 feature): Gameplay/_Core, LiveOps/Quest, Meta/Card, Meta/Collectibles, Meta/Hero, Monetization/Shop, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.ItemGradeDown, GameEnums.Features.ItemInfo, GameEnums.Features.ItemUpgrade, GameEnums.Features.MergeItemConfirm, GameEnums.Features.ResourceInfo, GameEnums.Features.ShowItemMerge… — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "MapChest",
+      "fileName": "MapChest.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/MapChest.unitypackage",
+      "sha256": "b0c9f973da2d6d37ddc8c826388cb113e5bac726180aa241d80004f6ae259a2c",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/MapChest"
+      ],
+      "markerGuids": [
+        "7332ade7620a7424d9e55c646a9a0d20"
+      ],
+      "description": "Meta/MapChest — 10 script, 4 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Meta/WorldMap, Monetization/Shop. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
     },
     {
       "name": "MapStageClearAI",
@@ -44,6 +356,198 @@
         "72db64c2b3eee438585411cf1cc7f4fa"
       ],
       "description": "Kinh tế stamina/energy: CSV StaminaConfig + prefab x3-boost + StaminaView + PlayerStaminaX3 + PlayerStaminaX3Service. Không tham chiếu type của feature nào khác (từ bản này — trước đó gọi FeatureService của System/UnlockFeature, nay type đó đã về _Shared/UnlockGate). LƯU Ý 1: prefab x3_stamina có component ButtonCampaignX3Stamina.cs thuộc Meta/HomeScene (chưa publish) — cài lẻ thì component đó thành Missing (Mono Script) trên prefab, phần còn lại vẫn chạy. LƯU Ý 2: nút mua stamina gọi UIManager.Show(GameEnums.Features.StaminaPack), màn đó cài đặt ở Monetization/Shop/Offers/StaminaPack (chưa publish) — thiếu thì nút không mở gì, không crash. Feature mang CSV riêng: sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* (DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package). ĐIỀU KIỆN BASE (đo 2026-09-03): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 230 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 104 file, trỏ tới 43 feature khác nhau (Gameplay.Core 60 dòng, Monetization.Shop 21, LiveOps.Quest 15, Onboarding.Tutorial 12…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Talent",
+      "fileName": "Talent.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/Talent.unitypackage",
+      "sha256": "7296c2accc73ce681bdd934cae167f923c00510e2f12a60f6dcfc1b952346245",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/Talent"
+      ],
+      "markerGuids": [
+        "47b4585c264a44f92996b54cce05600c"
+      ],
+      "description": "Meta/Talent — 12 script, 8 prefab, 3 CSV. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (7 feature): Gameplay/_Core, LiveOps/Quest, Meta/Hero, Meta/IdleReward, Meta/ItemInventory, Meta/WorldMap, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.ShowUpgradeStatHero, GameEnums.Features.TalentRewardPreview — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (Talent.csv, TalentRanking.csv, TalentReward.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "WorldMap",
+      "fileName": "WorldMap.unitypackage",
+      "category": "Meta",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Meta/WorldMap.unitypackage",
+      "sha256": "5da7e6b30ff861211aa592c312955ed440969d3648275e04d8ac45dc8bde14bb",
+      "markerPaths": [
+        "Assets/_Project/Features/Meta/WorldMap"
+      ],
+      "markerGuids": [
+        "39ed3bbf51fdd4259a818448d34b6a41"
+      ],
+      "description": "Meta/WorldMap — 27 script, 7 prefab, 15 CSV, ~7.9 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (4 feature): Gameplay/Modes, Gameplay/_Core, Onboarding/Tutorial, System/GameCheat. LƯU Ý enum: code gọi GameEnums.Features.PreBattle, GameEnums.Features.StaminaPack, GameEnums.Features.WorldMap, GameEnums.Features.WorldMapCampaign — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (CampaignStamina.csv, ChapterChest.csv, ChapterChestLoop.csv, MapGeneratorConfig.csv, StageNode_1.csv, StaminaX3Common.csv, ThemeMapStage.csv, WaveLoseRewardBonus.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "MiniGameCampaign",
+      "fileName": "MiniGameCampaign.unitypackage",
+      "category": "MiniGame",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/MiniGame/MiniGameCampaign.unitypackage",
+      "sha256": "8450c3f8a3c6fd0e9025e10b319d4c210c4ed6306b5dd0168fc5f9ef8fc12c56",
+      "markerPaths": [
+        "Assets/_Project/Features/MiniGame/MiniGameCampaign"
+      ],
+      "markerGuids": [
+        "d74b11d97134c48eb9f7aafc9d214049"
+      ],
+      "description": "MiniGame/MiniGameCampaign — 47 script, 14 prefab, 13 CSV, ~13.3 MB art. Phụ thuộc feature→feature đã khai đủ trong 'requires': Gameplay/_Core, Meta/WorldMap, Monetization/Shop, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.Confirm, GameEnums.Features.MiniGameCampaignSub, GameEnums.Features.MiniGameFishing, GameEnums.Features.MiniGameFishingInfoPoint — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (FishMoveDistance.csv, FishStart_1.csv, FishStart_2.csv, GoFishing_1.csv, GoFishing_2.csv, GoFishing_3.csv, MiniGameCommon.csv, MiniGameFishingCommon.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "Gameplay/_Core",
+        "Meta/WorldMap",
+        "Monetization/Shop",
+        "System/RewardPopup"
+      ]
+    },
+    {
+      "name": "DungeonPrivilege",
+      "fileName": "DungeonPrivilege.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/DungeonPrivilege.unitypackage",
+      "sha256": "cbe908a76e73f9fdc9f202f2e647e74def5d972ed856d7a80d4b5369b4da787b",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/DungeonPrivilege"
+      ],
+      "markerGuids": [
+        "c3269ca777d9fe54d8450356cab33ebc"
+      ],
+      "description": "Monetization/DungeonPrivilege — 10 script, 3 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Gameplay/Modes, Monetization/Shop. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "FreeReward",
+      "fileName": "FreeReward.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/FreeReward.unitypackage",
+      "sha256": "69f7461b3380a96bab65e52c065914c9f35e99ffe7fae10b954a926b255a1399",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/FreeReward"
+      ],
+      "markerGuids": [
+        "1825d3bfbd1ef4b4292c4d56b26f16ae"
+      ],
+      "description": "Monetization/FreeReward — 8 script, 2 prefab, 1 CSV. Phụ thuộc feature→feature đã khai đủ trong 'requires': Meta/WorldMap, System/RewardPopup. Feature mang CSV riêng (FreeRewards.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "Meta/WorldMap",
+        "System/RewardPopup"
+      ]
+    },
+    {
+      "name": "GachaEquipment",
+      "fileName": "GachaEquipment.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/GachaEquipment.unitypackage",
+      "sha256": "9746a31f761c57639e8fbf7154eb7c46cca7fc3d30e4e5284182838c09342ddb",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/GachaEquipment"
+      ],
+      "markerGuids": [
+        "91571496d3e46448aae967efa28d6436"
+      ],
+      "description": "Monetization/GachaEquipment — 2 script, 1 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (4 feature): Meta/Collectibles, Meta/Item, Meta/ItemInventory, Monetization/Shop. LƯU Ý enum: code gọi GameEnums.Features.CardInfo, GameEnums.Features.ItemInfo — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "HeroUnlockPack",
+      "fileName": "HeroUnlockPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/HeroUnlockPack.unitypackage",
+      "sha256": "e02347862ae74e4360b8cdd75c28aa71087272111ea2b8756b0f05149ef7cef6",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/HeroUnlockPack"
+      ],
+      "markerGuids": [
+        "e625ee5d08b02b04aa8867f64a29c60e"
+      ],
+      "description": "Monetization/HeroUnlockPack — 6 script, 3 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Meta/Hero, Monetization/Shop. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "ItemSupportPack",
+      "fileName": "ItemSupportPack.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/ItemSupportPack.unitypackage",
+      "sha256": "24d1c1c86e9d189ac6ad3f3b6560f3f17b572679f51a51050fdfd58f8e34d51f",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/ItemSupportPack"
+      ],
+      "markerGuids": [
+        "7d285cccfdd925c4a86f7571f0922f32"
+      ],
+      "description": "Monetization/ItemSupportPack — 10 script, 4 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (1 feature): Monetization/Shop. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Shop",
+      "fileName": "Shop.unitypackage",
+      "category": "Monetization",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Monetization/Shop.unitypackage",
+      "sha256": "b62f142e8045f5e81c1f5a273e33a6c14922f911551655b25976f01b79655835",
+      "markerPaths": [
+        "Assets/_Project/Features/Monetization/Shop"
+      ],
+      "markerGuids": [
+        "837196ed0b0b1e440a26935b87955d9d"
+      ],
+      "description": "Monetization/Shop — 280 script, 152 prefab, 84 CSV, ~315.3 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (19 feature): Gameplay/Modes, Gameplay/SpeedGame, Gameplay/Victory, Gameplay/_Core, LiveOps/LuckyWheel, LiveOps/Quest, LiveOps/_BaseEvent, Meta/Card, Meta/Collectibles, Meta/IdleReward, Meta/ItemInventory, Meta/Talent, Meta/WorldMap, Monetization/GachaEquipment, Monetization/ItemSupportPack, Onboarding/Tutorial, Social/Account, Social/GiftCode, System/RewardPopup. LƯU Ý enum: code gọi GameEnums.Features.AllGrowthFund, GameEnums.Features.CardInfo, GameEnums.Features.CardShowInfoInBattleNew, GameEnums.Features.ChainedPack, GameEnums.Features.CollectibleChestPack, GameEnums.Features.CollectibleCollectorPack… — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (ChainPack.csv, ChapterPack.csv, ChestGacha_1.csv, ChestGacha_2.csv, ChestGacha_3.csv, ChestGacha_4.csv, ChestGacha_5.csv, CoinX2Pack.csv…): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "SelectLanguage",
+      "fileName": "SelectLanguage.unitypackage",
+      "category": "Onboarding",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Onboarding/SelectLanguage.unitypackage",
+      "sha256": "4e1f6e2b1d32f50fb091757ef9a52294ce12132715c7f038e4b8069dc01c4825",
+      "markerPaths": [
+        "Assets/_Project/Features/Onboarding/SelectLanguage"
+      ],
+      "markerGuids": [
+        "c4230c12bdbc9454d8a6065c6b7c35f6"
+      ],
+      "description": "Onboarding/SelectLanguage — 10 script, 2 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): LiveOps/Quest, System/Settings. LƯU Ý enum: code gọi GameEnums.Features.SettingLanguage — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "SplashScene",
+      "fileName": "SplashScene.unitypackage",
+      "category": "Onboarding",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Onboarding/SplashScene.unitypackage",
+      "sha256": "c90cebc863307a4ecb54b0f09e4567ed0c18bbcd0feb3d9e453fd49822bef43d",
+      "markerPaths": [
+        "Assets/_Project/Features/Onboarding/SplashScene"
+      ],
+      "markerGuids": [
+        "eb2820dec6fb8466883c9d7234311714"
+      ],
+      "description": "Onboarding/SplashScene — 19 script, 3 prefab, 1 CSV, ~4.4 MB art. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (23 feature): Gameplay/Modes, Gameplay/_Core, LiveOps/LuckyDraw, LiveOps/LuckyWheel, LiveOps/Quest, LiveOps/_BaseEvent, Meta/Collectibles, Meta/IdleReward, Meta/ItemInventory, Meta/MapChest, Meta/Talent, Meta/WorldMap, Monetization/Shop, Onboarding/SelectLanguage, Onboarding/Tutorial, Social/Account, Social/GiftCode, Social/Mail, Social/PlayerInfo, System/GameCheat, System/Rating, System/Settings, System/TouchFeedback. LƯU Ý enum: code gọi GameEnums.Features.Confirm, GameEnums.Features.PauseIngame — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. Feature mang CSV riêng (loading.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Tutorial",
+      "fileName": "Tutorial.unitypackage",
+      "category": "Onboarding",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Onboarding/Tutorial.unitypackage",
+      "sha256": "4296807a9d2befff7379558cda4236226df910c9519d17d6762118314d992a0c",
+      "markerPaths": [
+        "Assets/_Project/Features/Onboarding/Tutorial"
+      ],
+      "markerGuids": [
+        "40965225830fb474cb01a74e95af041c"
+      ],
+      "description": "Onboarding/Tutorial — 105 script, 50 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (7 feature): Gameplay/Modes, Gameplay/Victory, Gameplay/_Core, Meta/ItemInventory, Meta/Talent, Meta/WorldMap, Onboarding/SplashScene. LƯU Ý enum: code gọi GameEnums.Features.UnlockModeTutorial, GameEnums.Features.VictoryTutorial — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Account",
+      "fileName": "Account.unitypackage",
+      "category": "Social",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Social/Account.unitypackage",
+      "sha256": "f1d86d70b4b71c0f811397c01b54e56dab511df98469b43fda92b12ec0327029",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/Account"
+      ],
+      "markerGuids": [
+        "1ed37fac8c234d0d8082969f76b30250"
+      ],
+      "description": "Social/Account — 24 script, 5 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (3 feature): LiveOps/Quest, Monetization/Shop, Onboarding/Tutorial. LƯU Ý enum: code gọi GameEnums.Features.ConfirmGetData, GameEnums.Features.GemPack, GameEnums.Features.GoldPack — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
     },
     {
       "name": "AvatarSelect",
@@ -108,6 +612,62 @@
       "description": "Hộp thư người chơi: danh sách mail, mở mail, claim reward (MailService + ScreenMailOpen + ScrollerMail + PlayerMail). CẦN BACKEND: MailService dùng Supabase trực tiếp (using Supabase) — AddMail/GetMails/OpenMail/ClaimRewardMail đọc-ghi bảng mail trên server, nên project đích phải có _Shared/Networking + cấu hình Supabase trong AppSecretsConfig và bảng tương ứng; thiếu thì màn mở được nhưng không có dữ liệu. Code gọi GameEnums.Features.Mail + MailOpen (tự thêm 2 entry enum). THIẾU 1 ASSET: prefab tham chiếu sprite group14copy5.png nằm trong LiveOps/Quest (chưa publish) — cài lẻ sẽ mất đúng 1 hình, không crash, không ảnh hưởng compile. ĐIỀU KIỆN BASE (đo 2026-09-03): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 230 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 104 file, trỏ tới 43 feature khác nhau (Gameplay.Core 60 dòng, Monetization.Shop 21, LiveOps.Quest 15, Onboarding.Tutorial 12…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy con số 'requires' dưới đây chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
     },
     {
+      "name": "PlayerInfo",
+      "fileName": "PlayerInfo.unitypackage",
+      "category": "Social",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/Social/PlayerInfo.unitypackage",
+      "sha256": "f3b4b7504261abfb4f3b4ef503caba17acd29527204f59ff31d6dd8b94b5f0a2",
+      "markerPaths": [
+        "Assets/_Project/Features/Social/PlayerInfo"
+      ],
+      "markerGuids": [
+        "f0dcdad6daf68c74d8c967366146165a"
+      ],
+      "description": "Social/PlayerInfo — 2 script. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "CustomProfiler",
+      "fileName": "CustomProfiler.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/CustomProfiler.unitypackage",
+      "sha256": "d73a2f2fa51bc63652793ed0cb9a77aef4df153a87affbd4299cbd44b48ca958",
+      "markerPaths": [
+        "Assets/_Project/Features/System/CustomProfiler"
+      ],
+      "markerGuids": [
+        "db29688369634784ea6aa3ee350cb2e7"
+      ],
+      "description": "System/CustomProfiler — 1 script. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "GameCheat",
+      "fileName": "GameCheat.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/GameCheat.unitypackage",
+      "sha256": "a124919d3a4836bd7ba3889498da92c64a5f5dc870bc9fa18deeefe314e77171",
+      "markerPaths": [
+        "Assets/_Project/Features/System/GameCheat"
+      ],
+      "markerGuids": [
+        "0453d5ce91d21cf41bbffe5b3635ef93"
+      ],
+      "description": "System/GameCheat — 18 script, 2 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (12 feature): Gameplay/Modes, Gameplay/_Core, LiveOps/_BaseEvent, Meta/Card, Meta/Collectibles, Meta/Hero, Meta/ItemInventory, Meta/WorldMap, Monetization/Shop, Onboarding/SplashScene, Onboarding/Tutorial, Social/Account. LƯU Ý enum: code gọi GameEnums.Features.Cheat — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "Rating",
+      "fileName": "Rating.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/Rating.unitypackage",
+      "sha256": "0adc6a7a10fc61affd95cbda9bd958db59929ff4bef7e6e5aae77a7fbda502d3",
+      "markerPaths": [
+        "Assets/_Project/Features/System/Rating"
+      ],
+      "markerGuids": [
+        "49861ad14521bc646a3e7f73ecd126ae"
+      ],
+      "description": "System/Rating — 7 script, 3 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Meta/WorldMap, Onboarding/Tutorial. LƯU Ý enum: code gọi GameEnums.Features.Rating — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
       "name": "RequireInternet",
       "fileName": "RequireInternet.unitypackage",
       "category": "System",
@@ -122,6 +682,20 @@
       "description": "Popup chặn khi mất mạng (RequireInternetController + screen_require_internet.prefab). Một file script, không CSV, không save, không tham chiếu feature nào. Cần đăng ký prefab vào luồng UIManager của project đích. ĐIỀU KIỆN BASE (đo 2026-09-03): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 230 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 104 file, trỏ tới 43 feature khác nhau (Gameplay.Core 60 dòng, Monetization.Shop 21, LiveOps.Quest 15, Onboarding.Tutorial 12…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
     },
     {
+      "name": "RewardPopup",
+      "fileName": "RewardPopup.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/RewardPopup.unitypackage",
+      "sha256": "ef5cc7f265299b853037270a208d003f258266e81ae2874bfcc073a078b43bcc",
+      "markerPaths": [
+        "Assets/_Project/Features/System/RewardPopup"
+      ],
+      "markerGuids": [
+        "53e07600e332a420f92b031aa60504d8"
+      ],
+      "description": "System/RewardPopup — 4 script, 4 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Gameplay/Victory, Monetization/Shop. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
       "name": "Settings",
       "fileName": "Settings.unitypackage",
       "category": "System",
@@ -134,6 +708,52 @@
         "f088f7cccfc740aa9ac209eace037872"
       ],
       "description": "Màn cài đặt: nút nhạc/âm thanh (MusicButton, SoundButton), Discord, customer support, và data module PlayerSetting (CorePlayerSetting.cs) — module này được base tham chiếu qua PlayerDataManager.Settings, nên nó là dependency của AvatarSelect và ChangeName. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-03): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 230 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 104 file, trỏ tới 43 feature khác nhau (Gameplay.Core 60 dòng, Monetization.Shop 21, LiveOps.Quest 15, Onboarding.Tutorial 12…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy con số 'requires' dưới đây chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "ShowRateInfo",
+      "fileName": "ShowRateInfo.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/ShowRateInfo.unitypackage",
+      "sha256": "8d1d00dcd0c438030275ba0d67aeb17c3d8b2faaeff49946c89aacf0fdb5c3e9",
+      "markerPaths": [
+        "Assets/_Project/Features/System/ShowRateInfo"
+      ],
+      "markerGuids": [
+        "49a0cf843ff35e446a949da9177105ab"
+      ],
+      "description": "System/ShowRateInfo — 6 script, 3 prefab. PHỤ THUỘC KHÔNG KHAI ĐƯỢC: feature này nằm trong khối phụ thuộc TUẦN HOÀN gồm 35/51 feature của R001 (Monetization/Shop ↔ Gameplay/_Core ↔ Onboarding/Tutorial ↔ Social/Account …). Schema catalog cấm chu trình trong 'requires' nên trường đó để RỖNG; danh sách phụ thuộc thật ghi ngay dưới đây. Cài lẻ mà thiếu chúng thì KHÔNG compile. Phụ thuộc thật (2 feature): Gameplay/_Core, Monetization/Shop. LƯU Ý enum: code gọi GameEnums.Features.RateInfo — GameEnums nằm ở _Shared/Config/GameEnums.cs (KHÔNG trong package), project đích phải tự thêm entry với giá trị chưa dùng (dải ≥1000 cho screen riêng của R001) rồi đăng ký prefab màn vào UIManager. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "TouchFeedback",
+      "fileName": "TouchFeedback.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/TouchFeedback.unitypackage",
+      "sha256": "4bc048c55772fa049d0386038472f8894d03ba4c55d7b279a058b94dc5f5fbdd",
+      "markerPaths": [
+        "Assets/_Project/Features/System/TouchFeedback"
+      ],
+      "markerGuids": [
+        "7333acb27ee114569b3c1e1337dc71f8"
+      ],
+      "description": "System/TouchFeedback — 1 script, 1 prefab. Không tham chiếu type của feature nào khác. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác."
+    },
+    {
+      "name": "UnlockFeature",
+      "fileName": "UnlockFeature.unitypackage",
+      "category": "System",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/features/R001/files/System/UnlockFeature.unitypackage",
+      "sha256": "a25cb6c43c0b471aaffd0efa30f13d610694a46af7295384803d8d5fcb7aff6f",
+      "markerPaths": [
+        "Assets/_Project/Features/System/UnlockFeature"
+      ],
+      "markerGuids": [
+        "3402c9b7dea5f7a468955fdd111e3f16"
+      ],
+      "description": "System/UnlockFeature — 7 script, 4 prefab, 1 CSV. Phụ thuộc feature→feature đã khai đủ trong 'requires': LiveOps/_BaseEvent, Meta/HomeScene. Feature mang CSV riêng (UnlockFeatureConfig.csv): sau khi cài phải chạy import của com.ezg.csv-reader để sinh lại accessor DataManager.* — DataManager.Generated.cs + CsvAssetDir.cs là file sinh tự động, KHÔNG nằm trong package. ĐIỀU KIỆN BASE (đo 2026-09-09): chỉ cài được vào project ĐANG nằm trên cùng codebase R001. Lớp _Shared của R001 có 133 dòng `using Ezg.Feature.<Domain>.<Feature>` trên 50 file, trỏ tới 37 feature khác nhau (Gameplay/Core 29, Monetization/Shop 11, Social/Account 10, LiveOps/Quest 6…) — tức base tự nó phụ thuộc gần như toàn bộ cây feature. Vì vậy 'requires' chỉ nói về phụ thuộc feature→feature; nó KHÔNG có nghĩa là gói này cài được vào một project Unity trắng hay một game khác.",
+      "requires": [
+        "LiveOps/_BaseEvent",
+        "Meta/HomeScene"
+      ]
     }
   ]
 }
