@@ -31,9 +31,6 @@ namespace Ezg.Editor.Shared.Publisher
         internal string HowToGet;
         internal string Note;
         internal (string Label, Action Run)[] Actions;
-
-        /// <summary>Const trong GameConstant.cs mà applier ghi được; null = không tự ghi.</summary>
-        internal string GameConstantName;
     }
 
     internal sealed class EventReport
@@ -90,7 +87,7 @@ namespace Ezg.Editor.Shared.Publisher
     ///     <para>
     ///         Cùng kỷ luật với <see cref="ReadinessChecks" />: KHÔNG tham chiếu assembly game — đọc YAML/
     ///         JSON/.cs bằng regex, PlayerSettings qua API Editor. Không gọi mạng, không ghi (ghi là việc
-    ///         của <see cref="PublisherSdkApplier" />).
+    ///         của <see cref="PublisherIdWriter" /> — bảng (SDK, key) → file của nó phải khớp <see cref="ReadSlot" />).
     ///     </para>
     /// </summary>
     internal static class SdkCatalog
@@ -98,10 +95,10 @@ namespace Ezg.Editor.Shared.Publisher
         #region Constants
 
         private const string FACEBOOK_DIR = "Assets/FacebookSDK";
-        private const string FACEBOOK_SETTINGS_PATH = "Assets/FacebookSDK/SDK/Resources/FacebookSettings.asset";
-        private const string ANDROID_MANIFEST = "Assets/Plugins/Android/AndroidManifest.xml";
+        internal const string FACEBOOK_SETTINGS_PATH = "Assets/FacebookSDK/SDK/Resources/FacebookSettings.asset";
+        internal const string ANDROID_MANIFEST = "Assets/Plugins/Android/AndroidManifest.xml";
         private const string GA_DIR = "Assets/GameAnalytics";
-        private const string GA_SETTINGS_PATH = "Assets/Resources/GameAnalytics/Settings.asset";
+        internal const string GA_SETTINGS_PATH = "Assets/Resources/GameAnalytics/Settings.asset";
         private const string FIREBASE_DIR = "Assets/Firebase";
         private const string ANDROID_FIREBASE_JSON = "Assets/google-services.json";
         private const string MAX_DIR = "Assets/MaxSdk";
@@ -109,8 +106,8 @@ namespace Ezg.Editor.Shared.Publisher
         private const string PACKAGES_MANIFEST = "Packages/manifest.json";
         private const string ADS_CONFIG_NAME = "AdsConfig";
 
-        private const string CONST_APPSFLYER = "AppsFlyerId";
-        private const string CONST_IOS_APP_ID = "IOSAppId";
+        internal const string CONST_APPSFLYER = "AppsFlyerId";
+        internal const string CONST_IOS_APP_ID = "IOSAppId";
 
         private const string URL_FACEBOOK_SDK = "https://developers.facebook.com/docs/unity/downloads";
         private const string URL_APPSFLYER_UNITY = "https://dev.appsflyer.com/hc/docs/unity-plugin";
@@ -320,7 +317,6 @@ namespace Ezg.Editor.Shared.Publisher
                     var path = SocialChecks.FindGameConstant();
                     var text = path == null ? null : File.ReadAllText(path);
                     report.Current = SocialChecks.ReadConst(text, constName);
-                    report.GameConstantName = constName;
                     if (path != null)
                         report.Actions = new[]
                         {
@@ -332,9 +328,13 @@ namespace Ezg.Editor.Shared.Publisher
                 case (SdkKind.GameAnalytics, "gameKey"):
                 case (SdkKind.GameAnalytics, "secretKey"):
                 {
+                    // Settings.asset giữ list song song theo Platforms — lấy entry của Android (CPI test chạy
+                    // Android; PublisherIdWriter cũng ghi vào đúng entry đó), không có thì entry đầu.
                     var settings = ReadProjectFile(GA_SETTINGS_PATH);
-                    var pattern = slot.Key == "gameKey" ? "gameKey:\\s*\\n\\s*-\\s*(\\S+)" : "secretKey:\\s*\\n\\s*-\\s*(\\S+)";
-                    var value = Match(settings, pattern);
+                    var platforms = YamlList(settings, "Platforms");
+                    var keys = YamlList(settings, slot.Key);
+                    var index = Mathf.Max(0, platforms.IndexOf(((int)RuntimePlatform.Android).ToString()));
+                    var value = index < keys.Count ? keys[index] : null;
                     report.Current = IsEmptyYaml(value) ? null : value;
                     if (settings == null) report.Note = "Chưa có Settings.asset — Assets > GameAnalytics > Select Settings tạo file.";
                     else report.Actions = new[] { ReadinessActions.SelectAsset("Chọn GA Settings", GA_SETTINGS_PATH) };
@@ -414,7 +414,11 @@ namespace Ezg.Editor.Shared.Publisher
             {
                 report.Status = EzgStatus.Error;
                 report.Note = $"Không file .cs nào chứa \"{ev.Name}\".";
-                report.Fix = $"Thêm AppsFlyer.sendEvent(\"{ev.Name}\", …) với tham số {parameters}; bắn lúc {ev.When}. Đặt cạnh AppsFlyerEvents.cs của dự án.";
+                report.Fix = $"Thêm một MonoBehaviour DontDestroyOnLoad cạnh AppsFlyerEvents.cs; trong OnApplicationPause(true) / OnApplicationQuit gọi "
+                             + $"AppsFlyer.sendEvent(\"{ev.Name}\", Dictionary<string,string>) với {parameters} — "
+                             + "playtime = giây từ lúc mở app, session_id = GUID sinh mỗi lần mở app, current_stage = level hiện tại "
+                             + "(PlayerDataManager.Campaign.HighestLevel), no_ads = đã mua Remove Ads (ShopService.IsRemoveAds()). "
+                             + "Chống bắn đôi bằng một cờ, reset khi app quay lại.";
                 return report;
             }
 
@@ -713,6 +717,17 @@ namespace Ezg.Editor.Shared.Publisher
             }
 
             return null;
+        }
+
+        /// <summary>Các phần tử của một list YAML cấp field (<c>name:\n  - a\n  - b</c>). <c>name: []</c> hay không có → rỗng.</summary>
+        private static List<string> YamlList(string text, string name)
+        {
+            var list = new List<string>();
+            if (text == null) return list;
+            var match = Regex.Match(text, "^\\s*" + Regex.Escape(name) + ":\\s*\\n((?:[ \\t]*-[^\\n]*\\n?)*)", RegexOptions.Multiline);
+            if (!match.Success) return list;
+            foreach (Match item in Regex.Matches(match.Groups[1].Value, "-\\s*([^\\n]*)")) list.Add(item.Groups[1].Value.Trim());
+            return list;
         }
 
         private static bool IsEmptyYaml(string value) =>

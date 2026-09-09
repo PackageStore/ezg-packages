@@ -39,10 +39,11 @@ luôn nằm cùng một chỗ.
 | Marketing | Google Sheet → PlayerSettings / AdsConfig / AppLovinSettings / FacebookSettings / AndroidManifest / GameConstant | `../Marketing/` ([README](../Marketing/README.md)) |
 | Firebase | chọn file service account `.json` → tạo app Android + iOS → tải `google-services.json` / `GoogleService-Info.plist` | `../Firebase/` |
 | Social | Discord invite / support link / email → `ProjectSettings/SocialConfig.json` → `GameConstant`; kiểm mọi link đi vào build, link hardcode, webhook/bot token Discord; nút *Kiểm Discord* | `../Social/` |
+| IAP | ba nguồn về gói bán: **catalog** (`ShopPackCatalog` = SKU client đăng ký) ↔ **bảng giá GD** (`.xlsx` sheet "List gói bán", ghi được bằng một nút) ↔ **store thật** (API chỉ-đọc của `project-ezg`, nút *Kiểm tra trên store*) | `../Iap/` |
 | Readiness | bảng Ready / Warning / Error chỉ đọc cho PM: SKU IAP, Firebase config, key SDK, keystore/link store; nút *Tra App Store* + *Copy báo cáo* | `../Readiness/` |
 | **Nhà phát hành** → Ezg (trong nhà), Neptune, SayGame, … | mỗi tab = một BỘ SDK: cần gắn thêm / đã gắn — ID thay ở đâu / thừa; nút *Chuyển sang {X}* cài–gỡ–ghi ID–gắn define trong một lần bấm | `../Publisher/` |
 
-Bốn tab đầu là nhóm **Setup Ezg** (dựng dự án theo hạ tầng Ezg — làm tuần tự). Nhóm **Nhà phát hành**
+Năm tab đầu là nhóm **Setup Ezg** (dựng dự án theo hạ tầng Ezg — làm tuần tự). Nhóm **Nhà phát hành**
 đứng riêng: mỗi publisher là một **bộ SDK trọn gói**, và bản "trong nhà" của Ezg cũng là một bộ như thế.
 Đi CPI test với Neptune → bấm *Chuyển sang Neptune*; xong → bấm *Chuyển sang Ezg (trong nha)* là về bản cũ.
 Header bar có ô *Phát hành* cho biết bộ SDK đang áp.
@@ -186,6 +187,7 @@ Toàn bộ menu của kit nằm dưới gốc `Ezg`.
 | `Ezg/Marketing/Bang thong so (Marketing Dashboard)` | mở tab Marketing |
 | `Ezg/Firebase/Cai dat...` | mở tab Firebase |
 | `Ezg/Social (Discord - Support - Rating)` | mở tab Social — điền + ghi link cộng đồng/hỗ trợ, kiểm link |
+| `Ezg/IAP (SKU - bang gia store)` | mở tab IAP — catalog ↔ bảng giá GD ↔ store thật |
 | `Ezg/Readiness (IAP - Firebase - SDK)` | mở tab Readiness — bảng trạng thái cho PM, chỉ đọc |
 | `Ezg/Nha phat hanh/Ezg (mac dinh trong nha)` | mở tab Ezg — bộ SDK mặc định, bấm về sau khi đi test với publisher |
 | `Ezg/Nha phat hanh/Neptune (CPI Test)` | mở tab Neptune — bộ SDK Neptune đòi, nút Chuyển sang Neptune |

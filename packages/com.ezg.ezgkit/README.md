@@ -26,6 +26,7 @@ Editor-only, **không phụ thuộc package nào khác**, không third-party lib
 | `Editor/EzgKit/` | khung cửa sổ + bộ style dùng chung (`EzgKitStyles`, `SetupGui`) + contract `IEzgKitPage` |
 | `Editor/Marketing/` | tab Marketing: Google Sheet → PlayerSettings / AdsConfig / AppLovinSettings / FacebookSettings / AndroidManifest / GameConstant |
 | `Editor/Firebase/` | tab Firebase: service account `.json` → tạo app Android + iOS → tải `google-services.json` / `GoogleService-Info.plist` |
+| `Editor/Iap/` | tab IAP: SKU client đăng ký (`ShopPackCatalog`) ↔ bảng giá GD (`.xlsx`) ↔ gói thật trên store (API chỉ-đọc của `project-ezg`) |
 
 Chi tiết bố cục, quy tắc màu và cách thêm một tab mới: [`Editor/EzgKit/README.md`](Editor/EzgKit/README.md).
 Chi tiết luồng Marketing: [`Editor/Marketing/README.md`](Editor/Marketing/README.md).
@@ -37,6 +38,7 @@ Chi tiết luồng Marketing: [`Editor/Marketing/README.md`](Editor/Marketing/RE
 | `Ezg/EzgKit` | mở tab Tổng quan |
 | `Ezg/Marketing/Bang thong so (Marketing Dashboard)` | mở tab Marketing |
 | `Ezg/Firebase/Cai dat...` | mở tab Firebase |
+| `Ezg/IAP (SKU - bang gia store)` | mở tab IAP |
 | `Ezg/Marketing/Setup All (1 Click)` | tải sheet + ghi vào project, không mở cửa sổ |
 | `Ezg/Marketing/Check Config (Dry Run)` | chỉ đối chiếu, không ghi |
 | `Ezg/Marketing/Apply Config (khong tai sheet)` | ghi từ JSON hiện có |
@@ -57,9 +59,27 @@ Cấu hình của từng dự án nằm **ngoài `Assets/`**, trong `ProjectSett
 
 - `ProjectSettings/marketing_config.json` — source of truth cho mọi số marketing/ads.
 - `ProjectSettings/FirebaseSource.json` — project id / app name đang khai (KHÔNG chứa key).
+- `ProjectSettings/SocialConfig.json` — Discord invite / support link / email.
+- `ProjectSettings/IapPriceSource.json` — đường dẫn file bảng giá `.xlsx` của GD.
 - `ProjectSettings/AppLovinInternalSettings.json` — consent flow của MAX (do AppLovin quản).
 
 Package chỉ chứa code; nó không mang theo dữ liệu của dự án nào.
+
+Phần **xác minh store** của tab IAP không có file cấu hình nào: đường gọi là một hằng trong code
+(`https://project.easygoing.vn/api/v1/iap/products` — giống nhau ở mọi dự án, và dự án nào là do chính
+API key quyết định), nên chỉ còn API key, mà key là secret.
+
+**Secret thì KHÔNG nằm trong `ProjectSettings/`** (thư mục đó được track git). Hai secret của kit
+sống ở `EditorPrefs` theo từng project trên máy, đều có fallback biến môi trường cho CI:
+
+| Secret | EditorPrefs | Biến môi trường |
+|---|---|---|
+| Firebase service account key (đường dẫn file) | `Ezg.Firebase.KeyPath:<dataPath>` | `GOOGLE_APPLICATION_CREDENTIALS` |
+| API key xác minh IAP (`project-ezg`) | `Ezg.Iap.ApiKey:<dataPath>` | `EZG_IAP_API_KEY` |
+
+Riêng **link server xác minh IAP** đổi được mà không phải sửa code: đặt biến môi trường
+`EZG_IAP_API_URL` (ví dụ `http://localhost:3001/api/v1/iap/products` khi chạy `project-ezg` tại máy)
+trước khi mở Unity — tab hiện rõ khi link đến từ env hoặc đang trỏ về localhost.
 
 ## Coupling đã biết (không phải lỗi)
 

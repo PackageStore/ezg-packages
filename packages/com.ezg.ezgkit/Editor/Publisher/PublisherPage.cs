@@ -12,19 +12,27 @@ using UnityEngine;
 namespace Ezg.Editor.Shared.Publisher
 {
     /// <summary>
-    ///     Tab của MỘT bộ SDK (Ezg trong nhà / Neptune / SayGame …). Bảng SDK ba nhóm — <b>cần gắn thêm</b>
-    ///     · <b>đã gắn</b> (từng ID: hiện tại → phải là, thay ở đâu) · <b>thừa</b> — và một nút
-    ///     <b>Chuyển sang {X}</b>: cài SDK thiếu, gỡ SDK thừa, ghi ID, gắn define, trong một lần bấm sau
-    ///     khi xem kế hoạch (<see cref="SdkSwitcher.BuildPlan" />).
+    ///     Tab của MỘT bộ SDK (Ezg trong nhà / Neptune / SayGame …). Xếp theo việc dev thật sự làm khi đi
+    ///     với một publisher:
+    ///     <list type="number">
+    ///         <item>Nút <b>Chuyển sang {X}</b>: cài SDK thiếu, gỡ SDK thừa, ghi ID cấp sẵn, gắn define — một
+    ///             lần bấm sau khi xem kế hoạch (<see cref="SdkSwitcher.BuildPlan" />).</item>
+    ///         <item>Khối <b>ID phải điền</b> ngay dưới: mỗi ID một ô nhập (ID publisher cấp thì điền sẵn giá
+    ///             trị phải có), một nút <b>Điền</b> ghi tất cả vào đúng file qua <see cref="PublisherIdWriter" />.
+    ///             Đây là thứ người dùng mở tab để làm — không phải đọc.</item>
+    ///         <item>Bảng SDK bốn nhóm (cần gắn thêm · đã gắn · nền tảng · thừa) để soi chi tiết.</item>
+    ///         <item>Cuối trang: đoạn "Về {publisher}" và kế hoạch chuyển — gấp lại, đọc khi cần.</item>
+    ///     </list>
     ///     <para>
     ///         Một lớp page cho mọi <see cref="IPublisherProfile" />: profile mang yêu cầu, <see cref="SdkCatalog" />
     ///         dò project, <see cref="SdkSwitcher" /> lập/thi hành kế hoạch, page vẽ.
     ///     </para>
     ///     <para>
     ///         Cùng kỷ luật snapshot với các tab khác: <see cref="Reload" /> chụp mọi thứ vào field (kể cả
-    ///         <c>RequiredSdks</c> — profile Ezg đọc file); kết quả chuyển đổ vào ở ĐẦU <see cref="Draw" /> qua
+    ///         <c>RequiredSdks</c> — profile Ezg đọc file); kết quả chuyển/điền đổ vào ở ĐẦU <see cref="Draw" /> qua
     ///         <see cref="_reloadPending" />; nút ghi chạy qua <see cref="ReadinessActions.Defer" />. Ô kéo
     ///         .unitypackage đổi giá trị → chỉ dựng lại kế hoạch (<see cref="_replanPending" />), không quét lại SDK.
+    ///         Ô nhập ID đang gõ (chưa Điền) sống qua Reload trong <see cref="_typed" />.
     ///     </para>
     ///     <para>
     ///         Không tham gia "chạy hết" (<see cref="RunAllLabel" /> = null): đổi bộ SDK là quyết định riêng.
@@ -32,6 +40,56 @@ namespace Ezg.Editor.Shared.Publisher
     /// </summary>
     internal class PublisherPage : IEzgKitPage
     {
+        #region Constants
+
+        /// <summary>Cột nhãn của ô ID: "AppsFlyer · iOS App Store ID" dài hơn nhãn thường nên rộng hơn <see cref="EzgKitStyles.LABEL_WIDTH" />.</summary>
+        private const float ID_LABEL_WIDTH = 236f;
+
+        /// <summary>Nút cuối hàng ID mở thẳng chỗ setup (chọn asset / mở file đúng dòng) để soi giá trị đã ghi.</summary>
+        private const float ID_ACTION_WIDTH = 168f;
+
+        private const float FILL_BUTTON_WIDTH = 240f;
+        private const string FILL_LABEL_IDLE = "Điền ID vào project";
+
+        #endregion
+
+        #region Types
+
+        /// <summary>Một ô nhập ID trên form — dựng trong <see cref="Reload" />, chuỗi hint dựng sẵn để Draw không nối chuỗi.</summary>
+        private sealed class IdField
+        {
+            internal SdkKind Kind;
+            internal string Key;
+            internal string Id;
+            internal string Label;
+            internal string Current;
+            internal string Wanted;
+            internal string Input;
+            internal EzgStatus Status;
+            internal bool Writable;
+            internal bool Installed;
+            internal string Tooltip;
+            internal string Hint;
+            internal string WhereHint;
+            internal string Note;
+            internal (string Label, string Url)[] Links;
+
+            /// <summary>Action đầu tiên của slot mở đúng chỗ setup (SelectAsset / OpenScript). Run null = không có.</summary>
+            internal (string Label, Action Run) Open;
+
+            internal bool Dirty => Writable && Installed && Input != Current;
+        }
+
+        /// <summary>Một việc đỏ/vàng phải sửa — gom lên đầu trang, CHỈ chữ (tên + cách sửa), không nút. Dựng trong <see cref="BuildIssues" />.</summary>
+        private sealed class Issue
+        {
+            internal EzgStatus Status;
+            internal string Title;
+            internal string Fix;
+        }
+
+        #endregion
+
         #region Fields
 
         private readonly IPublisherProfile _profile;
@@ -43,6 +101,16 @@ namespace Ezg.Editor.Shared.Publisher
         private readonly List<SdkReport> _installed = new();
         private readonly List<SdkReport> _platform = new();
         private readonly List<SdkReport> _extra = new();
+
+        private readonly List<IdField> _idFields = new();
+        private readonly List<Issue> _issues = new();
+        private string _issuesTitle = "";
+
+        /// <summary>ID người dùng đã gõ nhưng chưa Điền — giữ qua Reload (đổi tab, ReloadAll) để không mất chữ.</summary>
+        private readonly Dictionary<string, string> _typed = new();
+
+        private int _dirtyCount;
+        private string _fillLabel = FILL_LABEL_IDLE;
 
         /// <summary>File .unitypackage người dùng kéo vào cho SDK chưa có nguồn cài — theo phiên.</summary>
         private readonly Dictionary<SdkKind, string> _manualPackages = new();
@@ -135,9 +203,102 @@ namespace Ezg.Editor.Shared.Publisher
             _cachedPackages.Clear();
             foreach (var report in _missing) _cachedPackages[report.Kind] = SdkSwitcher.CachedPackages(report.Kind);
 
+            BuildIdFields();
             _headline = BuildHeadline();
             Replan();
             _loaded = true;
+        }
+
+        /// <summary>
+        ///     Dựng form ID từ bảng SDK. Ô của ID publisher cấp điền sẵn giá trị phải có (một lần bấm là khớp);
+        ///     ID game tự tạo điền giá trị đang có. Chữ người dùng đang gõ (khác giá trị trong file) được giữ.
+        /// </summary>
+        private void BuildIdFields()
+        {
+            _idFields.Clear();
+            foreach (var report in _reports)
+            {
+                if (!report.Required || report.IsPlatform) continue;
+                foreach (var slot in report.Slots)
+                {
+                    var field = new IdField
+                    {
+                        Kind = report.Kind,
+                        Key = slot.Key,
+                        Id = report.Kind + ":" + slot.Key,
+                        Label = ShortName(report.Name) + " · " + slot.Label,
+                        Current = slot.Current ?? "",
+                        Wanted = slot.Wanted,
+                        Status = slot.Status,
+                        Writable = PublisherIdWriter.CanWrite(report.Kind, slot.Key),
+                        Installed = report.Installed,
+                        Note = slot.Note,
+                        Links = report.Links,
+                        Open = FirstOpenAction(slot.Actions),
+                    };
+
+                    if (_typed.TryGetValue(field.Id, out var typed) && typed != field.Current) field.Input = typed;
+                    else
+                    {
+                        _typed.Remove(field.Id);
+                        field.Input = slot.Wanted ?? field.Current;
+                    }
+
+                    var tooltip = new StringBuilder();
+                    if (slot.Where != null) tooltip.Append("Ghi vào: ").Append(slot.Where);
+                    if (!string.IsNullOrEmpty(slot.HowToGet))
+                    {
+                        if (tooltip.Length > 0) tooltip.Append("\n\n");
+                        tooltip.Append("Lấy ở: ").Append(slot.HowToGet);
+                    }
+
+                    field.Tooltip = tooltip.ToString();
+                    field.WhereHint = slot.Where == null ? null : "Sẽ ghi vào: " + slot.Where;
+                    field.Hint = BuildIdHint(field, slot);
+                    _idFields.Add(field);
+                }
+            }
+
+            RefreshFillLabel();
+        }
+
+        /// <summary>Action "mở chỗ setup" của slot — catalog xếp nút chọn asset / mở file trước nút đổi tab.</summary>
+        private static (string Label, Action Run) FirstOpenAction((string Label, Action Run)[] actions)
+        {
+            if (actions == null) return default;
+            foreach (var action in actions)
+                if (action.Run != null && !action.Label.StartsWith("Mở tab")) return action;
+            return default;
+        }
+
+        private static string BuildIdHint(IdField field, SlotReport slot)
+        {
+            if (!field.Installed)
+                return field.Wanted != null
+                    ? $"Chưa gắn SDK — \"Chuyển sang\" cài xong sẽ điền {field.Wanted} (publisher cấp)."
+                    : "Chưa gắn SDK — \"Chuyển sang\" cài xong rồi quay lại điền.";
+            if (!field.Writable)
+                return "Ngoài Unity — làm trên console của SDK." + (string.IsNullOrEmpty(slot.HowToGet) ? "" : " " + slot.HowToGet);
+            if (field.Wanted != null && field.Current != field.Wanted)
+                return $"Đang là {(field.Current.Length == 0 ? "— chưa có" : field.Current)} → publisher cấp {field.Wanted}.";
+            if (field.Wanted == null && field.Current.Length == 0)
+                return "Chưa có" + (string.IsNullOrEmpty(slot.HowToGet) ? "." : " — lấy ở: " + slot.HowToGet);
+            return null;
+        }
+
+        /// <summary>"Meta (Facebook SDK)" → "Meta": nhãn hàng ID phải vừa một cột.</summary>
+        private static string ShortName(string name)
+        {
+            var paren = name.IndexOf(" (", StringComparison.Ordinal);
+            return paren > 0 ? name.Substring(0, paren) : name;
+        }
+
+        private void RefreshFillLabel()
+        {
+            _dirtyCount = 0;
+            foreach (var field in _idFields)
+                if (field.Dirty) _dirtyCount++;
+            _fillLabel = _dirtyCount == 0 ? FILL_LABEL_IDLE : $"Điền {_dirtyCount} ID vào project";
         }
 
         private void Replan()
@@ -147,6 +308,69 @@ namespace Ezg.Editor.Shared.Publisher
                 ? $"Kế hoạch \"Chuyển sang {_profile.Title}\": cài {_plan.Install.Count} · gỡ {_plan.Remove.Count} · chặn {_plan.Blocked.Count} · bỏ qua {_plan.Skipped.Count} · ID {_plan.Ids.Count} · define {_plan.Defines.Count}"
                 : $"Kế hoạch \"Chuyển sang {_profile.Title}\": không có gì phải làm";
             _planBody = PlanBody();
+            BuildIssues();
+        }
+
+        /// <summary>
+        ///     Gom mọi mục Error/Warn của bảng SDK thành danh sách "Cần sửa": SDK thiếu (→ Chuyển sang), ID sai/
+        ///     trống (→ ô ở khối ID phải điền), event thiếu/thiếu tham số (→ cách viết). Đỏ trước
+        ///     vàng. Phụ thuộc kế hoạch (dòng "Sẽ cài / Chặn" của SDK thiếu) nên dựng sau <see cref="Replan" />.
+        /// </summary>
+        private void BuildIssues()
+        {
+            _issues.Clear();
+            foreach (var report in _reports)
+            {
+                if (!report.Required) continue;
+
+                if (!report.Installed)
+                {
+                    var action = _plan.ActionOf(report.Kind);
+                    _issues.Add(new Issue
+                    {
+                        Status = EzgStatus.Error,
+                        Title = $"Chưa gắn {report.Name}",
+                        Fix = action != null && action.StartsWith("Chặn")
+                            ? action
+                            : $"Bấm \"Chuyển sang {_profile.Title}\" ở trên — {(action ?? "sẽ cài SDK này")}.",
+                    });
+                    continue;
+                }
+
+                foreach (var slot in report.Slots)
+                {
+                    if (slot.Status is not (EzgStatus.Warn or EzgStatus.Error)) continue;
+                    var wrong = slot.Wanted != null && !string.IsNullOrEmpty(slot.Current);
+                    _issues.Add(new Issue
+                    {
+                        Status = slot.Status,
+                        Title = $"{report.Name} · {slot.Label}: {(wrong ? "sai (" + slot.Current + ")" : "chưa có")}",
+                        Fix = slot.Wanted != null
+                            ? $"Ô \"{slot.Label}\" ở khối ID phải điền đã điền sẵn {slot.Wanted} (publisher cấp) — bấm Điền."
+                            : $"Gõ giá trị vào ô \"{slot.Label}\" ở khối ID phải điền rồi bấm Điền."
+                              + (string.IsNullOrEmpty(slot.HowToGet) ? "" : " Lấy ở: " + slot.HowToGet),
+                    });
+                }
+
+                foreach (var ev in report.Events)
+                {
+                    if (ev.Status is not (EzgStatus.Warn or EzgStatus.Error)) continue;
+                    _issues.Add(new Issue
+                    {
+                        Status = ev.Status,
+                        Title = $"{report.Name} · Event {ev.Name}: {(string.IsNullOrEmpty(ev.Value) ? "chưa có" : ev.Note)}",
+                        Fix = ev.Fix,
+                    });
+                }
+            }
+
+            // Đỏ trước vàng; trong cùng màu giữ thứ tự SDK.
+            _issues.Sort((a, b) => b.Status.CompareTo(a.Status));
+            var errors = 0;
+            foreach (var issue in _issues) if (issue.Status == EzgStatus.Error) errors++;
+            _issuesTitle = errors > 0
+                ? $"Cần sửa ({_issues.Count}) — {errors} lỗi"
+                : $"Cần sửa ({_issues.Count})";
         }
 
         public void Draw()
@@ -169,9 +393,15 @@ namespace Ezg.Editor.Shared.Publisher
             using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
             {
                 _scroll = scroll.scrollPosition;
-                if (_requiredCount == 0) DrawNoGuide();
+                if (_requiredCount == 0)
+                {
+                    EzgKitStyles.CollapsibleHelp("publisher-" + _profile.Id, $"Về {_profile.DisplayName}", _profile.Intro ?? "", true);
+                    DrawNoGuide();
+                }
                 else
                 {
+                    DrawIssues();
+                    DrawIdForm();
                     DrawGroup("1. Cần gắn thêm", "Publisher đòi mà project chưa có — tick \"Import\" để \"Chuyển sang\" tự tải (nếu cache chưa có) rồi cài.", _missing,
                         "Không thiếu SDK nào.");
                     DrawGroup("2. Đã gắn — ID", "Có sẵn trong project; từng ID bên dưới phải đúng giá trị, đúng chỗ.", _installed,
@@ -182,6 +412,11 @@ namespace Ezg.Editor.Shared.Publisher
                     DrawGroup($"4. Thừa với {_profile.Title}",
                         "Project có, publisher không đòi — tick \"Gỡ\" để \"Chuyển sang\" export vào cache rồi xoá. SDK mà code game còn gọi thẳng bị khoá.",
                         _extra, "Không có SDK nào thừa.");
+
+                    // Phần đọc để cuối: cần lần đầu, còn từ lần hai chỉ đẩy việc thật xuống dưới màn hình.
+                    EzgKitStyles.Divider();
+                    EzgKitStyles.CollapsibleHelp("publisher-" + _profile.Id, $"Về {_profile.DisplayName}", _profile.Intro ?? "");
+                    EzgKitStyles.CollapsibleHelp("publisher-plan-" + _profile.Id, _planTitle, _planBody, _plan.Blocked.Count > 0);
                 }
             }
         }
@@ -200,7 +435,7 @@ namespace Ezg.Editor.Shared.Publisher
             {
                 if (active == _profile.Id) banner += $"  ·  Bộ SDK đang áp: {_profile.Title} ({_state.appliedAtUtc}).";
                 else if (!string.IsNullOrEmpty(active)) banner += $"  ·  Bộ SDK đang áp: \"{active}\".";
-                if (_plan.Blocked.Count > 0) banner += $"  ·  {_plan.Blocked.Count} mục bị chặn — xem kế hoạch.";
+                if (_plan.Blocked.Count > 0) banner += $"  ·  {_plan.Blocked.Count} mục bị chặn — xem kế hoạch cuối trang.";
             }
 
             EzgKitStyles.Banner(banner, Status);
@@ -229,13 +464,119 @@ namespace Ezg.Editor.Shared.Publisher
                 EditorGUILayout.LabelField(_message, EditorStyles.wordWrappedMiniLabel);
                 GUI.contentColor = previous;
             }
+        }
 
-            EzgKitStyles.CollapsibleHelp("publisher-" + _profile.Id, $"Về {_profile.DisplayName}", _profile.Intro ?? "",
-                _requiredCount == 0);
+        /// <summary>
+        ///     Khối "Cần sửa" đầu trang: mọi mục đỏ/vàng của bảng SDK, mỗi mục một hàng — icon · tên · cách sửa.
+        ///     Chỉ chữ, không nút (nút nằm ở khối ID phải điền / card SDK). Không có gì thì không vẽ.
+        /// </summary>
+        private void DrawIssues()
+        {
+            if (_issues.Count == 0) return;
 
-            if (_requiredCount == 0) return;
+            EzgKitStyles.SectionHeader(_issuesTitle, "Mỗi dòng một việc, kèm cách sửa. Sửa xong bấm Tải lại (header) hoặc đổi tab để quét lại.");
+            using (new EzgKitStyles.CardScope())
+            {
+                var first = true;
+                foreach (var issue in _issues)
+                {
+                    if (!first) EzgKitStyles.Divider(2f);
+                    first = false;
 
-            EzgKitStyles.CollapsibleHelp("publisher-plan-" + _profile.Id, _planTitle, _planBody, _plan.Blocked.Count > 0);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EzgKitStyles.StatusIcon(issue.Status);
+                        EditorGUILayout.LabelField(issue.Title, EditorStyles.boldLabel);
+                    }
+
+                    if (!string.IsNullOrEmpty(issue.Fix)) Indented("→ " + issue.Fix, EditorStyles.wordWrappedLabel);
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Khối "ID phải điền": mỗi ID một hàng — icon · nhãn (tooltip: ghi vào đâu / lấy ở đâu) · ô nhập —
+        ///     và một nút Điền cho tất cả. Hàng chỉ có hint khi có việc (sai / trống / đang sửa) — hàng xanh
+        ///     không kèm chữ. ID ngoài Unity hiện giá trị + link, không có ô.
+        /// </summary>
+        private void DrawIdForm()
+        {
+            EzgKitStyles.SectionHeader("ID phải điền",
+                "Gõ vào ô rồi bấm Điền — tool ghi vào đúng file (FacebookSettings + AndroidManifest · GameConstant.cs · GA Settings.asset, kèm MarketingConfig.json).");
+
+            using (new EzgKitStyles.CardScope())
+            {
+                if (_idFields.Count == 0)
+                {
+                    EditorGUILayout.LabelField("Publisher này không đòi ID nào.", EzgKitStyles.Hint);
+                    return;
+                }
+
+                var first = true;
+                foreach (var field in _idFields)
+                {
+                    if (!first) EzgKitStyles.Divider(2f);
+                    first = false;
+                    DrawIdField(field);
+                }
+
+                EzgKitStyles.Divider();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUI.DisabledScope(_dirtyCount == 0 || SdkDownloader.IsBusy))
+                    {
+                        if (EzgKitStyles.PrimaryButton(_fillLabel, GUILayout.Width(FILL_BUTTON_WIDTH)))
+                            ReadinessActions.Defer(FillIds);
+                    }
+
+                    if (_dirtyCount > 0 && EzgKitStyles.SecondaryButton("Bỏ thay đổi", GUILayout.Width(120f)))
+                    {
+                        _typed.Clear();
+                        _reloadPending = true;
+                    }
+
+                    GUILayout.FlexibleSpace();
+                }
+            }
+        }
+
+        private void DrawIdField(IdField field)
+        {
+            var editable = field.Writable && field.Installed;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EzgKitStyles.StatusIcon(field.Installed ? field.Status : EzgStatus.None);
+                EditorGUILayout.LabelField(new GUIContent(field.Label, field.Tooltip), EditorStyles.boldLabel, GUILayout.Width(ID_LABEL_WIDTH));
+
+                if (editable)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var next = EditorGUILayout.TextField(field.Input);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        field.Input = next;
+                        _typed[field.Id] = next;
+                        RefreshFillLabel();
+                    }
+                }
+                else if (!field.Writable && field.Wanted != null)
+                    EditorGUILayout.SelectableLabel(field.Wanted, EzgKitStyles.ValueStyle, GUILayout.Height(EditorGUIUtility.singleLineHeight));
+                else
+                    using (new EditorGUI.DisabledScope(true))
+                    {
+                        EditorGUILayout.TextField(field.Input);
+                    }
+
+                // Mở thẳng chỗ setup để soi giá trị đã ghi (Inspector của asset / dòng const trong IDE).
+                if (field.Open.Run != null
+                    && GUILayout.Button("▸ " + field.Open.Label, EditorStyles.miniButton, GUILayout.Width(ID_ACTION_WIDTH)))
+                    ReadinessActions.Defer(field.Open.Run);
+            }
+
+            if (field.Hint != null) Indented(field.Hint, editable && field.Status == EzgStatus.Error ? EditorStyles.wordWrappedLabel : EzgKitStyles.Hint);
+            if (editable && field.Dirty && field.WhereHint != null) Indented(field.WhereHint, EzgKitStyles.Hint);
+            if (editable && !string.IsNullOrEmpty(field.Note) && field.Status != EzgStatus.Ok) Indented(field.Note, EzgKitStyles.Hint);
+            if (!field.Writable) DrawLinks(field.Links);
         }
 
         private string PlanBody()
@@ -393,9 +734,9 @@ namespace Ezg.Editor.Shared.Publisher
             }
 
             if (slot.Wanted != null && slot.Where != null && slot.Current != slot.Wanted)
-                Indented($"→ phải là  {slot.Wanted}  (publisher cấp — \"Chuyển sang\" ghi giúp nếu nằm trong GameConstant)", EditorStyles.wordWrappedLabel);
+                Indented($"→ phải là  {slot.Wanted}  (publisher cấp — điền bằng khối \"ID phải điền\" đầu trang, hoặc \"Chuyển sang\")", EditorStyles.wordWrappedLabel);
             else if (slot.Wanted == null && string.IsNullOrEmpty(slot.Current))
-                Indented("→ game tự tạo trên console, rồi điền vào chỗ dưới.", EditorStyles.wordWrappedLabel);
+                Indented("→ game tự tạo trên console, rồi gõ vào khối \"ID phải điền\" đầu trang.", EditorStyles.wordWrappedLabel);
 
             if (!string.IsNullOrEmpty(slot.Where)) Indented("Thay ở: " + slot.Where, EzgKitStyles.Hint);
             else Indented("Ngoài Unity — làm trên console của SDK.", EzgKitStyles.Hint);
@@ -434,9 +775,15 @@ namespace Ezg.Editor.Shared.Publisher
             if (!report.Required) return "Thừa";
             if (!report.Installed) return "Cần gắn thêm";
             if (report.IsPlatform) return "Nền tảng · giữ";
+            if (report.Status == EzgStatus.Ok) return "Đã gắn · ID khớp";
+
+            // Card đỏ vì event thiếu chứ không phải ID sai → nói đúng thứ đang hỏng.
+            var idBad = false;
+            foreach (var slot in report.Slots)
+                if (slot.Status is EzgStatus.Warn or EzgStatus.Error) idBad = true;
+            if (!idBad && report.Events.Count > 0) return report.Status == EzgStatus.Error ? "Đã gắn · thiếu event" : "Đã gắn · event chưa đủ";
             return report.Status switch
             {
-                EzgStatus.Ok => "Đã gắn · ID khớp",
                 EzgStatus.Warn => "Đã gắn · thiếu ID",
                 EzgStatus.Error => "Đã gắn · ID sai",
                 _ => "Đã gắn",
@@ -489,6 +836,61 @@ namespace Ezg.Editor.Shared.Publisher
         #endregion
 
         #region Actions
+
+        /// <summary>
+        ///     Nút "Điền": ghi mọi ô đang khác giá trị trong file. Dry-run trước để hỏi lại kèm danh sách đổi
+        ///     (ghi GameConstant là recompile, ghi FacebookSettings là đổi manifest) — rồi ghi thật và quét lại.
+        ///     Chạy ngoài lượt vẽ (qua Defer).
+        /// </summary>
+        private void FillIds()
+        {
+            var entries = new List<PublisherIdWriter.Entry>();
+            foreach (var field in _idFields)
+                if (field.Dirty) entries.Add(new PublisherIdWriter.Entry(field.Kind, field.Key, field.Input.Trim()));
+
+            if (entries.Count == 0)
+            {
+                _message = "Không có ô nào khác giá trị trong file.";
+                _messageStatus = EzgStatus.None;
+                InternalEditorUtility.RepaintAllViews();
+                return;
+            }
+
+            if (!PublisherIdWriter.Write(entries, true, out var preview, out var error))
+            {
+                _message = "Không điền được: " + error;
+                _messageStatus = EzgStatus.Error;
+                InternalEditorUtility.RepaintAllViews();
+                return;
+            }
+
+            var lines = new List<string>();
+            foreach (var line in preview)
+                if (!line.Contains(PublisherIdWriter.UNCHANGED)) lines.Add("  - " + line);
+
+            var ok = EditorUtility.DisplayDialog("EzgKit - Dien ID " + _profile.Title,
+                $"Se ghi {entries.Count} ID vao project:\n\n" + string.Join("\n", lines)
+                + "\n\nGameConstant.cs doi -> Unity recompile. Tiep tuc?", "Dien", "Huy");
+            if (!ok) return;
+
+            if (PublisherIdWriter.Write(entries, false, out var changes, out error))
+            {
+                var done = new List<string>();
+                foreach (var change in changes)
+                    if (!change.Contains(PublisherIdWriter.UNCHANGED)) done.Add(change);
+                _message = $"Đã điền {entries.Count} ID: " + string.Join(" · ", done);
+                _messageStatus = EzgStatus.Ok;
+                _typed.Clear();
+            }
+            else
+            {
+                _message = "Điền dừng giữa chừng: " + error + (changes.Count > 0 ? "  |  đã ghi: " + string.Join(" · ", changes) : "");
+                _messageStatus = EzgStatus.Error;
+            }
+
+            _reloadPending = true;
+            InternalEditorUtility.RepaintAllViews();
+        }
 
         /// <summary>
         ///     Chuyển bộ SDK: hỏi lại kèm toàn bộ kế hoạch (cài / gỡ / chặn / ID / define) — gỡ Firebase 367MB

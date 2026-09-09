@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Ezg.Editor.Shared.Firebase;
+using Ezg.Editor.Shared.Iap;
 using Ezg.Editor.Shared.Marketing;
 using Ezg.Editor.Shared.Publisher;
 using Ezg.Editor.Shared.Readiness;
@@ -64,10 +65,11 @@ namespace Ezg.Editor.Shared.EzgKit
             Marketing = 1,
             Firebase = 2,
             Social = 3,
-            Readiness = 4,
-            Ezg = 5,
-            Neptune = 6,
-            SayGame = 7,
+            Iap = 4,
+            Readiness = 5,
+            Ezg = 6,
+            Neptune = 7,
+            SayGame = 8,
         }
 
         #endregion
@@ -75,6 +77,15 @@ namespace Ezg.Editor.Shared.EzgKit
         #region Fields
 
         private const string OVERVIEW_TITLE = "Tổng quan";
+
+        /// <summary>
+        ///     Khoá SessionState: phiên Editor này đã có người mở kit qua menu. Dùng để nhận ra cửa sổ
+        ///     do Unity tự khôi phục từ layout lúc mở project và đóng nó đi (xem <see cref="OnEnable" />).
+        /// </summary>
+        private const string OPENED_THIS_SESSION_KEY = "Ezg.EzgKit.OpenedThisSession";
+
+        /// <summary>Cửa sổ là bản khôi phục từ layout, đang chờ delayCall đóng — OnGUI bỏ qua. Không serialize.</summary>
+        [NonSerialized] private bool _closing;
 
         private const string OVERVIEW_SUBTITLE =
             "Setup Ezg: các bước dựng dự án từ code-template, làm lần lượt. Nhà phát hành: quy trình riêng với từng publisher.";
@@ -144,6 +155,9 @@ namespace Ezg.Editor.Shared.EzgKit
         [MenuItem("Ezg/Social (Discord - Support - Rating)", false, 100)]
         internal static void OpenSocial() => Open(Tab.Social);
 
+        [MenuItem("Ezg/IAP (SKU - bang gia store)", false, 100)]
+        internal static void OpenIap() => Open(Tab.Iap);
+
         [MenuItem("Ezg/Readiness (IAP - Firebase - SDK)", false, 101)]
         internal static void OpenReadiness() => Open(Tab.Readiness);
 
@@ -158,6 +172,10 @@ namespace Ezg.Editor.Shared.EzgKit
 
         internal static void Open(Tab tab)
         {
+            // Đánh dấu phiên Editor này đã có người CHỦ ĐỘNG mở kit — OnEnable dựa vào cờ này để phân biệt
+            // với bản Unity tự khôi phục từ layout lúc khởi động project (xem OnEnable).
+            SessionState.SetBool(OPENED_THIS_SESSION_KEY, true);
+
             var window = GetWindow<EzgKitWindow>(false, "EzgKit", true);
             // Set lại tiêu đề: cửa sổ đã mở từ phiên trước giữ nguyên title cũ, GetWindow không ghi đè.
             window.titleContent = new GUIContent("EzgKit");
@@ -176,7 +194,29 @@ namespace Ezg.Editor.Shared.EzgKit
 
         private void OnEnable()
         {
+            // Unity lưu EditorWindow đang mở vào layout và mở lại y nguyên lúc khởi động project. Kit là
+            // tool setup chạy theo yêu cầu, không phải panel thường trú: mở project lên là nó đã chiếm
+            // một tab, lại còn Reload mọi page (đọc PlayerSettings/ProjectSettings/file config) ngay
+            // giữa lúc Editor còn đang boot. Cờ SessionState sống qua domain reload (recompile, vào/ra
+            // Play) nhưng mất khi tắt Editor — nên cờ trống nghĩa là phiên này chưa ai bấm menu Ezg/…,
+            // cửa sổ này là bản khôi phục từ layout → tự đóng, không Reload gì.
+            if (!SessionState.GetBool(OPENED_THIS_SESSION_KEY, false))
+            {
+                _closing = true;
+                // Close() ngay trong OnEnable lúc layout đang dựng là Unity ném lỗi — hoãn một nhịp.
+                EditorApplication.delayCall += CloseRestoredWindow;
+                return;
+            }
+
             if (_pages == null) ReloadAll();
+        }
+
+        private void OnDisable() => EditorApplication.delayCall -= CloseRestoredWindow;
+
+        /// <summary>Đóng bản khôi phục từ layout. Kiểm null vì cửa sổ có thể đã bị huỷ trước khi delayCall chạy.</summary>
+        private void CloseRestoredWindow()
+        {
+            if (this != null) Close();
         }
 
         private void BuildPages()
@@ -188,6 +228,9 @@ namespace Ezg.Editor.Shared.EzgKit
                 new FirebaseSetupPage(),
                 // Ghi link social vào GameConstant sau Marketing (Marketing cũng ghi file đó — tuần tự).
                 new SocialSetupPage(),
+                // SKU client đăng ký (ShopPackCatalog) ↔ bảng giá GD (.xlsx): điền dòng thiếu android/ios,
+                // GD điền giá — chạy sau khi CSV pack đã import, trước bảng Readiness.
+                new IapSetupPage(),
                 // Chỉ đọc, không tham gia "chạy hết" (RunAllLabel = null): bảng Ready/Warning/Error
                 // cho PM sau khi hai bước trên đã ghi xong.
                 new ReadinessPage(),
@@ -228,6 +271,9 @@ namespace Ezg.Editor.Shared.EzgKit
 
         private void OnGUI()
         {
+            // Đang chờ tự đóng (khôi phục từ layout): không dựng page, không vẽ gì.
+            if (_closing) return;
+
             if (_pages == null) ReloadAll();
 
             // _tab đi qua serialize của EditorWindow: kẹp lại trước khi dùng làm index, tránh vỡ cửa sổ
