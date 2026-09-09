@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.5.0] - 2026-09-09
+### Changed
+- **Nguồn chuẩn của tab IAP đổi sang `ShopService.GetAllProductId()`** (gọi qua reflection —
+  `IapClientSkus`). Bản trước đọc asset `ShopPackCatalog`, một khai báo SONG SONG với danh sách
+  client thật sự gửi store lúc boot: dự án nào không có asset đó thì cả tab chết (dòng đỏ "Chưa có
+  ShopPackCatalog" rồi dừng), dự án có thì vẫn phải tin rằng nó không lệch với `ShopService`. Giờ tab
+  gọi đúng hàm client gọi, nên "client đăng ký SKU nào" không còn là suy đoán. Đo trên một game
+  thật: đường cũ (quét CSV/catalog) bỏ lọt **45/100 id** vì 4 collection ship dưới dạng `.asset` mà
+  không còn file CSV nào trên đĩa.
+  Reflection chỉ trả về CHUỖI id, nên sau đó tab đọc thêm asset collection trong project để lấy tên
+  gói, giá tham chiếu và id của nền tảng còn lại (trong Editor getter `ProductId` chỉ trả nhánh
+  Android/premium theo bundle hiện tại). Asset chỉ để **tra cứu**; "có đăng ký hay không" luôn do
+  danh sách của `GetAllProductId()` quyết. Asset chứa gói bán được tìm theo **cấu trúc** (một
+  `ScriptableObject` mà graph field chạm tới class có cả `googleProductId` lẫn `appleProductId`),
+  không theo đường dẫn hay tên type — nên không phải load 400 asset trong `Resources` để dò, và
+  không dự án nào phải đặt tên collection theo ý kit.
+- **Lượt xác minh store được CACHE** (`IapStoreCache` → `Library/EzgKit/IapStoreCache.json`, theo
+  máy, không vào git). Mở tab lần sau thấy ngay kết quả cũ kèm chữ *bản lưu* + mốc đọc, không gọi
+  mạng. Cache khoá theo API key: key đổi là dự án đổi, nên bản lưu của key khác bị **bỏ qua và nói
+  rõ là đã bỏ qua**, không im lặng dùng danh mục của dự án khác. Có nút *Xoá bản lưu*.
+- **Chưa có bản lưu mà máy đã có API key → tab tự kiểm một lượt** lúc mở. Lượt tự động nằm trong
+  `Draw()` chứ không trong `Reload()`: cửa sổ Reload cả 9 tab lúc mở, gọi mạng cho một tab người
+  dùng chưa nhìn tới là việc không ai xin.
+- Menu đổi thành `Ezg/IAP (SKU client - store)` (bản trước ghi "bang gia store").
+
+### Added
+- Bốn lượt kiểm phía client mà bản trước không có, tất cả đều là bug đã gặp trên dự án thật:
+  **id sinh tự động** (data chưa điền product id → getter `ProductId` sinh `<snake_type>_<id>`, client
+  vẫn đăng ký; id đó không tồn tại trên store ⇒ bấm mua fail — bắt bằng ĐỘ KHỚP với danh sách đăng
+  ký, không đoán), **prefix lệch bundle** (id của game/bản khác còn sót trong data), **gói chỉ có id
+  một nền tảng**, và **id bị nhiều gói dùng chung**.
+- **Gói có product id nhưng client KHÔNG đăng ký** — collection chưa được nối vào `GetAllProductId()`
+  hay gói đã bỏ mà data còn. Kèm khối **"Id đăng ký không map được về data"** cho chiều còn lại.
+- **Cờ Consumable / Non-Consumable đọc từ `IPurchasing.GetNonConsumableProducts()`** — đúng nguồn
+  client dùng lúc dựng `ProductDefinition`, KHÔNG suy theo tên gói. Client khai 0 id Non-Consumable
+  thì tab cảnh báo một lần: entitlement vĩnh viễn phải là Non-Consumable + có nút Restore.
+- Cảnh báo **asset collection nằm ngoài `Resources`** — `Resources.Load` không thấy, data trong đó
+  không bao giờ tới được client dù nhìn y như collection thật.
+- Một nút **Copy** đổi nội dung theo ngữ cảnh: đã xác minh và còn thiếu thì copy đúng danh sách id
+  *chưa có trên store* (dán sang console), chưa xác minh thì copy toàn bộ id đăng ký.
+
+### Removed
+- **Toàn bộ phần bảng giá `.xlsx` của GD** (`IapPriceSheet`, ~640 dòng đọc/ghi OOXML, nút *Load SKU
+  vào bảng giá*, khối "Bảng giá của GD", `ProjectSettings/IapPriceSource.json`, bản sao trong
+  `Library/EzgKit/IapPriceBackup/`) và khối **"Việc còn lại ngoài Unity"** (nhắc GD thay chữ "CẦN
+  ĐIỀN GIÁ", nhắc tạo SKU trên console, nhắc sandbox test). Tab giờ trả lời đúng hai câu hỏi
+  *client đăng ký gì* và *store đã có chưa*; giá là việc của GD trong file của GD, và nhắc việc
+  ngoài Unity thì mỗi lần mở tab lại đọc một lần.
+- `IapSkuCatalog` + mọi phụ thuộc vào asset `ShopPackCatalog` trong tab IAP (tab **Readiness** vẫn
+  đọc catalog như trước, không đổi).
+- `RunAllLabel` của tab IAP → `null`: tab không còn ghi gì vào project nên không tham gia luồng
+  "chạy hết".
+
 ## [0.4.0] - 2026-09-09
 ### Added
 - Tab **IAP** biết hỏi **store thật**: nút *Kiểm tra trên store* gọi API chỉ-đọc của server nội bộ

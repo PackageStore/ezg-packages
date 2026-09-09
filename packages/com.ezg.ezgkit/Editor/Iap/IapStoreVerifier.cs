@@ -44,7 +44,7 @@ namespace Ezg.Editor.Shared.Iap
         /// <summary>Chuỗi thô của store (<c>APPROVED</c>, <c>MISSING_METADATA</c>, <c>ACTIVE</c>…).</summary>
         internal string StoreStatus;
 
-        internal string Key => IapPriceSheet.RowKey(Platform, ProductId);
+        internal string Key => IapPlatform.Key(Platform, ProductId);
     }
 
     /// <summary>Một nền tảng trong response — server đọc được dữ liệu thật của nó hay không.</summary>
@@ -93,6 +93,13 @@ namespace Ezg.Editor.Shared.Iap
 
         /// <summary>Mốc máy này nhận được kết quả — để nói "đọc cách đây N phút".</summary>
         internal DateTime FetchedAtLocal = DateTime.Now;
+
+        /// <summary>
+        ///     Snapshot đến từ bản lưu trên đĩa (<see cref="IapStoreCache" />), không phải lượt gọi mạng
+        ///     của phiên này. Tab phải nói rõ: dữ liệu cũ mà đọc như dữ liệu vừa lấy là cách kết luận sai
+        ///     về một store đã đổi từ hôm qua.
+        /// </summary>
+        internal bool FromCache;
 
         private readonly Dictionary<string, IapStoreRow> _byKey = new();
 
@@ -146,13 +153,13 @@ namespace Ezg.Editor.Shared.Iap
         {
             if (!IsUsable(platform)) return IapStoreState.Unknown;
 
-            return _byKey.TryGetValue(IapPriceSheet.RowKey(platform, productId), out var row)
+            return _byKey.TryGetValue(IapPlatform.Key(platform, productId), out var row)
                 ? row.State
                 : IapStoreState.Missing;
         }
 
         internal IapStoreRow RowOf(string platform, string productId) =>
-            _byKey.TryGetValue(IapPriceSheet.RowKey(platform, productId), out var row) ? row : null;
+            _byKey.TryGetValue(IapPlatform.Key(platform, productId), out var row) ? row : null;
 
         /// <summary>Key sắp hết hạn (14 ngày) — xin cấp lại trước khi tool im lặng ngừng chạy.</summary>
         internal bool KeyExpiringSoon(out int daysLeft)

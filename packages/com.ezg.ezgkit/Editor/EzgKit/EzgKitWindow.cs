@@ -155,7 +155,7 @@ namespace Ezg.Editor.Shared.EzgKit
         [MenuItem("Ezg/Social (Discord - Support - Rating)", false, 100)]
         internal static void OpenSocial() => Open(Tab.Social);
 
-        [MenuItem("Ezg/IAP (SKU - bang gia store)", false, 100)]
+        [MenuItem("Ezg/IAP (SKU client - store)", false, 100)]
         internal static void OpenIap() => Open(Tab.Iap);
 
         [MenuItem("Ezg/Readiness (IAP - Firebase - SDK)", false, 101)]
@@ -228,8 +228,8 @@ namespace Ezg.Editor.Shared.EzgKit
                 new FirebaseSetupPage(),
                 // Ghi link social vào GameConstant sau Marketing (Marketing cũng ghi file đó — tuần tự).
                 new SocialSetupPage(),
-                // SKU client đăng ký (ShopPackCatalog) ↔ bảng giá GD (.xlsx): điền dòng thiếu android/ios,
-                // GD điền giá — chạy sau khi CSV pack đã import, trước bảng Readiness.
+                // SKU client đăng ký (ShopService.GetAllProductId) ↔ gói thật trên store. Chỉ đọc, không
+                // tham gia "chạy hết" — chạy sau khi CSV pack đã import, trước bảng Readiness.
                 new IapSetupPage(),
                 // Chỉ đọc, không tham gia "chạy hết" (RunAllLabel = null): bảng Ready/Warning/Error
                 // cho PM sau khi hai bước trên đã ghi xong.
