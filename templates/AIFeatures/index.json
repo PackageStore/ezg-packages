@@ -133,8 +133,8 @@
       "source": "defaultsetup",
       "fileName": "qa-verifier.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/qa-verifier.zip",
-      "sha256": "e0072d32e1bb6c25ded76a5ae514f7e17e7a88afae29b95b239dca4cb31087fa",
-      "size": 6027
+      "sha256": "5fa43270d69b3fa798cdde899e353ed11736d60aa295da6911838786e58afa75",
+      "size": 6026
     },
     {
       "id": "Agents/security-auditor",
@@ -709,8 +709,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "812f4bd4ac718135d34561381829090e9e2ab7989f2889918ad0bef661038fa8",
-      "size": 10560
+      "sha256": "fadc013ce49159ce1bb18e040f8997684c0f02658709f55f834b69f9e561197a",
+      "size": 10972
     },
     {
       "id": "Config/project-profile.json",
@@ -770,8 +770,8 @@
       "source": "defaultsetup",
       "fileName": "design-pipeline.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip",
-      "sha256": "918df3a6204882274fd6ae0dd76bb44cbbc0552b4b15a83ba11b74b05611ac8e",
-      "size": 28061
+      "sha256": "17a3321c862b7bc151414151e1e915f03eb1b8bb77115f460052d2ee3dfd72b2",
+      "size": 28053
     },
     {
       "id": "Docs/design-style",
@@ -878,8 +878,8 @@
       "source": "defaultsetup",
       "fileName": "planning-task-flow.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.zip",
-      "sha256": "0e57037ea6da9e92064ec6c1bce085138c88809dc3e3fb1275ac99ee1df11dc3",
-      "size": 8297
+      "sha256": "3017087e7923f754302628b14d87df8e4fdaf2b834daf29535dfdb79a755b7c8",
+      "size": 8270
     },
     {
       "id": "Docs/planning-task-flow.html",
@@ -896,8 +896,8 @@
       "source": "defaultsetup",
       "fileName": "planning-task-flow.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip",
-      "sha256": "7817aa484ad048b95d73c52f3b537f7fea5d9e39715ab8ece88631002a53801b",
-      "size": 20763
+      "sha256": "ac31d04b7ad78c2e59ebd3602003081fbd1f1b6c8c0aaccc21ea056d1cd6db46",
+      "size": 20743
     },
     {
       "id": "Docs/run-backlog-flow.html",
@@ -914,8 +914,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-flow.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip",
-      "sha256": "7b204e1814a10b4a53ebdd31cde6bc5182002192a95240d5fe9d8fa6cd2101ff",
-      "size": 15455
+      "sha256": "62af99df143b3871a678dcc269fde2ae0aa13603b006b893da69aadf423d9890",
+      "size": 15472
     },
     {
       "id": "Docs/ui-mcp-playbook",
@@ -968,8 +968,8 @@
       "source": "defaultsetup",
       "fileName": "workflow-model-recommendations.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
-      "sha256": "9ea6f382a6bfa24562a2ddc25d66fb822c66bbc939286924d73b86035e57a380",
-      "size": 1271
+      "sha256": "ba3d79fdb1e6cea75ccd4af75affe0587496a5798d1aac251682d07c4cede0dc",
+      "size": 2175
     },
     {
       "id": "Harness/start-deepseek.bat",
@@ -1490,8 +1490,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-claude.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.ps1.zip",
-      "sha256": "8077bd341b0d22e83a6c8fee08dced1e32b05de6dd0ab9e2f195b5c956716551",
-      "size": 1385
+      "sha256": "03ca7a5b3b005584818807d2bd8a6919d93019025ef7c33019ecc0ab8632a0a5",
+      "size": 1377
     },
     {
       "id": "Scripts/run-backlog-loop-codex.ps1",
@@ -1526,8 +1526,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "7587e1036e73510553d16aab9a7b1ca04aca4e9072d319ac80bf260f1125feef",
-      "size": 24814
+      "sha256": "06320c2ee15c001be86655b809bfd2cb81dfe5e5e001ec446cbf95d60053ac9f",
+      "size": 24806
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1580,8 +1580,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.command.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.command.zip",
-      "sha256": "ed342838f08b1d93db237d447a22ff9a7718f1b2d97db86e2763de6e3eee5af6",
-      "size": 1367
+      "sha256": "ea4760c35822d88be293940022c78665092d747c205f76b8edb484144122cf72",
+      "size": 1363
     },
     {
       "id": "Scripts/run-backlog-loop.ps1",
@@ -1616,8 +1616,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "aaec117fccd686b68b5362a87b3381d2feae8781c08f675e372a57cdfc3dfc9d",
-      "size": 16975
+      "sha256": "dbb5fab028f05769715dad3946a6bd1cd59f8d8b107efbf94cf5799539a4657d",
+      "size": 16999
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -2110,8 +2110,8 @@
       "source": "defaultsetup",
       "fileName": "execute-backlog-tasks.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip",
-      "sha256": "b21a32054a31f28ffe7f48a069fa8120b1bc2cdbc02cb8ce6d931bf90e48e182",
-      "size": 2226
+      "sha256": "93809e378eda63a7ac63da3c5545d20b31a619b25197ba1e8cba34a48498f8d6",
+      "size": 2221
     },
     {
       "id": "Skills/feature-cheat",
@@ -2296,8 +2296,8 @@
       "source": "defaultsetup",
       "fileName": "planning-system.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-system.zip",
-      "sha256": "63056952becc6888d002f07ef547cee1e2968101eb4cd39fe5242b051ee00eb5",
-      "size": 8704
+      "sha256": "c7fba7822fce0e68d628b2cf4bc49abba9471fd8c30fff89380ab6c4d60b9f44",
+      "size": 8698
     },
     {
       "id": "Skills/planning-task",
@@ -2530,8 +2530,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "ac839be952eba5ecebfa97b2b38d7c9e257dfc25b5fdf558b30521b4d5b2fa8e",
-      "size": 26113
+      "sha256": "37a70576fa6a9a03d83512327a44ef14d8c7bacca411bc7af5666418873ee802",
+      "size": 26174
     },
     {
       "id": "Skills/setup-package-push",
