@@ -1,0 +1,107 @@
+{
+  "_comment": "Default ruleset cho validate-release. KHÔNG sửa file này trong project — tạo <root>/.claude/validate-release.json để override (deep-merge), nhờ vậy skill giữ nguyên byte và update từ server được.",
+
+  "platforms": "auto",
+
+  "sourceRootCandidates": ["Assets/_Project", "Assets/Scripts", "Assets"],
+
+  "scan": {
+    "_note": "excludeTopLevel chỉ loại thư mục con NGAY dưới project root (nên 'Build' không giết Assets/_Project/Core/Build/); excludeAnywhere loại ở mọi độ sâu.",
+    "excludeTopLevel": ["Library", "Temp", "obj", "Build", "Builds", "Logs", "SceneBackups", "UserSettings", ".git"],
+    "excludeAnywhere": ["Library", "Temp", "obj", ".git"],
+    "excludeEditorCode": true
+  },
+
+  "identity": {
+    "bundleIdPlaceholders": [
+      "com.company.game",
+      "com.Company.ProductName",
+      "com.DefaultCompany",
+      "com.unity3d.player",
+      "com.example",
+      "com.yourcompany"
+    ],
+    "productNamePlaceholders": [
+      "[Project Name]",
+      "New Unity Project",
+      "My Project",
+      "Unity Template"
+    ]
+  },
+
+  "android": {
+    "minTargetSdk": 35,
+    "requireArm64": true,
+    "requireIl2cpp": true
+  },
+
+  "ads": {
+    "testAppIds": [
+      "ca-app-pub-3940256099942544~3347511713",
+      "ca-app-pub-3940256099942544~1458002511"
+    ],
+    "testAdUnitPrefixes": ["ca-app-pub-3940256099942544/"],
+    "adUnitFileGlobs": ["**/MediationConstant*.cs", "**/AdUnit*.cs", "**/AdsConstant*.cs"],
+    "activeImplPattern": "(?:advertising|_advertising|Advertising)\\s*=\\s*new\\s+(\\w+)\\s*\\(",
+    "criticalUnitNames": ["Banner", "Interstitial", "Rewarded"]
+  },
+
+  "remote": {
+    "defaultFileGlobs": ["**/RemoteConfigDefault/*.json", "**/remote_config*.json"],
+    "scopeMarkers": ["RemoteConfig", "FirebaseRemoteManager", "remoteConfig"],
+    "literalPattern": "\\b(?:TryGetValue|GetValue|GetRemote\\w*|Get)\\s*\\(\\s*\"([a-z0-9]+(?:_[a-z0-9]+)+)\"",
+    "symbolPattern": "\\breadonly\\s+string\\s+\\w+\\s*=\\s*\"([a-z0-9]+(?:_[a-z0-9]+)+)\"\\s*;"
+  },
+
+  "build": {
+    "scriptGlobs": ["**/Editor/AutoBuild.cs", "**/Editor/*Build*.cs"],
+    "editorOnlySceneMarkers": ["LevelEditor", "MapEditor", "Demo", "_old", "_sm", "Sandbox", "Test"]
+  },
+
+  "debugResidue": {
+    "sceneMarkers": ["IngameDebugConsole", "DebugConsole", "StatsOverlay", "GraphyManager"],
+    "flagPattern": "\\b(?:const|static\\s+readonly)\\s+bool\\s+(\\w*(?i:sandbox|debug|cheat|testmode|fakepurchase|mock)\\w*)\\s*=\\s*true\\s*;"
+  },
+
+  "secrets": {
+    "webhookPattern": "https://(?:discord(?:app)?\\.com/api/webhooks|hooks\\.slack\\.com/services)/\\S+",
+    "credentialFileGlobs": [
+      "**/googlekey.json",
+      "**/*Token.txt",
+      "**/*.keystore",
+      "**/*.jks",
+      "**/*.p12",
+      "**/*.p8",
+      "**/*.mobileprovision"
+    ]
+  },
+
+  "localization": {
+    "rootGlobs": ["**/LocalizationData", "**/Localization"],
+    "referenceLocale": "en",
+    "separator": "~",
+    "maxKeysReported": 8
+  },
+
+  "hygiene": {
+    "knownBundlePrefixes": [
+      "com.unity",
+      "com.google",
+      "com.android",
+      "com.apple",
+      "com.facebook",
+      "com.applovin",
+      "com.ironsource",
+      "com.appsflyer",
+      "com.firebase",
+      "com.ezg",
+      "com.cysharp",
+      "com.coffee"
+    ],
+    "backupGlobs": ["Assets/Plugins/Android/*.backup*", "Assets/Plugins/**/*.bak"],
+    "backupThreshold": 5
+  },
+
+  "ignore": [],
+  "severity": {}
+}
