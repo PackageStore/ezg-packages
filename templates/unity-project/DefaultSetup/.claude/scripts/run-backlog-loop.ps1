@@ -17,7 +17,12 @@ param(
     # agent/dev-<base> (dev undisturbed, but NO compile check and NO runtime
     # smoke - merge and run /compile-check afterwards).
     [ValidateSet("Current", "Worktree")]
-    [string]$Mode = "Current"
+    [string]$Mode = "Current",
+    # Pick model + reasoning effort per iteration from the next task's tier instead of one flat
+    # -Model. Parity with the macOS launcher (run-backlog-loop.command passes --auto-model-by-tier).
+    # Every tier maps to opus today, so what this actually buys is the per-tier effort profile;
+    # -Model stays as the fallback for an iteration whose tier cannot be read.
+    [switch]$AutoModelByTier
 )
 
 $coreArgs = @{
@@ -32,6 +37,10 @@ if ($NoSkipPermissions) {
 }
 
 $coreArgs.Mode = $Mode
+
+if ($AutoModelByTier) {
+    $coreArgs.AutoModelByTier = $true
+}
 
 & "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
 exit $LASTEXITCODE

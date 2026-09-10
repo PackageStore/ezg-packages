@@ -1,4 +1,5 @@
 ---
+name: run-backlog
 description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
 ---
 

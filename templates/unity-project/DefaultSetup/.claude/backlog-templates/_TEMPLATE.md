@@ -13,7 +13,7 @@ Tasks use **tier-specific templates**. Pick the one matching the task size (the 
 
 | Template | Use when |
 |---|---|
-| [_TEMPLATE_WF.md](_TEMPLATE_WF.md) | The task is a **pure scaffold** already specified by a `/new-*` workflow (new feature / package / skill / enemy-skill / UI / class). `/planning-task` skips the `task-planner` subagent and the workflow becomes the plan; `run-backlog` loads the workflow first instead of implementing free-form. |
+| [_TEMPLATE_WF.md](_TEMPLATE_WF.md) | The task is a **pure scaffold** already specified by a `/new-*` workflow (new feature / package / UI / class). `/planning-task` skips the `task-planner` subagent and the workflow becomes the plan; `run-backlog` loads the workflow first instead of implementing free-form. |
 
 > **WF is NOT a tier — it is a strategy.** A workflow-backed task still gets a real execution tier in its filename (`<timestamp>-<TIER>-<slug>.md`, usually `M`, or `L` if cross-cutting) so `run-backlog` review-gating is unchanged. A **hybrid** task (scaffold + extra custom logic) keeps the `_TEMPLATE_M.md`/`_TEMPLATE_L.md` body — which also accepts a `**Backed by workflow:**` field — and `task-planner` plans only the delta, not the scaffold.
 

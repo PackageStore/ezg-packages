@@ -27,12 +27,6 @@
       "count": 12
     },
     {
-      "id": "Harness",
-      "name": "Harness",
-      "description": "Launcher chạy harness/model ngoài.",
-      "count": 2
-    },
-    {
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
@@ -709,8 +703,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "fadc013ce49159ce1bb18e040f8997684c0f02658709f55f834b69f9e561197a",
-      "size": 10972
+      "sha256": "c4720108949a596be243cd9443d10a04e6ea1da52c2152066adde0f3982fb118",
+      "size": 11295
     },
     {
       "id": "Config/project-profile.json",
@@ -970,42 +964,6 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
       "sha256": "ba3d79fdb1e6cea75ccd4af75affe0587496a5798d1aac251682d07c4cede0dc",
       "size": 2175
-    },
-    {
-      "id": "Harness/start-deepseek.bat",
-      "name": "start-deepseek.bat",
-      "category": "Harness",
-      "description": "",
-      "installPath": ".claude/harness/start-deepseek.bat",
-      "isDirectory": false,
-      "files": [
-        ".claude/harness/start-deepseek.bat"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "start-deepseek.bat.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Harness/start-deepseek.bat.zip",
-      "sha256": "cbfb5737a15018cb28c420082a078a72847f39d45cda1d56e61500ad8f518fb3",
-      "size": 1333
-    },
-    {
-      "id": "Harness/start-deepseek.command",
-      "name": "start-deepseek.command",
-      "category": "Harness",
-      "description": "",
-      "installPath": ".claude/harness/start-deepseek.command",
-      "isDirectory": false,
-      "files": [
-        ".claude/harness/start-deepseek.command"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "start-deepseek.command.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Harness/start-deepseek.command.zip",
-      "sha256": "6aa223115e584b79e3b6e6fae2e85c4fcbbc1b014e01148d92047ec5d1df6fad",
-      "size": 1564
     },
     {
       "id": "Rules/code-style",
@@ -1598,8 +1556,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.ps1.zip",
-      "sha256": "8a30c750c812b15279178a6dedcb9661dc4781e3dfc0d804c710577316e20539",
-      "size": 774
+      "sha256": "5c27a453f78e12a4197e8e5ac8f7b5111ae8879ca22980c97ea20632b354638a",
+      "size": 980
     },
     {
       "id": "Scripts/run-backlog-loop.sh",
@@ -1927,8 +1885,8 @@
       "source": "defaultsetup",
       "fileName": "add-to-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-to-backlog.zip",
-      "sha256": "e2d7b8af8623bcfc15563f7ea3f953433d624f36a57ee564d920c97bd63fa38a",
-      "size": 5754
+      "sha256": "3fcfdef84e3353decc4f573a7d1285e28f761d26dd0c1a0186b6ae0012afe92a",
+      "size": 5763
     },
     {
       "id": "Skills/auto-build-setup",
@@ -2530,8 +2488,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "37a70576fa6a9a03d83512327a44ef14d8c7bacca411bc7af5666418873ee802",
-      "size": 26174
+      "sha256": "c25aed0e71aed8548ed7bc6128faa3007a4de4af5a53b0eb2c573e30156296f2",
+      "size": 26181
     },
     {
       "id": "Skills/setup-package-push",
@@ -2641,8 +2599,8 @@
       "source": "defaultsetup",
       "fileName": "validate-release.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip",
-      "sha256": "dd33adc8db0962adce9c0714985b936fd9e3220336329262881625c49118dd79",
-      "size": 22744
+      "sha256": "3d94104b558fc7c1f05cf4bc016c92075773850d3b17ad253c3eb0f405d9e772",
+      "size": 22753
     },
     {
       "id": "Templates/_GUARDRAILS",
@@ -2695,8 +2653,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE.zip",
-      "sha256": "4029312d8a6fab4b07dd42779da1b81185d50623616643ec1ace9dc0adbdd597",
-      "size": 1680
+      "sha256": "1a99d28af398b20d6a81d7a05da916127bebaae278185948e0e133bec5d78637",
+      "size": 1671
     },
     {
       "id": "Templates/_TEMPLATE_L",

@@ -1,4 +1,5 @@
 ---
+name: add-to-backlog
 description: Pick one or more tasks from backlog/planning/ into BACKLOG.md (assign NNN, move planning → todo, insert bullet). Bare invocation (no args) auto-picks ALL planning tasks. Used when the user says "add task to backlog" / "pick task to backlog" / "promote task". To CREATE a new task spec, use /planning-task. When intent is unclear between the two skills, confirm with the user first.
 ---
 

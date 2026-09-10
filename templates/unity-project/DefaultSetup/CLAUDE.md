@@ -199,7 +199,7 @@ Scenes shipped: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `
 ## Branches
 
 - `main` — production
-- `develop` — integration branch (default)
+- `develop` — nhánh tích hợp **theo quy ước, không được sinh sẵn**: project mới chỉ có nhánh mặc định của `git init`. Base branch của agent = nhánh đang mở lúc chạy loop; giá trị fallback là `defaultBaseBranch` trong `.claude/project-profile.json` (mặc định `main`).
 - `agent/dev-<base>` — automated work branch, **chỉ dùng ở mode `worktree`**; cắt từ nhánh đang đứng lúc chạy loop, merge nhánh đó vào mỗi lần chạy, push (nếu có remote), **không** tạo PR. Ở mode `current` (mặc định) agent commit thẳng lên nhánh đang mở, không tạo nhánh nào.
 - `IOS/AutoBuild` / `Android/AutoBuild` — nhánh build CI của module [`ezg-autobuild`](.claude/skills/auto-build-setup/SKILL.md) (tên mặc định; project đổi được lúc cài). Chỉ chứa scaffold `AutoBuild/` + `.gitlab-ci.yml` shim, cài/upgrade bằng `/auto-build-setup`. Chiều đồng bộ **một hướng**: nhánh Release → nhánh build (CI tự merge mỗi lần build) — **đừng bao giờ merge/push nhánh build ngược về Release**.
 
@@ -237,7 +237,7 @@ python3 .claude/scripts/project_profile.py sourceRoot # một key
 | `/ui-mockup [task \| Feature: desc]` | [.claude/commands/ui-mockup.md](.claude/commands/ui-mockup.md) | Spec-first visual contract: ui-kit của project → `.ui-spec.json` + HTML → **auto-approve** → frozen PNG. Dev chỉ vào cuộc khi drafter để lại câu hỏi cấm-bịa hoặc muốn sửa design. Không copy generated kit từ game khác. |
 | `ui-kit` (skill, không phải command) | [.claude/skills/ui-kit/SKILL.md](.claude/skills/ui-kit/SKILL.md) | Vòng đời contract mà mockup + `/new-ui` đọc: `ui-kit-sync.py` regenerate, `--check` báo stale (exit 1), `ui-kit-usage.json` giữ luật ghép template. Chạy lại mỗi khi prefab template đổi — preflight có rule `ui-kit-stale`. |
 | `/add-to-backlog` | [.claude/skills/add-to-backlog/SKILL.md](.claude/skills/add-to-backlog/SKILL.md) | List planning tasks → user pick → `promote --check` (tier/dependency/mockup blockers) → deterministic promote (gán NNN-TIER + git mv planning→todo + update BACKLOG.md). Serial operation. |
-| `/run-backlog` | [.claude/skills/run-backlog/SKILL.md](.claude/skills/run-backlog/SKILL.md) | Pick TODO đầu → requires/defer gate → `agent/dev` → implement → compile + deterministic preflight + tiered reviewers + QA + runtime/visual gates khi áp dụng → DONE → commit, push nếu có remote. Stop sentinels gồm compile/preflight/review/verify/runtime/visual/mockup/editor-required; `DEFERRED` không stop loop. KHÔNG tạo PR. |
+| `/run-backlog` | [.claude/skills/run-backlog/SKILL.md](.claude/skills/run-backlog/SKILL.md) | Pick TODO đầu → requires/defer gate → `agent/dev` → implement → compile + deterministic preflight + tiered reviewers + QA + runtime/visual gates khi áp dụng → DONE → commit, push nếu có remote. Stop sentinels: `COMPILE_BLOCKED`, `PREFLIGHT_BLOCKED`, `REVIEW_BLOCKED`, `VERIFY_BLOCKED`, `RUNTIME_BLOCKED`, `EDITOR_REQUIRED`, `NO_CHANGES`, `BASE_MERGE_CONFLICT`, `BASE_UNKNOWN` (gate visual/mockup block qua `REVIEW_BLOCKED`, không có sentinel riêng); `DEFERRED` không stop loop. KHÔNG tạo PR. |
 
 **Subagents dùng cho `/run-backlog`:**
 
@@ -245,7 +245,7 @@ python3 .claude/scripts/project_profile.py sourceRoot # một key
 |-------|------|------|-------|-----------|
 | `code-reviewer` | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | opus | Mọi task trừ XS |
 | `performance-reviewer` | [.claude/agents/performance-reviewer.md](.claude/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | opus | Khi `$PERF_SENSITIVE` (song song với code-reviewer) |
-| `security-auditor` | [.claude/agents/security-auditor.md](.claude/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | opus | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
+| `security-auditor` | [.claude/agents/security-auditor.md](.claude/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | opus | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `Auth*`, `Token*`, file có credential pattern, hoặc `DataPlayer*`/`SaveData*` **có cấp–tiêu tài nguyên giá trị**. Save tiến trình thuần (level, unlock flag, settings) KHÔNG kích — xem run-backlog STEP 6c |
 | `qa-verifier` | [.claude/agents/qa-verifier.md](.claude/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | opus | Chỉ M/L (sau khi review pass) |
 | `ui-visual-reviewer` | [.claude/agents/ui-visual-reviewer.md](.claude/agents/ui-visual-reviewer.md) | So live Unity UI với approved PNG + ui-spec hoặc clone-source, kèm hard rules của create-ui. | opus | Checkpoint Phase A/B/C khi build UI |
 
@@ -272,7 +272,7 @@ bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --mode worktree
 ```
 ```powershell
 # Windows
-powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1 -Mode Current
+powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1 -Mode Current -AutoModelByTier
 ```
 > Pipeline tự pause (`PAUSED` ghi vào `$BACKLOG_ROOT/state`, nằm trong `.git/` nên không commit) khi TODO rỗng.
 
@@ -299,7 +299,7 @@ python3 .claude/scripts/backlog-ops.py promote <planning.md>...  # planning → 
 python3 .claude/scripts/backlog-ops.py timestamp                 # timestamp UTC cho filename planning
 ```
 
-**Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file). `bootstrap` ở [§0](#0--bootstrap-chạy-trước-mọi-thứ-khác) làm cả link + backlog; hai script dưới là riêng bước link:
+**Sync `.claude/` → `.agents/`** (tạo junction/symlink một lần sau khi clone; `.agents/` chỉ là link views nên không cần chạy lại sau mỗi lần sửa file). `bootstrap` ở [§0](#0--bootstrap) làm cả link + backlog; hai script dưới là riêng bước link:
 ```bash
 # macOS / Linux (symlink)
 bash .claude/scripts/sync-to-agents.sh
@@ -331,5 +331,7 @@ powershell -ExecutionPolicy Bypass -File .claude/scripts/sync-to-agents.ps1
 - **Editor tools** under `Assets/_Project/Editor/` are `#if UNITY_EDITOR` only.
 - **Generated files** — `DataManager.Generated.cs`, `CsvAssetDir.cs`, `AssetBundleName.cs` are produced by
   tooling. Edit the source (CSV file / bundle config) and regenerate instead of hand-editing.
-- **Template placeholders** — bundle id, store links, backend URLs and any per-app secret are placeholders
-  (`com.company.game`, `AppSecretsConfig`). Fill them in when a real project is generated from this template.
+- **Template placeholders** — identity trong `ProjectSettings.asset` chưa điền: `applicationIdentifier` rỗng,
+  `productName: Unity Game Template`, `companyName: DefaultCompany`. Store links, backend URLs và mọi per-app secret
+  nằm trong `AppSecretsConfig`. Điền hết khi project thật được sinh ra — `/validate-release` chặn bundle id rỗng
+  (blocker) và cảnh báo productName còn placeholder (warn).
