@@ -12,17 +12,16 @@ namespace Ezg.Package.AdsManager
         bool IsShowReward { get; set; }
 
         /// <summary>
-        /// Biến để kiểm tra trạng thái inter có thể show được không.
+        /// Đã hết giãn cách sau fullscreen ad gần nhất hay chưa — adapter tự tính theo
+        /// <see cref="TimeDelayShowInterstitialAds" />.
+        /// Gán <c>false</c> = báo "vừa có ad, đếm lại"; gán <c>true</c> là NO-OP: giãn cách là bất
+        /// biến của module, host không tắt được bằng một phép gán.
         /// </summary>
         bool CanShowInterstitial { get; set; }
 
         /// <summary>
-        /// Thời gian đếm khi show inter.
-        /// </summary>
-        int CountTimeShowInterstitialAds { get; set; }
-
-        /// <summary>
-        /// Thời gian giữa 2 show inter.
+        /// Giãn cách tối thiểu (giây) giữa một fullscreen ad (interstitial HOẶC rewarded) và
+        /// interstitial kế tiếp.
         /// </summary>
         int TimeDelayShowInterstitialAds { get; set; }
 

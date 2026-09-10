@@ -41,9 +41,42 @@ namespace Ezg.Package.AdsManager
         public string AppKey => MediationConstant.Max.SdkKey;
 
         public bool IsShowReward { get; set; }
-        public bool CanShowInterstitial { get; set; }
-        public int CountTimeShowInterstitialAds { get; set; }
-        public int TimeDelayShowInterstitialAds { get; set; }
+
+        /// <summary>
+        /// Giãn cách mặc định khi host không cấu hình <see cref="TimeDelayShowInterstitialAds" />.
+        /// Có số thật thay vì 0 để một game chưa gắn remote config vẫn có sàn chống hai ad dính nhau.
+        /// </summary>
+        private const int DEFAULT_INTERSTITIAL_DELAY_SECONDS = 30;
+
+        /// <summary>
+        /// Mốc (realtime) của fullscreen ad gần nhất — mọi lệnh <c>CanShowInterstitial = false</c>
+        /// đóng dấu vào đây. <c>NegativeInfinity</c> = chưa có ad nào, interstitial đầu tiên đi ngay.
+        /// </summary>
+        private float _lastFullscreenAdAt = float.NegativeInfinity;
+
+        /// <summary>
+        /// Đã hết giãn cách sau fullscreen ad gần nhất hay chưa.
+        /// <para>
+        /// Setter CHỈ nhận <c>false</c> (= "vừa có ad, đếm lại"); gán <c>true</c> là NO-OP CÓ CHỦ Ý.
+        /// Trước 0.3.0 cờ này bật <c>true</c> đúng một lần lúc init rồi bị tắt ở mọi callback ad mà
+        /// không ai mở lại, nên host buộc phải tự force <c>true</c> trước mỗi lần show — và cú force
+        /// đó xoá luôn phần chặn "vừa xem rewarded thì không được dính interstitial ngay". Giãn cách
+        /// là bất biến của module, không phải thứ tắt được bằng một phép gán.
+        /// </para>
+        /// </summary>
+        public bool CanShowInterstitial
+        {
+            get => Time.realtimeSinceStartup - _lastFullscreenAdAt >= TimeDelayShowInterstitialAds;
+            set
+            {
+                if (!value) _lastFullscreenAdAt = Time.realtimeSinceStartup;
+            }
+        }
+
+        /// <summary>
+        /// Giãn cách tối thiểu (giây) giữa một fullscreen ad và interstitial kế tiếp.
+        /// </summary>
+        public int TimeDelayShowInterstitialAds { get; set; } = DEFAULT_INTERSTITIAL_DELAY_SECONDS;
         public bool IsShowInterstitialAds { get; set; }
         public int ShowInterstitialAdsFromLevel { get; set; }
         public bool IsShowBannerAds { get; set; }
@@ -186,7 +219,6 @@ namespace Ezg.Package.AdsManager
             //
             // MaxSdk.SetBannerBackgroundColor(MediationConstant.Max.BannerStringId, new Color(1f, 1f, 1f, 0f));
 
-            CanShowInterstitial = true;
     #endif
         }
 
@@ -298,7 +330,8 @@ namespace Ezg.Package.AdsManager
         /// </summary>
         /// <param name="onFinish">Callback khi ad hoàn thành.</param>
         /// <param name="onClose">Callback khi người dùng đóng ad.</param>
-        /// <param name="onFail">Callback khi ad thất bại.</param>
+        /// <param name="onFail">Callback khi ad thất bại HOẶC bị gate chặn (level / remote config /
+        /// giãn cách / chưa fill) — mọi nhánh không hiển thị đều gọi nó.</param>
         /// <param name="source">Placement/source định danh nơi gọi ad.</param>
         public void ShowInterstitial(Action onFinish = null, Action onClose = null, Action onFail = null,
             string source = null)
@@ -306,6 +339,27 @@ namespace Ezg.Package.AdsManager
             if (!Supports(AdFormats.Interstitial))
             {
                 onClose?.Invoke();
+                return;
+            }
+
+            // Gate TRƯỚC khi giữ callback: nhánh bị chặn không được để lại closeInter/failInter treo
+            // cho một event ads sau đó nhặt nhầm. Và mọi nhánh KHÔNG show đều phải gọi onFail —
+            // trước 0.3.0 chúng return im lặng nên caller đã khoá UI sẽ chờ mãi một callback không tới.
+            if (_currentLevelProvider() < ShowInterstitialAdsFromLevel)
+            {
+                onFail?.Invoke();
+                return;
+            }
+
+            if (!IsShowInterstitialAds)
+            {
+                onFail?.Invoke();
+                return;
+            }
+
+            if (!CanShowInterstitial)
+            {
+                onFail?.Invoke();
                 return;
             }
 
@@ -317,9 +371,6 @@ namespace Ezg.Package.AdsManager
             _adPlacement = source;
     #endif
 
-            if (_currentLevelProvider() < ShowInterstitialAdsFromLevel) return;
-            if (!IsShowInterstitialAds) return;
-            if (!CanShowInterstitial) return;
             if (IsInterstitialReady())
             {
     #if MEDIATION_MAX
@@ -329,6 +380,7 @@ namespace Ezg.Package.AdsManager
             else
             {
                 LoadInterstitial();
+                onFail?.Invoke();
             }
         }
 
@@ -443,7 +495,7 @@ namespace Ezg.Package.AdsManager
         /// <summary>
         /// Kiểm tra xem có thể hiển thị interstitial hay không.
         /// </summary>
-        /// <returns>True nếu <see cref="CanShowInterstitial"/> đang bật.</returns>
+        /// <returns>True nếu format bật VÀ đã hết giãn cách sau fullscreen ad gần nhất.</returns>
         public bool CanShowInter()
         {
             return Supports(AdFormats.Interstitial) && CanShowInterstitial;
@@ -557,7 +609,6 @@ namespace Ezg.Package.AdsManager
         private void OnRewardedAdHiddenEvent(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             // Rewarded ad is hidden. Pre-load the next ad
-            CountTimeShowInterstitialAds = 0;
             CanShowInterstitial = false;
             LoadRewardAds();
         }
@@ -568,7 +619,6 @@ namespace Ezg.Package.AdsManager
             finishVideo?.Invoke();
             finishVideo = null;
 
-            CountTimeShowInterstitialAds = 0;
             CanShowInterstitial = false;
             IsShowReward = false;
 
@@ -595,7 +645,6 @@ namespace Ezg.Package.AdsManager
 
         private void OnInterstitialDisplayedEvent(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
-            CountTimeShowInterstitialAds = 0;
             CanShowInterstitial = false;
         }
 
@@ -614,7 +663,6 @@ namespace Ezg.Package.AdsManager
         private void OnInterstitialHiddenEvent(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             // Interstitial ad is hidden. Pre-load the next ad.
-            CountTimeShowInterstitialAds = 0;
             CanShowInterstitial = false;
 
             LoadInterstitial();

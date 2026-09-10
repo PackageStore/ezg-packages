@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-09-10
+
+### Fixed
+- **Interstitials stopped showing after the first one in a session.** `CanShowInterstitial` was set `true` exactly once at init and cleared by every ad callback (`:561, :572, :599, :617`) with nothing ever restoring it, so `ShowInterstitial` short-circuited from the second call onwards. It is now derived from a timestamp of the last fullscreen ad and re-opens on its own after `TimeDelayShowInterstitialAds`.
+- **"No interstitial right after a rewarded" was dead in practice.** The rule existed (`OnRewardedAdHiddenEvent` fires on any close, abandoned watches included) but hosts had to force `CanShowInterstitial = true` before every show to work around the bug above, which erased it. The guard now holds without host cooperation.
+- `ShowInterstitial` no longer returns silently when a gate blocks it (level, remote config, spacing, no fill). Every non-showing branch invokes `onFail`, so callers that lock UI while waiting for a callback are released instead of hanging until their own watchdog fires.
+- Gate checks moved ahead of storing `closeInter` / `failInter`, so a blocked call no longer leaves stale callbacks for a later ad event to pick up.
+
+### Changed
+- **Breaking:** `CountTimeShowInterstitialAds` is removed from `IRemoteConfigAdvertising`. Nothing ever incremented it — the counter and its delay were half of an unfinished scheme. Custom adapters must drop the member.
+- **Breaking (behavioural):** assigning `CanShowInterstitial = true` is now a no-op. Setting `false` stamps "an ad just played"; the spacing re-opens on time. **Migration: remove every `CanShowInterstitial = true` from game code.** Leaving it in is harmless but no longer does anything, and any game relying on it to make interstitials work at all now gets correct spacing instead.
+- `TimeDelayShowInterstitialAds` defaults to 30 seconds instead of 0, so a project with no remote config still has a floor against back-to-back fullscreen ads. Hosts that set it from remote config are unaffected.
+
 ## [0.2.0] - 2026-08-03
 
 ### Added

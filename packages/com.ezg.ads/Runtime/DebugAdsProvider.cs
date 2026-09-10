@@ -27,7 +27,6 @@ namespace Ezg.Package.AdsManager
 
         public bool IsShowReward { get; set; }
         public bool CanShowInterstitial { get; set; } = true;
-        public int CountTimeShowInterstitialAds { get; set; }
         public int TimeDelayShowInterstitialAds { get; set; }
         public bool IsShowInterstitialAds { get; set; } = true;
         public int ShowInterstitialAdsFromLevel { get; set; }
