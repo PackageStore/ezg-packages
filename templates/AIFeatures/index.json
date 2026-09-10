@@ -48,7 +48,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 36
+      "count": 37
     },
     {
       "id": "Templates",
@@ -2622,6 +2622,27 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-manager.zip",
       "sha256": "b78dbd9763d04e5e0f5b6e691c2231f1443804084ce945ab2581d20e3a828257",
       "size": 1745
+    },
+    {
+      "id": "Skills/validate-release",
+      "name": "validate-release",
+      "category": "Skills",
+      "description": "Kiểm tra toàn bộ setting + tích hợp SDK của project Unity mobile đã sẵn sàng release chưa — bundle id, keystore/signing, Firebase, Ads/mediation, AppsFlyer/Facebook, Remote Config, build settings, cờ debug còn bật, secrets, localization, hằng số sót lại từ project cũ. Chạy deterministic bằng Python thuần, KHÔNG cần Unity Editor và KHÔNG cần MCP. Dùng khi user nói \"check release\", \"validate release\", \"project đã sẵn sàng build chưa\", \"kiểm tra SDK đã cài đủ chưa\", \"còn thiếu gì để lên store\", hoặc trước khi bấm build production. KHÔNG phải tool build (đó là /auto-build-setup) và KHÔNG phải compile check (đó là /compile-check).",
+      "installPath": ".claude/skills/validate-release",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/validate-release/SKILL.md",
+        ".claude/skills/validate-release/config/default-rules.json",
+        ".claude/skills/validate-release/references/checks.md",
+        ".claude/skills/validate-release/scripts/validate_release.py"
+      ],
+      "fileCount": 4,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "validate-release.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip",
+      "sha256": "dd33adc8db0962adce9c0714985b936fd9e3220336329262881625c49118dd79",
+      "size": 22744
     },
     {
       "id": "Templates/_GUARDRAILS",
