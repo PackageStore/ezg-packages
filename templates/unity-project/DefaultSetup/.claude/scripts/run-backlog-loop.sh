@@ -29,12 +29,13 @@
 #   --model <id>             Claude model id (default: empty = CLI default).
 #   --effort <level>         Reasoning effort: low|medium|high|xhigh (default: empty = CLI default).
 #   --auto-model-by-tier     Pick model/effort per iteration from the BACKLOG.md task tier.
-#   --xs-model/--xs-effort   Override XS profile (default: sonnet/medium).
-#   --s-model/--s-effort     Override S profile  (default: sonnet/high).
+#   --xs-model/--xs-effort   Override XS profile (default: opus/medium).
+#   --s-model/--s-effort     Override S profile  (default: opus/high).
 #   --m-model/--m-effort     Override M profile  (default: opus/high).
 #   --l-model/--l-effort     Override L profile  (default: opus/xhigh).
-#                            (quality-first default: M/L run on opus to match the
-#                             opus code/security reviewers; XS/S run on sonnet to save cost.
+#                            (quality-first default: every tier runs on opus to match the
+#                             opus reviewers; sonnet is no longer used anywhere. Escalating
+#                             L to fable is opt-in per run: --l-model fable.
 #                             There is NO auto-escalation: if an M task hits REVIEW_BLOCKED
 #                             the loop stops — fix and rerun.)
 #   --max-iterations <n>     Max task iterations (default: 100).
@@ -162,9 +163,9 @@ usage() {
 MODEL=""
 EFFORT=""
 AUTO_MODEL_BY_TIER=0
-XS_MODEL="sonnet"
+XS_MODEL="opus"
 XS_EFFORT="medium"
-S_MODEL="sonnet"
+S_MODEL="opus"
 S_EFFORT="high"
 M_MODEL="opus"
 M_EFFORT="high"

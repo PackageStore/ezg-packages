@@ -951,7 +951,7 @@
     <div class="traits">
       <div class="trait"><span class="tnum">NN</span><div class="tbody"><b>Một timestamp chung</b> cho cả batch + <span class="mono">NN</span> = thứ tự topo từ Dependency Graph → <span class="mono">promote</span> sort <span class="mono">(timestamp, index)</span> nên <b>NN chính là thứ tự thực thi</b>.</div></div>
       <div class="trait"><span class="tnum">↳</span><div class="tbody">Mỗi task mang <span class="mono">Context docs</span> (trỏ TechSpec — không bịa lại số liệu), <span class="mono">Depends on</span> (promote warn khi đứt); riêng UI task thêm <span class="mono">Requires: unity-editor</span> + <span class="mono">groundTruth=</span> (mockup pipeline — xem §04).</div></div>
-      <div class="trait"><span class="tnum">TIER</span><div class="tbody">Batch <b>trộn nhiều tier</b>: pure-WF lấy exec tier theo registry (thường M, L nếu save + cross-system), HYBRID M/L, UI S–M. Tier từng task lái <b>review-gate</b> run-backlog + <span class="mono">--auto-model-by-tier</span> (XS/S → sonnet, M/L → opus).</div></div>
+      <div class="trait"><span class="tnum">TIER</span><div class="tbody">Batch <b>trộn nhiều tier</b>: pure-WF lấy exec tier theo registry (thường M, L nếu save + cross-system), HYBRID M/L, UI S–M. Tier từng task lái <b>review-gate</b> run-backlog + <span class="mono">--auto-model-by-tier</span> (mọi tier → opus).</div></div>
       <div class="trait"><span class="tnum">UI</span><div class="tbody">UI screen tách thành task <span class="mono">/new-ui</span> riêng, xếp <b>cuối batch</b>; task <span class="mono">/new-feature</span> tương ứng skip step prefab.</div></div>
       <div class="trait"><span class="tnum">L10n</span><div class="tbody">Localize <b>không bao giờ</b> là task riêng (không tạo git diff → <span class="mono">NO_CHANGES</span>) — fold vào task feature sở hữu string.</div></div>
     </div>
@@ -1383,7 +1383,7 @@
         <span class="dev-chip">Queue = <b>FIFO</b> (timestamp, NN)</span>
         <span class="dev-chip">Artifacts → <b>TechSpec/&lt;Name&gt;-*.md</b></span>
         <span class="dev-chip">Không touch <b>BACKLOG.md</b></span>
-        <span class="dev-chip">Model/stage: <b>03 opus · 04 sonnet · 05 opus · 06 sonnet</b></span>
+        <span class="dev-chip">Model/stage: <b>mọi stage opus</b></span>
         <span class="dev-chip">Fan-out: <b>≤10 HYBRID/wave</b> · &gt;20 item → hỏi chia phase</span>
       </div>
     </div>

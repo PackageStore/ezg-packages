@@ -7,9 +7,9 @@ Bộ stage file cho pipeline thiết kế feature, đánh số liên tục theo 
 | [01](01-gdd-concept.md) | GDD Concept | ý tưởng → concept doc (hook, invariants) | Gemini 3.1 Pro |
 | [02](02-gdd-production.md) | GDD Production | concept → `GDD/Production/<Name>-Production.md` | Opus |
 | [03](03-gdd-final.md) | GDD Final | draft → `GDD/Final/<Name>-Final.md` (adversarial audit, marker `<!-- validated: gdd-final -->`) | Opus |
-| [04](04-feature-analysis.md) | Feature Analysis | GDD → `TechSpec/<Name>-Architecture.md` | Sonnet |
+| [04](04-feature-analysis.md) | Feature Analysis | GDD → `TechSpec/<Name>-Architecture.md` | Opus |
 | [05](05-tech-spec.md) | Tech Spec | Architecture (+GDD gốc) → `TechSpec/<Name>-TechSpec.md` (4-lens audit + ABORT) | Opus |
-| [06](06-implementation-mapping.md) | Implementation Mapping | TechSpec → `TechSpec/<Name>-Implementation.md` | Sonnet |
+| [06](06-implementation-mapping.md) | Implementation Mapping | TechSpec → `TechSpec/<Name>-Implementation.md` | Opus |
 
 Chi tiết lý do chọn model: [model-assignment.md](model-assignment.md).
 

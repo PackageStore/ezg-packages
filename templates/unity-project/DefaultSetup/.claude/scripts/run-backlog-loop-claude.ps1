@@ -2,8 +2,8 @@
 #
 # Defaults: quality-first model-by-tier + thinking-by-tier, picked per iteration
 # from the BACKLOG.md task tier (mirrors run-backlog-loop.sh --auto-model-by-tier):
-#   XS -> sonnet / effort medium    S -> sonnet / effort high
-#   M  -> opus   / effort high      L -> opus   / effort xhigh
+#   XS -> opus  / effort medium    S -> opus  / effort high
+#   M  -> opus  / effort high      L -> opus  / effort xhigh
 # Dispatches to run-backlog-loop-core.ps1 with Provider = claude.
 #
 # Usage:
@@ -30,8 +30,8 @@ param(
     [string]$Mode = "Current",
     # Per-tier model + reasoning effort (quality-first). Enabled by default.
     [switch]$NoAutoModelByTier,
-    [string]$XsModel = "sonnet",
-    [string]$SModel  = "sonnet",
+    [string]$XsModel = "opus",
+    [string]$SModel  = "opus",
     [string]$MModel  = "opus",
     [string]$LModel  = "opus",
     [string]$XsEffort = "medium",

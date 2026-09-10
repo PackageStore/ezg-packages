@@ -742,9 +742,9 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
       <table>
         <thead><tr><th>Tier</th><th>code-reviewer</th><th>perf-reviewer</th><th>security-auditor</th><th>qa-verifier</th><th>smoke</th></tr></thead>
         <tbody>
-          <tr><td><b>XS</b></td><td class="yn n">—</td><td class="yn n">—</td><td class="yn cond">nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
-          <tr><td><b>S</b></td><td class="yn y">sonnet</td><td class="yn cond">sonnet nếu hot-path</td><td class="yn cond">nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
-          <tr><td><b>M / L</b></td><td class="yn y">opus</td><td class="yn cond">opus nếu hot-path</td><td class="yn cond">opus nếu $SENSITIVE</td><td class="yn y">sonnet</td><td class="yn cond">nếu Editor sống, không worktree</td></tr>
+          <tr><td><b>XS</b></td><td class="yn n">—</td><td class="yn n">—</td><td class="yn cond">opus nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
+          <tr><td><b>S</b></td><td class="yn y">opus</td><td class="yn cond">opus nếu hot-path</td><td class="yn cond">opus nếu $SENSITIVE</td><td class="yn n">—</td><td class="yn n">—</td></tr>
+          <tr><td><b>M / L</b></td><td class="yn y">opus</td><td class="yn cond">opus nếu hot-path</td><td class="yn cond">opus nếu $SENSITIVE</td><td class="yn y">opus</td><td class="yn cond">nếu Editor sống, không worktree</td></tr>
         </tbody>
       </table>
     </div>
@@ -795,7 +795,7 @@ python3 .claude/scripts/backlog-preflight.py -Pretty <span class="c"># chạy pr
 python3 -m unittest discover -s .claude/scripts/tests <span class="c"># regression test trước khi sửa 2 script trên</span></pre>
 
     <p style="font-size:.84rem; color:var(--ink-soft);">
-      <b>--auto-model-by-tier:</b> XS/S → sonnet, M/L → opus.
+      <b>--auto-model-by-tier:</b> mọi tier → opus (sonnet đã bỏ). Nâng L lên fable là opt-in: <code>--l-model fable</code>.
       <b>Base branch</b> = nhánh hiện tại lúc bắt đầu, lưu vào git config <code>&lt;gitConfigPrefix&gt;.agentBaseBranch</code>;
       đổi base bằng <code>git config --unset</code> rồi chạy lại từ nhánh mới.
     </p>

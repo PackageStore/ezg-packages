@@ -10,12 +10,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # --- defaults (change these to taste) -------------------------------------------
 # Auto mode picks the next task's [XS]/[S]/[M]/[L] tier from BACKLOG.md before
 # opening each task window (quality-first map):
-#   XS/S -> sonnet
-#   M/L  -> opus
+#   XS/S/M/L -> opus
 AUTO_MODEL_BY_TIER=1
 
 # Used only when AUTO_MODEL_BY_TIER=0.
-MODEL="opus"                # "" = CLI default; e.g. sonnet / opus
+MODEL="opus"                # "" = CLI default; e.g. opus / fable
 EFFORT="xhigh"              # low | medium | high | xhigh; "" = CLI default
 # Where the agent works.
 #   current  - THIS checkout, commits onto the branch already checked out. Keeps the

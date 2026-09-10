@@ -72,7 +72,7 @@ STEP 6 REPORT   → tier + lý do chọn + assumptions + file → trỏ /add-to-
 /planning-system <doc>   (auto-dispatch từ 0b · gọi trực tiếp · --from-mapping → vào thẳng [2])
 [0] INTAKE   → FeatureName, PROFILE detection (LITE|STANDARD|EPIC), idempotency probe, guards
 [1] DESIGN   → subagent per stage, tuần tự — stage sau ăn artifact stage trước
-               (model: 03 opus · 04 sonnet · 05 opus · 06 sonnet)
+               (model: mọi stage opus)
                LITE:     04 → 05(trim: Lens 1+3 bắt buộc, Lens 2/4 theo surface) → 06   (bỏ hẳn 03)
                STANDARD: (03? — economy && chưa validated) → 04 → 05(đủ 4 lens) → 06
                EPIC:     (03?) → 04 + Decomposition Gate (Module Split Plan)
@@ -128,7 +128,7 @@ Stage được phép báo `profile_escalation` khi phát hiện profile sai (vd 
 **Đặc điểm batch output (case A):**
 - MỘT timestamp chung cho cả batch + `NN` = thứ tự topo từ Dependency Graph §10.6 → `promote` sort `(timestamp, index)` nên **NN chính là thứ tự thực thi**.
 - Mỗi task mang: `**Context docs:**` (trỏ TechSpec — implementer không bịa lại số liệu), `**Depends on:**` (promote warn khi đứt dependency), `**Requires:** unity-editor` (chỉ UI task), và riêng UI task: `groundTruth=` trong `**Workflow args:**` (mockup pipeline — xem mục dưới).
-- Batch **trộn nhiều tier** — exec tier thật per item nằm trong filename; về sau `/run-backlog` key review-gate theo tier TỪNG task (XS bỏ code-reviewer; security-auditor theo `$SENSITIVE` bất kể tier) và loop `--auto-model-by-tier` chọn model theo tier (XS/S → sonnet, M/L → opus).
+- Batch **trộn nhiều tier** — exec tier thật per item nằm trong filename; về sau `/run-backlog` key review-gate theo tier TỪNG task (XS bỏ code-reviewer; security-auditor theo `$SENSITIVE` bất kể tier) và loop `--auto-model-by-tier` chọn model theo tier (mọi tier → opus).
 - UI screen (§10.4) tách thành task `/new-ui` riêng, xếp **cuối batch**; task `/new-feature` tương ứng skip step 8 (prefab do task UI đảm nhận).
 - Localize KHÔNG bao giờ là task riêng (không tạo git diff → run-backlog chết `NO_CHANGES`) — fold vào task feature sở hữu string.
 

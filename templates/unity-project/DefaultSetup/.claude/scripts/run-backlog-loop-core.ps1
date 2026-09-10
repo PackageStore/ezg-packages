@@ -58,11 +58,11 @@ param(
 
     # Pick the model + reasoning effort per iteration from the BACKLOG.md task
     # tier (quality-first, mirrors run-backlog-loop.sh --auto-model-by-tier).
-    # claude only: cheaper model for small tiers, opus for M/L. Non-claude
-    # providers keep their flat -Model (sonnet/opus are claude aliases).
+    # claude only: opus for every tier (sonnet retired). Non-claude providers
+    # keep their flat -Model (opus/fable are claude aliases).
     [switch]$AutoModelByTier,
-    [string]$XsModel = "sonnet",
-    [string]$SModel  = "sonnet",
+    [string]$XsModel = "opus",
+    [string]$SModel  = "opus",
     [string]$MModel  = "opus",
     [string]$LModel  = "opus",
     [string]$XsEffort = "medium",
@@ -351,7 +351,7 @@ function Get-ThinkingBudgetForTier {
 function Get-ModelForTier {
     param([string]$ProviderName, [AllowEmptyString()][string]$Tier)
 
-    # sonnet/opus are claude aliases; only tier-switch the model for claude.
+    # opus/fable are claude aliases; only tier-switch the model for claude.
     # Other providers keep whatever flat -Model resolved to.
     if ($ProviderName -ne "claude") { return $Model }
 

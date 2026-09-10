@@ -243,13 +243,17 @@ python3 .claude/scripts/project_profile.py sourceRoot # một key
 
 | Agent | File | Role | Model | Spawn khi |
 |-------|------|------|-------|-----------|
-| `code-reviewer` | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | sonnet | Mọi task |
-| `performance-reviewer` | [.claude/agents/performance-reviewer.md](.claude/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | sonnet | Mọi task (song song với code-reviewer) |
-| `security-auditor` | [.claude/agents/security-auditor.md](.claude/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | sonnet | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
-| `qa-verifier` | [.claude/agents/qa-verifier.md](.claude/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | sonnet | Mọi task (sau khi review pass) |
+| `code-reviewer` | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | Review diff theo conventions [Project Name] (FeatureBaseController, UIManager, UniTask, TigerForge, DOTween, localize, magic number). JSON verdict pass/warn/block. | opus | Mọi task trừ XS |
+| `performance-reviewer` | [.claude/agents/performance-reviewer.md](.claude/agents/performance-reviewer.md) | Audit mobile-perf của diff: GC alloc trên hot path, LINQ/string trong loop, Find/GetComponent không cache, thiếu pooling, canvas/layout rebuild mỗi frame, thuật toán O(n²). JSON verdict pass/warn/block. | opus | Khi `$PERF_SENSITIVE` (song song với code-reviewer) |
+| `security-auditor` | [.claude/agents/security-auditor.md](.claude/agents/security-auditor.md) | Audit threat model: credential leak, IAP integrity, save tampering, input validation. JSON verdict. | opus | Khi diff touches `Purchase*`, `IAP*`, `Receipt*`, `DataPlayer*`, `SaveData*`, `Auth*`, `Token*`, hoặc file có credential pattern |
+| `qa-verifier` | [.claude/agents/qa-verifier.md](.claude/agents/qa-verifier.md) | Cross-check từng item trong "Acceptance criteria" của task spec với diff. Output `manual_verify_steps` cho user. | opus | Chỉ M/L (sau khi review pass) |
 | `ui-visual-reviewer` | [.claude/agents/ui-visual-reviewer.md](.claude/agents/ui-visual-reviewer.md) | So live Unity UI với approved PNG + ui-spec hoặc clone-source, kèm hard rules của create-ui. | opus | Checkpoint Phase A/B/C khi build UI |
 
-**Subagents dùng cho planning:** `task-planner` ground spec M/L và batch item; `mockup-drafter` chỉ sinh spec+HTML khi current-project catalog/kit đã sẵn sàng. Cả hai không implement, approve hay promote task.
+**Subagents dùng cho planning:** `task-planner` (opus) ground spec M/L và batch item; `mockup-drafter` (opus) chỉ sinh spec+HTML khi current-project catalog/kit đã sẵn sàng. Cả hai không implement, approve hay promote task.
+
+> **Model là một nguồn sự thật duy nhất:** cột Model ở trên phản chiếu `model:` trong frontmatter của `.claude/agents/*.md`. Nhánh **S** của `/run-backlog` override tường minh `model: "opus"` cho code/perf reviewer để ghim sàn — không còn hạ xuống sonnet (XS không spawn reviewer nào ngoài `security-auditor` khi `$SENSITIVE`). Map theo tier của loop (`--auto-model-by-tier`): **mọi tier → opus**, khai trong `.claude/scripts/run-backlog-loop.sh` và bản PowerShell tương ứng.
+>
+> **Sonnet đã bị loại khỏi toàn bộ pipeline** (2026-09-10) vì độ chính xác không đạt; opus là sàn ở mọi vai trò. Nâng L tier lên `fable` là **opt-in per run**, chưa phải mặc định — `--l-model fable` — vì nó làm chi phí L tăng ~70% mà chưa có số đo chứng minh chất lượng hơn opus.
 
 **Hai mode thực thi (`--mode` / `-Mode`)** — hỏi dev trước khi chạy loop, đánh đổi là thật:
 

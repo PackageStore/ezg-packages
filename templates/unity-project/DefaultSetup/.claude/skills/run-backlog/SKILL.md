@@ -560,13 +560,13 @@ Quality gates entry for DONE summary:
 
 **Tier S — lightweight review, no qa-verifier (security is sensitivity-gated, NOT tier-gated)**
 
-Spawn **`code-reviewer`** with `model: "sonnet"`. In the **same message** (parallel), also spawn **`performance-reviewer`** with `model: "sonnet"` if `$PERF_SENSITIVE = true`, and **`security-auditor`** (default model — do not downgrade it) if `$SENSITIVE = true`. Do NOT spawn qa-verifier. An S task touching `Purchase*`/`Auth*`/value-bearing writes gets the same security audit as M/L.
+Spawn **`code-reviewer`** with `model: "opus"`. In the **same message** (parallel), also spawn **`performance-reviewer`** with `model: "opus"` if `$PERF_SENSITIVE = true`, and **`security-auditor`** (default model, `opus` — do not downgrade it) if `$SENSITIVE = true`. S tier no longer downgrades reviewers below opus; the `model:` override is explicit only to pin the floor if an agent default ever changes. Do NOT spawn qa-verifier. An S task touching `Purchase*`/`Auth*`/value-bearing writes gets the same security audit as M/L.
 
 ```
 Agent({
   description: "Code review backlog task (S tier)",
   subagent_type: "code-reviewer",
-  model: "sonnet",
+  model: "opus",
   prompt: <<see prompt body below>>
 })
 ```
@@ -576,7 +576,7 @@ Agent({
 Agent({
   description: "Performance review backlog task (S tier)",
   subagent_type: "performance-reviewer",
-  model: "sonnet",
+  model: "opus",
   prompt: <<see prompt body below>>
 })
 ```
@@ -591,7 +591,7 @@ Agent({
 ```
 
 → all `pass` / `warn` → proceed to STEP 8. Generate `manual_verify_steps` from the task spec's **Required verification steps** section directly.
-→ any `block` → auto-fix loop (max 2 rounds, re-spawn the blocking reviewer(s) — code/perf with `model: "sonnet"`, security with its default model), then STEP 8.
+→ any `block` → auto-fix loop (max 2 rounds, re-spawn the blocking reviewer(s) — code/perf with `model: "opus"`, security with its default model), then STEP 8.
 
 ---
 

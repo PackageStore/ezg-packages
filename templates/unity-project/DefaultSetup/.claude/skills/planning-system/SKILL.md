@@ -67,7 +67,7 @@ Biến một **hệ thống mới lớn** (GDD / design doc) thành N task file 
 
 ## STAGE 1 — Design-validate (subagent per stage, tuần tự)
 
-Spawn **một general-purpose subagent cho mỗi stage**, tuần tự (stage sau ăn artifact của stage trước). Stage file nằm tại [.claude/docs/design-pipeline/](../../docs/design-pipeline/) (xem README của thư mục đó). Model per stage theo [.claude/docs/design-pipeline/model-assignment.md](../../docs/design-pipeline/model-assignment.md): feature-analysis → `sonnet`, tech-spec → `opus`, mapping → `sonnet`, gdd-final → `opus`.
+Spawn **một general-purpose subagent cho mỗi stage**, tuần tự (stage sau ăn artifact của stage trước). Stage file nằm tại [.claude/docs/design-pipeline/](../../docs/design-pipeline/) (xem README của thư mục đó). Model per stage theo [.claude/docs/design-pipeline/model-assignment.md](../../docs/design-pipeline/model-assignment.md): feature-analysis → `opus`, tech-spec → `opus`, mapping → `opus`, gdd-final → `opus`.
 
 **Stage list theo profile (từ STAGE 0):**
 - `LITE`: 04 → 05 → 06 — **KHÔNG chạy 03** (đã chứng minh không có economy/competitive); 05 tự trim audit theo dòng `profile: LITE`.

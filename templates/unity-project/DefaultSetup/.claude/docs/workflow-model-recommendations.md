@@ -1,36 +1,44 @@
 # Workflow Model Recommendations
 
-This document provides guidance on selecting the most appropriate AI model for each workflow in the project to balance efficiency, quality, and quota usage.
+Hướng dẫn chọn model cho các workflow chạy **thủ công** (`/new-*`, `/format-code`…), cân giữa độ chính xác, tốc độ và quota.
+
+> **Phạm vi:** doc này chỉ áp cho lúc bạn tự gọi một workflow trong session tương tác. Pipeline tự động (`/planning-task`, `/planning-system`, `/run-backlog`) KHÔNG đọc file này — model của nó nằm trong `model:` của `.claude/agents/*.md` và map theo tier trong `.claude/scripts/run-backlog-loop.sh`. Xem bảng tổng ở [backlog-system.md](backlog-system.md) §11.
+
+> **Sonnet đã bị loại khỏi mọi workflow của project này** (2026-09-10) vì độ chính xác không đạt. Sàn hiện tại là **Opus** ở mọi vai trò. **Fable chưa được đưa vào bất kỳ mặc định nào** — nó chỉ là lựa chọn bạn tự bật khi thấy Opus không đủ, vì đắt hơn Opus ~1.9× mà chưa có số đo chứng minh chất lượng hơn trong pipeline này.
 
 ## Recommendation Matrix
 
 | Workflow | Recommended Model | Rationale |
 |----------|-------------------|-----------|
-| **/format-code** | **Gemini 3 Flash** | Simple, repetitive task focusing on code structure and XML documentation. Fast and quota-efficient. |
-| **/new-class** | **Gemini 3 Flash** | Boilerplate generation based on a clear template. Requires minimal reasoning. |
-| **/new-feature** | **Claude Sonnet (Thinking)** | Highest complexity. Requires architectural reasoning, multi-file creation, and deep system integration. |
-| **/new-package** | **Claude Sonnet** / **Thinking** | complex setup involving data models, controllers, and managers. Thinking mode recommended for complex packages. |
-| **/new-ui** | **Gemini 3 Pro (Low)** | Assembly-focused task using existing prefab templates with predictable scripting requirements. |
+| **/format-code** | **Gemini 3 Flash** | Tác vụ lặp, đơn giản, xoay quanh cấu trúc code + XML doc. Nhanh và tiết kiệm quota. |
+| **/new-class** | **Gemini 3 Flash** | Sinh boilerplate theo template rõ ràng. Gần như không cần reasoning. |
+| **/new-ui** | **Opus** (effort `medium`) | Lắp ráp từ prefab template có sẵn, nhưng sai một reference là hỏng prefab — cần độ chính xác của Opus, không cần reasoning sâu. |
+| **/new-package** | **Opus** (effort `high`) | Setup data model + controller + manager đan nhau. Nâng effort thay vì nâng model. |
+| **/new-feature** | **Opus** (effort `high`) — **Fable** nếu đụng nhiều subsystem | Độ phức tạp cao nhất: reasoning kiến trúc, tạo nhiều file, tích hợp sâu. Fable khi feature cắt ngang IAP / save migration / nhiều domain bucket. |
 
 ## Model Selection Tiers
 
 ### 🚀 Tier 1: Fast & Repetitive (**Gemini 3 Flash**)
-- **Usage**: Batch operations, simple formatting, boilerplate, string processing.
-- **Project Examples**: `/format-code`, `/new-class`, renaming, adding comments, minor cleanup.
+- **Usage**: Batch operation, format đơn giản, boilerplate, xử lý chuỗi.
+- **Ví dụ**: `/format-code`, `/new-class`, rename hàng loạt, thêm comment, dọn dẹp nhỏ.
 
-### 🔧 Tier 2: Standard Development (**Claude Sonnet**)
-- **Usage**: Implementing features with clear patterns, standard logic, and well-defined requirements.
-- **Project Examples**: `/new-package`, `/new-class`, most ad-hoc coding requests.
+### 🔧 Tier 2: Standard Development (**Opus**, effort `medium`–`high`)
+- **Usage**: Implement feature theo pattern rõ, logic chuẩn, requirement đã xác định.
+- **Ví dụ**: `/new-ui`, `/new-package`, phần lớn request code ad-hoc.
+- **Đây là sàn mặc định** — khi phân vân, chọn mức này.
 
-### 🧠 Tier 3: Complex Reasoning (**Claude Sonnet Thinking**)
-- **Usage**: Designing new systems, handling complex integrations, or when requirements are large and detailed.
-- **Project Examples**: `/new-feature`, complex bug fixing, architectural changes.
+### 🧠 Tier 3: Complex Reasoning (**Opus**, effort `xhigh`)
+- **Usage**: Thiết kế hệ thống mới, tích hợp phức tạp, requirement dài và nhiều ràng buộc đồng thời.
+- **Ví dụ**: `/new-feature`, bug khó, thay đổi kiến trúc.
+- Nâng **effort** trước khi nâng model — rẻ hơn nhiều và thường là đủ.
 
-### 🎯 Tier 4: Edge Cases & Research (**Claude Opus Thinking**)
-- **Usage**: Situations where Sonnet is "stuck," novel system architecture, or extremely deep codebase analysis.
-- **Note**: Avoid for standard workflows to preserve quota.
+### 🎯 Tier 4: Edge Cases & Deep Audit (**Fable**, effort `xhigh`)
+- **Usage**: Opus "bí", kiến trúc hệ thống chưa có tiền lệ, adversarial audit, phân tích codebase cực sâu.
+- **Ví dụ**: một feature cắt ngang IAP + save migration + nhiều domain bucket; audit bảng economy đã bị Opus bỏ sót; L tier của backlog loop khi bạn muốn thử (`--l-model fable`).
+- **Lưu ý**: đây là lựa chọn thủ công, KHÔNG có trong mặc định nào. Đắt ~1.9× Opus và wall-clock dài hơn — bật cho một lần chạy cụ thể rồi đối chiếu kết quả, đừng bật cả loạt.
 
 ## Quota Optimization Tips
-- **Batch Tasks**: Use Flash for bulk edits.
-- **Iterative Work**: Start with Sonnet/Flash for the foundation, then use Thinking modes only for the complex parts.
-- **Context Management**: Provide clear references to minimize reasoning effort and allow lighter models to perform effectively.
+- **Batch Tasks**: dùng Flash cho sửa hàng loạt.
+- **Nâng effort trước, nâng model sau**: `--effort xhigh` trên Opus gần như luôn rẻ hơn chuyển sang Fable, và giải quyết được phần lớn ca khó.
+- **Iterative Work**: dựng nền bằng Flash/Opus, chỉ đẩy phần thực sự phức tạp lên Fable.
+- **Context Management**: đưa reference rõ ràng để giảm reasoning effort cần thiết.
