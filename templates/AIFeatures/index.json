@@ -2117,8 +2117,8 @@
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "abcf86d598d18033b604138a56c2396977e548d3df2f4321abaf5108b0232cda",
-      "size": 41300
+      "sha256": "94d61a72af07dcde6b82d0cc5ed2b110805c894d4e7fd0450aef3f54e339dbe2",
+      "size": 41435
     },
     {
       "id": "Skills/figma-hygiene",
@@ -2135,8 +2135,8 @@
       "source": "defaultsetup",
       "fileName": "figma-hygiene.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
-      "sha256": "cd2a084b44fc500e294886bc7ae443c9e956b84158d8fd6aa5cfcf25069e80cf",
-      "size": 3152
+      "sha256": "34d905630f58194b64db22450bbbde385885c2ba9c4880edcee1f79a933546e6",
+      "size": 3521
     },
     {
       "id": "Skills/figma-to-unity",
