@@ -19,7 +19,7 @@ already the live examples, and they are verified against the PSD. A second copy
 on a Patterns page would drift from them and would be verified by nothing.
 
 **Optional: a live example frame on the `Components` page**, named
-`Pattern_<Name>`, built only from instances. Use this when a pattern has no
+`Pattern-<Name>`, built only from instances. Use this when a pattern has no
 single screen that shows it cleanly.
 
 **Do not add a fourth page.** `figma-to-unity` and `psd-to-figma` both address
@@ -38,7 +38,7 @@ width, gutter, margin, row pitch and safe-zone bands from the project grid style
 
 ### Top bar
 
-Full width, below the top safe zone. A `Resources_Group` of currency-bar
+Full width, below the top safe zone. A `Resources-Group` of currency-bar
 instances on the left, an icon button on the right.
 
 - Container starts at or below the top safe-zone line.
@@ -61,14 +61,27 @@ zone.
 
 ### Popup
 
-A popup plate centred horizontally, an icon button (`Type=Close`) at its
-top-right corner, content stacked inside.
+One container that holds the whole popup; the plate is only its first child.
+`figma-hygiene` S-8 gates this.
 
-- The plate width is pinned debt, off the column grid. Do not resize it. Centre
-  it instead: `x = (frame.w − w) / 2`.
-- The close button overhangs the plate corner. It is an overlay, so absolute
-  position is correct here.
-- Content inside the plate uses the plate's own padding, not the screen margin.
+- **Composition** — `Container-<Feature>Popup` at the screen root holds one
+  panel container per panel: the plate instance plus its `Container-<State>`
+  content groups and any decoration that overhangs the plate, then each stacked
+  card as a sibling panel container. The close button is an absolute child of
+  the panel whose corner it overhangs. Nothing of the popup sits loose on the
+  screen root — the popup container is the prefab root in Unity.
+- **Grid** — the popup container spans whole columns, normally the full content
+  span; its bounds enclose every overhang. The plate spans whole columns inside
+  it, centred. A plate whose width is pinned debt is centred, never resized:
+  `x = (container.w − w) / 2`.
+- **Spacing** — stacked panels sit in a vertical auto-layout, gap →
+  `space/gutter`. Content inside the plate uses the plate's own padding, not
+  the screen margin.
+- **Anchoring** — popup container CENTER/CENTER to the screen; each panel
+  centred to the container; leaves to their own panel; a corner overlay to the
+  corner it hangs from.
+- **Safe zone** — the container's top and bottom, overhang included, stay
+  inside the safe zones.
 
 ### Upgrade list
 
@@ -99,7 +112,7 @@ An N×M arrangement of slot instances.
 ### Offer panel
 
 A titled plate with a reward readout, a timer and one action button. When every
-region is a loose `Container_*` frame and genuinely single-use, leave it that
+region is a loose `Container-*` frame and genuinely single-use, leave it that
 way until a second screen shares the shape.
 
 ## What to record per pattern

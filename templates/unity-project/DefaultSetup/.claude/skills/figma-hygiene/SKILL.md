@@ -45,7 +45,57 @@ Anything used more than 2 times MUST be a reusable definition with instances: a 
 
 Every frame, component and instance has **Clip content OFF** (`clipsContent = false`). A clipping frame silently cuts outside strokes and overhanging art (an icon's outer stroke inside an 80×80 slot, a badge that overhangs its card) and hides overflow that should be fixed at the source. When art looks cut, uncheck clip on the parent first — never move the stroke to INSIDE or shrink the art to fit.
 
-Only two kinds of frame may clip, and each must be named for it: a scroll list (`Scroll View`, `Container_*Scroll*`) and banner/pattern art that must be masked inside a popup. Screen-size frames (the device viewport) are the implicit third. This is what `S-7` checks.
+Only two kinds of frame may clip, and each must be named for it: a scroll list (`Scroll View`, `Container-*Scroll*`) and banner/pattern art that must be masked inside a popup. Screen-size frames (the device viewport) are the implicit third. This is what `S-7` checks.
+
+### Popup composition — one container holds the popup
+
+A popup is one object. In Figma it is one frame; in Unity it becomes one prefab
+root that is shown, hidden and animated as a unit. Popup parts left loose on the
+screen root can never be that object.
+
+- **One root-level container per popup.** Everything that belongs to the popup
+  — plate, title, close button, content, stacked secondary panels, decoration
+  that overhangs the plate — lives inside one `Container-<Feature>Popup` frame
+  directly under the screen frame. The screen root keeps only what sits behind
+  the popup: backdrop, dim layer, the chrome still visible around it.
+- **The container is the footprint, not the plate.** Its bounds enclose every
+  child, overhang included. Size it to the grid: left and right edges on column
+  edges (normally the full content span between the side margins), top and
+  bottom inside the safe zones. The plate inside it also spans whole columns,
+  centred in the container. A plate whose width is pinned debt is centred,
+  never resized.
+- **One sub-container per panel.** The main plate and its content form one
+  `Container-<Feature>`; each stacked card or secondary panel is its own child
+  of the popup container. Uniform stacks sit in a vertical auto-layout with a
+  gap token (S-4). Inside a panel, content groups by region or state
+  (`Container-<State>`), and each group holds its own text, readouts and
+  button. Content is positioned relative to its panel, never to the screen.
+- **Anchoring follows containment.** The popup container is constrained
+  CENTER/CENTER to the screen frame. Each panel is constrained centre to the
+  popup container. Leaves are constrained to their own panel. An overlay that
+  hangs off a corner (close button, badge) is an absolute-positioned child of
+  the panel it overhangs, constrained to that corner.
+- **Reuse inside.** Plate = popup component instance. Buttons = button
+  component instances, resized at the instance root only. Stretchable pills and
+  plates = 9-slice frames whose slices carry stretch constraints.
+- **Nothing clips.** Overhang is the container's job to enclose, not the
+  plate's job to cut (S-7).
+
+This is what `S-8` checks.
+
+### Naming — hyphens, never underscores
+
+Every node, component, screen frame and style name is made of PascalCase
+segments joined by a hyphen: `Container-Popup`, `Btn-Buy`, `Card-Offer`,
+`Text-Title`, `Icon-Close`. `Card_Offer` is a violation; `Card-Offer` is the
+form. The hyphen is the one separator; a space means the layer was never named
+(S-2), and an underscore is reserved for machine-read contracts.
+
+The single exemption is the 9-slice cell grid `slice_ROW_COL`
+(`slice_0_0` … `slice_2_2`). The bridge and the extractor read that name with a
+regex; it is a contract, not a layer name, and it stays as is.
+
+This is what `S-9` checks.
 
 ## Contract tiers
 
@@ -57,11 +107,13 @@ These checks use `get_metadata` only (no pixel comparison).
 |---|---|---|
 | S-1 | **No flat screens** | Every screen frame has ≥1 child that is a FRAME (not RECTANGLE/TEXT/INSTANCE at root) |
 | S-2 | **No generic frame names** | Zero nodes named `Frame`, `Frame N`, `Group`, or `Group N` anywhere in the screen subtree |
-| S-3 | **Container_ naming** | Every grouping frame (non-component FRAME with ≥2 children, not a section like `Top_Bar`/`Bottom`/`Scroll View`) uses `Container_<Content>` or a semantic section name |
+| S-3 | **Container- naming** | Every grouping frame (non-component FRAME with ≥2 children, not a section like `Top-Bar`/`Bottom`/`Scroll View`) uses `Container-<Content>` or a semantic section name |
 | S-4 | **Auto-layout where uniform** | When ≥2 sibling instances of the same component have equal spacing, their parent is an auto-layout frame |
 | S-5 | **Grid where grid** | When instances form an NxM pattern (N≥2, M≥2), their parent is a single container |
 | S-6 | **Component reuse** | Art/structure repeating ≥3 times across screens is a component, not loose nodes (see *Reuse rule* above) |
 | S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and popup-masked banner art (see *Clip content* above) |
+| S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*` frame whose left/right edges sit on column edges inside the safe zones, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) |
+| S-9 | **No underscores** | Zero names containing `_` in the subtree — nodes, instances, screen frame, and the styles they bind — except `slice_ROW_COL` cells (see *Naming* above) |
 
 ### Tier 2 — Visual integrity (post-flight only)
 
@@ -76,14 +128,14 @@ These checks use `get_metadata` only (no pixel comparison).
 ### Pre-flight (structure only)
 
 The pre-flight agent runs `get_metadata` on the target screen and checks
-S-1 through S-6 by inspecting the node tree. No Figma writes happen until
+S-1 through S-9 by inspecting the node tree. No Figma writes happen until
 all S-checks pass or the user explicitly overrides.
 
 ### Post-flight (full gate)
 
 The post-flight agent runs both tiers:
 
-1. **Structure** — `get_metadata` inspection (S-1 through S-6).
+1. **Structure** — `get_metadata` inspection (S-1 through S-9).
 2. **Visual** — a visual extract of the target screen checked against V-1, V-3, V-4.
 
 The project's own verify/diff tooling supplies the numeric pass separately

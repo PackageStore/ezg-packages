@@ -60,7 +60,7 @@ them.
 |---|---|
 | Create a variable, set scopes, mint a text style | `figma-tokens` |
 | Bind an existing token to a component property | **this skill**, using `figma-tokens` names |
-| Node naming, `Container_` prefix, generic-name violations | `figma-hygiene` (S-2, S-3) |
+| Node naming, `Container-` prefix, hyphen rule, generic-name violations | `figma-hygiene` (S-2, S-3, S-9) |
 | Variant property names and the `State` ladder | `figma-tokens/reference/naming-conventions.md` |
 | 9-slice construction and the numeric verify pass | `psd-to-figma` |
 | Screen structure, auto-layout, grid style presence | `figma-hygiene` |

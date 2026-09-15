@@ -24,9 +24,11 @@ overlap, those two win.
 | Semantic names are roles, not values | `space/gutter`, not `space/24-alt` | The role survives a value change; that is the entire point of the tier |
 | Collections named by tier | `Primitives`, `Semantic` | Immediate identification |
 
-**Casing split, stated once:** tokens are `lowercase-with-hyphens`; nodes and
-components are `PascalCase` or `snake_case` per the existing file. These two
-systems do not mix, and neither should be converted to the other.
+**Casing split, stated once:** tokens are `lowercase-with-hyphens`; nodes,
+components, screens and styles are `PascalCase-Segments` joined by a hyphen
+(`Card-Offer`, never `Card_Offer`). The underscore is banned from every name
+except the `slice_ROW_COL` cell contract — `figma-hygiene` S-9 gates it. Token
+names and node names still do not mix.
 
 ## Collection and mode naming
 
@@ -48,11 +50,11 @@ not what any particular component is called.
 | Observed pattern | Shape a new name takes |
 |---|---|
 | PascalCase for a public component | `<Role>`, `<Role><Noun>` |
-| `Btn_` prefix for buttons | `Btn_<Purpose>` |
-| `Bg_` prefix for backgrounds | `Bg_<Owner>` |
-| `Frame_` prefix for containers and holders | `Frame_<Content>` |
-| `Container_` prefix for layout groups | per `figma-hygiene` S-3 |
-| `snake_case` for legacy nodes already in the file | leave as found; `slice_*` for 9-slice cells |
+| `Btn-` prefix for buttons | `Btn-<Purpose>` |
+| `Bg-` prefix for backgrounds | `Bg-<Owner>` |
+| `Frame-` prefix for containers and holders | `Frame-<Content>` |
+| `Container-` prefix for layout groups | per `figma-hygiene` S-3 |
+| Hyphen between segments, never `_` | `Card-Offer`; the only `_` allowed is `slice_ROW_COL` (figma-hygiene S-9) |
 
 **Do not adopt upstream's `C{section}.{number} {Name}` numbering.** It would
 rename every component set in the file and break
@@ -92,11 +94,11 @@ any name containing a space as `spacedNames`.
 
 | Layer role | Convention | Example |
 |---|---|---|
-| Grouping frame | `Container_<Content>` | `Container_Rows` |
-| Text | Content role | `Row_Name`, `Price_Value`, `Text_Desc` |
-| Icon | Role-based | `Icon_Close`, `Icon_Star` |
-| 9-slice piece | `slice_*` | `slice_tl`, `slice_c` |
-| Art | Purpose | `Bg_Plate`, `Art_Hero` |
+| Grouping frame | `Container-<Content>` | `Container-Rows` |
+| Text | Content role | `Row-Name`, `Price-Value`, `Text-Desc` |
+| Icon | Role-based | `Icon-Close`, `Icon-Star` |
+| 9-slice piece | `slice_ROW_COL` (the one underscore exemption) | `slice_0_0`, `slice_1_1` |
+| Art | Purpose | `Bg-Plate`, `Art-Hero` |
 
 Clear any live violations `scripts/audit-naming.js` reports as `genericNames`
 (bare `Frame`/`Group`/`Rectangle` names) before handing off.
@@ -105,7 +107,7 @@ Clear any live violations `scripts/audit-naming.js` reports as `genericNames`
 
 - Abbreviating a token role: `color/txt/pri` instead of `color/text/primary`
 - `color1`, `space2` — meaningless names
-- Versioning in a name: `Btn_Buy_v2`. Use the component description instead.
+- Versioning in a name: `Btn-Buy-v2`. Use the component description instead.
 - A semantic token that carries a raw value instead of aliasing a primitive
 - A primitive minted for a value that appears once in the file
 - Setting `codeSyntax.WEB` — this file has no CSS export

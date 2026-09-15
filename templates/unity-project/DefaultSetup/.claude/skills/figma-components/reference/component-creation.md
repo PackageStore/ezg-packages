@@ -35,7 +35,7 @@ every button.
 ### Building Blocks sub-components
 
 When a sub-element has its own state axis that would multiply the parent's
-matrix, extract it into its own set named `Building_Blocks_<Parent>_<Part>`.
+matrix, extract it into its own set named `Building-Blocks-<Parent>-<Part>`.
 
 Upstream uses a `Building Blocks/` slash namespace. This file uses underscores
 instead: a slash in a component name becomes a folder in the Assets panel and a
@@ -46,7 +46,7 @@ or has axes the parent does not.
 
 ### Base components
 
-Prefix a shared internal master with `Base_`. **Never a leading `.` or `__`** —
+Prefix a shared internal master with `Base-`. **Never a leading `.` or `__`** —
 upstream's convention for hiding a component from the Assets panel breaks the
 Unity prefab name and the `component_ids.json` key.
 
@@ -88,7 +88,7 @@ const BODY_FONT = figma.fonts.body;          // {family, style} from psd2figma.j
 await figma.loadFontAsync(BODY_FONT);
 
 const base = figma.createComponent();
-base.name = 'Base_PriceButton';
+base.name = 'Base-PriceButton';
 base.resize(324, 120);                       // a whole span from the grid style
 base.layoutMode = 'HORIZONTAL';
 base.primaryAxisAlignItems = 'CENTER';
@@ -112,11 +112,11 @@ base.fills = [bg];
 const label = figma.createText();
 label.fontName = BODY_FONT;
 label.characters = '1000';
-label.name = 'Price_Value';
+label.name = 'Price-Value';
 base.appendChild(label);
 label.layoutSizingHorizontal = 'HUG';
 
-const textStyle = (await figma.getLocalTextStylesAsync()).find(s => s.name === 'Price_Value');
+const textStyle = (await figma.getLocalTextStylesAsync()).find(s => s.name === 'Price-Value');
 await label.setTextStyleIdAsync(textStyle.id);
 
 const fg = figma.variables.setBoundVariableForPaint(
@@ -287,19 +287,19 @@ const cs = await figma.getNodeByIdAsync(CS_ID);
 
 const labelKey = cs.addComponentProperty('Price', 'TEXT', '1000');
 for (const child of cs.children) {
-  const t = child.findOne(n => n.name === 'Price_Value');
+  const t = child.findOne(n => n.name === 'Price-Value');
   if (t) t.componentPropertyReferences = { characters: labelKey };
 }
 
 const plusKey = cs.addComponentProperty('Show Plus', 'BOOLEAN', true);
 for (const child of cs.children) {
-  const b = child.findOne(n => n.name === 'Btn_Plus');
+  const b = child.findOne(n => n.name === 'Btn-Plus');
   if (b) b.componentPropertyReferences = { visible: plusKey };
 }
 
 const iconKey = cs.addComponentProperty('Icon', 'INSTANCE_SWAP', ICON_COMPONENT_ID);
 for (const child of cs.children) {
-  const slot = child.findOne(n => n.name === 'Icon_Slot');
+  const slot = child.findOne(n => n.name === 'Icon-Slot');
   if (slot && slot.type === 'INSTANCE') slot.componentPropertyReferences = { mainComponent: iconKey };
 }
 
@@ -320,7 +320,7 @@ each variant its own nested instance and expose it instead:
 
 ```javascript
 for (const child of cs.children) {
-  const inst = child.findOne(n => n.type === 'INSTANCE' && n.name === 'Icon_Currency');
+  const inst = child.findOne(n => n.type === 'INSTANCE' && n.name === 'Icon-Currency');
   if (inst) inst.isExposedInstance = true;
 }
 ```

@@ -25,7 +25,7 @@ visual diff).
    `JSON.parse` before indexing (P-9).
 2. **Gate this screen** and read the numbers from `verify_report.json` (`art_max`,
    `text_max`, `unmapped`, `font_violations`, `style_violations`, `rows`).
-3. **Hygiene.** Confirm no flat screen (at least one `Container_`/section frame,
+3. **Hygiene.** Confirm no flat screen (at least one `Container-`/section frame,
    never `Frame N`); copy the grouping shape from a sibling screen that already
    passes, read from its `figma_extract_<sibling>.json`.
 4. **Visual diff.** Render both sides into `<data>/diff/`: the Figma frame via

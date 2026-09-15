@@ -43,7 +43,7 @@ and `, ` becomes `_` — so the Figma name must be the intended prefab name
 for the naming and normalisation rules). `component_ids.json` also keys off
 component names.
 
-Use a `Base_` prefix instead: `Base_Plate`, `Base_Row`. It reads the same, sorts
+Use a `Base-` prefix instead: `Base-Plate`, `Base-Row`. It reads the same, sorts
 together, and the bridge imports it without mangling. If a base must be hidden from the Assets panel
 later, that is a rename decision to make once, with the registry and the Unity
 pipeline updated in the same pass.
@@ -55,7 +55,7 @@ ComponentSet "Button"
 ├── State=Normal
 │   └── [auto-layout: horizontal, gap → space/tight, padding → space/default]
 │       ├── Bg          (instance of the plate master, Color=Green)
-│       ├── Icon_Price  (instance of an icon set, INSTANCE_SWAP)
+│       ├── Icon-Price  (instance of an icon set, INSTANCE_SWAP)
 │       └── Price_Value (TEXT, textStyleId → Price_Value)
 ├── State=Pressed
 └── State=Disabled
@@ -171,5 +171,5 @@ and hold every tappable master to it.
 | The focus-ring standard (2 px outline, `color/border/focus`, 2 px offset) | No focus ring exists or is wanted; there is no `color/border/focus` token. |
 | WCAG AA contrast gates (4.5:1 / 3:1) | False failures on stylised game art with stroked, drop-shadowed text. `figma-tokens` dropped the same check. |
 | `Size` axis (Small/Medium/Large) | One fixed frame. Size differences here are per-usage art sizes, not a scale ladder. |
-| `.` / `__` private prefixes | `MakeValidFileName` turns `.` into `_`, creating ambiguous filenames. `Base_` replaces it. |
+| `.` / `__` private prefixes | `MakeValidFileName` turns `.` into `_`, creating ambiguous filenames. `Base-` replaces it. |
 | Mapping variant names to React props | Wrong target platform. |

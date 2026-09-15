@@ -82,12 +82,12 @@ vocabulary, which describes a web list item.
 
 | Region | Name pattern | Example |
 |---|---|---|
-| Leading visual | `Icon_<Role>` | `Icon_Close` |
-| Primary label | `<Thing>_Name` or `<Thing>_Title` | `Row_Name`, `Card_Title` |
-| Value readout | `<Thing>_Value` | `Price_Value`, `Stat_Value` |
-| Body copy | `Text_Desc` | — |
-| Action | `Btn_<Verb>` | `Btn_Buy` |
-| Plate behind everything | `Bg` or `Bg_<Role>` | `Bg`, `Bg_Plate` |
+| Leading visual | `Icon-<Role>` | `Icon-Close` |
+| Primary label | `<Thing>-Name` or `<Thing>-Title` | `Row-Name`, `Card-Title` |
+| Value readout | `<Thing>-Value` | `Price-Value`, `Stat-Value` |
+| Body copy | `Text-Desc` | — |
+| Action | `Btn-<Verb>` | `Btn-Buy` |
+| Plate behind everything | `Bg` or `Bg-<Role>` | `Bg`, `Bg-Plate` |
 
 `figma-hygiene` S-2/S-3 and
 `figma-tokens/reference/naming-conventions.md` are the authority; this table is

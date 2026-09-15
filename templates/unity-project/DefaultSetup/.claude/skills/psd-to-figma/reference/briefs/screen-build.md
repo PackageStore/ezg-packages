@@ -46,7 +46,7 @@ directly — it is a template) and asserts every configured frame exists.
 from `screens.json` unless `--allow-unknown`; `--dry-run` shows a diff). Fix the
 build until the screen shows `unmapped: 0` and art `0.00`; read the numbers from
 `verify_report.json`, not the prose. Then group per the plan's list
-(`Container_<Content>` or a section name, never `Frame N`) and re-run
+(`Container-<Content>` or a section name, never `Frame N`; hyphens, never `_`) and re-run
 extract + gate — grouping must not move a leaf.
 
 ## Acceptance

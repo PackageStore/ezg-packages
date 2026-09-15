@@ -10,7 +10,7 @@ uploaded PNGs, text as live `TEXT` — then prove it matches the PSD numerically
 The skill is project-agnostic: every project value is read from
 `<data>/psd2figma.json` and the `tables.*` files, never written into the skill.
 
-> Generic structural and visual contracts (no flat screens, `Container_`
+> Generic structural and visual contracts (no flat screens, `Container-`
 > grouping, component reuse, 9-slice, grid style) live in the `figma-hygiene`
 > skill; this skill adds the settings contract, the commands, and the numeric tier.
 
