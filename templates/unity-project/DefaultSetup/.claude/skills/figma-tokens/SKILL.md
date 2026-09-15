@@ -55,7 +55,9 @@ in this prose.
    style as AUTO.
 5. **Do not set `codeSyntax`.** There is no CSS export here. A missing
    `codeSyntax` is not a defect in this file — never report it as one.
-6. **One mode per collection, named `Value`.** No Light/Dark, no brand modes.
+6. **One collection, `Semantic`, one mode `Value`, literal values.** No primitive
+   tier, no alias chains, no Light/Dark, no brand modes. Tokens are named for
+   owner and role (`color/btn/green/green-face-1`), never for the value.
 7. **Bind inside the master, never on an instance.** An instance override is the
    thing tokens exist to remove. A child of an INSTANCE also cannot be resized or
    repositioned — `resize()` is ignored and `x`/`y` assignment throws.
@@ -109,7 +111,7 @@ refill the array.
 
 ### Phase 2b — Genericization triage
 
-Do this BEFORE minting colour tokens. A primitive minted for a sprite you are
+Do this BEFORE minting colour tokens. A token minted for a sprite you are
 about to delete is wasted work, and a sprite replaced after its neighbours are
 bound leaves an unbound hole in a finished set.
 
@@ -132,9 +134,9 @@ flatter one.
 
 ### Phase 3 — Create foundations
 
-Per `reference/token-taxonomy.md`: `Primitives` then `Semantic`, one mode each,
-explicit scopes at creation time. Create a primitive only when a real value in
-the file needs it.
+Per `reference/token-taxonomy.md`: one collection `Semantic`, one mode, literal
+values, explicit scopes at creation time. Create a token only when a real value
+in the file recurs, and name it for its owner and role.
 
 Resolve the `Row_Name` / `Price_Value` duplication first — the two text styles
 are byte-identical, so either they merge or their difference becomes a variable.
@@ -161,7 +163,7 @@ collapses newlines.
 ### Phase 6 — Verify
 
 - Re-run `audit-tokens.js` per set; error count must drop, not move sideways
-- Every variable: explicit scopes, aliases a primitive if semantic
+- Every variable: explicit scopes, a literal value (zero aliases), a role name under an existing group
 - Run the `psd-to-figma` verify pass on any screen whose masters changed
 - Hand off to `figma-hygiene` post-flight
 
@@ -175,6 +177,7 @@ values through the UnityFigmaBridge importer, not through a token file.
 | Phase 6 code export (`tokens.css`, `[data-theme="dark"]`, AI rules file, `token-audit.js`) | No CSS. Unity UGUI via the UnityFigmaBridge. |
 | Critical Rule #5 — `codeSyntax.WEB` mandatory on every variable | Only existed to feed the CSS export. The importer never reads it. |
 | Mandatory `Light` / `Dark` modes on the Semantic tier | Single-theme game. A second mode doubles every value with nothing to put in it. |
+| The `Primitives` tier and semantic-aliases-primitive rule | No CSS export, no theming: the value layer was pure indirection. Dropped 2026-09; every token holds its literal value. |
 | `color/status/{success,warning,error,info}` | No validation messages, no error toasts. The real axes are rarity, currency and affordability — already variant properties. |
 | `audit-accessibility.js` and the WCAG AA contrast checks in `validate-design-system.js` | False errors on stylised game art with stroked, drop-shadowed text. |
 | `COMMON_SCALE = [2,4,6,8,…96]` in `audit-tokens.js` | A 4/8 web ladder against a game-art screen grid flags nothing real and misses everything real. Replaced with discovery mode. |

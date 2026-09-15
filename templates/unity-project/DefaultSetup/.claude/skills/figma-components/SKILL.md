@@ -106,8 +106,8 @@ description.
 
 1. **Bind, never paste.** Every fill, stroke, radius and auto-layout gap in a
    master binds to a `Semantic` variable from `figma-tokens`. A raw value in a
-   master is a defect. Primitives are for the Semantic tier to alias, not for a
-   component to bind directly.
+   master is a defect. There is one collection and every token is a literal
+   value named for owner and role — never mint a value-named token to bind.
 2. **Never detach a component.** Vary content with a variant, a boolean, an
    instance swap, or the master's own slot node. This holds even when the slot
    API would be the cleaner answer — see `reference/slots-guide.md`.

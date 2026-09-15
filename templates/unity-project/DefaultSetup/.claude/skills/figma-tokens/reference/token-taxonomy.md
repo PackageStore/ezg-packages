@@ -39,9 +39,8 @@ single flat sprite.
 | TEXT fill colour | The layout-grid style (a style, not a variable) |
 | Stroke colour and `strokeWeight` | Absolute `x`/`y` of a child of an INSTANCE |
 | Effect colour (via effect styles) | Font family and style (gated to `figma.fonts.body`) |
-| `cornerRadius` | |
 | Auto-layout `padding*` and `itemSpacing` | |
-| `fontSize`, `lineHeight`, `letterSpacing`, `fontWeight` on text styles | |
+| `cornerRadius` per corner | Type properties — the text styles are the type layer, no variables |
 
 ### Image paints use `scaleMode: 'FIT'`, not `'FILL'`
 
@@ -101,7 +100,7 @@ may not be additive.
 ### Order of work
 
 Genericizing before binding is strictly cheaper than the reverse. A colour
-primitive minted for a sprite you are about to delete is wasted, and a sprite
+token minted for a sprite you are about to delete is wasted, and a sprite
 replaced after its neighbours are bound leaves an unbound hole in the middle of
 a finished set. So: triage first (Phase 2b in `SKILL.md`), genericize the UI
 chrome, then bind.
@@ -118,15 +117,15 @@ Read `getLocalVariableCollectionsAsync` and, per variable, record:
 
 | Column | Content |
 |---|---|
-| Collection | `Primitives` / `Semantic` |
+| Collection | `Semantic` — the only collection in the file |
 | Name | e.g. `color/text/stroke` |
-| Value or alias | raw value (primitive) or the primitive it aliases (semantic) |
+| Value | the literal value; there are no aliases |
 | Scopes | the explicit scope set — flag any `ALL_SCOPES` or `[]` |
 
 Two rules this census enforces:
 
-- **Every Semantic token must be a verified alias, not a copied value** — read the
-  alias back, do not assume it.
+- **Every token carries a literal value.** An alias, or a second collection, is a
+  leftover of the retired primitive tier: flatten it to the resolved value.
 - **A binding outside a variable's scopes still applies.** Scopes only filter the
   picker UI, so a too-narrow scope produces a working but *undiscoverable* token
   rather than an error. When you find a hardcoded value that a scoped variable
@@ -152,25 +151,19 @@ Read the local text / paint / effect / grid styles. Per text style record name,
 - Note zero-use styles (delete or apply) and any style on the wrong font weight —
   see "Known artifacts".
 
-### 3. The type surface — which sizes earn a token
+### 3. The type surface — text styles are the type layer
 
-Histogram every TEXT node's `fontSize`. A size earns a `font-size/*` primitive
-when it recurs (the 3-occurrence bar, below); a size used once or twice stays
-hardcoded. Record value → occurrence count → where.
+There are **no type variables**. The text styles carry `fontSize`, `lineHeight`
+and `letterSpacing`; a `font-size/*` variable would only duplicate the style it is
+bound to, and `lineHeight: AUTO` cannot become a variable at all (trap 1). What
+this census checks instead:
 
-- **The text styles ARE the semantic type layer.** `font-size/*` and
-  `line-height/*` primitives deliberately get **no** Semantic role aliasing them —
-  a `font-size/row-name` token would just duplicate the `Row_Name` style. Every
-  *other* primitive gets exactly one role pointing at it; the type primitives are
-  the documented exception.
-- **Confirm near-identical sizes before minting both.** Two sizes a fraction of a
-  pixel apart (e.g. `37` vs `37.333`) are almost certainly one intended size typed
-  twice; merging removes a token nobody can tell apart. Confirm against the source
-  before you create two.
-- `letterSpacing` is typically uniform across every node (often `0 PERCENT`). If
-  there is no variation, no token is needed.
-- Bindable `line-height` primitives are the **explicit-pixel** lineHeights only —
-  see trap 1 for why `AUTO` cannot become one.
+- **Confirm near-identical sizes before keeping both styles.** Two sizes a
+  fraction of a pixel apart (e.g. `37` vs `37.333`) are almost certainly one
+  intended size typed twice; merge the styles.
+- Byte-identical duplicate styles (same size / lineHeight / letterSpacing) merge,
+  or the one property meant to differ becomes the difference.
+- `letterSpacing` is typically uniform (often `0 PERCENT`); no token is needed.
 
 ### 4. Binding coverage — what is bound, what stays unbound
 
@@ -196,7 +189,7 @@ chrome.
 Two thresholds govern minting, and they recur across every census above:
 
 - **A value earns a token when it recurs three or more times; used once or twice,
-  it stays hardcoded.** An unused primitive is worse than a missing one — it shows
+  it stays hardcoded.** An unused token is worse than a missing one — it shows
   up in every picker and invites a wrong binding.
 - **Only styles with an explicit pixel `lineHeight` can be bound.** Most text
   styles use `lineHeight: AUTO`, which cannot become a variable (trap 1). Leave
@@ -222,16 +215,25 @@ tokenize:
   leave it unstyled.
 - **Zero-use styles** — delete or apply; do not leave them dangling.
 
-## Architecture — two tiers, one mode
+## Architecture — one collection, one mode
 
 ```
-Tier 1: Primitives          →  Tier 2: Semantic
-(raw values)                   (role layer)
-color/ink-900                  color/text/stroke
-space/24                       space/gutter
-radius/16                      radius/plate
-font-size/xl                   font-size/row-name
+Semantic                       (the only collection; every value is literal)
+color/btn/green/green-face-1   color/text/stroke      color/surface/plate
+color/btn/green/green-shadow   color/border/heavy     radius/bar-track
+space/gutter                   space/btn/small        radius/button/outer
 ```
+
+**There is no primitive tier.** A value-named layer (`color/ink-900`,
+`space/24`, `radius/16`) with a role layer aliasing it is a web-design-system
+habit: it exists to feed a CSS export and to swap palettes per theme. This file
+exports UGUI prefabs through the bridge, has one theme, and the bridge reads the
+resolved value only — so the primitive layer was pure indirection. It was
+deleted; every former alias was flattened to its literal value.
+
+**Grouping is by owner and part, not by hue.** `color/btn/green/green-face-1`
+says which component, which colour variant and which part of the plate; a
+designer finds it without knowing the hex. Keep that shape for every new group.
 
 **Tier 3 (component tokens) is not built.** Revisit only when a component needs
 a value that contradicts its semantic role. A file with roughly twenty component
@@ -264,22 +266,39 @@ they already exist as variant properties:
 
 Model these as semantic colour groups (below), not as status.
 
-## Tier 1 — Primitives
+## Groups — what exists and the shape a new token takes
 
-Collection name: `Primitives`. One mode: `Value`.
+Collection name: `Semantic`. One mode: `Value`. Every token is a literal value
+with a role name; the groups below are the live file's, read them back with the
+census before adding to them.
 
-| Category | Pattern | Notes |
+| Group | Pattern | Notes |
 |---|---|---|
-| Colour | `color/{name}-{shade}` | Lowercase, hyphen before the shade. Only for colours that actually appear on a SOLID paint, a stroke or an effect. |
-| Spacing | `space/{value}` | Named by the pixel value itself (`space/24`), because the grid — not a t-shirt ladder — is the source of truth. |
-| Radius | `radius/{value}` | Same rule (`radius/16`). |
-| Font size | `font-size/{name}` | `xs`/`sm`/`base`/`lg`/`xl`. Values are the real design pixels, at full float precision, not rounded. |
-| Line height | `line-height/{name}` | **Pixels, never percent** — see the trap below. |
-| Letter spacing | `letter-spacing/{name}` | Pixels. |
+| Button plate, per colour | `color/btn/{color}/{color}-{part}` | parts: `face-1`, `face-2` (gradient stops), `gloss-1`, `gloss-2` (rim, the `-2` at 30 % alpha), `shadow`; optional `icon`, `icon-stroke` for a glyph that sits on that plate. One full set per `Color=` variant of the plate. |
+| Button, shared | `color/btn/{role}` | `shadow` (ink drop shadow under plates), `text-shadow`, `plate-low` |
+| Text | `color/text/{role}` | e.g. `title`, `row-title`, `row-label`, `ink`, `on-dark`, `stroke`, `stroke-title` |
+| Surface | `color/surface/{role}` | e.g. `popup`, `plate`, `row-plate`, `slot`, `bar-track`, `bar-fill`, `bar-fill-gold`, `overlay` |
+| Border | `color/border/{role}` | e.g. `heavy`, `container`, `row-plate`, `bar` |
+| Spacing — screen | `space/{role}` | `margin`, `gutter`, `column`, `row-pitch` — read from the layout-grid style; screen composition only |
+| Spacing — component | `space/{role}`, `space/{owner}/{size}` | `tight`, `default`; `btn/small`, `btn/long` |
+| Radius | `radius/{role}`, `radius/{owner}/{part}` | e.g. `plate`, `popup`, `slot`, `bar-track`; `button/outer`, `button/inner` |
 
-Do not invent a 10-shade ramp per hue. Create a primitive only when a real value
-in the file needs it. An unused primitive is worse than a missing one: it shows
-up in every picker and invites a wrong binding.
+Groups worth adding when the art needs them: `color/currency/{type}` and
+`color/rarity/{tier}` — both are already variant axes, so a designer changing one
+currency's hue in a single place is the concrete win that justifies the layer.
+
+Rules for a new token:
+
+- **Literal value, read from the live node** — never a rounded literal typed from
+  memory, never an alias.
+- **Named for role and owner, never for the value.** `radius/bar-track`, not
+  `radius/34`; `color/surface/overlay`, not `color/dark-700`.
+- **One token per recurring value inside one owner.** Two owners sharing a hex
+  get two tokens only when their roles genuinely differ; otherwise reuse the
+  existing role.
+- **Do not invent ramps.** No 10-shade hue ladder, no t-shirt spacing scale. A
+  value earns a token when it recurs (the 3-occurrence bar); once or twice it
+  stays hardcoded.
 
 ### Deriving the spacing scale — do this before writing any space token
 
@@ -292,15 +311,16 @@ screen-composition tokens, not component tokens.
 `scripts/audit-tokens.js` runs in discovery mode (`SPACING_SCALE = []`) and
 returns `spacingHistogram` — every unbound padding and `itemSpacing` value with
 its occurrence count. Derive the scale from that histogram, keep the values that
-appear three or more times, and only then fill `SPACING_SCALE` in the script so
-on-scale violations become errors instead of warnings.
+appear three or more times, name each for its role, and only then fill
+`SPACING_SCALE` in the script so on-scale violations become errors instead of
+warnings.
 
 A value that appears once is a one-off dimension. Leave it hardcoded — do not
 mint a token for it.
 
 ### Radius surface
 
-Histogram every node's `cornerRadius`; a radius earns a `radius/{value}` primitive
+Histogram every node's `cornerRadius`; a radius earns a `radius/{role}` token
 when it clears the 3-occurrence bar. Two things to exclude:
 
 - **Figma's default set-frame radius on COMPONENT_SET roots** (a small value like
@@ -310,28 +330,6 @@ when it clears the 3-occurrence bar. Two things to exclude:
 
 For a radius applied to top corners only as `MIXED(r,r,0,0)`, bind per corner
 (trap 0a).
-
-## Tier 2 — Semantic
-
-Collection name: `Semantic`. One mode: `Value`. Every semantic token aliases a
-primitive; it never carries a raw value.
-
-| Group | Pattern | Roles |
-|---|---|---|
-| Text | `color/text/{role}` | e.g. `title`, `value`, `label`, `stroke` (the text-stroke colour), `on-plate` |
-| Currency | `color/currency/{type}` | one per currency the game uses |
-| Rarity | `color/rarity/{tier}` | one per rarity-frame variant that exists |
-| Button | `color/button/{color}` | one per button-plate colour |
-| Surface | `color/surface/{role}` | e.g. `popup`, `plate`, `slot-empty` |
-| Border | `color/border/{role}` | e.g. `default`, `slot` |
-| Spacing — component | `space/{role}` | one per component-level spacing value that recurs 3+ times inside components |
-| Spacing — screen | `space/{role}` | `margin`, `gutter`, `column`, `row-pitch` — screen-composition only; no component uses them internally |
-| Radius | `radius/{role}` | e.g. `plate`, `card`, `slot`, `popup` |
-| Type | `font-size/{style}` | one per text style, e.g. `row-name`, `price-value` |
-
-Rarity and currency are the two groups worth extending first: both are already
-variant axes, so a designer changing one currency's hue in a single place is the
-concrete win that justifies the whole exercise.
 
 ## Variable scopes — mandatory, and the one thing you cannot get wrong
 
@@ -345,10 +343,7 @@ Set explicit scopes on every variable at creation time.
 | Effect colours | `["EFFECT_COLOR"]` |
 | Spacing | `["GAP", "WIDTH_HEIGHT"]` |
 | Radius | `["CORNER_RADIUS"]` |
-| Font size | `["FONT_SIZE"]` |
-| Line height | `["LINE_HEIGHT"]` |
-| Letter spacing | `["LETTER_SPACING"]` |
-| Font weight | `["FONT_WEIGHT"]` |
+| Button plate parts (fill stops and rim effects) | `["ALL_FILLS", "EFFECT_COLOR"]` |
 
 Two failure modes, both real:
 
@@ -426,8 +421,8 @@ it as one.
    ```
 
    So a recurring gradient can be tokenized per stop; no paint-style workaround is
-   needed. Mint a primitive per recurring stop colour when you do it (one per
-   distinct top-rim and bottom-rim stop).
+   needed. Mint one token per recurring stop colour, named for owner and part
+   (`color/btn/{color}/{color}-face-1`, `-face-2`; `-gloss-1`, `-gloss-2` for the rim).
 
 0a. **`setBoundVariable('cornerRadius', v)` writes the binding to the four
    individual corner fields, not to a unified one.** Reading

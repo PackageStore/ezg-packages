@@ -20,9 +20,8 @@ overlap, those two win.
 | Lowercase, hyphen inside a segment | `color/ink-900`, `space/row-pitch` | One casing rule for all tokens, so no token name needs remembering |
 | No dots | `color/text/stroke`, never `color.text.stroke` | Dots collide with Figma's internal notation |
 | Maximum three segments | `color/text/stroke` | `color/bg/surface/card/inner` is unreadable and unfindable |
-| Numeric spacing and radius names | `space/24`, `radius/16` | The 6-column grid is the source of truth, so the value *is* the name. A t-shirt ladder (`space/md`) hides which grid measure a token means. |
-| Semantic names are roles, not values | `space/gutter`, not `space/24-alt` | The role survives a value change; that is the entire point of the tier |
-| Collections named by tier | `Primitives`, `Semantic` | Immediate identification |
+| Role names, never value names | `space/gutter`, `radius/bar-track` — not `space/24`, `radius/34` | The role survives a value change; a value-named token is a leftover of the retired primitive tier |
+| One collection | `Semantic` | No primitive tier; every token is a literal value named for owner and role |
 
 **Casing split, stated once:** tokens are `lowercase-with-hyphens`; nodes,
 components, screens and styles are `PascalCase-Segments` joined by a hyphen
@@ -34,7 +33,6 @@ names and node names still do not mix.
 
 | Collection | Modes |
 |---|---|
-| `Primitives` | `Value` |
 | `Semantic` | `Value` |
 
 One mode each. No `Light`, no `Dark`, no brand modes — see
@@ -108,7 +106,8 @@ Clear any live violations `scripts/audit-naming.js` reports as `genericNames`
 - Abbreviating a token role: `color/txt/pri` instead of `color/text/primary`
 - `color1`, `space2` — meaningless names
 - Versioning in a name: `Btn-Buy-v2`. Use the component description instead.
-- A semantic token that carries a raw value instead of aliasing a primitive
-- A primitive minted for a value that appears once in the file
+- A token that aliases another token, or a second collection
+- A token named for its value (`radius/34`, `color/dark-700`) instead of its role
+- A token minted for a value that appears once in the file
 - Setting `codeSyntax.WEB` — this file has no CSS export
 - Renaming existing components to match an external convention
