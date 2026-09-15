@@ -41,6 +41,12 @@ Anything used more than 2 times MUST be a reusable definition with instances: a 
 - Figma gotcha: setting `visible=false` on an instance child records a *removed* override — the node vanishes from the instance's tree. `instance.resetOverrides()` restores all slots.
 - Compositions nest like prefabs: a widget built from other components (a slot = item frame + corner badge + type icon) becomes its own component containing instances of its parts.
 
+### Clip content — off by default
+
+Every frame, component and instance has **Clip content OFF** (`clipsContent = false`). A clipping frame silently cuts outside strokes and overhanging art (an icon's outer stroke inside an 80×80 slot, a badge that overhangs its card) and hides overflow that should be fixed at the source. When art looks cut, uncheck clip on the parent first — never move the stroke to INSIDE or shrink the art to fit.
+
+Only two kinds of frame may clip, and each must be named for it: a scroll list (`Scroll View`, `Container_*Scroll*`) and banner/pattern art that must be masked inside a popup. Screen-size frames (the device viewport) are the implicit third. This is what `S-7` checks.
+
 ## Contract tiers
 
 ### Tier 1 — Structure (pre-flight + post-flight)
@@ -55,6 +61,7 @@ These checks use `get_metadata` only (no pixel comparison).
 | S-4 | **Auto-layout where uniform** | When ≥2 sibling instances of the same component have equal spacing, their parent is an auto-layout frame |
 | S-5 | **Grid where grid** | When instances form an NxM pattern (N≥2, M≥2), their parent is a single container |
 | S-6 | **Component reuse** | Art/structure repeating ≥3 times across screens is a component, not loose nodes (see *Reuse rule* above) |
+| S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and popup-masked banner art (see *Clip content* above) |
 
 ### Tier 2 — Visual integrity (post-flight only)
 
