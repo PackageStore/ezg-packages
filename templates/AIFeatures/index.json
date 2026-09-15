@@ -2117,8 +2117,8 @@
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "d8ca9eea3224a0fb1e33f91a67497f0c20fc779f4a51dcd4427265f79c434f34",
-      "size": 41744
+      "sha256": "1502170d1796ca21da7bc2c0030f82507d720b8df9c445db122f20d09dd865c0",
+      "size": 41758
     },
     {
       "id": "Skills/figma-hygiene",
@@ -2182,8 +2182,8 @@
       "source": "defaultsetup",
       "fileName": "figma-tokens.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip",
-      "sha256": "1506a396766827b792f205f2ac945511b1fdd8e9553568522b755faf91f5c0b2",
-      "size": 34406
+      "sha256": "6426b9f8ea724622cd7085f10e034656121426e15aa9e1c1dd70345afe6c8a8e",
+      "size": 34658
     },
     {
       "id": "Skills/game-systems",
