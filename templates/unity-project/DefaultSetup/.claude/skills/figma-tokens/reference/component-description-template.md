@@ -34,7 +34,7 @@ COMPOSITION
 - Nested instances, e.g. Nested: <PlateComponent> (Color=Yellow)
 - Which text nodes are overridable and their TEXT property names
 - Which parts are 9-slice and which are flat image fills
-- Bound tokens, e.g. stroke uses color/text/stroke
+- Bound tokens, e.g. stroke uses color/ink
 
 USAGE
 - When to use this set instead of a similar one
@@ -129,7 +129,7 @@ COMPOSITION
 - Icon_<Type> is a flat image fill, one per variant
 - Amount text uses TEXT property Amount, bound to the amount text style
 - Amount colour binds to color/currency/<type>
-- Text stroke binds to color/text/stroke, shadow uses the text-shadow effect
+- Text stroke binds to color/ink, shadow uses the shadow-text effect style (also color/ink)
   style
 
 USAGE

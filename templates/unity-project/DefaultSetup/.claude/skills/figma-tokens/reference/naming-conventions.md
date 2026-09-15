@@ -16,10 +16,10 @@ overlap, those two win.
 
 | Rule | Example | Why |
 |---|---|---|
-| `/` as group separator | `color/text/stroke` | Figma standard; builds the folder tree in the Variables panel |
-| Lowercase, hyphen inside a segment | `color/ink-900`, `space/row-pitch` | One casing rule for all tokens, so no token name needs remembering |
-| No dots | `color/text/stroke`, never `color.text.stroke` | Dots collide with Figma's internal notation |
-| Maximum three segments | `color/text/stroke` | `color/bg/surface/card/inner` is unreadable and unfindable |
+| `/` as group separator | `color/text/title` | Figma standard; builds the folder tree in the Variables panel |
+| Lowercase, hyphen inside a segment | `color/surface/bar-fill-gold`, `space/row-pitch` | One casing rule for all tokens, so no token name needs remembering |
+| No dots | `color/text/title`, never `color.text.title` | Dots collide with Figma's internal notation |
+| Maximum three segments | `color/text/title`; `color/ink` needs only two | `color/bg/surface/card/inner` is unreadable and unfindable |
 | Role names, never value names | `space/gutter`, `radius/bar-track` — not `space/24`, `radius/34` | The role survives a value change; a value-named token is a leftover of the retired primitive tier |
 | One collection | `Semantic` | No primitive tier; every token is a literal value named for owner and role |
 

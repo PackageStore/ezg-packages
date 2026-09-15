@@ -118,7 +118,7 @@ Read `getLocalVariableCollectionsAsync` and, per variable, record:
 | Column | Content |
 |---|---|
 | Collection | `Semantic` — the only collection in the file |
-| Name | e.g. `color/text/stroke` |
+| Name | e.g. `color/ink`, `color/btn/green/green-face-1` |
 | Value | the literal value; there are no aliases |
 | Scopes | the explicit scope set — flag any `ALL_SCOPES` or `[]` |
 
@@ -219,8 +219,8 @@ tokenize:
 
 ```
 Semantic                       (the only collection; every value is literal)
-color/btn/green/green-face-1   color/text/stroke      color/surface/plate
-color/btn/green/green-shadow   color/border/heavy     radius/bar-track
+color/ink                      color/text/title       color/surface/plate
+color/btn/green/green-face-1   color/btn/green/green-shadow   radius/bar-track
 space/gutter                   space/btn/small        radius/button/outer
 ```
 
@@ -274,11 +274,12 @@ census before adding to them.
 
 | Group | Pattern | Notes |
 |---|---|---|
+| Palette anchor | `color/{role}` | `ink` — the darkest value: every text and plate stroke, every ink drop/inner shadow, the bar track. One token, because those uses never diverge. Add a second top-level anchor only for a value with the same all-owners reach. |
 | Button plate, per colour | `color/btn/{color}/{color}-{part}` | parts: `face-1`, `face-2` (gradient stops), `gloss-1`, `gloss-2` (rim, the `-2` at 30 % alpha), `shadow`; optional `icon`, `icon-stroke` for a glyph that sits on that plate. One full set per `Color=` variant of the plate. |
-| Button, shared | `color/btn/{role}` | `shadow` (ink drop shadow under plates), `text-shadow`, `plate-low` |
-| Text | `color/text/{role}` | e.g. `title`, `row-title`, `row-label`, `ink`, `on-dark`, `stroke`, `stroke-title` |
-| Surface | `color/surface/{role}` | e.g. `popup`, `plate`, `row-plate`, `slot`, `bar-track`, `bar-fill`, `bar-fill-gold`, `overlay` |
-| Border | `color/border/{role}` | e.g. `heavy`, `container`, `row-plate`, `bar` |
+| Button, shared | `color/btn/{role}` | `plate-low` (the light rim under a plate) |
+| Text | `color/text/{role}` | e.g. `title`, `row-title`, `row-label`, `on-dark`, `stroke-title`, `stroke-light` — the dark outline is `color/ink`, not a text role |
+| Surface | `color/surface/{role}` | e.g. `popup`, `plate`, `row-plate`, `slot`, `bar-fill`, `bar-fill-gold`, `overlay` |
+| Border | `color/border/{role}` | e.g. `container`, `row-plate`, `bar` — the ink outline is `color/ink` |
 | Spacing — screen | `space/{role}` | `margin`, `gutter`, `column`, `row-pitch` — read from the layout-grid style; screen composition only |
 | Spacing — component | `space/{role}`, `space/{owner}/{size}` | `tight`, `default`; `btn/small`, `btn/long` |
 | Radius | `radius/{role}`, `radius/{owner}/{part}` | e.g. `plate`, `popup`, `slot`, `bar-track`; `button/outer`, `button/inner` |
@@ -293,9 +294,9 @@ Rules for a new token:
   memory, never an alias.
 - **Named for role and owner, never for the value.** `radius/bar-track`, not
   `radius/34`; `color/surface/overlay`, not `color/dark-700`.
-- **One token per recurring value inside one owner.** Two owners sharing a hex
-  get two tokens only when their roles genuinely differ; otherwise reuse the
-  existing role.
+- **One token per role, and a role can span owners.** Two owners sharing a hex
+  get two tokens only when the values could ever diverge; when they cannot (the
+  ink outline on text, plates and shadows), one anchor token serves them all.
 - **Do not invent ramps.** No 10-shade hue ladder, no t-shirt spacing scale. A
   value earns a token when it recurs (the 3-occurrence bar); once or twice it
   stays hardcoded.
