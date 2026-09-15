@@ -2182,8 +2182,8 @@
       "source": "defaultsetup",
       "fileName": "figma-tokens.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip",
-      "sha256": "6426b9f8ea724622cd7085f10e034656121426e15aa9e1c1dd70345afe6c8a8e",
-      "size": 34658
+      "sha256": "f75c5385796ce096cd2901d9ae442999295b0c5157d9f1d24f482277d16020b0",
+      "size": 34813
     },
     {
       "id": "Skills/game-systems",
