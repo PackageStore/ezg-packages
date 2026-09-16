@@ -31,7 +31,7 @@ Project sinh từ template đã có scoped registry **Easygoing**, chỉ cần t
 
 ```json
 "dependencies": {
-  "com.ezg.user-segment": "0.0.2"
+  "com.ezg.user-segment": "0.0.3"
 }
 ```
 
@@ -213,7 +213,8 @@ Bỏ trống `Storage` / `Fetcher` / `Clock` / `Logger` để dùng adapter mặ
 
 ## 7. Debug overlay (dev build / Editor)
 
-`DebugBuild = true` ⇒ SDK gắn `SegDebugOverlay`: nút nổi **SEG** góc dưới-trái hoặc phím **F9** để mở.
+`DebugBuild = true` ⇒ SDK gắn `SegDebugOverlay`: nút nổi **SEG** góc dưới-trái hoặc phím **F9** để mở (F9 đọc
+qua IMGUI `Event.current`, không dùng `UnityEngine.Input` nên chạy với cả legacy Input Manager lẫn Input System).
 Overlay hiện state, tag, assignment, rule cuối, action gần nhất, config version; cho phép override state /
 tag / assignment / `now` để ép rule chạy. Release build trả `SegmentationSdk.Debug == null`, không tốn gì.
 

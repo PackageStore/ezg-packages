@@ -33,14 +33,17 @@ namespace Ezg.UserSegment
             return this;
         }
 
-        private void Update()
-        {
-            // Phím tắt trong Editor / dev build khi chưa có nút cheat
-            if (Input.GetKeyDown(KeyCode.F9)) Toggle();
-        }
-
         private void OnGUI()
         {
+            // Phím tắt F9 đọc qua Event của IMGUI thay vì UnityEngine.Input: không phụ thuộc Active Input Handling,
+            // project chỉ bật Input System Package không bị InvalidOperationException mỗi frame.
+            var ev = Event.current;
+            if (ev != null && ev.type == EventType.KeyDown && ev.keyCode == KeyCode.F9)
+            {
+                Toggle();
+                ev.Use();
+            }
+
             if (_e == null) return;
             var scale = Mathf.Max(1f, Screen.dpi > 0 ? Screen.dpi / SCALE_REF_DPI : 1f);
             if (!Visible)

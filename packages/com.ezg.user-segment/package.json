@@ -1,7 +1,7 @@
 {
   "name": "com.ezg.user-segment",
   "displayName": "EZG User Segment",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "unity": "2022.3",
   "description": "User Segmentation & Action Engine for Unity mobile games: a pure C# rule engine that evaluates a remote JSON config (segments, tags, A/B experiments, rules with cooldown, caps and one-shot history) against per-player state built from gameplay, purchase, ad and screen events, then dispatches actions (give reward, show popup, show offer, change difficulty, schedule local notification) through executors the game registers. Ships a Unity SDK layer (config fetch + cache, atomic file state, tracking emitter, IMGUI debug overlay), EditMode tests with 22 spec vectors, and a hidden Samples~/Integration layer for Unity Game Template projects installed via the menu Ezg > User Segment > Init. Requires UniTask (peer).",
   "author": {
