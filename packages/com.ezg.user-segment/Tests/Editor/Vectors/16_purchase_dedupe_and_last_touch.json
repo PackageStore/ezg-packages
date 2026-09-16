@@ -1,0 +1,12 @@
+{
+  "name": "PURCHASE duplicate transaction_id ignored; totals counted once",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "events": [
+    { "at": 1759287700, "type": "PURCHASE", "payload": { "product_id": "gem_pack_1", "usd": 4.99, "transaction_id": "GPA.1" } },
+    { "at": 1759287701, "type": "PURCHASE", "payload": { "product_id": "gem_pack_1", "usd": 4.99, "transaction_id": "GPA.1" } },
+    { "at": 1759287702, "type": "PURCHASE", "payload": { "product_id": "gem_pack_1", "usd": 4.99, "transaction_id": "" } }
+  ],
+  "expect": {
+    "state": { "counters.purchase_count.life": 1, "scalars.total_spend_usd": 4.99, "scalars.first_purchase_at": 1759287700, "tx_ring[0]": "GPA.1" }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "7d window slides with utc day rollover; life stays; session resets at SESSION_START",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "fixture": { "counters": { "fail_count": { "life": 12, "session": 5, "head_day": 20357, "days": [3, 2, 1, 0, 0, 0, 4] } } },
+  "events": [ { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 } ],
+  "expect": {
+    "state": { "counters.fail_count.life": 13, "counters.fail_count.session": 1, "counters.fail_count.head_day": 20362, "counters.fail_count.days[0]": 1, "counters.fail_count.days[5]": 3, "counters.fail_count.days[11]": 4 }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "one_shot offer selected once, dropped one_shot afterwards, survives history",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "events": [
+    { "at": 1759287700, "type": "SCREEN_OPEN", "screen_id": "shop" },
+    { "at": 1759287800, "type": "SCREEN_OPEN", "screen_id": "shop" }
+  ],
+  "expect": {
+    "decisions": [
+      { "trigger": "SCREEN_OPEN:shop", "rules_matched": ["starter_offer_on_shop"], "selected": ["starter_pack_offer"], "dropped": [] },
+      { "trigger": "SCREEN_OPEN:shop", "rules_matched": ["starter_offer_on_shop"], "selected": [], "dropped": ["starter_pack_offer:one_shot"] }
+    ],
+    "history": { "starter_pack_offer": 1 },
+    "state": { "history_mirror.actions.starter_pack_offer.n": 1, "last_offer.offer_id": "starter_pack" }
+  }
+}

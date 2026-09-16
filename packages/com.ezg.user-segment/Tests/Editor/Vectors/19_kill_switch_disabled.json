@@ -1,0 +1,15 @@
+{
+  "name": "enabled=false: reducer + segments run, no rules, snapshot engine_enabled=0",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "enabled": false },
+  "events": [
+    { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "result" }
+  ],
+  "expect": {
+    "state": { "scalars.fail_streak": 1 },
+    "segments": { "lifecycle": "new" },
+    "tracking": [ { "name": "seg_snapshot", "params": { "engine_enabled": 0, "config_version": 1 } } ],
+    "tracking_absent": [ "action_selected" ]
+  }
+}

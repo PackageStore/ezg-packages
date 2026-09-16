@@ -1,0 +1,15 @@
+{
+  "name": "tag persisted true with stale def_hash resets to false, then re-enters via enter",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "fixture": { "tags": { "frustrated": { "value": true, "def_hash": "0000000000000000" } } },
+  "events": [
+    { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "home" },
+    { "at": 1759287700, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287701, "type": "SCREEN_OPEN", "screen_id": "home" }
+  ],
+  "expect": {
+    "decisions": [ { "trigger": "SCREEN_OPEN:home", "rules_matched": [] }, { "trigger": "SCREEN_OPEN:home", "rules_matched": [] } ],
+    "segments": { "frustrated": true },
+    "state": { "tags.frustrated.value": true }
+  }
+}

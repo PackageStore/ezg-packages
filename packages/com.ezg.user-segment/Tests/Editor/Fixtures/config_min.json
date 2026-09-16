@@ -1,0 +1,76 @@
+{
+  "schema_version": 3,
+  "min_sdk_version": "1.0.0",
+  "game_id": "puzzle_x",
+  "env": "prod",
+  "version": 1,
+  "published_at": "2026-10-01T03:00:00Z",
+  "enabled": true,
+  "session_timeout_s": 1800,
+  "max_actions_per_day": 2,
+  "holdout": { "allocation": 0.0 },
+  "const": { "playtime_7d_p90": 7200 },
+  "formulas": [
+    {
+      "id": "fail_rate",
+      "expr": { "op": "DIV", "args": [ { "ref": "state.fail_count", "window": "7d" }, { "op": "MAX", "args": [ { "ref": "state.attempt_count", "window": "7d" }, { "value": 1 } ] } ] }
+    },
+    {
+      "id": "frustration_score",
+      "expr": { "op": "ADD", "args": [
+        { "op": "MUL", "args": [ { "ref": "feature.fail_rate" }, { "value": 0.7 } ] },
+        { "op": "MUL", "args": [ { "op": "MIN", "args": [ { "op": "DIV", "args": [ { "ref": "state.fail_streak" }, { "value": 5 } ] }, { "value": 1 } ] }, { "value": 0.3 } ] }
+      ] }
+    }
+  ],
+  "segments": [
+    {
+      "id": "frustrated", "kind": "tag",
+      "enter": { "op": "GT", "args": [ { "ref": "feature.frustration_score" }, { "value": 0.7 } ] },
+      "exit": { "op": "LT", "args": [ { "ref": "feature.frustration_score" }, { "value": 0.5 } ] }
+    },
+    {
+      "id": "lifecycle", "kind": "partition", "default": "active",
+      "cases": [
+        { "value": "new", "when": { "op": "LT", "args": [ { "op": "TIME_SINCE", "args": [ { "ref": "state.install_at" } ] }, { "value": 86400 } ] } },
+        { "value": "returning", "when": { "op": "GTE", "args": [ { "ref": "state.days_since_last_active" }, { "value": 7 } ] } },
+        { "value": "at_risk", "when": { "op": "GTE", "args": [ { "ref": "state.days_since_last_active" }, { "value": 3 } ] } }
+      ]
+    }
+  ],
+  "actions": [
+    { "id": "give_booster_small", "type": "GIVE_REWARD", "params": { "reward_id": "booster_hammer", "amount": 1 }, "group": "reward", "frequency": "repeatable", "cooldown_s": 86400, "cap": { "count": 2, "window_s": 604800 } },
+    { "id": "give_booster_big", "type": "GIVE_REWARD", "params": { "reward_id": "booster_hammer", "amount": 3 }, "group": "reward", "frequency": "repeatable", "cooldown_s": 0, "cap": false },
+    { "id": "show_hint", "type": "SHOW_POPUP", "params": { "popup_id": "hint_popup", "text_key": "" }, "group": "message", "frequency": "repeatable", "cooldown_s": 0, "cap": false },
+    { "id": "ease_next_unit", "type": "CHANGE_DIFFICULTY", "params": { "delta": -1, "scope": "next_unit" }, "group": "difficulty", "frequency": "repeatable", "cooldown_s": 3600, "cap": { "count": 3, "window_s": 86400 } },
+    { "id": "starter_pack_offer", "type": "SHOW_OFFER", "params": { "offer_id": "starter_pack" }, "group": "offer", "frequency": "one_shot", "cooldown_s": 0, "cap": false },
+    { "id": "notify_comeback_23h", "type": "SCHEDULE_LOCAL_NOTIFICATION", "params": { "template_id": "comeback_daily", "delay_h": 23 }, "group": "notification", "frequency": "repeatable", "cooldown_s": 0, "cap": { "count": 1, "window_s": 1 } }
+  ],
+  "rules": [
+    { "id": "booster_when_frustrated", "enabled": true, "priority": 100, "on": [ "SCREEN_OPEN:result" ], "fire": "edge",
+      "when": { "op": "AND", "args": [ { "ref": "segment.frustrated" }, { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 3 } ] } ] },
+      "then": "none", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "booster_level", "enabled": true, "priority": 90, "on": [ "SCREEN_OPEN:result" ], "fire": "level",
+      "when": { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 1 } ] },
+      "then": "give_booster_small", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "booster_big_level", "enabled": true, "priority": 80, "on": [ "SCREEN_OPEN:result" ], "fire": "level",
+      "when": { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 2 } ] },
+      "then": "give_booster_big", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "hint_level", "enabled": true, "priority": 70, "on": [ "SCREEN_OPEN:result" ], "fire": "level",
+      "when": { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 1 } ] },
+      "then": "show_hint", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "starter_offer_on_shop", "enabled": true, "priority": 50, "on": [ "SCREEN_OPEN:shop" ], "fire": "level",
+      "when": { "op": "EQ", "args": [ { "ref": "state.purchase_count" }, { "value": 0 } ] },
+      "then": "starter_pack_offer", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "comeback_notification", "enabled": true, "priority": 10, "on": [ "SESSION_START" ], "fire": "level",
+      "when": { "op": "GTE", "args": [ { "ref": "state.days_since_install" }, { "value": 0 } ] },
+      "then": "notify_comeback_23h", "valid_until": "2026-12-31T00:00:00Z" }
+  ],
+  "experiments": [
+    { "id": "booster_when_frustrated_v1", "layer": "gameplay_help", "allocation": 1.0, "ends_at": "2026-11-30T00:00:00Z",
+      "variants": [
+        { "id": "control", "weight": 0.5, "rule_actions": {} },
+        { "id": "booster", "weight": 0.5, "rule_actions": { "booster_when_frustrated": "give_booster_small" } }
+      ] }
+  ]
+}

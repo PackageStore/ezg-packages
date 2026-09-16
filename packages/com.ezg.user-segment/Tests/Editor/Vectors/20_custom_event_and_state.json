@@ -1,0 +1,24 @@
+{
+  "name": "custom event counted with window; custom state typed; unknown custom event dropped",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "rules": [
+    { "id": "stalled", "enabled": true, "priority": 1, "on": [ "CUSTOM_EVENT:upgrade" ], "fire": "level",
+      "when": { "op": "AND", "args": [ { "op": "GTE", "args": [ { "ref": "state.custom_event_count.upgrade", "window": "session" }, { "value": 2 } ] }, { "ref": "custom.vip" }, { "op": "GT", "args": [ { "ref": "custom.hint_used" }, { "value": 0 } ] } ] },
+      "then": "show_hint", "valid_until": "2026-12-31T00:00:00Z" }
+  ], "experiments": [] },
+  "events": [
+    { "at": 1759287700, "type": "CUSTOM_STATE", "key": "vip", "value": true },
+    { "at": 1759287701, "type": "CUSTOM_STATE", "key": "hint_used", "value": 2 },
+    { "at": 1759287702, "type": "CUSTOM_STATE", "key": "hint_used", "value": "wrong_type" },
+    { "at": 1759287703, "type": "CUSTOM_EVENT", "name": "not_in_whitelist" },
+    { "at": 1759287704, "type": "CUSTOM_EVENT", "name": "upgrade" },
+    { "at": 1759287705, "type": "CUSTOM_EVENT", "name": "upgrade" }
+  ],
+  "expect": {
+    "state": { "counters['custom_event_count.upgrade'].session": 2, "custom.hint_used": 2, "custom.vip": true },
+    "decisions": [
+      { "trigger": "CUSTOM_EVENT:upgrade", "rules_matched": [], "selected": [], "dropped": [] },
+      { "trigger": "CUSTOM_EVENT:upgrade", "rules_matched": ["stalled"], "selected": ["show_hint"], "dropped": [] }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "no IActionHistoryStore → rules pointing to one_shot action are unsupported",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "no_history_store": true,
+  "events": [ { "at": 1759287700, "type": "SCREEN_OPEN", "screen_id": "shop" } ],
+  "expect": {
+    "tracking": [ { "name": "rule_unsupported", "params": { "rule_id": "starter_offer_on_shop", "reason": "one_shot_no_store" } } ],
+    "decisions": [ { "trigger": "SCREEN_OPEN:shop", "rules_matched": [], "selected": [], "dropped": [] } ]
+  }
+}

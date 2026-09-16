@@ -1,0 +1,16 @@
+{
+  "name": "holdout 100%: segments evaluated, no rule evaluated, snapshot holdout=1, no assignment",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "holdout": { "allocation": 1.0 } },
+  "events": [
+    { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "result" }
+  ],
+  "expect": {
+    "segments": { "frustrated": true, "lifecycle": "new" },
+    "tracking": [ { "name": "seg_snapshot", "params": { "holdout": 1, "exps": "" } } ],
+    "tracking_absent": [ "action_selected", "exp_exposure" ],
+    "properties": { "seg_holdout": "1" },
+    "decisions": [ { "trigger": "SCREEN_OPEN:result", "rules_matched": [], "selected": [], "dropped": [] } ]
+  }
+}

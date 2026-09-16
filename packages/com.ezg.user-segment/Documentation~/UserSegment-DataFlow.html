@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Luồng dữ liệu UserSegment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --paper:#e9edf1;
+  --surface:#ffffff;
+  --surface-2:#f3f6f9;
+  --ink:#101720;
+  --ink-2:#3a4552;
+  --muted:#6a7684;
+  --line:#c5cfda;
+  --line-soft:#dbe3ea;
+  --blue:#1b4a73;
+  --blue-soft:#dde8f2;
+  --accent:#a6591a;
+  --accent-soft:#f6e7d6;
+  --bad:#97223a;
+  --bad-soft:#f7dee3;
+  --keep:#1c6b6a;
+  --keep-soft:#d9ecea;
+  --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --paper:#0d1217;
+    --surface:#161d25;
+    --surface-2:#1c242d;
+    --ink:#e4ebf1;
+    --ink-2:#b6c2ce;
+    --muted:#8794a2;
+    --line:#2e3944;
+    --line-soft:#242d36;
+    --blue:#82b4e2;
+    --blue-soft:#17252f;
+    --accent:#e0954a;
+    --accent-soft:#332414;
+    --bad:#e9808c;
+    --bad-soft:#331d22;
+    --keep:#54bcb2;
+    --keep-soft:#112e2c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --paper:#0d1217;
+  --surface:#161d25;
+  --surface-2:#1c242d;
+  --ink:#e4ebf1;
+  --ink-2:#b6c2ce;
+  --muted:#8794a2;
+  --line:#2e3944;
+  --line-soft:#242d36;
+  --blue:#82b4e2;
+  --blue-soft:#17252f;
+  --accent:#e0954a;
+  --accent-soft:#332414;
+  --bad:#e9808c;
+  --bad-soft:#331d22;
+  --keep:#54bcb2;
+  --keep-soft:#112e2c;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font:400 15px/1.62 var(--sans);
+}
+img{max-width:100%}
+
+/* ---------- shell ---------- */
+.topbar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter:saturate(140%) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{
+  max-width:1120px; margin:0 auto;
+  padding:10px 20px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.brand{font:700 13px/1 var(--cond); letter-spacing:.1em; text-transform:uppercase; color:var(--ink); white-space:nowrap}
+.brand span{color:var(--muted)}
+.nav{display:flex; gap:4px; flex-wrap:wrap; margin-left:auto}
+.nav a{
+  font:500 11.5px/1 var(--mono); color:var(--muted); text-decoration:none;
+  padding:6px 9px; border-radius:2px; border:1px solid transparent; white-space:nowrap;
+}
+.nav a:hover{color:var(--ink); border-color:var(--line); background:var(--surface)}
+.nav a:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
+
+.wrap{max-width:1120px; margin:0 auto; padding-inline:20px; padding-block:0 72px}
+.prose{max-width:70ch}
+
+/* ---------- hero ---------- */
+.hero{padding-block:44px 34px; border-bottom:1px solid var(--line)}
+.eyebrow{font:600 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin:0 0 14px}
+h1{
+  font:700 clamp(30px,5.2vw,46px)/1.06 var(--cond);
+  letter-spacing:-.015em; margin:0 0 14px; text-wrap:balance; max-width:22ch;
+}
+.lede{font-size:17px; color:var(--ink-2); margin:0; max-width:64ch}
+.facts{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; margin-top:30px; background:var(--line); border:1px solid var(--line);
+}
+.fact{background:var(--surface); padding:12px 14px}
+.fact dt{font:600 10.5px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+.fact dd{margin:0; font:500 13px/1.4 var(--mono); color:var(--ink); font-variant-numeric:tabular-nums}
+
+/* ---------- sections ---------- */
+section{padding-block:46px; border-bottom:1px solid var(--line-soft)}
+section:last-of-type{border-bottom:none}
+h2{
+  font:700 clamp(21px,3vw,28px)/1.15 var(--cond);
+  letter-spacing:-.01em; margin:0 0 6px; text-wrap:balance;
+}
+.where{font:400 11.5px/1.4 var(--mono); color:var(--muted); margin:0 0 20px; word-break:break-word}
+h3{font:600 15px/1.3 var(--cond); letter-spacing:.01em; margin:28px 0 8px}
+p{margin:0 0 14px}
+a{color:var(--blue)}
+code{
+  font:500 .88em/1.4 var(--mono);
+  background:var(--surface-2); border:1px solid var(--line-soft);
+  padding:1px 4px; border-radius:2px; word-break:break-word;
+}
+ul{margin:0 0 14px; padding-left:20px}
+li{margin-bottom:6px}
+li::marker{color:var(--muted)}
+strong{font-weight:600}
+
+/* ---------- figures ---------- */
+figure{margin:26px 0 0}
+.figwrap{
+  overflow-x:auto; background:var(--surface);
+  border:1px solid var(--line); padding:16px;
+}
+.figwrap svg{display:block; height:auto}
+figcaption{
+  font:400 12.5px/1.55 var(--sans); color:var(--muted);
+  margin-top:10px; max-width:76ch;
+}
+figcaption b{color:var(--ink-2); font-weight:600}
+
+/* ---------- legend ---------- */
+.legend{display:flex; flex-wrap:wrap; gap:6px 18px; margin:20px 0 0; padding:0; list-style:none}
+.legend li{display:flex; align-items:center; gap:7px; font:400 12px/1 var(--mono); color:var(--muted); margin:0}
+.swatch{width:20px; height:0; border-top-width:2px; border-top-style:solid; flex:none}
+.sw-main{border-color:var(--ink-2)}
+.sw-hot{border-color:var(--accent)}
+.sw-bad{border-color:var(--bad); border-top-style:dashed}
+.sw-keep{border-color:var(--keep)}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); background:var(--surface); margin:22px 0 0}
+table{border-collapse:collapse; width:100%; min-width:620px; font-size:13px}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+thead th{
+  font:600 10.5px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); background:var(--surface-2); border-bottom:1px solid var(--line);
+  position:sticky; top:0;
+}
+tbody tr:last-child td{border-bottom:none}
+td.m, th.m{font:500 12px/1.45 var(--mono)}
+.tag{
+  display:inline-block; font:600 10px/1 var(--mono); letter-spacing:.06em;
+  padding:3px 6px; border-radius:2px; text-transform:uppercase; white-space:nowrap;
+}
+.tag-yes{background:var(--accent-soft); color:var(--accent)}
+.tag-no{background:var(--surface-2); color:var(--muted)}
+
+/* ---------- notes ---------- */
+.notes{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px; margin-top:22px}
+.note{border-left:3px solid var(--accent); background:var(--surface); padding:13px 15px}
+.note h4{font:600 13px/1.3 var(--cond); margin:0 0 6px; color:var(--ink)}
+.note p{margin:0; font-size:13px; color:var(--ink-2)}
+.note code{font-size:.85em}
+
+.files{list-style:none; margin:20px 0 0; padding:0; border:1px solid var(--line); background:var(--surface)}
+.files li{
+  margin:0; padding:9px 14px; border-bottom:1px solid var(--line-soft);
+  display:grid; grid-template-columns:minmax(200px,340px) 1fr; gap:6px 18px; align-items:baseline;
+}
+.files li:last-child{border-bottom:none}
+.files .p{font:500 12px/1.45 var(--mono); color:var(--ink); word-break:break-all}
+.files .d{font-size:13px; color:var(--ink-2)}
+@media (max-width:640px){ .files li{grid-template-columns:1fr} }
+
+footer{padding-block:28px 10px; font:400 12px/1.6 var(--mono); color:var(--muted)}
+
+/* ---------- svg shared ---------- */
+svg .band{fill:var(--surface-2); stroke:var(--line-soft); stroke-width:1}
+svg .band-core{fill:var(--blue-soft); stroke:var(--line-soft); stroke-width:1}
+svg .box{fill:var(--surface); stroke:var(--line); stroke-width:1.25}
+svg .box-hot{fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.25}
+svg .box-bad{fill:var(--bad-soft); stroke:var(--bad); stroke-width:1.25}
+svg .box-keep{fill:var(--keep-soft); stroke:var(--keep); stroke-width:1.25}
+svg .box-core{fill:var(--surface); stroke:var(--blue); stroke-width:1.5}
+svg .t{font:500 12px var(--mono); fill:var(--ink)}
+svg .ts{font:400 10.5px var(--mono); fill:var(--muted)}
+svg .tb{font:700 11px var(--cond); fill:var(--muted); letter-spacing:.1em}
+svg .e{stroke:var(--ink-2); stroke-width:1.3; fill:none}
+svg .e-hot{stroke:var(--accent); stroke-width:1.6; fill:none}
+svg .e-bad{stroke:var(--bad); stroke-width:1.3; fill:none; stroke-dasharray:5 4}
+svg .e-keep{stroke:var(--keep); stroke-width:1.3; fill:none}
+svg .e-thin{stroke:var(--line); stroke-width:1; fill:none; stroke-dasharray:3 3}
+svg .el{font:400 10.5px var(--mono); fill:var(--muted)}
+svg .el-hot{font:500 10.5px var(--mono); fill:var(--accent)}
+svg .el-bad{font:500 10.5px var(--mono); fill:var(--bad)}
+svg .el-keep{font:500 10.5px var(--mono); fill:var(--keep)}
+svg .mk{fill:var(--ink-2)}
+svg .mk-hot{fill:var(--accent)}
+svg .mk-bad{fill:var(--bad)}
+svg .mk-keep{fill:var(--keep)}
+.defs{position:absolute; width:0; height:0; overflow:hidden}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="arw" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" class="mk"/></marker>
+    <marker id="arw-hot" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" class="mk-hot"/></marker>
+    <marker id="arw-bad" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" class="mk-bad"/></marker>
+    <marker id="arw-keep" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 z" class="mk-keep"/></marker>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">UserSegment <span>/ data flow</span></div>
+    <nav class="nav" aria-label="Mục lục">
+      <a href="#tang">Tầng</a>
+      <a href="#boot">Khởi động</a>
+      <a href="#config">Config</a>
+      <a href="#event">Event</a>
+      <a href="#trigger">Trigger</a>
+      <a href="#luu">Lưu trữ</a>
+      <a href="#tracking">Tracking</a>
+      <a href="#bay">Điểm dễ sai</a>
+      <a href="#file">File</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="hero">
+  <p class="eyebrow">Assets/_Project/Features/System/UserSegment</p>
+  <h1>Luồng dữ liệu UserSegment</h1>
+  <p class="lede">
+    Config được biên dịch từ server đi vào một engine C# thuần; event của game đi vào cùng engine đó qua một queue
+    trên main thread; đầu ra là action chạy trong game, event tracking lên Firebase và hai tệp state trên máy.
+    Trang này vẽ đúng đường đi của từng thứ, kèm mọi chỗ dữ liệu bị chặn hoặc bị bỏ.
+  </p>
+  <dl class="facts">
+    <div class="fact"><dt>Mã nguồn</dt><dd>47 file · 6.583 dòng</dd></div>
+    <div class="fact"><dt>Assembly</dt><dd>3 asmdef · Engine không tham chiếu UnityEngine</dd></div>
+    <div class="fact"><dt>Namespace</dt><dd>Ezg.UserSegment[.Engine]</dd></div>
+    <div class="fact"><dt>Event vào</dt><dd>12 loại · 7 là trigger</dd></div>
+    <div class="fact"><dt>Action ra</dt><dd>5 type · 5 executor</dd></div>
+    <div class="fact"><dt>Tracking</dt><dd>11 event · 3 nhóm user property</dd></div>
+  </dl>
+  <ul class="legend">
+    <li><span class="swatch sw-main"></span> luồng chính</li>
+    <li><span class="swatch sw-hot"></span> đường action</li>
+    <li><span class="swatch sw-bad"></span> bị chặn / bị bỏ</li>
+    <li><span class="swatch sw-keep"></span> ghi ra ngoài engine</li>
+  </ul>
+</div>
+
+<!-- ============================ 1. TẦNG ============================ -->
+<section id="tang">
+  <h2>Bốn tầng và chiều phụ thuộc</h2>
+  <p class="where">Package/Runtime/Engine · Package/Runtime/Unity · Integration · phần còn lại của game</p>
+  <div class="prose">
+    <p>
+      Module được tách làm hai nửa vì mục tiêu đóng gói UPM về sau: <code>Package/</code> sẽ thành package dùng lại được,
+      <code>Integration/</code> ở lại game. Ranh giới đó là lý do tồn tại của toàn bộ tập interface bên dưới —
+      engine không được biết <code>DataManager</code>, <code>UIManager</code> hay <code>RewardsService</code> là gì.
+    </p>
+    <p>
+      Phụ thuộc lúc biên dịch chạy từ trái sang phải. Điều khiển lúc chạy thì ngược lại: engine gọi lại vào game
+      qua interface mà Integration hiện thực.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 486" style="min-width:880px" role="img" aria-label="Sơ đồ bốn tầng: game, Integration, Unity SDK, Engine core; phụ thuộc biên dịch đi sang phải, lời gọi lúc chạy đi ngược lại qua interface">
+        <rect class="band" x="16" y="52" width="176" height="400"/>
+        <rect class="band" x="248" y="52" width="208" height="400"/>
+        <rect class="band" x="512" y="52" width="176" height="400"/>
+        <rect class="band-core" x="744" y="52" width="200" height="400"/>
+
+        <text class="tb" x="104" y="42" text-anchor="middle">GAME</text>
+        <text class="tb" x="352" y="42" text-anchor="middle">INTEGRATION</text>
+        <text class="tb" x="600" y="42" text-anchor="middle">UNITY SDK</text>
+        <text class="tb" x="844" y="42" text-anchor="middle">ENGINE CORE</text>
+
+        <!-- cột A -->
+        <rect class="box" x="28" y="70" width="152" height="34"/><text class="t" x="104" y="91" text-anchor="middle">SplashScene</text>
+        <rect class="box" x="28" y="116" width="152" height="34"/><text class="t" x="104" y="137" text-anchor="middle">UIManager.Show</text>
+        <rect class="box" x="28" y="162" width="152" height="34"/><text class="t" x="104" y="183" text-anchor="middle">PurchaseManager</text>
+        <rect class="box" x="28" y="208" width="152" height="34"/><text class="t" x="104" y="229" text-anchor="middle">GameIapHost</text>
+        <rect class="box" x="28" y="254" width="152" height="34"/><text class="t" x="104" y="275" text-anchor="middle">GameAdsTracker</text>
+        <rect class="box" x="28" y="300" width="152" height="34"/><text class="t" x="104" y="321" text-anchor="middle">GameCheat</text>
+        <rect class="box" x="28" y="346" width="152" height="34"/><text class="t" x="104" y="367" text-anchor="middle">RewardsService</text>
+
+        <!-- cột B -->
+        <rect class="box" x="260" y="70" width="184" height="34"/><text class="t" x="352" y="91" text-anchor="middle">UserSegmentBootstrap</text>
+        <rect class="box" x="260" y="116" width="184" height="34"/><text class="t" x="352" y="137" text-anchor="middle">UserSegmentScreens</text>
+        <rect class="box" x="260" y="162" width="184" height="34"/><text class="t" x="352" y="183" text-anchor="middle">PurchaseBridge</text>
+        <rect class="box" x="260" y="208" width="184" height="34"/><text class="t" x="352" y="229" text-anchor="middle">UserSegmentCatalog</text>
+        <rect class="box" x="260" y="254" width="184" height="34"/><text class="t" x="352" y="275" text-anchor="middle">TrackingSink · SeedProvider</text>
+        <rect class="box" x="260" y="300" width="184" height="34"/><text class="t" x="352" y="321" text-anchor="middle">PlayerUserSegment</text>
+        <rect class="box-hot" x="260" y="346" width="184" height="34"/><text class="t" x="352" y="367" text-anchor="middle">5 × Executor</text>
+
+        <!-- cột C -->
+        <rect class="box" x="524" y="70" width="152" height="34"/><text class="t" x="600" y="91" text-anchor="middle">SegmentationSdk</text>
+        <rect class="box" x="524" y="116" width="152" height="34"/><text class="t" x="600" y="137" text-anchor="middle">SegSdkBehaviour</text>
+        <rect class="box" x="524" y="162" width="152" height="34"/><text class="t" x="600" y="183" text-anchor="middle">UnityAdapters</text>
+        <rect class="box" x="524" y="208" width="152" height="34"/><text class="t" x="600" y="229" text-anchor="middle">SegDebugOverlay</text>
+
+        <!-- cột D -->
+        <rect class="box-core" x="756" y="70" width="176" height="34"/><text class="t" x="844" y="91" text-anchor="middle">SegEngine</text>
+        <rect class="box" x="756" y="116" width="176" height="34"/><text class="t" x="844" y="137" text-anchor="middle">Reducer · Evaluator</text>
+        <rect class="box" x="756" y="162" width="176" height="34"/><text class="t" x="844" y="183" text-anchor="middle">Resolver · Assignment</text>
+        <rect class="box" x="756" y="208" width="176" height="34"/><text class="t" x="844" y="229" text-anchor="middle">EngineState · History</text>
+        <rect class="box" x="756" y="254" width="176" height="34"/><text class="t" x="844" y="275" text-anchor="middle">Parser · Validator</text>
+        <rect class="box" x="756" y="300" width="176" height="34"/><text class="t" x="844" y="321" text-anchor="middle">Clock · TrackingEmitter</text>
+
+        <!-- A -> B -->
+        <line class="e" x1="192" y1="87"  x2="242" y2="87"  marker-end="url(#arw)"/>
+        <line class="e" x1="192" y1="133" x2="242" y2="133" marker-end="url(#arw)"/>
+        <line class="e" x1="192" y1="179" x2="242" y2="179" marker-end="url(#arw)"/>
+        <line class="e" x1="192" y1="225" x2="242" y2="225" marker-end="url(#arw)"/>
+        <line class="e" x1="192" y1="271" x2="242" y2="271" marker-end="url(#arw)"/>
+        <line class="e" x1="192" y1="317" x2="242" y2="317" marker-end="url(#arw)"/>
+        <line class="e-hot" x1="242" y1="363" x2="192" y2="363" marker-end="url(#arw-hot)"/>
+        <text class="el" x="220" y="400" text-anchor="middle" transform="rotate(-90 220 400)">gọi hook</text>
+
+        <!-- B -> C -->
+        <line class="e" x1="456" y1="87"  x2="506" y2="87"  marker-end="url(#arw)"/>
+        <line class="e" x1="456" y1="133" x2="506" y2="133" marker-end="url(#arw)"/>
+        <line class="e" x1="456" y1="179" x2="506" y2="179" marker-end="url(#arw)"/>
+        <text class="el" x="484" y="280" text-anchor="middle" transform="rotate(-90 484 280)">API tĩnh</text>
+
+        <!-- C -> D -->
+        <line class="e" x1="688" y1="87"  x2="738" y2="87"  marker-end="url(#arw)"/>
+        <line class="e" x1="688" y1="133" x2="738" y2="133" marker-end="url(#arw)"/>
+        <text class="el" x="716" y="240" text-anchor="middle" transform="rotate(-90 716 240)">Initialize · Enqueue</text>
+
+        <!-- ranh giới -->
+        <line class="e-thin" x1="484" y1="52" x2="484" y2="452"/>
+
+        <!-- băng đảo phụ thuộc -->
+        <rect class="box-keep" x="260" y="398" width="672" height="42"/>
+        <line class="e-keep" x1="900" y1="419" x2="300" y2="419" marker-end="url(#arw-keep)"/>
+        <text class="el-keep" x="596" y="415" text-anchor="middle">lúc chạy engine gọi ngược qua interface</text>
+        <text class="ts" x="596" y="432" text-anchor="middle">IActionExecutor · ITrackingSink · IActionHistoryStore · IStateStorage · IConfigFetcher · ITimeSource</text>
+
+        <text class="ts" x="484" y="472" text-anchor="middle">ranh giới đóng package — bên phải vạch không được tham chiếu DataManager / UIManager / RewardsService</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Phụ thuộc biên dịch đi một chiều sang phải; điều khiển lúc chạy quay ngược lại qua interface.</b>
+      Executor nằm ở Integration (ô cam) nhưng do engine gọi — đó là cách <code>RewardsService</code> hay
+      <code>UIManager</code> được dùng mà không lọt vào assembly package.
+      <code>Ezg.Package.UserSegment.Engine</code> khai <code>noEngineReferences: true</code>, chỉ giữ tham chiếu
+      <code>Newtonsoft.Json.dll</code>.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ============================ 2. BOOT ============================ -->
+<section id="boot">
+  <h2>Khởi động: vì sao queue bị đóng lúc đầu</h2>
+  <p class="where">SplashSceneController.cs:143 → UserSegmentBootstrap.Init() → SegmentationSdk.Initialize() → SegSdkBehaviour.Begin()</p>
+  <div class="prose">
+    <p>
+      <code>SESSION_START</code> là một trigger — nếu nó chạy trước khi config về thì rule của session đầu tiên
+      không bao giờ được evaluate. Nên engine enqueue nó ngay lúc <code>Initialize()</code> nhưng giữ queue
+      <strong>đóng</strong> cho tới khi fetch xong hoặc hết timeout, rồi mới drain.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 250" style="min-width:880px" role="img" aria-label="Sáu bước khởi động, queue đóng từ bước bốn tới bước sáu rồi mở và drain">
+        <rect class="box" x="16"  y="52" width="136" height="64"/>
+        <text class="t"  x="84"  y="76" text-anchor="middle">DataPlayer</text>
+        <text class="t"  x="84"  y="91" text-anchor="middle">.LoadAllData()</text>
+        <text class="ts" x="84"  y="107" text-anchor="middle">SplashScene</text>
+
+        <rect class="box" x="172" y="52" width="136" height="64"/>
+        <text class="t"  x="240" y="76" text-anchor="middle">Bootstrap.Init()</text>
+        <text class="ts" x="240" y="92" text-anchor="middle">RegisterExecutor ×4–5</text>
+        <text class="ts" x="240" y="107" text-anchor="middle">SdkOptions ← secrets</text>
+
+        <rect class="box" x="328" y="52" width="136" height="64"/>
+        <text class="t"  x="396" y="76" text-anchor="middle">Sdk.Initialize()</text>
+        <text class="ts" x="396" y="92" text-anchor="middle">adapter mặc định</text>
+        <text class="ts" x="396" y="107" text-anchor="middle">GO ẩn DontDestroy</text>
+
+        <rect class="box-core" x="484" y="52" width="136" height="64"/>
+        <text class="t"  x="552" y="76" text-anchor="middle">Engine.Initialize()</text>
+        <text class="ts" x="552" y="92" text-anchor="middle">state + history + seed</text>
+        <text class="ts" x="552" y="107" text-anchor="middle">enqueue SESSION_START</text>
+
+        <rect class="box" x="640" y="52" width="136" height="64"/>
+        <text class="t"  x="708" y="76" text-anchor="middle">FetchThenOpen()</text>
+        <text class="ts" x="708" y="92" text-anchor="middle">GET /config</text>
+        <text class="ts" x="708" y="107" text-anchor="middle">timeout 3000 ms</text>
+
+        <rect class="box-keep" x="796" y="52" width="148" height="64"/>
+        <text class="t"  x="870" y="76" text-anchor="middle">OpenQueue()</text>
+        <text class="ts" x="870" y="92" text-anchor="middle">ProcessQueue drain</text>
+        <text class="ts" x="870" y="107" text-anchor="middle">→ seg_snapshot</text>
+
+        <line class="e" x1="152" y1="84" x2="166" y2="84" marker-end="url(#arw)"/>
+        <line class="e" x1="308" y1="84" x2="322" y2="84" marker-end="url(#arw)"/>
+        <line class="e" x1="464" y1="84" x2="478" y2="84" marker-end="url(#arw)"/>
+        <line class="e" x1="620" y1="84" x2="634" y2="84" marker-end="url(#arw)"/>
+        <line class="e" x1="776" y1="84" x2="790" y2="84" marker-end="url(#arw)"/>
+
+        <!-- lane queue -->
+        <text class="tb" x="16" y="162" text-anchor="start">QUEUE</text>
+        <rect class="box-bad" x="484" y="172" width="292" height="34"/>
+        <text class="el-bad" x="630" y="193" text-anchor="middle">ĐÓNG — SESSION_START nằm chờ</text>
+        <rect class="box-keep" x="796" y="172" width="148" height="34"/>
+        <text class="el-keep" x="870" y="193" text-anchor="middle">MỞ</text>
+        <line class="e-thin" x1="16" y1="189" x2="478" y2="189"/>
+        <text class="ts" x="240" y="185" text-anchor="middle">chưa có engine</text>
+
+        <text class="ts" x="16" y="232" text-anchor="start">Event game bắn trong lúc queue đóng vẫn được nhận (Enqueue) và xử lý theo thứ tự ngay sau OpenQueue — không mất event, chỉ trễ.</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Init đồng bộ, fetch bất đồng bộ, queue là chỗ nối hai nhịp đó.</b>
+      <code>Bootstrap.Init()</code> phải nằm sau <code>DataPlayer.LoadAllData()</code> vì nó truyền
+      <code>PlayerDataManager.UserSegment</code> làm <code>ActionHistoryStore</code> và
+      <code>UserSegmentSeedProvider.Build</code> làm <code>SeedProvider</code>; cả hai đọc player data.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ============================ 3. CONFIG ============================ -->
+<section id="config">
+  <h2>Config vào engine</h2>
+  <p class="where">Package/Runtime/Engine/Config/ · SegEngine.ApplyFreshEnvelope · SegEngine.UseCacheOrFallback</p>
+  <div class="prose">
+    <p>
+      Config là dữ liệu <em>vào</em> quan trọng thứ hai sau event. Nó bị kiểm theo kiểu tất-cả-hoặc-không:
+      một lỗi schema, ref lạ, sai kiểu, chu trình phụ thuộc hay vượt hạn mức đều làm cả bản config bị từ chối
+      (<code>config_rejected</code>) chứ không parse một phần.
+    </p>
+    <p>
+      Một rule lẻ thì ngược lại — nếu build hiện tại không phục vụ được nó (thiếu executor, reward không có trong
+      catalog, screen lạ, <code>one_shot</code> mà không có history store, rule hết hạn) thì chỉ rule đó bị tắt và
+      bắn <code>rule_unsupported</code>, config vẫn chạy.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 356" style="min-width:880px" role="img" aria-label="Đường đi của config: fetch, parse, validate theo manifest, install, post-load; nhánh từ chối rơi xuống cache, dev fallback rồi none">
+        <rect class="box" x="16"  y="44" width="140" height="58"/>
+        <text class="t"  x="86"  y="68" text-anchor="middle">FetchAsync</text>
+        <text class="ts" x="86"  y="84" text-anchor="middle">Worker /config</text>
+        <text class="ts" x="86"  y="97" text-anchor="middle">?game&amp;env · no retry</text>
+
+        <rect class="box" x="176" y="44" width="140" height="58"/>
+        <text class="t"  x="246" y="68" text-anchor="middle">envelope</text>
+        <text class="ts" x="246" y="84" text-anchor="middle">{ server_time,</text>
+        <text class="ts" x="246" y="97" text-anchor="middle">config }</text>
+
+        <rect class="box" x="336" y="44" width="140" height="58"/>
+        <text class="t"  x="406" y="68" text-anchor="middle">ConfigParser</text>
+        <text class="ts" x="406" y="84" text-anchor="middle">strict, không default</text>
+        <text class="ts" x="406" y="97" text-anchor="middle">DateParseHandling.None</text>
+
+        <rect class="box" x="496" y="44" width="140" height="58"/>
+        <text class="t"  x="566" y="68" text-anchor="middle">ConfigValidator</text>
+        <text class="ts" x="566" y="84" text-anchor="middle">ref · type · cycle</text>
+        <text class="ts" x="566" y="97" text-anchor="middle">limit · min_sdk · game/env</text>
+
+        <rect class="box-core" x="656" y="44" width="140" height="58"/>
+        <text class="t"  x="726" y="68" text-anchor="middle">Install()</text>
+        <text class="ts" x="726" y="84" text-anchor="middle">Config + source</text>
+        <text class="ts" x="726" y="97" text-anchor="middle">Fresh | Cache</text>
+
+        <rect class="box-core" x="816" y="44" width="128" height="58"/>
+        <text class="t"  x="880" y="68" text-anchor="middle">PostLoad()</text>
+        <text class="ts" x="880" y="84" text-anchor="middle">holdout → assignment</text>
+        <text class="ts" x="880" y="97" text-anchor="middle">→ RuleSupport</text>
+
+        <line class="e" x1="156" y1="73" x2="170" y2="73" marker-end="url(#arw)"/>
+        <line class="e" x1="316" y1="73" x2="330" y2="73" marker-end="url(#arw)"/>
+        <line class="e" x1="476" y1="73" x2="490" y2="73" marker-end="url(#arw)"/>
+        <line class="e" x1="636" y1="73" x2="650" y2="73" marker-end="url(#arw)"/>
+        <line class="e" x1="796" y1="73" x2="810" y2="73" marker-end="url(#arw)"/>
+
+        <!-- manifest -->
+        <rect class="box-keep" x="496" y="142" width="140" height="70"/>
+        <text class="t"  x="566" y="164" text-anchor="middle">Manifest (build)</text>
+        <text class="ts" x="566" y="180" text-anchor="middle">actions ← executor</text>
+        <text class="ts" x="566" y="193" text-anchor="middle">rewards/custom ← Catalog</text>
+        <text class="ts" x="566" y="206" text-anchor="middle">screens ← GameEnums</text>
+        <line class="e-keep" x1="566" y1="142" x2="566" y2="108" marker-end="url(#arw-keep)"/>
+        <text class="el-keep" x="576" y="128" text-anchor="start">khả năng của build này</text>
+
+        <!-- clock + cache -->
+        <rect class="box" x="656" y="142" width="140" height="52"/>
+        <text class="t"  x="726" y="163" text-anchor="middle">Clock.LearnOffset</text>
+        <text class="ts" x="726" y="180" text-anchor="middle">lệch &gt; 1h → clock_suspect</text>
+        <line class="e" x1="700" y1="108" x2="700" y2="136" marker-end="url(#arw)"/>
+
+        <rect class="box-keep" x="816" y="142" width="128" height="52"/>
+        <text class="t"  x="880" y="163" text-anchor="middle">config_cache.json</text>
+        <text class="ts" x="880" y="180" text-anchor="middle">latest-wins, nền</text>
+        <line class="e-keep" x1="770" y1="108" x2="860" y2="136" marker-end="url(#arw-keep)"/>
+
+        <!-- nhánh từ chối -->
+        <path class="e-bad" d="M 566,108 L 566,240 L 101,240 L 101,268" marker-end="url(#arw-bad)"/>
+        <text class="el-bad" x="330" y="234" text-anchor="middle">config_rejected (parse · schema · min_sdk · game_env_mismatch · ref · type · cycle · limit)</text>
+
+        <rect class="box-bad" x="16"  y="268" width="170" height="52"/>
+        <text class="t"  x="101" y="290" text-anchor="middle">fetch fail · timeout</text>
+        <text class="ts" x="101" y="307" text-anchor="middle">hoặc envelope bị từ chối</text>
+
+        <rect class="box" x="216" y="268" width="170" height="52"/>
+        <text class="t"  x="301" y="290" text-anchor="middle">UseCacheOrFallback()</text>
+        <text class="ts" x="301" y="307" text-anchor="middle">đang có config → giữ nguyên</text>
+
+        <rect class="box" x="416" y="268" width="170" height="52"/>
+        <text class="t"  x="501" y="290" text-anchor="middle">config_cache.json</text>
+        <text class="ts" x="501" y="307" text-anchor="middle">&gt; 7 ngày → config_stale</text>
+
+        <rect class="box" x="616" y="268" width="158" height="52"/>
+        <text class="t"  x="695" y="290" text-anchor="middle">DevFallbackEnvelope</text>
+        <text class="ts" x="695" y="307" text-anchor="middle">Resources · chỉ dev build</text>
+
+        <rect class="box-bad" x="804" y="268" width="140" height="52"/>
+        <text class="t"  x="874" y="290" text-anchor="middle">source = none</text>
+        <text class="ts" x="874" y="307" text-anchor="middle">reducer chạy, rule không</text>
+
+        <line class="e-bad" x1="186" y1="294" x2="210" y2="294" marker-end="url(#arw-bad)"/>
+        <line class="e-bad" x1="386" y1="294" x2="410" y2="294" marker-end="url(#arw-bad)"/>
+        <line class="e-bad" x1="586" y1="294" x2="610" y2="294" marker-end="url(#arw-bad)"/>
+        <line class="e-bad" x1="774" y1="294" x2="798" y2="294" marker-end="url(#arw-bad)"/>
+        <text class="el" x="398" y="288" text-anchor="middle">không có</text>
+        <text class="el" x="598" y="288" text-anchor="middle">không parse</text>
+        <text class="el" x="786" y="288" text-anchor="middle">null</text>
+
+        <text class="ts" x="16" y="344" text-anchor="start">Cache hợp lệ cũng đi qua Install() — engine chạy y hệt, chỉ khác ConfigSource và cờ context.config_stale.</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Manifest là thứ quyết định config nào chạy được trên build này.</b>
+      Nó được dựng tại chỗ từ executor đã đăng ký, <code>UserSegmentCatalog</code> và enum
+      <code>GameEnums.Features</code>, nên thêm reward hay màn hình mới trong catalog là đổi hợp đồng giữa build và
+      config. Xuất ra bằng <code>SegmentationSdk.ExportManifestJson()</code> để dán sang repo config.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ============================ 4. EVENT ============================ -->
+<section id="event">
+  <h2>Một event đi qua engine</h2>
+  <p class="where">SegmentationSdk → SegEngine.Enqueue → ProcessQueue → ProcessEvent</p>
+  <div class="prose">
+    <p>
+      Mọi event đi vào đúng một queue FIFO và được xử lý tuần tự trên main thread. Không có xử lý song song,
+      không có reentrancy: <code>Enqueue</code> trong lúc đang xử lý chỉ nối đuôi, vòng <code>while</code> hiện tại
+      sẽ nuốt nốt.
+    </p>
+    <p>
+      Nửa đầu chặng đường áp dụng cho cả 12 loại event (rollover counter, validate, reducer). Chỉ 7 loại là
+      <strong>trigger</strong> mới đi tiếp sang phần evaluate ở mục kế.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 520" style="min-width:880px" role="img" aria-label="Trục dọc xử lý một event: enqueue, queue, rollover, validate, reducer, cổng trigger; các nhánh bị bỏ nằm bên phải">
+        <rect class="box" x="340" y="40" width="280" height="52"/>
+        <text class="t"  x="480" y="62" text-anchor="middle">SegmentationSdk.&lt;Event&gt;()</text>
+        <text class="ts" x="480" y="79" text-anchor="middle">CheckThread → Enqueue(SegEvent)</text>
+
+        <rect class="box" x="340" y="120" width="280" height="52"/>
+        <text class="t"  x="480" y="142" text-anchor="middle">Queue FIFO</text>
+        <text class="ts" x="480" y="159" text-anchor="middle">ProcessQueue — main thread, tuần tự</text>
+
+        <rect class="box" x="340" y="200" width="280" height="52"/>
+        <text class="t"  x="480" y="222" text-anchor="middle">Reducer.Rollover(today)</text>
+        <text class="ts" x="480" y="239" text-anchor="middle">dịch 30 bucket ngày của mọi counter</text>
+
+        <rect class="box" x="340" y="280" width="280" height="52"/>
+        <text class="t"  x="480" y="302" text-anchor="middle">ValidateEvent</text>
+        <text class="ts" x="480" y="319" text-anchor="middle">payload + whitelist manifest</text>
+
+        <rect class="box-core" x="340" y="360" width="280" height="52"/>
+        <text class="t"  x="480" y="382" text-anchor="middle">Reducer.Apply</text>
+        <text class="ts" x="480" y="399" text-anchor="middle">ghi EngineState: scalar · counter · streak</text>
+
+        <rect class="box-hot" x="340" y="440" width="280" height="52"/>
+        <text class="t"  x="480" y="462" text-anchor="middle">e.IsTrigger ?</text>
+        <text class="ts" x="480" y="479" text-anchor="middle">7 / 12 loại → EvaluateTrigger</text>
+
+        <line class="e" x1="480" y1="92"  x2="480" y2="114" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="172" x2="480" y2="194" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="252" x2="480" y2="274" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="332" x2="480" y2="354" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="412" x2="480" y2="434" marker-end="url(#arw)"/>
+
+        <!-- chú thích trái -->
+        <text class="ts" x="20" y="56">nguồn phát:</text>
+        <text class="ts" x="20" y="72">UIManager.Show → SCREEN_OPEN</text>
+        <text class="ts" x="20" y="88">PurchaseBridge → PURCHASE</text>
+        <text class="ts" x="20" y="104">GameAdsTracker → AD_REWARDED / AD_INTERSTITIAL</text>
+        <text class="ts" x="20" y="120">gameplay → PROGRESS_* · CUSTOM_*</text>
+        <text class="ts" x="20" y="136">SDK tự bắn → SESSION_START / SESSION_END</text>
+        <line class="e-thin" x1="20" y1="148" x2="334" y2="148"/>
+        <line class="e" x1="180" y1="148" x2="180" y2="66" marker-end="url(#arw)"/>
+
+        <text class="ts" x="20" y="216">queue đóng tới khi có config;</text>
+        <text class="ts" x="20" y="232">Tick() mỗi frame drain phần còn lại</text>
+
+        <text class="ts" x="20" y="296">WindowCounter giữ 3 lát cắt:</text>
+        <text class="ts" x="20" y="312">life · session · days[30]</text>
+        <text class="ts" x="20" y="328">ref chọn window qua toán tử của config</text>
+
+        <text class="ts" x="20" y="392">install_at · last_active_at · fail_streak</text>
+        <text class="ts" x="20" y="408">progress.max · total_spend_usd · …</text>
+        <text class="ts" x="20" y="424">bảng ref đầy đủ: StateSchema.Refs</text>
+
+        <!-- nhánh bỏ bên phải -->
+        <rect class="box-bad" x="660" y="280" width="284" height="52"/>
+        <text class="t"  x="802" y="302" text-anchor="middle">DroppedEvents[type]++</text>
+        <text class="ts" x="802" y="319" text-anchor="middle">tên lạ · sai kiểu · thiếu transaction_id</text>
+        <line class="e-bad" x1="620" y1="306" x2="654" y2="306" marker-end="url(#arw-bad)"/>
+
+        <rect class="box-bad" x="660" y="360" width="284" height="52"/>
+        <text class="t"  x="802" y="382" text-anchor="middle">PURCHASE trùng transaction_id</text>
+        <text class="ts" x="802" y="399" text-anchor="middle">bỏ luôn, không tính vào state</text>
+        <line class="e-bad" x1="620" y1="386" x2="654" y2="386" marker-end="url(#arw-bad)"/>
+
+        <rect class="box" x="660" y="440" width="284" height="52"/>
+        <text class="t"  x="802" y="462" text-anchor="middle">không phải trigger → dừng ở state</text>
+        <text class="ts" x="802" y="479" text-anchor="middle">riêng SESSION_END gọi thêm Persist()</text>
+        <line class="e" x1="620" y1="466" x2="654" y2="466" marker-end="url(#arw)"/>
+
+        <text class="ts" x="20" y="508">Mọi stage bọc try/catch: exception → engine_error, tắt evaluate tới SESSION_START kế tiếp; reducer và persist vẫn chạy.</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Rollover chạy trước reducer ở mọi event</b> nên bucket ngày luôn đúng với <code>now</code> tại thời điểm xử lý,
+      kể cả khi app bị treo qua đêm. Event backdate (<code>SESSION_END</code> dựng lại sau crash) dùng
+      <code>e.At</code> làm <code>now</code> và bỏ qua kiểm tra nhảy đồng hồ.
+    </figcaption>
+  </figure>
+
+  <h3>12 loại event và nguồn phát trong template</h3>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th class="m">Event</th><th>Nguồn phát</th><th>Trigger</th><th>Ghi vào state</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="m">SESSION_START</td><td>SDK tự bắn lúc Initialize / resume quá timeout</td><td><span class="tag tag-yes">có</span></td><td>install_at, session_count, days_since_last_active, reset counter session</td></tr>
+        <tr><td class="m">SESSION_END</td><td>SDK — OnQuit, resume quá <code>session_timeout_s</code>, hoặc dựng lại sau crash</td><td><span class="tag tag-no">không</span></td><td>đóng session, persist</td></tr>
+        <tr><td class="m">PROGRESS_START</td><td>gameplay của project</td><td><span class="tag tag-no">không</span></td><td>attempt_count, attempt_count_current_unit, progress.current</td></tr>
+        <tr><td class="m">PROGRESS_COMPLETE</td><td>gameplay</td><td><span class="tag tag-yes">có</span></td><td>complete_count, progress.max, win_streak</td></tr>
+        <tr><td class="m">PROGRESS_FAIL</td><td>gameplay</td><td><span class="tag tag-yes">có</span></td><td>fail_count, fail_streak, last_fail_at</td></tr>
+        <tr><td class="m">PROGRESS_QUIT</td><td>gameplay</td><td><span class="tag tag-yes">có</span></td><td>quit_count, quit_after_fail_count (cửa sổ 60 s)</td></tr>
+        <tr><td class="m">PURCHASE</td><td><code>PurchaseManager</code> đánh dấu bấm mua → <code>GameIapHost.MarkGranted</code> xác nhận</td><td><span class="tag tag-yes">có</span></td><td>purchase_count, total_spend_usd, first/last_purchase_at</td></tr>
+        <tr><td class="m">AD_REWARDED</td><td><code>GameAdsTracker</code></td><td><span class="tag tag-no">không</span></td><td>ad_rewarded_count</td></tr>
+        <tr><td class="m">AD_INTERSTITIAL</td><td><code>GameAdsTracker</code></td><td><span class="tag tag-no">không</span></td><td>ad_interstitial_count</td></tr>
+        <tr><td class="m">SCREEN_OPEN</td><td><code>UIManager.Show()</code> qua <code>UserSegmentScreens.NotifyScreenOpen</code></td><td><span class="tag tag-yes">có</span></td><td>context.screen</td></tr>
+        <tr><td class="m">CUSTOM_EVENT</td><td>project, tên phải nằm trong whitelist catalog (≤ 10)</td><td><span class="tag tag-yes">có</span></td><td>custom_event_count.&lt;name&gt;</td></tr>
+        <tr><td class="m">CUSTOM_STATE</td><td>project, key + kiểu khai trong catalog</td><td><span class="tag tag-no">không</span></td><td>custom.&lt;key&gt; (number / bool / string)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================ 5. TRIGGER ============================ -->
+<section id="trigger">
+  <h2>Từ trigger tới action</h2>
+  <p class="where">SegEngine.EvaluateTrigger → Evaluator → Resolver → IActionExecutor</p>
+  <div class="prose">
+    <p>
+      Đây là chỗ dữ liệu đổi bản chất: state (số) → segment (nhãn) → rule khớp (quyết định) → action (thứ người chơi thấy).
+      Mỗi chặng có một cổng riêng, và mỗi cổng đều ghi lại lý do loại — đó là nội dung của
+      <code>seg_decision.dropped</code>.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 640" style="min-width:900px" role="img" aria-label="Trục dọc từ evaluate formula, segment, rule, resolver tới executor; nhánh bị loại bên phải, tracking bên trái, vòng hoàn lại từ action_failed quay về bước commit">
+        <!-- spine -->
+        <rect class="box" x="340" y="36" width="280" height="54"/>
+        <text class="t"  x="480" y="58" text-anchor="middle">EvaluateFeaturesAndSegments</text>
+        <text class="ts" x="480" y="75" text-anchor="middle">theo EvalOrder (topo) — feature.* rồi segment.*</text>
+
+        <rect class="box" x="340" y="110" width="280" height="54"/>
+        <text class="t"  x="480" y="132" text-anchor="middle">cổng: enabled · holdout</text>
+        <text class="ts" x="480" y="149" text-anchor="middle">config != null &amp;&amp; !evalDisabled</text>
+
+        <rect class="box" x="340" y="184" width="280" height="54"/>
+        <text class="t"  x="480" y="206" text-anchor="middle">duyệt rule theo priority</text>
+        <text class="ts" x="480" y="223" text-anchor="middle">on khớp? → when → edge / level</text>
+
+        <rect class="box" x="340" y="258" width="280" height="54"/>
+        <text class="t"  x="480" y="280" text-anchor="middle">EffectiveThen → Candidate</text>
+        <text class="ts" x="480" y="297" text-anchor="middle">variant experiment ghi đè then của rule</text>
+
+        <rect class="box-core" x="340" y="332" width="280" height="54"/>
+        <text class="t"  x="480" y="354" text-anchor="middle">Resolver.Resolve</text>
+        <text class="ts" x="480" y="371" text-anchor="middle">6 cổng lọc, giữ tối đa 1 action / group</text>
+
+        <rect class="box-hot" x="340" y="406" width="280" height="54"/>
+        <text class="t"  x="480" y="428" text-anchor="middle">commit</text>
+        <text class="ts" x="480" y="445" text-anchor="middle">ActionTs · ShownToday++ · history.Record</text>
+
+        <rect class="box-hot" x="340" y="480" width="280" height="54"/>
+        <text class="t"  x="480" y="502" text-anchor="middle">Dispatch → ActionRequest</text>
+        <text class="ts" x="480" y="519" text-anchor="middle">executor của game chạy trên main thread</text>
+
+        <rect class="box" x="340" y="554" width="280" height="54"/>
+        <text class="t"  x="480" y="576" text-anchor="middle">ReportPresented / Executed / Failed</text>
+        <text class="ts" x="480" y="593" text-anchor="middle">terminal đầu tiên thắng → Persist()</text>
+
+        <line class="e" x1="480" y1="90"  x2="480" y2="104" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="164" x2="480" y2="178" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="238" x2="480" y2="252" marker-end="url(#arw)"/>
+        <line class="e" x1="480" y1="312" x2="480" y2="326" marker-end="url(#arw)"/>
+        <line class="e-hot" x1="480" y1="386" x2="480" y2="400" marker-end="url(#arw-hot)"/>
+        <line class="e-hot" x1="480" y1="460" x2="480" y2="474" marker-end="url(#arw-hot)"/>
+        <line class="e-hot" x1="480" y1="534" x2="480" y2="548" marker-end="url(#arw-hot)"/>
+
+        <!-- phải: loại bỏ -->
+        <rect class="box-bad" x="660" y="110" width="284" height="54"/>
+        <text class="t"  x="802" y="132" text-anchor="middle">chỉ tính segment, bỏ rule</text>
+        <text class="ts" x="802" y="149" text-anchor="middle">kill-switch · holdout · engine_error</text>
+        <line class="e-bad" x1="620" y1="137" x2="654" y2="137" marker-end="url(#arw-bad)"/>
+
+        <rect class="box" x="660" y="184" width="284" height="54"/>
+        <text class="t"  x="802" y="206" text-anchor="middle">rule_unsupported bị tắt từ PostLoad</text>
+        <text class="ts" x="802" y="223" text-anchor="middle">action_type · reward · screen · expired …</text>
+        <line class="e-bad" x1="620" y1="211" x2="654" y2="211" marker-end="url(#arw-bad)"/>
+
+        <rect class="box-bad" x="660" y="332" width="284" height="54"/>
+        <text class="t"  x="802" y="352" text-anchor="middle">dropped = action_id : lý do</text>
+        <text class="ts" x="802" y="369" text-anchor="middle">one_shot · cooldown · cap · group · daily_cap</text>
+        <line class="e-bad" x1="620" y1="359" x2="654" y2="359" marker-end="url(#arw-bad)"/>
+
+        <rect class="box-bad" x="660" y="480" width="284" height="54"/>
+        <text class="t"  x="802" y="500" text-anchor="middle">không có executor cho type</text>
+        <text class="ts" x="802" y="517" text-anchor="middle">→ action_failed not_available</text>
+        <line class="e-bad" x1="620" y1="507" x2="654" y2="507" marker-end="url(#arw-bad)"/>
+
+        <!-- trái: tracking -->
+        <rect class="box-keep" x="20" y="36" width="270" height="54"/>
+        <text class="t"  x="155" y="56" text-anchor="middle">user property seg_&lt;partition&gt;</text>
+        <text class="ts" x="155" y="73" text-anchor="middle">chỉ bắn khi giá trị đổi</text>
+        <line class="e-keep" x1="334" y1="63" x2="296" y2="63" marker-end="url(#arw-keep)"/>
+
+        <rect class="box-keep" x="20" y="184" width="270" height="54"/>
+        <text class="t"  x="155" y="204" text-anchor="middle">exp_exposure</text>
+        <text class="ts" x="155" y="221" text-anchor="middle">lần đầu rule của experiment khớp</text>
+        <line class="e-keep" x1="334" y1="211" x2="296" y2="211" marker-end="url(#arw-keep)"/>
+
+        <rect class="box-keep" x="20" y="406" width="270" height="54"/>
+        <text class="t"  x="155" y="426" text-anchor="middle">action_selected</text>
+        <text class="ts" x="155" y="443" text-anchor="middle">execution_id · rule_id · nth</text>
+        <line class="e-keep" x1="334" y1="433" x2="296" y2="433" marker-end="url(#arw-keep)"/>
+
+        <rect class="box-keep" x="20" y="554" width="270" height="54"/>
+        <text class="t"  x="155" y="574" text-anchor="middle">action_presented / executed / failed</text>
+        <text class="ts" x="155" y="591" text-anchor="middle">+ seg_snapshot | seg_decision</text>
+        <line class="e-keep" x1="334" y1="581" x2="296" y2="581" marker-end="url(#arw-keep)"/>
+
+        <!-- refund loop -->
+        <path class="e-hot" d="M 340,595 L 306,595 L 306,447 L 334,447" marker-end="url(#arw-hot)"/>
+        <text class="el-hot" x="298" y="521" text-anchor="middle" transform="rotate(-90 298 521)">refund</text>
+        <text class="ts" x="20" y="630">Hoàn lại chỉ với offline và no_permission: gỡ timestamp, trả lại quota ngày, xoá lượt trong history — action được chọn lại lần sau.</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Resolver là nơi duy nhất ghi "đã dùng" — trước cả khi executor chạy.</b> Vì thế mới cần đường hoàn lại:
+      một action bị chọn rồi thất bại vì máy offline hay chưa có quyền thông báo sẽ được trả lại cooldown, cap và
+      lượt one-shot. Mọi lý do thất bại khác (<code>exception</code>, <code>unknown_id</code>,
+      <code>not_available</code>, <code>invalid_params</code>) thì coi như đã tiêu.
+    </figcaption>
+  </figure>
+
+  <h3>5 action type và điểm nối vào game</h3>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th class="m">Action type</th><th>Executor</th><th>Đích trong game</th><th class="m">result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="m">GIVE_REWARD</td><td><code>GiveRewardExecutor</code></td><td><code>RewardsService.ReceiveReward</code>, reward_id tra <code>UserSegmentCatalog</code> → resType/resId</td><td class="m">granted · inventory_full</td></tr>
+        <tr><td class="m">SHOW_POPUP</td><td><code>ShowPopupExecutor</code></td><td><code>UIManager.Show(feature)</code>, text_key truyền làm data</td><td class="m">clicked · dismissed · timeout</td></tr>
+        <tr><td class="m">SHOW_OFFER</td><td><code>ShowOfferExecutor</code></td><td><code>UIManager.Show</code> + nghe <code>EventName.PurchasedIapSuccess</code> trong lúc màn mở</td><td class="m">purchased · closed · not_loaded</td></tr>
+        <tr><td class="m">CHANGE_DIFFICULTY</td><td><code>ChangeDifficultyExecutor</code></td><td><code>IDifficultyKnob</code> của project — template chưa có nên executor không được đăng ký</td><td class="m">applied · no_unit_pending</td></tr>
+        <tr><td class="m">SCHEDULE_LOCAL_NOTIFICATION</td><td><code>ScheduleNotificationExecutor</code></td><td><code>LocalNotificationManager.RegisterOrReplace</code>, title/body qua localize key</td><td class="m">scheduled · replaced</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================ 6. LƯU TRỮ ============================ -->
+<section id="luu">
+  <h2>Ba nơi dữ liệu nằm lại</h2>
+  <p class="where">LatestWinsWriter · FileStateStorage · PlayerUserSegment (DataPlayer)</p>
+  <div class="prose">
+    <p>
+      State của engine nằm trong file riêng của SDK, còn lịch sử action thì nằm <em>hai chỗ</em>: bản chính đi theo
+      save của game (để được backup và đồng bộ cloud như mọi player data khác) và một bản sao trong state của engine.
+      Lúc <code>Initialize()</code> hai bản được merge, nên khôi phục save trên máy mới không làm mất lượt one-shot,
+      mà cũng không cho nhận lại quà đã nhận.
+    </p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 430" style="min-width:880px" role="img" aria-label="EngineState và ConfigCache ghi qua LatestWinsWriter xuống hai file json; ActionHistory ghi song song vào mirror trong state và vào save của game">
+        <text class="tb" x="20"  y="34">TRONG RAM</text>
+        <text class="tb" x="348" y="34">ĐƯỜNG GHI</text>
+        <text class="tb" x="676" y="34">NẰM LẠI Ở ĐÂU</text>
+
+        <rect class="box-core" x="20" y="48" width="230" height="56"/>
+        <text class="t"  x="135" y="70" text-anchor="middle">EngineState</text>
+        <text class="ts" x="135" y="87" text-anchor="middle">scalar · counter · tag · edge · exp</text>
+
+        <rect class="box" x="20" y="128" width="230" height="56"/>
+        <text class="t"  x="135" y="150" text-anchor="middle">ConfigCache</text>
+        <text class="ts" x="135" y="167" text-anchor="middle">envelope thô + fetched_at</text>
+
+        <rect class="box-hot" x="20" y="238" width="230" height="56"/>
+        <text class="t"  x="135" y="260" text-anchor="middle">ActionHistory</text>
+        <text class="ts" x="135" y="277" text-anchor="middle">{ id: n lượt, f đầu, l cuối }</text>
+
+        <rect class="box" x="348" y="48" width="230" height="136"/>
+        <text class="t"  x="463" y="80" text-anchor="middle">LatestWinsWriter</text>
+        <text class="ts" x="463" y="98" text-anchor="middle">serialize trên thread gọi,</text>
+        <text class="ts" x="463" y="112" text-anchor="middle">ghi ở Task.Run nền</text>
+        <text class="ts" x="463" y="126" text-anchor="middle">bản mới đè bản chưa kịp ghi</text>
+        <text class="ts" x="463" y="146" text-anchor="middle">OnPause / OnQuit → FlushSync</text>
+        <text class="ts" x="463" y="160" text-anchor="middle">WriteAtomic: tmp + rename</text>
+
+        <rect class="box-hot" x="348" y="238" width="230" height="56"/>
+        <text class="t"  x="463" y="260" text-anchor="middle">SaveHistory()</text>
+        <text class="ts" x="463" y="277" text-anchor="middle">gọi ngay tại lúc action được chọn</text>
+
+        <rect class="box-keep" x="676" y="48" width="268" height="52"/>
+        <text class="t"  x="810" y="70" text-anchor="middle">…/seg/state.json</text>
+        <text class="ts" x="810" y="87" text-anchor="middle">Application.persistentDataPath</text>
+
+        <rect class="box-keep" x="676" y="120" width="268" height="52"/>
+        <text class="t"  x="810" y="142" text-anchor="middle">…/seg/config_cache.json</text>
+        <text class="ts" x="810" y="159" text-anchor="middle">stale &gt; 7 ngày vẫn dùng được</text>
+
+        <rect class="box-keep" x="676" y="216" width="268" height="52"/>
+        <text class="t"  x="810" y="238" text-anchor="middle">State.HistoryMirror</text>
+        <text class="ts" x="810" y="255" text-anchor="middle">đi kèm trong state.json</text>
+
+        <rect class="box-keep" x="676" y="288" width="268" height="52"/>
+        <text class="t"  x="810" y="310" text-anchor="middle">PlayerUserSegment.HistoryBlob</text>
+        <text class="ts" x="810" y="327" text-anchor="middle">DataPlayer → PlayerPrefs → cloud save</text>
+
+        <line class="e" x1="250" y1="76"  x2="342" y2="90"  marker-end="url(#arw)"/>
+        <line class="e" x1="250" y1="156" x2="342" y2="140" marker-end="url(#arw)"/>
+        <line class="e-hot" x1="250" y1="266" x2="342" y2="266" marker-end="url(#arw-hot)"/>
+
+        <line class="e-keep" x1="578" y1="90"  x2="670" y2="74"  marker-end="url(#arw-keep)"/>
+        <line class="e-keep" x1="578" y1="140" x2="670" y2="146" marker-end="url(#arw-keep)"/>
+        <line class="e-keep" x1="578" y1="254" x2="670" y2="242" marker-end="url(#arw-keep)"/>
+        <line class="e-keep" x1="578" y1="278" x2="670" y2="314" marker-end="url(#arw-keep)"/>
+        <text class="el" x="624" y="232" text-anchor="middle">bản sao</text>
+        <text class="el" x="624" y="330" text-anchor="middle">bản chính</text>
+
+        <rect class="box" x="20" y="352" width="924" height="56"/>
+        <text class="t"  x="482" y="374" text-anchor="middle">Initialize() và ImportActionHistory() → ActionHistory.Merge(store, mirror)</text>
+        <text class="ts" x="482" y="391" text-anchor="middle">n lấy max · f lấy min khác 0 · l lấy max · uid ưu tiên bản có — nên restore cloud không cấp lại quà one-shot, và mất state.json vẫn giữ nguyên uid</text>
+        <line class="e" x1="810" y1="340" x2="810" y2="346" marker-end="url(#arw)"/>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Chỉ pause và quit mới ghi đồng bộ;</b> mọi lần khác đều đẩy xuống worker nền và bản mới nhất thắng.
+      Điều đó có nghĩa là một lần kill app đột ngột giữa session có thể mất vài giây state cuối, nhưng
+      <em>không</em> mất lịch sử action — <code>SaveHistory()</code> ghi thẳng vào save của game ngay tại lúc chọn action.
+    </figcaption>
+  </figure>
+</section>
+
+<!-- ============================ 7. TRACKING ============================ -->
+<section id="tracking">
+  <h2>Dữ liệu đi ra ngoài</h2>
+  <p class="where">TrackingEmitter → UserSegmentTrackingSink → TrackingService.SendFirebase</p>
+  <div class="prose">
+    <p>
+      Engine không biết Firebase. Nó gọi <code>ITrackingSink</code> với dictionary chỉ chứa
+      <code>long</code>, <code>double</code>, <code>string</code>; mọi lời gọi được bọc try/catch nên sink hỏng
+      không làm gãy pipeline, chỉ tăng <code>SinkErrors</code>. Ở build release, mọi chuỗi bị cắt về 100 ký tự
+      tại ký tự nối cuối cùng để không tạo phần tử cụt.
+    </p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th class="m">Event</th><th>Bắn khi nào</th><th>Tham số đáng chú ý</th></tr></thead>
+      <tbody>
+        <tr><td class="m">seg_snapshot</td><td>mỗi <code>SESSION_START</code></td><td>user_id, config_version/source, holdout, engine_enabled, seg_*, tags, exps</td></tr>
+        <tr><td class="m">seg_decision</td><td>trigger có rule khớp, hoặc 5 % số trigger còn lại</td><td>trigger, rules_matched, selected, dropped, segments, features, eval_ms, sampled</td></tr>
+        <tr><td class="m">action_selected</td><td>resolver chốt một action</td><td>action_id, execution_id, rule_id, group, nth</td></tr>
+        <tr><td class="m">action_presented</td><td>executor bắt đầu hiển thị / áp</td><td>execution_id, action_id</td></tr>
+        <tr><td class="m">action_executed</td><td>người chơi phản hồi xong</td><td>result (kiểm theo bộ giá trị của từng action type)</td></tr>
+        <tr><td class="m">action_failed</td><td>executor báo lỗi</td><td>reason — <code>offline</code>/<code>no_permission</code> kéo theo hoàn lại</td></tr>
+        <tr><td class="m">exp_exposure</td><td>lần đầu một rule thuộc experiment khớp</td><td>exp_id, variant, rule_id, history_used, trigger</td></tr>
+        <tr><td class="m">config_rejected</td><td>envelope không qua parser/validator</td><td>version, reason, sdk_version</td></tr>
+        <tr><td class="m">rule_unsupported</td><td>PostLoad thấy rule build này không chạy được</td><td>rule_id, reason, config_version</td></tr>
+        <tr><td class="m">engine_error</td><td>exception trong pipeline (chỉ lần đầu mỗi session)</td><td>stage, message (cắt 100 ký tự)</td></tr>
+        <tr><td class="m">state_reset</td><td>state.json hoặc history blob hỏng</td><td>reason</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>User property</h3>
+  <ul>
+    <li><code>seg_&lt;partition_id&gt;</code> — đặt lại mỗi khi giá trị partition đổi, trong <code>EvaluateFeaturesAndSegments</code>.</li>
+    <li><code>seg_holdout</code> — <code>"1"</code> nếu user rơi vào holdout, <code>null</code> (xoá property) nếu không.</li>
+    <li><code>exp_&lt;layer&gt;</code> — <code>exp_id:variant</code>, ghi lại ở mỗi lần load config; layer hết experiment thì xoá.</li>
+  </ul>
+</section>
+
+<!-- ============================ 8. BẪY ============================ -->
+<section id="bay">
+  <h2>Điểm dễ sai khi nối tiếp</h2>
+  <div class="notes">
+    <div class="note">
+      <h4>Thời gian không đi qua TimeManager</h4>
+      <p><code>UnityTimeSource</code> dùng <code>DateTimeOffset.UtcNow</code> thô cộng offset học từ server. Cố tình như vậy: cheat <code>BonusTimeNow</code> của game sẽ kích <code>clock_suspect</code> chứ không lặng lẽ làm lệch segment.</p>
+    </div>
+    <div class="note">
+      <h4>one_shot cần history store</h4>
+      <p>Không truyền <code>ActionHistoryStore</code> thì mọi rule trỏ tới action <code>one_shot</code> bị tắt với lý do <code>one_shot_no_store</code> — config vẫn được nhận, action thì không bao giờ chạy.</p>
+    </div>
+    <div class="note">
+      <h4>Executor phải đăng ký trước Initialize</h4>
+      <p><code>Manifest.actions</code> được chốt tại thời điểm load config đầu tiên. Đăng ký muộn chỉ có hiệu lực từ lần load config sau, và có cảnh báo ở dev build.</p>
+    </div>
+    <div class="note">
+      <h4>PURCHASE chỉ từ luồng mua mới</h4>
+      <p><code>UserSegmentPurchaseBridge</code> yêu cầu khớp cặp bấm-mua → cấp-quà. Restore và recover order không đi qua bước bấm mua nên không emit; nếu không, chi tiêu của user bị cộng lặp.</p>
+    </div>
+    <div class="note">
+      <h4>usd đang lấy giá local</h4>
+      <p><code>UserSegmentSeedProvider</code> seed <code>TotalSpendUsd</code> từ <code>IAPRevenue</code> (giá bản địa), và <code>PurchaseBridge</code> lấy <code>pack.iapCost</code>. Project thật cần bảng giá USD theo productId.</p>
+    </div>
+    <div class="note">
+      <h4>engine_error tắt evaluate</h4>
+      <p>Một exception bất kỳ trong stage evaluate làm <code>_evalDisabled = true</code> tới <code>SESSION_START</code> kế tiếp. Reducer và persist vẫn chạy, nên state không thủng — nhưng không rule nào chạy nữa trong session đó.</p>
+    </div>
+    <div class="note">
+      <h4>Catalog rỗng = action fail</h4>
+      <p>Thiếu asset <code>UserSegmentCatalog</code> trong Resources thì reward/popup/offer/notification đều trả <code>unknown_id</code>. Đây cũng là nguồn của <code>manifest.rewards</code>, nên rule tương ứng bị tắt ngay từ PostLoad.</p>
+    </div>
+    <div class="note">
+      <h4>Mọi API phải ở main thread</h4>
+      <p><code>IsMainThread</code> được SDK gán; gọi sai thread thì dev build ném exception, release build bỏ event và log error một lần.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 9. FILE ============================ -->
+<section id="file">
+  <h2>Bản đồ file</h2>
+  <p class="where">Assets/_Project/Features/System/UserSegment/</p>
+  <ul class="files">
+    <li><span class="p">Package/Runtime/Engine/Core/SegEngine.cs</span><span class="d">Queue, vòng đời, config, evaluate, dispatch, persist — 1.121 dòng, trung tâm của mọi thứ trên trang này</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/Reducer.cs</span><span class="d">Event → state; rollover counter theo ngày UTC</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/Evaluator.cs</span><span class="d">Chạy AST của formula/segment/rule trên EvalContext</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/Resolver.cs</span><span class="d">6 cổng lọc candidate + Refund khi action thất bại có hoàn</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/Assignment.cs</span><span class="d">Holdout và assignment experiment sticky theo layer (hash user_id)</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/Clock.cs</span><span class="d">now = device UTC + offset; phát hiện nhảy đồng hồ</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/TrackingEmitter.cs</span><span class="d">Gói param, cắt 100 ký tự ở release, nuốt lỗi sink</span></li>
+    <li><span class="p">Package/Runtime/Engine/Core/LatestWinsWriter.cs</span><span class="d">Ghi file nền, bản mới nhất thắng; FlushSync cho pause/quit</span></li>
+    <li><span class="p">Package/Runtime/Engine/State/EngineState.cs</span><span class="d">Toàn bộ state bền + serialize JSON</span></li>
+    <li><span class="p">Package/Runtime/Engine/State/WindowCounter.cs</span><span class="d">life / session / days[30] cho mỗi counter</span></li>
+    <li><span class="p">Package/Runtime/Engine/State/ActionHistory.cs</span><span class="d">Blob lịch sử action + luật merge</span></li>
+    <li><span class="p">Package/Runtime/Engine/Config/ConfigParser.cs</span><span class="d">Envelope + config → SegConfig, strict</span></li>
+    <li><span class="p">Package/Runtime/Engine/Config/ConfigValidator.cs</span><span class="d">Ref, kiểu, chu trình, hạn mức — quyết định nhận hay từ chối</span></li>
+    <li><span class="p">Package/Runtime/Engine/Config/Manifest.cs</span><span class="d">Khả năng của build, đối chiếu khi validate</span></li>
+    <li><span class="p">Package/Runtime/Engine/Config/StateSchema.cs</span><span class="d">Bảng ref state.* / context.* mà config được phép đọc</span></li>
+    <li><span class="p">Package/Runtime/Unity/SegmentationSdk.cs</span><span class="d">API tĩnh cho game — Initialize, RegisterExecutor, 12 hàm event</span></li>
+    <li><span class="p">Package/Runtime/Unity/SegSdkBehaviour.cs</span><span class="d">Fetch config, pause/resume/quit, Tick drain queue</span></li>
+    <li><span class="p">Package/Runtime/Unity/UnityAdapters.cs</span><span class="d">FileStateStorage, UnityConfigFetcher, UnityTimeSource, UnityLogger</span></li>
+    <li><span class="p">Package/Runtime/Unity/SegDebugOverlay.cs</span><span class="d">Overlay IMGUI, bật từ GameCheat ở dev build</span></li>
+    <li><span class="p">Integration/UserSegmentBootstrap.cs</span><span class="d">Điểm wiring duy nhất giữa game và SDK</span></li>
+    <li><span class="p">Integration/UserSegmentCatalog.cs</span><span class="d">ScriptableObject map id config → reward/screen/product của game</span></li>
+    <li><span class="p">Integration/UserSegmentScreens.cs</span><span class="d">GameEnums.Features ↔ screen_id snake_case</span></li>
+    <li><span class="p">Integration/UserSegmentPurchaseBridge.cs</span><span class="d">Lọc luồng mua mới khỏi restore trước khi emit PURCHASE</span></li>
+    <li><span class="p">Integration/UserSegmentTrackingSink.cs</span><span class="d">ITrackingSink → TrackingService/Firebase</span></li>
+    <li><span class="p">Integration/UserSegmentSeedProvider.cs</span><span class="d">Seed state cho user đã chơi từ trước</span></li>
+    <li><span class="p">Integration/Data/PlayerUserSegment.cs</span><span class="d">IActionHistoryStore trên DataPlayer của game</span></li>
+    <li><span class="p">Integration/Executors/*.cs</span><span class="d">5 executor — nơi action chạm vào game thật</span></li>
+  </ul>
+
+  <h3>Điểm nối trong phần còn lại của game</h3>
+  <ul>
+    <li><code>Features/Onboarding/SplashScene/Scripts/Controller/SplashSceneController.cs:143</code> — <code>UserSegmentBootstrap.Init()</code></li>
+    <li><code>Features/_Shared/UI/Framework/UIManager.cs:313</code> — <code>NotifyScreenOpen(featureType)</code></li>
+    <li><code>Features/_Shared/Purchase/PurchaseManager.cs:147</code> — <code>NotifyBuyClicked(productId)</code></li>
+    <li><code>Features/_Shared/Purchase/IAPIntegration/GameIapHost.cs:82</code> — <code>NotifyGranted(transactionId, productId)</code></li>
+    <li><code>Features/_Shared/Analytics/Integration/Ads/GameAdsTracker.cs:44,51</code> — <code>AdRewarded</code> / <code>AdInterstitial</code></li>
+    <li><code>Features/System/GameCheat/Scripts/GameCheatController.cs:54</code> — bật debug overlay</li>
+    <li><code>Features/_Shared/Config/AppSecretsConfig.cs</code> — URL, token, env của config</li>
+  </ul>
+</section>
+
+<footer>
+  Dựng từ codegraph + mã nguồn tại <span style="white-space:nowrap">Assets/_Project/Features/System/UserSegment</span> · 47 file · 6.583 dòng.
+  Tài liệu thiết kế gốc: Docs/ (v0.4 + Phụ lục C).
+</footer>
+
+</div>
+</body>
+</html>

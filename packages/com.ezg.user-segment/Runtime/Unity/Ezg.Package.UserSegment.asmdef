@@ -1,0 +1,17 @@
+{
+    "name": "Ezg.Package.UserSegment",
+    "rootNamespace": "Ezg.UserSegment",
+    "references": [
+        "Ezg.Package.UserSegment.Engine",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "exp.* in AST → ref",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "rules": [ { "id": "bad", "enabled": true, "priority": 0, "on": ["SESSION_START"], "fire": "level", "when": { "op": "EQ", "args": [ { "ref": "exp.gameplay_help" }, { "value": "x" } ] }, "then": "none", "valid_until": "2026-12-31T00:00:00Z" } ], "experiments": [] },
+  "events": [],
+  "expect": { "config_accepted": false, "tracking": [ { "name": "config_rejected", "params": { "reason": "ref" } } ] }
+}

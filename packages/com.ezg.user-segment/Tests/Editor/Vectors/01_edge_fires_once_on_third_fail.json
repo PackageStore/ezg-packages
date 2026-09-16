@@ -1,0 +1,42 @@
+{
+  "name": "edge fires once on third fail at result screen (treatment)",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "variant": { "booster_when_frustrated_v1": "booster" },
+  "events": [
+    { "at": 1759287610, "type": "PROGRESS_START", "unit_id": 41 },
+    { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 41, "duration_s": 30 },
+    { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "result" },
+    { "at": 1759287700, "type": "PROGRESS_START", "unit_id": 41 },
+    { "at": 1759287730, "type": "PROGRESS_FAIL", "unit_id": 41, "duration_s": 30 },
+    { "at": 1759287731, "type": "SCREEN_OPEN", "screen_id": "result" },
+    { "at": 1759287800, "type": "PROGRESS_START", "unit_id": 41 },
+    { "at": 1759287830, "type": "PROGRESS_FAIL", "unit_id": 41, "duration_s": 30 },
+    { "at": 1759287831, "type": "SCREEN_OPEN", "screen_id": "result" },
+    { "at": 1759287900, "type": "SCREEN_OPEN", "screen_id": "result" }
+  ],
+  "expect": {
+    "state": { "scalars.fail_streak": 3, "counters.fail_count.session": 3, "scalars.attempt_count_current_unit": 3 },
+    "features": { "fail_rate": 1.0 },
+    "segments": { "frustrated": true, "lifecycle": "new" },
+    "decisions": [
+      { "trigger": "SESSION_START", "rules_matched": ["comeback_notification"], "selected": ["notify_comeback_23h"], "dropped": [] },
+      { "trigger": "SCREEN_OPEN:result", "rules_matched": ["booster_level", "hint_level"], "selected": ["give_booster_small", "show_hint"], "dropped": [] },
+      { "trigger": "SCREEN_OPEN:result", "rules_matched": ["booster_level", "booster_big_level", "hint_level"], "selected": [], "dropped": ["give_booster_small:cooldown", "give_booster_big:daily_cap", "show_hint:daily_cap"] },
+      { "trigger": "SCREEN_OPEN:result", "rules_matched": ["booster_when_frustrated", "booster_level", "booster_big_level", "hint_level"], "selected": [], "dropped": ["give_booster_small:cooldown", "give_booster_big:daily_cap", "show_hint:daily_cap"] },
+      { "trigger": "SCREEN_OPEN:result", "rules_matched": ["booster_level", "booster_big_level", "hint_level"], "selected": [], "dropped": ["give_booster_small:cooldown", "give_booster_big:daily_cap", "show_hint:daily_cap"] }
+    ],
+    "tracking": [
+      { "name": "seg_snapshot", "params": { "config_version": 1, "config_source": "fresh", "seg_lifecycle": "new", "engine_enabled": 1 } },
+      { "name": "action_selected", "params": { "action_id": "give_booster_small", "rule_id": "booster_level", "nth": 1 } },
+      { "name": "action_executed", "params": { "action_id": "give_booster_small", "result": "granted" } },
+      { "name": "exp_exposure", "params": { "exp_id": "booster_when_frustrated_v1", "variant": "booster", "rule_id": "booster_when_frustrated", "history_used": 0, "trigger": "SCREEN_OPEN:result" } }
+    ],
+    "executor": [
+      { "action_id": "notify_comeback_23h", "type": "SCHEDULE_LOCAL_NOTIFICATION", "params": { "template_id": "comeback_daily", "delay_h": 23 } },
+      { "action_id": "give_booster_small", "type": "GIVE_REWARD", "params": { "reward_id": "booster_hammer", "amount": 1 } },
+      { "action_id": "show_hint", "type": "SHOW_POPUP" }
+    ],
+    "history": { "give_booster_small": 1, "show_hint": 1, "notify_comeback_23h": 1 },
+    "properties": { "seg_lifecycle": "new", "exp_gameplay_help": "booster_when_frustrated_v1:booster" }
+  }
+}

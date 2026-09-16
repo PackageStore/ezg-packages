@@ -1,0 +1,18 @@
+{
+    "name": "Ezg.Package.UserSegment.Editor",
+    "rootNamespace": "Ezg.UserSegment.Editor",
+    "references": [
+        "Ezg.Package.UserSegment"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

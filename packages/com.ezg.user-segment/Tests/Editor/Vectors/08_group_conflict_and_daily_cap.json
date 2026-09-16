@@ -1,0 +1,17 @@
+{
+  "name": "two reward actions same trigger → lower priority dropped group; daily cap counts non-notification only",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "max_actions_per_day": 1 },
+  "events": [
+    { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287650, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287651, "type": "SCREEN_OPEN", "screen_id": "result" }
+  ],
+  "expect": {
+    "decisions": [
+      { "trigger": "SESSION_START", "selected": ["notify_comeback_23h"], "dropped": [] },
+      { "trigger": "SCREEN_OPEN:result", "rules_matched": ["booster_level", "booster_big_level", "hint_level"], "selected": ["give_booster_small"], "dropped": ["give_booster_big:group", "show_hint:daily_cap"] }
+    ],
+    "state": { "shown_today.count": 1 }
+  }
+}

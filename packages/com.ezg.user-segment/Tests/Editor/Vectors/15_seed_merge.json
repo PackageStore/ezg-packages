@@ -1,0 +1,13 @@
+{
+  "name": "Seed after SESSION_START: install_at min non-zero, counters max, seeded flag; payer stays payer",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "events": [
+    { "at": 1759287700, "type": "SEED", "payload": { "InstallAt": 1750000000, "LastActiveAt": 1759000000, "PurchaseCount": 2, "TotalSpendUsd": 9.99, "ProgressMax": 40 } },
+    { "at": 1759287701, "type": "SEED", "payload": { "InstallAt": 1740000000, "PurchaseCount": 9 } },
+    { "at": 1759287702, "type": "SCREEN_OPEN", "screen_id": "shop" }
+  ],
+  "expect": {
+    "state": { "seeded": true, "scalars.install_at": 1750000000, "scalars.progress_max": 40, "scalars.total_spend_usd": 9.99, "counters.purchase_count.life": 2, "counters.purchase_count.days[0]": 0 },
+    "decisions": [ { "trigger": "SCREEN_OPEN:shop", "rules_matched": [], "selected": [], "dropped": [] } ]
+  }
+}

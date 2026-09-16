@@ -1,0 +1,21 @@
+{
+  "name": "reward outside manifest and expired rule are disabled, config still accepted",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": [], "screens": ["result", "shop"], "custom_events": [], "custom_state": {} },
+  "config_patch": { "rules": [
+    { "id": "booster_level", "enabled": true, "priority": 90, "on": [ "SCREEN_OPEN:result" ], "fire": "level", "when": { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 1 } ] }, "then": "give_booster_small", "valid_until": "2026-12-31T00:00:00Z" },
+    { "id": "old_rule", "enabled": true, "priority": 5, "on": [ "SCREEN_OPEN:result" ], "fire": "level", "when": { "value": true }, "then": "show_hint", "valid_until": "2020-01-01T00:00:00Z" },
+    { "id": "hint_level", "enabled": true, "priority": 70, "on": [ "SCREEN_OPEN:result" ], "fire": "level", "when": { "op": "GTE", "args": [ { "ref": "state.fail_streak" }, { "value": 1 } ] }, "then": "show_hint", "valid_until": "2026-12-31T00:00:00Z" }
+  ], "experiments": [] },
+  "events": [
+    { "at": 1759287640, "type": "PROGRESS_FAIL", "unit_id": 1, "duration_s": 30 },
+    { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "result" }
+  ],
+  "expect": {
+    "config_accepted": true,
+    "tracking": [
+      { "name": "rule_unsupported", "params": { "rule_id": "booster_level", "reason": "reward" } },
+      { "name": "rule_unsupported", "params": { "rule_id": "old_rule", "reason": "expired" } }
+    ],
+    "decisions": [ { "trigger": "SCREEN_OPEN:result", "rules_matched": ["hint_level"], "selected": ["show_hint"], "dropped": [] } ]
+  }
+}

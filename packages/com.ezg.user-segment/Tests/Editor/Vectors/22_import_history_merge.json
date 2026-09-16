@@ -1,0 +1,12 @@
+{
+  "name": "ImportActionHistory merges (n max, f min, l max) without overwriting",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "events": [
+    { "at": 1759287700, "type": "SCREEN_OPEN", "screen_id": "shop" },
+    { "at": 1759287701, "type": "IMPORT_HISTORY", "payload": { "blob": "{\"v\":1,\"actions\":{\"starter_pack_offer\":{\"n\":1,\"f\":1700000000,\"l\":1700000000},\"give_booster_small\":{\"n\":3,\"f\":1700000000,\"l\":1700000100}}}" } }
+  ],
+  "expect": {
+    "history": { "starter_pack_offer": 1, "give_booster_small": 3 },
+    "state": { "history_mirror.actions.starter_pack_offer.f": 1700000000, "history_mirror.actions.starter_pack_offer.l": 1759287700 }
+  }
+}

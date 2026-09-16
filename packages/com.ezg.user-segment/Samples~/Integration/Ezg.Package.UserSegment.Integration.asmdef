@@ -1,0 +1,28 @@
+{
+    "name": "Ezg.Package.UserSegment.Integration",
+    "rootNamespace": "Ezg.Feature.System.UserSegment",
+    "references": [
+        "Ezg.Package.UserSegment",
+        "Ezg.Package.UserSegment.Engine",
+        "Ezg.Features",
+        "Ezg.Core",
+        "Ezg.Package.Factory",
+        "Ezg.Tracking",
+        "Ezg.LocalNotification",
+        "Ezg.Core.Localize",
+        "TigerForge.EasyEventManager",
+        "UniTask",
+        "Ezg.Singleton",
+        "Ezg.Dictionary",
+        "Ezg.InstanceFactory"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

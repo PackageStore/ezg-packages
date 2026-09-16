@@ -1,0 +1,14 @@
+{
+  "name": "config with unknown field rejected → schema; no config → snapshot source none",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "config_patch": { "cooldown": 5 },
+  "events": [ { "at": 1759287641, "type": "SCREEN_OPEN", "screen_id": "result" } ],
+  "expect": {
+    "config_accepted": false,
+    "tracking": [
+      { "name": "config_rejected", "params": { "reason": "schema", "version": 1 } },
+      { "name": "seg_snapshot", "params": { "config_version": 0, "config_source": "none", "engine_enabled": 0 } }
+    ],
+    "tracking_absent": [ "seg_decision", "action_selected" ]
+  }
+}

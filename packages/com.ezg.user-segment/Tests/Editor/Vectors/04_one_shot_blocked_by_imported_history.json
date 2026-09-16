@@ -1,0 +1,12 @@
+{
+  "name": "history from save (reinstall) blocks one_shot before any selection; history_used on exposure",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "fixture": { "history": { "v": 1, "uid": "old_user_id_from_save", "actions": { "starter_pack_offer": { "n": 1, "f": 1750000000, "l": 1750000000 } } } },
+  "events": [ { "at": 1759287700, "type": "SCREEN_OPEN", "screen_id": "shop" } ],
+  "expect": {
+    "state": { "user_id": "old_user_id_from_save" },
+    "decisions": [ { "trigger": "SCREEN_OPEN:shop", "rules_matched": ["starter_offer_on_shop"], "selected": [], "dropped": ["starter_pack_offer:one_shot"] } ],
+    "tracking": [ { "name": "seg_snapshot", "params": { "user_id": "old_user_id_from_save" } } ],
+    "history": { "starter_pack_offer": 1 }
+  }
+}

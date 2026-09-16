@@ -1,0 +1,14 @@
+{
+  "name": "pause then resume after timeout → SESSION_END + new SESSION_START; playtime accumulated; short resume keeps session",
+  "manifest": { "actions": ["GIVE_REWARD", "SHOW_POPUP", "SHOW_OFFER", "SCHEDULE_LOCAL_NOTIFICATION"], "rewards": ["booster_hammer"], "screens": ["result", "shop", "home"], "custom_events": ["upgrade"], "custom_state": { "hint_used": "NUMBER", "vip": "BOOL" } },
+  "events": [
+    { "at": 1759287700, "type": "PAUSE" },
+    { "at": 1759287800, "type": "RESUME" },
+    { "at": 1759287900, "type": "PAUSE" },
+    { "at": 1759290000, "type": "RESUME" }
+  ],
+  "expect": {
+    "state": { "counters.session_count.life": 2, "counters.playtime_s.life": 200, "session.open": true, "session.started_at": 1759290000 },
+    "tracking": [ { "name": "seg_snapshot" }, { "name": "seg_snapshot" } ]
+  }
+}
