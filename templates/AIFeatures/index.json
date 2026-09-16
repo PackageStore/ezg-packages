@@ -2057,7 +2057,7 @@
       "id": "Skills/execute-backlog-tasks",
       "name": "execute-backlog-tasks",
       "category": "Skills",
-      "description": "Automatically execute backlog tasks by launching the run-backlog loop runner. On macOS/Linux it runs run-backlog-loop.sh (which spawns one Terminal window per task); on Windows it falls back to the PowerShell/.bat runner. Triggers on requests like \"execute backlog tasks\", \"run backlog loop\", \"execute tasks in backlog\", \"run backlog\".",
+      "description": "Automatically execute backlog tasks by launching the run-backlog loop runner. Runs with defaults immediately — no questions asked — unless the user passes explicit parameters. On macOS/Linux it runs run-backlog-loop.sh (which spawns one Terminal window per task); on Windows it falls back to the PowerShell runner. Triggers on requests like \"execute backlog tasks\", \"run backlog loop\", \"execute tasks in backlog\", \"run backlog\".",
       "installPath": ".claude/skills/execute-backlog-tasks",
       "isDirectory": true,
       "files": [
@@ -2068,8 +2068,8 @@
       "source": "defaultsetup",
       "fileName": "execute-backlog-tasks.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip",
-      "sha256": "93809e378eda63a7ac63da3c5545d20b31a619b25197ba1e8cba34a48498f8d6",
-      "size": 2221
+      "sha256": "174b1cd73ddf0796876439f911f24dbf0aee7b59dada7714edee087a9a7774df",
+      "size": 2900
     },
     {
       "id": "Skills/feature-cheat",
