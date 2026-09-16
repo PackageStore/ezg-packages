@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.2] - 2026-09-16
+### Changed
+- Menu **Ezg > User Segment > Init** no longer blocks when the project lacks assemblies the Integration layer references (`Ezg.Features`, `Ezg.Tracking`, `Ezg.LocalNotification`…); it now warns (log + dialog with "Vẫn copy" / "Huỷ") and lets the developer copy anyway, since those assemblies are the template's own code, not something to install.
+### Added
+- Init also checks the template core for the 6 `EventName` hooks the bootstrap listens to (`PlayerDataLoaded`, `OnShowFeature`, `PurchaseOnlineRequested`, `IapTransactionGranted`, `AdRewardedCompleted`, `AdInterstitialShown`) and warns which ones an older template is missing.
+
 ## [0.0.1] - 2026-09-16
 ### Added
 - Initial release extracted from `Assets/_Project/Features/System/UserSegment/Package` (Unity Game Template).

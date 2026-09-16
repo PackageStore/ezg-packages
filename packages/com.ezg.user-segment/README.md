@@ -31,7 +31,7 @@ Project sinh từ template đã có scoped registry **Easygoing**, chỉ cần t
 
 ```json
 "dependencies": {
-  "com.ezg.user-segment": "0.0.1"
+  "com.ezg.user-segment": "0.0.2"
 }
 ```
 
@@ -54,7 +54,11 @@ Hoặc cài từ tab **UPM Packages** của Feature Hub. `com.unity.nuget.newton
 | `Ezg.LocalNotification` | `com.ezg.local-notification` |
 | `TigerForge.EasyEventManager` | `com.ezg.easy-event-manager` |
 
-Menu Init tự kiểm tra danh sách này trước khi copy; thiếu assembly nào nó báo tên và **không copy gì**.
+`Ezg.Features` **không phải package để cài** — nó là asmdef của chính code project
+(`Assets/_Project/Features/Ezg.Features.asmdef`), project nào sinh từ template đều có sẵn. Menu Init kiểm tra
+danh sách này và 6 hook core (mục 4) trước khi copy; thiếu gì nó **chỉ cảnh báo** (log + dialog "Vẫn copy" /
+"Huỷ"), dev vẫn được copy rồi tự bổ sung. Copy khi còn thiếu ⇒ assembly Integration báo lỗi compile cho tới
+khi project có đủ.
 
 ---
 

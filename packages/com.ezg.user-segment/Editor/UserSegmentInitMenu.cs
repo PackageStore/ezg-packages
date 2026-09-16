@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Compilation;
@@ -14,6 +15,7 @@ namespace Ezg.UserSegment.Editor
     ///     <see cref="TARGET_PATH" />, giữ nguyên <c>.meta</c> nên GUID không đổi (catalog asset không mất script).
     ///     Package KHÔNG khai field <c>samples</c> trong package.json để Package Manager không hiện nút Import —
     ///     menu này là cửa vào duy nhất, tránh dev import ra <c>Assets/Samples/</c> gây trùng class.
+    ///     Thiếu assembly / hook core chỉ CẢNH BÁO (dev chọn vẫn copy hay huỷ), không chặn.
     /// </summary>
     public static class UserSegmentInitMenu
     {
@@ -22,6 +24,13 @@ namespace Ezg.UserSegment.Editor
 
         private const string SAMPLE_REL_PATH = "Samples~/Integration";
         private const string EDITOR_ASSEMBLY = "Ezg.Package.UserSegment.Editor";
+        private const string CORE_ASSEMBLY = "Ezg.Features";
+
+        private static readonly string[] REQUIRED_CORE_HOOKS =
+        {
+            "PlayerDataLoaded", "OnShowFeature", "PurchaseOnlineRequested", "IapTransactionGranted",
+            "AdRewardedCompleted", "AdInterstitialShown"
+        };
         private const string LOG_PREFIX = "[UserSegment] Init:";
         private static readonly Regex AsmdefReferenceRegex = new Regex("\"([A-Za-z0-9_.]+)\"", RegexOptions.Compiled);
 
@@ -42,14 +51,25 @@ namespace Ezg.UserSegment.Editor
                 return;
             }
 
-            var missing = FindMissingAssemblies(source);
-            if (missing.Count > 0)
+            // Chỉ CẢNH BÁO, không chặn: dev vẫn được copy rồi tự bổ sung assembly / hook còn thiếu.
+            var warnings = new List<string>();
+            var missingAssemblies = FindMissingAssemblies(source);
+            if (missingAssemblies.Count > 0)
+                warnings.Add($"Thiếu assembly Integration tham chiếu (Integration sẽ KHÔNG compile cho tới khi project có đủ):\n  - {string.Join("\n  - ", missingAssemblies)}");
+
+            var missingHooks = FindMissingCoreHooks();
+            if (missingHooks.Count > 0)
+                warnings.Add($"Core chưa phát các hook sau trong EventName (template cũ — thêm theo README mục 4):\n  - {string.Join("\n  - ", missingHooks)}");
+
+            if (warnings.Count > 0)
             {
-                var msg = $"Integration cần các assembly sau nhưng project chưa có:\n  - {string.Join("\n  - ", missing)}\n\n" +
-                          "Project phải sinh từ Unity Game Template (Ezg.Features, Ezg.Tracking…) và đã cài com.ezg.local-notification. Không copy gì.";
-                Debug.LogError($"{LOG_PREFIX} {msg}");
-                if (!Application.isBatchMode) EditorUtility.DisplayDialog("User Segment Init", msg, "OK");
-                return;
+                var msg = string.Join("\n\n", warnings);
+                Debug.LogWarning($"{LOG_PREFIX} {msg}");
+                if (!Application.isBatchMode && !EditorUtility.DisplayDialog("User Segment Init — cảnh báo", msg + "\n\nVẫn copy Integration vào project?", "Vẫn copy", "Huỷ"))
+                {
+                    Debug.Log($"{LOG_PREFIX} huỷ, không thay đổi gì.");
+                    return;
+                }
             }
 
             var target = Path.GetFullPath(TARGET_PATH);
@@ -121,6 +141,32 @@ namespace Ezg.UserSegment.Editor
                     if (name.StartsWith("GUID:", StringComparison.OrdinalIgnoreCase)) continue;
                     if (!available.Contains(name) && !missing.Contains(name)) missing.Add(name);
                 }
+            }
+
+            return missing;
+        }
+
+        /// <summary>
+        ///     6 hook generic mà UserSegmentBootstrap lắng nghe. Tìm type EventName (partial class của template) trong các
+        ///     assembly đã load và kiểm tra từng tên — thiếu = template cũ, Integration sẽ báo lỗi compile ở đúng chỗ đó.
+        /// </summary>
+        private static List<string> FindMissingCoreHooks()
+        {
+            var missing = new List<string>();
+            Type eventNameType = null;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (asm.GetName().Name != CORE_ASSEMBLY) continue;
+                eventNameType = asm.GetType("EventName") ?? Array.Find(asm.GetTypes(), t => t.Name == "EventName");
+                break;
+            }
+
+            if (eventNameType == null) return missing; // không có core → đã báo ở phần assembly
+
+            foreach (var hook in REQUIRED_CORE_HOOKS)
+            {
+                var found = eventNameType.GetField(hook, BindingFlags.Public | BindingFlags.Static) != null;
+                if (!found) missing.Add(hook);
             }
 
             return missing;
