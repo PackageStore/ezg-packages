@@ -13,12 +13,15 @@ namespace Ezg.UserSegment.Engine
         public readonly SortedSet<string> Rewards = new SortedSet<string>(StringComparer.Ordinal);
         public readonly SortedSet<string> Screens = new SortedSet<string>(StringComparer.Ordinal);
         public readonly SortedSet<string> CustomEvents = new SortedSet<string>(StringComparer.Ordinal);
+        /// <summary>Range do game khai (§C.1.5) — CLI / Worker validator đọc từ đây.</summary>
+        public SdkLimits Limits = SdkLimits.Default;
+
         public readonly SortedDictionary<string, CustomType> CustomState =
             new SortedDictionary<string, CustomType>(StringComparer.Ordinal);
 
         public static Manifest FromOptions(SdkOptions o, IEnumerable<ActionType> registeredActions, string sdkVersion)
         {
-            var m = new Manifest { Sdk = sdkVersion };
+            var m = new Manifest { Sdk = sdkVersion, Limits = (o.Limits ?? SdkLimits.Default).Sanitized() };
             if (registeredActions != null)
                 foreach (var a in registeredActions)
                     m.Actions.Add(a.ToString());
@@ -52,6 +55,12 @@ namespace Ezg.UserSegment.Engine
             var cs = new JObject();
             foreach (var kv in CustomState) cs[kv.Key] = kv.Value.ToString().ToUpperInvariant();
             o["custom_state"] = cs;
+            o["limits"] = new JObject
+            {
+                ["reward_amount_max"] = Limits.RewardAmountMax,
+                ["difficulty_delta_max"] = Limits.DifficultyDeltaMax,
+                ["max_custom_events"] = Limits.MaxCustomEvents
+            };
             return o.ToString(Newtonsoft.Json.Formatting.Indented);
         }
     }

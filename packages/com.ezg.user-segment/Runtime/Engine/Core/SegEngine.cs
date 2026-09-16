@@ -289,7 +289,7 @@ namespace Ezg.UserSegment.Engine
             {
                 try
                 {
-                    var cfg = ConfigParser.Parse(cache.Config);
+                    var cfg = ConfigParser.Parse(cache.Config, Manifest.Limits);
                     ConfigValidator.Validate(cfg, SDK_VERSION, _o.GameId, _o.Env, Manifest);
                     State.Context.ConfigStale = now - cache.FetchedAt > STALE_S;
                     Info($"Config CACHE chấp nhận: version={cfg.Version} fetched {now - cache.FetchedAt}s trước, stale={State.Context.ConfigStale}");
@@ -334,7 +334,7 @@ namespace Ezg.UserSegment.Engine
             try
             {
                 ConfigParser.ParseEnvelope(body, out serverTime, out cfgObj);
-                cfg = ConfigParser.Parse(cfgObj);
+                cfg = ConfigParser.Parse(cfgObj, Manifest.Limits);
                 ConfigValidator.Validate(cfg, SDK_VERSION, _o.GameId, _o.Env, Manifest);
                 return true;
             }

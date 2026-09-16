@@ -108,11 +108,11 @@ Params theo type:
 | `type` | Key | Kiểu | Ràng buộc |
 |---|---|---|---|
 | `GIVE_REWARD` | `reward_id` | ident | ∈ `manifest.rewards` (CLI); client kiểm lúc load |
-| | `amount` | int | 1..1000 |
+| | `amount` | int | 1..`manifest.limits.reward_amount_max` (default 1000) — validator đọc từ manifest của game, không dùng hằng số chung |
 | `SHOW_POPUP` | `popup_id` | ident | không có whitelist trong MVP; executor không biết id → `action_failed reason=unknown_id` |
 | | `text_key` | string | tuỳ chọn; compiled ghi `""` nếu không có |
 | `SHOW_OFFER` | `offer_id` | ident | như `popup_id` |
-| `CHANGE_DIFFICULTY` | `delta` | int | −2..2, ≠ 0 |
+| `CHANGE_DIFFICULTY` | `delta` | int | −`limits.difficulty_delta_max`..`limits.difficulty_delta_max` (default 2), ≠ 0 |
 | | `scope` | `"next_unit"` | enum một giá trị trong MVP |
 | `SCHEDULE_LOCAL_NOTIFICATION` | `template_id` | ident | như `popup_id` |
 | | `delay_h` | number | 0.5..168 |
@@ -473,8 +473,9 @@ namespace Seg
 | `SeedProvider` | `Func<SeedData>` | không | null | gọi trước `SESSION_START` đầu khi `NeedsSeed`; trả null = chưa có |
 | `Rewards` | `string[]` | không | `[]` | manifest.rewards |
 | `Screens` | `string[]` | không | `[]` | manifest.screens |
-| `CustomEvents` | `string[]` | không | `[]` | ≤ 10 |
+| `CustomEvents` | `string[]` | không | `[]` | ≤ `Limits.MaxCustomEvents` (default 10) |
 | `CustomState` | `Dictionary<string, CustomType>` | không | `{}` | `CustomType ∈ { Number, Bool, String }` |
+| `Limits` | `SdkLimits` | không | `{ RewardAmountMax: 1000, DifficultyDeltaMax: 2, MaxCustomEvents: 10 }` | range game khai; giá trị < 1 quay về default; export vào `manifest.limits` (§C.6.7). Đổi limits ⇒ manifest đổi ⇒ CLI / Worker validate lại config theo range mới |
 | `FetchTimeoutMs` | int | không | 3000 | |
 | `RefetchAfterResumeS` | int | không | 300 | §10.2 |
 | `Storage` | `IStateStorage` | không | file trong `Application.persistentDataPath/seg/` | |
@@ -579,7 +580,12 @@ Semantic báo cáo (§C.12 mục 7):
 
 ### C.6.7 Manifest [Chốt]
 
-`ExportManifestJson()` trả đúng schema §8.5: `sdk` = `SdkVersion`; `actions` = danh sách `ActionType` của executor đã đăng ký, sắp theo tên; `rewards` / `screens` / `custom_events` sắp theo tên; `custom_state` key sắp, giá trị `"NUMBER" | "BOOL" | "STRING"`. Deterministic để diff trong PR có nghĩa.
+`ExportManifestJson()` trả đúng schema §8.5: `sdk` = `SdkVersion`; `actions` = danh sách `ActionType` của executor đã đăng ký, sắp theo tên; `rewards` / `screens` / `custom_events` sắp theo tên; `custom_state` key sắp, giá trị `"NUMBER" | "BOOL" | "STRING"`; `limits` = `{ "reward_amount_max", "difficulty_delta_max", "max_custom_events" }` (int, từ `SdkOptions.Limits` đã sanitize). Deterministic để diff trong PR có nghĩa.
+
+**Contract validator (CLI / Worker) với `limits` [Chốt từ SDK 0.1.0]:**
+- `GIVE_REWARD.params.amount` ∈ `[1, limits.reward_amount_max]`; `CHANGE_DIFFICULTY.params.delta` ∈ `[−limits.difficulty_delta_max, limits.difficulty_delta_max]` và ≠ 0; `len(manifest.custom_events) ≤ limits.max_custom_events`.
+- Manifest thiếu `limits` (SDK < 0.1.0) ⇒ validator dùng default `1000 / 2 / 10`.
+- Client parse config bằng **đúng limits trong manifest của chính nó**, nên config vượt range bị `config_rejected reason=schema` ở client dù CLI đã cho qua — CLI phải validate theo manifest mới nhất game đã commit, không theo hằng số.
 
 ---
 
@@ -751,6 +757,8 @@ segmentation-config/
 → gán version, published_at, source_commit → JSON compiled một dòng → publish (§C.11.3)
 ```
 
+Bước `validate` đọc `games/<game>/manifest.json` (SDK export) và lấy range `amount` / `delta` / số custom event từ `manifest.limits` (§C.6.7); không hard-code 1000 / 2 / 10.
+
 CI chạy tới `validate` rồi `simulate` mọi fixture và chạy mọi test vector; `publish` chạy tay hoặc từ job bảo vệ trên `main`.
 
 ---
@@ -835,7 +843,8 @@ Một file = một kịch bản; engine core chạy trong CI của SDK và của
   "name": "edge fires once on third fail at result screen",
   "config": "fixtures/config_min.json",
   "fixture": { "now": 1759287600 },
-  "manifest": { "actions": ["GIVE_REWARD"], "rewards": ["booster_hammer"], "screens": ["result"], "custom_events": [], "custom_state": {} },
+  "manifest": { "actions": ["GIVE_REWARD"], "rewards": ["booster_hammer"], "screens": ["result"], "custom_events": [], "custom_state": {},
+                "limits": { "reward_amount_max": 1000, "difficulty_delta_max": 2, "max_custom_events": 10 } },
   "variant": { "booster_when_frustrated_v1": "booster" },
   "events": [
     { "at": 1759287600, "type": "SESSION_START" },
@@ -858,6 +867,7 @@ Một file = một kịch bản; engine core chạy trong CI của SDK và của
 - `expect.decisions` là danh sách theo thứ tự trigger; chỉ trigger có trong danh sách mới bị kiểm.
 - `expect.tracking`: so theo tên và tập param khai; param không khai không kiểm. `expect.executor`: danh sách `{ action_id, type, params }` theo thứ tự `Execute`; test harness tự `ReportExecuted("granted")` trừ khi vector ghi `"report": "failed:offline"`.
 - `variant`: ép assignment thay cho hash, để test không phụ thuộc `user_id`.
+- `manifest.limits`: tuỳ chọn; thiếu = default. Vector `23_limits_from_manifest` là ví dụ nới `reward_amount_max`.
 
 ### C.10.6 Replay (`sample.jsonl`) [Chốt]
 

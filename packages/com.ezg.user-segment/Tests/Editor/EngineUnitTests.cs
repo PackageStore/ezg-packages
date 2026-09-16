@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Ezg.UserSegment.Engine;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace Ezg.UserSegment.Tests
@@ -65,8 +66,8 @@ namespace Ezg.UserSegment.Tests
         [Test]
         public void DefHash_IsStableAndCanonical()
         {
-            var e1 = ConfigParser.ParseAst(Newtonsoft.Json.Linq.JToken.Parse("{\"op\":\"GT\",\"args\":[{\"ref\":\"feature.x\"},{\"value\":0.7}]}"));
-            var e2 = ConfigParser.ParseAst(Newtonsoft.Json.Linq.JToken.Parse("{ \"args\": [ {\"ref\":\"feature.x\"}, {\"value\":0.70} ], \"op\":\"GT\" }"));
+            var e1 = ConfigParser.ParseAst(JToken.Parse("{\"op\":\"GT\",\"args\":[{\"ref\":\"feature.x\"},{\"value\":0.7}]}"));
+            var e2 = ConfigParser.ParseAst(JToken.Parse("{ \"args\": [ {\"ref\":\"feature.x\"}, {\"value\":0.70} ], \"op\":\"GT\" }"));
             Assert.AreEqual(DefHash.ForTag(e1, e1), DefHash.ForTag(e2, e2));
             Assert.AreEqual(16, DefHash.ForTag(e1, e1).Length);
             Assert.AreEqual(DefHash.ForRule(new[] { "SCREEN_OPEN:result", "PURCHASE" }, e1), DefHash.ForRule(new[] { "PURCHASE", "SCREEN_OPEN:result" }, e1));
@@ -100,5 +101,65 @@ namespace Ezg.UserSegment.Tests
             Assert.IsFalse(Trigger.IsValidOnEntry("PURCHASE:x"));
             Assert.IsFalse(Trigger.IsValidOnEntry("SCREEN_OPEN:Result"));
         }
-    }
+    
+        [Test]
+        public void Limits_DefaultParserRejectsAmountAboveSpecRange()
+        {
+            var json = LimitsFixture(5000, -1);
+            var ex = Assert.Throws<ConfigException>(() => ConfigParser.Parse(json));
+            Assert.AreEqual(RejectReason.Schema, ex.Reason);
+        }
+
+        [Test]
+        public void Limits_CustomParserAcceptsWiderAmountAndDelta()
+        {
+            var json = LimitsFixture(5000, -4);
+            var cfg = ConfigParser.Parse(json, new SdkLimits { RewardAmountMax = 10000, DifficultyDeltaMax = 5 });
+            Assert.AreEqual(5000L, cfg.Actions[0].Params["amount"]);
+            Assert.AreEqual(-4L, cfg.Actions[1].Params["delta"]);
+        }
+
+        [Test]
+        public void Limits_ZeroDeltaStillRejectedWithCustomLimits()
+        {
+            var json = LimitsFixture(1, 0);
+            Assert.Throws<ConfigException>(() => ConfigParser.Parse(json, new SdkLimits { DifficultyDeltaMax = 9 }));
+        }
+
+        [Test]
+        public void Limits_InvalidValuesFallBackToDefaults()
+        {
+            var s = new SdkLimits { RewardAmountMax = 0, DifficultyDeltaMax = -3, MaxCustomEvents = 0 }.Sanitized();
+            Assert.AreEqual(SdkLimits.DEFAULT_REWARD_AMOUNT_MAX, s.RewardAmountMax);
+            Assert.AreEqual(SdkLimits.DEFAULT_DIFFICULTY_DELTA_MAX, s.DifficultyDeltaMax);
+            Assert.AreEqual(SdkLimits.DEFAULT_MAX_CUSTOM_EVENTS, s.MaxCustomEvents);
+        }
+
+        [Test]
+        public void Manifest_ExportsLimitsForValidator()
+        {
+            var o = new SdkOptions { Limits = new SdkLimits { RewardAmountMax = 20000, DifficultyDeltaMax = 3, MaxCustomEvents = 25 } };
+            var json = Manifest.FromOptions(o, new[] { ActionType.GIVE_REWARD }, "test").ToJson();
+            var obj = ConfigParser.ParseObject(json);
+            Assert.AreEqual(20000, obj["limits"]["reward_amount_max"].Value<int>());
+            Assert.AreEqual(3, obj["limits"]["difficulty_delta_max"].Value<int>());
+            Assert.AreEqual(25, obj["limits"]["max_custom_events"].Value<int>());
+        }
+
+        /// <summary>Config tối thiểu hợp lệ với một GIVE_REWARD + một CHANGE_DIFFICULTY để thử range.</summary>
+        private static string LimitsFixture(int amount, int delta)
+        {
+            var path = System.IO.Path.Combine(TestVectorRunner.TestsDir(), "Fixtures/config_min.json");
+            var cfg = ConfigParser.ParseObject(System.IO.File.ReadAllText(path));
+            var actions = (JArray)cfg["actions"];
+            var reward = (JObject)actions[0];
+            var diff = (JObject)actions[3];
+            reward["params"]["amount"] = amount;
+            diff["params"]["delta"] = delta;
+            cfg["actions"] = new JArray(reward, diff);
+            cfg["rules"] = new JArray();
+            cfg["experiments"] = new JArray();
+            return cfg.ToString();
+        }
+}
 }

@@ -71,6 +71,7 @@ namespace Ezg.Feature.System.UserSegment
                 Screens = UserSegmentScreens.All(),
                 CustomEvents = catalog != null ? catalog.CustomEvents : new string[0],
                 CustomState = catalog != null ? catalog.CustomStateMap() : new Dictionary<string, CustomType>(),
+                Limits = catalog != null ? catalog.Limits() : SdkLimits.Default,
                 DebugBuild = debugBuild,
                 DevFallbackEnvelope = debugBuild ? LoadDevConfig : null
             });

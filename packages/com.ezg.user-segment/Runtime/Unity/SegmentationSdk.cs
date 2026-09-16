@@ -40,8 +40,9 @@ namespace Ezg.UserSegment
             options.Fetcher ??= new UnityConfigFetcher();
             options.Clock ??= new UnityTimeSource();
             options.Logger ??= new UnityLogger();
-            if (options.CustomEvents != null && options.CustomEvents.Length > SdkOptions.MAX_CUSTOM_EVENTS)
-                UnityEngine.Debug.LogError($"[UserSegment] CustomEvents > {SdkOptions.MAX_CUSTOM_EVENTS} — manifest whitelist quá lớn");
+            options.Limits = (options.Limits ?? SdkLimits.Default).Sanitized();
+            if (options.CustomEvents != null && options.CustomEvents.Length > options.Limits.MaxCustomEvents)
+                UnityEngine.Debug.LogError($"[UserSegment] CustomEvents ({options.CustomEvents.Length}) > Limits.MaxCustomEvents ({options.Limits.MaxCustomEvents}) — manifest whitelist quá lớn");
 
             if (options.DebugBuild)
                 UnityEngine.Debug.Log($"[UserSegment] Initialize: game={options.GameId} env={options.Env} url={(string.IsNullOrEmpty(options.ConfigBaseUrl) ? "(rỗng)" : options.ConfigBaseUrl)} " +

@@ -31,7 +31,7 @@ Project sinh từ template đã có scoped registry **Easygoing**, chỉ cần t
 
 ```json
 "dependencies": {
-  "com.ezg.user-segment": "0.0.3"
+  "com.ezg.user-segment": "0.1.0"
 }
 ```
 
@@ -192,13 +192,27 @@ SegmentationSdk.SetCustomState("vip_level", 3);
 
 Bỏ trống `Storage` / `Fetcher` / `Clock` / `Logger` để dùng adapter mặc định.
 
+### Nới range theo game: `SdkOptions.Limits`
+
+Ba ngưỡng spec ghim mặc định (`amount` ≤ 1000, `delta` trong ±2, ≤ 10 custom event) là thứ hay chật theo từng
+game. Khai lại trong `SdkOptions`:
+
+```csharp
+Limits = new SdkLimits { RewardAmountMax = 50000, DifficultyDeltaMax = 5, MaxCustomEvents = 30 }
+```
+
+SDK parse config bằng đúng limits này và export chúng trong `ExportManifestJson()` dưới key `limits`. **Commit
+manifest mới vào repo config** để CLI / Worker validator dùng cùng range; nếu không, config vượt range cũ sẽ
+bị validator chặn (hoặc ngược lại: CLI cho qua nhưng client `config_rejected reason=schema`). Giá trị < 1 quay
+về default. Template: khai trong `UserSegmentBootstrap.Init` khi dựng `SdkOptions`.
+
 ---
 
 ## 6. API `SegmentationSdk`
 
 | Nhóm | API |
 |---|---|
-| Khởi tạo | `RegisterExecutor(IActionExecutor)` (gọi TRƯỚC `Initialize` để manifest đúng từ lần fetch đầu) · `Initialize(SdkOptions)` · `IsInitialized` · `SdkVersion` |
+| Khởi tạo | `RegisterExecutor(IActionExecutor)` (gọi TRƯỚC `Initialize` để manifest đúng từ lần fetch đầu) · `Initialize(SdkOptions)` (kèm `Limits`) · `IsInitialized` · `SdkVersion` |
 | Seed / history | `NeedsSeed` · `Seed(SeedData)` · `ImportActionHistory(blob)` · `MarkActionUsed(actionId, epoch)` |
 | Progress | `ProgressStart(unitId)` · `ProgressComplete/Fail/Quit(unitId, durationS)` |
 | Monetization | `Purchase(productId, usd, transactionId, executionId = null)` · `AdRewarded(placement)` · `AdInterstitial(placement)` |
@@ -252,4 +266,5 @@ Hoặc từ code Editor: `Ezg.UserSegment.Tests.TestRunnerCli.Run("/tmp/seg_test
   build production.
 - Newtonsoft được tham chiếu qua `precompiledReferences: Newtonsoft.Json.dll` (assembly Engine
   `overrideReferences: true`); dependency `com.unity.nuget.newtonsoft-json` đảm bảo DLL có mặt.
-- Cloudflare Worker phục vụ config và CLI validate config **không** nằm trong package này.
+- Cloudflare Worker phục vụ config và CLI validate config **không** nằm trong package này. Contract cho validator
+  (đọc `manifest.limits`, default 1000 / 2 / 10 khi manifest cũ) nằm ở Phụ lục C §C.6.7 trong `Documentation~/`.

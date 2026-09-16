@@ -31,6 +31,16 @@ namespace Ezg.Feature.System.UserSegment
         [Tooltip("Header X-Config-Token cho env ≠ prod. CHỈ dùng trong dev build; release bỏ qua.")]
         [SerializeField] private string configToken;
 
+        [Header("Limits (§C.1.5 — range game khai, export vào manifest.limits)")]
+        [Tooltip("GIVE_REWARD.amount tối đa. Default spec 1000; game có tiền tệ lớn thì nới. Đổi xong phải commit manifest mới vào repo config.")]
+        [SerializeField] private int rewardAmountMax = SdkLimits.DEFAULT_REWARD_AMOUNT_MAX;
+
+        [Tooltip("CHANGE_DIFFICULTY.delta trong ±giá trị này (≠ 0). Default spec 2.")]
+        [SerializeField] private int difficultyDeltaMax = SdkLimits.DEFAULT_DIFFICULTY_DELTA_MAX;
+
+        [Tooltip("Số custom event tối đa trong whitelist. Default spec 10.")]
+        [SerializeField] private int maxCustomEvents = SdkLimits.DEFAULT_MAX_CUSTOM_EVENTS;
+
         public string GameId => gameId;
         public string Env => env;
         public string ConfigBaseUrl => configBaseUrl;
@@ -113,6 +123,14 @@ namespace Ezg.Feature.System.UserSegment
                 return _instance;
             }
         }
+
+        /// <summary>Limits cho SdkOptions; giá trị &lt; 1 được SDK quay về default.</summary>
+        public SdkLimits Limits() => new SdkLimits
+        {
+            RewardAmountMax = rewardAmountMax,
+            DifficultyDeltaMax = difficultyDeltaMax,
+            MaxCustomEvents = maxCustomEvents
+        };
 
         public string[] RewardIds()
         {

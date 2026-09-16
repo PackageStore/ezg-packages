@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0] - 2026-09-16
+### Added
+- `SdkOptions.Limits` (`SdkLimits`): `RewardAmountMax` (default 1000), `DifficultyDeltaMax` (default 2), `MaxCustomEvents` (default 10). Values below 1 fall back to the defaults.
+- `manifest.limits` in `ExportManifestJson()` (`reward_amount_max`, `difficulty_delta_max`, `max_custom_events`) so the config CLI / Worker validator uses each game's declared ranges instead of hard-coded constants. Contract written in Phụ lục C §C.1.5 / §C.6.3 / §C.6.7 / §C.9.4 / §C.10.5 (`Documentation~/`).
+- `ConfigParser.Parse(json | JObject, SdkLimits)` overloads; the engine parses fetched and cached configs with `Manifest.Limits`.
+- Test vector `23_limits_from_manifest` and unit tests for widened / default / sanitized limits; vector harness reads `manifest.limits`.
+### Changed
+- `amount` / `delta` ranges and the custom-event cap are no longer fixed in the parser; defaults are unchanged, so existing configs behave exactly as before.
+
 ## [0.0.3] - 2026-09-16
 ### Fixed
 - `SegDebugOverlay` read the F9 shortcut through `UnityEngine.Input`, which throws `InvalidOperationException` every frame in dev builds of projects whose Active Input Handling is "Input System Package" only. The shortcut now reads IMGUI `Event.current` inside `OnGUI`, so it works with either input backend and the package no longer depends on the legacy Input Manager.

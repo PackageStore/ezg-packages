@@ -51,7 +51,10 @@ namespace Ezg.UserSegment.Engine
             config = root["config"] as JObject ?? throw new ConfigException(RejectReason.Schema, "envelope.config");
         }
 
-        public static SegConfig Parse(string json)
+        public static SegConfig Parse(string json) => Parse(json, SdkLimits.Default);
+
+        /// <summary>Parse với range amount / delta theo limits của game (manifest.limits) — §C.1.5.</summary>
+        public static SegConfig Parse(string json, SdkLimits limits)
         {
             JObject root;
             try
@@ -63,10 +66,12 @@ namespace Ezg.UserSegment.Engine
                 throw new ConfigException(RejectReason.Parse, e.Message);
             }
 
-            return Parse(root);
+            return Parse(root, limits);
         }
 
-        public static SegConfig Parse(JObject root)
+        public static SegConfig Parse(JObject root) => Parse(root, SdkLimits.Default);
+
+        public static SegConfig Parse(JObject root, SdkLimits limits)
         {
             // Bước 2: schema_version trước mọi thứ khác — §C.1.9
             var schemaVersion = RequireInt(root, "schema_version", "config");
@@ -124,7 +129,7 @@ namespace Ezg.UserSegment.Engine
 
             var actions = RequireArray(root, "actions", "config");
             if (actions.Count > MAX_ACTIONS) throw new ConfigException(RejectReason.Schema, "actions > 100");
-            foreach (var t in actions) c.Actions.Add(ParseAction(AsObject(t, "action")));
+            foreach (var t in actions) c.Actions.Add(ParseAction(limits, AsObject(t, "action")));
 
             var rules = RequireArray(root, "rules", "config");
             if (rules.Count > MAX_RULES) throw new ConfigException(RejectReason.Schema, "rules > 100");
@@ -187,8 +192,9 @@ namespace Ezg.UserSegment.Engine
             return s;
         }
 
-        private static ActionDef ParseAction(JObject o)
+        private static ActionDef ParseAction(SdkLimits limits, JObject o)
         {
+            limits = (limits ?? SdkLimits.Default).Sanitized();
             CheckKeys(o, "action", "id", "type", "params", "group", "frequency", "cooldown_s", "cap");
             var a = new ActionDef { Id = RequireIdent(o, "id", "action") };
             var typeStr = RequireString(o, "type", "action");
@@ -226,7 +232,7 @@ namespace Ezg.UserSegment.Engine
                 case ActionType.GIVE_REWARD:
                     CheckKeys(p, "params", "reward_id", "amount");
                     a.Params["reward_id"] = RequireIdent(p, "reward_id", "params");
-                    a.Params["amount"] = (long)RequireIntRange(p, "amount", "params", 1, 1000);
+                    a.Params["amount"] = (long)RequireIntRange(p, "amount", "params", 1, limits.RewardAmountMax);
                     break;
                 case ActionType.SHOW_POPUP:
                     CheckKeys(p, "params", "popup_id", "text_key");
@@ -239,7 +245,7 @@ namespace Ezg.UserSegment.Engine
                     break;
                 case ActionType.CHANGE_DIFFICULTY:
                     CheckKeys(p, "params", "delta", "scope");
-                    var delta = RequireIntRange(p, "delta", "params", -2, 2);
+                    var delta = RequireIntRange(p, "delta", "params", -limits.DifficultyDeltaMax, limits.DifficultyDeltaMax);
                     if (delta == 0) throw new ConfigException(RejectReason.Schema, $"action {a.Id}: delta 0");
                     a.Params["delta"] = (long)delta;
                     a.Params["scope"] = RequireEnum(p, "scope", "params", "next_unit");

@@ -1,0 +1,20 @@
+{
+  "name": "manifest.limits nới amount lên 10000 → config có amount 5000 được chấp nhận",
+  "manifest": {
+    "actions": ["GIVE_REWARD"],
+    "rewards": ["booster_hammer"],
+    "screens": ["result"],
+    "custom_events": [],
+    "custom_state": {},
+    "limits": { "reward_amount_max": 10000, "difficulty_delta_max": 2, "max_custom_events": 10 }
+  },
+  "config_patch": {
+    "actions": [
+      { "id": "give_booster_huge", "type": "GIVE_REWARD", "params": { "reward_id": "booster_hammer", "amount": 5000 }, "group": "reward", "frequency": "repeatable", "cooldown_s": 0, "cap": false }
+    ],
+    "rules": [],
+    "experiments": []
+  },
+  "events": [],
+  "expect": { "config_accepted": true, "tracking_absent": ["config_rejected"] }
+}

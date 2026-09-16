@@ -54,6 +54,13 @@ namespace Ezg.UserSegment.Tests
             if (man["custom_state"] is JObject cs)
                 foreach (var p in cs.Properties())
                     options.CustomState[p.Name] = (CustomType)Enum.Parse(typeof(CustomType), Capitalize(p.Value.Value<string>()));
+            if (man["limits"] is JObject lim)
+                options.Limits = new SdkLimits
+                {
+                    RewardAmountMax = lim["reward_amount_max"]?.Value<int>() ?? SdkLimits.DEFAULT_REWARD_AMOUNT_MAX,
+                    DifficultyDeltaMax = lim["difficulty_delta_max"]?.Value<int>() ?? SdkLimits.DEFAULT_DIFFICULTY_DELTA_MAX,
+                    MaxCustomEvents = lim["max_custom_events"]?.Value<int>() ?? SdkLimits.DEFAULT_MAX_CUSTOM_EVENTS
+                };
 
             // State từ fixture
             var stateJson = BuildFixtureState(fixture, now);
