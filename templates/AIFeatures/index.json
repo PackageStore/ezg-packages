@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 37
+      "count": 38
     },
     {
       "id": "Templates",
@@ -2090,6 +2090,30 @@
       "size": 4776
     },
     {
+      "id": "Skills/figma-build",
+      "name": "figma-build",
+      "category": "Skills",
+      "description": "Build a Figma frame from a build plan JSON with tested Plugin API helpers — containers, image rects, 9-slice frames, component instances and ink-positioned text — through one generated use_figma payload. Source-agnostic: the plan is the whole input; PSD, code or hand-written producers all use it. Use when asked to \"build this screen in Figma from a plan\", \"generate the use_figma payload\", \"run the helpers self-test\", or when another skill needs a frame created from an op list. Does NOT parse PSDs (use psd-to-figma), does NOT create variables (use figma-tokens), does NOT run the hygiene gate (use figma-hygiene).",
+      "installPath": ".claude/skills/figma-build",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/figma-build/SKILL.md",
+        ".claude/skills/figma-build/reference/build-plan.md",
+        ".claude/skills/figma-build/reference/plugin-helpers.md",
+        ".claude/skills/figma-build/scripts/figma_build.js",
+        ".claude/skills/figma-build/scripts/figma_build_gen.py",
+        ".claude/skills/figma-build/scripts/figma_helpers.js",
+        ".claude/skills/figma-build/scripts/figma_helpers_selftest.js"
+      ],
+      "fileCount": 7,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "figma-build.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-build.zip",
+      "sha256": "4289c9d1f76d092bbedf23211d840146c7a4c55016dd266563ec9bc9eb02e22b",
+      "size": 17466
+    },
+    {
       "id": "Skills/figma-components",
       "name": "figma-components",
       "category": "Skills",
@@ -2135,8 +2159,8 @@
       "source": "defaultsetup",
       "fileName": "figma-hygiene.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
-      "sha256": "7753f3231a8e080a5d5454bc9d33450fb4875dc1aa1343ed929ea876534148d9",
-      "size": 4813
+      "sha256": "01e91fba779768b60df775ad14a2511a6453285691d66667e8c8fdd8497690c4",
+      "size": 5415
     },
     {
       "id": "Skills/figma-to-unity",
@@ -2337,33 +2361,42 @@
         ".claude/skills/psd-to-figma/reference/contracts.md",
         ".claude/skills/psd-to-figma/reference/figma-traps.md",
         ".claude/skills/psd-to-figma/reference/nine-slice.md",
-        ".claude/skills/psd-to-figma/reference/plugin-helpers.md",
+        ".claude/skills/psd-to-figma/reference/psd-authoring-contract.md",
+        ".claude/skills/psd-to-figma/scripts/build_plan_gen.py",
+        ".claude/skills/psd-to-figma/scripts/build_plan_gen_selftest.py",
+        ".claude/skills/psd-to-figma/scripts/figma_build_gen.py",
+        ".claude/skills/psd-to-figma/scripts/figma_build_save.py",
         ".claude/skills/psd-to-figma/scripts/figma_extract.js",
         ".claude/skills/psd-to-figma/scripts/figma_extract_gen.py",
+        ".claude/skills/psd-to-figma/scripts/figma_extract_hygiene.py",
+        ".claude/skills/psd-to-figma/scripts/figma_extract_rest.py",
         ".claude/skills/psd-to-figma/scripts/figma_extract_save.py",
-        ".claude/skills/psd-to-figma/scripts/figma_helpers.js",
-        ".claude/skills/psd-to-figma/scripts/figma_helpers_selftest.js",
         ".claude/skills/psd-to-figma/scripts/figma_upload.py",
+        ".claude/skills/psd-to-figma/scripts/names_migrate.py",
         ".claude/skills/psd-to-figma/scripts/nine_slice_detect.py",
         ".claude/skills/psd-to-figma/scripts/pipeline.py",
         ".claude/skills/psd-to-figma/scripts/pipeline_config.py",
         ".claude/skills/psd-to-figma/scripts/psd_export_icons.py",
         ".claude/skills/psd-to-figma/scripts/psd_export_pngs.py",
+        ".claude/skills/psd-to-figma/scripts/psd_lint.py",
         ".claude/skills/psd-to-figma/scripts/psd_manifest.py",
         ".claude/skills/psd-to-figma/scripts/psd_opacity.py",
         ".claude/skills/psd-to-figma/scripts/registry_add.py",
+        ".claude/skills/psd-to-figma/scripts/registry_consolidate.py",
         ".claude/skills/psd-to-figma/scripts/requirements.txt",
+        ".claude/skills/psd-to-figma/scripts/reuse_plan.py",
+        ".claude/skills/psd-to-figma/scripts/text_ink.py",
         ".claude/skills/psd-to-figma/scripts/verify_figma_vs_psd.py",
         ".claude/skills/psd-to-figma/scripts/verify_nine_slice.py",
         ".claude/skills/psd-to-figma/scripts/visual_diff.py"
       ],
-      "fileCount": 31,
+      "fileCount": 40,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "psd-to-figma.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
-      "sha256": "572fb3a9a5ad06e24281dfdc74fd824427a93f3886bb3740b9b3736d26808e07",
-      "size": 87136
+      "sha256": "569d2ec1f24d7698d0069b762a0a36b0b2ac225e29c31d9ff1e80eef2e1a0e8f",
+      "size": 112173
     },
     {
       "id": "Skills/publish-ai-features",
