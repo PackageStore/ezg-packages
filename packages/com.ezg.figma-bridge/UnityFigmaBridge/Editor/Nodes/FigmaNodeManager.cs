@@ -49,54 +49,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     if (NodeIsSubstitution(node, figmaImportProcessData)) break;
                     if (!needsImageComponent) break;
 
-                    if (settings != null && settings.PlainImages)
-                    {
-                        ApplyPlainImage(nodeGameObject, node, figmaImportProcessData);
-                        break;
-                    }
-
-                    // Create as needed (in case an override has specified new properties)
-                    var figmaImage = nodeGameObject.GetComponent<FigmaImage>();
-                    if (figmaImage == null) figmaImage = nodeGameObject.AddComponent<FigmaImage>();
-                    // We use different properties, depending on Figma shape
-                    switch (node.type)
-                    {
-                        case NodeType.ELLIPSE:
-                        {
-                            figmaImage.Shape = FigmaImage.ShapeType.Ellipse;
-                            // Additional data for ellipse to define arc
-                            if (node.arcData != null)
-                            {
-                                figmaImage.EllipseArcAngleRange =
-                                    new Vector2(node.arcData.startingAngle, node.arcData.endingAngle);
-                                figmaImage.EllipseInnerRadius = node.arcData.innerRadius;
-                            }
-                            break;
-                        }
-                        case NodeType.STAR:
-                            figmaImage.Shape = FigmaImage.ShapeType.Star;
-                            break;
-                        default:
-                            // All others
-                            figmaImage.Shape = FigmaImage.ShapeType.Rectangle;
-                            break;
-                    }
-
-                    // If this is a rounded rectangle, apply properties
-                    if (node.rectangleCornerRadii != null || node.cornerRadius > 0)
-                    {
-                        // We can have either regular corner radius, or explicit for each
-                        // Note that figma order is different from shader
-                        var cornerRadiusArray = node.rectangleCornerRadii;
-                        figmaImage.CornerRadius = node.rectangleCornerRadii != null
-                            ? new Vector4(cornerRadiusArray[0], cornerRadiusArray[1], cornerRadiusArray[2], cornerRadiusArray[3])
-                            : new Vector4(node.cornerRadius, node.cornerRadius, node.cornerRadius, node.cornerRadius);
-                    }
-
-                    SetupFill(figmaImage, node, figmaImportProcessData);
-                    SetupStroke(figmaImage, node);
-
-
+                    ApplyImage(nodeGameObject, node, figmaImportProcessData);
                     break;
                 case NodeType.LINE:
                     break;
@@ -266,24 +219,16 @@ namespace UnityFigmaBridge.Editor.Nodes
         }
 
         /// <summary>
-        ///     PlainImages mode: the node becomes a stock <see cref="Image"/> instead of a
-        ///     <see cref="FigmaImage"/>. Done at generation time rather than as a pass over the
-        ///     finished prefabs so that a component instance's overrides (sprite, colour) land on
-        ///     the component that survives, instead of on one that a later pass deletes.
-        ///
-        ///     Sprite, colour and visibility carry over. Stroke, corner radius, gradient and the
-        ///     ellipse/star shapes have no plain-Image equivalent; the node still gets a flat
-        ///     Image so the layout is visible, and it is listed in
+        ///     Sprite, colour and visibility carry over to a stock <see cref="Image"/>. Stroke, corner
+        ///     radius, gradient and the ellipse/star shapes have no plain-Image equivalent: a childless
+        ///     node with one of them never reaches here (it is server-rendered, see
+        ///     <see cref="FigmaDataUtils.NeedsShapeRender"/>); a node with children gets a flat Image
+        ///     so the layout is visible and is listed in
         ///     <see cref="FigmaImportProcessData.ShapeOnlyNodes"/> for the post-processor.
         /// </summary>
-        private static void ApplyPlainImage(GameObject nodeGameObject, Node node, FigmaImportProcessData figmaImportProcessData)
+        private static void ApplyImage(GameObject nodeGameObject, Node node, FigmaImportProcessData figmaImportProcessData)
         {
             var image = nodeGameObject.GetComponent<Image>();
-            if (image is FigmaImage)
-            {
-                UnityEngine.Object.DestroyImmediate(image);
-                image = null;
-            }
             if (image == null) image = nodeGameObject.AddComponent<Image>();
 
             var firstFill = node.fills != null && node.fills.Length > 0 ? node.fills[0] : null;
@@ -301,7 +246,7 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             if (firstFill == null)
                 image.color = new Color(1f, 1f, 1f, 0f); // stroke only: nothing a flat Image can draw
-            else if (IsGradient(firstFill) && firstFill.gradientStops != null && firstFill.gradientStops.Length > 0)
+            else if (FigmaDataUtils.IsGradient(firstFill) && firstFill.gradientStops != null && firstFill.gradientStops.Length > 0)
                 image.color = AverageGradientColor(firstFill);
             else
                 image.color = FigmaDataUtils.GetUnityFillColor(firstFill);
@@ -320,8 +265,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             image.preserveAspect = sprite != null && !isPattern && firstFill.scaleMode == Paint.ScaleMode.FIT;
 
             var hasStroke = node.strokes != null && node.strokes.Length > 0 && node.strokeWeight > 0;
-            var cornerRadius = MaxCornerRadius(node);
-            var isGradient = firstFill != null && IsGradient(firstFill);
+            var cornerRadius = FigmaDataUtils.MaxCornerRadius(node);
+            var isGradient = firstFill != null && FigmaDataUtils.IsGradient(firstFill);
             var isShape = node.type == NodeType.ELLIPSE || node.type == NodeType.STAR;
             if (!hasStroke && cornerRadius <= 0f && !isGradient && !isShape) return;
 
@@ -342,12 +287,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 figmaImportProcessData.ShapeOnlyPendingRoots.Add((record, HierarchyRootWithinPrefab(nodeGameObject.transform)));
         }
 
-        private static bool IsGradient(Paint paint)
-        {
-            return paint.type == Paint.PaintType.GRADIENT_LINEAR || paint.type == Paint.PaintType.GRADIENT_RADIAL ||
-                   paint.type == Paint.PaintType.GRADIENT_ANGULAR || paint.type == Paint.PaintType.GRADIENT_DIAMOND;
-        }
-
         private static Color AverageGradientColor(Paint paint)
         {
             var sum = Vector4.zero;
@@ -355,17 +294,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 sum += new Vector4(stop.color.r, stop.color.g, stop.color.b, stop.color.a);
             sum /= paint.gradientStops.Length;
             return new Color(sum.x, sum.y, sum.z, sum.w * paint.opacity);
-        }
-
-        private static float MaxCornerRadius(Node node)
-        {
-            if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length > 0)
-            {
-                var max = 0f;
-                foreach (var radius in node.rectangleCornerRadii) max = Mathf.Max(max, radius);
-                return max;
-            }
-            return Mathf.Max(0f, node.cornerRadius);
         }
 
         /// <summary>Topmost ancestor that still carries a bridge marker: the screen or component root.</summary>
@@ -376,90 +304,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 current = current.parent;
             return current.gameObject;
         }
-
-        private static void SetupStroke(FigmaImage figmaImage, Node node)
-        {
-            if (node.strokes.Length > 0)
-            {
-                // Use stroke weight as outline width
-                figmaImage.StrokeWidth = node.strokeWeight;
-                figmaImage.StrokeColor = FigmaDataUtils.GetUnityFillColor(node.strokes[0]);
-                if (node.fills.Length == 0)
-                {
-                   // Stroke only, fill colour should be transparent
-                   figmaImage.FillColor = new Color(1f, 1f, 1f, 0f); // Transparent
-                }
-            }
-            else
-            {
-                figmaImage.StrokeWidth = 0;
-            }
-        }
-
-        private static void SetupFill(FigmaImage figmaImage, Node node, FigmaImportProcessData figmaImportProcessData)
-        {
-            if (node.fills.Length > 0)
-            {
-                var firstFill = node.fills[0];
-                switch (firstFill.type)
-                {
-                    case Paint.PaintType.IMAGE:
-                        SetupImageFill(figmaImage, firstFill);
-                        break;
-                    case Paint.PaintType.PATTERN:
-                        figmaImage.sprite = LoadPatternSourceSprite(firstFill, figmaImportProcessData);
-                        if (figmaImage.sprite != null)
-                        {
-                            // FigmaImage.Tile draws tiles of (sprite size * ImageScaleFactor)
-                            figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Tile;
-                            figmaImage.ImageScaleFactor = 1f / PatternRenderToTileRatio(firstFill, figmaImportProcessData);
-                        }
-                        break;
-                    case Paint.PaintType.GRADIENT_LINEAR:
-                    case Paint.PaintType.GRADIENT_RADIAL:
-                        figmaImage.FillGradient = FigmaDataUtils.ToUnityGradient(firstFill);
-                        figmaImage.Fill = firstFill.type == Paint.PaintType.GRADIENT_RADIAL
-                            ? FigmaImage.FillStyle.RadialGradient
-                            : FigmaImage.FillStyle.LinearGradient;
-
-                        var gradientHandlePositions = firstFill.gradientHandlePositions;
-                        if (gradientHandlePositions.Length == 3)
-                        {
-                            figmaImage.GradientHandlePositions = new[]
-                            {
-                                FigmaDataUtils.ToUnityVector(gradientHandlePositions[0]),
-                                FigmaDataUtils.ToUnityVector(gradientHandlePositions[1]),
-                                FigmaDataUtils.ToUnityVector(gradientHandlePositions[2])
-                            };
-                        }
-
-                        break;
-                    case Paint.PaintType.SOLID:
-                        // Default, fill colour set below
-                        break;
-                    case Paint.PaintType.GRADIENT_ANGULAR:
-                        // Unsupported
-                        break;
-                    case Paint.PaintType.GRADIENT_DIAMOND:
-                        // Unsupported
-                        break;
-                    case Paint.PaintType.EMOJI:
-                        // Unsupported
-                        break;
-                }
-
-                // for invisible fills, disable
-                if (!firstFill.visible) figmaImage.enabled = false;
-
-                // We don't use the base "color" attribute - this is reserved for transparency groups etc
-                // So as not to apply to both stroke and fill
-                figmaImage.FillColor = FigmaDataUtils.GetUnityFillColor(firstFill);
-            }
-            else
-                figmaImage.FillColor =
-                            new Color(0, 0, 0, 0); // Transparent fill - TODO find neater solution
-        }
-
 
         /// <summary>
         ///     Sprite for a PATTERN fill: the server render of the node it repeats (queued by
@@ -494,42 +338,6 @@ namespace UnityFigmaBridge.Editor.Nodes
             var scalingFactor = fill.scalingFactor > 0f ? fill.scalingFactor : 1f;
             return renderScale / scalingFactor;
         }
-
-        /// <summary>
-        /// Setup image fill depending on parameters
-        /// </summary>
-        /// <param name="figmaImage"></param>
-        /// <param name="fill"></param>
-        /// <exception cref="ArgumentOutOfRangeException"></exception>
-        private static void SetupImageFill(FigmaImage figmaImage,Paint fill)
-        {
-            // Assign image fill, load from asset database
-            figmaImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
-                    FigmaPaths.GetPathForImageFill(fill.imageRef));
-
-            switch (fill.scaleMode)
-            {
-                case Paint.ScaleMode.FIT:
-                    figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Fit;
-                    break;
-                case Paint.ScaleMode.FILL:
-                    figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Fill;
-                    break;
-                case Paint.ScaleMode.TILE:
-                    // Use the image size to determine UVs.
-                    figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Tile;
-                    // Apply scaling factor from document
-                    figmaImage.ImageScaleFactor = fill.scalingFactor;
-                    break;
-                case Paint.ScaleMode.STRETCH:
-                    figmaImage.ScaleMode = FigmaImage.ImageScaleMode.Stretch;
-                    figmaImage.ImageTransform=FigmaDataUtils.ToUnityVector3Array(fill.imageTransform);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
 
         /// <summary>
         /// Create all required components for figma node

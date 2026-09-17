@@ -47,6 +47,15 @@ These are on by default and shape the output:
   sprite carrying `Sprite.border`, not as nine child images.
 - **Node-named image fills.** Sprites are named after the node and its owner rather than the
   Figma `imageRef` hash, so a re-import produces stable, readable asset names.
+- **`[ignore]` nodes.** A node whose name contains `[ignore]` (any case) is dropped from the
+  document with its whole subtree before anything else runs: no sprite, no server render, no
+  GameObject, not in the screen list. An ignored component master leaves its instances in place;
+  they import as regular frames with their own children.
+- **Plain `Image` output.** Every fill is a stock `UnityEngine.UI.Image`; there is no bridge
+  image component or shader. A childless node with a stroke, corner radius, gradient, ellipse or
+  star is server-rendered once and imported as a sprite sized to its render bounds. A frame with
+  children that carries one of those keeps a flat coloured Image and is listed in
+  `FigmaImportContext.ShapeOnlyNodes` for a post-processor.
 - **Pattern fills.** A Figma *pattern* paint (a node repeated across a shape) has no bitmap of
   its own; the bridge server-renders the source node once into `ServerRenderedImages/` and draws
   the fill as a tiled `Image` at design tile size. Costs one render request per distinct source.
@@ -90,7 +99,6 @@ Settings added in 0.3.0 and what they are for:
 
 | Setting | Use it when |
 |---|---|
-| `PlainImages` | the shipped prefab must not depend on the bridge's `FigmaImage` shader. Stroke / corner / gradient nodes are listed in `ctx.ShapeOnlyNodes`. |
 | `AddLayoutElements = OnlyUnderAutoLayout` | nothing reads the per-node `LayoutElement`; only children of auto-layout frames keep one. |
 | `FontOverride` | the project has one font and Figma's family should never be downloaded. |
 | `TextFitMode = FixedRectAutoSize` | the real font differs from Figma's, so auto-resized labels need a padded fixed rect and TMP auto-size instead of a `ContentSizeFitter`. |

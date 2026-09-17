@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,7 +10,48 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     /// </summary>
     public static class FigmaDataUtils
     {
-        
+        /// <summary>A node whose name contains this (any case) is dropped from the document with its subtree.</summary>
+        public const string IgnoreMarker = "[ignore]";
+
+        public static bool IsIgnored(Node node)
+        {
+            return node?.name != null && node.name.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        ///     Remove every <see cref="IgnoreMarker"/> node from the parsed document so nothing downstream
+        ///     (image fills, server renders, fonts, generation, the screen list) sees it. An ignored
+        ///     component master stays in <c>file.components</c>, so it lands in the missing-definition
+        ///     list and its instances import as regular frames with their own children.
+        /// </summary>
+        public static int PruneIgnoredNodes(FigmaFile file)
+        {
+            if (file?.document == null) return 0;
+            var removed = new List<string>();
+            PruneIgnoredChildren(file.document, removed);
+            if (removed.Count > 0)
+                Debug.Log($"[FigmaBridge] {removed.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", removed)}");
+            return removed.Count;
+        }
+
+        private static void PruneIgnoredChildren(Node node, List<string> removed)
+        {
+            if (node.children == null) return;
+            var kept = new List<Node>(node.children.Length);
+            foreach (var child in node.children)
+            {
+                if (child == null) continue;
+                if (IsIgnored(child))
+                {
+                    removed.Add(child.name);
+                    continue;
+                }
+                PruneIgnoredChildren(child, removed);
+                kept.Add(child);
+            }
+            if (kept.Count != node.children.Length) node.children = kept.ToArray();
+        }
+
         /// <summary>
         /// Converts from Figma Paint Fill Color to Unity color
         /// </summary>
@@ -457,6 +499,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // If a given node has the word "render", mark for rendering
             if (node.name.ToLower().Contains("render")) return true;
 
+            if (NeedsShapeRender(node)) return true;
+
             // Some types we always render server-side. This may change if we support native vector rendering
             switch (node.type)
             {
@@ -476,6 +520,49 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (onlyValidNodeTypesFound && nodeTypeCount[0]>0) return true;
             
             return false;
+        }
+
+        /// <summary>
+        ///     Stroke, corner radius, gradient, ellipse and star have no plain <c>Image</c> equivalent, so a
+        ///     childless node with one of them is rendered by Figma and imported as a sprite. A node with
+        ///     children is not: its render would contain the children, which then draw twice. Such a
+        ///     node keeps a flat Image and is listed in <c>ShapeOnlyNodes</c>.
+        /// </summary>
+        public static bool NeedsShapeRender(Node node)
+        {
+            if (node.children != null && node.children.Length > 0) return false;
+            switch (node.type)
+            {
+                case NodeType.RECTANGLE:
+                case NodeType.ELLIPSE:
+                case NodeType.STAR:
+                case NodeType.FRAME:
+                case NodeType.COMPONENT:
+                    break;
+                default:
+                    return false;
+            }
+
+            var hasVisibleFill = node.fills != null && node.fills.Any(f => f != null && f.visible);
+            var hasStroke = node.strokeWeight > 0 && node.strokes != null && node.strokes.Any(f => f != null && f.visible);
+            if (!hasVisibleFill && !hasStroke) return false;
+            if (hasStroke) return true;
+            if (node.type == NodeType.ELLIPSE || node.type == NodeType.STAR) return true;
+            if (MaxCornerRadius(node) > 0f) return true;
+            return node.fills.Any(f => f != null && f.visible && IsGradient(f));
+        }
+
+        public static bool IsGradient(Paint paint)
+        {
+            return paint.type == Paint.PaintType.GRADIENT_LINEAR || paint.type == Paint.PaintType.GRADIENT_RADIAL ||
+                   paint.type == Paint.PaintType.GRADIENT_ANGULAR || paint.type == Paint.PaintType.GRADIENT_DIAMOND;
+        }
+
+        public static float MaxCornerRadius(Node node)
+        {
+            if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length > 0)
+                return node.rectangleCornerRadii.Max();
+            return Mathf.Max(0f, node.cornerRadius);
         }
 
         /// <summary>

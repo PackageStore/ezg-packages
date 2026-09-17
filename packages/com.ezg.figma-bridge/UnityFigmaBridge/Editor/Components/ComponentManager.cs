@@ -242,16 +242,11 @@ namespace UnityFigmaBridge.Editor.Components
         /// <param name="figmaImportProcessData"></param>
         private static void ApplyFigmaProperties(Node node, GameObject nodeObject,Node parentNode, FigmaImportProcessData figmaImportProcessData)
         {
-            // There are two cases that this would be a substitution - either the component instance itself,
-            // or the original component node could have be a substitution (would have an image component that is NOT a FigmaImage)
-            // TODO - Optimise and remove need for Image component check
-            // With PlainImages on every image is a plain Image, so the subclass check would call
-            // everything a substitution; the marker set at generation says which ones really are.
-            var existingImageComponent = nodeObject.GetComponent<Image>();
+            // Either the component instance itself is a substitution, or the original component node
+            // was one - the marker set at generation records that.
             var nodeMarker = nodeObject.GetComponent<FigmaNodeObject>();
             var isSubstitution = FigmaNodeManager.NodeIsSubstitution(node, figmaImportProcessData)
-                                 || (nodeMarker != null && nodeMarker.ServerRendered)
-                                 || (!figmaImportProcessData.Settings.PlainImages && existingImageComponent != null && existingImageComponent is not FigmaImage);
+                                 || (nodeMarker != null && nodeMarker.ServerRendered);
             if (!isSubstitution)
             {
                 try

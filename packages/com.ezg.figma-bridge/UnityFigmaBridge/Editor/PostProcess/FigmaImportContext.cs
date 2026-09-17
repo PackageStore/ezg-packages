@@ -42,9 +42,10 @@ namespace UnityFigmaBridge.Editor.PostProcess
         public IReadOnlyDictionary<string, string> ComponentPrefabPaths;
 
         /// <summary>
-        ///     With <c>PlainImages</c> on: nodes that carried a stroke, corner radius, gradient or a
-        ///     non-rectangular shape the plain <c>Image</c> cannot draw. The node still became an
-        ///     <c>Image</c> (flat colour or sprite) so layout is visible; this list says what was lost.
+        ///     Nodes with children that carried a stroke, corner radius, gradient or a non-rectangular
+        ///     shape the plain <c>Image</c> cannot draw (a childless one is server-rendered instead). The
+        ///     node still became an <c>Image</c> (flat colour or sprite) so layout is visible; this list
+        ///     says what was lost.
         /// </summary>
         public IReadOnlyList<ShapeOnlyNode> ShapeOnlyNodes;
 

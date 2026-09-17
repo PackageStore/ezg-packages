@@ -127,10 +127,6 @@ namespace UnityFigmaBridge.Editor.Settings
         public bool CollapseSliceGrids = true;
 
         [Header("Output Shape")]
-        [Tooltip("Dùng Image thường thay cho FigmaImage (mất viền/bo góc/gradient; node đó được liệt kê cho post-processor).\n" +
-                 "Ví dụ: prefab ship không phụ thuộc shader của bridge.")]
-        public bool PlainImages = false;
-
         [Tooltip("Gắn LayoutElement cho node nào. OnlyUnderAutoLayout: chỉ con của frame auto layout.\n" +
                  "Ví dụ: Always giữ nếp 0.2, mỗi node một LayoutElement.")]
         public LayoutElementMode AddLayoutElements = LayoutElementMode.Always;

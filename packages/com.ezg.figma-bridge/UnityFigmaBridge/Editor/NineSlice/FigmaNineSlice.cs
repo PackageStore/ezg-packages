@@ -5,16 +5,12 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Runtime.UI;
 
 namespace UnityFigmaBridge.Editor.NineSlice
 {
     /// <summary>
     ///     Collapses a 3x3 (or 1x3 / 3x1) grid of <c>slice_ROW_COL</c> children into a single
-    ///     <c>Image.Type.Sliced</c>. This is an optimisation, not a correctness fix: the bridge
-    ///     already renders each cell correctly via <c>FigmaImage.ImageTransform</c> and constraint-
-    ///     derived anchors. Collapsing replaces nine <c>FigmaImage</c> components (each with its own
-    ///     dynamic material) with one plain <c>Image</c> and a shared sprite.
+    ///     <c>Image.Type.Sliced</c>: nine <c>Image</c> components become one with a shared sprite.
     /// </summary>
     internal static class FigmaNineSlice
     {
@@ -64,16 +60,6 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 slices.Add((child, m.Groups[1].Value, m.Groups[2].Value, img));
             }
 
-            // A plain Image cannot reproduce FigmaImage's stroke or corner-radius shader features.
-            foreach (var s in slices)
-            {
-                if (s.img is FigmaImage fi && (fi.StrokeWidth > 0 || fi.CornerRadius != Vector4.zero))
-                {
-                    Debug.Log($"[FigmaNineSlice] Skipping {node.name}: cell {s.t.name} has stroke or corner radius");
-                    return false;
-                }
-            }
-
             // All cells of a slice grid share one image fill; under the bridge each cell's sprite
             // points at the same asset (keyed by imageRef). Size equality is the safety check.
             var texture = slices[0].img.sprite.texture;
@@ -86,13 +72,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
 
             foreach (var s in slices) Object.DestroyImmediate(s.t.gameObject);
 
-            // The collapsed result must be a plain Image, not a FigmaImage.
             var target = node.GetComponent<Image>();
-            if (target is FigmaImage)
-            {
-                Object.DestroyImmediate(target);
-                target = null;
-            }
             if (target == null)
             {
                 if (node.GetComponent<CanvasRenderer>() == null) node.gameObject.AddComponent<CanvasRenderer>();

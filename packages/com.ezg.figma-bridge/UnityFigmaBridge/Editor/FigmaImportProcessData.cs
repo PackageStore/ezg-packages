@@ -91,8 +91,8 @@ namespace UnityFigmaBridge.Editor
         public Dictionary<string, List<FigmaInstanceSource>> InstanceSources = new();
 
         /// <summary>
-        /// With PlainImages on: nodes whose stroke, corner radius, gradient or non-rectangular
-        /// shape a plain Image could not draw.
+        /// Nodes with children whose stroke, corner radius, gradient or non-rectangular shape a
+        /// plain Image could not draw (childless ones are server-rendered instead).
         /// </summary>
         public List<ShapeOnlyNode> ShapeOnlyNodes = new();
 

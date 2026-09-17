@@ -53,7 +53,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (!File.Exists(path)) return null;
             try
             {
-                return JsonConvert.DeserializeObject<FigmaFile>(File.ReadAllText(path), s_DocumentJsonSettings);
+                var figmaFile = JsonConvert.DeserializeObject<FigmaFile>(File.ReadAllText(path), s_DocumentJsonSettings);
+                FigmaDataUtils.PruneIgnoredNodes(figmaFile);
+                return figmaFile;
             }
             catch (Exception e)
             {
@@ -158,6 +160,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             {
                 // Deserialize the document
                 figmaFile = JsonConvert.DeserializeObject<FigmaFile>(webRequest.downloadHandler.text, s_DocumentJsonSettings);
+                FigmaDataUtils.PruneIgnoredNodes(figmaFile);
 
                 Debug.Log($"Figma file downloaded, name {figmaFile.name}");
             }

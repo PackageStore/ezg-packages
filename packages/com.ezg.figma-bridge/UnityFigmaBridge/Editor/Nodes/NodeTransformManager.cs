@@ -204,19 +204,20 @@ namespace UnityFigmaBridge.Editor.Nodes
             targetRectTransform.anchorMin = targetRectTransform.anchorMax = new Vector2(0, 1);
             targetRectTransform.pivot = new Vector2(0, 1);
 
-            // We'll use absolute bounding box size
-            targetRectTransform.sizeDelta = new Vector2(figmaNode.absoluteBoundingBox.width, figmaNode.absoluteBoundingBox.height);
+            // A server render covers the render bounds (outside strokes, shadows), not the layout box
+            var bounds = figmaNode.absoluteRenderBounds ?? figmaNode.absoluteBoundingBox;
+            targetRectTransform.sizeDelta = new Vector2(bounds.width, bounds.height);
 
             if (ShouldAddLayoutElement(figmaParentNode, settings))
             {
                 //Add a layout element and set its preferred size
                 var layoutElement = targetRectTransform.gameObject.GetComponent<LayoutElement>();
                 if (layoutElement == null) layoutElement = targetRectTransform.gameObject.AddComponent<LayoutElement>();
-                layoutElement.preferredWidth = figmaNode.absoluteBoundingBox.width;
-                layoutElement.preferredHeight = figmaNode.absoluteBoundingBox.height;
+                layoutElement.preferredWidth = bounds.width;
+                layoutElement.preferredHeight = bounds.height;
 
-                layoutElement.minHeight = figmaNode.absoluteBoundingBox.height;
-                layoutElement.minWidth = figmaNode.absoluteBoundingBox.width;
+                layoutElement.minHeight = bounds.height;
+                layoutElement.minWidth = bounds.width;
             }
 
             // Position will be relative to parent absoluteBoundingBox (if it exists). Pages have no absoluteBoundingBox so assume pos of 0,0
@@ -224,8 +225,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                 ? new Vector2(figmaParentNode.absoluteBoundingBox.x, figmaParentNode.absoluteBoundingBox.y)
                 : Vector2.zero;
 
-            targetRectTransform.anchoredPosition=new Vector2(figmaNode.absoluteBoundingBox.x-figmaParentNodePosition.x,
-                -(figmaNode.absoluteBoundingBox.y-figmaParentNodePosition.y));
+            targetRectTransform.anchoredPosition=new Vector2(bounds.x-figmaParentNodePosition.x,
+                -(bounds.y-figmaParentNodePosition.y));
 
             // Some nodes will not have a constraints node (eg SECTION nodes)
             if (figmaNode.constraints!=null) ApplyFigmaConstraints(targetRectTransform, figmaNode, figmaParentNode);
