@@ -19,10 +19,12 @@ visual diff).
 
 ## Steps
 
-1. **Re-extract.** Generate the extract script for this screen and paste it into
-   `use_figma` (load `figma-use` first; `whoami` must show a full seat), then
-   save what it returns. A large `use_figma` return may arrive stringified —
-   `JSON.parse` before indexing (P-9).
+1. **Re-extract.** With `FIGMA_TOKEN` set, run `figma_extract_rest.py --keys
+   <key>` (no MCP needed). Without it, generate the extract script with
+   `figma_extract_gen.py --keys <key>`, paste into `use_figma` (load `figma-use`
+   first; `whoami` must show a full seat), then save with
+   `figma_extract_save.py --in <result.json>`. A large `use_figma` return may
+   arrive stringified — `JSON.parse` before indexing (P-9).
 2. **Gate this screen** and read the numbers from `verify_report.json` (`art_max`,
    `text_max`, `unmapped`, `font_violations`, `style_violations`, `rows`).
 3. **Hygiene.** Confirm no flat screen (at least one `Container-`/section frame,
@@ -36,8 +38,12 @@ visual diff).
 ## Commands
 
 ```bash
+# REST extract (preferred when FIGMA_TOKEN is set):
+FIGMA_TOKEN=... python3 <scripts>/figma_extract_rest.py --data-dir <data> --keys <key>
+# MCP fallback:
 python3 <scripts>/figma_extract_gen.py --data-dir <data> --keys <key>
 python3 <scripts>/figma_extract_save.py --data-dir <data> --in <result.json>
+# Gate and visual diff:
 python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --screen <key> --json
 python3 <scripts>/visual_diff.py --data-dir <data> --screen <key>
 ```

@@ -8,8 +8,8 @@ continue from `next` (`<key>` = the component set you are building; see
 "Before anything").
 
 Build components first, screens second — a screen is assembled from instances,
-never loose art. Art that repeats three or more times across screens is promoted
-to a component (or a variant of an existing set) before any screen uses it.
+never loose art. `components_plan.json` (from `reuse_plan.py`) decides which stems
+are promoted; `unpromoted` clusters block the build until promoted or waived.
 
 ## Inputs
 
@@ -18,7 +18,8 @@ to a component (or a variant of an existing set) before any screen uses it.
 - `<data>/image_hashes.json`, `<data>/nine_slice.json` (from `briefs/art.md`).
 - `<data>/psd2figma.json` — `figma.pages` (build on the components page id),
   `figma.fonts`.
-- `scripts/figma_helpers.js`, `reference/plugin-helpers.md`, `reference/nine-slice.md`,
+- `figma-build` skill: `scripts/figma_helpers.js`, `reference/plugin-helpers.md`;
+  `reference/nine-slice.md`,
   `reference/component-registry.md`.
 
 ## Read the registry
@@ -29,12 +30,12 @@ python3 -c "import json,sys; print(json.dumps(json.load(open(sys.argv[1])),inden
 
 ## Build (Figma-side, one `use_figma` payload at a time)
 
-Paste `scripts/figma_helpers.js` ahead of the build, then call `nineSliceFrame`
+Paste `figma-build/scripts/figma_helpers.js` ahead of the build, then call `nineSliceFrame`
 (plate masters, border `[L,T,R,B]` from `nine_slice.json`, hash from
 `image_hashes.json`), `rectHash`, `instanceAt`. Combine masters with the Plugin
-API's `figma.combineAsVariants`, then set a unique `Type=` per variant. Verify the helpers once per session by pasting
-`figma_helpers.js` then `figma_helpers_selftest.js` (`PAGE_ID` a page id, `FONT`
-= `figma.fonts.body`); require `{pass:true}` and no leftover node.
+API's `figma.combineAsVariants`, then set a unique `Type=` per variant. Verify the helpers once per session:
+`python3 <figma-build>/scripts/figma_build_gen.py --helpers-selftest --page-id <id> --font <figma.fonts.body as Family/Style>`,
+paste the payload; require `{pass:true}` and no leftover node.
 
 ## Record — never a per-plan snapshot
 
@@ -67,6 +68,7 @@ If this component needs a new stem uploaded, run `briefs/art.md` first.
 - P-8 border-vs-axis guard. P-13 size a STRETCH-margin instance to `target+2×margin`,
   offset `−margin`. P-21 per-variant icons use a nested exposed instance, not an
   INSTANCE_SWAP. P-20 an unpublished file's components are local copies.
+- P-29 `combineAsVariants` needs all components on the same page first.
 
 ## Hand-off
 

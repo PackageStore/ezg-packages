@@ -125,37 +125,67 @@ These checks use `get_metadata` only (no pixel comparison).
 
 ## Running the checks
 
+### Automated gate (S-1, S-2, S-3, S-7, S-9, V-3, V-4)
+
+Extract the screen, then run the hygiene gate:
+
+```
+python3 <psd-to-figma scripts>/figma_extract_rest.py --data-dir <data> --keys <key>
+python3 <psd-to-figma scripts>/verify_figma_vs_psd.py --data-dir <data> --screen <key> --json --hygiene-strict
+```
+
+Pass condition: both commands exit 0. The extract writes
+`figma_extract_<key>.json` with a `hygiene` block; the gate reads it and
+reports per-rule results in `verify_report.json` under
+`screens.<key>.hygiene`.
+
+Without `FIGMA_TOKEN`, use the Plugin-based extract path: run
+`figma_extract.js` (gen, paste, save), then the same gate command.
+
+A screen not in `screens.json` (a component-only check) has no extract key;
+add a temporary key with `figma_extract_save.py --allow-unknown` or run the
+Plugin walk on the frame id directly.
+
 ### Pre-flight (structure only)
 
-The pre-flight agent runs `get_metadata` on the target screen and checks
-S-1 through S-9 by inspecting the node tree. No Figma writes happen until
-all S-checks pass or the user explicitly overrides.
+Run the extract + gate above. A failure in any S-rule blocks the workflow
+from proceeding to Figma writes.
 
 ### Post-flight (full gate)
 
-The post-flight agent runs both tiers:
+Run the same extract + gate. Post-flight adds the numeric tier (art/text
+tolerance, unmapped nodes) to the report. A failure in either tier blocks
+the workflow from marking the screen as done.
 
-1. **Structure** — `get_metadata` inspection (S-1 through S-9).
-2. **Visual** — a visual extract of the target screen checked against V-1, V-3, V-4.
+### What stays manual
 
-The project's own verify/diff tooling supplies the numeric pass separately
-when applicable. A failure in either tier blocks the workflow from marking
-the screen as done.
+| Rule | What to check | Helper |
+|---|---|---|
+| S-4 | Auto-layout where ≥2 same-component siblings have equal spacing | Visual inspection of the node tree |
+| S-5 | Grid container where instances form N×M (N≥2, M≥2) | Visual inspection of the node tree |
+| S-6 | Component reuse for art/structure repeating ≥3× | `figma-components/scripts/auditComponentCoverage.js` |
+| S-8 | Popup container left/right edges on column edges | Extract reports `rootContainers` and centering; column-edge alignment is visual |
+| V-1 | 9-slice usage per the project's registry | `nine_slice.json` in the data dir |
 
 ## Failure handling
 
 | Failure tier | Action |
 |---|---|
-| Tier 1 (Structure) | Agent reports which contracts failed with node IDs. Workflow must fix before proceeding. |
-| Tier 2 (Visual) | Agent reports violations with node IDs and expected values. Fix or add to `accepted_debt.json` with reason. |
+| Tier 1 (Structure) | Fix the violating nodes. The gate names each node and rule. |
+| Tier 2 (Visual) | Fix or add to `accepted_debt.json` with reason. |
+| Hygiene allow-list | Add `{id, rule, reason}` entries to `accepted_debt.json` under `hygiene_allow`. The gate subtracts allowed ids before checking. |
+
+<!-- evidence: the remote icon_close Vector (a library component) is the
+canonical allow-list example: {"id": "<node-id>", "rule": "S2", "reason":
+"remote library component, name not ours to change"} -->
 
 ## Agent integration
 
 When this skill runs as a workflow agent:
 
-1. **Pre-flight agent** receives the screen name and runs Tier 1 checks.
-   Returns `{pass: true}` or `{pass: false, violations: [...]}`.
+1. **Pre-flight** runs the extract + gate commands, returns `{pass, violations}`
+   built from `verify_report.json.screens[key].hygiene`.
 2. The main workflow proceeds only if pre-flight passes.
-3. **Post-flight agent** receives the screen name and runs both tiers.
-   Returns `{pass: true, report: {...}}` or `{pass: false, violations: [...]}`.
+3. **Post-flight** runs the same commands (extract + full gate), returns the
+   same shape plus the numeric tier results.
 4. The workflow marks the screen done only if post-flight passes.

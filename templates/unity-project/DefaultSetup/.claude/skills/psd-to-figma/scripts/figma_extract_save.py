@@ -28,6 +28,26 @@ def render(obj):
     return json.dumps(obj, indent=2) + "\n"
 
 
+def write_results(data, cfg, dry_run):
+    for key, obj in data.items():
+        dest = cfg.path(f"figma_extract_{key}.json")
+        new_text = render(obj)
+        n = len(obj.get("nodes", []))
+        if dry_run:
+            old_text = dest.read_text(encoding="utf-8") if dest.is_file() else ""
+            diff = difflib.unified_diff(
+                old_text.splitlines(keepends=True),
+                new_text.splitlines(keepends=True),
+                fromfile=f"a/figma_extract_{key}.json",
+                tofile=f"b/figma_extract_{key}.json",
+            )
+            sys.stdout.writelines(diff)
+            sys.stdout.write(f"[dry-run] figma_extract_{key}.json ({n} nodes)\n")
+        else:
+            dest.write_text(new_text, encoding="utf-8")
+            print(f"wrote figma_extract_{key}.json ({n} nodes)")
+
+
 def main():
     cfg, argv = resolve()
     parser = argparse.ArgumentParser(prog="figma_extract_save.py")
@@ -53,23 +73,7 @@ def main():
         if not isinstance(obj, dict) or "frameW" not in obj or "frameH" not in obj:
             raise SystemExit(f"figma_extract_save: {key!r} is missing frameW/frameH")
 
-    for key, obj in data.items():
-        dest = cfg.path(f"figma_extract_{key}.json")
-        new_text = render(obj)
-        n = len(obj.get("nodes", []))
-        if args.dry_run:
-            old_text = dest.read_text(encoding="utf-8") if dest.is_file() else ""
-            diff = difflib.unified_diff(
-                old_text.splitlines(keepends=True),
-                new_text.splitlines(keepends=True),
-                fromfile=f"a/figma_extract_{key}.json",
-                tofile=f"b/figma_extract_{key}.json",
-            )
-            sys.stdout.writelines(diff)
-            sys.stdout.write(f"[dry-run] figma_extract_{key}.json ({n} nodes)\n")
-        else:
-            dest.write_text(new_text, encoding="utf-8")
-            print(f"wrote figma_extract_{key}.json ({n} nodes)")
+    write_results(data, cfg, args.dry_run)
 
 
 if __name__ == "__main__":

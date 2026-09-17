@@ -10,9 +10,9 @@ uploaded PNGs, text as live `TEXT` — then prove it matches the PSD numerically
 The skill is project-agnostic: every project value is read from
 `<data>/psd2figma.json` and the `tables.*` files, never written into the skill.
 
-> Generic structural and visual contracts (no flat screens, `Container-`
-> grouping, component reuse, 9-slice, grid style) live in the `figma-hygiene`
-> skill; this skill adds the settings contract, the commands, and the numeric tier.
+> Structural and visual contracts live in the `figma-hygiene` skill; PSD
+> authoring rules in `reference/psd-authoring-contract.md`. This skill adds the
+> settings contract, the commands, and the numeric tier.
 
 Adding a screen means adding an entry to `screens.json`, not writing a new
 generator. `<scripts>` is this skill's `scripts/` dir; `<data>` is the project's
@@ -29,7 +29,7 @@ the project root comes from `psd2figma.json`; the first run writes `<data>/.giti
 3. A full Figma seat. View-only seats fail every write silently (P-7).
 4. Read `reference/figma-traps.md` before writing any `use_figma` build or
    grouping code — every Plugin API, MCP and PSD-import trap this pipeline has
-   already paid for (P-1..P-24), one row each: symptom, cause, rule, evidence.
+   already paid for (P-1..P-30), one row each: symptom, cause, rule, evidence.
 
 ## Project settings
 
@@ -45,8 +45,7 @@ only the sub-section it owns. Keys the stages read:
 | `figma.fonts.body` / `.condensed` / `condensedIsRealFamily` | the one font, its accepted substitute |
 | `figma.gridStyleId` | the file-local layout-grid style every screen frame applies |
 | `tables.screens` / `.nodeNames` / `.diffRegions` / `.extract` | the per-project data files, all in `<data>` |
-| `styleIdFiles` | list of text-style-id filenames the font SSOT gate merges, in order |
-| `icons` / `export` | icon stage; art stage (`plates`, `tieBreak`, `allowShared`, `skipAssets`) |
+| `reuse.waive` | stems waived from component promotion, with a mandatory reason |
 
 A value the skill needs that is not there gets added there, never pasted into a
 step. The gate reads the expected font from `figma.fonts.body`, falling back to
@@ -59,29 +58,26 @@ brief carrying its inputs, exact commands, acceptance, traps and hand-off.
 
 | Stage | Brief | What it runs |
 |---|---|---|
-| Data | `reference/briefs/data.md` | `psd_manifest.py [--strict]` → `psd_manifest.json` |
-| Art | `reference/briefs/art.md` | `psd_export_pngs.py`, `psd_export_icons.py`, upload (`scaleMode: "FIT"`), `nine_slice_detect.py` |
-| Components | `reference/briefs/components.md` | `figma_helpers.js` via `use_figma`; record with `registry_add.py` |
-| Screen build | `reference/briefs/screen-build.md` | build; `figma_extract_gen/save.py`; `verify_figma_vs_psd.py --screen <key>` |
-| Screen verify | `reference/briefs/screen-verify.md` | re-extract; gate `--json`; `visual_diff.py --screen <key>` |
-| Gate | `reference/briefs/gate.md` | full extract; `verify_figma_vs_psd.py --json`; pins |
+| Data | `briefs/data.md` | `psd_manifest.py [--strict]` → `psd_manifest.json` |
+| Lint | `briefs/data.md` | `psd_lint.py` |
+| Art | `briefs/art.md` | `psd_export_pngs.py`, `psd_export_icons.py`, upload (`scaleMode: "FIT"`), `nine_slice_detect.py` |
+| Components | `briefs/components.md` | `figma-build/scripts/figma_helpers.js` via `use_figma`; record with `registry_add.py` |
+| Plan | `briefs/screen-build.md` | `build_plan_gen.py --keys <key>` |
+| Build | `briefs/screen-build.md` | `figma_build_gen.py --key <key>` (wraps the `figma-build` skill) → `use_figma` → `figma_build_save.py` |
+| Extract | `briefs/screen-verify.md` | `figma_extract_rest.py` (`FIGMA_TOKEN`) or `figma_extract_gen/save` |
+| Gate | `briefs/gate.md` | `verify_figma_vs_psd.py --json [--hygiene-strict] [--learn-ids]` |
 
-Run every local stage as one idempotent command:
-`python3 <scripts>/pipeline.py --data-dir <data> run` executes manifest, export,
-icons, borders, then the gate in order, skips any stage whose inputs are
-unchanged, and stops on a collision (exit 3, the stem named). `status` lists
-stale stages without running; `run --stages a,b` limits the set, `--screen <key>`
-filters the gate, `--force` reruns regardless. Upload and Figma stages are never
-run by the runner — they need the MCP. Runner state lives under
-`<data>/.pipeline/` and checkpoints under `<data>/.progress/` (both covered by
-`<data>/.gitignore`) — see `reference/checkpoints.md`.
+Eight runner stages: `lint`, `manifest`, `export`, `icons`, `borders`, `plan`,
+`extract`, `gate`; `extract` needs `FIGMA_TOKEN`; build is the one MCP step the
+runner does not automate. `python3 <scripts>/pipeline.py --data-dir <data> run`
+executes the eight in order, skips unchanged, stops on a collision (exit 3).
+`status` lists stale stages; `run --stages a,b` limits, `--screen <key>` filters
+the gate, `--force` reruns. State under `<data>/.pipeline/`, checkpoints under
+`<data>/.progress/` — see `reference/checkpoints.md`.
 
 Build **components first, screens second** — a screen is assembled from
-instances, never loose art. Record every component, 9-slice application and text
-style through `registry_add.py`, which locks and atomically deep-merges into
-`component_ids.json`, `nine_slice.json` and the style-id files — parallel builders
-write straight into the current files, never per-plan snapshots. See
-`reference/component-registry.md`.
+instances, never loose art. Record every component, 9-slice and style through
+`registry_add.py`; see `reference/component-registry.md`.
 
 ## Locked decisions
 
@@ -99,52 +95,57 @@ write straight into the current files, never per-plan snapshots. See
   screen-size frame.
 - **Manifest is the single source of truth.** The gate takes each text node's
   style and effects from the manifest layer it matched (`type.style`,
-  `type.effects`); `text_styles.json.layerMap` is only an override. A phantom
-  drop shadow the style declares but neither node nor PSD carries is not
-  subtracted. See `reference/contracts.md` → Text recipe.
+  `type.effects`); `text_styles.json.layerMap` is only an override. See
+  `reference/contracts.md` → Text recipe.
 - **Collisions fail loud.** A stem reused for different pixels (exporter, exit 3)
-  or a node name reused with a different style (`psd_manifest.py --strict`) stops
-  the pipeline naming both. Escapes: `export.tieBreak`, `export.allowShared`
-  (mandatory reason). See `reference/contracts.md` → Collision contract.
+  or a node name with a different style (`--strict`) stops the pipeline.
+  Escapes: `export.tieBreak`, `export.allowShared`. See `reference/contracts.md`.
 - **Fill opacity is data, not eyeball.** The manifest records `fillOpacity` /
-  `layerOpacity` when below 100%; the exporter records `bakedOpacity` per stem.
-  A builder always sets node opacity = manifest `opacity`; for a text layer fill
-  opacity is the glyph fill alpha, not the node opacity. See
-  `reference/contracts.md` → Opacity contract.
-- **Build with tested helpers**, never hand-written Plugin API —
-  `scripts/figma_helpers.js` (`reference/plugin-helpers.md`), self-tested once
-  per session with `figma_helpers_selftest.js`.
-- **Font SSOT.** Every TEXT node — including text inside clip frames — must carry
-  `fontName` = `figma.fonts.body` and bind a shared text style whose id appears
-  in one of the style-id files listed in `styleIdFiles`, merged in that order.
-  The gate enforces both; a font/style violation is a bug, never accepted debt.
+  `layerOpacity`; the exporter records `bakedOpacity` per stem. A builder sets
+  node opacity = manifest `opacity`. See `reference/contracts.md`.
+- **Build with tested helpers**, never hand-written Plugin API — the
+  `figma-build` skill's `figma_helpers.js`, self-tested once per session with
+  `figma_build_gen.py --helpers-selftest`.
+- **Font SSOT.** Every TEXT node must carry `fontName` = `figma.fonts.body` and
+  bind a style from `styleIdFiles`. A font/style violation is a bug, never debt.
+- **Generated build, never hand-written.** `build_plan_gen.py` turns the
+  manifest into a build plan (`figma-build/reference/build-plan.md`);
+  `figma_build_gen.py` hands it to the `figma-build` skill. A hand edit goes
+  into the plan tables or the helpers.
+- **Reuse from data.** `components_plan.json` decides instance vs rect;
+  `unpromoted` clusters block the build until promoted or waived in
+  `psd2figma.json.reuse.waive` with a reason.
+- **Ids over names.** Run `--learn-ids` once a screen passes; renames never
+  break the gate.
 
 ## Verify
 
 The bar is **0.00 px art, 2.00 px text ink, 0 unmapped**, plus zero font/style
-violations. Gate one screen with `verify_figma_vs_psd.py --screen <key>`
-(repeatable); the summary, the Failures block and the exit code then cover only
-the named screens, and an unknown key exits 2 listing the known keys. A screen
-whose `figma_extract_<key>.json` is absent is tolerated — listed under `Missing
-extracts:`, its rows skipped, exit 1 — so no scratch `screens.json` is needed.
-`--json` also writes `verify_report.json` (markdown unchanged) with per-screen
-numbers and a `rows` array — read numbers from it, not the prose. An irreducible
+violations and hygiene S-1/S-2/S-7/S-9 clean (`--hygiene-strict`). Gate one
+screen with `verify_figma_vs_psd.py --screen <key>` (repeatable); `--json` writes
+`verify_report.json` — read numbers from it, not the prose. An irreducible
 deviation is pinned in `accepted_debt.json` per `node`+`screen` with a 0.5 px
-drift guard — a pin, never a widened tolerance. `verify_figma_vs_psd.py
---selftest` checks the recipe resolver. Pin schema, the leaf rule and the full
-numeric tier live in `reference/contracts.md`.
+drift guard — a pin, never a widened tolerance. `--selftest` checks the recipe
+resolver. `PIN_STALE` rows (pins whose deviation now clears the bar) should be
+removed from `accepted_debt.json`. When `name_map.json` exists, the gate resolves
+migrated names through it so pre-migration manifests still match. Existing covered
+screens keep `_` names by decision; new screens use hyphens (D-5). Pin schema,
+the leaf rule and the full numeric tier live in `reference/contracts.md`.
 
 ## References
 
-- `reference/briefs/` — the six stage briefs above.
+- `reference/briefs/` — the stage briefs above.
 - `reference/checkpoints.md` — resume-after-kill convention.
-- `reference/figma-traps.md` — P-1..P-24.
+- `reference/figma-traps.md` — P-1..P-30.
 - `reference/contracts.md` — extract, verify, recipe, opacity, collision contracts.
-- `reference/component-registry.md`, `reference/nine-slice.md`, `reference/plugin-helpers.md`.
+- `reference/psd-authoring-contract.md` — PSD structuring rules for clean import.
+- `reference/component-registry.md`, `reference/nine-slice.md`.
+- Plan contract and Plugin API helpers → `figma-build` skill.
+- Hygiene contracts → `figma-hygiene` skill.
 
 ## Definition of done
 
-- `verify_figma_vs_psd.py` meets the bar for the new screens (`art max 0.00`, `unmapped 0`, zero font/style violations).
+- `verify_figma_vs_psd.py` meets the bar (`art max 0.00`, `unmapped 0`, zero font/style violations).
 - `visual_diff.py` leaves no unexplained region.
 - `component_ids.json` and `nine_slice.json` record every node created.
 - Every deviation is fixed or pinned with a reason; no probe frame remains.

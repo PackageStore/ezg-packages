@@ -42,6 +42,10 @@ diff/
 *.lock
 assets_index.json
 icons_index.json
+layer_digests.json
+components_plan.json
+build_plan_*.json
+lint_report.json
 verify_report.md
 verify_report.json
 diff_report.md

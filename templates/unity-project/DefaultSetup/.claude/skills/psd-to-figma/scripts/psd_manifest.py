@@ -17,8 +17,12 @@ from psd_tools import PSDImage
 
 from pipeline_config import resolve
 from psd_opacity import opacity_fields
+from text_ink import ink_box as _ink_box
 
 _CFG, _ARGV = resolve()
+
+_FONT_FILES = _CFG.settings.get("figma", {}).get("fonts", {}).get("files", {})
+_FONT_WARNED = set()
 
 PSD_DIR = _CFG.psd_dir
 OUTPUT = _CFG.path("psd_manifest.json")
@@ -31,7 +35,10 @@ SKIP_NAMES = set(_NAMES["skipNames"])
 # Screen-scoped un-skip: a "<screen>/<layer name>" entry here keeps a layer that
 # skipNames would otherwise drop, for the screen that actually renders it.
 KEEP_NAMES = set(_NAMES.get("keepNames", []))
-SKIP_ARTBOARD = _NAMES["skipArtboard"]
+_sa = _NAMES["skipArtboard"]
+SKIP_ARTBOARDS = set(_sa if isinstance(_sa, list) else [_sa])
+# Screen-scoped grouping for PSDs that carry no groups: "<screen>" -> {"<name>" | "<name>@<x>,<y>": [container names, outermost first]}
+VIRTUAL_GROUPS = _NAMES.get("virtualGroupPaths", {})
 # Repeating-row content box origin (inside the outside stroke)
 ROW_CONTENT_ORIGIN = tuple(_NAMES["rowContentOrigin"])
 # Repeating-row art box origin (includes stroke)
@@ -114,6 +121,7 @@ def get_text_type(layer, screen_key):
     font_size = None
     font_idx = 0
     fill_color = None
+    tracking = 0
     for run in style_runs:
         ssd = run['StyleSheet']['StyleSheetData']
         if 'FontSize' in ssd:
@@ -124,6 +132,10 @@ def get_text_type(layer, screen_key):
             fc = ssd['FillColor']
             vals = [float(v) for v in fc.get('Values', [])]
             fill_color = vals
+        if 'Tracking' in ssd:
+            tv = float(ssd['Tracking'])
+            if tv != 0:
+                tracking = tv
 
     font_set = rd.get('FontSet', [])
     if font_idx < len(font_set):
@@ -157,11 +169,36 @@ def get_text_type(layer, screen_key):
         result["fillColor"] = [round(float(v), 5) for v in fill_color]
     if enabled_effects:
         result["effects"] = enabled_effects
+    if tracking:
+        result["tracking"] = tracking
+
+    if _FONT_FILES:
+        rel = _FONT_FILES.get(font_name)
+        if rel:
+            font_path = _CFG.project_root / rel
+            if font_path.is_file():
+                weight = font_name.rsplit("-", 1)[-1] if "-" in font_name else ""
+                ib = _ink_box(text, font_path, eff_size, tracking=tracking,
+                              weight_hint=weight)
+                if ib is not None:
+                    ib["fontFile"] = rel
+                    is_sub = _CFG.settings.get("figma", {}).get(
+                        "condensedIsRealFamily") is False and "Condensed" in font_name
+                    if is_sub:
+                        ib["substitute"] = True
+                    result["inkBox"] = ib
+            elif font_name not in _FONT_WARNED:
+                _FONT_WARNED.add(font_name)
+                print(f"text_ink: font file not found: {font_path}", file=sys.stderr)
+        elif font_name not in _FONT_WARNED:
+            _FONT_WARNED.add(font_name)
+            print(f"text_ink: no file mapping for font {font_name!r}", file=sys.stderr)
 
     return result
 
 
-def process_layer(layer, screen_key, dx, dy, parent_group=None):
+def process_layer(layer, screen_key, dx, dy, parent_group=None,
+                   group_path=()):
     """Process a single layer and return a manifest entry (or None for skips)."""
     role = classify_layer(layer, screen_key)
 
@@ -211,7 +248,25 @@ def process_layer(layer, screen_key, dx, dy, parent_group=None):
     if parent_group:
         entry["group"] = parent_group
 
+    entry["groupPath"] = list(group_path)
+
+    _read_smart_object_id(layer, entry)
+
     return entry
+
+
+def _read_smart_object_id(layer, entry):
+    if layer.kind != "smartobject":
+        return
+    try:
+        so = layer.smart_object
+        if so is not None and hasattr(so, "unique_id"):
+            entry["smartObjectId"] = so.unique_id
+    except Exception:
+        _so_errors[0] += 1
+
+
+_so_errors = [0]
 
 
 def process_upgrade_row_children(layers, screen_key, dx, dy):
@@ -232,6 +287,7 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
                 ("w", layer.bbox[2] - layer.bbox[0]),
                 ("h", layer.bbox[3] - layer.bbox[1]),
                 ("opacity", round(int(layer.opacity) / 255.0, 4)),
+                ("groupPath", []),
             ])
             results.append(entry)
             continue
@@ -284,6 +340,8 @@ def process_upgrade_row_children(layers, screen_key, dx, dy):
         if role == "text":
             entry["type"] = get_text_type(layer, screen_key)
 
+        entry["groupPath"] = []
+        _read_smart_object_id(layer, entry)
         entry["isRowChild"] = True
         results.append(entry)
 
@@ -296,24 +354,25 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
     unclassified = []
     walk_mode = screen_cfg.get("walkMode", "tree")
     row_children_names = set(screen_cfg.get("rowChildren", []))
+    _so_errors[0] = 0
 
-    def _walk(layer, parent_group=None):
+    def _walk(layer, parent_group=None, group_path=()):
         name = layer.name
 
         if hasattr(layer, '__iter__') and layer.kind in ("group", "artboard"):
-            # A clipped group folds into its base; skip it and its whole subtree.
-            if getattr(layer, "clipping", False) and name != SKIP_ARTBOARD:
-                layers.append(process_layer(layer, screen_key, dx, dy, parent_group))
+            if getattr(layer, "clipping", False) and name not in SKIP_ARTBOARDS:
+                layers.append(process_layer(
+                    layer, screen_key, dx, dy, parent_group,
+                    group_path=group_path))
                 return
-            if name == SKIP_ARTBOARD:
-                # Skip the artboard wrapper itself, process children
-                entry = process_layer(layer, screen_key, dx, dy)
+            if name in SKIP_ARTBOARDS:
+                entry = process_layer(layer, screen_key, dx, dy,
+                                      group_path=())
                 layers.append(entry)
                 for child in layer:
-                    _walk(child)
+                    _walk(child, group_path=())
                 return
 
-            # Named groups
             group_name = name.replace(" - Smart Object Group", "")
             group_node = resolve_key(
                 NODE_NAMES, screen_key, name, layer.bbox[0], layer.bbox[1]
@@ -328,13 +387,21 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
                 ("w", layer.bbox[2] - layer.bbox[0]),
                 ("h", layer.bbox[3] - layer.bbox[1]),
                 ("opacity", round(int(layer.opacity) / 255.0, 4)),
+                ("groupPath", list(group_path)),
             ])
             layers.append(entry)
+            child_path = group_path + (group_name,)
             for child in layer:
-                _walk(child, parent_group=group_name)
+                _walk(child, parent_group=group_name,
+                      group_path=child_path)
             return
 
-        entry = process_layer(layer, screen_key, dx, dy, parent_group)
+        vg = VIRTUAL_GROUPS.get(screen_key, {})
+        vpath = vg.get(f"{name}@{layer.bbox[0]},{layer.bbox[1]}", vg.get(name))
+        if vpath:
+            group_path, parent_group = tuple(vpath), vpath[-1]
+        entry = process_layer(layer, screen_key, dx, dy, parent_group,
+                              group_path=group_path)
         if entry:
             layers.append(entry)
             role = entry["role"]
@@ -347,12 +414,19 @@ def walk_screen(psd, screen_key, dx, dy, screen_cfg):
                 row_entries = process_upgrade_row_children([layer], screen_key, dx, dy)
                 layers.extend(row_entries)
             else:
-                entry = process_layer(layer, screen_key, dx, dy)
+                entry = process_layer(layer, screen_key, dx, dy,
+                                      group_path=())
                 if entry:
                     layers.append(entry)
     else:
         for layer in psd:
             _walk(layer)
+
+    for i, entry in enumerate(layers):
+        entry["zOrder"] = i
+
+    if _so_errors[0]:
+        print(f"{screen_key}: {_so_errors[0]} unreadable smart object(s)")
 
     return layers, unclassified
 

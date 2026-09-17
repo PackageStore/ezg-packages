@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """Idempotent stage runner for the local psd2figma pipeline.
 
-    pipeline.py --data-dir <d> --project-root <r> run [--stages a,b] [--screen KEY] [--force]
+    pipeline.py --data-dir <d> --project-root <r> run [--stages a,b] [--screen KEY] [--force] [--skip-lint]
     pipeline.py --data-dir <d> --project-root <r> status [--screen KEY]
 
-`run` executes the stale stages in order (manifest, export, icons, borders,
-gate), copying each stage's outputs to <data>/.pipeline/before/<stage>/ first
-and printing a one-line content diff after. A stage runs when any input digest
-differs from its <data>/.pipeline/<stage>.stamp, or under --force. Exit codes
-propagate; a collision (exit 3) stops the chain and the summary names the stem.
-Upload and Figma stages need the MCP and are never run here. Input digests are
-sha256 over file bytes for JSON, (name, size, mtime_ns) for PSDs and PNG dirs;
-a mtime-only bump on a JSON input is intentionally ignored.
+`run` executes the stale stages in order (lint, manifest, export, icons,
+borders, plan, extract, gate), copying each stage's outputs to
+<data>/.pipeline/before/<stage>/ first and printing a one-line content diff
+after. A stage runs when any input digest differs from its
+<data>/.pipeline/<stage>.stamp, or under --force. Exit codes propagate; a
+collision (exit 3) stops the chain and the summary names the stem. `lint`
+exit 1 also stops the chain unless --skip-lint. `extract` without FIGMA_TOKEN
+prints a skip message and writes no stamp.
+Upload and Figma build stages need the MCP and are never run here. Input
+digests are sha256 over file bytes for JSON, (name, size, mtime_ns) for PSDs
+and PNG dirs; a mtime-only bump on a JSON input is intentionally ignored.
 """
 
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -25,12 +29,14 @@ from pathlib import Path
 from pipeline_config import resolve
 
 SCRIPTS = Path(__file__).parent
-STAGES = ["manifest", "export", "icons", "borders", "gate"]
-DEPS = {"manifest": [], "export": ["manifest"], "icons": [],
-        "borders": ["export"], "gate": ["manifest"]}
-SCRIPT = {"manifest": "psd_manifest.py", "export": "psd_export_pngs.py",
-          "icons": "psd_export_icons.py", "borders": "nine_slice_detect.py",
-          "gate": "verify_figma_vs_psd.py"}
+STAGES = ["lint", "manifest", "export", "icons", "borders", "plan", "extract", "gate"]
+DEPS = {"lint": [], "manifest": [], "export": ["manifest"], "icons": [],
+        "borders": ["export"], "plan": ["manifest"], "extract": [],
+        "gate": ["manifest", "extract"]}
+SCRIPT = {"lint": "psd_lint.py", "manifest": "psd_manifest.py",
+          "export": "psd_export_pngs.py", "icons": "psd_export_icons.py",
+          "borders": "nine_slice_detect.py", "plan": "build_plan_gen.py",
+          "extract": "figma_extract_rest.py", "gate": "verify_figma_vs_psd.py"}
 
 
 def _sha(b):
@@ -70,6 +76,10 @@ def _icon_psds(cfg):
     return out
 
 
+def _screen_keys(cfg):
+    return list(cfg.load("screens").keys())
+
+
 def stage_inputs(cfg, stage, screen_args):
     dd = cfg.data_dir
     tables = cfg.settings.get("tables", {})
@@ -79,7 +89,12 @@ def stage_inputs(cfg, stage, screen_args):
 
     screens = cfg.load("screens")
     screen_psds = [cfg.psd_dir / v["psd"] for v in screens.values()]
-    if stage == "manifest":
+    if stage == "lint":
+        atoms = [_json_atom(data("screens")),
+                 _json_atom(data("nodeNames")),
+                 _json_atom(dd / "psd2figma.json")]
+        atoms += [_psd_atom(p) for p in screen_psds]
+    elif stage == "manifest":
         atoms = [_json_atom(data("screens")), _json_atom(data("nodeNames")),
                  _json_atom(dd / "psd2figma.json")]
         atoms += [_psd_atom(p) for p in screen_psds]
@@ -93,6 +108,20 @@ def stage_inputs(cfg, stage, screen_args):
         plates = cfg.settings.get("export", {}).get("plates", [])
         atoms = [_dir_atom(dd / "assets"),
                  "plates:" + json.dumps(plates, sort_keys=True)]
+    elif stage == "plan":
+        atoms = [_json_atom(dd / "psd_manifest.json"),
+                 _json_atom(dd / "components_plan.json"),
+                 _json_atom(dd / "image_hashes.json"),
+                 _json_atom(dd / "component_ids.json"),
+                 _json_atom(dd / "nine_slice.json"),
+                 _json_atom(dd / "text_styles.json")]
+        for sf in cfg.settings.get("styleIdFiles", []):
+            atoms.append(_json_atom(dd / sf))
+        atoms.append("screen:" + json.dumps(sorted(screen_args)))
+    elif stage == "extract":
+        atoms = [_json_atom(dd / "figma_extract_config.json"),
+                 "screen:" + json.dumps(sorted(screen_args)),
+                 "token:" + ("set" if os.environ.get("FIGMA_TOKEN") else "unset")]
     elif stage == "gate":
         atoms = [_json_atom(dd / f"figma_extract_{k}.json") for k in screens]
         atoms += [_json_atom(dd / "psd_manifest.json"),
@@ -104,6 +133,12 @@ def stage_inputs(cfg, stage, screen_args):
 
 def stage_outputs(cfg, stage):
     dd = cfg.data_dir
+    if stage == "lint":
+        return [dd / "lint_report.json"]
+    if stage == "plan":
+        return [dd / f"build_plan_{k}.json" for k in _screen_keys(cfg)]
+    if stage == "extract":
+        return [dd / f"figma_extract_{k}.json" for k in _screen_keys(cfg)]
     return {
         "manifest": [dd / "psd_manifest.json"],
         "export": [dd / "assets", dd / "assets_index.json"],
@@ -117,7 +152,15 @@ def stage_cmd(cfg, stage, screen_args):
     cmd = [sys.executable, str(SCRIPTS / SCRIPT[stage]),
            "--data-dir", str(cfg.data_dir),
            "--project-root", str(cfg.project_root)]
-    if stage == "gate":
+    if stage == "lint":
+        cmd.append("--json")
+    elif stage == "plan":
+        keys = screen_args or _screen_keys(cfg)
+        cmd += ["--keys", ",".join(keys)]
+    elif stage == "extract":
+        if screen_args:
+            cmd += ["--keys", ",".join(screen_args)]
+    elif stage == "gate":
         cmd.append("--json")
         for s in screen_args:
             cmd += ["--screen", s]
@@ -197,6 +240,15 @@ def summarize(cfg, stage, before_dir):
     if stage == "gate":
         parts.append("report changed" if "verify_report.md" in changed_json
                      else "report unchanged")
+    if stage == "lint":
+        parts.append("report changed" if "lint_report.json" in changed_json
+                     else "report unchanged")
+    if stage == "plan":
+        n = sum(1 for k in changed_json if k.startswith("build_plan_"))
+        parts.append(f"{n} plan{'s' if n != 1 else ''} changed")
+    if stage == "extract":
+        n = sum(1 for k in changed_json if k.startswith("figma_extract_"))
+        parts.append(f"{n} extract{'s' if n != 1 else ''} changed")
     return ", ".join(parts) if parts else "no change"
 
 
@@ -240,10 +292,14 @@ def cmd_status(cfg, screen_args):
     return 0
 
 
-def cmd_run(cfg, screen_args, requested, force):
+def cmd_run(cfg, screen_args, requested, force, skip_lint=False):
     worst = 0
     for stage in STAGES:
         if stage not in requested:
+            continue
+        if stage == "extract" and not os.environ.get("FIGMA_TOKEN"):
+            print("extract: skip (FIGMA_TOKEN unset"
+                  " — run figma_extract_gen/save by hand)")
             continue
         digest = stage_inputs(cfg, stage, screen_args)
         stamp = read_stamp(cfg, stage)
@@ -263,6 +319,8 @@ def cmd_run(cfg, screen_args, requested, force):
         print(f"{stage}: {summarize(cfg, stage, before)} (exit {rc})")
         if rc in (0, 1):
             write_stamp(cfg, stage, digest, rc)
+        if stage == "lint" and rc == 1 and not skip_lint:
+            return 1
         worst = max(worst, rc)
     return worst
 
@@ -275,6 +333,7 @@ def main():
     pr.add_argument("--stages")
     pr.add_argument("--screen", action="append")
     pr.add_argument("--force", action="store_true")
+    pr.add_argument("--skip-lint", action="store_true")
     ps = sub.add_parser("status")
     ps.add_argument("--screen", action="append")
     args = ap.parse_args(argv)
@@ -292,7 +351,8 @@ def main():
         requested = set(requested)
     else:
         requested = set(STAGES)
-    sys.exit(cmd_run(cfg, screen_args, requested, args.force))
+    sys.exit(cmd_run(cfg, screen_args, requested, args.force,
+                     getattr(args, "skip_lint", False)))
 
 
 if __name__ == "__main__":

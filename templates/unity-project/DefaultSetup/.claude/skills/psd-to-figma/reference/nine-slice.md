@@ -3,7 +3,7 @@
 Figma has **no native 9-slice**. `scaleMode` is only `FILL | FIT | CROP | TILE`.
 Community plugins exist but cannot be launched over MCP — the Figma MCP bridge
 runs inside its own plugin sandbox, and Figma runs one plugin at a time. Build
-the structure with `nineSliceFrame` (see `plugin-helpers.md`); this file is the
+the structure with `nineSliceFrame` (`figma-build/reference/plugin-helpers.md`); this file is the
 measurement contract that produces its `border` argument and the formula it
 applies.
 

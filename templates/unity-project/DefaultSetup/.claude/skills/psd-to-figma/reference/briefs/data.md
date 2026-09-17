@@ -29,9 +29,13 @@ later stage reads (`type.style`, `type.effects`, `opacity`, borders, collisions)
 ## Commands
 
 ```bash
+python3 <scripts>/psd_lint.py --data-dir <data>
 python3 <scripts>/psd_manifest.py --data-dir <data>
 python3 <scripts>/psd_manifest.py --data-dir <data> --strict
 ```
+
+`psd_lint.py` checks PSD structure against the authoring contract (L-1..L-8);
+fix lint errors before building the manifest.
 
 - No flag: writes `psd_manifest.json`, prints `Collisions: N node-style, M
   stem-size`, exits 0, and records a top-level `collisions` key

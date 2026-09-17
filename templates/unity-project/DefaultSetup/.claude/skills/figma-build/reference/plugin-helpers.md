@@ -4,10 +4,12 @@
 paste the whole file ahead of your build script in one payload, then call the
 functions. Nothing project-specific lives in it — ids, hashes, borders and
 recipes are arguments. Every helper is `async`; run the self-test
-(`scripts/figma_helpers_selftest.js`) once against any page id to confirm the
-file behaves in the current sandbox before trusting it.
+(`figma_build_gen.py --helpers-selftest`) once against any page id to confirm
+the file behaves in the current sandbox before trusting it.
 
-Trap ids below point at `reference/figma-traps.md`.
+Trap ids (**P-n**) point at the `psd-to-figma` skill's
+`reference/figma-traps.md`, where they were first recorded; the traps are
+Figma's, not the PSD's.
 
 ## `nineSliceFrame(parent, name, hash, w, h, border, {srcW, srcH, opacity})`
 
@@ -17,14 +19,15 @@ axis has both sides zero (that axis collapses to a single full-span STRETCH
 band). `border` is `[left, top, right, bottom]` or `{left,top,right,bottom}`.
 Rows tile exactly `0..top / top..h-bottom / h-bottom..h` and columns likewise;
 each cell is a RECTANGLE with the same image `hash`, `CROP` scaleMode and the
-per-cell `imageTransform` from the formula in `nine-slice.md` (normalised to
-`srcW×srcH`, defaulting to the plate's native `w×h`). Constraints are
+per-cell `imageTransform` `[[sw, 0, sx], [0, sh, sy]]` — the cell's source
+region divided by the source size (normalised to `srcW×srcH`, defaulting to
+the plate's native `w×h`). Constraints are
 MIN/STRETCH/MAX per band so corners stay fixed and the middle stretches.
 Children are named `slice_<row>_<col>` so the extract folds the frame to one
 leaf. Throws when `top+bottom >= h` or `left+right >= w` (prevents **P-8**, the
 collapsed middle band) and when `getImageByHash(hash)` is null (fail loud rather
-than render an empty plate). Returns the frame. See `nine-slice.md` for the
-measurement contract that produces `border`.
+than render an empty plate). Returns the frame. Measuring `border` is the
+producer's job (`psd-to-figma/reference/nine-slice.md` for PSD art).
 
 ## `rectHash(parent, name, hash, x, y, w, h, {scaleMode})`
 
@@ -52,7 +55,7 @@ the instance box. Returns the instance.
 
 Loads the font (once per family/style, cached for the run), creates a TEXT node,
 binds `styleId` when given, applies `fill`, stroke and `effects` from `recipe`
-(same shape as `text_styles.json` `styles[]`: hex colours converted to 0–1,
+(`reference/build-plan.md` → recipe: hex colours converted to 0–1,
 `strokeAlign` default OUTSIDE, disabled effects skipped), sets
 `textAutoResize = WIDTH_AND_HEIGHT`, and positions the node so
 `absoluteRenderBounds` minus the outside stroke equals `inkBox` (**P-12**: the
@@ -60,12 +63,9 @@ render bounds include outside strokes and shadows, ink coordinates do not). It
 iterates the placement until the residual is ≤0.005px because the first
 `absoluteRenderBounds` read lags layout, and returns `{node, dx, dy}` — the
 measured residual, ≤0.01px. The font comes from `opts.font` or `recipe.font`
-(a `{family, style}` resolved by the caller from `psd2figma.json`'s
-`figma.fonts`); it is never hardcoded. Recipe construction is the caller's
-responsibility and carries its own traps: a zero-radius offset shadow that
-matches the gate's `max(stroke, shadow)` edge model (**P-14**), an OuterGlow
-substituted as a zero-offset DROP_SHADOW (**P-11**), and Photoshop choke that
-does not map to Figma spread (**P-24**).
+(a `{family, style}` the caller resolves from its own settings); it is never
+hardcoded. Recipe construction is the producer's responsibility and carries
+its own traps (for PSD sources: **P-11**, **P-14**, **P-24**).
 
 ## `reparentKeepWorld(node, parent)`
 
@@ -73,8 +73,7 @@ Captures `node.absoluteTransform` before `appendChild`, then restores the node's
 world position by setting local `x/y = worldTx − parentTx` — because
 `appendChild` keeps the child's local coordinates and would otherwise offset
 every reparented leaf by the container's origin (**P-1**). Returns the node.
-Assumes the parent is unrotated and unscaled, which every layout container in
-this pipeline is.
+Assumes the parent is unrotated and unscaled, which every `container` op is.
 
 ## `deleteByIds(ids)`
 
@@ -88,5 +87,6 @@ page (**P-4**).
 Returns `{id, name, x, y, w, h, renderBounds}` with `renderBounds` (from
 `absoluteRenderBounds`) made frame-relative to the node's parent — the same
 leaf shape `figma_extract.js` emits. Use it to read a built node back and
-compare against the manifest without re-deriving the coordinate conversion.
+compare against the producer's expected geometry without re-deriving the
+coordinate conversion.
 Returns `renderBounds: null` when the node has no rendered bounds.

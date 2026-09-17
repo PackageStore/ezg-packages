@@ -30,6 +30,21 @@ clipped text node fails the gate identically to any other violation.
 manifest defines one row and the pitch is verified separately. `OTHER_ROWS` in
 the script lists the ids to skip.
 
+**Hygiene block.** Each extract file carries a `hygiene` object reporting
+structural checks per frame: S-1 (flat screen), S-2 (naming), S-7 (clip
+content), S-9 (hyphen naming), V-3 (font violations), V-4 (style binding).
+`verify_figma_vs_psd.py --hygiene-strict` exits 1 when any screen has a non-empty
+S-2/S-7/S-9/V-3 list. The hygiene contract is owned by the `figma-hygiene` skill;
+the extract only reports, it does not enforce. An `accepted_debt.json.hygiene_allow`
+key can whitelist specific entries.
+
+**Node-id table.** `node_ids_<key>.json` maps each layer key to its Figma node
+id, written by `--learn-ids` after a screen passes. The verify script reads these
+files and pairs by id first, falling back to geometry only when no id file exists
+or a layer key is absent from it. The `staleIds` field in `verify_report.json`
+lists layer keys whose recorded id was not found in the extract (the node was
+deleted or replaced); these do not fail the gate but signal a stale id file.
+
 ## Verify contract — numeric-accuracy tier
 
 | # | Contract | Pass condition |

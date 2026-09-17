@@ -92,6 +92,58 @@ function walk(n, frame, out, clippedOut, currentFrame) {
   if ('children' in n) for (const c of n.children) walk(c, frame, out, clippedOut, currentFrame);
 }
 
+const GENERIC_RE = /^(Frame|Group|Rectangle|Ellipse|Vector|Component|Instance)( \d+)?$/;
+const SLICE_NAME_RE = /^slice_\d_\d$/;
+const HYG_PREFIXES = ['Container-', 'Container_', 'Btn-', 'Header-', 'Row-', 'Slot-', 'Group-'];
+
+function hygieneWalk(screenFrame) {
+  const fab = screenFrame.absoluteBoundingBox;
+  const ch = 'children' in screenFrame ? screenFrame.children : [];
+  const uSet = new Set(), sSet = new Set();
+  const h = {
+    rootFrameChildren: ch.length, rootLeaves: [], rootContainers: [],
+    genericNames: [], nonContainerGroupingFrames: [], clipping: [],
+    underscoreNames: [], spaceNames: [], unstyledText: [],
+    gridStyle: !!(screenFrame.gridStyleId),
+    screenNameUnderscore: screenFrame.name.indexOf('_') >= 0
+  };
+  for (const c of ch) {
+    if (c.type !== 'FRAME')
+      h.rootLeaves.push(c.type + ':' + c.name);
+    if ((c.name.indexOf('Container-') === 0 || c.name.indexOf('Container_') === 0)
+        && c.absoluteBoundingBox) {
+      const cab = c.absoluteBoundingBox;
+      const cs = c.constraints || {};
+      h.rootContainers.push({
+        name: c.name,
+        constraints: (cs.horizontal || 'MIN') + '/' + (cs.vertical || 'MIN'),
+        x: cab.x - fab.x, y: cab.y - fab.y, w: cab.width, h: cab.height
+      });
+    }
+  }
+  function _hw(nd, pn) {
+    const nm = nd.name;
+    if (GENERIC_RE.test(nm))
+      h.genericNames.push({ id: nd.id, name: nm, parent: pn });
+    if (nm.indexOf('_') >= 0 && !SLICE_NAME_RE.test(nm)) uSet.add(nm);
+    if (nm.indexOf(' ') >= 0) sSet.add(nm);
+    const slice = isSliceFrame(nd);
+    if (nd.type === 'FRAME' && 'children' in nd && nd.children.length >= 2 && !slice
+        && !HYG_PREFIXES.some(p => nm.indexOf(p) === 0)
+        && nm !== 'Title' && nm.indexOf('Scroll') < 0)
+      h.nonContainerGroupingFrames.push({ id: nd.id, name: nm });
+    if ('clipsContent' in nd && nd.clipsContent === true && !slice && nm.indexOf('Scroll') < 0)
+      h.clipping.push({ id: nd.id, name: nm, type: nd.type });
+    if (nd.type === 'TEXT' && !nd.textStyleId)
+      h.unstyledText.push({ id: nd.id, name: nm });
+    if ('children' in nd) for (const c of nd.children) _hw(c, nm);
+  }
+  for (const c of ch) _hw(c, screenFrame.name);
+  h.underscoreNames = Array.from(uSet).sort();
+  h.spaceNames = Array.from(sSet).sort();
+  return h;
+}
+
 const res = {};
 for (const [fname, key] of Object.entries(CONFIG.frames)) {
   const frame = page.children.find(c => c.name === fname);
@@ -100,6 +152,7 @@ for (const [fname, key] of Object.entries(CONFIG.frames)) {
   const clippedText = [];
   for (const c of frame.children) walk(c, ab, nodes, clippedText, fname);
   res[key] = { frameId: frame.id, frameName: frame.name, frameX: 0, frameY: 0,
-                 frameW: ab.width, frameH: ab.height, nodes, clippedText };
+                 frameW: ab.width, frameH: ab.height, nodes, clippedText,
+                 hygiene: hygieneWalk(frame) };
 }
 return res;

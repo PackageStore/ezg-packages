@@ -25,15 +25,19 @@ Flags (parsed from the argv pipeline_config.resolve leaves behind):
                            {"node": str, "role": "art"|"text",
                             "status": "PASS"|"FAIL"|"EXC_PASS"|"EXC_FAIL"|"UNMAPPED",
                             "dx": float, "dy": float, "dw": float, "dh": float,
-                            "pin": str|null}
+                            "pin": str|null,
+                            "by": "id"|"geometry"|"none"}
                          ]
                        }
                      },
                      "missing": ["<key>", ...],
+                     "staleIds": {"<key>": ["<layerKey>", ...]},
                      "exit": int
                    }
                  art_max/text_max come from non-exception rows only; pin is the
-                 exception reason for EXC_* rows, null otherwise.
+                 exception reason for EXC_* rows, null otherwise. by is the
+                 pairing method: id (from node_ids_<key>.json), geometry, or
+                 none (unmapped).
 
 With no flag the report is byte-identical to before these flags existed, except
 text rows whose shared style declares a drop shadow the PSD layer disables (the
@@ -52,6 +56,15 @@ stderr and, under --json, added to verify_report.json as top-level "recipe"
 counts and "recipeIgnored"/"recipeMissing"/"pinUnused" arrays. verify_report.md
 carries none of these — the summary line there would break D-3.
 
+--hygiene-strict  exit 1 when any screen has a non-empty S2/S7/S9/V3 list,
+                  S1 false, or V4 false, after the allow-list. Without this
+                  flag, the exit code is unchanged and hygiene is informational.
+
+--learn-ids       after a run, write node_ids_<key>.json for every screen in
+                  scope with the ids of rows paired by geometry whose deltas are
+                  within tolerance (art <= 0, text <= TEXT_TOL), merging over an
+                  existing file (existing keys win). Never writes when --dry-run.
+
 --selftest runs resolve_recipe's unit checks and exits without reading data.
 """
 
@@ -66,6 +79,12 @@ from pipeline_config import resolve
 ART_TOL = 0.0
 TEXT_TOL = 2.0
 DRIFT_TOL = 0.5
+
+_NAME_MAP = {}
+
+
+def resolve_name(name):
+    return _NAME_MAP.get(name, name)
 
 
 def load(path):
@@ -132,17 +151,22 @@ def resolve_recipe(fn, layer, text_styles):
     styles = text_styles.get("styles", {})
     layer_map = text_styles.get("layerMap", {})
     node = layer.get("node")
-    manifest_style = layer.get("type", {}).get("style")
+    rnode = resolve_name(node)
+    _raw_style = layer.get("type", {}).get("style")
+    manifest_style = resolve_name(_raw_style) if _raw_style else _raw_style
 
-    override = layer_map.get(f"{layer.get('screen')}/{node}")
+    def _lm(key):
+        return layer_map.get(key) if layer_map.get(key) is not None else layer_map.get(resolve_name(key))
+
+    override = _lm(f"{layer.get('screen')}/{node}")
     if override is not None:
         style, source = styles.get(override, {}), "override"
     elif manifest_style in (None, "", "Unknown"):
-        style, source = styles.get(layer_map.get(node), {}), "legacy"
+        style, source = styles.get(_lm(rnode), {}), "legacy"
     elif manifest_style not in styles:
-        style, source = styles.get(layer_map.get(node), {}), "missing"
+        style, source = styles.get(_lm(rnode), {}), "missing"
     else:
-        name_override = layer_map.get(node)
+        name_override = _lm(rnode)
         source = "ignored" if (name_override is not None and name_override != manifest_style) else "manifest"
         style = styles[manifest_style]
 
@@ -182,24 +206,24 @@ def fill_only_ink(fn, layer, text_styles):
     return (x + el, y + et, w - el - er, h - et - eb), source
 
 
-def matches_exception(fn, layer, exc):
+def matches_exception(fn, layer, exc, layer_key=None):
     exc_fid = exc.get("figma_node_id", "")
     if exc_fid:
         fid = fn["id"]
         if fid == exc_fid or fid.endswith(";" + exc_fid):
             return True
-    if exc.get("node") != layer["node"]:
+    exc_lk = exc.get("layerKey")
+    if exc_lk and layer_key:
+        return exc_lk == layer_key
+    if resolve_name(exc.get("node")) != resolve_name(layer["node"]):
         return False
-    # A name-only exception must not leak across screens: node names are not
-    # unique in the manifest (Bg_Demo appears on both), so an exception that
-    # names a screen is confined to it.
     exc_screen = exc.get("screen")
     return exc_screen is None or exc_screen == layer.get("screen")
 
 
-def find_exception(fn, layer, exceptions):
+def find_exception(fn, layer, exceptions, layer_key=None):
     for exc in exceptions:
-        if matches_exception(fn, layer, exc):
+        if matches_exception(fn, layer, exc, layer_key=layer_key):
             return exc
     return None
 
@@ -294,6 +318,38 @@ def check_font_identity(nodes, expected_font, valid_style_ids):
     return font_violations, style_violations
 
 
+def map_hygiene(raw, allow_list):
+    """Map extractor hygiene block to rule-id summary; apply allow-list."""
+    allowed_ids = set()
+    rule_to_key = {"S2": "genericNames", "S3": "nonContainerGroupingFrames",
+                   "S7": "clipping", "V3": "unstyledText"}
+    all_ids = {}
+    for rule, key in rule_to_key.items():
+        for entry in raw.get(key, []):
+            all_ids[entry["id"]] = rule
+    for al in allow_list:
+        aid = al.get("id", "")
+        if aid in all_ids and all_ids[aid] == al.get("rule", ""):
+            allowed_ids.add(aid)
+
+    def _names(key):
+        return [e["name"] for e in raw.get(key, []) if e["id"] not in allowed_ids]
+
+    rc = raw.get("rootContainers", [])
+    centered = all("CENTER" in c.get("constraints", "") for c in rc) if rc else False
+    return {
+        "S1": raw.get("rootFrameChildren", 0) > 0,
+        "S2": _names("genericNames"),
+        "S3": _names("nonContainerGroupingFrames"),
+        "S7": _names("clipping"),
+        "S8": {"rootContainers": len(rc), "centered": centered},
+        "S9": sorted(set(raw.get("underscoreNames", []) + raw.get("spaceNames", []))),
+        "V3": _names("unstyledText"),
+        "V4": raw.get("gridStyle", False),
+        "allowed": sorted(allowed_ids),
+    }
+
+
 def _selftest():
     shadow = [{"type": "DROP_SHADOW", "radius": 3,
                "offset": {"x": 0, "y": 6}, "visible": True}]
@@ -333,6 +389,42 @@ def _selftest():
     assert src == "override", src
     print("resolve_recipe self-test OK")
 
+    hyg_raw = {
+        "rootFrameChildren": 3, "rootLeaves": [],
+        "rootContainers": [{"name": "C", "constraints": "CENTER/MIN",
+                            "x": 0, "y": 0, "w": 100, "h": 200}],
+        "genericNames": [{"id": "1:1", "name": "Vector", "parent": "X"}],
+        "nonContainerGroupingFrames": [],
+        "clipping": [{"id": "2:2", "name": "Clip", "type": "FRAME"}],
+        "underscoreNames": ["Bg_Demo"], "spaceNames": ["Bad Name"],
+        "unstyledText": [{"id": "3:3", "name": "Txt"}],
+        "gridStyle": True, "screenNameUnderscore": False,
+    }
+    h = map_hygiene(hyg_raw, [])
+    assert h["S1"] is True and h["V4"] is True
+    assert h["S2"] == ["Vector"] and h["V3"] == ["Txt"]
+    assert h["S7"] == ["Clip"]
+    assert sorted(h["S9"]) == ["Bad Name", "Bg_Demo"]
+    assert h["S8"]["rootContainers"] == 1 and h["S8"]["centered"] is True
+    h2 = map_hygiene(hyg_raw, [{"id": "1:1", "rule": "S2", "reason": "lib"}])
+    assert h2["S2"] == [] and h2["allowed"] == ["1:1"]
+    print("map_hygiene self-test OK")
+
+    # inkBox expected-size override
+    layer_ib = {"x": 10, "y": 20, "w": 100, "h": 50, "role": "text",
+                "node": "Txt", "screen": "s",
+                "type": {"style": "Unknown", "inkBox": {"w": 80, "h": 40, "source": "freetype"}}}
+    ink_box_val = layer_ib["type"]["inkBox"]
+    assert ink_box_val["w"] == 80 and ink_box_val["h"] == 40
+    fn_ib = {"id": "9:1", "x": 11, "y": 21, "w": 82, "h": 42,
+             "type": "TEXT", "name": "Txt",
+             "inkX": 11, "inkY": 21, "inkW": 82, "inkH": 42}
+    mw_ib, mh_ib = ink_box_val["w"], ink_box_val["h"]
+    dw_ib = 82 - mw_ib  # 2
+    dh_ib = 42 - mh_ib  # 2
+    assert max(abs(dw_ib), abs(dh_ib)) <= TEXT_TOL, "inkBox row should pass"
+    print("inkBox expected-size self-test OK")
+
 
 def main():
     if "--selftest" in sys.argv[1:]:
@@ -343,7 +435,16 @@ def main():
     parser = argparse.ArgumentParser(prog="verify_figma_vs_psd", add_help=False)
     parser.add_argument("--screen", action="append")
     parser.add_argument("--json", action="store_true", dest="json_out")
+    parser.add_argument("--hygiene-strict", action="store_true", dest="hygiene_strict")
+    parser.add_argument("--learn-ids", action="store_true", dest="learn_ids")
+    parser.add_argument("--dry-run", action="store_true", dest="dry_run")
     args = parser.parse_args(argv)
+
+    global _NAME_MAP
+    raw_map = cfg.load_optional("name_map.json")
+    if raw_map:
+        _NAME_MAP.update(raw_map.get("nodes", {}))
+        _NAME_MAP.update(raw_map.get("styles", {}))
 
     manifest = cfg.load("psd_manifest.json")
     debt = cfg.load("accepted_debt.json")
@@ -374,8 +475,21 @@ def main():
 
     EXTRACT = {k: cfg.path(f"figma_extract_{k}.json") for k in present_keys}
 
+    node_ids = {}
+    for k in present_keys:
+        nid_path = cfg.path(f"node_ids_{k}.json")
+        if nid_path.is_file():
+            nid_data = json.loads(nid_path.read_text(encoding="utf-8"))
+            node_ids[k] = nid_data.get("layers", {})
+
     exceptions = debt.get("verification_exceptions", [])
+    hygiene_allow = debt.get("hygiene_allow", [])
     figma = {k: load(v)["nodes"] for k, v in EXTRACT.items()}
+    hygiene_raw = {}
+    for k, v in EXTRACT.items():
+        data = load(v)
+        if "hygiene" in data:
+            hygiene_raw[k] = data["hygiene"]
 
     expected_font = load_expected_font(cfg)
     valid_style_ids = load_valid_style_ids(cfg)
@@ -407,6 +521,13 @@ def main():
                 (screen_key, nid, nname,
                  f"{detail} (inside clip frame {parent})"))
 
+    figma_by_id = {}
+    for k, nodes in figma.items():
+        idx = {}
+        for n in nodes:
+            idx[n["id"]] = n
+        figma_by_id[k] = idx
+
     rows = []
     used = {k: set() for k in figma}
     art_max = 0.0
@@ -426,12 +547,24 @@ def main():
     per_text_max = {k: 0.0 for k in present_keys}
     per_unmapped_manifest = {k: 0 for k in present_keys}
 
-    def json_row(screen, name, role, status, dx, dy, dw, dh, pin):
+    pin_stale = []
+    stale_ids = {k: [] for k in present_keys}
+    duplicate_ids = []
+    paired_by_id = {k: 0 for k in present_keys}
+    paired_by_geom = {k: 0 for k in present_keys}
+    learn_rows = {k: {} for k in present_keys}
+
+    def json_row(screen, name, role, status, dx, dy, dw, dh, pin,
+                 expected="bbox", approx=False, by="geometry"):
         if screen in json_rows:
-            json_rows[screen].append({
+            row = {
                 "node": name, "role": role, "status": status,
                 "dx": dx, "dy": dy, "dw": dw, "dh": dh, "pin": pin,
-            })
+                "expected": expected, "by": by,
+            }
+            if approx:
+                row["approx"] = True
+            json_rows[screen].append(row)
 
     for layer in manifest["layers"]:
         role, screen = layer["role"], layer["screen"]
@@ -443,9 +576,36 @@ def main():
             continue
 
         mx, my, mw, mh = layer["x"], layer["y"], layer["w"], layer["h"]
+        ink_box = layer.get("type", {}).get("inkBox") if role == "text" else None
+        expected_tag = "bbox"
+        ink_approx = False
+        if ink_box:
+            mw, mh = ink_box["w"], ink_box["h"]
+            expected_tag = "inkBox"
+            ink_approx = ink_box.get("source") == "freetype-approx"
         name = layer["node"]
-        fn = match_node(mx, my, mw, mh, role,
-                        figma.get(screen, []), used.get(screen, set()))
+        layer_key = f"{screen}/{layer['psdName']}@{layer['x']},{layer['y']}"
+
+        match_by = "geometry"
+        fn = None
+        screen_nids = node_ids.get(screen, {})
+        known_fid = screen_nids.get(layer_key)
+        if known_fid is not None:
+            screen_idx = figma_by_id.get(screen, {})
+            if known_fid in screen_idx and known_fid not in used.get(screen, set()):
+                fn = screen_idx[known_fid]
+                match_by = "id"
+            elif known_fid in used.get(screen, set()):
+                duplicate_ids.append((screen, layer_key, known_fid))
+                print(f"DUPLICATE_ID {screen}/{layer_key}: {known_fid}",
+                      file=sys.stderr)
+            else:
+                stale_ids[screen].append(layer_key)
+
+        if fn is None:
+            fn = match_node(mx, my, mw, mh, role,
+                            figma.get(screen, []), used.get(screen, set()))
+            match_by = "geometry"
 
         if fn is None:
             rows.append((screen, name, role, fmt_box(mx, my, mw, mh),
@@ -453,10 +613,15 @@ def main():
             unmapped_manifest += 1
             if screen in per_unmapped_manifest:
                 per_unmapped_manifest[screen] += 1
-            json_row(screen, name, role, "UNMAPPED", 0, 0, 0, 0, None)
+            json_row(screen, name, role, "UNMAPPED", 0, 0, 0, 0, None,
+                     expected=expected_tag, approx=ink_approx, by="none")
             continue
 
         used[screen].add(fn["id"])
+        if match_by == "id":
+            paired_by_id[screen] = paired_by_id.get(screen, 0) + 1
+        else:
+            paired_by_geom[screen] = paired_by_geom.get(screen, 0) + 1
 
         # --- raw deltas and actual-box string ---
         is_ink = False
@@ -492,7 +657,7 @@ def main():
             actual_str = fmt_box(fn["x"], fn["y"], fn["w"], fn["h"])
 
         # --- exception check ---
-        exc = find_exception(fn, layer, exceptions)
+        exc = find_exception(fn, layer, exceptions, layer_key=layer_key)
 
         if exc is not None:
             vp = exc.get("verify_property")
@@ -508,6 +673,17 @@ def main():
             if pin_unused_row:
                 detail["pin_unused"] = True
                 pin_unused.append((screen, name, exc.get("reason", ""), dw, dh))
+
+            is_stale = False
+            if ink_box:
+                drift_issues_stale = check_drift(measured,
+                    {"dx": dx, "dy": dy, "dw": dw, "dh": dh},
+                    [k for k in ("dw", "dh") if k in measured])
+                if drift_issues_stale:
+                    is_stale = True
+                    detail["pin_stale"] = True
+                    pin_stale.append((screen, name, exc.get("reason", ""),
+                                      expected_tag, dw, dh))
 
             if vp == "ink_centre":
                 if ink_vals:
@@ -526,13 +702,14 @@ def main():
                             f"exceeds {TEXT_TOL}px bar"
                         )
 
-                    current = {"centre_dx": cdx, "centre_dy": cdy,
-                               "dw": dw, "dh": dh}
-                    drift_issues = check_drift(measured, current,
-                                               ["centre_dx", "centre_dy", "dw", "dh"])
-                    if drift_issues:
-                        exc_ok = False
-                        detail["drift_fail"] = drift_issues
+                    if not is_stale:
+                        current = {"centre_dx": cdx, "centre_dy": cdy,
+                                   "dw": dw, "dh": dh}
+                        drift_issues = check_drift(measured, current,
+                                                   ["centre_dx", "centre_dy", "dw", "dh"])
+                        if drift_issues:
+                            exc_ok = False
+                            detail["drift_fail"] = drift_issues
 
                 detail.update({"cdx": cdx, "cdy": cdy, "dw": dw, "dh": dh})
                 actual_str += " [centre]"
@@ -544,16 +721,23 @@ def main():
                     current = {"dx": dx, "dy": dy, "dw": dw, "dh": dh}
 
                     if "dx" in measured and "dy" in measured:
-                        drift_issues = check_drift(
-                            measured, current, ["dx", "dy", "dw", "dh"])
+                        if is_stale:
+                            drift_issues = check_drift(
+                                measured, current, ["dx", "dy"])
+                        else:
+                            drift_issues = check_drift(
+                                measured, current, ["dx", "dy", "dw", "dh"])
                     else:
                         if abs(dx) > tol or abs(dy) > tol:
                             exc_ok = False
                             detail["position_fail"] = (
                                 f"dx {dx:.2f} dy {dy:.2f} exceeds {tol}px bar"
                             )
-                        drift_issues = check_drift(
-                            measured, current, ["dw", "dh"])
+                        if not is_stale:
+                            drift_issues = check_drift(
+                                measured, current, ["dw", "dh"])
+                        else:
+                            drift_issues = []
 
                     if drift_issues:
                         exc_ok = False
@@ -585,7 +769,8 @@ def main():
                          exc.get("reason", "")))
             json_row(screen, name, role,
                      "EXC_PASS" if exc_ok else "EXC_FAIL",
-                     dx, dy, dw, dh, exc.get("reason", ""))
+                     dx, dy, dw, dh, exc.get("reason", ""),
+                     expected=expected_tag, approx=ink_approx, by=match_by)
         else:
             # --- normal pass/fail ---
             peak = max(abs(dx), abs(dy), abs(dw), abs(dh))
@@ -607,9 +792,15 @@ def main():
                 status = "PASS" if peak <= TEXT_TOL else "FAIL"
             all_deltas.append((name, role, peak))
 
+            if match_by == "geometry" and status == "PASS":
+                tol_ok = (peak <= ART_TOL) if role == "art" else (peak <= TEXT_TOL)
+                if tol_ok:
+                    learn_rows[screen][layer_key] = fn["id"]
+
             rows.append((screen, name, role, fmt_box(mx, my, mw, mh),
                          actual_str, dx, dy, dw, dh, cmp, None))
-            json_row(screen, name, role, status, dx, dy, dw, dh, None)
+            json_row(screen, name, role, status, dx, dy, dw, dh, None,
+                     expected=expected_tag, approx=ink_approx, by=match_by)
 
     unmapped_figma = 0
     per_unmapped_figma = {k: 0 for k in present_keys}
@@ -744,6 +935,33 @@ def main():
     else:
         lines.append("All TEXT nodes: bound to a valid shared text style.")
 
+    # ---- hygiene section ----
+    hygiene_mapped = {}
+    for k in present_keys:
+        if k in hygiene_raw:
+            hygiene_mapped[k] = map_hygiene(hygiene_raw[k], hygiene_allow)
+
+    if hygiene_mapped:
+        lines.append(f"\n## Hygiene\n")
+        for k in present_keys:
+            if k not in hygiene_mapped:
+                lines.append(f"{k}: hygiene: n/a")
+                continue
+            h = hygiene_mapped[k]
+
+            def _tag(rule, val):
+                if isinstance(val, bool):
+                    return "ok" if val else "FAIL"
+                return "ok" if not val else f"{len(val)} ({', '.join(val[:3])}{'...' if len(val) > 3 else ''})"
+
+            parts = []
+            for rule in ("S1", "S2", "S7", "S9", "V3", "V4"):
+                parts.append(f"{rule} {_tag(rule, h[rule])}")
+            lines.append(f"{k}: {' · '.join(parts)}")
+    else:
+        for k in present_keys:
+            pass  # no hygiene block at all — D-3: no section added
+
     all_deltas.sort(key=lambda x: x[2], reverse=True)
     worst = [f"{n} {r}={d:.2f}" for n, r, d in all_deltas[:8]]
 
@@ -767,12 +985,28 @@ def main():
     report_path.write_text(report)
     print(report)
 
+    hygiene_strict_fail = False
+    if args.hygiene_strict and hygiene_mapped:
+        for k, h in hygiene_mapped.items():
+            if (not h["S1"] or h["S2"] or h["S7"] or h["S9"] or h["V3"]
+                    or not h["V4"]):
+                hygiene_strict_fail = True
+                break
+
     exit_code = 0 if (bar_met and not missing) else 1
+    if hygiene_strict_fail:
+        exit_code = 1
 
     if missing:
         print("\nMissing extracts:")
         for k in missing:
             print(f"  {k}")
+
+    for k in present_keys:
+        id_n = paired_by_id.get(k, 0)
+        geo_n = paired_by_geom.get(k, 0)
+        um_n = per_unmapped_manifest.get(k, 0)
+        print(f"{k}: paired by id: {id_n} · by geometry: {geo_n} · unmapped: {um_n}")
 
     print(
         f"\nrecipe source: manifest {recipe_counts.get('manifest', 0)} / "
@@ -790,6 +1024,36 @@ def main():
     for scr, node, reason, dw, dh in pin_unused:
         print(f"PIN_UNUSED {scr}/{node}: dw {dw:+.2f} dh {dh:+.2f} "
               f"now within bar — reason: {reason}", file=sys.stderr)
+    for scr, node, reason, exp_tag, dw, dh in pin_stale:
+        print(f"PIN_STALE {scr}/{node}: expected now {exp_tag}, "
+              f"dw {dw:+.2f} dh {dh:+.2f} — reason: {reason}",
+              file=sys.stderr)
+
+    if args.learn_ids and not args.dry_run:
+        for k in present_keys:
+            if not learn_rows.get(k):
+                continue
+            nid_path = cfg.path(f"node_ids_{k}.json")
+            existing = {}
+            if nid_path.is_file():
+                existing = json.loads(nid_path.read_text(encoding="utf-8"))
+            layers = existing.get("layers", {})
+            added = 0
+            stale = set(stale_ids.get(k, []))
+            for lk, fid in learn_rows[k].items():
+                if lk not in layers or lk in stale:
+                    layers[lk] = fid
+                    added += 1
+            existing["layers"] = layers
+            nid_path.write_text(
+                json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+            print(f"learn-ids: wrote node_ids_{k}.json "
+                  f"({len(layers)} total, {added} new)")
+    elif args.learn_ids and args.dry_run:
+        for k in present_keys:
+            if learn_rows.get(k):
+                print(f"[dry-run] learn-ids: node_ids_{k}.json "
+                      f"({len(learn_rows[k])} learnable)")
 
     if args.json_out:
         payload = {
@@ -803,6 +1067,8 @@ def main():
                     "style_violations": sum(
                         1 for s, *_ in all_style_violations if s == k),
                     "rows": json_rows[k],
+                    **({"hygiene": hygiene_mapped[k]}
+                       if k in hygiene_mapped else {}),
                 }
                 for k in present_keys
             },
@@ -823,6 +1089,14 @@ def main():
                 {"screen": s, "node": n, "reason": r, "dw": dw, "dh": dh}
                 for s, n, r, dw, dh in pin_unused
             ],
+            "pinStale": [
+                {"screen": s, "node": n, "reason": r,
+                 "expected": et, "dw": dw, "dh": dh}
+                for s, n, r, et, dw, dh in pin_stale
+            ],
+            "staleIds": {
+                k: v for k, v in stale_ids.items() if v
+            },
             "exit": exit_code,
         }
         cfg.path("verify_report.json").write_text(

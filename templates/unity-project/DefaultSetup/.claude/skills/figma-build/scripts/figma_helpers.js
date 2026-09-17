@@ -2,7 +2,7 @@
 // build script in one use_figma payload, then call the async functions below.
 // Plain sandbox JS: no imports, no top-level side effects, every helper async.
 // Nothing project-specific lives here - ids, hashes, borders and recipes are
-// arguments. See reference/plugin-helpers.md for the trap each helper prevents.
+// arguments. See ../reference/plugin-helpers.md for what each helper guards.
 
 const _loadedFonts = new Set();
 
@@ -176,10 +176,10 @@ async function textByInk(parent, name, chars, styleId, recipe, inkBox, opts) {
   t.name = name;
   t.fontName = font;
   t.characters = String(chars);
-  if (styleId) await t.setTextStyleIdAsync(styleId);
   if (recipe.fontSize != null) t.fontSize = recipe.fontSize;
   t.textAutoResize = 'WIDTH_AND_HEIGHT';
   if (opts.align) t.textAlignHorizontal = opts.align;
+  if (styleId) await t.setTextStyleIdAsync(styleId);
   if (recipe.fill) t.fills = [{ type: 'SOLID', color: _hexRgb(recipe.fill) }];
   if (recipe.strokeWeight) {
     t.strokeWeight = recipe.strokeWeight;
@@ -198,17 +198,26 @@ async function textByInk(parent, name, chars, styleId, recipe, inkBox, opts) {
   const targetX = p[0][2] + inkBox.x;
   const targetY = p[1][2] + inkBox.y;
 
-  let dx = 0, dy = 0;
+  let dx = 0, dy = 0, fallback = false;
   for (let iter = 0; iter < 4; iter++) {
-    const rb = t.absoluteRenderBounds;
-    if (!rb) throw new Error('textByInk: absoluteRenderBounds null (empty text or invisible fill): ' + name);
+    let rb = t.absoluteRenderBounds;
+    for (let wait = 0; !rb && wait < 3; wait++) {
+      await new Promise(r => setTimeout(r, 50));
+      rb = t.absoluteRenderBounds;
+    }
+    if (!rb) {
+      if (!t.characters.length) throw new Error('textByInk: empty text: ' + name);
+      const ab = t.absoluteBoundingBox;
+      rb = { x: ab.x - outside, y: ab.y - outside, width: ab.width + 2 * outside, height: ab.height + 2 * outside };
+      fallback = true;
+    }
     dx = (rb.x + outside) - targetX;
     dy = (rb.y + outside) - targetY;
     if (Math.abs(dx) <= 0.005 && Math.abs(dy) <= 0.005) break;
     t.x = t.x - dx;
     t.y = t.y - dy;
   }
-  return { node: t, dx: dx, dy: dy };
+  return { node: t, dx: dx, dy: dy, renderBoundsFallback: fallback };
 }
 
 async function reparentKeepWorld(node, parent) {

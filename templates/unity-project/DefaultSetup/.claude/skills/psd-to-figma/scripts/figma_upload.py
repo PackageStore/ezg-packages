@@ -10,7 +10,7 @@ import urllib.error
 
 from pipeline_config import resolve
 
-def load_manifest(cfg, new_only=False):
+def load_manifest(cfg, new_only=False, only=None):
     """Build ordered list of (name, filepath) from both indexes."""
     exclude = set()
     if new_only:
@@ -23,7 +23,7 @@ def load_manifest(cfg, new_only=False):
     with open(cfg.path("assets_index.json")) as f:
         assets = json.load(f)
     for name, info in sorted(assets.items()):
-        if name not in exclude:
+        if name not in exclude and (only is None or name in only):
             items.append((name, cfg.path(info["file"])))
 
     icons_path = cfg.path("icons_index.json")
@@ -31,7 +31,7 @@ def load_manifest(cfg, new_only=False):
         with open(icons_path) as f:
             icons = json.load(f)
         for name, info in sorted(icons.items()):
-            if name not in exclude:
+            if name not in exclude and (only is None or name in only):
                 items.append((name, cfg.path("icons", info["file"])))
 
     return items
@@ -75,9 +75,13 @@ def main():
     cfg, argv = resolve()
     urls_file = None
     new_only = False
-    for arg in argv:
+    only = None
+    it = iter(argv)
+    for arg in it:
         if arg == "--new-only":
             new_only = True
+        elif arg == "--stems":
+            only = set(next(it).split(","))
         else:
             urls_file = arg
 
@@ -85,12 +89,13 @@ def main():
         print("Usage: figma_upload.py <urls.json> [--new-only]")
         print("  urls.json: list of submitUrl strings from upload_assets")
         print("  --new-only: upload only keys not already in image_hashes.json")
+        print("  --stems a,b: upload only these asset/icon names")
         sys.exit(1)
 
     with open(urls_file) as f:
         urls = json.load(f)
 
-    items = load_manifest(cfg, new_only=new_only)
+    items = load_manifest(cfg, new_only=new_only, only=only)
     print(f"Assets to upload: {len(items)}, URLs available: {len(urls)}")
 
     if len(urls) < len(items):

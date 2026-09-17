@@ -18,9 +18,13 @@ deviations, and reports pre-existing failures separately without absorbing them.
 ## Commands
 
 ```bash
+# REST extract (preferred when FIGMA_TOKEN is set):
+FIGMA_TOKEN=... python3 <scripts>/figma_extract_rest.py --data-dir <data>
+# MCP fallback:
 python3 <scripts>/figma_extract_gen.py --data-dir <data>          # no filter = all frames
 python3 <scripts>/figma_extract_save.py --data-dir <data> --in <result.json>
-python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --json
+# Gate:
+python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --json [--hygiene-strict] [--learn-ids]
 python3 <scripts>/verify_figma_vs_psd.py --selftest
 ```
 
@@ -35,6 +39,10 @@ python3 <scripts>/verify_figma_vs_psd.py --selftest
   PASS/FAIL/EXC_PASS/EXC_FAIL/UNMAPPED), plus top-level `missing` and `exit`.
 - `--selftest` runs the recipe resolver's unit checks and exits without reading
   data.
+- `--hygiene-strict` exits 1 when any screen has a non-empty S-2/S-7/S-9/V-3
+  list in the hygiene block.
+- `--learn-ids` writes `node_ids_<key>.json` for every screen whose extract
+  paired by geometry; run once a screen passes so renames never break the gate.
 
 ## Recipe and pins
 
@@ -49,8 +57,9 @@ Fix a new-screen failure first: `unmapped`/`art` → fix the build; `text` → f
 size/position/effect, then pin only if irreducible. A pin is per `node` **and**
 `screen` (names repeat across screens) with `verify_property` (`ink_centre` or
 `position_only`), `measured`, and a `reason`; it never widens a tolerance. No pin
-on an `art` row — that is a build error. See `reference/contracts.md` →
-exception mechanism.
+on an `art` row — that is a build error. `PIN_STALE` rows (pins whose deviation
+now clears the bar) should be removed from `accepted_debt.json`. See
+`reference/contracts.md` → exception mechanism.
 
 ## Acceptance
 

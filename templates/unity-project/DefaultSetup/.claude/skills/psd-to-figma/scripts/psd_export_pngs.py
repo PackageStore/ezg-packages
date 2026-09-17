@@ -54,7 +54,7 @@ def allow_shared_reason(allow_shared, key, errors):
     return True
 
 
-def render_digest(entry, psd_cache, screens):
+def _render_layer_digest(entry, psd_cache, screens):
     psd = psd_cache[entry["screen"]]
     si = screens[entry["screen"]]
     dx, dy = si["dx"], si["dy"]
@@ -68,7 +68,14 @@ def render_digest(entry, psd_cache, screens):
         img = export_layer_image(layer)
     except Exception:
         return None
-    return hashlib.sha1(img.tobytes()).hexdigest()
+    return (hashlib.sha1(img.tobytes()).hexdigest(), img.size[0], img.size[1])
+
+
+def render_digest(entry, psd_cache, screens):
+    result = _render_layer_digest(entry, psd_cache, screens)
+    if result is None:
+        return None
+    return result[0]
 
 
 def main():
@@ -208,6 +215,36 @@ def main():
     with open(assets_index, "w") as f:
         json.dump(index, f, indent=2)
     print(f"\nWrote {assets_index.name} ({len(index)} entries)")
+
+    # --- layer digests: one entry per role:art layer whose PSD is present ---
+    digests = {}
+    skipped = 0
+    done = 0
+    for entry in layers:
+        if entry["role"] != "art":
+            continue
+        screen = entry["screen"]
+        if screen not in psd_cache:
+            skipped += 1
+            continue
+        lk = f"{screen}/{entry['psdName']}@{entry['x']},{entry['y']}"
+        if lk in digests:
+            print(f"  DIGEST KEY COLLISION {lk}")
+            continue
+        result = _render_layer_digest(entry, psd_cache, screens)
+        if result is None:
+            skipped += 1
+            continue
+        sha, dw, dh = result
+        digests[lk] = {"sha1": sha, "w": dw, "h": dh, "stem": entry["asset"]}
+        done += 1
+        if done % 50 == 0:
+            print(f"  layer_digests: {done} rendered ...")
+
+    digests_path = cfg.path("layer_digests.json")
+    with open(digests_path, "w") as f:
+        json.dump(digests, f, indent=2, sort_keys=True)
+    print(f"layer_digests: {len(digests)} entries, {skipped} skipped")
 
     collisions = []
     for key in sorted(winner_digest):

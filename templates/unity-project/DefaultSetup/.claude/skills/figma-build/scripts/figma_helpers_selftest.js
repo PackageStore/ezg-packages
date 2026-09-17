@@ -1,7 +1,7 @@
 // Self-test for figma_helpers.js. Paste figma_helpers.js FIRST, then this file,
-// in one use_figma payload. Set PAGE_ID and FONT below before running (the
-// caller injects them: PAGE_ID = a page id, FONT = figma.fonts.body from
-// psd2figma.json - never hardcode a project font here). It builds
+// in one use_figma payload. Set PAGE_ID and FONT below before running -
+// `figma_build_gen.py --helpers-selftest --page-id <id> --font Family/Style`
+// fills them in; never hardcode a project font here. It builds
 // __helpers_selftest__ on that page, exercises every helper against a synthetic
 // solid-colour image, asserts geometry to 0.01px, deletes the frame, and returns
 // {pass, failures, created, deleted}.

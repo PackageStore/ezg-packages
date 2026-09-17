@@ -8,11 +8,12 @@ instruction is to read its checkpoint and continue from `next`.
 
 `<data>/.progress/<stage>-<key>.md`, one per running stage:
 
-- `<stage>` is the brief's stage: `data`, `art`, `components`, `screen-build`,
-  `screen-verify`, `gate`.
-- `<key>` identifies the unit of work — a screen key for the screen stages, a
-  component set for `components`, `all` for a whole-run stage (`data`, `art`,
-  `gate`).
+- `<stage>` is the brief's stage: `data`, `lint-all`, `art`, `components`,
+  `plan-<key>`, `build-<key>`, `screen-build`, `screen-verify`, `gate`.
+- `<key>` identifies the unit of work — a screen key for the screen and
+  plan/build stages, a component set for `components`, `all` for a whole-run
+  stage (`data`, `lint-all`, `art`, `gate`).
+- `build-<key>` records `frameId` and the saved result file path.
 
 `.progress/` is a data-dir concern, covered by the `<data>/.gitignore` the scripts
 write on their first run; it is never written under the skill's `scripts/`.
