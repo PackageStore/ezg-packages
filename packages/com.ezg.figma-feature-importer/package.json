@@ -1,0 +1,22 @@
+{
+  "name": "com.ezg.figma-feature-importer",
+  "displayName": "EZG Figma Feature Importer",
+  "description": "Turns the raw screen prefabs written by the EZG Figma Bridge into shippable feature screens: every frame becomes a prefab variant of the project's screen template, Figma component instances are swapped for the project's own button/scroll/currency templates, sprites are de-duplicated against the project, text is normalised onto one font, and the screen controller is added and wired (MainUI, close buttons, feature enum, [SerializeField] fields) with optional partial-class codegen. Every project-specific path, shell node name and codegen string is data on one settings asset, so the same pipeline runs in any project.",
+  "unity": "6000.3",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "unity",
+    "figma",
+    "ugui",
+    "importer",
+    "prefab-variant"
+  ],
+  "type": "library",
+  "hideInEditor": false,
+  "version": "0.1.0",
+  "dependencies": {
+    "com.ezg.figma-bridge": "0.4.0"
+  }
+}
