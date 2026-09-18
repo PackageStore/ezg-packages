@@ -458,7 +458,7 @@
       "id": "Commands/push",
       "name": "push",
       "category": "Commands",
-      "description": "Commit and push changes with AI-generated commit message",
+      "description": "Commit and push changes with a short, English, AI-generated commit message",
       "installPath": ".claude/commands/push.md",
       "isDirectory": false,
       "files": [
@@ -469,8 +469,8 @@
       "source": "defaultsetup",
       "fileName": "push.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push.zip",
-      "sha256": "b446c18b6a4ddbd7e2f552455f1af97dec23aa78fb9a04be09d2c919e8a9e9a1",
-      "size": 901
+      "sha256": "dd67dab936f516af510743a2ccc14f8b6c97cf24b24be989431065825c823db8",
+      "size": 1239
     },
     {
       "id": "Commands/qa-review",
@@ -2474,7 +2474,7 @@
       "id": "Skills/push",
       "name": "push",
       "category": "Skills",
-      "description": "Commit and push changes with AI-generated commit message",
+      "description": "Commit and push changes with a short, English, AI-generated commit message",
       "installPath": ".claude/skills/push",
       "isDirectory": true,
       "files": [
@@ -2485,8 +2485,8 @@
       "source": "defaultsetup",
       "fileName": "push.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip",
-      "sha256": "27827cfec44502bc7e195395f0aac1dd77d1837e6d96cf8426fbcb69e60f10a3",
-      "size": 1054
+      "sha256": "d8628fd91f4917fb6510bea955efa8fc7b2905819f57335d9b071dc1f91dba7e",
+      "size": 1394
     },
     {
       "id": "Skills/rewards-service",
