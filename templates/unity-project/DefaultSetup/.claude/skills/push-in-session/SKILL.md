@@ -16,7 +16,7 @@ rác `Library/` — **không được đụng vào**.
 > |---|---|---|
 > | Stage | `git add .` — cả working tree | `git add -- <đúng path của session>` |
 > | Diff đọc lại | 80 dòng đầu | **không đọc** (agent đã biết mình sửa gì) |
-> | Message | `<prefix> <subject> <suffix>` | `<prefix> [Type][Domain] <subject>` |
+> | Message | `<prefix> <subject> <suffix>` | `<prefix> [Tag] <subject>` — đúng 1 tag |
 
 > **Cross-platform:** chọn lệnh theo OS.
 > - **Windows:** `powershell -ExecutionPolicy Bypass -File .claude/scripts/<name>.ps1`
@@ -69,8 +69,10 @@ Chạy script **scoped**, truyền từng path thành một argument riêng (quo
 Format bắt buộc — một dòng subject duy nhất:
 
 ```
-<prefix> [Type][Domain] <subject>
+<prefix> [Tag] <subject>
 ```
+
+**Đúng MỘT tag, không bao giờ hai.** `[Bug][UI]` là sai format.
 
 ### 3.1 Prefix (bắt buộc)
 
@@ -80,9 +82,12 @@ Format bắt buộc — một dòng subject duy nhất:
 | `*` | chỉnh sửa / cải tiến thứ đã có |
 | `#` | fix bug |
 
-### 3.2 Tag (bắt buộc ít nhất 1 — tag **Type**)
+### 3.2 Tag (bắt buộc, đúng MỘT)
 
-**Type** (luôn có, đứng trước):
+Một danh sách phẳng — chọn **đúng một** tag mô tả phần việc **chiếm tỷ trọng cao nhất** trong
+commit (đo bằng lượng diff + trọng tâm của task, không phải số file).
+
+**Nhóm loại việc:**
 
 | Tag | Nghĩa | Tag | Nghĩa |
 |---|---|---|---|
@@ -92,8 +97,7 @@ Format bắt buộc — một dòng subject duy nhất:
 | `Ref` | Refactor | `Sec` | Security |
 | `Bal` | Balance (số liệu CSV) | `Cont` | Content |
 
-**Domain** (tuỳ chọn, đứng sau Type) — chỉ thêm khi diff nằm gọn trong MỘT domain; đụng
-nhiều domain thì bỏ hẳn, chỉ giữ Type:
+**Nhóm vùng:**
 
 | Tag | Nghĩa | Tag | Nghĩa |
 |---|---|---|---|
@@ -109,9 +113,20 @@ nhiều domain thì bỏ hẳn, chỉ giữ Type:
 > skill, command, agent, rule, script backlog, hook, MCP config — và `CLAUDE.md`/`.agents/`.
 > **KHÔNG phải** AI logic trong game (enemy AI, pathfinding, behaviour tree): thứ đó là `Play`.
 
-**Ràng buộc prefix ↔ Type** (kiểm trước khi commit, lệch thì sửa prefix cho khớp Type):
+**Chọn tag nào khi cả hai nhóm đều đúng** — tránh tag nói lại thứ prefix đã nói:
 
-| Prefix | Type hợp lệ |
+1. Tag loại việc **không suy ra được từ prefix** thì nó thắng: `Bal`, `Perf`, `Ref`, `Clean`,
+   `Pol`, `Sec`, `Cont`. Ví dụ `* [Bal] raise station upgrade cost` — `Bal` mang thông tin
+   thật, `Gameplay` thì prefix `*` không nói được nhưng cũng không quan trọng bằng.
+2. Còn lại — `Feat` ≈ `+`, `Bug` ≈ `#`, `Enh` ≈ `*` — là **dư thừa với prefix**, nên nhường
+   cho tag vùng: `# [UI] fix shop pack refresh`, không phải `# [Bug] ...`.
+3. Diff trải nhiều vùng, không vùng nào trội, và cũng không rơi vào (1) → dùng tag loại việc
+   (`Feat` / `Bug` / `Enh`).
+
+**Ràng buộc prefix ↔ tag loại việc** (chỉ áp dụng khi tag chọn được thuộc nhóm loại việc;
+lệch thì sửa prefix cho khớp tag):
+
+| Prefix | Tag loại việc hợp lệ |
 |---|---|
 | `+` | `Feat`, `Cont` |
 | `*` | `Enh`, `Ref`, `Bal`, `Perf`, `Clean`, `Pol` |
@@ -131,10 +146,10 @@ lại `codegraph init`, giá trị tạm chờ design chốt…). Tối đa **2 
 một dòng trống. **Không** `Co-Authored-By`, không trailer, không liệt kê file — đây là luật
 của project, cố ý ngược với attribution mặc định của Claude Code.
 
-### 3.5 Session lẫn nhiều loại việc → vẫn MỘT commit
+### 3.5 Session lẫn nhiều loại việc → vẫn MỘT commit, vẫn MỘT tag
 
-Không tách commit. Chọn prefix + Type theo **loại việc chiếm phần lớn diff**, subject mô tả
-phần đó; phần phụ (nếu đáng nhắc) cho xuống body một dòng.
+Không tách commit, không nhét thêm tag thứ hai. Chọn prefix + tag theo **phần việc chiếm tỷ
+trọng cao nhất**, subject mô tả phần đó; phần phụ (nếu đáng nhắc) cho xuống body một dòng.
 
 ### 3.6 Dev override
 
@@ -143,18 +158,22 @@ Mọi text dev gõ thêm quanh lệnh đều là chỉ thị, không phải rác
 - Ký tự `*` / `#` / `+` → **prefix**, thắng suy đoán của agent.
 - Text trong ngoặc vuông → **tag**, thắng suy đoán của agent (`/push-in-session # [UI]`).
   Tag không nằm trong 2 bảng trên → **dừng và hỏi**, tuyệt đối không tự chế tag mới.
-- Ví dụ: `+ /push-in-session [Feat][Mon]` → agent chỉ sinh phần subject.
+- Dev gõ nhiều hơn một tag → dùng **tag đầu tiên**, bỏ phần còn lại và nói rõ trong report
+  (format chỉ cho phép một tag).
+- Ví dụ: `+ /push-in-session [Mon]` → agent chỉ sinh phần subject.
 
 ### 3.7 Ví dụ
 
 ```
-+ [Feat][Play] add staff gacha pity counter
-* [Enh][Audio] loop rotor SFX while flying
-# [Bug][UI] fix shop pack list not refreshing
++ [Play] add staff gacha pity counter
+* [Audio] loop rotor SFX while flying
+# [UI] fix shop pack list not refreshing
 * [Bal] raise station upgrade cost curve
-# [Sec][Save] validate coin delta before save
-+ [Cont][Loc] add 3 tutorial strings
-* [Enh][AI] tighten run-backlog review gating
+# [Sec] validate coin delta before save
++ [Cont] add 3 tutorial strings
+* [AI] tighten run-backlog review gating
+* [Perf] pool damage popups
++ [Feat] add offline earning screen
 ```
 
 ## 4. COMMIT + PUSH
