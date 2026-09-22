@@ -12,7 +12,7 @@
       "id": "Commands",
       "name": "Commands",
       "description": "Slash command gọi tay (/new-ui, /push…).",
-      "count": 28
+      "count": 29
     },
     {
       "id": "Config",
@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 39
+      "count": 40
     },
     {
       "id": "Templates",
@@ -183,6 +183,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
       "sha256": "ad7eb5e770d19a8d6392bd91f40946c3401e52dd39fcb6557f3ccd9eb318e741",
       "size": 4345
+    },
+    {
+      "id": "Commands/add-localize",
+      "name": "add-localize",
+      "category": "Commands",
+      "description": "Add a new localization key to the team sheet and into the project's CSV/.asset",
+      "installPath": ".claude/commands/add-localize.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/add-localize.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "add-localize.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip",
+      "sha256": "1360990003ae2d67fd40964ae2324b4b8e6067d05ea3c977e7f756b0ade75898",
+      "size": 1586
     },
     {
       "id": "Commands/auto-build-setup",
@@ -739,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "03efd9be498535243cc868fdda377530f92c404c3415bf45888ecea0354813a5",
-      "size": 1451
+      "sha256": "e2e3d216b498890aeb076c6815cf8f5c9908ef2cf4cf36c810d68be2cd1620f3",
+      "size": 1735
     },
     {
       "id": "Config/settings.json",
@@ -1923,6 +1941,26 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-visual-diff.py.zip",
       "sha256": "b8a55e8bed7b69a1dd811b028c699a7c6ac1cd6189a6f06a49f0e3909fd200ee",
       "size": 1370
+    },
+    {
+      "id": "Skills/add-localize",
+      "name": "add-localize",
+      "category": "Skills",
+      "description": ">-",
+      "installPath": ".claude/skills/add-localize",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/add-localize/SKILL.md",
+        ".claude/skills/add-localize/scripts/add_localize.py",
+        ".claude/skills/add-localize/scripts/sheet_io.py"
+      ],
+      "fileCount": 3,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "add-localize.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip",
+      "sha256": "23b8db475c870f66b3af4f7fce6bf886d257aca7986663098a436740324142b7",
+      "size": 15924
     },
     {
       "id": "Skills/add-to-backlog",
