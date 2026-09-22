@@ -487,8 +487,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push-in-session.zip",
-      "sha256": "ccd036b69ff4b2fcacdea02ed0fe8cbd187977eeabf1c764d0de08ca6200bf6e",
-      "size": 1217
+      "sha256": "a6b65ee99d091d1d342ba6a1265e439c1c55a365874fe814f5e2b1b0afb6b87f",
+      "size": 1376
     },
     {
       "id": "Commands/qa-review",
@@ -2557,8 +2557,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
-      "sha256": "afea2c4afec64271befc4c5c9be7edb0ae1edb40d3f1af6c469268934cc0fd19",
-      "size": 4194
+      "sha256": "ca1f582c569699dcd23e5f66639dc2e572471647c548134c0c8661d9007155c7",
+      "size": 4625
     },
     {
       "id": "Skills/rewards-service",
