@@ -12,7 +12,7 @@
       "id": "Commands",
       "name": "Commands",
       "description": "Slash command gọi tay (/new-ui, /push…).",
-      "count": 27
+      "count": 28
     },
     {
       "id": "Config",
@@ -36,13 +36,13 @@
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 43
+      "count": 45
     },
     {
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 38
+      "count": 39
     },
     {
       "id": "Templates",
@@ -471,6 +471,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push.zip",
       "sha256": "dd67dab936f516af510743a2ccc14f8b6c97cf24b24be989431065825c823db8",
       "size": 1239
+    },
+    {
+      "id": "Commands/push-in-session",
+      "name": "push-in-session",
+      "category": "Commands",
+      "description": "Commit and push only what this session changed, with a prefix + tag commit message",
+      "installPath": ".claude/commands/push-in-session.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/commands/push-in-session.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "push-in-session.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push-in-session.zip",
+      "sha256": "ccd036b69ff4b2fcacdea02ed0fe8cbd187977eeabf1c764d0de08ca6200bf6e",
+      "size": 1217
     },
     {
       "id": "Commands/qa-review",
@@ -1288,6 +1306,42 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.sh.zip",
       "sha256": "cde347b3234f4aed1003a61ee3a1fb75405a2bd23bd232b6e9dc421c68c30634",
       "size": 1239
+    },
+    {
+      "id": "Scripts/git_prepare_scoped.ps1",
+      "name": "git_prepare_scoped.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_prepare_scoped.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_prepare_scoped.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_prepare_scoped.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.ps1.zip",
+      "sha256": "7fc81bd98eee8081f8f0ba42c5e77822f85e2ce0207233e6eb88cebe92b288ed",
+      "size": 1361
+    },
+    {
+      "id": "Scripts/git_prepare_scoped.sh",
+      "name": "git_prepare_scoped.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/git_prepare_scoped.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/git_prepare_scoped.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "git_prepare_scoped.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.sh.zip",
+      "sha256": "a926cf68f7ff0430febfbb4a294953bfa1542ae115d6812bad14956d44db3090",
+      "size": 1528
     },
     {
       "id": "Scripts/git_prepare.ps1",
@@ -2487,6 +2541,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip",
       "sha256": "d8628fd91f4917fb6510bea955efa8fc7b2905819f57335d9b071dc1f91dba7e",
       "size": 1394
+    },
+    {
+      "id": "Skills/push-in-session",
+      "name": "push-in-session",
+      "category": "Skills",
+      "description": "Commit and push ONLY the files changed during this session, with a prefix + tag commit message",
+      "installPath": ".claude/skills/push-in-session",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/push-in-session/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "push-in-session.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
+      "sha256": "afea2c4afec64271befc4c5c9be7edb0ae1edb40d3f1af6c469268934cc0fd19",
+      "size": 4194
     },
     {
       "id": "Skills/rewards-service",
