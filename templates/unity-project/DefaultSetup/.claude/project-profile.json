@@ -30,6 +30,23 @@
   "gameplayRoot": "Assets/_Project/Features",
   "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
 
+  "$comment_localize": [
+    "Where /add-localize reads its per-project values. `sheet` is the team's",
+    "localization workbook: the public link is enough to READ it, but every",
+    "write goes through the Sheets API, so `serviceAccount` must point at a",
+    "service-account JSON whose client_email is an Editor on that sheet.",
+    "Empty `sheet` = the skill refuses and tells you to fill this in.",
+    "csvRoot/assetsRoot are derived from sourceRoot when omitted."
+  ],
+  "localize": {
+    "sheet": "",
+    "serviceAccount": "Key/service-account-gsheets.json",
+    "csvRoot": "",
+    "assetsRoot": "",
+    "stagingTab": "template",
+    "defaultTab": "common"
+  },
+
   "$comment_sensitiveGlobs": [
     "Filename globs that mark a diff sensitive and auto-spawn the",
     "security-auditor. This base ships IAP, account sync and a two-tier save,",
