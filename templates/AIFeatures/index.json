@@ -2595,8 +2595,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
-      "sha256": "c4904bead12b4a3b1ba0ac7a982696e099786685563457c6ab14940ea77c5744",
-      "size": 4884
+      "sha256": "7838b5b333d7430592cab34e1d759982381579e54b7acbfb3427d2386242b509",
+      "size": 5451
     },
     {
       "id": "Skills/rewards-service",
@@ -2631,8 +2631,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "c76708fab288e16a530a772ca4ef487de5203187f054d430d5af5aafa5949a8d",
-      "size": 28536
+      "sha256": "25edc37d11649461e035d937723f51bad9b0d21a25599d82639d3016237c6463",
+      "size": 29664
     },
     {
       "id": "Skills/setup-package-push",
