@@ -882,8 +882,31 @@ Read that file now and apply its §1 (file list) → §2 (scoped stage) → §3 
 §4 (commit + push), with the loop adaptations 9a–9e below. Read the file directly
 rather than invoking `/push-in-session` — the non-Claude loop adapters run this skill
 too and have no Skill tool. **Never fall back to `git add -A` + a free-form message**:
-that is exactly the behavior this step replaced. The backlog moves are NOT part of
-the commit either way — they happened inside `.git/` and git cannot see them.
+that is exactly the behavior this step replaced — not even when a dependency is missing
+(9.0 covers that). The backlog moves are NOT part of the commit either way — they
+happened inside `.git/` and git cannot see them.
+
+### 9.0 — Probe the dependencies (one call)
+
+push-in-session and its two scripts are separate Feature Hub items, so a project that
+installed `run-backlog` on its own may lack any of them. Check once:
+
+```bash
+for f in .claude/skills/push-in-session/SKILL.md .claude/scripts/git_prepare_scoped.sh .claude/scripts/git_push.sh; do
+  [ -f "$f" ] && echo "OK $f" || echo "MISSING $f"
+done
+# Windows: probe the git_prepare_scoped.ps1 / git_push.ps1 twins instead of the .sh ones
+```
+
+| MISSING | Fallback — the commit style does not change |
+|---|---|
+| `push-in-session/SKILL.md` | 9b's list rules + the built-in copy of the message rules in 9d |
+| `git_prepare_scoped` | the inline stage loop in 9c |
+| `git_push` | the inline commit + push in 9e |
+
+A missing dependency is never a stop condition. Record
+`commit-style fallback: <missing file(s)>` for STEP 10 so the dev can install the item
+from Feature Hub (AI Feature tab).
 
 ### 9a — Reset the index (loop-only, mandatory)
 
@@ -933,6 +956,24 @@ bash .claude/scripts/git_prepare_scoped.sh "<path1>" "<path2>" ...              
 powershell -ExecutionPolicy Bypass -File .claude/scripts/git_prepare_scoped.ps1 "<path1>" "<path2>"  # Windows
 ```
 
+**Fallback — `git_prepare_scoped` MISSING.** Same contract, inline: a path that exists
+neither on disk nor in the index is reported instead of killing `git add`, and `-A`
+stages a listed deletion:
+
+```bash
+for p in "<path1>" "<path2>" ...; do
+  if [ -e "$p" ] || git ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
+    git add -A -- "$p"
+  else
+    echo "SKIPPED (not found): $p"
+  fi
+done
+echo "--- STAGED ---";                git diff --cached --name-status
+echo "--- DIRTY OUTSIDE SESSION ---"; git status --porcelain | grep '^[ ?]' || true
+```
+
+An empty `--- STAGED ---` block is the fallback's `NO_CHANGES`.
+
 Keep `--- STAGED ---` (what gets committed) and `--- DIRTY OUTSIDE SESSION ---` (left
 for the dev) for the STEP 10 report. `NO_CHANGES` here means the list is wrong — STEP 6a
 already proved the diff is non-empty — so rebuild it from the transcript once. Still
@@ -942,8 +983,9 @@ and stop.
 
 ### 9d — Message (push-in-session §3)
 
-`<prefix> [Tag] <subject>` — **exactly one** tag from the §3.2 tables, English
-imperative subject ≤50 chars, whole line ≤72. Loop specifics:
+`<prefix> [Tag] <subject>` — **exactly one** tag from push-in-session §3.2 (or the
+built-in copy below when that file is MISSING), English imperative subject ≤50 chars,
+whole line ≤72. Loop specifics:
 
 - A loop run has no dev text around it, so §3.6 overrides do not apply — derive both
   from the task spec + diff: bug-fix task → `#`, new feature / screen / content → `+`,
@@ -953,6 +995,20 @@ imperative subject ≤50 chars, whole line ≤72. Loop specifics:
 - Body optional, max 2 English lines, only when there is something to act on (§3.4).
 - **No `Co-Authored-By`, no trailer of any kind.** The project rule (§3.4) overrides
   the harness's default commit attribution.
+
+**Built-in copy of push-in-session §3.1–§3.2** — used ONLY when 9.0 reported the skill
+MISSING; when the file exists, its tables win. Keep the two in lockstep.
+
+- Prefix: `+` new · `*` change / improve · `#` bug fix.
+- Tag, exactly one — kind of work: `Feat` `Enh` `Bug` `Ref` `Bal` `Perf` `Clean` `Pol`
+  `Sec` `Cont`; area: `UI` `Play` `Meta` `Mon` `Save` `BE` `Audio` `Loc` `Track` `Ads`
+  `Bundle` `Editor` `CI` `AI`. Never invent another. `AI` = agent tooling (`.claude/`,
+  `CLAUDE.md`, `.agents/`), NOT in-game AI — that is `Play`.
+- Precedence: (1) a kind tag the prefix cannot express wins — `Bal` `Perf` `Ref` `Clean`
+  `Pol` `Sec` `Cont`; (2) otherwise `Feat` / `Bug` / `Enh` only repeat the prefix, so use
+  the area tag; (3) several areas, none dominant → `Feat` / `Bug` / `Enh`.
+- Prefix ↔ kind tag: `+` → `Feat` `Cont` · `*` → `Enh` `Ref` `Bal` `Perf` `Clean` `Pol` ·
+  `#` → `Bug` `Sec`. On a mismatch, fix the prefix.
 
 ### 9e — Commit + push (push-in-session §4)
 
@@ -967,6 +1023,18 @@ fi
 `git_push` commits, then pushes the checked-out branch, which is `$WORK_BRANCH` in both
 modes. When that branch has no upstream yet (`agent/dev-<base>` on its first worktree
 run) it runs `git push -u origin HEAD` by itself — no separate `-u` step.
+
+**Fallback — `git_push` MISSING** (`HAS_REMOTE=1`), same behavior inline:
+
+```bash
+git commit -m "<final message>" && {
+  if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    git push
+  else
+    git push -u origin HEAD
+  fi
+}
+```
 
 In **current mode** `$WORK_BRANCH` is the dev's own branch, so this pushes straight to
 where they are working — that is intended, it is the branch they chose. In **worktree
@@ -993,7 +1061,7 @@ the base template runs its first several tasks before anyone creates a remote.
 Notify the user:
 - Task completed (link to the file in `$BACKLOG_ROOT/done/` — an absolute path, since it is outside the worktree)
 - Files committed (`--- STAGED ---` of STEP 9c) and files **left uncommitted** (`--- DIRTY OUTSIDE SESSION ---`, plus any path you chose to leave out) — the dev decides what to do with the latter
-- Commit message used (push-in-session format)
+- Commit message used (push-in-session format), plus `commit-style fallback: …` when STEP 9.0 found a dependency missing
 - Branch + push status (`$WORK_BRANCH`) — `pushed to origin`, or `committed locally (no remote — push skipped)` when `HAS_REMOTE=0`
 - Mode (`current` / `worktree`)
 - **Pipeline summary**: every gate verdict (code / perf / security / QA / runtime smoke) + rounds used in auto-fix

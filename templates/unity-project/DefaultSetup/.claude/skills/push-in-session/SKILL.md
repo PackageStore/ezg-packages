@@ -64,6 +64,25 @@ Chạy script **scoped**, truyền từng path thành một argument riêng (quo
   Liệt kê lại cho user ở report cuối để họ tự quyết.
 - `--- REMOTE ---` → `none` nghĩa là repo chưa có `origin`: vẫn commit, **bỏ bước push**.
 
+**Fallback — project thiếu `git_prepare_scoped.*`** (script là item Feature Hub cài riêng):
+cùng contract, chạy inline — path không có trên đĩa lẫn index thì báo thay vì làm `git add` chết,
+`-A` để path bị xoá được stage thành deletion:
+
+```bash
+for p in "<path1>" "<path2>"; do
+  if [ -e "$p" ] || git ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
+    git add -A -- "$p"
+  else
+    echo "SKIPPED (not found): $p"
+  fi
+done
+echo "--- STAGED ---";                git diff --cached --name-status
+echo "--- DIRTY OUTSIDE SESSION ---"; git status --porcelain | grep '^[ ?]' || true
+git remote get-url origin >/dev/null 2>&1 && echo "REMOTE origin" || echo "REMOTE none"
+```
+
+Block `STAGED` rỗng = `NO_CHANGES`.
+
 ## 3. SOẠN MESSAGE
 
 Format bắt buộc — một dòng subject duy nhất:
@@ -185,6 +204,19 @@ Kiểm lại `[Final Message]` một lần: prefix/tag dev gõ có nằm nguyên
   - macOS / Linux: `bash .claude/scripts/git_push.sh "[Final Message]"`
 - Không có `origin`: chỉ `git commit -m "[Final Message]"`, không push, báo rõ cho user.
 
+**Fallback — project thiếu `git_push.*`** (có `origin`), cùng hành vi: commit, rồi push; nhánh
+chưa có upstream thì set luôn:
+
+```bash
+git commit -m "[Final Message]" && {
+  if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    git push
+  else
+    git push -u origin HEAD
+  fi
+}
+```
+
 Push lỗi vì nhánh tụt hậu → **không** tự `--force`, không tự rebase; báo lỗi nguyên văn cho dev.
 
 ## 5. REPORT
@@ -207,3 +239,7 @@ STEP 9 của [`run-backlog`](../run-backlog/SKILL.md) commit + push theo đúng 
 hai file khớp nhau. Khác biệt duy nhất của bản loop: index đã bị `git add -A` cho review từ
 STEP 5, nên nó chạy thêm `git reset -q` **trước** bước 2 (`git_prepare_scoped` chỉ stage thêm,
 không bỏ stage); push lỗi thì in `manual intervention required …` để dừng loop.
+
+run-backlog **không phụ thuộc cứng** vào skill này: STEP 9.0 dò file, thiếu thì dùng bản sao
+rút gọn §3.1–§3.2 nằm trong STEP 9d + lệnh git inline thay cho hai script. Vì vậy **đổi
+prefix / tag ở §3.1–§3.2 thì phải đổi luôn bản sao trong run-backlog STEP 9d.**
