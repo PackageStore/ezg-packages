@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "c4720108949a596be243cd9443d10a04e6ea1da52c2152066adde0f3982fb118",
-      "size": 11295
+      "sha256": "479a8578d4af3615f05c30a7a2a4404839a042de862e61215e7120addfce8983",
+      "size": 11394
     },
     {
       "id": "Config/project-profile.json",
@@ -1412,8 +1412,8 @@
       "source": "defaultsetup",
       "fileName": "git_push.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.ps1.zip",
-      "sha256": "c4c4911b5b6685243681513c9194318d02845f4ebe40726de7b17fe2da4bf522",
-      "size": 239
+      "sha256": "64edb0b7eab7842e5da8849064ac3ff7086db06369df2f4039411c97a82487bf",
+      "size": 532
     },
     {
       "id": "Scripts/git_push.sh",
@@ -1430,8 +1430,8 @@
       "source": "defaultsetup",
       "fileName": "git_push.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.sh.zip",
-      "sha256": "61c0f18fc5029bb3e5778c4f23bd4cc8ac2996f25d54377d770cb52232326561",
-      "size": 686
+      "sha256": "e0047b8d7556a1e7fdf9c28f9a4733a2c8a4a6b4fc2ded3b222397f29d4cdc0f",
+      "size": 898
     },
     {
       "id": "Scripts/notify.ps1",
@@ -1556,8 +1556,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "06320c2ee15c001be86655b809bfd2cb81dfe5e5e001ec446cbf95d60053ac9f",
-      "size": 24806
+      "sha256": "0a592c3dad04faaf4569bcb3fe3306900946dc7b57267843faf6225285c0925d",
+      "size": 24998
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1646,8 +1646,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "dbb5fab028f05769715dad3946a6bd1cd59f8d8b107efbf94cf5799539a4657d",
-      "size": 16999
+      "sha256": "4188ad89e4322e56e7239796681045eec53bb45d76ce2dd5e618b8077c3b29dd",
+      "size": 17184
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -2595,8 +2595,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
-      "sha256": "ca1f582c569699dcd23e5f66639dc2e572471647c548134c0c8661d9007155c7",
-      "size": 4625
+      "sha256": "c4904bead12b4a3b1ba0ac7a982696e099786685563457c6ab14940ea77c5744",
+      "size": 4884
     },
     {
       "id": "Skills/rewards-service",
@@ -2620,7 +2620,7 @@
       "id": "Skills/run-backlog",
       "name": "run-backlog",
       "category": "Skills",
-      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
+      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> [Tag] <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
       "installPath": ".claude/skills/run-backlog",
       "isDirectory": true,
       "files": [
@@ -2631,8 +2631,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "c25aed0e71aed8548ed7bc6128faa3007a4de4af5a53b0eb2c573e30156296f2",
-      "size": 26181
+      "sha256": "c76708fab288e16a530a772ca4ef487de5203187f054d430d5af5aafa5949a8d",
+      "size": 28536
     },
     {
       "id": "Skills/setup-package-push",
