@@ -225,15 +225,17 @@ if ($Mode -eq "Worktree") {
 }
 $env:AGENT_WORKDIR = $WorkDir
 
-# Current mode shares the checkout with the developer, and the agent stages with
-# `git add -A` - so anything uncommitted at this moment lands in the first task's
-# commit. Warn, do not block: owning that risk is the whole point of choosing
-# Current over Worktree.
+# Current mode shares the checkout with the developer. The agent stages with
+# `git add -A` for review, so anything uncommitted at this moment lands in the first
+# task's review diff; the commit itself (STEP 9, push-in-session style) takes only the
+# task's own files - unless the agent edits a file the dev already had dirty. Warn, do
+# not block: owning that risk is the whole point of choosing Current over Worktree.
 if ($Mode -eq "Current") {
     $dirty = @(& git status --porcelain 2>$null | Where-Object { $_ })
     if ($dirty.Count -gt 0) {
-        Write-Host "WARNING: $($dirty.Count) uncommitted change(s) in this checkout. The agent stages" -ForegroundColor Yellow
-        Write-Host "         with 'git add -A', so they will be swept into the first task's commit." -ForegroundColor Yellow
+        Write-Host "WARNING: $($dirty.Count) uncommitted change(s) in this checkout. They will show up in" -ForegroundColor Yellow
+        Write-Host "         the first task's review diff (the commit takes only the task's own files," -ForegroundColor Yellow
+        Write-Host "         but a file both of you touched is committed whole)." -ForegroundColor Yellow
         Write-Host "         Commit or stash them first if that is not what you want." -ForegroundColor Yellow
     }
 }
@@ -904,7 +906,7 @@ Required contract:
 3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code requested by the workflow.
 4. If your CLI cannot spawn subagents, perform the code-reviewer, security-auditor, and qa-verifier gates in this same session by reading their instructions from .claude/agents/*.md and applying the same blocking criteria.
 5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.)
-6. Commit to the work branch ($AgentBranch) only when the run-backlog skill says the task is DONE, and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
+6. Commit to the work branch ($AgentBranch) only when the run-backlog skill says the task is DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> [Tag] <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
 
 Environment for this iteration (STEP 2 of the skill reads these):
 - AGENT_MODE=$($Mode.ToLowerInvariant())
@@ -928,7 +930,7 @@ Required contract:
 3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
 5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.)
-6. Commit to the work branch ($AgentBranch) only when the skill marks the task DONE, and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
+6. Commit to the work branch ($AgentBranch) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> [Tag] <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
 
 Environment for this iteration (STEP 2 of the skill reads these):
 - AGENT_MODE=$($Mode.ToLowerInvariant())

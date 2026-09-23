@@ -1,6 +1,6 @@
 ---
 name: run-backlog
-description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
+description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> [Tag] <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
 ---
 
 # Run Backlog — Autonomous Task Agent
@@ -101,7 +101,7 @@ Pipeline orchestration:
 [7]   VERIFY   → spawn qa-verifier (M/L); auto-fix max 2 rounds if failed; final preflight
 [7.5] SMOKE    → runtime smoke gate (M/L, orchestrator-side, Unity MCP): play mode + console assert + screenshot; auto-skips if Editor absent
 [8]   DONE     → backlog-ops done: in-progress → done + bullet removal, write summary with all gate verdicts
-[9]   SHIP     → backlog-ops lint, then commit + push to $WORK_BRANCH (DO NOT create a PR)
+[9]   SHIP     → backlog-ops lint, then push-in-session style: reset index → stage ONLY this task's files → `<prefix> [Tag] <subject>` → commit + push to $WORK_BRANCH (DO NOT create a PR)
 [10]  REPORT   → summarize for user, including manual verification steps
 ```
 
@@ -378,6 +378,8 @@ git add -A
 ```
 
 **Do not commit yet.** Quality gates run on the staged diff. Commit only after all gates pass.
+This whole-tree staging exists for the gates only — STEP 9 resets the index and
+re-stages just this task's files (push-in-session scoped stage) before committing.
 
 ### 5b — Unity compile check (3-tier, mandatory) — runs BEFORE the quality gates
 
@@ -865,7 +867,7 @@ steps; do not shorten it on the assumption they can read the file later.
 
 ---
 
-## STEP 9 — Commit and push to the work branch
+## STEP 9 — Commit and push to the work branch (push-in-session style)
 
 Run the index consistency lint one last time before committing:
 
@@ -875,30 +877,107 @@ python3 .claude/scripts/backlog-ops.py lint
 
 If `ok = false` → the errors indicate a hand-edit or merge residue (dual-state file, orphan bullet, leaked markup). Fix them, re-run the lint, and only then commit.
 
-Stage and commit the code changes. The backlog moves are NOT included — they happened
-inside `.git/` and git cannot see them:
+**The commit follows the project's push style: [`.claude/skills/push-in-session/SKILL.md`](../push-in-session/SKILL.md).**
+Read that file now and apply its §1 (file list) → §2 (scoped stage) → §3 (message) →
+§4 (commit + push), with the loop adaptations 9a–9e below. Read the file directly
+rather than invoking `/push-in-session` — the non-Claude loop adapters run this skill
+too and have no Skill tool. **Never fall back to `git add -A` + a free-form message**:
+that is exactly the behavior this step replaced. The backlog moves are NOT part of
+the commit either way — they happened inside `.git/` and git cannot see them.
+
+### 9a — Reset the index (loop-only, mandatory)
+
+STEP 5a / 6 staged the whole tree with `git add -A` so the gates could review it.
+`git_prepare_scoped` only ADDS paths — it never unstages — so skipping this reset lets
+every staged file (Unity auto-dirt, the dev's parallel edits) ride into the commit and
+defeats the scoped stage entirely:
+
 ```bash
-git add -A
-git commit -m "<concise commit message max 50 chars>"
+git reset -q
 ```
 
-Format the commit message concisely according to the task. For example:
-- `feat: ice boom cooldown ui` (for feature task)
-- `fix: notification badge stale on logout` (for bug task)
-- `refactor: extract skill csv parser` (for refactor task)
+The working tree is untouched; only the index returns to `HEAD`. This is the one git
+command on top of push-in-session's 2-command budget, and it is required here.
 
-Push to the work branch:
+### 9b — Build the file list (push-in-session §1)
+
+The list = what THIS iteration changed, STEP 5 through the last fix round of any gate,
+taken from your own transcript — not from `git status` / `git diff`. In the loop that is:
+
+- files you wrote with Write / Edit / Bash (implementation + every review/QA/runtime fix);
+- files produced by a command you ran on purpose: CSV importer output
+  (`DataManager.Generated.cs`, `CsvAssetDir.cs`, `Resources/*.asset`), prefabs / scenes /
+  SOs you created or saved through Unity MCP (STEP 5.0's `/new-ui` / `/new-feature`
+  workflows write most of their output this way), `ui-kit-sync.py`, `/add-localize` output;
+- **the `.meta` of every file AND folder you created.** Unity generates them during the
+  STEP 5b refresh; a commit without them hands every other dev a fresh random GUID.
+  Pass `<path>.meta` for each new file and each new folder even when unsure it exists —
+  a missing one only lands in `--- SKIPPED (not found) ---` (normal in worktree mode,
+  where no Editor ever ran);
+- **deleted / renamed paths** — pass the old path too, so the deletion is staged.
+
+Leave out, per push-in-session §1: files you only read; Unity auto-dirt after
+`Assets/Refresh` that the task did not target (typically scenes / ScriptableObjects an
+editor tool re-syncs on refresh — CLAUDE.md lists the project's known offenders); anything
+under `Library/`, `Temp/`, `.claude/tmp/`, the scratchpad. Unsure → leave it out and
+list it in STEP 10.
+
+Cross-check with the last snapshot's `files[]` (STEP 6/7 — already in context, no new
+command): a reviewed file that is not in your list is either auto-dirt (correct to drop)
+or something you forgot. Decide each one explicitly; never drop a file silently.
+
+### 9c — Stage (push-in-session §2)
+
+```bash
+bash .claude/scripts/git_prepare_scoped.sh "<path1>" "<path2>" ...                                  # macOS / Linux
+powershell -ExecutionPolicy Bypass -File .claude/scripts/git_prepare_scoped.ps1 "<path1>" "<path2>"  # Windows
+```
+
+Keep `--- STAGED ---` (what gets committed) and `--- DIRTY OUTSIDE SESSION ---` (left
+for the dev) for the STEP 10 report. `NO_CHANGES` here means the list is wrong — STEP 6a
+already proved the diff is non-empty — so rebuild it from the transcript once. Still
+`NO_CHANGES` → the task's whole diff was auto-dirt: output
+`NO_CHANGES — the task's diff contains no file this iteration changed; nothing committed. Task file is already in done/ — check it manually.`
+and stop.
+
+### 9d — Message (push-in-session §3)
+
+`<prefix> [Tag] <subject>` — **exactly one** tag from the §3.2 tables, English
+imperative subject ≤50 chars, whole line ≤72. Loop specifics:
+
+- A loop run has no dev text around it, so §3.6 overrides do not apply — derive both
+  from the task spec + diff: bug-fix task → `#`, new feature / screen / content → `+`,
+  change to something that exists → `*`; pick the tag by §3.2's precedence rules and
+  honor the §3.2 prefix ↔ tag constraint. E.g. `+ [UI] add offline earning popup`,
+  `# [Play] fix truck stuck at harvest station`, `* [Bal] raise station upgrade cost curve`.
+- Body optional, max 2 English lines, only when there is something to act on (§3.4).
+- **No `Co-Authored-By`, no trailer of any kind.** The project rule (§3.4) overrides
+  the harness's default commit attribution.
+
+### 9e — Commit + push (push-in-session §4)
+
 ```bash
 if [ "$HAS_REMOTE" = "1" ]; then
-  git push -u origin "$WORK_BRANCH"
+  bash .claude/scripts/git_push.sh "<final message>"   # Windows: powershell -ExecutionPolicy Bypass -File .claude/scripts/git_push.ps1 "<final message>"
 else
-  echo "no remote — push skipped, commit stays local"
+  git commit -m "<final message>"                       # no remote — push skipped, commit stays local
 fi
 ```
+
+`git_push` commits, then pushes the checked-out branch, which is `$WORK_BRANCH` in both
+modes. When that branch has no upstream yet (`agent/dev-<base>` on its first worktree
+run) it runs `git push -u origin HEAD` by itself — no separate `-u` step.
 
 In **current mode** `$WORK_BRANCH` is the dev's own branch, so this pushes straight to
 where they are working — that is intended, it is the branch they chose. In **worktree
 mode** it is `agent/dev-<base>`, which the user merges themselves.
+
+**Push rejected / failed** → per push-in-session §4: no `--force`, no rebase, no pull.
+The commit stays local and the task is already DONE. Print git's error verbatim, then
+output exactly
+`manual intervention required — push of <WORK_BRANCH> to origin failed; commit <short-sha> is local only. Pull/rebase by hand, push, then re-run.`
+and stop — the loop runner greps that phrase, so later tasks do not pile more unpushed
+commits onto a diverged branch.
 
 When `HAS_REMOTE=0` the push is the ONLY step that is dropped: the commit is already
 made and the task is already DONE, so the loop continues to the next task normally.
@@ -913,8 +992,8 @@ the base template runs its first several tasks before anyone creates a remote.
 
 Notify the user:
 - Task completed (link to the file in `$BACKLOG_ROOT/done/` — an absolute path, since it is outside the worktree)
-- Files changed
-- Commit message used
+- Files committed (`--- STAGED ---` of STEP 9c) and files **left uncommitted** (`--- DIRTY OUTSIDE SESSION ---`, plus any path you chose to leave out) — the dev decides what to do with the latter
+- Commit message used (push-in-session format)
 - Branch + push status (`$WORK_BRANCH`) — `pushed to origin`, or `committed locally (no remote — push skipped)` when `HAS_REMOTE=0`
 - Mode (`current` / `worktree`)
 - **Pipeline summary**: every gate verdict (code / perf / security / QA / runtime smoke) + rounds used in auto-fix
@@ -923,8 +1002,9 @@ Notify the user:
 Example report format:
 ```
 [OK] Completed: <abs path>/.git/backlog/done/001-M-ice-boom-cooldown.md
-Files: 3 changed (<featuresRoot>/.../SomeController.cs, ...)
-Commit: feat: ice boom cooldown ui (a1b2c3d)
+Files: 3 committed (<featuresRoot>/.../SomeController.cs, ...)
+Left uncommitted: 1 (M <sourceRoot>/Scenes/<Scene>.unity — editor auto-sync, not part of this task)
+Commit: + [UI] add ice boom cooldown ui (a1b2c3d)
 Branch: agent/dev-Dev1 (pushed to origin)   Mode: worktree
 
 Pipeline:
@@ -973,9 +1053,10 @@ gameplay verification. In current mode drop that line (STEP 5b already compiled)
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
   - `RUNTIME_BLOCKED` after Round 2 in STEP 7.5 — **only when the diff's code failed at runtime**. Unity tooling dying mid-gate (unanswered modal / unresponsive bridge / game never boots) is NOT this token: it degrades to `runtime-smoke: skipped (…)` and the task still reaches STEP 8.
 - **No `--ship-anyway` mode.** If the user wants to force-ship a blocked task, they manually resolve the block and re-run the skill.
+- **Push failure is a stop, not a retry.** STEP 9e prints `manual intervention required — push of <WORK_BRANCH> to origin failed; …` — never `--force`, never auto-rebase (push-in-session §4).
 - **No PR creation.** The pipeline only pushes to the work branch; in worktree mode the user merges it manually after manual verification.
 - **No deploy step.** Mobile game builds are done via Unity Editor, no CLI deploy exists.
 - **No `npm run lint` equivalent.** Unity projects lack a CLI compilation check. Rely on the 3 quality gates + manual verification.
 - **Verifier limitation:** qa-verifier is a static diff check. The runtime smoke gate (STEP 7.5) covers boot + console + spec recipes for M/L when the Editor is up — but it auto-skips when Unity MCP is absent and is a smoke test, not full QA. The manual verification steps in the task spec + DONE summary remain the final safety net — the user MUST still run them.
 - **Worktree mode ships uncompiled code by design.** Both Unity gates are off, so the only checks left are the deterministic preflight and the LLM reviewers — none of which can tell whether the project builds. Never describe such a task as "verified"; say what ran and what did not, and lead the report with `/compile-check`.
-- **Backlog writes never touch git.** `git add -A` in STEP 9 stages code only; the backlog is inside `.git/`. If you ever see a task file in `git status`, something re-created it in the worktree — do not commit it, re-run `backlog-ops.py lint`.
+- **Backlog writes never touch git.** STEP 9 stages only this task's files (push-in-session scoped stage); the backlog is inside `.git/`. If you ever see a task file in `git status`, something re-created it in the worktree — do not commit it, re-run `backlog-ops.py lint`.

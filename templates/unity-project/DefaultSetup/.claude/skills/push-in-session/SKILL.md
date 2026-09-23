@@ -199,3 +199,11 @@ Báo gọn, tiếng Việt:
 
 Đúng **2 lệnh git** cho cả quy trình: `git_prepare_scoped` rồi `git_push`. Thêm `git status`,
 `git diff`, `git log` để "kiểm tra cho chắc" là vi phạm mục đích của skill.
+
+## Được `/run-backlog` dùng lại
+
+STEP 9 của [`run-backlog`](../run-backlog/SKILL.md) commit + push theo đúng §1–§4 của skill này
+(9a–9e), nên **sửa format message / luật chọn file ở đây là đổi luôn cách loop commit** — giữ
+hai file khớp nhau. Khác biệt duy nhất của bản loop: index đã bị `git add -A` cho review từ
+STEP 5, nên nó chạy thêm `git reset -q` **trước** bước 2 (`git_prepare_scoped` chỉ stage thêm,
+không bỏ stage); push lỗi thì in `manual intervention required …` để dừng loop.
