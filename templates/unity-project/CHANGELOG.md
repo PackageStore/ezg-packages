@@ -4,6 +4,11 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-09-23
+
+**Fixed**
+- `ezg.base.features.unitypackage` — `simple_message_template` không xuống dòng: root dùng `ContentSizeFitter` PreferredSize theo chiều ngang nên text dài tràn ra ngoài màn hình. `SimpleMessageController.FitWidth()` giờ khoá width bằng bề ngang root canvas khi text vượt quá, text ngắn vẫn ôm theo nội dung; padding trái/phải của `HorizontalLayoutGroup` 20 → 50 px. Chỉ thay 2 entry (`SimpleMessageController.cs` `dfbb9c11…`, `simple_message_template.prefab` `a62850de…`), 765 asset còn lại giữ nguyên byte; `sha256 6ec2a9d1… → a7cf4e88…` ở cả `unity-template.json` và `asset-catalog.json`.
+
 ## 2026-08-24
 
 **Added**
