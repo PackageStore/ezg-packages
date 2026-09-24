@@ -48,7 +48,8 @@ def hygiene_walk(doc):
                 and not any(nm.startswith(p) for p in HYG_PREFIXES)
                 and nm != "Title" and "Scroll" not in nm):
             h["nonContainerGroupingFrames"].append({"id": nd["id"], "name": nm})
-        if nd.get("clipsContent") is True and not slice_frame and "Scroll" not in nm:
+        if (nd.get("clipsContent") is True and not slice_frame and "Scroll" not in nm
+                and not nm.startswith("Mask-")):
             h["clipping"].append(
                 {"id": nd["id"], "name": nm, "type": nd.get("type", "")})
         if nd.get("type") == "TEXT":

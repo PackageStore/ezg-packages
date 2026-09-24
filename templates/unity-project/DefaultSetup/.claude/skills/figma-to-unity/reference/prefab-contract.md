@@ -124,5 +124,6 @@ whatever the settings asset holds; read it there rather than assuming a folder.
 | `PagePrefabFolder` | `<root>/Pages` |
 | `ImageFillFolder` | `<root>/Sprites`; image fills always land in `<ImageFillFolder>/<Figma document name>` |
 
-Non-configurable folders derived from root: `ServerRenderedImages`,
+Non-configurable folders derived from root: `ServerRenderedImages` (only renders
+outside the imported pages since 0.6.1; the others sit with the image fills),
 `FontMaterialPresets`, `Fonts`.

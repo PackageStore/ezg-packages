@@ -135,8 +135,9 @@ description.
    variant count.
 9. **Clip content off on every master, slot and container** (`clipsContent =
    false`). A clipping slot cuts an icon's outer stroke and hides overhanging
-   art. The only frames that may clip are scroll lists and banner art masked
-   inside a popup — `figma-hygiene` S-7 enforces this.
+   art. The only frames that may clip are scroll lists and `Mask-*` frames
+   (the parent of art cut to a shape, e.g. a popup pattern) — `figma-hygiene`
+   S-7 enforces this.
 9. **Generic UI is real geometry; special assets stay PNG.** A component built
    from an image fill has no bindable surface. Genericize the chrome first —
    this is Phase 2b of `figma-tokens`, and it gates every colour binding in a

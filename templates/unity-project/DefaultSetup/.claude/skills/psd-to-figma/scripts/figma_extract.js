@@ -132,7 +132,8 @@ function hygieneWalk(screenFrame) {
         && !HYG_PREFIXES.some(p => nm.indexOf(p) === 0)
         && nm !== 'Title' && nm.indexOf('Scroll') < 0)
       h.nonContainerGroupingFrames.push({ id: nd.id, name: nm });
-    if ('clipsContent' in nd && nd.clipsContent === true && !slice && nm.indexOf('Scroll') < 0)
+    if ('clipsContent' in nd && nd.clipsContent === true && !slice && nm.indexOf('Scroll') < 0
+        && nm.indexOf('Mask-') !== 0)
       h.clipping.push({ id: nd.id, name: nm, type: nd.type });
     if (nd.type === 'TEXT' && !nd.textStyleId)
       h.unstyledText.push({ id: nd.id, name: nm });

@@ -45,7 +45,14 @@ Anything used more than 2 times MUST be a reusable definition with instances: a 
 
 Every frame, component and instance has **Clip content OFF** (`clipsContent = false`). A clipping frame silently cuts outside strokes and overhanging art (an icon's outer stroke inside an 80×80 slot, a badge that overhangs its card) and hides overflow that should be fixed at the source. When art looks cut, uncheck clip on the parent first — never move the stroke to INSIDE or shrink the art to fit.
 
-Only two kinds of frame may clip, and each must be named for it: a scroll list (`Scroll View`, `Container-*Scroll*`) and banner/pattern art that must be masked inside a popup. Screen-size frames (the device viewport) are the implicit third. This is what `S-7` checks.
+Only two kinds of frame may clip, and each must be named for it: a scroll list (`Scroll View`, `Container-*Scroll*`) and a mask frame (`Mask-*`) that holds art to be cut to a shape, such as a pattern or banner inside a popup. Screen-size frames (the device viewport) are the implicit third. This is what `S-7` checks.
+
+A mask frame is the parent of what it masks, like a UGUI `Mask`: Clip content on, the corner radius is the mask shape, no fill (a fill shows as the mask graphic), constraints STRETCH/STRETCH when its parent resizes. Its children carry no radius of their own. The bridge imports it as `RectMask2D` (radius 0) or `Mask` with a generated 9-sliced rounded sprite (radius > 0). Do not use "Use as mask" layers for this: they mask their siblings, and UGUI has no sibling mask.
+
+```
+Mask-Pattern      FRAME, Clip content ON, radius 84, no fill
+  pattern         RECTANGLE, PATTERN fill, radius 0
+```
 
 ### Popup composition — one container holds the popup
 
@@ -111,7 +118,7 @@ These checks use `get_metadata` only (no pixel comparison).
 | S-4 | **Auto-layout where uniform** | When ≥2 sibling instances of the same component have equal spacing, their parent is an auto-layout frame |
 | S-5 | **Grid where grid** | When instances form an NxM pattern (N≥2, M≥2), their parent is a single container |
 | S-6 | **Component reuse** | Art/structure repeating ≥3 times across screens is a component, not loose nodes (see *Reuse rule* above) |
-| S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and popup-masked banner art (see *Clip content* above) |
+| S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and `Mask-*` frames (see *Clip content* above) |
 | S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*` frame whose left/right edges sit on column edges inside the safe zones, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) |
 | S-9 | **No underscores** | Zero names containing `_` in the subtree — nodes, instances, screen frame, and the styles they bind — except `slice_ROW_COL` cells (see *Naming* above) |
 

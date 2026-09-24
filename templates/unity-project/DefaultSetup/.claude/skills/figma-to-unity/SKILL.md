@@ -24,7 +24,7 @@ component internals.
 | Settings asset | the project's `UnityFigmaBridgeSettings` asset (`t:UnityFigmaBridgeSettings`) |
 | Screen / component / page prefabs | `ScreenPrefabFolder` / `ComponentPrefabFolder` / `PagePrefabFolder` on the settings asset |
 | Image fills | `<ImageFillFolder>/<Figma document name>` |
-| Server renders | `<AssetsRootFolder>/ServerRenderedImages/<node id>.png` (`:` becomes `_`) |
+| Server renders | next to image fills, by owner and node path (`NameServerRendersByNodePath`, bridge 0.6.1+): `<ImageFillFolder>/<Figma document name>/Components/<component>/`, `Screens/<screen>/` or `Shared/`. A render outside the imported pages keeps `<AssetsRootFolder>/ServerRenderedImages/<node id>.png` (`:` becomes `_`) |
 | Cached document | `Assets/FigmaOutput.json`, written by every online Sync |
 | Visual check output | `Library/FigmaVisualCheck/<prefab name>/` |
 
@@ -112,6 +112,20 @@ One prefab per selected page goes into `PagePrefabFolder`. Nothing reads them.
 Deleting a screen prefab before a re-import makes the page prefab log "Problem
 detected while importing the Prefab file" once, because the screen it nests is
 missing for a moment. A force reimport of the page prefab afterwards is clean.
+
+## Pages and the selection
+
+Every Figma file needs a `Screens` page and a `Components` page (`ScreensPageName`,
+`ComponentsPageName`; the import warns when one is missing). Only frames on `Screens`
+are screens. A frame on any other page only holds components. The window lists
+screen rows for `Screens` and component rows (sets and standalone components, at
+any depth) for every other page.
+
+With `ImportSelectionOnly` (on by default, bridge 0.6.3+), an import builds the
+ticked screens and components plus every component they reach through instances
+(a variant pulls in its whole set). It downloads only their art. Every other
+prefab and sprite stays as it is, and page prefabs are not written. Art names do
+not depend on the ticks.
 
 ## Adding a screen
 
