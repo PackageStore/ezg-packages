@@ -2263,15 +2263,17 @@
       "isDirectory": true,
       "files": [
         ".claude/skills/figma-to-unity/SKILL.md",
-        ".claude/skills/figma-to-unity/reference/prefab-contract.md"
+        ".claude/skills/figma-to-unity/reference/prefab-contract.md",
+        ".claude/skills/figma-to-unity/scripts/check_gate.py",
+        ".claude/skills/figma-to-unity/scripts/roundtrip.py"
       ],
-      "fileCount": 2,
+      "fileCount": 4,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "77b5db396a80abee7ac470b1a56943d07bcc10af3e891dc1e5d2fbb4b36d8a68",
-      "size": 9340
+      "sha256": "f94a7c08476fbfb0513befda7991e8b7ab919d941d3bb3d8f9e44c56843edb2d",
+      "size": 16347
     },
     {
       "id": "Skills/figma-tokens",
