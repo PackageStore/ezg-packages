@@ -505,8 +505,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push-in-session.zip",
-      "sha256": "a6b65ee99d091d1d342ba6a1265e439c1c55a365874fe814f5e2b1b0afb6b87f",
-      "size": 1376
+      "sha256": "7571f6769baf8589c6caeb2047e2ad8ebd905bf86a1f4d199afcc59de8856d3b",
+      "size": 1378
     },
     {
       "id": "Commands/qa-review",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "479a8578d4af3615f05c30a7a2a4404839a042de862e61215e7120addfce8983",
-      "size": 11394
+      "sha256": "ea914d7677b940a44e22e755b0b970485037e7c13c1df66d6a40606692e4eeef",
+      "size": 11393
     },
     {
       "id": "Config/project-profile.json",
@@ -1556,8 +1556,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "0a592c3dad04faaf4569bcb3fe3306900946dc7b57267843faf6225285c0925d",
-      "size": 24998
+      "sha256": "5cad116080181486227d795061e62b1edd58895009b369af0c874cbba0f3f2a7",
+      "size": 24997
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1646,8 +1646,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "4188ad89e4322e56e7239796681045eec53bb45d76ce2dd5e618b8077c3b29dd",
-      "size": 17184
+      "sha256": "e20eeedcec2cbc00b30584450ae8b5a52b6a063a19de843873b4cb19aa2fef67",
+      "size": 17182
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -2597,8 +2597,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
-      "sha256": "7838b5b333d7430592cab34e1d759982381579e54b7acbfb3427d2386242b509",
-      "size": 5451
+      "sha256": "7211c0368e66b4d83c1551ceaca443685be757d1b1fd47c31780c3f549306d17",
+      "size": 5657
     },
     {
       "id": "Skills/rewards-service",
@@ -2622,7 +2622,7 @@
       "id": "Skills/run-backlog",
       "name": "run-backlog",
       "category": "Skills",
-      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> [Tag] <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
+      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
       "installPath": ".claude/skills/run-backlog",
       "isDirectory": true,
       "files": [
@@ -2633,8 +2633,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "25edc37d11649461e035d937723f51bad9b0d21a25599d82639d3016237c6463",
-      "size": 29664
+      "sha256": "7f9489ad073770e8a131acb503e51bfcf83cd68ba2f6137626587ec6aae20ae7",
+      "size": 29670
     },
     {
       "id": "Skills/setup-package-push",
