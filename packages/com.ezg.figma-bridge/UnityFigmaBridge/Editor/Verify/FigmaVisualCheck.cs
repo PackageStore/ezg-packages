@@ -21,8 +21,9 @@ namespace UnityFigmaBridge.Editor.Verify
     /// <summary>
     ///     Scores a generated screen prefab against Figma's own render of its frame. Each container
     ///     (a visible node with children) gets the SSIM of its render bounds, so a small wrong part
-    ///     cannot hide behind a large correct background. Both captures, a difference map and the
-    ///     report are written to <see cref="OutputRoot"/>/&lt;prefab name&gt;.
+    ///     cannot hide behind a large correct background. Both captures, a difference map, the
+    ///     report and a side-by-side crop (Figma | Unity | difference) of every container below its
+    ///     pass score (<c>low/</c>) are written to <see cref="OutputRoot"/>/&lt;prefab name&gt;.
     /// </summary>
     public static class FigmaVisualCheck
     {
@@ -62,6 +63,7 @@ namespace UnityFigmaBridge.Editor.Verify
             public float minScore;
             public bool passed;
             public string folder;
+            public string checkedAtUtc;
             public List<ContainerScore> containers = new List<ContainerScore>();
 
             public override string ToString()
@@ -105,14 +107,15 @@ namespace UnityFigmaBridge.Editor.Verify
                 throw new InvalidOperationException($"Figma render is {referenceWidth}x{referenceHeight}, frame is {width}x{height}");
 
             var capture = CapturePrefab(prefab, width, height);
+            var difference = DifferenceMap(reference, capture);
             File.WriteAllBytes($"{folder}/unity.png", EncodePng(capture, width, height));
-            File.WriteAllBytes($"{folder}/diff.png", EncodePng(DifferenceMap(reference, capture), width, height));
+            File.WriteAllBytes($"{folder}/diff.png", EncodePng(difference, width, height));
 
             var ssim = WindowSsim(reference, capture, width, height, out var windowsX, out var windowsY);
             var report = new Report
             {
                 prefab = screenPrefabPath, frameNodeId = frame.id, passScore = passScore, textPassScore = textPassScore,
-                folder = folder
+                folder = folder, checkedAtUtc = DateTime.UtcNow.ToString("o")
             };
             foreach (var (node, path) in Containers(frame, frame.name))
             {
@@ -129,8 +132,43 @@ namespace UnityFigmaBridge.Editor.Verify
 
             report.minScore = report.containers.Count > 0 ? report.containers.Min(c => c.score) : 1f;
             report.passed = report.containers.All(c => c.score >= c.passScore);
+            WriteLowCrops(report, reference, capture, difference, width, height);
             File.WriteAllText($"{folder}/report.json", JsonUtility.ToJson(report, true));
             return report;
+        }
+
+        /// <summary>One PNG per failing container, worst margin first: Figma, Unity and difference side by side.</summary>
+        private static void WriteLowCrops(Report report, Color32[] reference, Color32[] capture, Color32[] difference,
+            int width, int height)
+        {
+            const int gap = 4;
+            var folder = $"{report.folder}/low";
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+            var low = report.containers.Where(c => c.score < c.passScore).OrderBy(c => c.score - c.passScore).ToList();
+            if (low.Count == 0) return;
+            Directory.CreateDirectory(folder);
+            var gapColor = new Color32(255, 0, 255, 255);
+            for (var i = 0; i < low.Count; i++)
+            {
+                var box = low[i];
+                var cropWidth = box.width * 3 + gap * 2;
+                var pixels = Enumerable.Repeat(gapColor, cropWidth * box.height).ToArray();
+                // Texture rows count from the bottom
+                var sourceBottom = height - (box.y + box.height);
+                for (var row = 0; row < box.height; row++)
+                for (var column = 0; column < box.width; column++)
+                {
+                    var source = (sourceBottom + row) * width + box.x + column;
+                    var target = row * cropWidth + column;
+                    pixels[target] = reference[source];
+                    pixels[target + box.width + gap] = capture[source];
+                    pixels[target + 2 * (box.width + gap)] = difference[source];
+                }
+                var name = string.Join("_", box.path.Split('/').Skip(1));
+                name = new string(name.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) || ch == ' ' ? '_' : ch).ToArray());
+                if (name.Length > 80) name = name.Substring(name.Length - 80);
+                File.WriteAllBytes($"{folder}/{i:00}-{name}.png", EncodePng(pixels, cropWidth, box.height));
+            }
         }
 
         /// <summary>The frame of the cached document that the bridge writes to this prefab path.</summary>

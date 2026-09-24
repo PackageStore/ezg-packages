@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.1] - 2026-09-24
+### Added
+- **Import state for automation.** `UnityFigmaBridgeImporter.ImportInProgress`, `LastImportError`,
+  `LastImportStartedUtc` and `LastImportCompletedUtc` (ISO 8601 UTC; completed is set only when a
+  Sync finishes without an error). A script that starts `SyncDocument` / `SyncDocumentOffline` over
+  MCP polls them instead of guessing from file times. Start it from a one-shot
+  `EditorApplication.update` handler: an import holds the main thread, so a direct call does not
+  answer, and `delayCall` does not run while the editor is unfocused. Set `SuppressDialogs` first so
+  an error cannot wait on a modal dialog.
+- **Visual check crops.** Every container below its pass score gets `low/<nn>-<path>.png`, Figma,
+  Unity and difference side by side, worst margin first. The report carries `checkedAtUtc`.
+
+### Fixed
+- **Render slicing is idempotent.** A render the slicer wrote carries `figma-bridge-sliced:<md5>`
+  in its importer `userData` and is skipped while the file is unchanged. Re-slicing a compacted
+  render picked a faint shadow tail as its band and cut rows off on an offline re-import; lines with
+  nothing drawn on them are no longer accepted as a band either.
+
 ## [0.5.0] - 2026-09-24
 ### Added
 - **Server renders get a sprite border** (`ServerRenderSlicer`, setting `SliceServerRenders`, on by

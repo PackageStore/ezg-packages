@@ -29,6 +29,13 @@ namespace UnityFigmaBridge.Editor.NineSlice
         /// <summary>Canvas reference pixels per unit: a sprite at this density draws one texel per UI unit.</summary>
         private const float ReferencePixelsPerUnit = 100f;
 
+        /// <summary>
+        ///     Importer userData of a render this pass wrote, followed by the MD5 of the PNG it left. A
+        ///     compacted render has lost the long band that placed its border, so slicing it again would
+        ///     guess; a file with a matching hash is skipped. A new download changes the hash.
+        /// </summary>
+        private const string SlicedMarker = "figma-bridge-sliced:";
+
         /// <param name="serverRenderScale">Scale the renders were made at (<see cref="FigmaImportProcessData.ServerRenderScale"/>).</param>
         public static void Run(List<ServerRenderNodeData> serverRenderNodes, int serverRenderScale)
         {
@@ -56,10 +63,14 @@ namespace UnityFigmaBridge.Editor.NineSlice
         private static bool SliceRender(string path, Node node, int renderScale, out bool wasCompacted)
         {
             wasCompacted = false;
+            var bytes = File.ReadAllBytes(path);
+            if (AssetImporter.GetAtPath(path) is TextureImporter previous && previous.userData == SlicedMarker + Md5(bytes))
+                return previous.spriteBorder != Vector4.zero;
+
             var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             try
             {
-                if (!texture.LoadImage(File.ReadAllBytes(path))) return false;
+                if (!texture.LoadImage(bytes)) return false;
                 var width = texture.width;
                 var height = texture.height;
                 var pixels = texture.GetPixels32();
@@ -79,14 +90,15 @@ namespace UnityFigmaBridge.Editor.NineSlice
                     var compactTexture = new Texture2D(compactWidth, compactHeight, TextureFormat.RGBA32, false);
                     compactTexture.SetPixels32(compactPixels);
                     compactTexture.Apply();
-                    File.WriteAllBytes(path, compactTexture.EncodeToPNG());
+                    bytes = compactTexture.EncodeToPNG();
+                    File.WriteAllBytes(path, bytes);
                     Object.DestroyImmediate(compactTexture);
                     AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                     wasCompacted = true;
                 }
 
                 var border = new Vector4(columns.near, rows.near, columns.far, rows.far);
-                ConfigureImporter(path, border, ReferencePixelsPerUnit * renderScale);
+                ConfigureImporter(path, border, ReferencePixelsPerUnit * renderScale, SlicedMarker + Md5(bytes));
                 return border != Vector4.zero;
             }
             finally
@@ -129,8 +141,8 @@ namespace UnityFigmaBridge.Editor.NineSlice
 
         /// <summary>
         ///     The band of lines identical to its first line, away from the image edges. The band that
-        ///     holds the centre line wins; otherwise the longest. A transparent margin touching an edge
-        ///     is not a band: stretching it would move the art.
+        ///     holds the centre line wins; otherwise the longest. Lines with nothing drawn on them (a
+        ///     transparent margin, a faint shadow tail) are never a band: stretching them moves the art.
         /// </summary>
         private static (int start, int length) UniformBand(Color32[] pixels, int width, int height, bool columns)
         {
@@ -146,7 +158,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 while (end < lineCount - 1 && LinesMatch(pixels, width, height, columns, start, end)) end++;
                 var length = end - start;
                 var holdsCenter = start <= center && center < end;
-                if (length >= KeptCenterPixels &&
+                if (length >= KeptCenterPixels && !LineIsBlank(pixels, width, height, columns, start) &&
                     (holdsCenter && !bestHoldsCenter || holdsCenter == bestHoldsCenter && length > best.length))
                 {
                     best = (start, length);
@@ -155,6 +167,14 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 start = end;
             }
             return best;
+        }
+
+        private static bool LineIsBlank(Color32[] pixels, int width, int height, bool columns, int line)
+        {
+            var span = columns ? height : width;
+            for (var i = 0; i < span; i++)
+                if ((columns ? pixels[i * width + line] : pixels[line * width + i]).a > ChannelTolerance) return false;
+            return true;
         }
 
         private static bool LinesMatch(Color32[] pixels, int width, int height, bool columns, int a, int b)
@@ -291,7 +311,13 @@ namespace UnityFigmaBridge.Editor.NineSlice
             return designUnits <= 0f ? 0 : Mathf.CeilToInt(designUnits * renderScale) + 1;
         }
 
-        private static void ConfigureImporter(string path, Vector4 border, float pixelsPerUnit)
+        private static string Md5(byte[] bytes)
+        {
+            using var md5 = System.Security.Cryptography.MD5.Create();
+            return BitConverter.ToString(md5.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+        }
+
+        private static void ConfigureImporter(string path, Vector4 border, float pixelsPerUnit, string userData)
         {
             if (AssetImporter.GetAtPath(path) is not TextureImporter importer) return;
             var settings = new TextureImporterSettings();
@@ -301,7 +327,8 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 importer.spriteImportMode == SpriteImportMode.Single &&
                 settings.spriteBorder == border &&
                 Mathf.Approximately(settings.spritePixelsPerUnit, pixelsPerUnit) &&
-                settings.spriteMeshType == meshType) return;
+                settings.spriteMeshType == meshType &&
+                importer.userData == userData) return;
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
@@ -310,6 +337,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
             settings.spritePixelsPerUnit = pixelsPerUnit;
             settings.spriteMeshType = meshType;
             importer.SetTextureSettings(settings);
+            importer.userData = userData;
             importer.SaveAndReimport();
         }
     }

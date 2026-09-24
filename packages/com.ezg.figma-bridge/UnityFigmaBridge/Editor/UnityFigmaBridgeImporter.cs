@@ -126,10 +126,51 @@ namespace UnityFigmaBridge.Editor
             }
         }
 
+        /// <summary>True from the start of a Sync until it has finished or stopped. Automation polls it.</summary>
+        public static bool ImportInProgress { get; private set; }
+
+        /// <summary>Message of the error that stopped the last Sync; null when it finished or is running.</summary>
+        public static string LastImportError { get; private set; }
+
+        /// <summary>UTC time the last Sync started, as ISO 8601.</summary>
+        public static string LastImportStartedUtc { get; private set; }
+
+        /// <summary>
+        ///     UTC time the last Sync finished without an error, as ISO 8601. A domain reload kills a
+        ///     running Sync without an error, so compare this with the start time rather than trusting
+        ///     <see cref="ImportInProgress"/> alone.
+        /// </summary>
+        public static string LastImportCompletedUtc { get; private set; }
+
         private static async void SyncAsync(bool offline)
         {
+            ImportInProgress = true;
+            LastImportError = null;
+            LastImportStartedUtc = DateTime.UtcNow.ToString("o");
+            try
+            {
+                await SyncCore(offline);
+                if (LastImportError == null) LastImportCompletedUtc = DateTime.UtcNow.ToString("o");
+            }
+            catch (Exception e)
+            {
+                LastImportError = e.Message;
+                Debug.LogException(e);
+            }
+            finally
+            {
+                ImportInProgress = false;
+            }
+        }
+
+        private static async Task SyncCore(bool offline)
+        {
             var requirementsMet = CheckRequirements(requireToken: !offline);
-            if (!requirementsMet) return;
+            if (!requirementsMet)
+            {
+                LastImportError ??= "Requirements not met: settings asset, document url or token";
+                return;
+            }
 
             FigmaFile figmaFile;
             if (offline)
@@ -349,6 +390,7 @@ namespace UnityFigmaBridge.Editor
 
         private static void ReportError(string message,string error)
         {
+            LastImportError = message;
             Dialog("Unity Figma Bridge Error",message,"Ok");
             Debug.LogWarning($"{message}\n {error}\n");
         }
