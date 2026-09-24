@@ -2,6 +2,12 @@
 name: figma-to-unity
 description: Import Figma screens into Unity as UGUI prefabs with the EZG Figma Bridge (com.ezg.figma-bridge), and prove the result matches Figma with the bridge's visual check. Use when asked to "import a screen from Figma", "bring the Figma UI into Unity", "re-import a screen after the designer changed Figma", "the imported screen looks wrong", "check the import against Figma", or when given a figma.com/design link to a screen frame.
 argument-hint: [Figma link or frame name]
+hooks:
+  Stop:
+    - hooks:
+        - type: command
+          command: 'python3 "$CLAUDE_PROJECT_DIR/.claude/skills/figma-to-unity/scripts/check_gate.py" 2>/dev/null || python "$CLAUDE_PROJECT_DIR/.claude/skills/figma-to-unity/scripts/check_gate.py"'
+          timeout: 30
 ---
 
 # Figma to Unity screens
@@ -73,10 +79,14 @@ Window buttons, or the same calls through `execute_code`:
 | Run Post-Processors (no Sync) | `UnityFigmaBridgeImporter.RunPostProcessorsOnly()` | none |
 | Visual Check (selected screen prefab) | `Verify.FigmaVisualCheck.Run(prefabPath)` | one frame render, then cached |
 
-Both syncs are `async void`: the call returns at once. Wait for the screen
-prefab file to be rewritten and stay unchanged, and for the editor to report
-idle, before reading the output. Read results with `read_console` (the
-`[NineSlicePass]`, `[ServerRenderSlicer]` and `[FigmaBridge]` lines).
+Both syncs are `async void`, but an import holds the main thread for long
+stretches, so an `execute_code` call that starts one directly gets no answer.
+From automation, set `SuppressDialogs = true` (an error then logs instead of
+waiting on a modal dialog) and start the sync from a one-shot
+`EditorApplication.update` handler; `delayCall` does not run while the editor
+is unfocused. Then poll `ImportInProgress`, `LastImportStartedUtc`,
+`LastImportError` and `LastImportCompletedUtc` (bridge 0.5.1+).
+`scripts/roundtrip.py` does all of this.
 
 Use the offline re-import whenever the change does not need new downloads (a
 fix in prefab building, slicing or text). It costs no API quota. Changes to what
@@ -160,6 +170,9 @@ becomes the border centre and is cut down to 2 px, averaged. An axis with a
 gradient along it has no such band: its border comes from the node geometry
 (corner radius, inside stroke, shadow reach, what draws outside the box) and
 its pixels are kept. The render's Image is `Sliced` when the border is not zero.
+Each render it wrote carries `figma-bridge-sliced:<md5>` in its importer
+`userData` and is skipped while the file is unchanged, so an offline re-import
+never slices a compacted render twice.
 
 **Slice-grid collapse** (`CollapseSliceGrids`, `NineSlicePass`). A parent
 whose children are all `slice_<row>_<col>` cells sharing one image becomes one
@@ -219,20 +232,40 @@ way. `Report.ToString()` lists every container, lowest margin first;
 The Figma render is fetched once and cached as `figma.png`; pass
 `refreshReference: true` after the design changes.
 
-A fix is done only when the check passes. The loop:
+A fix is done only when the check passes. One round is one command
+(standard-library Python, drives Unity over the MCP HTTP endpoint):
+
+```bash
+python3 .claude/skills/figma-to-unity/scripts/roundtrip.py <screen prefab> --import offline
+```
+
+`--import none` scores the prefab on disk, `offline` rebuilds from the cache,
+`online` downloads again and refreshes the Figma reference, `--clean` deletes
+the screen prefab first. It prints the report and the crop of each failing
+container; exit code 0 = pass, 1 = a container is low, 2 = the round could not
+run. Needs bridge 0.5.1 or later (the import state above).
+
+**The gate.** Once this skill is used, a Stop hook (`scripts/check_gate.py`)
+runs at the end of every turn for the rest of the session. It blocks once
+when the bridge comes from a local `file:` path, one of its `.cs` files changed
+in this session, and no check report is newer than that change or the newest
+report failed. The reason it gives names the command to run. A registry bridge
+never blocks, and a gate error lets the stop through.
+
+The loop:
 
 1. **Baseline.** Run the check on the current import and keep the scores.
-2. **Look.** For each LOW container, crop `figma.png`, `unity.png` and
-   `diff.png` at its box and name the defect class: crop or stretch, lost
-   corner radius, wrong colour or variant, position or anchor, text.
+2. **Look.** Open each crop in `low/` (Figma | Unity | difference, worst
+   first) and name the defect class: crop or stretch, lost corner radius,
+   wrong colour or variant, position or anchor, text.
 3. **Read the data first.** Check the node in `Assets/FigmaOutput.json` (or
    the live file) before touching the bridge. A wrong anchor that matches the
    node's `constraints` is a design fix, not a bridge fix.
-4. **Fix the bridge**, bump its version, recompile over MCP, re-import
-   (offline when no download changed), check again.
-5. **At least 3 rounds.** The last one starts clean: delete the screen prefab
-   and its sprite folder, run an online Sync, run the check. The result must
-   match the previous round.
+4. **Fix the bridge**, bump its version, recompile over MCP, then run
+   `roundtrip.py --import offline` (or `online` when what is rendered
+   changed).
+5. **At least 3 rounds.** The last one starts clean: `roundtrip.py --import
+   online --clean`. The result must match the previous round.
 
 Other checks that need no capture:
 
