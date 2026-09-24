@@ -80,7 +80,7 @@ report (offline), before the prefabs are built:
 3. **Compaction:** a band longer than 2 lines is replaced by its 2-line
    alpha-weighted mean. The PNG is rewritten in place, so a second pass finds
    the same 2-line band and changes nothing.
-4. **Importer:** `spriteBorder`, `spritePixelsPerUnit` = 100 × render scale,
+4. **Importer:** `spriteBorder`, `spritePixelsPerUnit` = 100 (renders are made at scale 1),
    `FullRect` mesh when the border is not zero.
 
 Pattern sources and Export renders are not sliced.

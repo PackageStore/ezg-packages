@@ -168,9 +168,14 @@ children is not rendered (its children would draw twice); it keeps a flat
   effects, radius, opacity or visibility of a rendered sublayer, that sublayer
   gets its own render under its instance-side id (`I<instance>;<node>`), and
   the instance's sprite replaces the component's.
-- **Scale.** Renders are made at `ServerRenderImageScale` (or 1 when
-  `AutoServerRenderScale` detects a file drawn at device pixels) and import at
-  100 × that scale pixels per unit, so a border draws at design size.
+- **Scale.** Renders are always made at scale 1 (bridge 0.6.5; there is no
+  setting) and import at 100 pixels per unit, so a border draws at design size.
+- **Render cache.** An online import renders and downloads only the render
+  nodes whose subtree changed since the last import (manifest
+  `Library/FigmaBridge/server-render-cache.json`). Delete the manifest, or the
+  PNG, to force a render again.
+- **Timing.** Every import logs one `[FigmaBridge] Import complete!` report
+  with seconds and share per phase; read it before guessing where time goes.
 
 ## 9-slice
 
@@ -286,7 +291,7 @@ Other checks that need no capture:
 - `[ServerRenderSlicer]` and `[NineSlicePass]` log lines: renders bordered and
   compacted, grids collapsed
 - Sprite borders: `left + right < width` and `top + bottom < height`
-- A render's pixels per unit is 100 × the render scale
+- A render's pixels per unit is 100
 
 See the `psd-to-figma` skill for the Figma file's own conventions and the
 **Never restart Unity** section above.
