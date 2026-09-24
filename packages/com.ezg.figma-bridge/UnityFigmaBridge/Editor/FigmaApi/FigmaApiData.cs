@@ -679,10 +679,43 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             DROP_SHADOW,
             LAYER_BLUR,
             BACKGROUND_BLUR,
+            // Effect mới của Figma — bridge chưa dựng được, chỉ cần parse được để không vỡ cả document
+            TEXTURE,
+            NOISE,
+            GLASS,
+            // Loại effect Figma thêm sau này mà enum chưa biết → rơi vào đây thay vì throw khi deserialize
+            UNKNOWN,
         }
+
+        /// <summary>
+        /// Parse EffectType chịu lỗi: chuỗi lạ → UNKNOWN (cảnh báo 1 lần / loại) thay vì
+        /// JsonSerializationException làm hỏng toàn bộ document.
+        /// </summary>
+        public class TolerantEffectTypeConverter : Newtonsoft.Json.JsonConverter<EffectType>
+        {
+            private static readonly HashSet<string> s_WarnedTypes = new HashSet<string>();
+
+            public override EffectType ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, EffectType existingValue,
+                bool hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                var raw = reader.Value?.ToString();
+                if (!string.IsNullOrEmpty(raw) && Enum.TryParse(raw, true, out EffectType parsed)) return parsed;
+
+                if (s_WarnedTypes.Add(raw ?? "<null>"))
+                    UnityEngine.Debug.LogWarning($"[FigmaBridge] Effect type '{raw}' chưa hỗ trợ — bỏ qua effect này.");
+                return EffectType.UNKNOWN;
+            }
+
+            public override void WriteJson(Newtonsoft.Json.JsonWriter writer, EffectType value, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                writer.WriteValue(value.ToString());
+            }
+        }
+
         /// <summary>
         /// Type of effect as a string enum
         /// </summary>
+        [Newtonsoft.Json.JsonConverter(typeof(TolerantEffectTypeConverter))]
         public EffectType type;
         
         /// <summary>

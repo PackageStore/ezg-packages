@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.4.1] - 2026-09-24
+### Added
+- **Server-render settings** on `UnityFigmaBridgeSettings`: `AutoServerRenderScale`,
+  `NativeScreenLongSide`, `ServerRenderTopLevelExports` and `ServerRenderBatchSize` (shown in the
+  Figma Bridge window with the other settings).
+- **Automatic render scale (opt-in, `AutoServerRenderScale`, default off).** When on and the
+  document has a top-level frame whose long side is at least `NativeScreenLongSide` (default 2400,
+  i.e. a 1080×2400 canvas designed at device pixels), server renders use scale 1 instead of
+  `ServerRenderImageScale` — rendering such a file at ×3 only grows every texture ×9 without adding
+  detail. One log line names the frame that triggered it. PATTERN tile sizing now reads the scale
+  actually used (`FigmaImportProcessData.ServerRenderScale`), so tiles stay at design size either way.
+- **`ServerRenderTopLevelExports` (default on = previous behaviour).** Turn it off to stop rendering
+  whole top-level frames that carry an Export setting — full screens at scale 3 can make the render
+  request time out (HTTP 504). The screen still imports as a prefab (`GenerateNodesMarkedForExport`),
+  and the vector/shape nodes inside it are then scanned for server rendering like any other frame.
+- **Troubleshooting hints in the error dialog.** A server render that still fails with 5xx/timeout
+  after the retries lists the settings to check (`Server Render Top Level Exports` with the names of
+  the Export frames being rendered, `Server Render Image Scale` / `Auto Server Render Scale`,
+  `Server Render Batch Size`, or the node id that keeps failing). A document that fails to parse on
+  an unknown enum value names the value, its type and JSON path, and points to updating the bridge
+  or `Re-import from cache (offline)`.
+- `FigmaApiRequestException` carries the HTTP status of a failed server-render request.
+
+### Changed
+- Server renders are requested in batches of `ServerRenderBatchSize` (default 300, as before). A
+  batch that fails with 5xx or a connection error is split in half and retried; a single node that
+  keeps failing is retried twice, then reported by id. 4xx errors (429, 403…) still stop at once.
+- Upgrading from 0.4.0 changes nothing by default: every new setting defaults to the old behaviour.
+
+### Fixed
+- **Documents using Figma's new effect types no longer fail to parse.** `Effect.EffectType` gains
+  `TEXTURE`, `NOISE` and `GLASS`, and any unknown effect type now reads as `UNKNOWN` (warned once
+  per type) instead of throwing `JsonSerializationException` for the whole document. These effects
+  are skipped at import, like blurs.
+
 ## [0.4.0] - 2026-09-17
 ### Added
 - **`[ignore]` marker.** A node whose name contains `[ignore]` (case-insensitive) is pruned from

@@ -13,6 +13,40 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>A node whose name contains this (any case) is dropped from the document with its subtree.</summary>
         public const string IgnoreMarker = "[ignore]";
 
+        /// <summary>
+        /// Scale thực tế để server render: 1 khi <paramref name="autoScale"/> bật và document đã vẽ ở
+        /// độ phân giải thật (có frame cấp 1 với cạnh dài ≥ <paramref name="nativeScreenLongSide"/>, vd 1080×2400 →
+        /// 1 px Figma = 1 px canvas, scale cao chỉ phình texture ×scale²); ngược lại giữ <paramref name="configuredScale"/>
+        /// (file vẽ theo point, vd 360×800, vẫn cần render ×3). Tính trên cả document, không theo page được chọn,
+        /// để import từng phần và re-import offline luôn ra cùng một scale.
+        /// </summary>
+        public static int GetEffectiveServerRenderScale(FigmaFile file, int configuredScale, bool autoScale,
+            float nativeScreenLongSide)
+        {
+            var scale = configuredScale > 0 ? configuredScale : 1;
+            if (!autoScale || nativeScreenLongSide <= 0f || scale == 1 || file?.document?.children == null) return scale;
+
+            var longestSide = 0f;
+            var longestFrameName = string.Empty;
+            foreach (var page in file.document.children)
+            {
+                if (page.children == null) continue;
+                foreach (var frame in page.children)
+                {
+                    if (frame.type != NodeType.FRAME || frame.absoluteBoundingBox == null) continue;
+                    var side = Mathf.Max(frame.absoluteBoundingBox.width, frame.absoluteBoundingBox.height);
+                    if (side <= longestSide) continue;
+                    longestSide = side;
+                    longestFrameName = frame.name;
+                }
+            }
+
+            if (longestSide < nativeScreenLongSide) return scale;
+            Debug.Log($"[FigmaBridge] Frame '{longestFrameName}' đã vẽ ở {longestSide}px (≥ {nativeScreenLongSide}) " +
+                      $"→ server render scale 1 thay vì {scale} trong settings.");
+            return 1;
+        }
+
         public static bool IsIgnored(Node node)
         {
             return node?.name != null && node.name.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -359,16 +393,18 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <param name="file">Figma document</param>
         /// <param name="missingComponentIds"></param>
         /// <param name="downloadPageIdList"></param>
+        /// <param name="renderTopLevelExports">Settings.ServerRenderTopLevelExports — true = hành vi trước 0.4.1</param>
         /// <returns>List of figmaNode IDs to replace</returns>
         public static List<ServerRenderNodeData> FindAllServerRenderNodesInFile(FigmaFile file,
-            List<string> missingComponentIds, List<string> downloadPageIdList)
+            List<string> missingComponentIds, List<string> downloadPageIdList, bool renderTopLevelExports = true)
         {
             var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
             // Process each canvas
             foreach (var page in file.document.children)
             {
                 var isSelectedPage=downloadPageIdList.Contains(page.id);
-                AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false);
+                AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false,
+                    renderTopLevelExports);
             }
 
             AddPatternSourceNodes(file, renderSubstitutionNodeList, downloadPageIdList);
@@ -446,13 +482,17 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <param name="withinComponentDefinition"></param>
         private static void AddRenderSubstitutionsForFigmaNode(Node figmaNode,
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, List<string> missingComponentIds,
-            bool isSelectedPage,bool withinComponentDefinition)
+            bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports)
         {
             // Instances will already be defined by original prefab (eg that may already be rendered). Also dont attempt to render invisible nodes
             if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId) || !figmaNode.visible) return;
-            
+
             // Top level frames should be checked for server-side rendering
-            if ((isSelectedPage || withinComponentDefinition) && recursiveNodeDepth==1 && figmaNode.exportSettings!=null && figmaNode.exportSettings.Length > 0)
+            // Tắt được qua Settings.ServerRenderTopLevelExports: frame màn hình có Export setting
+            // → Figma render nguyên màn (nặng, dễ HTTP 504). Screen vẫn dựng thành prefab (GenerateNodesMarkedForExport);
+            // khi tắt thì không return sớm nên các node vector bên trong frame vẫn được quét như frame thường.
+            if (renderTopLevelExports &&
+                (isSelectedPage || withinComponentDefinition) && recursiveNodeDepth==1 && figmaNode.exportSettings!=null && figmaNode.exportSettings.Length > 0)
             {
                 Debug.Log($"Found figmaNode with export! Node {figmaNode.name}");
                 substitutionNodeList.Add( new ServerRenderNodeData
@@ -480,7 +520,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (figmaNode.type == NodeType.COMPONENT) withinComponentDefinition = true;
             
             foreach (var childNode in figmaNode.children)
-                AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition);
+                AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition,
+                    renderTopLevelExports);
             
         }
 

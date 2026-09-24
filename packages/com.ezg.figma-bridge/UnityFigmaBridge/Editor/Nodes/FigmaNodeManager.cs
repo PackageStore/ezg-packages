@@ -333,8 +333,8 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// </summary>
         private static float PatternRenderToTileRatio(Paint fill, FigmaImportProcessData figmaImportProcessData)
         {
-            var settings = figmaImportProcessData.Settings;
-            var renderScale = settings != null && settings.ServerRenderImageScale > 0 ? settings.ServerRenderImageScale : 1f;
+            // Dùng scale thực tế đã render, không phải giá trị settings (có thể đã hạ về 1)
+            var renderScale = figmaImportProcessData.ServerRenderScale > 0 ? figmaImportProcessData.ServerRenderScale : 1f;
             var scalingFactor = fill.scalingFactor > 0f ? fill.scalingFactor : 1f;
             return renderScale / scalingFactor;
         }

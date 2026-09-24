@@ -72,6 +72,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                 case Effect.EffectType.INNER_SHADOW:
                 case Effect.EffectType.LAYER_BLUR:
                 case Effect.EffectType.BACKGROUND_BLUR:
+                case Effect.EffectType.TEXTURE:
+                case Effect.EffectType.NOISE:
+                case Effect.EffectType.GLASS:
+                case Effect.EffectType.UNKNOWN:
                     // Unsupported
                     break;
             }

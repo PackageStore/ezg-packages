@@ -11,7 +11,23 @@ using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.FigmaApi
 {
-    
+    /// <summary>
+    /// Lỗi HTTP từ Figma API kèm status code (0 = lỗi kết nối / timeout phía client).
+    /// </summary>
+    public class FigmaApiRequestException : Exception
+    {
+        public long StatusCode { get; }
+
+        public FigmaApiRequestException(long statusCode, string message) : base(message)
+        {
+            StatusCode = statusCode;
+        }
+
+        /// <summary>5xx hoặc lỗi kết nối — lỗi tạm thời phía server, thử lại / chia nhỏ batch có thể qua.</summary>
+        public bool IsTransient => StatusCode == 0 || StatusCode >= 500;
+    }
+
+
     /// <summary>
     /// Reason for server rendering
     /// </summary>
@@ -196,7 +212,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (webRequest.result == UnityWebRequest.Result.ProtocolError ||
                 webRequest.result == UnityWebRequest.Result.ConnectionError)
             {
-                throw new Exception(
+                // Mang theo status code để importer phân biệt 5xx/timeout (chia nhỏ batch) với 4xx (dừng)
+                throw new FigmaApiRequestException(webRequest.responseCode,
                     $"{DescribeFailure(webRequest)}\nError downloading FIGMA Server Rendered Images, url - {serverRenderUrl}");
             }
 

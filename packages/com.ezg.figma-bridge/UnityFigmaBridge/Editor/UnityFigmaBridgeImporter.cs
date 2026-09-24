@@ -65,6 +65,10 @@ namespace UnityFigmaBridge.Editor
         /// </summary>
         private const int MAX_SERVER_RENDER_IMAGE_BATCH_SIZE = 300;
 
+        // Batch khởi đầu lấy từ Settings.ServerRenderBatchSize (kẹp trong 1..MAX ở trên)
+        private const int SERVER_RENDER_SINGLE_NODE_RETRIES = 2;
+        private const int SERVER_RENDER_RETRY_DELAY_MS = 1500;
+
         private static string s_PersonalAccessToken;
 
         /// <summary>
@@ -353,7 +357,7 @@ namespace UnityFigmaBridge.Editor
         ///     people chasing their token when the real answer was a 429. The status line of the
         ///     exception (HTTP code, retry-after, rate-limit tier) is shown first now.
         /// </summary>
-        private static void ReportApiError(string context, Exception e)
+        private static void ReportApiError(string context, Exception e, string extraHint = null)
         {
             var firstLine = (e.Message ?? string.Empty).Split('\n')[0].Trim();
             var hint = firstLine.Contains("HTTP 429")
@@ -364,8 +368,72 @@ namespace UnityFigmaBridge.Editor
                     ? "\n\nCheck that the personal access token is valid and has file read scope for this document."
                     : firstLine.Contains("HTTP 404")
                         ? "\n\nCheck the document url - the file id was not found."
-                        : string.Empty;
+                        : BuildDocumentDecodeHint(e);
+            if (!string.IsNullOrEmpty(extraHint)) hint += extraHint;
             ReportError($"{context}\n{firstLine}{hint}", e.ToString());
+        }
+
+        /// <summary>
+        ///     Gợi ý khi document không parse được vì Figma trả về một giá trị enum mới mà bridge chưa biết
+        ///     (vd effect <c>TEXTURE</c> ra đời sau khi bridge được viết). Rỗng khi không phải lỗi này.
+        /// </summary>
+        public static string BuildDocumentDecodeHint(Exception e)
+        {
+            var text = e?.ToString() ?? string.Empty;
+            if (!text.Contains("Problem decoding")) return string.Empty;
+
+            var match = System.Text.RegularExpressions.Regex.Match(text,
+                "Error converting value \"(?<value>[^\"]*)\" to type '(?<type>[^']*)'\\. Path '(?<path>[^']*)'");
+            if (!match.Success)
+                return "\n\nKhông đọc được document Figma. Nếu file vừa dùng tính năng mới của Figma, cập nhật " +
+                       "com.ezg.figma-bridge lên bản mới hơn; trong lúc chờ dùng 'Re-import from cache (offline)'.";
+
+            var type = match.Groups["type"].Value;
+            var shortType = type.Substring(type.LastIndexOfAny(new[] { '.', '+' }) + 1);
+            return $"\n\nFigma trả về giá trị '{match.Groups["value"].Value}' cho {shortType} mà bridge " +
+                   $"{PackageVersion()} chưa biết (tại {match.Groups["path"].Value}). Thường là tính năng Figma " +
+                   "mới ra, vd effect Texture/Noise/Glass.\n" +
+                   "• Cập nhật com.ezg.figma-bridge lên bản mới hơn, hoặc gửi dòng này cho team package.\n" +
+                   "• Trong lúc chờ: gỡ tính năng đó khỏi layer trong Figma, hoặc 'Re-import from cache (offline)'.";
+        }
+
+        /// <summary>
+        ///     Gợi ý khi request server render hỏng hẳn (5xx / timeout còn lỗi sau khi đã chia batch và thử lại):
+        ///     chỉ ra đúng setting trong cửa sổ Figma Bridge nên xem, kèm tên frame Export đang bị render nguyên màn.
+        ///     Rỗng khi lỗi không phải 5xx/timeout (4xx đã có gợi ý riêng trong ReportApiError).
+        /// </summary>
+        public static string BuildServerRenderFailureHint(Exception e, List<ServerRenderNodeData> serverRenderNodes,
+            int effectiveScale, UnityFigmaBridgeSettings settings, string failedNodeId = null)
+        {
+            if (!(e is FigmaApiRequestException apiError) || !apiError.IsTransient || settings == null) return string.Empty;
+
+            var status = apiError.StatusCode == 0 ? "timeout / mất kết nối" : $"HTTP {apiError.StatusCode}";
+            var hint = $"\n\nServer Figma render không kịp ({status}). Xem các mục sau trong {FigmaBridgeWindow.MENU_PATH}:";
+
+            var exportNodes = (serverRenderNodes ?? new List<ServerRenderNodeData>())
+                .Where(n => n.RenderType == ServerRenderType.Export).ToList();
+            var exportFrames = exportNodes.Select(n => n.SourceNode.name).Distinct().ToList();
+            if (exportNodes.Count > 0)
+                hint += $"\n• Server Render Top Level Exports đang BẬT → render nguyên {exportNodes.Count} frame có Export " +
+                        $"({string.Join(", ", exportFrames.Take(5))}{(exportFrames.Count > 5 ? ", …" : string.Empty)}). " +
+                        "Tắt đi (screen vẫn dựng thành prefab), hoặc gỡ Export khỏi các frame đó trong Figma.";
+
+            if (effectiveScale > 1)
+                hint += $"\n• Server Render Image Scale = {effectiveScale}: ảnh render to gấp {effectiveScale * effectiveScale} lần số pixel. " +
+                        (settings.AutoServerRenderScale
+                            ? "Nếu file vẽ ở cỡ canvas thật thì hạ về 1."
+                            : $"Nếu file vẽ ở cỡ canvas thật (vd 1080×2400) thì bật Auto Server Render Scale hoặc hạ về 1.");
+
+            hint += !string.IsNullOrEmpty(failedNodeId)
+                ? $"\n• Node {failedNodeId} vẫn lỗi khi render riêng → flatten hoặc bỏ bớt effect của node đó trong Figma."
+                : $"\n• Server Render Batch Size = {settings.ServerRenderBatchSize}: hạ xuống nếu vẫn lỗi.";
+            return hint;
+        }
+
+        private static string PackageVersion()
+        {
+            var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(UnityFigmaBridgeImporter).Assembly);
+            return info != null ? info.version : string.Empty;
         }
 
         public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
@@ -439,7 +507,13 @@ namespace UnityFigmaBridge.Editor
 
             // Some of the nodes, we'll want to identify to use Figma server side rendering (eg vector shapes, SVGs)
             // First up create a list of nodes we'll substitute with rendered images
-            var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(figmaFile,externalComponentList,downloadPageIdList);
+            var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(figmaFile,externalComponentList,downloadPageIdList,
+                s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports);
+            // File vẽ sẵn ở 1080×2400 thì render ×1, không phình texture theo settings
+            var serverRenderScale = FigmaDataUtils.GetEffectiveServerRenderScale(figmaFile,
+                s_UnityFigmaBridgeSettings.ServerRenderImageScale, s_UnityFigmaBridgeSettings.AutoServerRenderScale,
+                s_UnityFigmaBridgeSettings.NativeScreenLongSide);
+            var serverRenderBatchSize = Mathf.Clamp(s_UnityFigmaBridgeSettings.ServerRenderBatchSize, 1, MAX_SERVER_RENDER_IMAGE_BATCH_SIZE);
 
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
@@ -447,25 +521,59 @@ namespace UnityFigmaBridge.Editor
             {
                 var allNodeIds = serverRenderNodes.Select(serverRenderNode => serverRenderNode.SourceNode.id).ToList();
                 // As the API has an upper limit of images that can be rendered in a single request, we'll need to batch
-                var batchCount = Mathf.CeilToInt((float)allNodeIds.Count / MAX_SERVER_RENDER_IMAGE_BATCH_SIZE);
-                for (var i = 0; i < batchCount; i++)
+                // Request render quá nặng làm gateway Figma trả 504. Batch khởi đầu theo Settings.ServerRenderBatchSize;
+                // gặp 5xx/timeout thì chia đôi batch đó rồi gửi lại; batch 1 node vẫn lỗi thì thử lại vài lần.
+                var pendingBatches = new List<List<string>>();
+                for (var startIndex = 0; startIndex < allNodeIds.Count; startIndex += serverRenderBatchSize)
+                    pendingBatches.Add(allNodeIds.GetRange(startIndex,
+                        Mathf.Min(serverRenderBatchSize, allNodeIds.Count - startIndex)));
+
+                var renderedCount = 0;
+                var singleNodeRetries = 0;
+                while (pendingBatches.Count > 0)
                 {
-                    var startIndex = i * MAX_SERVER_RENDER_IMAGE_BATCH_SIZE;
-                    var nodeBatch = allNodeIds.GetRange(startIndex,
-                        Mathf.Min(MAX_SERVER_RENDER_IMAGE_BATCH_SIZE, allNodeIds.Count - startIndex));
+                    var nodeBatch = pendingBatches[0];
                     var serverNodeCsvList = string.Join(",", nodeBatch);
-                    EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading server-rendered image data {i+1}/{batchCount}",(float)i/(float)batchCount);
+                    EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE,
+                        $"Downloading server-rendered image data {renderedCount}/{allNodeIds.Count} (batch {nodeBatch.Count})",
+                        (float)renderedCount / allNodeIds.Count);
                     try
                     {
                         var figmaTask = FigmaApiUtils.GetFigmaServerRenderData(fileId, s_PersonalAccessToken,
-                            serverNodeCsvList, s_UnityFigmaBridgeSettings.ServerRenderImageScale);
+                            serverNodeCsvList, serverRenderScale);
                         await figmaTask;
                         serverRenderData.Add(figmaTask.Result);
+                        pendingBatches.RemoveAt(0);
+                        renderedCount += nodeBatch.Count;
+                        singleNodeRetries = 0;
+                    }
+                    catch (FigmaApiRequestException e) when (e.IsTransient &&
+                                                             (nodeBatch.Count > 1 || singleNodeRetries < SERVER_RENDER_SINGLE_NODE_RETRIES))
+                    {
+                        if (nodeBatch.Count > 1)
+                        {
+                            var half = nodeBatch.Count / 2;
+                            pendingBatches.RemoveAt(0);
+                            pendingBatches.Insert(0, nodeBatch.GetRange(half, nodeBatch.Count - half));
+                            pendingBatches.Insert(0, nodeBatch.GetRange(0, half));
+                            Debug.LogWarning($"[FigmaBridge] Server render HTTP {e.StatusCode} với batch {nodeBatch.Count} node " +
+                                             $"→ chia đôi còn {half} và gửi lại.");
+                        }
+                        else
+                        {
+                            singleNodeRetries++;
+                            Debug.LogWarning($"[FigmaBridge] Server render HTTP {e.StatusCode} ở node {nodeBatch[0]} " +
+                                             $"→ thử lại lần {singleNodeRetries}/{SERVER_RENDER_SINGLE_NODE_RETRIES}.");
+                        }
+                        await Task.Delay(SERVER_RENDER_RETRY_DELAY_MS);
                     }
                     catch (Exception e)
                     {
                         EditorUtility.ClearProgressBar();
-                        ReportApiError("Error downloading Figma Server Render Image Data", e);
+                        var failedNodeId = nodeBatch.Count == 1 ? nodeBatch[0] : null;
+                        var failedNode = failedNodeId != null ? $" (node {failedNodeId} vẫn lỗi sau khi thử lại — node này render quá nặng)" : string.Empty;
+                        ReportApiError($"Error downloading Figma Server Render Image Data{failedNode}", e,
+                            BuildServerRenderFailureHint(e, serverRenderNodes, serverRenderScale, s_UnityFigmaBridgeSettings, failedNodeId));
                         return;
                     }
                 }
@@ -539,6 +647,7 @@ namespace UnityFigmaBridge.Editor
                 SourceFile = figmaFile,
                 ComponentData = componentData,
                 ServerRenderNodes = serverRenderNodes,
+                ServerRenderScale = serverRenderScale,
                 PrototypeFlowController = s_PrototypeFlowController,
                 FontMap = fontMap,
                 PrototypeFlowStartPoints = FigmaDataUtils.GetAllPrototypeFlowStartingPoints(figmaFile),
