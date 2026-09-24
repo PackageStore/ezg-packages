@@ -2258,7 +2258,7 @@
       "id": "Skills/figma-to-unity",
       "name": "figma-to-unity",
       "category": "Skills",
-      "description": "Import Figma screens into Unity as UGUI prefabs with the UnityFigmaBridge (com.simonoliver.unityfigma). Use when asked to \"import a screen from Figma\", \"bring the Figma UI into Unity\", \"re-import a screen after the designer changed Figma\", or when given a figma.com/design link to a screen frame.",
+      "description": "Import Figma screens into Unity as UGUI prefabs with the EZG Figma Bridge (com.ezg.figma-bridge), and prove the result matches Figma with the bridge's visual check. Use when asked to \"import a screen from Figma\", \"bring the Figma UI into Unity\", \"re-import a screen after the designer changed Figma\", \"the imported screen looks wrong\", \"check the import against Figma\", or when given a figma.com/design link to a screen frame.",
       "installPath": ".claude/skills/figma-to-unity",
       "isDirectory": true,
       "files": [
@@ -2270,8 +2270,8 @@
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "749b4c646de290deb1391719c20ee163acd158aa63dfdb9be7c0b13eb8457e6c",
-      "size": 6843
+      "sha256": "77b5db396a80abee7ac470b1a56943d07bcc10af3e891dc1e5d2fbb4b36d8a68",
+      "size": 9340
     },
     {
       "id": "Skills/figma-tokens",
