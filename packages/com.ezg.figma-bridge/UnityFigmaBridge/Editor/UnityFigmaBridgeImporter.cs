@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -59,6 +60,12 @@ namespace UnityFigmaBridge.Editor
         private static UnityFigmaBridgeSettings s_UnityFigmaBridgeSettings;
 
         public const string PROGRESS_BOX_TITLE = "Importing Figma Document";
+
+        /// <summary>
+        /// Scale of every server render: one texel per design unit. Fixed on purpose, with no setting,
+        /// because a higher scale grows each render's pixels, download and import time by scale².
+        /// </summary>
+        private const int SERVER_RENDER_SCALE = 1;
 
         /// <summary>
         /// Figma imposes a limit on the number of images in a single batch. This is batch size
@@ -147,6 +154,7 @@ namespace UnityFigmaBridge.Editor
             ImportInProgress = true;
             LastImportError = null;
             LastImportStartedUtc = DateTime.UtcNow.ToString("o");
+            FigmaImportTimer.Start();
             try
             {
                 await SyncCore(offline);
@@ -160,11 +168,13 @@ namespace UnityFigmaBridge.Editor
             finally
             {
                 ImportInProgress = false;
+                FigmaImportTimer.Finish(LastImportError);
             }
         }
 
         private static async Task SyncCore(bool offline)
         {
+            FigmaImportTimer.Begin("Check settings and token");
             var requirementsMet = CheckRequirements(requireToken: !offline);
             if (!requirementsMet)
             {
@@ -175,6 +185,7 @@ namespace UnityFigmaBridge.Editor
             FigmaFile figmaFile;
             if (offline)
             {
+                FigmaImportTimer.Begin("Load cached document");
                 figmaFile = FigmaApiUtils.LoadCachedDocument();
                 if (figmaFile == null)
                 {
@@ -190,6 +201,9 @@ namespace UnityFigmaBridge.Editor
                 figmaFile = await DownloadFigmaDocument(s_UnityFigmaBridgeSettings.FileId);
                 if (figmaFile == null) return;
             }
+            if (File.Exists(FigmaApiUtils.CachedDocumentPath))
+                FigmaImportTimer.SetDetail(offline ? "Load cached document" : "Document JSON download (Figma API)",
+                    (new FileInfo(FigmaApiUtils.CachedDocumentPath).Length / 1048576.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB");
 
             var pageNodeList = FigmaDataUtils.GetPageNodes(figmaFile);
 
@@ -446,7 +460,7 @@ namespace UnityFigmaBridge.Editor
         ///     Rỗng khi lỗi không phải 5xx/timeout (4xx đã có gợi ý riêng trong ReportApiError).
         /// </summary>
         public static string BuildServerRenderFailureHint(Exception e, List<ServerRenderNodeData> serverRenderNodes,
-            int effectiveScale, UnityFigmaBridgeSettings settings, string failedNodeId = null)
+            UnityFigmaBridgeSettings settings, string failedNodeId = null)
         {
             if (!(e is FigmaApiRequestException apiError) || !apiError.IsTransient || settings == null) return string.Empty;
 
@@ -460,12 +474,6 @@ namespace UnityFigmaBridge.Editor
                 hint += $"\n• Server Render Top Level Exports đang BẬT → render nguyên {exportNodes.Count} frame có Export " +
                         $"({string.Join(", ", exportFrames.Take(5))}{(exportFrames.Count > 5 ? ", …" : string.Empty)}). " +
                         "Tắt đi (screen vẫn dựng thành prefab), hoặc gỡ Export khỏi các frame đó trong Figma.";
-
-            if (effectiveScale > 1)
-                hint += $"\n• Server Render Image Scale = {effectiveScale}: ảnh render to gấp {effectiveScale * effectiveScale} lần số pixel. " +
-                        (settings.AutoServerRenderScale
-                            ? "Nếu file vẽ ở cỡ canvas thật thì hạ về 1."
-                            : $"Nếu file vẽ ở cỡ canvas thật (vd 1080×2400) thì bật Auto Server Render Scale hoặc hạ về 1.");
 
             hint += !string.IsNullOrEmpty(failedNodeId)
                 ? $"\n• Node {failedNodeId} vẫn lỗi khi render riêng → flatten hoặc bỏ bớt effect của node đó trong Figma."
@@ -513,6 +521,7 @@ namespace UnityFigmaBridge.Editor
         private static async Task ImportDocument(string fileId, FigmaFile figmaFile, List<Node> downloadPageNodeList, bool offline)
         {
 
+            FigmaImportTimer.Begin("Analyse document (selection, names, render list)");
             // Build a list of page IDs to download
             var downloadPageIdList = downloadPageNodeList.Select(p => p.id).ToList();
 
@@ -574,22 +583,32 @@ namespace UnityFigmaBridge.Editor
                 s_UnityFigmaBridgeSettings.NameServerRendersByNodePath
                     ? serverRenderNodes.Where(n => n.RenderType != ServerRenderType.Export).Select(n => n.SourceNode.id)
                     : Enumerable.Empty<string>());
-            // File vẽ sẵn ở 1080×2400 thì render ×1, không phình texture theo settings
-            var serverRenderScale = FigmaDataUtils.GetEffectiveServerRenderScale(figmaFile,
-                s_UnityFigmaBridgeSettings.ServerRenderImageScale, s_UnityFigmaBridgeSettings.AutoServerRenderScale,
-                s_UnityFigmaBridgeSettings.NativeScreenLongSide);
+            var serverRenderScale = SERVER_RENDER_SCALE;
             var serverRenderBatchSize = Mathf.Clamp(s_UnityFigmaBridgeSettings.ServerRenderBatchSize, 1, MAX_SERVER_RENDER_IMAGE_BATCH_SIZE);
 
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
+            ServerRenderCache serverRenderCache = null;
+            var renderDownloads = new List<FigmaApiUtils.FigmaDownloadQueueItem>();
             if (serverRenderNodes.Count > 0 && !offline)
             {
+                FigmaImportTimer.Begin("Server render cache check");
+                serverRenderCache = ServerRenderCache.Check(FigmaApiUtils.CachedDocumentPath, serverRenderNodes, serverRenderScale,
+                    s_UnityFigmaBridgeSettings, FigmaDataUtils.GetPatternSourceNodeIds(figmaFile, downloadPageIdList, importScope));
+                var staleRenderNodes = serverRenderCache.StaleNodes;
+
+                FigmaImportTimer.Begin("Server render requests (Figma API)");
+                var renderRequestCount = 0;
+                string RenderRequestDetail() =>
+                    $"{serverRenderNodes.Count} nodes: {serverRenderNodes.Count - staleRenderNodes.Count} cached, " +
+                    $"{staleRenderNodes.Count} rendered, {renderRequestCount} request(s), scale {serverRenderScale}";
+                FigmaImportTimer.SetDetail("Server render requests (Figma API)", RenderRequestDetail());
                 // A pattern tile is the source node's layout box. Every other render keeps what draws
                 // outside the box (outside strokes, shadows): its RectTransform covers the render bounds.
                 // Request render quá nặng làm gateway Figma trả 504. Batch khởi đầu theo Settings.ServerRenderBatchSize;
                 // gặp 5xx/timeout thì chia đôi batch đó rồi gửi lại; batch 1 node vẫn lỗi thì thử lại vài lần.
                 var pendingBatches = new List<(bool useAbsoluteBounds, List<string> ids)>();
-                foreach (var group in serverRenderNodes.GroupBy(n => n.RenderType == ServerRenderType.PatternSource))
+                foreach (var group in staleRenderNodes.GroupBy(n => n.RenderType == ServerRenderType.PatternSource))
                 {
                     var ids = group.Select(n => n.SourceNode.id).ToList();
                     for (var startIndex = 0; startIndex < ids.Count; startIndex += serverRenderBatchSize)
@@ -602,10 +621,12 @@ namespace UnityFigmaBridge.Editor
                 {
                     var (useAbsoluteBounds, nodeBatch) = pendingBatches[0];
                     EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE,
-                        $"Downloading server-rendered image data {renderedCount}/{serverRenderNodes.Count} (batch {nodeBatch.Count})",
-                        (float)renderedCount / serverRenderNodes.Count);
+                        $"Downloading server-rendered image data {renderedCount}/{staleRenderNodes.Count} (batch {nodeBatch.Count})",
+                        (float)renderedCount / staleRenderNodes.Count);
                     try
                     {
+                        renderRequestCount++;
+                        FigmaImportTimer.SetDetail("Server render requests (Figma API)", RenderRequestDetail());
                         var figmaTask = FigmaApiUtils.GetFigmaServerRenderData(fileId, s_PersonalAccessToken,
                             nodeBatch, serverRenderScale, useAbsoluteBounds);
                         await figmaTask;
@@ -640,7 +661,7 @@ namespace UnityFigmaBridge.Editor
                         var failedNodeId = nodeBatch.Count == 1 ? nodeBatch[0] : null;
                         var failedNode = failedNodeId != null ? $" (node {failedNodeId} vẫn lỗi sau khi thử lại — node này render quá nặng)" : string.Empty;
                         ReportApiError($"Error downloading Figma Server Render Image Data{failedNode}", e,
-                            BuildServerRenderFailureHint(e, serverRenderNodes, serverRenderScale, s_UnityFigmaBridgeSettings, failedNodeId));
+                            BuildServerRenderFailureHint(e, staleRenderNodes, s_UnityFigmaBridgeSettings, failedNodeId));
                         return;
                     }
                 }
@@ -652,6 +673,7 @@ namespace UnityFigmaBridge.Editor
                     .Where(p => !File.Exists(p)).ToList());
             }
 
+            FigmaImportTimer.Begin("Check existing sprites, list image fills");
             // Make sure that existing downloaded assets are in the correct format
             FigmaApiUtils.CheckExistingAssetProperties();
 
@@ -664,6 +686,7 @@ namespace UnityFigmaBridge.Editor
             if (!offline)
             {
                 // Get image fill data for the document (list of urls to download any bitmap data used)
+                FigmaImportTimer.Begin("Image fill URLs (Figma API)");
                 FigmaImageFillData activeFigmaImageFillData;
                 EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading image fill data", 0);
                 try
@@ -682,6 +705,8 @@ namespace UnityFigmaBridge.Editor
                 // Generate a list of all items that need to be downloaded
                 var downloadList =
                     FigmaApiUtils.GenerateDownloadQueue(activeFigmaImageFillData,foundImageFills, serverRenderData, serverRenderNodes);
+                renderDownloads.AddRange(downloadList.Where(item =>
+                    item.FileType == FigmaApiUtils.FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage));
 
                 // Download all required files
                 await FigmaApiUtils.DownloadFiles(downloadList, s_UnityFigmaBridgeSettings, tiledImageFills, patternSourceNodeIds);
@@ -694,9 +719,18 @@ namespace UnityFigmaBridge.Editor
                     .Where(p => !File.Exists(p)).ToList());
             }
 
+            // A cached render was sliced when it was downloaded and keeps that importer border
+            var downloadedRenderIds = new HashSet<string>(renderDownloads.Where(item => item.Succeeded).Select(item => item.NodeId));
             if (s_UnityFigmaBridgeSettings.SliceServerRenders)
-                ServerRenderSlicer.Run(serverRenderNodes, serverRenderScale);
+            {
+                FigmaImportTimer.Begin("Slice server renders");
+                ServerRenderSlicer.Run(offline
+                    ? serverRenderNodes
+                    : serverRenderNodes.Where(n => downloadedRenderIds.Contains(n.SourceNode.id)).ToList(), serverRenderScale);
+            }
+            serverRenderCache?.Record(downloadedRenderIds);
 
+            FigmaImportTimer.Begin("Fonts");
             // Generate font mapping data
             var figmaFontMapTask = FontManager.GenerateFontMapForDocument(figmaFile,
                 s_UnityFigmaBridgeSettings.EnableGoogleFontsDownloads && !offline,
@@ -705,6 +739,7 @@ namespace UnityFigmaBridge.Editor
             var fontMap = figmaFontMapTask.Result;
 
 
+            FigmaImportTimer.Begin("Prepare build data");
             var componentData = new FigmaBridgeComponentData
             {
                 MissingComponentDefinitionsList = externalComponentList,
@@ -755,6 +790,7 @@ namespace UnityFigmaBridge.Editor
             }
 
 
+            FigmaImportTimer.Begin("Clean up and final asset refresh");
             // Lastly, for prototype mode, instantiate the default flowScreen and set the scaler up appropriately
             if (s_UnityFigmaBridgeSettings.BuildPrototypeFlow)
             {

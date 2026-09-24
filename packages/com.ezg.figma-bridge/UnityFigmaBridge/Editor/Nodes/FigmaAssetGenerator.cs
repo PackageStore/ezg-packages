@@ -30,6 +30,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             // Save prefab for each page
             var downloadPageIdList = figmaImportProcessData.SelectedPagesForImport.Select(p => p.id).ToList();
             
+            FigmaImportTimer.Begin("Build nodes (GameObjects from Figma nodes)");
             // Cycle through all pages and create
             var scope = figmaImportProcessData.ImportScope;
             var createdPages = new List<(Node,GameObject)>();
@@ -79,19 +80,27 @@ namespace UnityFigmaBridge.Editor.Nodes
             ComponentManager.InstantiateAllComponentPrefabs(figmaImportProcessData);
 
             if (figmaImportProcessData.Settings.CollapseSliceGrids)
+            {
+                FigmaImportTimer.Begin("Collapse 9-slice grids");
                 NineSlicePass.Run(figmaImportProcessData);
+            }
 
+            FigmaImportTimer.Begin("Sprite platform overrides");
             SpritePlatformOverride.ApplyToFolders(figmaImportProcessData.Settings,
                 FigmaPaths.FigmaImageFillFolder, FigmaPaths.FigmaServerRenderedImagesFolder);
 
+            FigmaImportTimer.Begin("Remove temporary components");
             // Remove all temporary components that were created along the way
             ComponentManager.RemoveAllTemporaryNodeComponents(figmaImportProcessData);
             
+            FigmaImportTimer.Begin("Bind behaviours");
             // At the very end, we want to apply figmaNode behaviour where required
             BehaviourBindingManager.BindBehaviours(figmaImportProcessData);
 
+            FigmaImportTimer.Begin("Post-process context and sidecars");
+            var postProcessContext = PostProcessorRunner.BuildContext(figmaImportProcessData);
             // Hand the finished raw output to whatever the project plugged in
-            PostProcessorRunner.Run(PostProcessorRunner.BuildContext(figmaImportProcessData));
+            PostProcessorRunner.Run(postProcessContext);
         }
 
 
@@ -313,7 +322,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             var current = screenRectTransform.anchoredPosition;
             screenRectTransform.anchoredPosition = Vector2.zero;
             // Write prefab
-            var screenPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(screenRectTransform.gameObject,
+            GameObject screenPrefab;
+            using (FigmaImportTimer.Measure("Save screen prefabs"))
+                screenPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(screenRectTransform.gameObject,
                     FigmaPaths.GetPathForScreenPrefab(node,screenNameCount), InteractionMode.UserAction);
             // Restore original position
             screenRectTransform.anchoredPosition = current;

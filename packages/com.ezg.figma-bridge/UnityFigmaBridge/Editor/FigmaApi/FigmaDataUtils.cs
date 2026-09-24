@@ -13,40 +13,6 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>A node whose name contains this (any case) is dropped from the document with its subtree.</summary>
         public const string IgnoreMarker = "[ignore]";
 
-        /// <summary>
-        /// Scale thực tế để server render: 1 khi <paramref name="autoScale"/> bật và document đã vẽ ở
-        /// độ phân giải thật (có frame cấp 1 với cạnh dài ≥ <paramref name="nativeScreenLongSide"/>, vd 1080×2400 →
-        /// 1 px Figma = 1 px canvas, scale cao chỉ phình texture ×scale²); ngược lại giữ <paramref name="configuredScale"/>
-        /// (file vẽ theo point, vd 360×800, vẫn cần render ×3). Tính trên cả document, không theo page được chọn,
-        /// để import từng phần và re-import offline luôn ra cùng một scale.
-        /// </summary>
-        public static int GetEffectiveServerRenderScale(FigmaFile file, int configuredScale, bool autoScale,
-            float nativeScreenLongSide)
-        {
-            var scale = configuredScale > 0 ? configuredScale : 1;
-            if (!autoScale || nativeScreenLongSide <= 0f || scale == 1 || file?.document?.children == null) return scale;
-
-            var longestSide = 0f;
-            var longestFrameName = string.Empty;
-            foreach (var page in file.document.children)
-            {
-                if (page.children == null) continue;
-                foreach (var frame in page.children)
-                {
-                    if (frame.type != NodeType.FRAME || frame.absoluteBoundingBox == null) continue;
-                    var side = Mathf.Max(frame.absoluteBoundingBox.width, frame.absoluteBoundingBox.height);
-                    if (side <= longestSide) continue;
-                    longestSide = side;
-                    longestFrameName = frame.name;
-                }
-            }
-
-            if (longestSide < nativeScreenLongSide) return scale;
-            Debug.Log($"[FigmaBridge] Frame '{longestFrameName}' đã vẽ ở {longestSide}px (≥ {nativeScreenLongSide}) " +
-                      $"→ server render scale 1 thay vì {scale} trong settings.");
-            return 1;
-        }
-
         public static bool IsIgnored(Node node)
         {
             return node?.name != null && node.name.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;

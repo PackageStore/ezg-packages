@@ -57,6 +57,7 @@ namespace UnityFigmaBridge.Editor.PostProcess
                 try
                 {
                     EditorUtility.DisplayProgressBar(UnityFigmaBridgeImporter.PROGRESS_BOX_TITLE, $"Post-processor {typeName}", 1f);
+                    FigmaImportTimer.Begin($"Post-processor {processor.GetType().Name}");
                     processor.OnDocumentImported(context);
                     Debug.Log($"{LOG_PREFIX} {typeName} ok");
                 }

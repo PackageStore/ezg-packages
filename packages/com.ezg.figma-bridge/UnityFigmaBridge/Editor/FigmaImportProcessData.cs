@@ -45,8 +45,8 @@ namespace UnityFigmaBridge.Editor
         public List<ServerRenderNodeData> ServerRenderNodes = new List<ServerRenderNodeData>();
 
         /// <summary>
-        /// Scale thực tế đã dùng để server render (xem FigmaDataUtils.GetEffectiveServerRenderScale).
-        /// Mọi chỗ cần tỉ lệ render (vd tile PATTERN) đọc field này thay vì Settings.ServerRenderImageScale.
+        /// Scale đã dùng để server render, luôn là 1 (UnityFigmaBridgeImporter.SERVER_RENDER_SCALE).
+        /// Mọi chỗ cần tỉ lệ render (vd tile PATTERN) đọc field này.
         /// </summary>
         public int ServerRenderScale = 1;
 

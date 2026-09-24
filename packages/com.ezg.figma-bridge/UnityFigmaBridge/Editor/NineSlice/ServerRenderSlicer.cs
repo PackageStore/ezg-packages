@@ -36,6 +36,10 @@ namespace UnityFigmaBridge.Editor.NineSlice
         /// </summary>
         private const string SlicedMarker = "figma-bridge-sliced:";
 
+        /// <param name="serverRenderNodes">
+        ///     Renders downloaded by this import (every render offline). A render reused through
+        ///     <see cref="ServerRenderCache"/> is already sliced and keeps its importer border.
+        /// </param>
         /// <param name="serverRenderScale">Scale the renders were made at (<see cref="FigmaImportProcessData.ServerRenderScale"/>).</param>
         public static void Run(List<ServerRenderNodeData> serverRenderNodes, int serverRenderScale)
         {

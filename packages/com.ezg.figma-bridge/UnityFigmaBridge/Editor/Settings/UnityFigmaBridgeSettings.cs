@@ -57,17 +57,7 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Chỉ bind MonoBehaviour trong namespace này vào screen.\nVí dụ: MyGame.UI")]
         public string ScreenBindingNamespace="";
 
-        [Tooltip("Tỉ lệ khi Figma render ảnh trên server.\nVí dụ: 3 cho ảnh gấp 3 lần kích thước thiết kế.")]
-        public int ServerRenderImageScale=3;
-
-        // Server render: scale tự động, frame export, batch (0.4.1)
-        [Tooltip("Tự hạ scale render về 1 khi file Figma đã vẽ ở độ phân giải thật (có frame cấp 1 với cạnh dài ≥ Native Screen Long Side).\n" +
-                 "Ví dụ: frame 1080×2400 → render ×1 dù Server Render Image Scale = 3. Mặc định tắt (giữ hành vi trước 0.4.1).")]
-        public bool AutoServerRenderScale = false;
-
-        [Tooltip("Cạnh dài (px) của canvas runtime, dùng cho Auto Server Render Scale.\nVí dụ: 2400 cho canvas 1080×2400.")]
-        public float NativeScreenLongSide = 2400f;
-
+        // Server render: frame export, batch (0.4.1)
         [Tooltip("Render nguyên frame cấp 1 có Export setting thành PNG. Tắt khi Sync báo HTTP 504: render cả màn hình dễ làm Figma timeout.\n" +
                  "Ví dụ: MainScreen đặt Export PNG → bật thì tải thêm ảnh chụp cả màn. Mặc định bật (giữ hành vi trước 0.4.1).")]
         public bool ServerRenderTopLevelExports = true;

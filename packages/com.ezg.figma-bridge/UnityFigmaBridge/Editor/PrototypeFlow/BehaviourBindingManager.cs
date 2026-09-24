@@ -18,40 +18,35 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         private const int MAX_SEARCH_DEPTH_FOR_TRANSFORMS = 3;
         
         /// <summary>
-        /// Attempts to find a suitable mono behaviour to bind
+        /// Attempts to find a suitable mono behaviour to bind. Returns true when the node was changed
         /// </summary>
-        /// <param name="node"></param>
         /// <param name="gameObject"></param>
-        private static void BindBehaviourToNode(GameObject gameObject, FigmaImportProcessData importProcessData)
+        /// <param name="importProcessData"></param>
+        /// <param name="behaviourTypesByName">Lookup from <see cref="BuildBehaviourTypeLookup"/></param>
+        private static bool BindBehaviourToNode(GameObject gameObject, FigmaImportProcessData importProcessData,
+            Dictionary<string, List<Type>> behaviourTypesByName)
         {
             // Add in any special behaviours driven by name or other rules. If special case, dont add any more behaviours
             bool specialCaseNode=AddSpecialBehavioursToNode(gameObject,importProcessData);
-            if (specialCaseNode) return;
-            
-            var bindingNameSpace = importProcessData.Settings.ScreenBindingNamespace;
-            var className = $"{gameObject.name}";
-           
-            // We'll want to search all assemblies
-            var matchingType = GetTypeByName(bindingNameSpace,className);
-            if (matchingType == null)
-            {
-                // No matching type found
-                return;
-            }
-            //Debug.Log($"Matching type found {className}");
+            if (specialCaseNode) return true;
 
-            if (!matchingType.IsSubclassOf(typeof(MonoBehaviour)))
-            {
-                // Type found but is not a MonoBehaviour, cannot attach");
-                return;
-            }
+            if (!behaviourTypesByName.TryGetValue(gameObject.name, out var candidateTypes)) return false;
+            var matchingType = SelectType(candidateTypes, importProcessData.Settings.ScreenBindingNamespace);
+            if (matchingType == null) return false;
+
             // Make sure it doesnt already have this component attached (this can happen for nested components)
+            var behaviourAdded = false;
             var attachedBehaviour = gameObject.GetComponent(matchingType);
-            if (attachedBehaviour==null) attachedBehaviour=gameObject.AddComponent(matchingType);
-            
+            if (attachedBehaviour == null)
+            {
+                attachedBehaviour = gameObject.AddComponent(matchingType);
+                // AddComponent logs and returns null when the type cannot go on this object (e.g. a second Graphic)
+                if (attachedBehaviour == null) return false;
+                behaviourAdded = true;
+            }
+
             // Find all fields for this class, and if inherit from component, look to assign
-            BindFieldsForComponent(gameObject, attachedBehaviour);
-            
+            return BindFieldsForComponent(gameObject, attachedBehaviour) || behaviourAdded;
         }
 
         private static bool AddSpecialBehavioursToNode(GameObject gameObject, FigmaImportProcessData importProcessData)
@@ -71,8 +66,13 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
             return false;
         }
 
-        public static void BindFieldsForComponent(GameObject gameObject, Component component)
+        /// <summary>
+        /// Assigns serialized fields and [BindFigmaButtonPress] methods of a component from child nodes with matching names.
+        /// Returns true when a field got a new value or a button listener was added
+        /// </summary>
+        public static bool BindFieldsForComponent(GameObject gameObject, Component component)
         {
+            var changed = false;
             var componentType = component.GetType();
             
             // Then check private fields
@@ -93,7 +93,7 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
                 {
                     if (fieldType == typeof(GameObject))
                     {
-                        field.SetValue(component,matchingTransform.gameObject);
+                        changed |= AssignField(field, component, matchingTransform.gameObject);
                     }
                     else if (fieldType.IsSubclassOf(typeof(Component)))
                     {
@@ -102,7 +102,7 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
                         if (matchingComponent)
                         {
                             // Found matching component - set
-                            field.SetValue(component,matchingComponent);
+                            changed |= AssignField(field, component, matchingComponent);
                         }
                     }
                 }
@@ -131,10 +131,19 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
                        UnityAction action = (UnityAction) Delegate.CreateDelegate(typeof(UnityAction),component, method, true);
                        // Assign this to the target button
                        UnityEventTools.AddPersistentListener(targetButton.onClick, action);
+                       changed = true;
                     }
                 }
             }
-            
+
+            return changed;
+        }
+
+        private static bool AssignField(FieldInfo field, Component component, UnityEngine.Object value)
+        {
+            if ((field.GetValue(component) as UnityEngine.Object) == value) return false;
+            field.SetValue(component, value);
+            return true;
         }
 
         /// <summary>
@@ -184,26 +193,77 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         
         
         
+        /// <summary>
+        /// Finds a type of any kind by name (case insensitive) in every loaded assembly. With a namespace set, only a type
+        /// in that namespace matches. Scans all assemblies on each call; binding uses <see cref="BuildBehaviourTypeLookup"/>
+        /// </summary>
+        /// <param name="nameSpace">Empty or null to accept any namespace</param>
+        /// <param name="name"></param>
         public static Type GetTypeByName(string nameSpace,string name)
         {
+            var candidateTypes = new List<Type>();
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 foreach (Type type in assembly.GetTypes())
                 {
-                    if (String.Equals(type.Name, name, StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        if (nameSpace.Length > 0)
-                        {
-                            // If a namespace has been specified and doesnt match, ignore
-                            if (!String.Equals(nameSpace, type.Namespace, StringComparison.CurrentCultureIgnoreCase))
-                                return null;
-                        }
-                        return type;
-                    }
+                    if (String.Equals(type.Name, name, StringComparison.OrdinalIgnoreCase)) candidateTypes.Add(type);
                 }
             }
- 
-            return null;
+            candidateTypes.Sort(CompareBindingPreference);
+            return SelectType(candidateTypes, nameSpace);
+        }
+
+        /// <summary>
+        /// Every MonoBehaviour that can be attached (not abstract, not open generic, not from a Unity assembly), keyed by
+        /// type name (case insensitive). Each list is in <see cref="CompareBindingPreference"/> order
+        /// </summary>
+        private static Dictionary<string, List<Type>> BuildBehaviourTypeLookup()
+        {
+            var behaviourTypesByName = new Dictionary<string, List<Type>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var type in TypeCache.GetTypesDerivedFrom<MonoBehaviour>())
+            {
+                if (type.IsAbstract || type.ContainsGenericParameters || IsUnityAssembly(type)) continue;
+                if (!behaviourTypesByName.TryGetValue(type.Name, out var candidateTypes))
+                {
+                    candidateTypes = new List<Type>();
+                    behaviourTypesByName.Add(type.Name, candidateTypes);
+                }
+                candidateTypes.Add(type);
+            }
+            foreach (var candidateTypes in behaviourTypesByName.Values)
+            {
+                if (candidateTypes.Count > 1) candidateTypes.Sort(CompareBindingPreference);
+            }
+            return behaviourTypesByName;
+        }
+
+        // A node named "Image" or "Button" must not gain a UGUI component; binding is for project behaviours
+        private static bool IsUnityAssembly(Type type)
+        {
+            var assemblyName = type.Assembly.GetName().Name;
+            return assemblyName.StartsWith("UnityEngine", StringComparison.Ordinal) ||
+                   assemblyName.StartsWith("UnityEditor", StringComparison.Ordinal) ||
+                   assemblyName.StartsWith("Unity.", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// First type in the list whose namespace matches (case insensitive), or the first type when no namespace is set
+        /// </summary>
+        private static Type SelectType(List<Type> orderedCandidates, string nameSpace)
+        {
+            if (string.IsNullOrEmpty(nameSpace)) return orderedCandidates.Count > 0 ? orderedCandidates[0] : null;
+            return orderedCandidates.Find(type => String.Equals(type.Namespace, nameSpace, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Stable order for types sharing a name: global namespace first, then by full name, then by assembly name (ordinal)
+        /// </summary>
+        private static int CompareBindingPreference(Type a, Type b)
+        {
+            var globalNamespaceFirst = string.IsNullOrEmpty(b.Namespace).CompareTo(string.IsNullOrEmpty(a.Namespace));
+            if (globalNamespaceFirst != 0) return globalNamespaceFirst;
+            var byFullName = string.CompareOrdinal(a.FullName, b.FullName);
+            return byFullName != 0 ? byFullName : string.CompareOrdinal(a.Assembly.GetName().Name, b.Assembly.GetName().Name);
         }
 
         /// <summary>
@@ -212,20 +272,30 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         /// <param name="figmaImportProcessData"></param>
         public static void BindBehaviours(FigmaImportProcessData figmaImportProcessData)
         {
+            var behaviourTypesByName = BuildBehaviourTypeLookup();
+
             // Add all components and flowScreen prefabs, to apply behaviours
             var allComponentPrefabsToBindBehaviours = figmaImportProcessData.ComponentData.AllComponentPrefabs;
             allComponentPrefabsToBindBehaviours.AddRange(figmaImportProcessData.ScreenPrefabs);
-            
+
+            var changedPrefabCount = 0;
             foreach (var sourcePrefab in allComponentPrefabsToBindBehaviours)
             {
                 string prefabAssetPath = AssetDatabase.GetAssetPath(sourcePrefab);
                 GameObject instantiatedPrefab = PrefabUtility.LoadPrefabContents(prefabAssetPath);
-                BindBehaviourToNodeAndChildren(instantiatedPrefab,figmaImportProcessData);
-               
+                var prefabChanged = BindBehaviourToNodeAndChildren(instantiatedPrefab, figmaImportProcessData, behaviourTypesByName);
+
                 // Write prefab with changes
-                PrefabUtility.SaveAsPrefabAsset(instantiatedPrefab, prefabAssetPath);
+                if (prefabChanged)
+                {
+                    PrefabUtility.SaveAsPrefabAsset(instantiatedPrefab, prefabAssetPath);
+                    changedPrefabCount++;
+                }
                 PrefabUtility.UnloadPrefabContents(instantiatedPrefab);
             }
+
+            FigmaImportTimer.SetDetail("Bind behaviours",
+                $"{allComponentPrefabsToBindBehaviours.Count} prefab(s), {changedPrefabCount} changed and saved");
         }
 
         /// <summary>
@@ -233,18 +303,23 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         /// </summary>
         /// <param name="targetGameObject"></param>
         /// <param name="figmaImportProcessData"></param>
-        private static void BindBehaviourToNodeAndChildren(GameObject targetGameObject,FigmaImportProcessData figmaImportProcessData)
+        /// <param name="behaviourTypesByName"></param>
+        /// <returns>True when any node in the tree was changed</returns>
+        private static bool BindBehaviourToNodeAndChildren(GameObject targetGameObject,FigmaImportProcessData figmaImportProcessData,
+            Dictionary<string, List<Type>> behaviourTypesByName)
         {
+           var changed = false;
            // Apply depth-first application of node behaviours (as assumes parent nodes will want ref to children rather than vice versa)
            var numChildren = targetGameObject.transform.childCount;
            for (var i = 0; i < numChildren; i++)
            {
                // Apply to child nodes first
                var childTransform = targetGameObject.transform.GetChild(i);
-               BindBehaviourToNodeAndChildren(childTransform.gameObject, figmaImportProcessData);
+               changed |= BindBehaviourToNodeAndChildren(childTransform.gameObject, figmaImportProcessData, behaviourTypesByName);
            }
            // Finally apply to this node
-           BindBehaviourToNode(targetGameObject, figmaImportProcessData);
+           changed |= BindBehaviourToNode(targetGameObject, figmaImportProcessData, behaviourTypesByName);
+           return changed;
         }
     }
 }

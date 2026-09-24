@@ -38,7 +38,7 @@ namespace UnityFigmaBridge.Editor.Utils
 
         private void OnRequestCompleted(AsyncOperation obj)
         {
-            continuation();
+            continuation?.Invoke();
         }
     }
 

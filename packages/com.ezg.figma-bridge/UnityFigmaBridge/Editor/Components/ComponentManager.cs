@@ -73,7 +73,9 @@ namespace UnityFigmaBridge.Editor.Components
             var componentCount = figmaImportProcessData.ComponentData.GetComponentNameCount(node.id, countKey);
             var prefabAssetPath = FigmaPaths.GetPathForComponentPrefab(setName, node.name, componentCount);
             figmaImportProcessData.ComponentData.IncrementComponentNameCount(countKey, 1);
-            var componentPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);
+            GameObject componentPrefab;
+            using (FigmaImportTimer.Measure("Save component prefabs"))
+                componentPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);
             figmaImportProcessData.ComponentData.RegisterComponentPrefab(node.id, componentPrefab);
 
             if (parentNode is { type: NodeType.COMPONENT_SET } && !s_ProcessedSets.Contains(parentNode.id))
@@ -92,10 +94,15 @@ namespace UnityFigmaBridge.Editor.Components
         {
 
             // Instantiate components "within" components (nested components)
+            FigmaImportTimer.Begin("Place instances in component prefabs");
+            FigmaImportTimer.SetDetail("Place instances in component prefabs", $"{figmaImportProcessData.ComponentData.AllComponentPrefabs.Count} prefab(s)");
             InstantiateComponentsInPrefabSet(figmaImportProcessData.ComponentData.AllComponentPrefabs,figmaImportProcessData,"Connecting nested components");
             // Instantiate components within screens
+            FigmaImportTimer.Begin("Place instances in screen prefabs");
+            FigmaImportTimer.SetDetail("Place instances in screen prefabs", $"{figmaImportProcessData.ScreenPrefabs.Count} prefab(s)");
             InstantiateComponentsInPrefabSet(figmaImportProcessData.ScreenPrefabs,figmaImportProcessData,"Connecting screen components");
             // Instantiate components within pages
+            if (figmaImportProcessData.PagePrefabs.Count > 0) FigmaImportTimer.Begin("Place instances in page prefabs");
             InstantiateComponentsInPrefabSet(figmaImportProcessData.PagePrefabs,figmaImportProcessData,"Connecting page components");
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -116,6 +117,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             public string ImageRef;
             /// <summary>Figma node id for ServerRenderedImage items; null for image fills.</summary>
             public string NodeId;
+            /// <summary>Set by DownloadFiles once the file is written and imported with its sprite settings.</summary>
+            public bool Succeeded;
         }
         
         
@@ -162,6 +165,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 $"https://api.figma.com/v1/files/{fileId}?geometry=paths"; // We need geometry=paths to get rotation and full transform
 
             FigmaFile figmaFile = null;
+            FigmaImportTimer.Begin("Document JSON download (Figma API)");
             // Download the Figma Document
             var webRequest = UnityWebRequest.Get(url);
             webRequest.SetRequestHeader("X-Figma-Token", accessToken);
@@ -173,6 +177,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 throw new Exception($"{DescribeFailure(webRequest)}\nError downloading FIGMA document, url - {url}");
             }
 
+            FigmaImportTimer.Begin("Document JSON decode and cache write");
             try
             {
                 // Deserialize the document
@@ -354,7 +359,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     }
                     else
                     {
-                        // Always overwrite as may have changed
+                        // Only renders the ServerRenderCache found stale were requested, so each one overwrites
                         downloadList.Add(new FigmaDownloadQueueItem
                         {
                             Url = keyPair.Value,
@@ -387,68 +392,169 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             HashSet<string> tiledImageRefs = null, HashSet<string> repeatNodeIds = null)
         {
             var downloadCount = downloadItems.Count;
-            var downloadIndex = 0;
-            
-            // Cycle through each required image and download
-            foreach (var downloadItem in downloadItems)
+            var fillCount = downloadItems.Count(item => item.FileType == FigmaDownloadQueueItem.FigmaFileType.ImageFill);
+            var countsDetail = $"{downloadCount} files: {fillCount} image fills, {downloadCount - fillCount} server renders";
+            FigmaImportTimer.SetDetail(DOWNLOAD_PHASE, countsDetail);
+            if (downloadCount == 0) return;
+
+            FigmaImportTimer.Begin(DOWNLOAD_PHASE);
+            var writtenItems = new List<FigmaDownloadQueueItem>();
+            long downloadedBytes = 0;
+            var nextIndex = 0;
+            var finishedCount = 0;
+            EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, $"Downloading Server Image 0/{downloadCount}", 0);
+
+            // The request awaiter resumes on the main thread, so the shared counters and lists need no lock
+            async Task DownloadWorker()
             {
-                EditorUtility.DisplayProgressBar("Importing Figma Document", $"Downloading Server Image {downloadIndex}/{downloadCount}", (float)downloadIndex/(float) downloadCount);
-                try
+                while (nextIndex < downloadCount)
                 {
-                    // Download and write the image data
-                    var imageDownloadWebRequest = UnityWebRequest.Get(downloadItem.Url);
-                    await imageDownloadWebRequest.SendWebRequest();
-                    
-                    byte[] imageBytes = imageDownloadWebRequest.downloadHandler.data;
-                    
-                    // Create the directory if needed
-                    var directoryPath= Path.GetDirectoryName(downloadItem.FilePath);
-                    if (!Directory.Exists(directoryPath)) Directory.CreateDirectory(directoryPath);
-                    
-                    File.WriteAllBytes(downloadItem.FilePath,imageBytes);
-                    
-                    // Refresh the asset database to ensure the asset has been created
-                    AssetDatabase.ImportAsset(downloadItem.FilePath);
-                    AssetDatabase.Refresh();
-                    
-                    // Set the properties for the texture, to mark as a sprite and with alpha transparency and no compression
-                    TextureImporter textureImporter = (TextureImporter) AssetImporter.GetAtPath(downloadItem.FilePath);
-                    textureImporter.textureType = TextureImporterType.Sprite;
-                    textureImporter.spriteImportMode = SpriteImportMode.Single;
-                    textureImporter.alphaIsTransparency = true;
-                    textureImporter.mipmapEnabled = settings != null && settings.SpriteMipmaps;
-                    textureImporter.textureCompression = settings != null && settings.SpriteCompression == SpriteCompressionMode.Compressed
-                        ? TextureImporterCompression.Compressed
-                        : TextureImporterCompression.Uncompressed;
-                    textureImporter.sRGBTexture = true;
-
-
-                    switch (downloadItem.FileType)
+                    var downloadItem = downloadItems[nextIndex++];
+                    try
                     {
-                        case FigmaDownloadQueueItem.FigmaFileType.ImageFill:
-                            // Only a fill drawn in "tile" mode needs a repeating texture
-                            var isTiled = tiledImageRefs != null && downloadItem.ImageRef != null && tiledImageRefs.Contains(downloadItem.ImageRef);
-                            textureImporter.wrapMode = isTiled ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
-                            break;
-                        case FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage:
-                            // Server renders clamp, except the source of a PATTERN fill which is tiled
-                            var isPatternSource = repeatNodeIds != null && downloadItem.NodeId != null && repeatNodeIds.Contains(downloadItem.NodeId);
-                            textureImporter.wrapMode = isPatternSource ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
-                            break;
-                            
+                        using var request = UnityWebRequest.Get(downloadItem.Url);
+                        await request.SendWebRequest();
+                        if (request.result != UnityWebRequest.Result.Success)
+                        {
+                            LogDownloadFailure(downloadItem, DescribeFailure(request));
+                        }
+                        else
+                        {
+                            var imageBytes = request.downloadHandler.data;
+                            downloadedBytes += imageBytes?.Length ?? 0;
+                            var directoryPath = Path.GetDirectoryName(downloadItem.FilePath);
+                            if (!Directory.Exists(directoryPath)) Directory.CreateDirectory(directoryPath);
+                            File.WriteAllBytes(downloadItem.FilePath, imageBytes);
+                            writtenItems.Add(downloadItem);
+                        }
                     }
-
-                    SpritePlatformOverride.Apply(textureImporter, settings);
-                    textureImporter.SaveAndReimport();
-
+                    catch (Exception e)
+                    {
+                        LogDownloadFailure(downloadItem, e.ToString());
+                    }
+                    finishedCount++;
+                    EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, $"Downloading Server Image {finishedCount}/{downloadCount}",
+                        (float)finishedCount / downloadCount);
                 }
-                catch (Exception e)
+            }
+
+            await Task.WhenAll(Enumerable.Range(0, Math.Min(MAX_CONCURRENT_DOWNLOADS, downloadCount)).Select(_ => DownloadWorker()));
+            var failedCount = downloadCount - writtenItems.Count;
+            FigmaImportTimer.SetDetail(DOWNLOAD_PHASE, $"{countsDetail}, {(downloadedBytes / 1048576.0).ToString("0.0", CultureInfo.InvariantCulture)} MB" +
+                                                       (failedCount > 0 ? $", {failedCount} failed" : string.Empty));
+
+            FigmaImportTimer.Begin(TEXTURE_IMPORT_PHASE);
+            ImportDownloadedTextures(writtenItems, settings, tiledImageRefs, repeatNodeIds);
+        }
+
+        private const string DOWNLOAD_PHASE = "Image download (network)";
+        private const string TEXTURE_IMPORT_PHASE = "Image import into Unity (AssetDatabase)";
+        private const string DOWNLOAD_PROGRESS_TITLE = "Importing Figma Document";
+        private const int MAX_CONCURRENT_DOWNLOADS = 6;
+
+        /// <summary>
+        ///     Imports the written files as two AssetDatabase batches instead of a Refresh per file.
+        ///     A new file has no TextureImporter until its first import, so the first batch imports
+        ///     every file (new bytes, current settings) and the second applies the sprite settings,
+        ///     reimporting only the files whose settings changed.
+        /// </summary>
+        private static void ImportDownloadedTextures(List<FigmaDownloadQueueItem> writtenItems, UnityFigmaBridgeSettings settings,
+            HashSet<string> tiledImageRefs, HashSet<string> repeatNodeIds)
+        {
+            if (writtenItems.Count == 0) return;
+            EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, $"Importing {writtenItems.Count} images", 1);
+            var newCount = writtenItems.Count(item => AssetImporter.GetAtPath(item.FilePath) == null);
+
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                foreach (var item in writtenItems) AssetDatabase.ImportAsset(item.FilePath);
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+            // Safety net for a file ImportAsset did not register (e.g. inside a folder this download created)
+            if (writtenItems.Any(item => AssetImporter.GetAtPath(item.FilePath) == null)) AssetDatabase.Refresh();
+
+            var reimportCount = 0;
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                foreach (var item in writtenItems)
                 {
-                    Debug.LogWarning($"Error downloading image file '{downloadItem.Url}' of type {downloadItem.FileType} for path {downloadItem.FilePath}: {e.ToString()}");
+                    try
+                    {
+                        if (AssetImporter.GetAtPath(item.FilePath) is not TextureImporter textureImporter)
+                        {
+                            LogDownloadFailure(item, "no TextureImporter after import");
+                            continue;
+                        }
+                        if (ApplySpriteImportSettings(textureImporter, settings, GetWrapMode(item, tiledImageRefs, repeatNodeIds)))
+                        {
+                            textureImporter.SaveAndReimport();
+                            reimportCount++;
+                        }
+                        item.Succeeded = true;
+                    }
+                    catch (Exception e)
+                    {
+                        LogDownloadFailure(item, e.ToString());
+                    }
                 }
-                downloadIndex++;
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+            FigmaImportTimer.SetDetail(TEXTURE_IMPORT_PHASE,
+                $"{writtenItems.Count} files ({newCount} new), {reimportCount} reimported for sprite settings");
+        }
+
+        /// <returns>True when the importer changed and needs a reimport.</returns>
+        private static bool ApplySpriteImportSettings(TextureImporter importer, UnityFigmaBridgeSettings settings, TextureWrapMode wrapMode)
+        {
+            var mipmaps = settings != null && settings.SpriteMipmaps;
+            var compression = settings != null && settings.SpriteCompression == SpriteCompressionMode.Compressed
+                ? TextureImporterCompression.Compressed
+                : TextureImporterCompression.Uncompressed;
+            var changed = importer.textureType != TextureImporterType.Sprite ||
+                          importer.spriteImportMode != SpriteImportMode.Single ||
+                          !importer.alphaIsTransparency ||
+                          importer.mipmapEnabled != mipmaps ||
+                          importer.textureCompression != compression ||
+                          !importer.sRGBTexture ||
+                          importer.wrapModeU != wrapMode ||
+                          importer.wrapModeV != wrapMode;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = mipmaps;
+            importer.textureCompression = compression;
+            importer.sRGBTexture = true;
+            importer.wrapMode = wrapMode;
+            return SpritePlatformOverride.Apply(importer, settings) || changed;
+        }
+
+        private static TextureWrapMode GetWrapMode(FigmaDownloadQueueItem item, HashSet<string> tiledImageRefs, HashSet<string> repeatNodeIds)
+        {
+            switch (item.FileType)
+            {
+                case FigmaDownloadQueueItem.FigmaFileType.ImageFill:
+                    // Only a fill drawn in "tile" mode needs a repeating texture
+                    var isTiled = tiledImageRefs != null && item.ImageRef != null && tiledImageRefs.Contains(item.ImageRef);
+                    return isTiled ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+                case FigmaDownloadQueueItem.FigmaFileType.ServerRenderedImage:
+                    // Server renders clamp, except the source of a PATTERN fill which is tiled
+                    var isPatternSource = repeatNodeIds != null && item.NodeId != null && repeatNodeIds.Contains(item.NodeId);
+                    return isPatternSource ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+                default:
+                    return TextureWrapMode.Clamp;
             }
         }
+
+        private static void LogDownloadFailure(FigmaDownloadQueueItem item, string reason) =>
+            Debug.LogWarning($"Error downloading image file '{item.Url}' of type {item.FileType} for path {item.FilePath}: {reason}");
 
     
         /// <summary>

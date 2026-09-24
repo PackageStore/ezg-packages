@@ -328,12 +328,11 @@ namespace UnityFigmaBridge.Editor.Nodes
 
         /// <summary>
         ///     Rendered pixels per Figma unit of one tile. The source is rendered at
-        ///     <c>ServerRenderImageScale</c>x and Figma scales the tile by the fill's <c>scalingFactor</c>,
+        ///     <see cref="FigmaImportProcessData.ServerRenderScale"/>x and Figma scales the tile by the fill's <c>scalingFactor</c>,
         ///     so a tile of the render must be shrunk by renderScale / scalingFactor to land at design size.
         /// </summary>
         private static float PatternRenderToTileRatio(Paint fill, FigmaImportProcessData figmaImportProcessData)
         {
-            // Dùng scale thực tế đã render, không phải giá trị settings (có thể đã hạ về 1)
             var renderScale = figmaImportProcessData.ServerRenderScale > 0 ? figmaImportProcessData.ServerRenderScale : 1f;
             var scalingFactor = fill.scalingFactor > 0f ? fill.scalingFactor : 1f;
             return renderScale / scalingFactor;

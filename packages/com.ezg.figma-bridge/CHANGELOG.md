@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.6.5] - 2026-09-24
+### Added
+- **Import timing report.** Every Sync (online or offline) logs one console report when it ends:
+  wall-clock seconds and share of the total for each phase (document download and decode,
+  server render cache check and requests, image download, image import into Unity, node build,
+  component and screen prefab saves, instance placement, 9-slice, behaviour binding, each
+  post-processor, final refresh), with counts such as nodes, requests, files and MB. A stopped
+  import reports the time until it stopped. The last report is also in `FigmaImportTimer.LastReport`.
+- **Server render cache.** An online import only asks Figma to render, and only downloads, the
+  render nodes whose subtree changed since the last import. Each node is hashed from the raw
+  document JSON, leaving out its position on the page but including resolved instance children,
+  so a master component edit re-renders every render that shows it. The hash also covers render
+  type, scale, slicing, wrap and sprite import settings, plus a cache format version. The manifest
+  lives in `Library/FigmaBridge/server-render-cache.json` and records each PNG's length and write
+  time after slicing, so a deleted or edited PNG is fetched again. Delete the manifest to force
+  every render again. The slicer only processes renders downloaded in that import.
+
+### Changed
+- **Server renders are always made at scale 1.** Removed the `ServerRenderImageScale`,
+  `AutoServerRenderScale` and `NativeScreenLongSide` settings and their window fields, along with
+  `FigmaDataUtils.GetEffectiveServerRenderScale`. Every server render is one texel per design unit
+  and imports at 100 pixels per unit; the render failure hint no longer gives scale advice and
+  lists only the frames that were requested. Old settings assets still load: Unity ignores the stale keys.
+- **Faster image download and import.** Image fills and server renders download up to 6 at a time,
+  and the files import in two AssetDatabase batches instead of one Refresh and reimport per file;
+  a file whose settings are already right imports once. An HTTP error response is no longer
+  written over the image, and each download item reports `Succeeded`.
+- **Faster behaviour binding.** One MonoBehaviour type lookup per import (from `TypeCache`) instead
+  of a scan of every loaded type for every node. Types from Unity's own assemblies are no longer
+  bound, so a node named `Image` or `Button` does not gain a UGUI component. With
+  `ScreenBindingNamespace` set, the first type whose name and namespace both match is picked; types
+  sharing a name are chosen in a fixed order (global namespace, then full name, then assembly).
+  Prefabs that binding did not change are not re-saved.
+
+### Fixed
+- `UnityWebRequestAwaiter` no longer throws when a request completes before its continuation is set.
+
 ## [0.6.4] - 2026-09-24
 ### Changed
 - **One tab per page in the screen list.** The window shows the rows of one page at a time
