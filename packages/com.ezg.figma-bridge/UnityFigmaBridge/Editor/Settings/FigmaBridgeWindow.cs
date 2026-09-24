@@ -21,7 +21,7 @@ namespace UnityFigmaBridge.Editor.Settings
         private string m_TokenDraft;
 
         private Vector2 m_MainScrollPos;
-        private readonly Dictionary<string, bool> m_PageFoldouts = new();
+        private string m_SelectedPageId;
 
         /// <summary>
         ///     The bridge's only menu item: it opens the window. Sync / offline re-import / post-processors
@@ -296,11 +296,15 @@ namespace UnityFigmaBridge.Editor.Settings
                     .Where(row => row.Include && IsPageImported(settings, row.PageNodeId))
                     .Select(row => row.NodeId));
 
-                foreach (var pageId in PageIdsInOrder(settings))
-                {
-                    if (ListScreenPageGroup(settings, pageId, tickedScreens, tickedComponents))
-                        applyChanges = true;
-                }
+                // One tab per page, so a long page does not push the others out of reach
+                var pageIds = PageIdsInOrder(settings).ToList();
+                if (!pageIds.Contains(m_SelectedPageId)) m_SelectedPageId = pageIds[0];
+                var tabLabels = pageIds.Select(pageId => PageTabLabel(settings, pageId)).ToArray();
+                m_SelectedPageId = pageIds[GUILayout.Toolbar(pageIds.IndexOf(m_SelectedPageId), tabLabels)];
+                GUILayout.Space(4);
+
+                if (ListScreenPageGroup(settings, m_SelectedPageId, tickedScreens, tickedComponents))
+                    applyChanges = true;
 
                 if (!settings.OnlyImportListedScreens)
                 {
@@ -332,31 +336,40 @@ namespace UnityFigmaBridge.Editor.Settings
                 });
         }
 
+        private static string PageTabLabel(UnityFigmaBridgeSettings settings, string pageId)
+        {
+            var rowCount = settings.ScreenNameOverrides.Count(row => (row.PageNodeId ?? "") == pageId) +
+                           settings.ComponentSelections.Count(row => (row.PageNodeId ?? "") == pageId);
+            return $"{PageName(settings, pageId)} ({rowCount})";
+        }
+
+        private static string PageName(UnityFigmaBridgeSettings settings, string pageId) =>
+            settings.ScreenNameOverrides.Where(row => (row.PageNodeId ?? "") == pageId).Select(row => row.PageName)
+                .Concat(settings.ComponentSelections.Where(row => (row.PageNodeId ?? "") == pageId).Select(row => row.PageName))
+                .FirstOrDefault(name => !string.IsNullOrEmpty(name)) ?? "Unknown page";
+
         /// <summary>
-        /// Draw one page's foldout: its screen rows, then its component rows
+        /// Draw one page's rows, sorted by name: its screen rows, then its component rows
         /// </summary>
-        private bool ListScreenPageGroup(UnityFigmaBridgeSettings settings, string pageId,
+        private static bool ListScreenPageGroup(UnityFigmaBridgeSettings settings, string pageId,
             HashSet<string> tickedScreens, HashSet<string> tickedComponents)
         {
             var applyChanges = false;
-            var screenRows = settings.ScreenNameOverrides.Where(row => (row.PageNodeId ?? "") == pageId).ToList();
-            var componentRows = settings.ComponentSelections.Where(row => (row.PageNodeId ?? "") == pageId).ToList();
-
-            var pageName = screenRows.Select(row => row.PageName).Concat(componentRows.Select(row => row.PageName))
-                .FirstOrDefault(name => !string.IsNullOrEmpty(name)) ?? "Unknown page";
-            var pageIsImported = IsPageImported(settings, pageId);
+            var screenRows = settings.ScreenNameOverrides.Where(row => (row.PageNodeId ?? "") == pageId)
+                .OrderBy(row => row.FrameName, System.StringComparer.OrdinalIgnoreCase).ToList();
+            var componentRows = settings.ComponentSelections.Where(row => (row.PageNodeId ?? "") == pageId)
+                .OrderBy(row => row.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
 
             var counts = new List<string>();
             if (screenRows.Count > 0) counts.Add($"{screenRows.Count} screens");
             if (componentRows.Count > 0) counts.Add($"{componentRows.Count} components");
-            var header = $"{pageName}  ({string.Join(", ", counts)})";
-            if (!pageIsImported) header += "  - page not imported";
-
-            if (!m_PageFoldouts.TryGetValue(pageId, out var expanded)) expanded = pageIsImported;
+            var header = string.Join(", ", counts);
+            if (!IsPageImported(settings, pageId)) header += "  - page not imported";
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                expanded = EditorGUILayout.Foldout(expanded, header, true);
+                GUILayout.Label(header, EditorStyles.boldLabel);
+                GUILayout.FlexibleSpace();
 
                 if (GUILayout.Button("All", GUILayout.Width(34)))
                 {
@@ -372,9 +385,6 @@ namespace UnityFigmaBridge.Editor.Settings
                     foreach (var row in componentRows) row.Include = false;
                 }
             }
-            m_PageFoldouts[pageId] = expanded;
-
-            if (!expanded) return applyChanges;
 
             foreach (var data in screenRows)
             {
@@ -398,14 +408,6 @@ namespace UnityFigmaBridge.Editor.Settings
                         applyChanges = true;
                     }
                 }
-            }
-
-            if (componentRows.Count == 0) return applyChanges;
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(14);
-                GUILayout.Label("Components", EditorStyles.miniBoldLabel);
             }
 
             foreach (var data in componentRows)

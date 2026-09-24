@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.4] - 2026-09-24
+### Changed
+- **One tab per page in the screen list.** The window shows the rows of one page at a time
+  (`Screens (29)`, `Components (60)`, ...) instead of every page one under another, so no page
+  has to be scrolled past to reach another. The `All` and `None` buttons act on the open tab.
+- **Rows are sorted by name** (case-insensitive) in the window. The settings asset keeps them in
+  document order.
+
 ## [0.6.3] - 2026-09-24
 ### Added
 - **Fixed pages: `Screens` and `Components`** (settings `ScreensPageName`, `ComponentsPageName`).
