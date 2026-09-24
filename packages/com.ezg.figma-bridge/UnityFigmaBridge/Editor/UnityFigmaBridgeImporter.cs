@@ -552,6 +552,10 @@ namespace UnityFigmaBridge.Editor
             // First up create a list of nodes we'll substitute with rendered images
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(figmaFile,externalComponentList,downloadPageIdList,
                 s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports);
+            FigmaImageFillNamer.BuildServerRenders(figmaFile, downloadPageNodeList,
+                s_UnityFigmaBridgeSettings.NameServerRendersByNodePath
+                    ? serverRenderNodes.Where(n => n.RenderType != ServerRenderType.Export).Select(n => n.SourceNode.id)
+                    : Enumerable.Empty<string>());
             // File vẽ sẵn ở 1080×2400 thì render ×1, không phình texture theo settings
             var serverRenderScale = FigmaDataUtils.GetEffectiveServerRenderScale(figmaFile,
                 s_UnityFigmaBridgeSettings.ServerRenderImageScale, s_UnityFigmaBridgeSettings.AutoServerRenderScale,

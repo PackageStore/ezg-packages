@@ -138,6 +138,10 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: btn_play.png thay cho 3f9a2c81.png")]
         public bool NameImageFillsByNodePath = true;
 
+        [Tooltip("Đặt server render vào cùng thư mục chủ sở hữu (Components/<component>, Screens/<màn hình>) và đặt tên theo node, như image fill, thay cho <node id>.png trong ServerRenderedImages.\n" +
+                 "Ví dụ: Sprites/<tài liệu>/Components/Popup/Mask group.png thay cho ServerRenderedImages/335_1485.png")]
+        public bool NameServerRendersByNodePath = true;
+
         [Header("Nine-Slice")]
         [Tooltip("Gộp lưới slice_ROW_COL thành một Image kiểu Sliced.\n" +
                  "Ví dụ: 9 ô slice thành 1 sprite có border.")]

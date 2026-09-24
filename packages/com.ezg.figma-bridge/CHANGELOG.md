@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1] - 2026-09-24
+### Changed
+- **Server renders are filed and named like image fills** (setting `NameServerRendersByNodePath`,
+  on by default). A render goes to `<image fills>/Components/<component>/`,
+  `<image fills>/Screens/<screen>/` or `<image fills>/Shared/`, named by its node path, instead of
+  `ServerRenderedImages/<node id>.png`. Fills are named first and both claim names from one set,
+  so a render never takes a fill's file. A render outside the imported pages and a top-level
+  export keep their old paths. The first import after the update must be online: the renders
+  download to their new paths, and the old `<node id>.png` files are no longer used.
+
 ## [0.6.0] - 2026-09-24
 ### Added
 - **Clip content becomes a mask on the same GameObject** (`ClipContentMask`, setting

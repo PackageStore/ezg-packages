@@ -137,6 +137,12 @@ namespace UnityFigmaBridge.Editor.Utils
                 case ServerRenderType.Export:
                     return $"Assets/{matchingEntry.SourceNode.name}.png";
                 default:
+                    if (FigmaImageFillNamer.TryGetRenderRelativeName(nodeId, out var relativeName))
+                    {
+                        var path = $"{FigmaImageFillFolder}/{relativeName}.png";
+                        EnsureDirectory(Path.GetDirectoryName(path)?.Replace('\\', '/'));
+                        return path;
+                    }
                     var safeNodeId = FigmaDataUtils.ReplaceUnsafeFileCharactersForNodeId(nodeId);
                     return $"{FigmaServerRenderedImagesFolder}/{safeNodeId}.png";
             }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -25,6 +26,9 @@ namespace UnityFigmaBridge.Editor.Utils
     ///     Names come from the nearest meaningful ancestor. Slice-grid cells are skipped, because
     ///     <c>slice_1_1</c> names a cell of a plate rather than the plate, and all nine cells share
     ///     one imageRef anyway.
+    ///
+    ///     Server renders get the same folder and naming, keyed by the rendered node id. Fills and
+    ///     renders claim names from one set, so a render never overwrites a fill in the same folder.
     /// </summary>
     internal static class FigmaImageFillNamer
     {
@@ -35,6 +39,8 @@ namespace UnityFigmaBridge.Editor.Utils
         private static readonly Regex SliceName = new(@"^slice_(.+)_(.+)$", RegexOptions.Compiled);
 
         private static readonly Dictionary<string, string> s_NameByImageRef = new();
+        private static readonly Dictionary<string, string> s_NameByRenderNodeId = new();
+        private static readonly HashSet<string> s_Taken = new();
 
         private enum OwnerKind
         {
@@ -56,7 +62,12 @@ namespace UnityFigmaBridge.Editor.Utils
             }
         }
 
-        internal static void Clear() => s_NameByImageRef.Clear();
+        internal static void Clear()
+        {
+            s_NameByImageRef.Clear();
+            s_NameByRenderNodeId.Clear();
+            s_Taken.Clear();
+        }
 
         internal static bool IsActive => s_NameByImageRef.Count > 0;
 
@@ -70,6 +81,9 @@ namespace UnityFigmaBridge.Editor.Utils
         internal static bool TryGetRelativeName(string imageRef, out string relativeName) =>
             s_NameByImageRef.TryGetValue(imageRef, out relativeName);
 
+        internal static bool TryGetRenderRelativeName(string nodeId, out string relativeName) =>
+            s_NameByRenderNodeId.TryGetValue(nodeId, out relativeName);
+
         /// <param name="importedPages">
         ///     Only these pages are walked. A frame on a page nobody imports must never own an
         ///     asset, or art an imported screen needs ends up filed under a screen that does not
@@ -77,29 +91,59 @@ namespace UnityFigmaBridge.Editor.Utils
         /// </param>
         internal static void Build(FigmaFile figmaFile, List<Node> importedPages)
         {
-            s_NameByImageRef.Clear();
+            Clear();
             if (figmaFile?.document == null) return;
 
-            var pages = importedPages != null && importedPages.Count > 0
-                ? importedPages
-                : (figmaFile.document.children ?? new Node[] { }).ToList();
-
             var usages = new Dictionary<string, List<Usage>>();
-            foreach (var page in pages)
-                Collect(page, null, null, new List<string>(), usages);
+            foreach (var page in PagesToWalk(figmaFile, importedPages))
+                Collect(page, null, null, new List<string>(), usages, ImageRefsOf, false);
 
             // Sorting by imageRef, then resolving each independently, keeps the output identical
             // between imports even if Figma reorders the document.
-            var taken = new HashSet<string>();
             foreach (var imageRef in usages.Keys.OrderBy(k => k))
             {
                 var (folder, candidates) = Resolve(usages[imageRef]);
-                s_NameByImageRef[imageRef] = Claim(folder, candidates, taken);
+                s_NameByImageRef[imageRef] = Claim(folder, candidates, s_Taken);
             }
         }
 
+        /// <summary>
+        ///     Runs after <see cref="Build"/>, so fills keep the names they had before renders were
+        ///     named. A render nothing imported owns (a pattern source in a plain frame) goes to
+        ///     <c>Shared</c>; a node outside the walked pages keeps its node-id file name.
+        /// </summary>
+        internal static void BuildServerRenders(FigmaFile figmaFile, List<Node> importedPages,
+            IEnumerable<string> renderNodeIds)
+        {
+            foreach (var name in s_NameByRenderNodeId.Values) s_Taken.Remove(name);
+            s_NameByRenderNodeId.Clear();
+            var wanted = new HashSet<string>(renderNodeIds);
+            if (figmaFile?.document == null || wanted.Count == 0) return;
+
+            var usages = new Dictionary<string, List<Usage>>();
+            foreach (var page in PagesToWalk(figmaFile, importedPages))
+                Collect(page, null, null, new List<string>(), usages,
+                    node => wanted.Contains(node.id) ? new[] { node.id } : Array.Empty<string>(), true);
+
+            foreach (var nodeId in usages.Keys.OrderBy(k => k, StringComparer.Ordinal))
+            {
+                var (folder, candidates) = Resolve(usages[nodeId]);
+                s_NameByRenderNodeId[nodeId] = Claim(folder, candidates, s_Taken);
+            }
+        }
+
+        private static IEnumerable<Node> PagesToWalk(FigmaFile figmaFile, List<Node> importedPages) =>
+            importedPages != null && importedPages.Count > 0
+                ? importedPages
+                : figmaFile.document.children ?? new Node[] { };
+
+        private static IEnumerable<string> ImageRefsOf(Node node) =>
+            (node.fills ?? new Paint[] { }).Select(fill => fill?.imageRef).Where(imageRef => !string.IsNullOrEmpty(imageRef));
+
+        /// <param name="keysOf">What this node contributes a usage for: its fills' imageRefs, or its own id when it is rendered.</param>
+        /// <param name="keepUnowned">A render is drawn wherever it is reached, so it needs a name even with no owner.</param>
         private static void Collect(Node node, string screen, string component, List<string> path,
-            Dictionary<string, List<Usage>> usages)
+            Dictionary<string, List<Usage>> usages, Func<Node, IEnumerable<string>> keysOf, bool keepUnowned)
         {
             if (node == null) return;
 
@@ -126,22 +170,21 @@ namespace UnityFigmaBridge.Editor.Utils
                 nodePath = new List<string>();
             }
 
-            foreach (var fill in node.fills ?? new Paint[] { })
+            foreach (var key in keysOf(node))
             {
-                if (string.IsNullOrEmpty(fill?.imageRef)) continue;
-                if (component == null && screen == null) continue;
+                if (component == null && screen == null && !keepUnowned) continue;
 
                 var usage = component != null
                     ? new Usage(OwnerKind.Component, component, JoinPath(nodePath))
                     : new Usage(OwnerKind.Screen, screen, JoinPath(nodePath));
 
-                if (!usages.TryGetValue(fill.imageRef, out var list))
-                    usages[fill.imageRef] = list = new List<Usage>();
+                if (!usages.TryGetValue(key, out var list))
+                    usages[key] = list = new List<Usage>();
                 list.Add(usage);
             }
 
             foreach (var child in node.children ?? new Node[] { })
-                Collect(child, screen, component, nodePath, usages);
+                Collect(child, screen, component, nodePath, usages, keysOf, keepUnowned);
         }
 
         private static (string folder, List<string> candidates) Resolve(List<Usage> usages)
@@ -154,7 +197,7 @@ namespace UnityFigmaBridge.Editor.Utils
                 return ($"{COMPONENTS_FOLDER}/{Sanitise(owner)}", CandidateNames(scoped));
             }
 
-            var screens = usages.Select(u => u.Owner).Distinct().OrderBy(o => o).ToList();
+            var screens = usages.Select(u => u.Owner).Where(o => o != null).Distinct().OrderBy(o => o).ToList();
             return screens.Count == 1
                 ? ($"{SCREENS_FOLDER}/{Sanitise(screens[0])}", CandidateNames(usages))
                 : (SHARED_FOLDER, CandidateNames(usages));
