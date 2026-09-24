@@ -66,8 +66,11 @@ namespace UnityFigmaBridge.Editor.NineSlice
             if (slices.Any(s => s.img.sprite.texture.width != texture.width ||
                                 s.img.sprite.texture.height != texture.height)) return false;
 
-            var border = MeasureBorder(node, slices);
-            var sprite = EnsureSlicedSprite(slices[0].img.sprite, border, spriteDir, ref written);
+            // The border is measured in design units; the texture may hold more (or fewer) pixels per unit
+            var density = TexelsPerDesignUnit(slices[0].img.sprite, ((RectTransform)node).rect.width);
+            var border = MeasureBorder(node, slices) * density;
+            border = new Vector4(Mathf.Round(border.x), Mathf.Round(border.y), Mathf.Round(border.z), Mathf.Round(border.w));
+            var sprite = EnsureSlicedSprite(slices[0].img.sprite, border, ReferencePixelsPerUnit * density, spriteDir, ref written);
             if (sprite == null) return false;
 
             foreach (var s in slices) Object.DestroyImmediate(s.t.gameObject);
@@ -114,32 +117,49 @@ namespace UnityFigmaBridge.Editor.NineSlice
             if (left + right >= size.x) { left = 0f; right = 0f; }
             if (top + bottom >= size.y) { top = 0f; bottom = 0f; }
 
-            return new Vector4(Mathf.Round(left), Mathf.Round(bottom), Mathf.Round(right), Mathf.Round(top));
+            return new Vector4(left, bottom, right, top);
+        }
+
+        /// <summary>Canvas reference pixels per unit: a sprite at this density draws one texel per UI unit.</summary>
+        private const float ReferencePixelsPerUnit = 100f;
+
+        /// <summary>Source texels per design unit, from the file's own size so an import size cap does not skew it.</summary>
+        private static float TexelsPerDesignUnit(Sprite sprite, float designWidth)
+        {
+            if (designWidth <= 0f) return 1f;
+            var textureWidth = (float)sprite.texture.width;
+            if (AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(sprite)) is TextureImporter importer)
+            {
+                importer.GetSourceTextureWidthAndHeight(out var sourceWidth, out _);
+                textureWidth = sourceWidth;
+            }
+            return textureWidth / designWidth;
         }
 
         /// <summary>
         ///     Use the existing image fill asset when available, setting the sprite border on its
         ///     importer. Falls back to a RenderTexture read-back when the sprite has no asset path.
         /// </summary>
-        private static Sprite EnsureSlicedSprite(Sprite cellSprite, Vector4 border, string spriteDir, ref int written)
+        private static Sprite EnsureSlicedSprite(Sprite cellSprite, Vector4 border, float pixelsPerUnit, string spriteDir, ref int written)
         {
             var assetPath = AssetDatabase.GetAssetPath(cellSprite);
             if (!string.IsNullOrEmpty(assetPath))
             {
-                ConfigureBorder(assetPath, border);
+                ConfigureBorder(assetPath, border, pixelsPerUnit);
                 return cellSprite;
             }
-            return BakeSprite(cellSprite.texture, border, spriteDir, ref written);
+            return BakeSprite(cellSprite.texture, border, pixelsPerUnit, spriteDir, ref written);
         }
 
-        private static void ConfigureBorder(string path, Vector4 border)
+        private static void ConfigureBorder(string path, Vector4 border, float pixelsPerUnit)
         {
             if (AssetImporter.GetAtPath(path) is not TextureImporter importer) return;
             var settings = new TextureImporterSettings();
             importer.ReadTextureSettings(settings);
             if (importer.textureType == TextureImporterType.Sprite &&
                 importer.spriteImportMode == SpriteImportMode.Single &&
-                settings.spriteBorder == border) return;
+                settings.spriteBorder == border &&
+                Mathf.Approximately(settings.spritePixelsPerUnit, pixelsPerUnit)) return;
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
@@ -147,6 +167,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.ReadTextureSettings(settings);
             settings.spriteBorder = border;
+            settings.spritePixelsPerUnit = pixelsPerUnit;
             importer.SetTextureSettings(settings);
             importer.SaveAndReimport();
         }
@@ -155,7 +176,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
         ///     Fallback: write the texture out as a project sprite when the cell sprite has no
         ///     asset path. Content hash as the name so the same art becomes one sprite.
         /// </summary>
-        private static Sprite BakeSprite(Texture2D texture, Vector4 border, string spriteDir, ref int written)
+        private static Sprite BakeSprite(Texture2D texture, Vector4 border, float pixelsPerUnit, string spriteDir, ref int written)
         {
             var png = ReadablePng(texture);
             if (png == null) return null;
@@ -172,7 +193,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 written++;
             }
 
-            ConfigureBorder(path, border);
+            ConfigureBorder(path, border, pixelsPerUnit);
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 

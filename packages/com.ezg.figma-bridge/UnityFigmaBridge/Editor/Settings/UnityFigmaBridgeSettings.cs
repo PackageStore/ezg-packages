@@ -142,6 +142,11 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: 9 ô slice thành 1 sprite có border.")]
         public bool CollapseSliceGrids = true;
 
+        [Tooltip("Cho mỗi shape Figma render trên server một sprite border theo bo góc, viền và bóng; " +
+                 "cắt phần giữa đồng màu còn 2 px.\n" +
+                 "Ví dụ: nút bo góc 28 vẽ ở mọi kích thước instance mà góc không bị kéo méo.")]
+        public bool SliceServerRenders = true;
+
         [Header("Output Shape")]
         [Tooltip("Gắn LayoutElement cho node nào. OnlyUnderAutoLayout: chỉ con của frame auto layout.\n" +
                  "Ví dụ: Always giữ nếp 0.2, mỗi node một LayoutElement.")]

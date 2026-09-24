@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEditor;
@@ -196,15 +197,22 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <param name="accessToken">Figma Access Token</param>
         /// <param name="serverNodeCsvList">Csv List of nodes to render</param>
         /// <param name="serverRenderImageScale">Scale to render images at</param>
+        /// <param name="useAbsoluteBounds">
+        ///     True crops the image to the layout box. False keeps what draws outside it (outside
+        ///     strokes, shadows), matching the node's <c>absoluteRenderBounds</c>.
+        /// </param>
         /// <returns>List of urls to access the rendered images</returns>
         /// <exception cref="Exception"></exception>
         public static async Task<FigmaServerRenderData> GetFigmaServerRenderData(string fileId, string accessToken,
-            string serverNodeCsvList, int serverRenderImageScale)
+            IEnumerable<string> nodeIds, int serverRenderImageScale, bool useAbsoluteBounds)
         {
             FigmaServerRenderData figmaServerRenderData = null;
+            // Instance sublayer ids carry ';', which must not reach the query string raw
+            var serverNodeCsvList = string.Join(",", nodeIds.Select(Uri.EscapeDataString));
             // Execute server-side rendering. Sending this webRequest will return a list of all images to download
             var serverRenderUrl =
-                $"https://api.figma.com/v1/images/{fileId}?ids={serverNodeCsvList}&scale={serverRenderImageScale}&use_absolute_bounds=true";
+                $"https://api.figma.com/v1/images/{fileId}?ids={serverNodeCsvList}&scale={serverRenderImageScale}" +
+                $"&use_absolute_bounds={(useAbsoluteBounds ? "true" : "false")}";
             var webRequest = UnityWebRequest.Get(serverRenderUrl);
             webRequest.SetRequestHeader("X-Figma-Token", accessToken);
 

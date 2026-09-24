@@ -271,6 +271,7 @@ namespace UnityFigmaBridge.Editor.Components
             // If this is a substitution, ignore children (as they wont exist) and apply absolute bounds transform (as rotation already applied)
             if (isSubstitution)
             {
+                ApplyInstanceRender(node, nodeObject, figmaImportProcessData);
                 NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
                 return;
             }
@@ -287,12 +288,54 @@ namespace UnityFigmaBridge.Editor.Components
                 var matchingChildGameObject = FindMatchingChildForFigmaNode(childNode, nodeObject.transform);
                 if (matchingChildGameObject != null)
                 {
+                    matchingChildGameObject = SwapChangedComponent(childNode, matchingChildGameObject, figmaImportProcessData);
                     ApplyFigmaProperties(childNode, matchingChildGameObject, node, figmaImportProcessData);
 
                 }
                 else
                     Debug.Log($"Applying properties - Could not find child object {childNode.id} name {childNode.name} from parent node id {node.id} in parent transform {nodeObject.name}");
             }
+        }
+
+        /// <summary>
+        ///     An instance that restyles a server-rendered node has a render of its own, keyed by the
+        ///     instance-side id (see <see cref="FigmaDataUtils.FindAllServerRenderNodesInFile"/>). Without
+        ///     one the node keeps the component's sprite.
+        /// </summary>
+        private static void ApplyInstanceRender(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            var renderNodes = figmaImportProcessData.ServerRenderNodes;
+            if (!renderNodes.Exists(entry => entry.SourceNode.id == node.id)) return;
+            var image = nodeObject.GetComponent<Image>();
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(node.id, renderNodes));
+            if (image == null || sprite == null) return;
+            image.sprite = sprite;
+            image.type = FigmaAssetGenerator.SlicedIfBordered(sprite);
+        }
+
+        /// <summary>
+        ///     A nested instance whose component changed in this instance (a variant or instance swap)
+        ///     still holds the prefab its parent component was built with. Replace it with the prefab
+        ///     of the component the Figma node names, keeping its place, transform and node id.
+        /// </summary>
+        private static GameObject SwapChangedComponent(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            if (node.type != NodeType.INSTANCE || string.IsNullOrEmpty(node.componentId)) return nodeObject;
+            if (!PrefabUtility.IsAnyPrefabInstanceRoot(nodeObject)) return nodeObject;
+            var targetPrefab = figmaImportProcessData.ComponentData.GetComponentPrefab(node.componentId);
+            if (targetPrefab == null || PrefabUtility.GetCorrespondingObjectFromOriginalSource(nodeObject) == targetPrefab)
+                return nodeObject;
+
+            var replacement = (GameObject)PrefabUtility.InstantiatePrefab(targetPrefab, nodeObject.transform.parent);
+            UnityUiUtils.CloneTransformData(nodeObject.transform as RectTransform, replacement.transform as RectTransform);
+            replacement.name = nodeObject.name;
+            replacement.transform.SetSiblingIndex(nodeObject.transform.GetSiblingIndex());
+            replacement.SetActive(nodeObject.activeSelf);
+            var replacementMarker = replacement.GetComponent<FigmaNodeObject>();
+            var originalMarker = nodeObject.GetComponent<FigmaNodeObject>();
+            if (replacementMarker != null && originalMarker != null) replacementMarker.NodeId = originalMarker.NodeId;
+            Object.DestroyImmediate(nodeObject);
+            return replacement;
         }
 
         /// <summary>

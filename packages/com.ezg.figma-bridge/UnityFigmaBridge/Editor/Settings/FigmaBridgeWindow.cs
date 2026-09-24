@@ -98,6 +98,17 @@ namespace UnityFigmaBridge.Editor.Settings
                             "Run every IFigmaImportPostProcessor in the project against the prefabs on disk."), GUILayout.Height(24)))
                         UnityFigmaBridgeImporter.RunPostProcessorsOnly();
                 }
+
+                var selectedPrefab = Verify.FigmaVisualCheck.SelectedPrefabPath();
+                using (new EditorGUI.DisabledScope(selectedPrefab == null))
+                {
+                    if (GUILayout.Button(new GUIContent("Visual Check (selected screen prefab)",
+                            "Compare the selected screen prefab with Figma's render of its frame, container by container " +
+                            $"(SSIM, pass {Verify.FigmaVisualCheck.DefaultPassScore:0.00}, text-only {Verify.FigmaVisualCheck.DefaultTextPassScore:0.00}). " +
+                            $"Output: {Verify.FigmaVisualCheck.OutputRoot}."),
+                            GUILayout.Height(24)))
+                        Debug.Log(Verify.FigmaVisualCheck.Run(selectedPrefab).ToString());
+                }
             }
         }
 

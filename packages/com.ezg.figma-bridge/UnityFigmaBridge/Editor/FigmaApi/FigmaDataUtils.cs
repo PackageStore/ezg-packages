@@ -484,8 +484,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, List<string> missingComponentIds,
             bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports)
         {
-            // Instances will already be defined by original prefab (eg that may already be rendered). Also dont attempt to render invisible nodes
-            if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId) || !figmaNode.visible) return;
+            if (!figmaNode.visible) return;
+
+            // Instances reuse the prefab and renders of their component. Only the sublayers they
+            // restyle need a render of their own.
+            if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId))
+            {
+                if (isSelectedPage || withinComponentDefinition)
+                    AddRestyledSublayerRenders(figmaNode, RestyledNodeIds(figmaNode, null), substitutionNodeList, recursiveNodeDepth);
+                return;
+            }
 
             // Top level frames should be checked for server-side rendering
             // Tắt được qua Settings.ServerRenderTopLevelExports: frame màn hình có Export setting
@@ -523,6 +531,54 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition,
                     renderTopLevelExports);
             
+        }
+
+        /// <summary>Instance override fields that change what a server render of the node looks like.</summary>
+        private static readonly HashSet<string> s_RenderedOverrideFields = new HashSet<string>
+        {
+            "fills", "strokes", "strokeWeight", "strokeAlign", "strokeDashes", "individualStrokeWeights",
+            "effects", "cornerRadius", "rectangleCornerRadii", "opacity", "blendMode", "visible", "arcData"
+        };
+
+        private static HashSet<string> RestyledNodeIds(Node instance, HashSet<string> inherited)
+        {
+            var ids = inherited != null ? new HashSet<string>(inherited) : new HashSet<string>();
+            if (instance.overrides == null) return ids;
+            foreach (var instanceOverride in instance.overrides)
+            {
+                if (instanceOverride?.overriddenFields == null || string.IsNullOrEmpty(instanceOverride.id)) continue;
+                if (instanceOverride.overriddenFields.Any(s_RenderedOverrideFields.Contains)) ids.Add(instanceOverride.id);
+            }
+            return ids;
+        }
+
+        /// <summary>
+        ///     Queue a render for each node inside an instance that its component draws as one server
+        ///     render, when the instance restyles that node or anything under it. The render is keyed by
+        ///     the instance-side id, so the instance gets its own sprite instead of the component's.
+        /// </summary>
+        private static void AddRestyledSublayerRenders(Node node, HashSet<string> restyledIds,
+            List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth)
+        {
+            if (restyledIds.Count == 0 || !node.visible) return;
+            if (GetNodeSubstitutionStatus(node, recursiveNodeDepth))
+            {
+                if (SubtreeContainsAny(node, restyledIds) && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
+                    substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = node });
+                return;
+            }
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+            {
+                var childIds = childNode.type == NodeType.INSTANCE ? RestyledNodeIds(childNode, restyledIds) : restyledIds;
+                AddRestyledSublayerRenders(childNode, childIds, substitutionNodeList, recursiveNodeDepth + 1);
+            }
+        }
+
+        private static bool SubtreeContainsAny(Node node, HashSet<string> ids)
+        {
+            if (ids.Contains(node.id)) return true;
+            return node.children != null && node.children.Any(childNode => SubtreeContainsAny(childNode, ids));
         }
 
         /// <summary>

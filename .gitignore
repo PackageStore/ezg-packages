@@ -22,3 +22,6 @@ temp_extract/
 # junction/symlink into it (git can't represent a Windows junction) — recreate it
 # locally with: node scripts/link-skills.mjs
 .claude/skills
+
+# CodeGraph index (local, per machine)
+.codegraph/

@@ -12,6 +12,7 @@ using UnityEngine.UI;
 using UnityFigmaBridge.Editor.Components;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Fonts;
+using UnityFigmaBridge.Editor.NineSlice;
 using UnityFigmaBridge.Editor.Nodes;
 using UnityFigmaBridge.Editor.PostProcess;
 using UnityFigmaBridge.Editor.PrototypeFlow;
@@ -519,28 +520,30 @@ namespace UnityFigmaBridge.Editor
             var serverRenderData=new List<FigmaServerRenderData>();
             if (serverRenderNodes.Count > 0 && !offline)
             {
-                var allNodeIds = serverRenderNodes.Select(serverRenderNode => serverRenderNode.SourceNode.id).ToList();
-                // As the API has an upper limit of images that can be rendered in a single request, we'll need to batch
+                // A pattern tile is the source node's layout box. Every other render keeps what draws
+                // outside the box (outside strokes, shadows): its RectTransform covers the render bounds.
                 // Request render quá nặng làm gateway Figma trả 504. Batch khởi đầu theo Settings.ServerRenderBatchSize;
                 // gặp 5xx/timeout thì chia đôi batch đó rồi gửi lại; batch 1 node vẫn lỗi thì thử lại vài lần.
-                var pendingBatches = new List<List<string>>();
-                for (var startIndex = 0; startIndex < allNodeIds.Count; startIndex += serverRenderBatchSize)
-                    pendingBatches.Add(allNodeIds.GetRange(startIndex,
-                        Mathf.Min(serverRenderBatchSize, allNodeIds.Count - startIndex)));
+                var pendingBatches = new List<(bool useAbsoluteBounds, List<string> ids)>();
+                foreach (var group in serverRenderNodes.GroupBy(n => n.RenderType == ServerRenderType.PatternSource))
+                {
+                    var ids = group.Select(n => n.SourceNode.id).ToList();
+                    for (var startIndex = 0; startIndex < ids.Count; startIndex += serverRenderBatchSize)
+                        pendingBatches.Add((group.Key, ids.GetRange(startIndex, Mathf.Min(serverRenderBatchSize, ids.Count - startIndex))));
+                }
 
                 var renderedCount = 0;
                 var singleNodeRetries = 0;
                 while (pendingBatches.Count > 0)
                 {
-                    var nodeBatch = pendingBatches[0];
-                    var serverNodeCsvList = string.Join(",", nodeBatch);
+                    var (useAbsoluteBounds, nodeBatch) = pendingBatches[0];
                     EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE,
-                        $"Downloading server-rendered image data {renderedCount}/{allNodeIds.Count} (batch {nodeBatch.Count})",
-                        (float)renderedCount / allNodeIds.Count);
+                        $"Downloading server-rendered image data {renderedCount}/{serverRenderNodes.Count} (batch {nodeBatch.Count})",
+                        (float)renderedCount / serverRenderNodes.Count);
                     try
                     {
                         var figmaTask = FigmaApiUtils.GetFigmaServerRenderData(fileId, s_PersonalAccessToken,
-                            serverNodeCsvList, serverRenderScale);
+                            nodeBatch, serverRenderScale, useAbsoluteBounds);
                         await figmaTask;
                         serverRenderData.Add(figmaTask.Result);
                         pendingBatches.RemoveAt(0);
@@ -554,8 +557,8 @@ namespace UnityFigmaBridge.Editor
                         {
                             var half = nodeBatch.Count / 2;
                             pendingBatches.RemoveAt(0);
-                            pendingBatches.Insert(0, nodeBatch.GetRange(half, nodeBatch.Count - half));
-                            pendingBatches.Insert(0, nodeBatch.GetRange(0, half));
+                            pendingBatches.Insert(0, (useAbsoluteBounds, nodeBatch.GetRange(half, nodeBatch.Count - half)));
+                            pendingBatches.Insert(0, (useAbsoluteBounds, nodeBatch.GetRange(0, half)));
                             Debug.LogWarning($"[FigmaBridge] Server render HTTP {e.StatusCode} với batch {nodeBatch.Count} node " +
                                              $"→ chia đôi còn {half} và gửi lại.");
                         }
@@ -626,6 +629,9 @@ namespace UnityFigmaBridge.Editor
                     .Select(FigmaPaths.GetPathForImageFill)
                     .Where(p => !File.Exists(p)).ToList());
             }
+
+            if (s_UnityFigmaBridgeSettings.SliceServerRenders)
+                ServerRenderSlicer.Run(serverRenderNodes, serverRenderScale);
 
             // Generate font mapping data
             var figmaFontMapTask = FontManager.GenerateFontMapForDocument(figmaFile,

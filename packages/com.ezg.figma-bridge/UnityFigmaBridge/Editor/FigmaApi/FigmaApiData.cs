@@ -447,10 +447,24 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// ID of component that this instance came from, refers to components table (see endpoints section below)
         /// </summary>
         public string componentId;
+
+        /// <summary>
+        /// Properties this instance changes on itself or on its sublayers. Overrides inherited from a
+        /// nested instance are listed on that nested instance, not here.
+        /// </summary>
+        public InstanceOverride[] overrides;
         
         // FOR ELLIPSE
         public ArcData arcData;
         
+    }
+
+    public class InstanceOverride
+    {
+        /// <summary>Id of the overridden node, the instance itself or one of its sublayers.</summary>
+        public string id;
+
+        public string[] overriddenFields;
     }
     
     public class Color

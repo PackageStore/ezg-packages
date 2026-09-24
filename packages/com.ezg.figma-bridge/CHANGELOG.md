@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.5.0] - 2026-09-24
+### Added
+- **Server renders get a sprite border** (`ServerRenderSlicer`, setting `SliceServerRenders`, on by
+  default). A render made at the component's size keeps its corner radius, strokes and shadows where
+  an instance draws it at another size. A band of identical columns (rows) in the render becomes the
+  border centre and is cut down to 2 px, averaged so Figma's dither does not streak; comparison is
+  premultiplied with a 4 level tolerance. An axis with a gradient along it takes its border from the
+  node geometry (radius, inside stroke, shadow reach, what draws outside the box) and keeps its pixels.
+  Renders import at 100 x the scale they were made at (`FigmaImportProcessData.ServerRenderScale`)
+  pixels per unit, so borders draw at design size.
+- **Instances that restyle a server-rendered sublayer get their own render.** Instance `overrides`
+  are read from the API (`Node.overrides`); a sublayer whose fills, strokes, effects, radius,
+  opacity or visibility an instance changes is rendered under its instance-side id and its sprite
+  replaces the component's in that instance.
+- **Nested variant and instance swaps.** A nested instance whose component differs from the one its
+  parent component was built with is replaced by the prefab of the component the node names.
+- **Visual check** (`Verify.FigmaVisualCheck`, button in the Figma Bridge window). Captures a screen
+  prefab at frame size in a preview scene and scores each container (a visible node with children)
+  by SSIM against Figma's 1x render of the frame. Pass: 0.90, or 0.85 for a container that draws
+  only text. Captures, a difference map and `report.json` go to `Library/FigmaVisualCheck/<prefab>`.
+
+### Fixed
+- Server renders were requested with `use_absolute_bounds=true`, which crops to the layout box, and
+  then stretched over the render-bounds rect: outside strokes survived only at the corners, shadows
+  were cut. Renders now cover the render bounds; pattern tiles alone keep the layout box.
+- Instance sublayer ids (`I1:2;3:4`) are URL-escaped in render requests.
+- `slice_ROW_COL` collapse wrote a border measured in design units as texture pixels and left the
+  sprite at 100 pixels per unit, so a plate at any density other than 1 texel per unit lost its
+  corners. The border and pixels per unit now follow the texture's density.
+
 ## [0.4.1] - 2026-09-24
 ### Added
 - **Server-render settings** on `UnityFigmaBridgeSettings`: `AutoServerRenderScale`,

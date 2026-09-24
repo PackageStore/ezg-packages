@@ -185,8 +185,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             
             if (matchingServerRenderEntry!=null)
             {
-                // Attach a simple image node (no need for custom renderer)
-                nodeGameObject.AddComponent<Image>().sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(figmaNode.id,figmaImportProcessData.ServerRenderNodes));
+                var renderImage = nodeGameObject.AddComponent<Image>();
+                renderImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(figmaNode.id,figmaImportProcessData.ServerRenderNodes));
+                renderImage.type = SlicedIfBordered(renderImage.sprite);
                 
                 // This could be a button, so check for prototype functionality
                 PrototypeFlowManager.ApplyPrototypeFunctionalityToNode(figmaNode, nodeGameObject, figmaImportProcessData);
@@ -271,6 +272,12 @@ namespace UnityFigmaBridge.Editor.Nodes
             return nodeGameObject;
         }
 
+
+        /// <summary>A server render with a border keeps its corners at any instance size.</summary>
+        public static Image.Type SlicedIfBordered(Sprite sprite)
+        {
+            return sprite != null && sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
+        }
 
         /// <summary>
         /// Create a flowScreen prefab from a generated figma asset
