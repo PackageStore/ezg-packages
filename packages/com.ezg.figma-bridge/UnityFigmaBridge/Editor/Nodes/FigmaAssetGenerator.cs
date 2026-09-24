@@ -76,6 +76,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             if (figmaImportProcessData.Settings.CollapseSliceGrids)
                 NineSlicePass.Run(figmaImportProcessData);
 
+            SpritePlatformOverride.ApplyToFolders(figmaImportProcessData.Settings,
+                FigmaPaths.FigmaImageFillFolder, FigmaPaths.FigmaServerRenderedImagesFolder);
+
             // Remove all temporary components that were created along the way
             ComponentManager.RemoveAllTemporaryNodeComponents(figmaImportProcessData);
             

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using UnityEditor;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Utils;
@@ -185,6 +186,16 @@ namespace UnityFigmaBridge.Editor.Settings
 
         [Tooltip("Nén texture cho sprite tải về.\nVí dụ: Uncompressed để giữ đúng màu khi soi pixel.")]
         public SpriteCompressionMode SpriteCompression = SpriteCompressionMode.Uncompressed;
+
+        [Tooltip("Bật override Android và iOS cho mọi sprite bridge ghi ra, kể cả sprite đã có.\n" +
+                 "Ví dụ: tắt khi cần giữ sprite thô trên mobile.")]
+        public bool OverrideMobileFormat = true;
+
+        [Tooltip("Định dạng texture cho tab Android và iOS.\nVí dụ: ASTC_4x4 cho UI sắc nét, ASTC_6x6 để nhẹ hơn.")]
+        public TextureImporterFormat MobileTextureFormat = TextureImporterFormat.ASTC_4x4;
+
+        [Tooltip("Chất lượng nén cho tab Android và iOS.\nVí dụ: Normal cân bằng thời gian import và chất lượng.")]
+        public TextureCompressionQuality MobileCompressionQuality = TextureCompressionQuality.Normal;
 
         string IFolderDefaults.DefaultFolder(string propertyPath)
         {

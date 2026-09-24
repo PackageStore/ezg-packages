@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.2] - 2026-09-24
+### Added
+- **Android and iOS texture override.** Every texture the bridge writes (image fills, server
+  renders, baked 9-slice sprites) gets the Android and iOS override tabs turned on with
+  `MobileTextureFormat` (default `ASTC_4x4`) and `MobileCompressionQuality` (default `Normal`).
+  New downloads get it before their first import; a pass after the 9-slice pass applies it to
+  sprites already on disk and reimports only the ones that change. Max size is copied from the
+  Default tab only when a tab is first turned on. `OverrideMobileFormat` (on by default) turns it off.
+
 ## [0.5.1] - 2026-09-24
 ### Added
 - **Import state for automation.** `UnityFigmaBridgeImporter.ImportInProgress`, `LastImportError`,

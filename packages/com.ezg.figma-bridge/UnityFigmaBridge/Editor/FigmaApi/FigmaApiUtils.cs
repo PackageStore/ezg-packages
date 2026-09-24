@@ -437,7 +437,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                             break;
                             
                     }
-                    
+
+                    SpritePlatformOverride.Apply(textureImporter, settings);
                     textureImporter.SaveAndReimport();
 
                 }
