@@ -16,7 +16,7 @@ rác `Library/` — **không được đụng vào**.
 > |---|---|---|
 > | Stage | `git add .` — cả working tree | `git add -- <đúng path của session>` |
 > | Diff đọc lại | 80 dòng đầu | **không đọc** (agent đã biết mình sửa gì) |
-> | Message | `<prefix> <subject> <suffix>` | `<prefix> [Tag] <subject>` — đúng 1 tag |
+> | Message | `<prefix> <subject> <suffix>` | `<prefix> Tag: <subject>` — đúng 1 tag |
 
 > **Cross-platform:** chọn lệnh theo OS.
 > - **Windows:** `powershell -ExecutionPolicy Bypass -File .claude/scripts/<name>.ps1`
@@ -88,10 +88,11 @@ Block `STAGED` rỗng = `NO_CHANGES`.
 Format bắt buộc — một dòng subject duy nhất:
 
 ```
-<prefix> [Tag] <subject>
+<prefix> Tag: <subject>
 ```
 
-**Đúng MỘT tag, không bao giờ hai.** `[Bug][UI]` là sai format.
+Tag viết liền dấu `:` rồi một dấu cách (`UI: `), **không** ngoặc vuông — `[UI]` là format cũ,
+đã bỏ. **Đúng MỘT tag, không bao giờ hai.** `Bug: UI:` hay `Bug/UI:` là sai format.
 
 ### 3.1 Prefix (bắt buộc)
 
@@ -135,10 +136,10 @@ commit (đo bằng lượng diff + trọng tâm của task, không phải số f
 **Chọn tag nào khi cả hai nhóm đều đúng** — tránh tag nói lại thứ prefix đã nói:
 
 1. Tag loại việc **không suy ra được từ prefix** thì nó thắng: `Bal`, `Perf`, `Ref`, `Clean`,
-   `Pol`, `Sec`, `Cont`. Ví dụ `* [Bal] raise station upgrade cost` — `Bal` mang thông tin
+   `Pol`, `Sec`, `Cont`. Ví dụ `* Bal: raise station upgrade cost` — `Bal` mang thông tin
    thật, `Gameplay` thì prefix `*` không nói được nhưng cũng không quan trọng bằng.
 2. Còn lại — `Feat` ≈ `+`, `Bug` ≈ `#`, `Enh` ≈ `*` — là **dư thừa với prefix**, nên nhường
-   cho tag vùng: `# [UI] fix shop pack refresh`, không phải `# [Bug] ...`.
+   cho tag vùng: `# UI: fix shop pack refresh`, không phải `# Bug: ...`.
 3. Diff trải nhiều vùng, không vùng nào trội, và cũng không rơi vào (1) → dùng tag loại việc
    (`Feat` / `Bug` / `Enh`).
 
@@ -156,7 +157,7 @@ lệch thì sửa prefix cho khớp tag):
 - **Tiếng Anh**, imperative, **≤50 ký tự** (không tính prefix + tag); cả dòng ≤72.
 - Tả *cái gì đổi*, không tả file: `fix shop pack refresh`, không phải
   `update ShopController.cs and MoneyBarView.cs`.
-- Không `feat:` / `fix:` / `refactor:` — prefix + tag đã làm việc đó rồi.
+- Không `feat:` / `fix:` / `refactor:` kiểu conventional commit — prefix + tag đã làm việc đó rồi.
 
 ### 3.4 Description (body) — tuỳ chọn
 
@@ -175,25 +176,29 @@ trọng cao nhất**, subject mô tả phần đó; phần phụ (nếu đáng n
 Mọi text dev gõ thêm quanh lệnh đều là chỉ thị, không phải rác — đọc kỹ prompt gốc:
 
 - Ký tự `*` / `#` / `+` → **prefix**, thắng suy đoán của agent.
-- Text trong ngoặc vuông → **tag**, thắng suy đoán của agent (`/push-in-session # [UI]`).
+- Text dạng `Tag:` → **tag**, thắng suy đoán của agent (`/push-in-session # UI:`). Dev quen tay gõ
+  kiểu cũ `[UI]` thì vẫn hiểu là tag `UI`, nhưng message luôn viết `UI:`.
   Tag không nằm trong 2 bảng trên → **dừng và hỏi**, tuyệt đối không tự chế tag mới.
 - Dev gõ nhiều hơn một tag → dùng **tag đầu tiên**, bỏ phần còn lại và nói rõ trong report
   (format chỉ cho phép một tag).
-- Ví dụ: `+ /push-in-session [Mon]` → agent chỉ sinh phần subject.
+- Ví dụ: `+ /push-in-session Mon:` → agent chỉ sinh phần subject.
 
 ### 3.7 Ví dụ
 
 ```
-+ [Play] add staff gacha pity counter
-* [Audio] loop rotor SFX while flying
-# [UI] fix shop pack list not refreshing
-* [Bal] raise station upgrade cost curve
-# [Sec] validate coin delta before save
-+ [Cont] add 3 tutorial strings
-* [AI] tighten run-backlog review gating
-* [Perf] pool damage popups
-+ [Feat] add offline earning screen
++ Play: add staff gacha pity counter
+* Audio: loop rotor SFX while flying
+# UI: fix shop pack list not refreshing
+* Bal: raise station upgrade cost curve
+# Sec: validate coin delta before save
++ Cont: add 3 tutorial strings
+* AI: tighten run-backlog review gating
+* Perf: pool damage popups
++ Feat: add offline earning screen
 ```
+
+Changelog Discord của auto build (module `ezg-autobuild`, `build_changelog.py`) gom commit theo
+tag bằng đúng pattern `<prefix> Tag: ` ở đầu title — sai format là commit rơi xuống nhóm "không tag".
 
 ## 4. COMMIT + PUSH
 

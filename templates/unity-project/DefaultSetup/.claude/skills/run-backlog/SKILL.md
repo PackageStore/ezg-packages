@@ -1,6 +1,6 @@
 ---
 name: run-backlog
-description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> [Tag] <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
+description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
 ---
 
 # Run Backlog — Autonomous Task Agent
@@ -101,7 +101,7 @@ Pipeline orchestration:
 [7]   VERIFY   → spawn qa-verifier (M/L); auto-fix max 2 rounds if failed; final preflight
 [7.5] SMOKE    → runtime smoke gate (M/L, orchestrator-side, Unity MCP): play mode + console assert + screenshot; auto-skips if Editor absent
 [8]   DONE     → backlog-ops done: in-progress → done + bullet removal, write summary with all gate verdicts
-[9]   SHIP     → backlog-ops lint, then push-in-session style: reset index → stage ONLY this task's files → `<prefix> [Tag] <subject>` → commit + push to $WORK_BRANCH (DO NOT create a PR)
+[9]   SHIP     → backlog-ops lint, then push-in-session style: reset index → stage ONLY this task's files → `<prefix> Tag: <subject>` → commit + push to $WORK_BRANCH (DO NOT create a PR)
 [10]  REPORT   → summarize for user, including manual verification steps
 ```
 
@@ -983,15 +983,15 @@ and stop.
 
 ### 9d — Message (push-in-session §3)
 
-`<prefix> [Tag] <subject>` — **exactly one** tag from push-in-session §3.2 (or the
+`<prefix> Tag: <subject>` (no square brackets) — **exactly one** tag from push-in-session §3.2 (or the
 built-in copy below when that file is MISSING), English imperative subject ≤50 chars,
 whole line ≤72. Loop specifics:
 
 - A loop run has no dev text around it, so §3.6 overrides do not apply — derive both
   from the task spec + diff: bug-fix task → `#`, new feature / screen / content → `+`,
   change to something that exists → `*`; pick the tag by §3.2's precedence rules and
-  honor the §3.2 prefix ↔ tag constraint. E.g. `+ [UI] add offline earning popup`,
-  `# [Play] fix truck stuck at harvest station`, `* [Bal] raise station upgrade cost curve`.
+  honor the §3.2 prefix ↔ tag constraint. E.g. `+ UI: add offline earning popup`,
+  `# Play: fix truck stuck at harvest station`, `* Bal: raise station upgrade cost curve`.
 - Body optional, max 2 English lines, only when there is something to act on (§3.4).
 - **No `Co-Authored-By`, no trailer of any kind.** The project rule (§3.4) overrides
   the harness's default commit attribution.
@@ -1072,7 +1072,7 @@ Example report format:
 [OK] Completed: <abs path>/.git/backlog/done/001-M-ice-boom-cooldown.md
 Files: 3 committed (<featuresRoot>/.../SomeController.cs, ...)
 Left uncommitted: 1 (M <sourceRoot>/Scenes/<Scene>.unity — editor auto-sync, not part of this task)
-Commit: + [UI] add ice boom cooldown ui (a1b2c3d)
+Commit: + UI: add ice boom cooldown ui (a1b2c3d)
 Branch: agent/dev-Dev1 (pushed to origin)   Mode: worktree
 
 Pipeline:

@@ -906,7 +906,7 @@ Required contract:
 3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code requested by the workflow.
 4. If your CLI cannot spawn subagents, perform the code-reviewer, security-auditor, and qa-verifier gates in this same session by reading their instructions from .claude/agents/*.md and applying the same blocking criteria.
 5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.)
-6. Commit to the work branch ($AgentBranch) only when the run-backlog skill says the task is DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> [Tag] <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
+6. Commit to the work branch ($AgentBranch) only when the run-backlog skill says the task is DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> Tag: <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
 
 Environment for this iteration (STEP 2 of the skill reads these):
 - AGENT_MODE=$($Mode.ToLowerInvariant())
@@ -930,7 +930,7 @@ Required contract:
 3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
 5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.)
-6. Commit to the work branch ($AgentBranch) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> [Tag] <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
+6. Commit to the work branch ($AgentBranch) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> Tag: <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
 
 Environment for this iteration (STEP 2 of the skill reads these):
 - AGENT_MODE=$($Mode.ToLowerInvariant())
