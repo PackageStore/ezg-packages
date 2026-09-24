@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -213,6 +213,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             
             // Apply layout properties to this node as required (eg vertical layout groups etc). This also implements scrolling
             FigmaLayoutManager.ApplyLayoutPropertiesForNode(nodeGameObject,figmaNode,figmaImportProcessData,out var scrollContentGameObject);
+
+            ClipContentMask.Apply(nodeGameObject, figmaNode, figmaImportProcessData, nodeRecursionDepth == 0 && figmaNode.type == NodeType.FRAME);
             
             // Build children for this node, if they exist
             if (figmaNode.children != null)
@@ -225,7 +227,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                         nodeRecursionDepth + 1, figmaImportProcessData,includedPageObject, withinComponentDefinition);
                     if (childGameObject == null) continue;
                     // Check if this object has a mask component. If so, set as the active mask component
-                    var childGameObjectMask = childGameObject.GetComponent<Mask>();
+                    // Only a "Use as mask" layer masks its siblings; a clipping frame's Mask masks its own children
+                    var childGameObjectMask = childNode.isMask ? childGameObject.GetComponent<Mask>() : null;
                     if (childGameObjectMask != null) activeMaskObject = childGameObjectMask;
                     else
                     {

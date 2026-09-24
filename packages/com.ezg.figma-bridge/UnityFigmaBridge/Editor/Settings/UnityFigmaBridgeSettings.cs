@@ -197,6 +197,10 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Chất lượng nén cho tab Android và iOS.\nVí dụ: Normal cân bằng thời gian import và chất lượng.")]
         public TextureCompressionQuality MobileCompressionQuality = TextureCompressionQuality.Normal;
 
+        [Tooltip("Frame bật Clip content (trừ frame màn hình) thành mask trên chính GameObject: góc vuông dùng RectMask2D, góc bo dùng Mask với sprite bo góc 9-slice.\n" +
+                 "Ví dụ: frame Mask-Pattern bo góc 84 cắt pattern bên trong theo góc bo.")]
+        public bool ClipContentAsMask = true;
+
         string IFolderDefaults.DefaultFolder(string propertyPath)
         {
             var folders = FigmaPaths.Resolve(this, "<document name>", warnOnInvalid: false);

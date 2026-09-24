@@ -276,6 +276,8 @@ namespace UnityFigmaBridge.Editor.Components
                 return;
             }
 
+            ClipContentMask.Apply(nodeObject, node, figmaImportProcessData, false);
+
             // Setup transform based on node properties
             NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
             

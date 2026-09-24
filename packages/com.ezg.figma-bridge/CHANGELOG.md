@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0] - 2026-09-24
+### Added
+- **Clip content becomes a mask on the same GameObject** (`ClipContentMask`, setting
+  `ClipContentAsMask`, on by default). A frame, component or instance with Figma "Clip content"
+  masks its children like it does in Figma: radius 0 gets `RectMask2D`; a corner radius gets a
+  `Mask` whose graphic is a generated white 9-sliced rounded rectangle
+  (`<image fills>/Masks/Mask-R<radius>.png`, 2 texels per unit, border = radius). The graphic shows
+  only when the frame has a visible fill; otherwise it is hidden and not a raycast target. A frame
+  with an image or pattern fill keeps that sprite as the mask graphic and logs that its radius is
+  not applied. Screen frames and scroll frames are skipped. Instance re-application gives the same
+  result, so instances carry no added overrides.
+
+### Fixed
+- **Only a "Use as mask" layer masks its siblings.** The sibling pass took any GameObject with a
+  `Mask` as a Figma mask layer, so the siblings after a clipping frame moved under its mask.
+
 ## [0.5.2] - 2026-09-24
 ### Added
 - **Android and iOS texture override.** Every texture the bridge writes (image fills, server
