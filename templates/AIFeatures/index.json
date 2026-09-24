@@ -2233,8 +2233,8 @@
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "1502170d1796ca21da7bc2c0030f82507d720b8df9c445db122f20d09dd865c0",
-      "size": 41758
+      "sha256": "ffd6803937f0c420946d376cb9523d426c746aa3e453586fbf0cd39f622e44cc",
+      "size": 41782
     },
     {
       "id": "Skills/figma-hygiene",
@@ -2251,8 +2251,8 @@
       "source": "defaultsetup",
       "fileName": "figma-hygiene.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
-      "sha256": "01e91fba779768b60df775ad14a2511a6453285691d66667e8c8fdd8497690c4",
-      "size": 5415
+      "sha256": "5136ffaec33aaba00afd7ee5d13afb16b72eea0f6bc7e79df40c3d1ef82dfa5d",
+      "size": 5674
     },
     {
       "id": "Skills/figma-to-unity",
@@ -2272,8 +2272,8 @@
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "f94a7c08476fbfb0513befda7991e8b7ab919d941d3bb3d8f9e44c56843edb2d",
-      "size": 16347
+      "sha256": "311e96ff8c7b14bbcf83ec30e7882ccb9a8a99bf3b8627af5ee55509427a689a",
+      "size": 16730
     },
     {
       "id": "Skills/figma-tokens",
@@ -2489,8 +2489,8 @@
       "source": "defaultsetup",
       "fileName": "psd-to-figma.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
-      "sha256": "569d2ec1f24d7698d0069b762a0a36b0b2ac225e29c31d9ff1e80eef2e1a0e8f",
-      "size": 112173
+      "sha256": "68d84d3ef41443a1f6a5f886284ad6383b26d7889a9e68d1d7339fe6f93cd7bb",
+      "size": 112198
     },
     {
       "id": "Skills/publish-ai-features",
