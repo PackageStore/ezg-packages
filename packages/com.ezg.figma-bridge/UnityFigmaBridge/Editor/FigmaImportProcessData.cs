@@ -23,6 +23,12 @@ namespace UnityFigmaBridge.Editor
         /// </summary>
         public FigmaFile SourceFile;
 
+        /// <summary>What this import builds; null builds every page (<see cref="UnityFigmaBridgeSettings.ImportSelectionOnly"/> off).</summary>
+        public FigmaImportScope ImportScope;
+
+        /// <summary>The frames of the screens page (<see cref="UnityFigmaBridgeSettings.ScreensPageName"/>): the only screens.</summary>
+        public HashSet<string> ScreenNodeIds = new();
+
         /// <summary>
         /// Details of components used and created for this file
         /// </summary>
@@ -155,6 +161,43 @@ namespace UnityFigmaBridge.Editor
         /// </summary>
         /// <param name="componentName"></param>
         /// <returns></returns>
+        private Dictionary<string, int> m_NameCountByNodeId;
+
+        /// <summary>
+        /// Numbers every component the way a full build meets them: pages in order, depth first,
+        /// a component's number being how many earlier ones share its set and name. A partial build
+        /// then writes each component to the same path a full build would.
+        /// </summary>
+        public void CountComponentNames(FigmaFile file, bool generateNodesMarkedForExport)
+        {
+            m_NameCountByNodeId = new Dictionary<string, int>();
+            var counts = new Dictionary<string, int>();
+            foreach (var page in file.document.children)
+            foreach (var topLevelNode in page.children ?? new Node[] { })
+            {
+                if (!generateNodesMarkedForExport && topLevelNode.exportSettings != null && topLevelNode.exportSettings.Length > 0) continue;
+                CountComponentNames(topLevelNode, page, counts);
+            }
+        }
+
+        private void CountComponentNames(Node node, Node parent, Dictionary<string, int> counts)
+        {
+            // Instances build from their component's prefab and hold no definitions
+            if (node.type == NodeType.INSTANCE) return;
+            foreach (var child in node.children ?? new Node[] { }) CountComponentNames(child, node, counts);
+            if (node.type != NodeType.COMPONENT) return;
+            var key = parent is { type: NodeType.COMPONENT_SET } ? $"{parent.name}/{node.name}" : node.name;
+            counts.TryGetValue(key, out var count);
+            m_NameCountByNodeId[node.id] = count;
+            counts[key] = count + 1;
+        }
+
+        /// <summary>The duplicate-name number for a component: counted over the document when a partial build set it up.</summary>
+        public int GetComponentNameCount(string nodeId, string componentName) =>
+            m_NameCountByNodeId != null && m_NameCountByNodeId.TryGetValue(nodeId, out var count)
+                ? count
+                : GetComponentNameCount(componentName);
+
         public int GetComponentNameCount(string componentName)
         {
             // Check for existing use of name

@@ -176,9 +176,9 @@ namespace UnityFigmaBridge.Editor.Verify
         {
             var document = FigmaApiUtils.LoadCachedDocument();
             if (document == null) throw new InvalidOperationException("No cached Figma document - run Sync Document once");
-            FigmaPaths.Configure(UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset(), document.name);
-            foreach (var pageNode in FigmaDataUtils.GetPageNodes(document))
-            foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode))
+            var settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
+            FigmaPaths.Configure(settings, document.name);
+            foreach (var screenNode in FigmaDataUtils.GetScreenNodes(document, settings.ScreensPageName))
                 if (FigmaPaths.GetPathForScreenPrefab(screenNode, 0) == screenPrefabPath) return screenNode;
             throw new InvalidOperationException($"No frame of the cached document writes '{screenPrefabPath}'");
         }

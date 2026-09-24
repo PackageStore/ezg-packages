@@ -500,6 +500,16 @@ namespace UnityFigmaBridge.Editor
             return null;
         }
 
+        /// <summary>Screens come only from the screens page, so a file without it imports no screen at all.</summary>
+        public static void WarnMissingRequiredPages(FigmaFile figmaFile, UnityFigmaBridgeSettings settings)
+        {
+            var missing = FigmaDataUtils.MissingRequiredPages(figmaFile, settings.ScreensPageName, settings.ComponentsPageName);
+            if (missing.Count > 0)
+                Debug.LogWarning($"[FigmaBridge] The Figma file has no page named {string.Join(" or ", missing.Select(name => $"'{name}'"))}. " +
+                                 $"Screens are read only from '{settings.ScreensPageName}', and every file needs a " +
+                                 $"'{settings.ScreensPageName}' and a '{settings.ComponentsPageName}' page.");
+        }
+
         private static async Task ImportDocument(string fileId, FigmaFile figmaFile, List<Node> downloadPageNodeList, bool offline)
         {
 
@@ -508,6 +518,14 @@ namespace UnityFigmaBridge.Editor
 
             FigmaPaths.Configure(s_UnityFigmaBridgeSettings, figmaFile.name);
             ComponentManager.ResetProcessedSets();
+            WarnMissingRequiredPages(figmaFile, s_UnityFigmaBridgeSettings);
+
+            var importScope = s_UnityFigmaBridgeSettings.ImportSelectionOnly
+                ? FigmaImportScope.Create(figmaFile, FigmaImportScope.SelectedNodeIds(s_UnityFigmaBridgeSettings, downloadPageNodeList))
+                : null;
+            if (importScope != null)
+                Debug.Log($"[FigmaBridge] Importing the selection: {importScope.Roots.Count} screen(s) and component(s), " +
+                          $"{importScope.Roots.Count(importScope.IsDependency)} of them reached through instances");
 
             if (s_UnityFigmaBridgeSettings.NameImageFillsByNodePath)
                 FigmaImageFillNamer.Build(figmaFile, downloadPageNodeList);
@@ -551,8 +569,8 @@ namespace UnityFigmaBridge.Editor
             // Some of the nodes, we'll want to identify to use Figma server side rendering (eg vector shapes, SVGs)
             // First up create a list of nodes we'll substitute with rendered images
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(figmaFile,externalComponentList,downloadPageIdList,
-                s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports);
-            FigmaImageFillNamer.BuildServerRenders(figmaFile, downloadPageNodeList,
+                s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports, importScope);
+            FigmaImageFillNamer.BuildServerRenders(figmaFile,
                 s_UnityFigmaBridgeSettings.NameServerRendersByNodePath
                     ? serverRenderNodes.Where(n => n.RenderType != ServerRenderType.Export).Select(n => n.SourceNode.id)
                     : Enumerable.Empty<string>());
@@ -638,10 +656,10 @@ namespace UnityFigmaBridge.Editor
             FigmaApiUtils.CheckExistingAssetProperties();
 
             // Track fills that are actually used. This is needed as FIGMA has a way of listing any bitmap used rather than active
-            var foundImageFills = FigmaDataUtils.GetAllImageFillIdsFromFile(figmaFile,downloadPageIdList);
+            var foundImageFills = FigmaDataUtils.GetAllImageFillIdsFromFile(figmaFile,downloadPageIdList,importScope);
             var tiledImageFills = FigmaDataUtils.GetTiledImageFillIds(figmaFile);
             // Source nodes of PATTERN fills tile too, so their server render imports with wrap Repeat
-            var patternSourceNodeIds = FigmaDataUtils.GetPatternSourceNodeIds(figmaFile, downloadPageIdList);
+            var patternSourceNodeIds = FigmaDataUtils.GetPatternSourceNodeIds(figmaFile, downloadPageIdList, importScope);
 
             if (!offline)
             {
@@ -691,6 +709,8 @@ namespace UnityFigmaBridge.Editor
             {
                 MissingComponentDefinitionsList = externalComponentList,
             };
+            // A partial build meets fewer components, so duplicate-name suffixes are counted over the whole document
+            if (importScope != null) componentData.CountComponentNames(figmaFile, s_UnityFigmaBridgeSettings.GenerateNodesMarkedForExport);
 
             // Stores necessary importer data needed for document generator.
             var figmaBridgeProcessData = new FigmaImportProcessData
@@ -705,6 +725,8 @@ namespace UnityFigmaBridge.Editor
                 PrototypeFlowStartPoints = FigmaDataUtils.GetAllPrototypeFlowStartingPoints(figmaFile),
                 SelectedPagesForImport = downloadPageNodeList,
                 NodeLookupDictionary = FigmaDataUtils.BuildNodeLookupDictionary(figmaFile),
+                ImportScope = importScope,
+                ScreenNodeIds = new HashSet<string>(FigmaDataUtils.GetScreenNodes(figmaFile, s_UnityFigmaBridgeSettings.ScreensPageName).Select(screen => screen.id)),
                 Offline = offline
             };
 

@@ -231,24 +231,27 @@ namespace UnityFigmaBridge.Editor.Settings
             var figmaFile = await UnityFigmaBridgeImporter.DownloadFigmaDocument(settings.FileId);
             if (figmaFile == null) return;
 
+            UnityFigmaBridgeImporter.WarnMissingRequiredPages(figmaFile, settings);
             settings.RefreshForUpdatedPages(figmaFile);
             settings.RefreshForUpdatedScreens(figmaFile);
+            settings.RefreshForUpdatedComponents(figmaFile);
 
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssetIfDirty(settings);
         }
 
         /// <summary>
-        /// List every screen frame, grouped by the Figma page it sits on
+        /// List every screen frame and top-level component, grouped by the Figma page it sits on
         /// </summary>
         private bool ListScreens(UnityFigmaBridgeSettings settings)
         {
             var applyChanges = false;
-            var overrideList = settings.ScreenNameOverrides;
+            var screenRows = settings.ScreenNameOverrides;
+            var componentRows = settings.ComponentSelections;
 
             using (new EditorGUILayout.VerticalScope())
             {
-                GUILayout.Label("Select Screens to import", EditorStyles.boldLabel);
+                GUILayout.Label("Select Screens and Components to import", EditorStyles.boldLabel);
                 GUILayout.Label("Blank prefab name keeps the Figma frame name.", EditorStyles.miniLabel);
                 GUILayout.Space(5);
 
@@ -260,38 +263,43 @@ namespace UnityFigmaBridge.Editor.Settings
                     if (GUILayout.Button("Select all", GUILayout.Width(80)))
                     {
                         applyChanges = true;
-                        foreach (var data in overrideList) data.ExcludeFromImport = false;
+                        foreach (var data in screenRows) data.ExcludeFromImport = false;
+                        foreach (var data in componentRows) data.Include = true;
                     }
 
                     if (GUILayout.Button("Deselect all", GUILayout.Width(80)))
                     {
                         applyChanges = true;
-                        foreach (var data in overrideList) data.ExcludeFromImport = true;
+                        foreach (var data in screenRows) data.ExcludeFromImport = true;
+                        foreach (var data in componentRows) data.Include = false;
                     }
                 }
                 GUILayout.Space(5);
 
-                if (overrideList.Count == 0)
+                if (screenRows.Count == 0 && componentRows.Count == 0)
                 {
-                    EditorGUILayout.HelpBox("No screens listed yet - press Refresh from Figma.",
+                    EditorGUILayout.HelpBox("No screens or components listed yet - press Refresh from Figma.",
                         MessageType.Info);
                     return applyChanges;
                 }
 
-                // Refresh writes rows in document order, so a run of rows sharing a page id is
-                // exactly one page and needs no sorting
-                var rowIndex = 0;
-                while (rowIndex < overrideList.Count)
+                EditorGUILayout.HelpBox(settings.ImportSelectionOnly
+                        ? "Only ticked items are imported, plus every component they use through instances. " +
+                          "Everything else keeps its prefabs and sprites from the last import."
+                        : "'Import Selection Only' is off: every component is imported, and the component ticks are ignored.",
+                    MessageType.Info);
+
+                var tickedScreens = new HashSet<string>(screenRows
+                    .Where(row => !row.ExcludeFromImport && IsPageImported(settings, row.PageNodeId))
+                    .Select(row => row.FrameName));
+                var tickedComponents = new HashSet<string>(componentRows
+                    .Where(row => row.Include && IsPageImported(settings, row.PageNodeId))
+                    .Select(row => row.NodeId));
+
+                foreach (var pageId in PageIdsInOrder(settings))
                 {
-                    var pageId = overrideList[rowIndex].PageNodeId ?? "";
-                    var groupEnd = rowIndex;
-                    while (groupEnd < overrideList.Count &&
-                           (overrideList[groupEnd].PageNodeId ?? "") == pageId) groupEnd++;
-
-                    if (ListScreenPageGroup(settings, overrideList, rowIndex, groupEnd, pageId))
+                    if (ListScreenPageGroup(settings, pageId, tickedScreens, tickedComponents))
                         applyChanges = true;
-
-                    rowIndex = groupEnd;
                 }
 
                 if (!settings.OnlyImportListedScreens)
@@ -306,20 +314,42 @@ namespace UnityFigmaBridge.Editor.Settings
             }
         }
 
+        private static bool IsPageImported(UnityFigmaBridgeSettings settings, string pageId) =>
+            !settings.OnlyImportSelectedPages ||
+            (settings.PageDataList.FirstOrDefault(p => p.NodeId == pageId)?.Selected ?? false);
+
+        /// <summary>Pages that have rows, in the order the page list holds them</summary>
+        private static IEnumerable<string> PageIdsInOrder(UnityFigmaBridgeSettings settings)
+        {
+            var pageOrder = settings.PageDataList.Select(p => p.NodeId).ToList();
+            return settings.ScreenNameOverrides.Select(row => row.PageNodeId ?? "")
+                .Concat(settings.ComponentSelections.Select(row => row.PageNodeId ?? ""))
+                .Distinct()
+                .OrderBy(pageId =>
+                {
+                    var index = pageOrder.IndexOf(pageId);
+                    return index >= 0 ? index : int.MaxValue;
+                });
+        }
+
         /// <summary>
-        /// Draw one page's foldout and the screen rows below it
+        /// Draw one page's foldout: its screen rows, then its component rows
         /// </summary>
-        private bool ListScreenPageGroup(UnityFigmaBridgeSettings settings,
-            IReadOnlyList<FigmaScreenNameOverride> overrideList, int firstRow, int endRow, string pageId)
+        private bool ListScreenPageGroup(UnityFigmaBridgeSettings settings, string pageId,
+            HashSet<string> tickedScreens, HashSet<string> tickedComponents)
         {
             var applyChanges = false;
-            var pageName = overrideList[firstRow].PageName;
-            if (string.IsNullOrEmpty(pageName)) pageName = "Unknown page";
+            var screenRows = settings.ScreenNameOverrides.Where(row => (row.PageNodeId ?? "") == pageId).ToList();
+            var componentRows = settings.ComponentSelections.Where(row => (row.PageNodeId ?? "") == pageId).ToList();
 
-            var pageData = settings.PageDataList.FirstOrDefault(p => p.NodeId == pageId);
-            var pageIsImported = !settings.OnlyImportSelectedPages || (pageData?.Selected ?? false);
+            var pageName = screenRows.Select(row => row.PageName).Concat(componentRows.Select(row => row.PageName))
+                .FirstOrDefault(name => !string.IsNullOrEmpty(name)) ?? "Unknown page";
+            var pageIsImported = IsPageImported(settings, pageId);
 
-            var header = $"{pageName}  ({endRow - firstRow})";
+            var counts = new List<string>();
+            if (screenRows.Count > 0) counts.Add($"{screenRows.Count} screens");
+            if (componentRows.Count > 0) counts.Add($"{componentRows.Count} components");
+            var header = $"{pageName}  ({string.Join(", ", counts)})";
             if (!pageIsImported) header += "  - page not imported";
 
             if (!m_PageFoldouts.TryGetValue(pageId, out var expanded)) expanded = pageIsImported;
@@ -331,22 +361,23 @@ namespace UnityFigmaBridge.Editor.Settings
                 if (GUILayout.Button("All", GUILayout.Width(34)))
                 {
                     applyChanges = true;
-                    for (var i = firstRow; i < endRow; i++) overrideList[i].ExcludeFromImport = false;
+                    foreach (var row in screenRows) row.ExcludeFromImport = false;
+                    foreach (var row in componentRows) row.Include = true;
                 }
 
                 if (GUILayout.Button("None", GUILayout.Width(44)))
                 {
                     applyChanges = true;
-                    for (var i = firstRow; i < endRow; i++) overrideList[i].ExcludeFromImport = true;
+                    foreach (var row in screenRows) row.ExcludeFromImport = true;
+                    foreach (var row in componentRows) row.Include = false;
                 }
             }
             m_PageFoldouts[pageId] = expanded;
 
             if (!expanded) return applyChanges;
 
-            for (var i = firstRow; i < endRow; i++)
+            foreach (var data in screenRows)
             {
-                var data = overrideList[i];
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     GUILayout.Space(14);
@@ -369,7 +400,46 @@ namespace UnityFigmaBridge.Editor.Settings
                 }
             }
 
+            if (componentRows.Count == 0) return applyChanges;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(14);
+                GUILayout.Label("Components", EditorStyles.miniBoldLabel);
+            }
+
+            foreach (var data in componentRows)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(14);
+
+                    var include = EditorGUILayout.Toggle(data.Include, GUILayout.Width(16));
+                    if (include != data.Include)
+                    {
+                        data.Include = include;
+                        applyChanges = true;
+                    }
+
+                    EditorGUILayout.LabelField(data.Name, GUILayout.MinWidth(60));
+                    EditorGUILayout.LabelField(ComponentRowStatus(data, tickedScreens, tickedComponents), EditorStyles.miniLabel);
+                }
+            }
+
             return applyChanges;
+        }
+
+        /// <summary>Why an unticked component still imports, or how many screens use it</summary>
+        private static string ComponentRowStatus(FigmaComponentSelection row, HashSet<string> tickedScreens,
+            HashSet<string> tickedComponents)
+        {
+            var kind = row.IsSet ? "set" : "component";
+            var neededBy = row.NeededByScreens.Where(tickedScreens.Contains).ToList();
+            if (!row.Include && neededBy.Count > 0)
+                return $"{kind} · imported: used by {string.Join(", ", neededBy)}";
+            if (!row.Include && row.NeededByComponents.Any(tickedComponents.Contains))
+                return $"{kind} · imported: used by a ticked component";
+            return row.NeededByScreens.Count > 0 ? $"{kind} · used by {row.NeededByScreens.Count} screen(s)" : kind;
         }
 
         /// <summary>

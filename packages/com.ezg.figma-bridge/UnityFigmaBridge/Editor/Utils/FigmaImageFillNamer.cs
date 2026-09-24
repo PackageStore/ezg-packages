@@ -41,6 +41,7 @@ namespace UnityFigmaBridge.Editor.Utils
         private static readonly Dictionary<string, string> s_NameByImageRef = new();
         private static readonly Dictionary<string, string> s_NameByRenderNodeId = new();
         private static readonly HashSet<string> s_Taken = new();
+        private static readonly HashSet<string> s_Reachable = new();
 
         private enum OwnerKind
         {
@@ -53,12 +54,14 @@ namespace UnityFigmaBridge.Editor.Utils
             internal readonly OwnerKind Kind;
             internal readonly string Owner;
             internal readonly string Path;
+            internal readonly bool Reachable;
 
-            internal Usage(OwnerKind kind, string owner, string path)
+            internal Usage(OwnerKind kind, string owner, string path, bool reachable)
             {
                 Kind = kind;
                 Owner = owner;
                 Path = path;
+                Reachable = reachable;
             }
         }
 
@@ -67,6 +70,7 @@ namespace UnityFigmaBridge.Editor.Utils
             s_NameByImageRef.Clear();
             s_NameByRenderNodeId.Clear();
             s_Taken.Clear();
+            s_Reachable.Clear();
         }
 
         internal static bool IsActive => s_NameByImageRef.Count > 0;
@@ -76,7 +80,7 @@ namespace UnityFigmaBridge.Editor.Utils
         ///     downloading it would only litter the folder with an unreferenced asset.
         /// </summary>
         internal static bool IsUnreachable(string imageRef) =>
-            IsActive && !s_NameByImageRef.ContainsKey(imageRef);
+            IsActive && !s_Reachable.Contains(imageRef);
 
         internal static bool TryGetRelativeName(string imageRef, out string relativeName) =>
             s_NameByImageRef.TryGetValue(imageRef, out relativeName);
@@ -85,9 +89,11 @@ namespace UnityFigmaBridge.Editor.Utils
             s_NameByRenderNodeId.TryGetValue(nodeId, out relativeName);
 
         /// <param name="importedPages">
-        ///     Only these pages are walked. A frame on a page nobody imports must never own an
-        ///     asset, or art an imported screen needs ends up filed under a screen that does not
-        ///     exist in the project.
+        ///     Every page is walked and every listed screen owns its art, ticked or not, so a name
+        ///     does not move when the ticks or the page selection change. These pages decide only
+        ///     what is worth downloading: art a component uses, or a ticked screen on one of them.
+        ///     Art only an unticked screen uses is never downloaded, so no folder is made for a
+        ///     screen that is not in the project.
         /// </param>
         internal static void Build(FigmaFile figmaFile, List<Node> importedPages)
         {
@@ -95,8 +101,9 @@ namespace UnityFigmaBridge.Editor.Utils
             if (figmaFile?.document == null) return;
 
             var usages = new Dictionary<string, List<Usage>>();
-            foreach (var page in PagesToWalk(figmaFile, importedPages))
-                Collect(page, null, null, new List<string>(), usages, ImageRefsOf, false);
+            var importedPageIds = new HashSet<string>((importedPages ?? new List<Node>()).Select(page => page.id));
+            foreach (var page in figmaFile.document.children ?? new Node[] { })
+                Collect(page, false, false, null, false, null, new List<string>(), usages, ImageRefsOf, false, importedPageIds);
 
             // Sorting by imageRef, then resolving each independently, keeps the output identical
             // between imports even if Figma reorders the document.
@@ -104,16 +111,16 @@ namespace UnityFigmaBridge.Editor.Utils
             {
                 var (folder, candidates) = Resolve(usages[imageRef]);
                 s_NameByImageRef[imageRef] = Claim(folder, candidates, s_Taken);
+                if (usages[imageRef].Any(usage => usage.Reachable)) s_Reachable.Add(imageRef);
             }
         }
 
         /// <summary>
         ///     Runs after <see cref="Build"/>, so fills keep the names they had before renders were
-        ///     named. A render nothing imported owns (a pattern source in a plain frame) goes to
-        ///     <c>Shared</c>; a node outside the walked pages keeps its node-id file name.
+        ///     named. Owners are resolved over every page, like fills. A render nothing owns (a
+        ///     pattern source in an unlisted frame) goes to <c>Shared</c>.
         /// </summary>
-        internal static void BuildServerRenders(FigmaFile figmaFile, List<Node> importedPages,
-            IEnumerable<string> renderNodeIds)
+        internal static void BuildServerRenders(FigmaFile figmaFile, IEnumerable<string> renderNodeIds)
         {
             foreach (var name in s_NameByRenderNodeId.Values) s_Taken.Remove(name);
             s_NameByRenderNodeId.Clear();
@@ -121,9 +128,9 @@ namespace UnityFigmaBridge.Editor.Utils
             if (figmaFile?.document == null || wanted.Count == 0) return;
 
             var usages = new Dictionary<string, List<Usage>>();
-            foreach (var page in PagesToWalk(figmaFile, importedPages))
-                Collect(page, null, null, new List<string>(), usages,
-                    node => wanted.Contains(node.id) ? new[] { node.id } : Array.Empty<string>(), true);
+            foreach (var page in figmaFile.document.children ?? new Node[] { })
+                Collect(page, false, false, null, false, null, new List<string>(), usages,
+                    node => wanted.Contains(node.id) ? new[] { node.id } : Array.Empty<string>(), true, null);
 
             foreach (var nodeId in usages.Keys.OrderBy(k => k, StringComparer.Ordinal))
             {
@@ -132,30 +139,27 @@ namespace UnityFigmaBridge.Editor.Utils
             }
         }
 
-        private static IEnumerable<Node> PagesToWalk(FigmaFile figmaFile, List<Node> importedPages) =>
-            importedPages != null && importedPages.Count > 0
-                ? importedPages
-                : figmaFile.document.children ?? new Node[] { };
-
         private static IEnumerable<string> ImageRefsOf(Node node) =>
             (node.fills ?? new Paint[] { }).Select(fill => fill?.imageRef).Where(imageRef => !string.IsNullOrEmpty(imageRef));
 
         /// <param name="keysOf">What this node contributes a usage for: its fills' imageRefs, or its own id when it is rendered.</param>
         /// <param name="keepUnowned">A render is drawn wherever it is reached, so it needs a name even with no owner.</param>
-        private static void Collect(Node node, string screen, string component, List<string> path,
-            Dictionary<string, List<Usage>> usages, Func<Node, IEnumerable<string>> keysOf, bool keepUnowned)
+        /// <param name="importedPageIds">Pages whose ticked screens make art reachable; null when reach is not tracked.</param>
+        private static void Collect(Node node, bool pageImported, bool onScreensPage, string screen, bool screenImported, string component,
+            List<string> path, Dictionary<string, List<Usage>> usages, Func<Node, IEnumerable<string>> keysOf,
+            bool keepUnowned, HashSet<string> importedPageIds)
         {
             if (node == null) return;
 
             var nodePath = path;
             if (node.type != NodeType.CANVAS)
             {
-                if (node.type == NodeType.FRAME && screen == null && component == null)
+                if (node.type == NodeType.FRAME && screen == null && component == null && onScreensPage)
                 {
-                    // A screen the name table excludes produces no prefab, so it must not own art.
-                    // Keep walking anyway: a component nested inside it still owns its own art, and
-                    // that component may well be instanced by a screen that IS imported.
-                    screen = FigmaPaths.GetPathForScreenPrefab(node, 0) == null ? null : node.name;
+                    // Keep walking an unlisted frame: a component nested inside it still owns its own
+                    // art, and that component may well be instanced by a screen that IS imported.
+                    screen = FigmaPaths.IsListedScreen(node) ? node.name : null;
+                    screenImported = screen != null && pageImported && FigmaPaths.GetPathForScreenPrefab(node, 0) != null;
                 }
                 if ((node.type == NodeType.COMPONENT || node.type == NodeType.COMPONENT_SET) &&
                     component == null)
@@ -165,7 +169,11 @@ namespace UnityFigmaBridge.Editor.Utils
             }
             else
             {
+                pageImported = importedPageIds != null && importedPageIds.Contains(node.id);
+                // A frame on any other page is a container for components, never a screen
+                onScreensPage = FigmaDataUtils.IsScreensPage(node, FigmaPaths.ScreensPageName);
                 screen = null;
+                screenImported = false;
                 component = null;
                 nodePath = new List<string>();
             }
@@ -175,8 +183,8 @@ namespace UnityFigmaBridge.Editor.Utils
                 if (component == null && screen == null && !keepUnowned) continue;
 
                 var usage = component != null
-                    ? new Usage(OwnerKind.Component, component, JoinPath(nodePath))
-                    : new Usage(OwnerKind.Screen, screen, JoinPath(nodePath));
+                    ? new Usage(OwnerKind.Component, component, JoinPath(nodePath), true)
+                    : new Usage(OwnerKind.Screen, screen, JoinPath(nodePath), screenImported);
 
                 if (!usages.TryGetValue(key, out var list))
                     usages[key] = list = new List<Usage>();
@@ -184,7 +192,8 @@ namespace UnityFigmaBridge.Editor.Utils
             }
 
             foreach (var child in node.children ?? new Node[] { })
-                Collect(child, screen, component, nodePath, usages, keysOf, keepUnowned);
+                Collect(child, pageImported, onScreensPage, screen, screenImported, component, nodePath, usages, keysOf,
+                    keepUnowned, importedPageIds);
         }
 
         private static (string folder, List<string> candidates) Resolve(List<Usage> usages)

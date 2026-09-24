@@ -139,8 +139,7 @@ namespace UnityFigmaBridge.Editor.PostProcess
             var screenNodesByPath = new Dictionary<string, Node>();
             if (cachedDocument != null)
             {
-                foreach (var pageNode in FigmaDataUtils.GetPageNodes(cachedDocument))
-                foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode))
+                foreach (var screenNode in FigmaDataUtils.GetScreenNodes(cachedDocument, settings.ScreensPageName))
                 {
                     var path = FigmaPaths.GetPathForScreenPrefab(screenNode, 0);
                     if (path != null && !screenNodesByPath.ContainsKey(path)) screenNodesByPath[path] = screenNode;

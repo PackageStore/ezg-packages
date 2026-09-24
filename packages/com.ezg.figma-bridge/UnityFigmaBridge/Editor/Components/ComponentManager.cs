@@ -70,7 +70,7 @@ namespace UnityFigmaBridge.Editor.Components
         {
             string setName = parentNode is { type: NodeType.COMPONENT_SET } ? parentNode.name : null;
             var countKey = setName != null ? $"{setName}/{node.name}" : node.name;
-            var componentCount = figmaImportProcessData.ComponentData.GetComponentNameCount(countKey);
+            var componentCount = figmaImportProcessData.ComponentData.GetComponentNameCount(node.id, countKey);
             var prefabAssetPath = FigmaPaths.GetPathForComponentPrefab(setName, node.name, componentCount);
             figmaImportProcessData.ComponentData.IncrementComponentNameCount(countKey, 1);
             var componentPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);

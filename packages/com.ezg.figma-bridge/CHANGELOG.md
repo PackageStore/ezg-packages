@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.6.3] - 2026-09-24
+### Added
+- **Fixed pages: `Screens` and `Components`** (settings `ScreensPageName`, `ComponentsPageName`).
+  Every file imported with the bridge must have both; an import or a list refresh warns when one
+  is missing. Screens come only from the screens page. A frame on any other page is a container
+  for components, never a screen, so it gets no screen row, no screen prefab and owns no art.
+  Component rows come from every page but the screens page, at any depth (a component set
+  inside a frame on `Components` gets a row), never from inside another component or instance.
+- **Component rows in the screen list.** Each page now lists its component sets, and its
+  components outside a set, placed on the page or in a section (`ComponentSelections`, filled by
+  **Refresh from Figma**). A row shows whether it is a set, how many screens use it, and when an
+  unticked row still imports because a ticked screen or component uses it.
+- **Import the selection only** (`ImportSelectionOnly`, on by default). An import builds the
+  ticked screens and components, plus every component they reach through instances; a variant
+  pulls in its whole set. Only their renders and image fills are downloaded. Other prefabs and
+  sprites keep what the last import wrote, and page prefabs are not written. Duplicate-name
+  suffixes on component prefabs are counted over the whole document, so a partial build writes
+  every component to the path a full build would. A component on a page that is not imported is
+  still built when the selection uses it, and its art is named on that page.
+
+### Changed
+- With `ImportSelectionOnly` on, a component that no ticked item uses is no longer imported. A
+  new component row starts unticked. Turn the setting off to import every component as before.
+- **Art names no longer follow the ticks.** Image fills and renders are named over every page,
+  and every listed screen owns its art whether it is ticked or not; the ticks and the page
+  selection decide only what is downloaded. Before, unticking a screen moved art it shared with
+  a ticked one to a new name, and an offline import then found no file. Art a component on an
+  unselected page uses is now downloaded too, so those components get their sprites. Names move
+  once with this update: the first import after it must be online.
+
 ## [0.6.1] - 2026-09-24
 ### Changed
 - **Server renders are filed and named like image fills** (setting `NameServerRendersByNodePath`,

@@ -94,6 +94,7 @@ namespace UnityFigmaBridge.Editor.Utils
                 NormalisePath(settings.FontMaterialPresetsFolder, FigmaFontsFolder);
 
             s_OnlyImportListedScreens = settings.OnlyImportListedScreens;
+            ScreensPageName = settings.ScreensPageName;
             s_ScreenNameLookup = new Dictionary<string, FigmaScreenNameOverride>();
             if (settings.ScreenNameOverrides != null)
             {
@@ -147,6 +148,13 @@ namespace UnityFigmaBridge.Editor.Utils
                     return $"{FigmaServerRenderedImagesFolder}/{safeNodeId}.png";
             }
         }
+
+        /// <summary>The only page that holds screens, from the settings of the running import.</summary>
+        public static string ScreensPageName { get; private set; } = "Screens";
+
+        /// <summary>True for a frame the screen list names, ticked or not, or any frame when the list does not limit the import.</summary>
+        public static bool IsListedScreen(Node node) =>
+            !s_OnlyImportListedScreens || (s_ScreenNameLookup != null && s_ScreenNameLookup.ContainsKey(node.name));
 
         public static string GetPathForScreenPrefab(Node node, int duplicateCount)
         {

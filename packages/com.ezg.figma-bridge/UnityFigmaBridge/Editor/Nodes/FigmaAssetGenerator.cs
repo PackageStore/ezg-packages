@@ -31,20 +31,25 @@ namespace UnityFigmaBridge.Editor.Nodes
             var downloadPageIdList = figmaImportProcessData.SelectedPagesForImport.Select(p => p.id).ToList();
             
             // Cycle through all pages and create
+            var scope = figmaImportProcessData.ImportScope;
             var createdPages = new List<(Node,GameObject)>();
             foreach (var figmaCanvasNode in figmaImportProcessData.SourceFile.document.children)
             {
+                if (scope != null && !scope.HasRootOnPage(figmaCanvasNode.id)) continue;
                 bool includedPageObject = downloadPageIdList.Contains(figmaCanvasNode.id);
                 EditorUtility.DisplayProgressBar(UnityFigmaBridgeImporter.PROGRESS_BOX_TITLE, $"Generating Page {figmaCanvasNode.name} ", 0);
                 var pageGameObject = BuildFigmaPage(figmaCanvasNode, rootCanvas.transform as RectTransform, figmaImportProcessData,includedPageObject);
                 createdPages.Add((figmaCanvasNode,pageGameObject));
             }
             
-            // Save prefab for each page
-            for (var i = 0; i < createdPages.Count; i++)
+            // Save prefab for each page. A partial build would leave a page prefab holding only the selection.
+            if (scope == null)
             {
-                if (!downloadPageIdList.Contains(createdPages[i].Item1.id)) continue;
-               SaveFigmaPageAsPrefab(createdPages[i].Item1, createdPages[i].Item2,figmaImportProcessData);
+                for (var i = 0; i < createdPages.Count; i++)
+                {
+                    if (!downloadPageIdList.Contains(createdPages[i].Item1.id)) continue;
+                   SaveFigmaPageAsPrefab(createdPages[i].Item1, createdPages[i].Item2,figmaImportProcessData);
+                }
             }
 
             // Shape-only records made while the pages were built can now be tied to the screen or
@@ -142,6 +147,8 @@ namespace UnityFigmaBridge.Editor.Nodes
         private static GameObject BuildFigmaNode(Node figmaNode, RectTransform parentTransform,  Node parentFigmaNode,
             int nodeRecursionDepth, FigmaImportProcessData figmaImportProcessData,bool includedPageObject, bool withinComponentDefinition)
         {
+            var scope = figmaImportProcessData.ImportScope;
+            if (scope != null && !scope.Builds(figmaNode.id)) return null;
 
             // Create a gameObject for this figma node and parent to parent transform
             var nodeGameObject = new GameObject(figmaNode.name, typeof(RectTransform));
@@ -214,7 +221,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             // Apply layout properties to this node as required (eg vertical layout groups etc). This also implements scrolling
             FigmaLayoutManager.ApplyLayoutPropertiesForNode(nodeGameObject,figmaNode,figmaImportProcessData,out var scrollContentGameObject);
 
-            ClipContentMask.Apply(nodeGameObject, figmaNode, figmaImportProcessData, nodeRecursionDepth == 0 && figmaNode.type == NodeType.FRAME);
+            ClipContentMask.Apply(nodeGameObject, figmaNode, figmaImportProcessData, figmaImportProcessData.ScreenNodeIds.Contains(figmaNode.id));
             
             // Build children for this node, if they exist
             if (figmaNode.children != null)
@@ -256,7 +263,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             {
                 // If the parent is either a canvas or section, treat as a flowScreen and create a prefab. Only do this if it's on a generated page
                 case NodeType.FRAME:
-                    if (includedPageObject && FigmaDataUtils.IsScreenNode(figmaNode,parentFigmaNode))
+                    // A screen that only holds a selected component is built as its container, not saved
+                    if (includedPageObject && figmaImportProcessData.ScreenNodeIds.Contains(figmaNode.id) &&
+                        (scope == null || scope.IsRoot(figmaNode.id)))
                     {
                         var screenNameCount = figmaImportProcessData.ScreenPrefabNameCounter.TryGetValue(figmaNode.name, out var nameCount) ? nameCount : 0;
                         if (FigmaPaths.GetPathForScreenPrefab(figmaNode, screenNameCount) != null)

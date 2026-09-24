@@ -119,10 +119,26 @@ namespace UnityFigmaBridge.Editor.Settings
         [HideInInspector]
         public List<FigmaScreenNameOverride> ScreenNameOverrides = new();
 
+        [HideInInspector]
+        public List<FigmaComponentSelection> ComponentSelections = new();
+
+        [Header("Pages")]
+        [Tooltip("Trang duy nhất chứa screen. Mọi frame trên trang này là screen; frame ở trang khác chỉ là khung chứa component.\n" +
+                 "Ví dụ: Screens")]
+        public string ScreensPageName = "Screens";
+
+        [Tooltip("Trang component bắt buộc phải có trong file Figma. Không bao giờ chứa screen.\n" +
+                 "Ví dụ: Components")]
+        public string ComponentsPageName = "Components";
+
         [Header("Screen Names")]
         [Tooltip("Chỉ import screen có trong danh sách bên dưới.\n" +
                  "Ví dụ: frame mới trong Figma bị bỏ qua đến khi bấm Refresh.")]
         public bool OnlyImportListedScreens = false;
+
+        [Tooltip("Chỉ dựng screen và component được tick, cộng mọi component chúng dùng qua instance. Prefab và sprite khác giữ nguyên từ lần import trước; page prefab không được ghi.\n" +
+                 "Ví dụ: tick riêng Boost thì chỉ Boost, Popup, Card-Boost và các icon nó dùng được import lại.")]
+        public bool ImportSelectionOnly = true;
 
         [Tooltip("Thư mục chứa file .ttf tải về và font asset TMP. " +
                  "Để trống dùng Assets/TextMesh Pro/Fonts.\n" +
@@ -273,7 +289,7 @@ namespace UnityFigmaBridge.Editor.Settings
 
             foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
             {
-                foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode))
+                foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode, ScreensPageName))
                 {
                     if (!seenNames.Add(screenNode.name))
                     {
@@ -293,6 +309,48 @@ namespace UnityFigmaBridge.Editor.Settings
             }
 
             ScreenNameOverrides = refreshedRows;
+        }
+
+        /// <summary>
+        /// Rebuild ComponentSelections from the document: one row per component set, and per
+        /// component outside a set, on every page but the screens page. Ticks already made
+        /// are carried over by node id. Each row records which screens and components reach it
+        /// through instances, so the window can show what a tick pulls in.
+        /// </summary>
+        public void RefreshForUpdatedComponents(FigmaFile file)
+        {
+            var existingRows = new Dictionary<string, FigmaComponentSelection>();
+            foreach (var row in ComponentSelections)
+                if (!string.IsNullOrEmpty(row.NodeId)) existingRows[row.NodeId] = row;
+
+            var refreshedRows = new List<FigmaComponentSelection>();
+            foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
+            {
+                foreach (var componentNode in FigmaDataUtils.GetComponentRowNodes(pageNode, ScreensPageName))
+                {
+                    if (!existingRows.TryGetValue(componentNode.id, out var row))
+                        row = new FigmaComponentSelection { NodeId = componentNode.id };
+                    row.Name = componentNode.name;
+                    row.IsSet = componentNode.type == NodeType.COMPONENT_SET;
+                    row.PageName = pageNode.name;
+                    row.PageNodeId = pageNode.id;
+                    row.NeededByScreens = new List<string>();
+                    row.NeededByComponents = new List<string>();
+                    refreshedRows.Add(row);
+                }
+            }
+
+            var rowsById = refreshedRows.ToDictionary(row => row.NodeId);
+            var index = new FigmaImportScope.DocumentIndex(file);
+            foreach (var screenNode in FigmaDataUtils.GetScreenNodes(file, ScreensPageName))
+                foreach (var rootId in FigmaImportScope.Create(index, new[] { screenNode.id }).Roots)
+                    if (rowsById.TryGetValue(rootId, out var neededRow)) neededRow.NeededByScreens.Add(screenNode.name);
+            foreach (var row in refreshedRows)
+                foreach (var rootId in FigmaImportScope.Create(index, new[] { row.NodeId }).Roots)
+                    if (rootId != row.NodeId && rowsById.TryGetValue(rootId, out var neededRow))
+                        neededRow.NeededByComponents.Add(row.NodeId);
+
+            ComponentSelections = refreshedRows;
         }
     }
 
@@ -325,5 +383,26 @@ namespace UnityFigmaBridge.Editor.Settings
 
         public string PageName;
         public string PageNodeId;
+    }
+
+    /// <summary>A component set, or a component outside any set, the import builds when ticked.</summary>
+    [Serializable]
+    public class FigmaComponentSelection
+    {
+        public string NodeId;
+        public string Name;
+        public bool IsSet;
+
+        // Off for a new row: an untick imports the component only when a ticked item uses it.
+        public bool Include;
+
+        public string PageName;
+        public string PageNodeId;
+
+        /// <summary>Screen frame names that reach this component through instances, directly or nested.</summary>
+        public List<string> NeededByScreens = new();
+
+        /// <summary>Node ids of other rows that reach this component through instances.</summary>
+        public List<string> NeededByComponents = new();
     }
 }
