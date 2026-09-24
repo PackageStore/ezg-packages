@@ -1,58 +1,60 @@
 # Prefab contract
 
-Node-type-to-asset mapping for the UnityFigmaBridge import pipeline. Every claim
-cites the source file and line so a future reader can verify it against the code
-in the bridge repo (`../UnityFigmaBridge`, sources under `UnityFigmaBridge/`).
+Node-type-to-asset mapping for the EZG Figma Bridge import pipeline. Every claim
+names the source file and symbol so a reader can verify it against the package
+source (`packages/com.ezg.figma-bridge/UnityFigmaBridge/Editor/` in the
+`ezg-packages` monorepo). Symbols are cited instead of line numbers because the
+lines move with every release.
 
 ## Node type table
 
 | Figma node type | Unity output | Source |
 |---|---|---|
-| FRAME (parent is CANVAS or SECTION) | Screen prefab at `FigmaPaths.FigmaScreenPrefabFolder` | `FigmaAssetGenerator.cs:226-231` via `FigmaDataUtils.IsScreenNode` (`:532-537`) |
-| COMPONENT (standalone) | Component prefab at `<ComponentPrefabFolder>/<SafeName>.prefab` | `ComponentManager.GenerateComponentAssetFromNode` (`:68-76`) |
-| COMPONENT (child of COMPONENT_SET) | Variant prefab at `<ComponentPrefabFolder>/<SetName>/<NormalisedVariant>.prefab` | `ComponentManager.cs:70-73`, `FigmaPaths.GetPathForComponentPrefab` (`:103-120`) |
-| COMPONENT_SET | Folder `<ComponentPrefabFolder>/<SetName>/` containing variant prefabs + `axis-intent.json` | `FigmaPaths.cs:106-115`, `ComponentAxisIntent.WriteAxisIntent` (`:25-39`) |
-| INSTANCE (definition found) | `FigmaComponentNodeMarker` placeholder, later replaced with `PrefabUtility.InstantiatePrefab` of the component prefab | `FigmaAssetGenerator.cs:147-153`, `ComponentManager.InstantiateComponentPrefabs` (`:125-216`) |
-| INSTANCE (definition missing) | Built inline as a regular node — no prefab link | `FigmaAssetGenerator.cs:155-156` |
-| CANVAS (Figma page) | Page prefab at `FigmaPaths.FigmaPagePrefabFolder` — written but nothing reads it | `FigmaAssetGenerator.cs:42-47` |
-| SECTION | Registered with `PrototypeFlowController` if `BuildPrototypeFlow` is on | `FigmaAssetGenerator.cs:238-239` |
-| All other (RECTANGLE, ELLIPSE, TEXT, GROUP, etc.) | GameObject with UGUI components under the parent; no separate prefab | `FigmaNodeManager.CreateUnityComponentsForNode` / `ApplyUnityComponentPropertiesForNode` |
+| FRAME (parent is CANVAS or SECTION) | Screen prefab at `FigmaPaths.FigmaScreenPrefabFolder` | `FigmaAssetGenerator.BuildFigmaNode`, `FigmaDataUtils.IsScreenNode` |
+| COMPONENT (standalone) | Component prefab at `<ComponentPrefabFolder>/<SafeName>.prefab` | `ComponentManager.GenerateComponentAssetFromNode` |
+| COMPONENT (child of COMPONENT_SET) | Variant prefab at `<ComponentPrefabFolder>/<SetName>/<NormalisedVariant>.prefab` | `ComponentManager.GenerateComponentAssetFromNode`, `FigmaPaths.GetPathForComponentPrefab` |
+| COMPONENT_SET | Folder `<ComponentPrefabFolder>/<SetName>/` containing variant prefabs + `axis-intent.json` | `FigmaPaths.GetPathForComponentPrefab`, `ComponentAxisIntent.WriteAxisIntent` |
+| INSTANCE (definition found) | `FigmaComponentNodeMarker` placeholder, later replaced with `PrefabUtility.InstantiatePrefab` of the component prefab; overrides applied to the nested nodes | `FigmaAssetGenerator.BuildFigmaNode`, `ComponentManager.InstantiateComponentPrefabs`, `ComponentManager.ApplyFigmaProperties` |
+| INSTANCE nested in an instance, component changed (variant or instance swap) | The nested prefab instance is replaced by the prefab of the component the node names; place, transform and node id kept | `ComponentManager.SwapChangedComponent` |
+| INSTANCE (definition missing) | Built inline as a regular node, no prefab link | `FigmaAssetGenerator.BuildFigmaNode` |
+| CANVAS (Figma page) | Page prefab at `FigmaPaths.FigmaPagePrefabFolder`, written but nothing reads it | `FigmaAssetGenerator.SaveFigmaPageAsPrefab` |
+| SECTION | Registered with `PrototypeFlowController` if `BuildPrototypeFlow` is on | `FigmaAssetGenerator.RegisterFigmaSection` |
+| Node a plain `Image` cannot draw (vector, boolean, vector-only group, childless shape with stroke/radius/gradient, ellipse, star) | `Image` with a server-rendered sprite, sized to `absoluteRenderBounds`, `Sliced` when the sprite has a border | `FigmaDataUtils.GetNodeSubstitutionStatus`, `NeedsShapeRender`, `FigmaAssetGenerator.BuildFigmaNode` |
+| Rendered sublayer that an instance restyles | Its own render, keyed by the instance-side id, assigned in that instance | `FigmaDataUtils.AddRestyledSublayerRenders`, `ComponentManager.ApplyInstanceRender` |
+| All other (RECTANGLE, TEXT, GROUP, FRAME with children, etc.) | GameObject with UGUI components under the parent; no separate prefab | `FigmaNodeManager.CreateUnityComponentsForNode` / `ApplyUnityComponentPropertiesForNode` |
 
 ## Screen name table
 
-`FigmaPaths.GetPathForScreenPrefab` (`FigmaPaths.cs:83-96`) resolves the output
-path for a screen FRAME:
+`FigmaPaths.GetPathForScreenPrefab` resolves the output path for a screen FRAME:
 
-1. If `ScreenNameOverrides` contains a row where `FrameName` matches `node.name`,
-   the prefab is saved as `<ScreenPrefabFolder>/<PrefabName>.prefab`.
-2. If no match and `OnlyImportListedScreens` is **true**, returns `null` — the
-   screen is skipped entirely (`FigmaAssetGenerator.cs:229-230` guards on null).
+1. If `ScreenNameOverrides` contains a row where `FrameName` matches `node.name`:
+   `ExcludeFromImport` skips it; a blank `PrefabName` keeps the frame name;
+   otherwise the prefab is saved as `<ScreenPrefabFolder>/<PrefabName>.prefab`.
+2. If no match and `OnlyImportListedScreens` is **true**, returns `null` and the
+   screen is skipped entirely.
 3. If no match and `OnlyImportListedScreens` is **false**, falls through to the
    raw frame name.
 
-Duplicate-name collisions append `_N` (`FigmaPaths.cs:88-89`).
+Duplicate-name collisions append `_N`.
 
 ## Component prefab filenames
 
-`FigmaPaths.GetPathForComponentPrefab` (`FigmaPaths.cs:103-120`):
+`FigmaPaths.GetPathForComponentPrefab`:
 
 - **Standalone component:** `<ComponentPrefabFolder>/<MakeValidFileName(name)>.prefab`
 - **Variant (child of COMPONENT_SET):**
   `<ComponentPrefabFolder>/<MakeValidFileName(setName)>/<NormalisedVariant>.prefab`
 
-`NormaliseVariantName` (`FigmaPaths.cs:126-130`) turns Figma's `State=Normal, Color=Green`
-into `State-Normal_Color-Green`, then `MakeValidFileName` strips filesystem-unsafe
-characters.
-
-`MakeValidFileName` (`FigmaPaths.cs:145-151`) replaces characters in
+`NormaliseVariantName` turns Figma's `State=Normal, Color=Green` into
+`State-Normal_Color-Green`, then `MakeValidFileName` replaces characters in
 `Path.GetInvalidFileNameChars()` plus `.` with `_`.
 
 ## Axis intent
 
-For each COMPONENT_SET, `ComponentAxisIntent.WriteAxisIntent`
-(`ComponentAxisIntent.cs:25-39`) writes `axis-intent.json` in the set's folder.
-It reads the `UNITY:` directive from the set's Figma description
-(`figmaFile.componentSets[parentNode.id].description`). Format:
+For each COMPONENT_SET, `ComponentAxisIntent.WriteAxisIntent` writes
+`axis-intent.json` in the set's folder. It reads the `UNITY:` directive from the
+set's Figma description (`figmaFile.componentSets[parentNode.id].description`).
+Format:
 
 ```
 UNITY: runtime-axis=State; design-axis=Color
@@ -62,29 +64,51 @@ Axes not classified by the directive appear in `Variants`. Sets with no
 `UNITY:` directive produce empty `RuntimeAxes` and `DesignAxes`; all axes go to
 `Variants`. No runtime code reads this file yet.
 
-## 9-slice collapse
+## Server render slicing
 
-When `CollapseSliceGrids` is on, `NineSlicePass.Run` (`NineSlicePass.cs:14`)
-iterates component and screen prefabs after component instantiation.
+When `SliceServerRenders` is on, `ServerRenderSlicer.Run` processes every
+`Substitution` render on disk after the downloads (online) or the missing-file
+report (offline), before the prefabs are built:
 
-`FigmaNineSlice.Apply` (`FigmaNineSlice.cs:35`) walks each prefab depth-first:
+1. **Axis band:** on each axis, the longest run of lines identical to its first
+   line (premultiplied colour, tolerance 4 levels) that does not touch an image
+   edge. The run that holds the centre line wins.
+2. **Border:** a band at least half as long as the geometry centre becomes the
+   border centre. Otherwise the border comes from `GeometryBorder`: what draws
+   outside the layout box plus the widest of corner radius, inside stroke and
+   shadow reach on that side (rectangle-like nodes only; other shapes get 0).
+3. **Compaction:** a band longer than 2 lines is replaced by its 2-line
+   alpha-weighted mean. The PNG is rewritten in place, so a second pass finds
+   the same 2-line band and changes nothing.
+4. **Importer:** `spriteBorder`, `spritePixelsPerUnit` = 100 × render scale,
+   `FullRect` mesh when the border is not zero.
 
-1. **Detect:** every child matches `slice_<row>_<col>` regex and all cell sprites
-   share the same texture dimensions (`FigmaNineSlice.cs:59-81`).
-2. **Guard:** cells with `FigmaImage` stroke or corner radius are skipped — a
-   plain `Image` cannot reproduce those shader features (`:69-75`).
-3. **Border:** measured from parent-local position (`localPosition + rect.xMin`),
-   never `anchoredPosition`. A grid with fewer than 3 columns gets no horizontal
-   border; likewise rows (`:127-130`).
+Pattern sources and Export renders are not sliced.
+
+## Slice-grid collapse
+
+When `CollapseSliceGrids` is on, `NineSlicePass.Run` iterates component and
+screen prefabs after component instantiation. `FigmaNineSlice.Apply` walks each
+prefab depth-first:
+
+1. **Detect:** every child matches the `slice_<row>_<col>` regex, has an
+   `Image` with a sprite, and all cell sprites share the same texture size.
+2. **Border:** measured from parent-local position (`localPosition + rect.xMin`),
+   never `anchoredPosition`, in design units. A grid with fewer than 3 columns
+   gets no horizontal border; likewise rows. A border wider than the parent is
+   dropped.
+3. **Density:** the border is multiplied by the source texture's texels per
+   design unit (`TexelsPerDesignUnit`, from the file's own width so an import
+   size cap does not skew it), and the sprite's pixels per unit is set to
+   100 × that density.
 4. **Sprite:** uses the existing image fill asset when it has an asset path,
-   setting the border on its `TextureImporter`. Falls back to a RenderTexture
-   read-back and MD5-named PNG when the sprite has no asset path (`:144-152`).
+   setting border and pixels per unit on its `TextureImporter`. Falls back to a
+   RenderTexture read-back and an MD5-named PNG when the sprite has no asset path.
 5. **Replace:** destroys all slice children, ensures the parent has a plain
-   `Image` (not `FigmaImage`), and sets `Image.Type.Sliced` (`:87-104`).
+   `Image`, and sets `Image.Type.Sliced`.
 
-The collapse is an optimisation. A wrong border is a regression — the uncollapsed
-rendering (nine `FigmaImage` components each using `ImageTransform` to crop
-correctly) is already correct.
+Keep it on for files that use slice grids: CROP image fills draw the whole
+image since 0.4.0, so uncollapsed cells each show the whole plate.
 
 ## Output folder defaults
 
