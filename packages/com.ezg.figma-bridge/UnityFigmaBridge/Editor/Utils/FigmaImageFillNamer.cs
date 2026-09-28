@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using UnityFigmaBridge.Editor.FigmaApi;
 
@@ -29,6 +32,9 @@ namespace UnityFigmaBridge.Editor.Utils
     ///
     ///     Server renders get the same folder and naming, keyed by the rendered node id. Fills and
     ///     renders claim names from one set, so a render never overwrites a fill in the same folder.
+    ///
+    ///     A fill whose art is already on disk under one of its names keeps that file, so new art
+    ///     in the document never renames the fills that were there before it.
     /// </summary>
     internal static class FigmaImageFillNamer
     {
@@ -95,7 +101,14 @@ namespace UnityFigmaBridge.Editor.Utils
         ///     Art only an unticked screen uses is never downloaded, so no folder is made for a
         ///     screen that is not in the project.
         /// </param>
-        internal static void Build(FigmaFile figmaFile, List<Node> importedPages)
+        internal static void Build(FigmaFile figmaFile, List<Node> importedPages) =>
+            Build(figmaFile, importedPages, FigmaPaths.FigmaImageFillFolder);
+
+        /// <param name="imageFillFolder">
+        ///     The document's image fill folder. Fills whose art is already in it keep their files;
+        ///     null or empty names every fill as if the folder were empty.
+        /// </param>
+        internal static void Build(FigmaFile figmaFile, List<Node> importedPages, string imageFillFolder)
         {
             Clear();
             if (figmaFile?.document == null) return;
@@ -107,11 +120,111 @@ namespace UnityFigmaBridge.Editor.Utils
 
             // Sorting by imageRef, then resolving each independently, keeps the output identical
             // between imports even if Figma reorders the document.
-            foreach (var imageRef in usages.Keys.OrderBy(k => k))
+            var fills = usages.Keys.OrderBy(k => k)
+                .Select(imageRef =>
+                {
+                    var (folder, candidates) = Resolve(usages[imageRef]);
+                    return (imageRef, folder, candidates);
+                })
+                .ToList();
+
+            // Fills already on disk take their names before any new fill claims one
+            var kept = KeepNamesOnDisk(fills, imageFillFolder, s_Taken);
+            foreach (var (imageRef, folder, candidates) in fills)
             {
-                var (folder, candidates) = Resolve(usages[imageRef]);
-                s_NameByImageRef[imageRef] = Claim(folder, candidates, s_Taken);
+                s_NameByImageRef[imageRef] = kept.TryGetValue(imageRef, out var keptName)
+                    ? keptName
+                    : Claim(folder, candidates, s_Taken);
                 if (usages[imageRef].Any(usage => usage.Reachable)) s_Reachable.Add(imageRef);
+            }
+        }
+
+        /// <summary>
+        ///     Claims run in imageRef order, so a new fill whose hash sorts early takes the first free
+        ///     name of its family and pushes every later fill of that family down one name. Their
+        ///     files keep the old art under names that now belong to other fills: each sprite GUID a
+        ///     prefab holds changes its art, and a re-download only swaps the art between GUIDs. A fill
+        ///     whose own art already sits in its folder under one of its names therefore keeps that
+        ///     file. Figma's imageRef is the SHA-1 of the image bytes, so this needs no record of
+        ///     earlier imports. Only files named like the fill are hashed.
+        /// </summary>
+        /// <returns>imageRef to the relative name it keeps; every kept name is added to <paramref name="taken"/>.</returns>
+        private static Dictionary<string, string> KeepNamesOnDisk(
+            List<(string imageRef, string folder, List<string> candidates)> fills, string imageFillFolder, HashSet<string> taken)
+        {
+            var kept = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(imageFillFolder)) return kept;
+
+            var namesByFolder = new Dictionary<string, string[]>();
+            var hashByPath = new Dictionary<string, string>();
+            using var sha1 = SHA1.Create();
+            foreach (var (imageRef, folder, candidates) in fills)
+            {
+                if (!namesByFolder.TryGetValue(folder, out var names))
+                {
+                    var directory = $"{imageFillFolder}/{folder}";
+                    namesByFolder[folder] = names = Directory.Exists(directory)
+                        ? Directory.GetFiles(directory, "*.png").Select(Path.GetFileNameWithoutExtension).ToArray()
+                        : Array.Empty<string>();
+                }
+
+                string keptName = null;
+                var keptRank = long.MaxValue;
+                foreach (var name in names)
+                {
+                    var rank = FamilyRank(name, candidates);
+                    if (rank < 0 || rank >= keptRank || taken.Contains($"{folder}/{name}")) continue;
+
+                    var path = $"{imageFillFolder}/{folder}/{name}.png";
+                    if (!hashByPath.TryGetValue(path, out var hash)) hashByPath[path] = hash = HashOf(sha1, path);
+                    if (!string.Equals(hash, imageRef, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    keptName = name;
+                    keptRank = rank;
+                }
+
+                if (keptName == null) continue;
+                var relativeName = $"{folder}/{keptName}";
+                taken.Add(relativeName);
+                kept[imageRef] = relativeName;
+            }
+
+            return kept;
+        }
+
+        /// <summary>
+        ///     Where a file name sits among the names <see cref="Claim"/> could give a fill: its
+        ///     candidates in order, then the counter forms of the last one. -1 for a name the fill
+        ///     could never get, so a file is only kept by a fill it could have been named for.
+        /// </summary>
+        private static long FamilyRank(string name, List<string> candidates)
+        {
+            var index = candidates.IndexOf(name);
+            if (index >= 0) return index;
+
+            var counterPrefix = candidates[^1] + "_";
+            if (name.Length <= counterPrefix.Length || !name.StartsWith(counterPrefix, StringComparison.Ordinal)) return -1;
+            return int.TryParse(name.Substring(counterPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var counter) &&
+                   counter > 0
+                ? candidates.Count + (long)counter
+                : -1;
+        }
+
+        /// <returns>Lower-case hex SHA-1 of the file, or null when it cannot be read.</returns>
+        private static string HashOf(SHA1 sha1, string path)
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                return BitConverter.ToString(sha1.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return null;
             }
         }
 

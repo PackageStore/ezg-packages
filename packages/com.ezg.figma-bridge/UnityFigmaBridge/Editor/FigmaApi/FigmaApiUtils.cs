@@ -381,7 +381,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         ///     Figma's imageRef is the SHA-1 of the image bytes: the file is current only when they match.
         ///     A file named by its imageRef is current whenever it exists.
         /// </summary>
-        private static bool ImageFillIsCurrent(string imageRef)
+        internal static bool ImageFillIsCurrent(string imageRef)
         {
             var path = FigmaPaths.GetPathForImageFill(imageRef);
             if (!File.Exists(path)) return false;

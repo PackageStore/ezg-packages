@@ -713,10 +713,14 @@ namespace UnityFigmaBridge.Editor
             }
             else
             {
-                ReportMissingFiles("image fill(s)", foundImageFills
-                    .Where(imageRef => !FigmaImageFillNamer.IsUnreachable(imageRef))
+                var reachedImageFills = foundImageFills.Where(imageRef => !FigmaImageFillNamer.IsUnreachable(imageRef)).ToList();
+                ReportMissingFiles("image fill(s)", reachedImageFills
                     .Select(FigmaPaths.GetPathForImageFill)
                     .Where(p => !File.Exists(p)).ToList());
+                // An online Sync downloads these again; offline they import with the art on disk
+                ReportStaleImageFills(reachedImageFills
+                    .Where(imageRef => File.Exists(FigmaPaths.GetPathForImageFill(imageRef)) && !FigmaApiUtils.ImageFillIsCurrent(imageRef))
+                    .Select(FigmaPaths.GetPathForImageFill).ToList());
             }
 
             // A cached render was sliced when it was downloaded and keeps that importer border
@@ -850,6 +854,15 @@ namespace UnityFigmaBridge.Editor
             Debug.LogWarning($"[FigmaBridge] Offline re-import: {missingPaths.Count} {what} not on disk - " +
                              "those nodes import without a sprite until an online Sync downloads them:\n  " +
                              string.Join("\n  ", missingPaths));
+        }
+
+        /// <summary>One warning listing every image fill whose file holds art the document no longer shows.</summary>
+        private static void ReportStaleImageFills(List<string> stalePaths)
+        {
+            if (stalePaths == null || stalePaths.Count == 0) return;
+            Debug.LogWarning($"[FigmaBridge] Offline re-import: {stalePaths.Count} image fill(s) on disk hold other art than " +
+                             "the document (file SHA-1 differs from its imageRef) - those nodes keep the old art until an " +
+                             "online Sync downloads them again:\n  " + string.Join("\n  ", stalePaths));
         }
 
         /// <summary>

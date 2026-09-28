@@ -46,7 +46,9 @@ These are on by default and shape the output:
 - **9-slice collapse.** A plate built as a grid of `slice_*` cells is imported as a single
   sprite carrying `Sprite.border`, not as nine child images.
 - **Node-named image fills.** Sprites are named after the node and its owner rather than the
-  Figma `imageRef` hash, so a re-import produces stable, readable asset names.
+  Figma `imageRef` hash, so a re-import produces stable, readable asset names. A fill whose art
+  is already on disk under one of its names keeps that file, so new art in Figma never renames
+  (or swaps the art behind) the sprites that were there before it.
 - **`[ignore]` nodes.** A node whose name contains `[ignore]` (any case) is dropped from the
   document with its whole subtree before anything else runs: no sprite, no server render, no
   GameObject, not in the screen list. An ignored component master leaves its instances in place;

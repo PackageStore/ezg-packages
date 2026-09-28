@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.8] - 2026-09-28
+### Fixed
+- **New art in Figma renamed the fills already on disk and swapped the art behind their GUIDs.**
+  Names are claimed in `imageRef` order, so one new fill whose hash sorts early took the first free
+  name of its family (every 9-slice cell called `Rectangle`) and pushed each later fill of that
+  family down one name. 0.6.5 kept the old files under the shifted names, so the cells of a plate
+  showed each other's art; 0.6.7 downloaded them again, which fixed the prefabs the bridge writes
+  but left every sprite GUID holding another cell's art. A fill whose own art is already in its
+  folder under one of its candidate names (or the counter form of the last one) now keeps that
+  file, and only fills with no file on disk claim new names. The match is by SHA-1, which is
+  Figma's `imageRef`, so no record of earlier imports is needed.
+
+### Added
+- The offline re-import warns about image fills whose file holds other art than the document
+  (SHA-1 differs from the `imageRef`), next to the files it could not find.
+
 ## [0.6.7] - 2026-09-28
 ### Fixed
 - **Re-import kept old art when a node's image changed but its name did not.** With
