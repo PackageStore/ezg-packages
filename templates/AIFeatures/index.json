@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 40
+      "count": 41
     },
     {
       "id": "Templates",
@@ -2599,6 +2599,26 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
       "sha256": "7211c0368e66b4d83c1551ceaca443685be757d1b1fd47c31780c3f549306d17",
       "size": 5657
+    },
+    {
+      "id": "Skills/restart-unity",
+      "name": "restart-unity",
+      "category": "Skills",
+      "description": "Ép restart Unity Editor của project hiện tại NGAY LẬP TỨC — kill -9 Editor (kèm AssetImportWorker / build -batchmode đang giữ project), gỡ lockfile, rồi mở lại đúng bản Editor đó với project này. KHÔNG hỏi confirm, KHÔNG save scene/prefab, KHÔNG kiểm tra gì trước — thay đổi chưa save trong Editor sẽ mất, đó là chủ đích. Dùng khi user gõ \"/restart-unity\", nói \"restart unity\", \"khởi động lại Unity\", \"reset editor\", \"Unity treo / đơ / kẹt compile, mở lại đi\", \"Unity MCP mất kết nối, restart editor\". `--no-launch` để chỉ kill, `--dry-run` để xem trước. KHÔNG phải compile check (/compile-check) và không phải build.",
+      "installPath": ".claude/skills/restart-unity",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/restart-unity/SKILL.md",
+        ".claude/skills/restart-unity/scripts/restart-unity.ps1",
+        ".claude/skills/restart-unity/scripts/restart-unity.sh"
+      ],
+      "fileCount": 3,
+      "installedByDefault": false,
+      "source": "extra",
+      "fileName": "restart-unity.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/restart-unity.zip",
+      "sha256": "960116e820c19b441eccc45faeff73ce897ae4861ad88b17025b95545f856444",
+      "size": 8158
     },
     {
       "id": "Skills/rewards-service",
