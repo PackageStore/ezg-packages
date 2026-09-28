@@ -286,7 +286,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                 image.type = Image.Type.Tiled;
                 image.pixelsPerUnitMultiplier = PatternRenderToTileRatio(firstFill, figmaImportProcessData);
             }
-            else if (sprite != null && sprite.border != Vector4.zero) image.type = Image.Type.Sliced;
+            // Only the 9-slice pass slices a fill: a border already on its importer can be left from an
+            // earlier import, or belong to a slice grid elsewhere that shares the fill
             else if (sprite != null && firstFill.scaleMode == Paint.ScaleMode.TILE) image.type = Image.Type.Tiled;
             else image.type = Image.Type.Simple;
             image.preserveAspect = sprite != null && !isPattern && firstFill.scaleMode == Paint.ScaleMode.FIT;

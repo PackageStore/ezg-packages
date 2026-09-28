@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEditor;
@@ -335,7 +336,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 // written as an unreferenced asset under a hash name.
                 if (FigmaImageFillNamer.IsUnreachable(keyPair.Key)) continue;
 
-                if (foundImageFills.Contains(keyPair.Key) && !File.Exists(FigmaPaths.GetPathForImageFill(keyPair.Key)))
+                if (foundImageFills.Contains(keyPair.Key) && !ImageFillIsCurrent(keyPair.Key))
                 {
                     downloadList.Add(new FigmaDownloadQueueItem
                     {
@@ -373,7 +374,25 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
             return downloadList;
         }
-        
+
+        /// <summary>
+        ///     A fill named after its node keeps that name when the node gets new art, and a name can
+        ///     move to another fill, so an existing file may hold art the document no longer shows.
+        ///     Figma's imageRef is the SHA-1 of the image bytes: the file is current only when they match.
+        ///     A file named by its imageRef is current whenever it exists.
+        /// </summary>
+        private static bool ImageFillIsCurrent(string imageRef)
+        {
+            var path = FigmaPaths.GetPathForImageFill(imageRef);
+            if (!File.Exists(path)) return false;
+            if (!FigmaImageFillNamer.TryGetRelativeName(imageRef, out _)) return true;
+
+            using var sha1 = SHA1.Create();
+            using var stream = File.OpenRead(path);
+            var hash = BitConverter.ToString(sha1.ComputeHash(stream)).Replace("-", "");
+            return string.Equals(hash, imageRef, StringComparison.OrdinalIgnoreCase);
+        }
+
 
         /// <summary>
         /// Download required files and process
@@ -490,7 +509,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                             LogDownloadFailure(item, "no TextureImporter after import");
                             continue;
                         }
-                        if (ApplySpriteImportSettings(textureImporter, settings, GetWrapMode(item, tiledImageRefs, repeatNodeIds)))
+                        if (ApplySpriteImportSettings(textureImporter, settings, GetWrapMode(item, tiledImageRefs, repeatNodeIds),
+                                item.FileType == FigmaDownloadQueueItem.FigmaFileType.ImageFill))
                         {
                             textureImporter.SaveAndReimport();
                             reimportCount++;
@@ -511,9 +531,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 $"{writtenItems.Count} files ({newCount} new), {reimportCount} reimported for sprite settings");
         }
 
+        /// <param name="clearBorder">
+        ///     For an image fill: a border left on the importer was measured on the art this download
+        ///     replaced. The 9-slice pass sets it again when a slice grid uses the fill.
+        /// </param>
         /// <returns>True when the importer changed and needs a reimport.</returns>
-        private static bool ApplySpriteImportSettings(TextureImporter importer, UnityFigmaBridgeSettings settings, TextureWrapMode wrapMode)
+        private static bool ApplySpriteImportSettings(TextureImporter importer, UnityFigmaBridgeSettings settings, TextureWrapMode wrapMode,
+            bool clearBorder)
         {
+            var borderChanged = clearBorder && importer.spriteBorder != Vector4.zero;
+            if (borderChanged) importer.spriteBorder = Vector4.zero;
             var mipmaps = settings != null && settings.SpriteMipmaps;
             var compression = settings != null && settings.SpriteCompression == SpriteCompressionMode.Compressed
                 ? TextureImporterCompression.Compressed
@@ -533,7 +560,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             importer.textureCompression = compression;
             importer.sRGBTexture = true;
             importer.wrapMode = wrapMode;
-            return SpritePlatformOverride.Apply(importer, settings) || changed;
+            return SpritePlatformOverride.Apply(importer, settings) || changed || borderChanged;
         }
 
         private static TextureWrapMode GetWrapMode(FigmaDownloadQueueItem item, HashSet<string> tiledImageRefs, HashSet<string> repeatNodeIds)

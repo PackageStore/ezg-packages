@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.7] - 2026-09-28
+### Fixed
+- **Re-import kept old art when a node's image changed but its name did not.** With
+  `NameImageFillsByNodePath` a fill's file is named after its node, and a fill was downloaded only
+  when no file existed at that path. New art on the same node, a name moved to another fill, or a
+  vector that became a bitmap under the same name kept the old PNG. A named fill is now downloaded
+  again when the SHA-1 of its file differs from its `imageRef`.
+- **A re-downloaded fill kept the sprite border of the art it replaced.** The border is cleared when
+  a fill is written; the 9-slice pass sets it again for a slice grid.
+
+### Changed
+- A fill's Image is no longer `Sliced` because its sprite already has a border. Only the 9-slice
+  pass slices a fill, so a border left by an earlier import (a slice grid replaced by one image of
+  the same name) or by another slice grid that shares the fill no longer changes the result. A
+  border set by hand on a fill sprite is ignored.
+
 ## [0.6.6] - 2026-09-28
 ### Added
 - **Frame shape sprites.** A frame, component or instance with children whose own look a flat
