@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ namespace UnityFigmaBridge.Editor.Fonts
         // that looks like a modern browser. TextMeshPro reads TrueType only, so we ask as an agent
         // with no woff2 support and get a .ttf back.
         private const string TrueTypeUserAgent = "Mozilla/5.0";
+
+        private static readonly Regex s_WordBoundary = new Regex(@"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
 
         private static readonly Regex s_TrueTypeUrlPattern =
             new Regex(@"url\((?<url>https://[^)]+?\.ttf)\)", RegexOptions.IgnoreCase);
@@ -97,17 +100,32 @@ namespace UnityFigmaBridge.Editor.Fonts
         /// </summary>
         private static async Task<string> ResolveTrueTypeUrl(string fontFamily, int fontWeight)
         {
-            var escapedFamily = UnityWebRequest.EscapeURL(fontFamily);
-            var url = await FindTrueTypeUrl($"https://fonts.googleapis.com/css2?family={escapedFamily}:wght@{fontWeight}");
-            if (!string.IsNullOrEmpty(url)) return url;
-
-            url = await FindTrueTypeUrl($"https://fonts.googleapis.com/css2?family={escapedFamily}");
-            if (!string.IsNullOrEmpty(url))
+            foreach (var family in GoogleFamilyNames(fontFamily))
             {
-                Debug.LogWarning($"[FontManager] Google Fonts has no weight {fontWeight} for '{fontFamily}'. " +
-                                 "Using the family's default weight instead.");
+                var escapedFamily = UnityWebRequest.EscapeURL(family);
+                var url = await FindTrueTypeUrl($"https://fonts.googleapis.com/css2?family={escapedFamily}:wght@{fontWeight}");
+                if (!string.IsNullOrEmpty(url)) return url;
+
+                url = await FindTrueTypeUrl($"https://fonts.googleapis.com/css2?family={escapedFamily}");
+                if (!string.IsNullOrEmpty(url))
+                {
+                    Debug.LogWarning($"[FontManager] Google Fonts has no weight {fontWeight} for '{family}'. " +
+                                     "Using the family's default weight instead.");
+                    return url;
+                }
             }
-            return url;
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Figma names some families as their font file does, with words run together
+        /// ("Saira ExtraCondensed"); Google Fonts lists them spaced ("Saira Extra Condensed").
+        /// </summary>
+        private static IEnumerable<string> GoogleFamilyNames(string fontFamily)
+        {
+            yield return fontFamily;
+            var spaced = s_WordBoundary.Replace(fontFamily, " ");
+            if (spaced != fontFamily) yield return spaced;
         }
 
         private static async Task<string> FindTrueTypeUrl(string stylesheetUrl)

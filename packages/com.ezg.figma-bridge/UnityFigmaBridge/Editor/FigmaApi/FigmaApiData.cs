@@ -1067,6 +1067,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public float letterSpacing;
 
         /// <summary>
+        /// NONE, or CAP_HEIGHT: the box starts at the first line's cap height and ends at the last
+        /// line's baseline. A string, so a new value from Figma cannot fail the document decode.
+        /// </summary>
+        public string leadingTrim;
+
+        /// <summary>
         /// Paints applied to characters
         /// </summary>
         public Paint[] fills;

@@ -369,12 +369,13 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             FigmaImportScope scope = null)
         {
             var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
+            var nodeLookup = BuildNodeLookupDictionary(file);
             // Process each canvas
             foreach (var page in file.document.children)
             {
                 var isSelectedPage=downloadPageIdList.Contains(page.id);
                 AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false,
-                    renderTopLevelExports, scope);
+                    renderTopLevelExports, scope, nodeLookup);
             }
 
             AddPatternSourceNodes(file, renderSubstitutionNodeList, downloadPageIdList, scope);
@@ -453,16 +454,17 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <param name="withinComponentDefinition"></param>
         private static void AddRenderSubstitutionsForFigmaNode(Node figmaNode,
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, List<string> missingComponentIds,
-            bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports, FigmaImportScope scope)
+            bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports, FigmaImportScope scope,
+            Dictionary<string, Node> nodeLookup)
         {
             if (!figmaNode.visible || !InScope(figmaNode, scope)) return;
 
             // Instances reuse the prefab and renders of their component. Only the sublayers they
-            // restyle need a render of their own.
+            // restyle, or stretch past what a sliced render can follow, need a render of their own.
             if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId))
             {
                 if (isSelectedPage || withinComponentDefinition)
-                    AddRestyledSublayerRenders(figmaNode, RestyledNodeIds(figmaNode, null), substitutionNodeList, recursiveNodeDepth);
+                    AddRestyledSublayerRenders(figmaNode, RestyledNodeIds(figmaNode, null), substitutionNodeList, recursiveNodeDepth, nodeLookup);
                 return;
             }
 
@@ -500,7 +502,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             
             foreach (var childNode in figmaNode.children)
                 AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition,
-                    renderTopLevelExports, scope);
+                    renderTopLevelExports, scope, nodeLookup);
             
         }
 
@@ -529,16 +531,18 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
         /// <summary>
         ///     Queue a render for each node inside an instance that its component draws as one server
-        ///     render, when the instance restyles that node or anything under it. The render is keyed by
-        ///     the instance-side id, so the instance gets its own sprite instead of the component's.
+        ///     render, when the instance restyles that node or anything under it, or stretches it in a
+        ///     way the component's render cannot follow. The render is keyed by the instance-side id, so
+        ///     the instance gets its own sprite instead of the component's.
         /// </summary>
         private static void AddRestyledSublayerRenders(Node node, HashSet<string> restyledIds,
-            List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth)
+            List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, Dictionary<string, Node> nodeLookup)
         {
-            if (restyledIds.Count == 0 || !node.visible) return;
+            if (!node.visible) return;
             if (GetNodeSubstitutionStatus(node, recursiveNodeDepth))
             {
-                if (SubtreeContainsAny(node, restyledIds) && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
+                var needsOwnRender = SubtreeContainsAny(node, restyledIds) || IsStretchedUnsliceable(node, nodeLookup);
+                if (needsOwnRender && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
                     substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = node });
                 return;
             }
@@ -546,8 +550,28 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             foreach (var childNode in node.children)
             {
                 var childIds = childNode.type == NodeType.INSTANCE ? RestyledNodeIds(childNode, restyledIds) : restyledIds;
-                AddRestyledSublayerRenders(childNode, childIds, substitutionNodeList, recursiveNodeDepth + 1);
+                AddRestyledSublayerRenders(childNode, childIds, substitutionNodeList, recursiveNodeDepth + 1, nodeLookup);
             }
+        }
+
+        /// <summary>
+        ///     The slicer can only stretch a render that has a uniform band or a rectangle's corner geometry.
+        ///     A vector shape, or an image or pattern fill, rendered at the component's size and drawn at
+        ///     another size distorts, so an instance that resizes such a node needs a render at its own size.
+        /// </summary>
+        private static bool IsStretchedUnsliceable(Node node, Dictionary<string, Node> nodeLookup)
+        {
+            var separator = node.id.LastIndexOf(';');
+            if (separator < 0 || node.size == null) return false;
+            if (!nodeLookup.TryGetValue(node.id.Substring(separator + 1), out var componentNode) || componentNode.size == null) return false;
+            const float tolerance = 0.5f;
+            if (Mathf.Abs(node.size.x - componentNode.size.x) <= tolerance &&
+                Mathf.Abs(node.size.y - componentNode.size.y) <= tolerance) return false;
+
+            var hasBitmapFill = node.fills != null && node.fills.Any(fill => fill != null && fill.visible &&
+                (fill.type == Paint.PaintType.IMAGE || fill.type == Paint.PaintType.PATTERN));
+            var isRectangleLike = node.type is NodeType.RECTANGLE or NodeType.FRAME or NodeType.COMPONENT or NodeType.INSTANCE;
+            return hasBitmapFill || !isRectangleLike;
         }
 
         private static bool SubtreeContainsAny(Node node, HashSet<string> ids)

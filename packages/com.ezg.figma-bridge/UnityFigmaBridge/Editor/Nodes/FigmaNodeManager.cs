@@ -78,10 +78,11 @@ namespace UnityFigmaBridge.Editor.Nodes
                     text.font = matchingFontMapping.FontAsset;
 
                     text.text = node.characters;
-                    text.color = FigmaDataUtils.GetUnityFillColor(node.fills[0]);
+                    ApplyTextFill(text, TopVisiblePaint(node.fills), node, matchingFontMapping.FontAsset);
                     text.fontSize = node.style.fontSize;
-                    // Figma handles spacing a little differently; the default -0.7 matched it best
-                    text.characterSpacing = settings != null ? settings.CharacterSpacing : -0.7f;
+                    text.characterSpacing = (settings != null ? settings.CharacterSpacing : 0f) +
+                                            PixelsToEm(node.style.letterSpacing, node.style.fontSize);
+                    ApplyLineMetrics(text, node, matchingFontMapping.FontAsset);
 
                     text.horizontalAlignment = node.style.textAlignHorizontal switch
                     {
@@ -125,12 +126,18 @@ namespace UnityFigmaBridge.Editor.Nodes
                     Effect shadowEffect=null;
                     foreach (var effect in node.effects)
                     {
-                        if (effect.type == Effect.EffectType.DROP_SHADOW)
+                        if (effect.visible && effect.type == Effect.EffectType.DROP_SHADOW)
                         {
                             shadowEffect = effect;
                             hasShadowEffect = true;
                         }
                     }
+                    var textStroke = node.strokeWeight > 0f ? TopVisiblePaint(node.strokes) : null;
+
+                    // Auto width never wraps in Figma
+                    text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT
+                        ? TextWrappingModes.NoWrap
+                        : TextWrappingModes.Normal;
 
                     if (settings != null && settings.TextFitMode == TextFitMode.FixedRectAutoSize)
                     {
@@ -167,17 +174,20 @@ namespace UnityFigmaBridge.Editor.Nodes
                                 contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
                                 break;
                         }
+                        // TMP leaves negative margins out of its preferred height, so a trimmed box keeps its Figma height
+                        if (IsCapHeightTrimmed(node.style))
+                            contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
                     }
 
                     // If no material variation, ignore
-                    if (!hasShadowEffect && node.strokes.Length == 0) return;
+                    if (!hasShadowEffect && textStroke == null) return;
 
                     var shadowColor = hasShadowEffect
                         ? FigmaDataUtils.ToUnityColor(shadowEffect.color) : UnityEngine.Color.white;
-                    var outlineColor = node.strokes.Length > 0
-                        ? FigmaDataUtils.GetUnityFillColor(node.strokes[0]) : UnityEngine.Color.white;
+                    var outlineColor = textStroke != null
+                        ? FigmaDataUtils.GetUnityFillColor(textStroke) : UnityEngine.Color.white;
                     var outlineWidth = 0f;
-                    if (node.strokes.Length > 0)
+                    if (textStroke != null)
                     {
                         // A Figma stroke weight of x reads as x/10 in TMP's normalised outline
                         // units, whatever the font size. Deriving it from font size instead made
@@ -187,7 +197,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                         outlineWidth = Mathf.Clamp01(outlineWidth);
                     }
                     var effectMaterialPreset = FontManager.GetEffectMaterialPreset(matchingFontMapping,
-                        hasShadowEffect, shadowColor, node.strokes.Length>0, outlineColor, outlineWidth);
+                        hasShadowEffect, shadowColor, textStroke != null, outlineColor, outlineWidth);
                     text.fontMaterial = effectMaterialPreset;
 
 
@@ -231,7 +241,24 @@ namespace UnityFigmaBridge.Editor.Nodes
             var image = nodeGameObject.GetComponent<Image>();
             if (image == null) image = nodeGameObject.AddComponent<Image>();
 
-            var firstFill = node.fills != null && node.fills.Length > 0 ? node.fills[0] : null;
+            if (FrameShapeSprite.IsNeeded(node))
+            {
+                var shapeSprite = FrameShapeSprite.Build(node, figmaImportProcessData.Settings);
+                if (shapeSprite != null)
+                {
+                    image.sprite = shapeSprite;
+                    image.color = Color.white;
+                    image.type = shapeSprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
+                    image.pixelsPerUnitMultiplier = 1f;
+                    image.preserveAspect = false;
+                    image.enabled = true;
+                    return;
+                }
+            }
+
+            // Figma paints fills bottom to top: the last visible one is what a flat colour shows
+            var firstFill = TopVisiblePaint(node.fills);
+            var hasHiddenFillsOnly = firstFill == null && node.fills != null && node.fills.Length > 0;
             Sprite sprite = null;
             var isPattern = false;
             if (firstFill != null && firstFill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(firstFill.imageRef))
@@ -251,7 +278,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             else
                 image.color = FigmaDataUtils.GetUnityFillColor(firstFill);
 
-            image.enabled = firstFill == null || firstFill.visible;
+            image.enabled = !hasHiddenFillsOnly;
 
             if (isPattern)
             {
@@ -285,6 +312,115 @@ namespace UnityFigmaBridge.Editor.Nodes
             figmaImportProcessData.ShapeOnlyNodes.Add(record);
             if (string.IsNullOrEmpty(record.PrefabPath))
                 figmaImportProcessData.ShapeOnlyPendingRoots.Add((record, HierarchyRootWithinPrefab(nodeGameObject.transform)));
+        }
+
+        private static Paint TopVisiblePaint(Paint[] paints)
+        {
+            if (paints == null) return null;
+            for (var i = paints.Length - 1; i >= 0; i--)
+                if (paints[i] != null && paints[i].visible) return paints[i];
+            return null;
+        }
+
+        private static float PixelsToEm(float pixels, float fontSize)
+        {
+            return fontSize > 0f ? pixels / fontSize * 100f : 0f;
+        }
+
+        /// <summary>
+        ///     TMP has no text-wide gradient, only four corner colours per glyph. A gradient's vertical
+        ///     change is sampled at the first line's cap line and baseline, in the box's middle column, so
+        ///     a single line reads as in Figma; a change across the line is lost.
+        /// </summary>
+        private static void ApplyTextFill(TMP_Text text, Paint fill, Node node, TMP_FontAsset fontAsset)
+        {
+            text.enableVertexGradient = false;
+            if (fill == null)
+            {
+                text.color = new Color(1f, 1f, 1f, 0f);
+                return;
+            }
+            if (!FigmaDataUtils.IsGradient(fill) || fill.gradientStops == null || fill.gradientStops.Length == 0)
+            {
+                text.color = FigmaDataUtils.GetUnityFillColor(fill);
+                return;
+            }
+
+            var top = FrameShapeSprite.SampleGradient(fill, FrameShapeSprite.GradientPosition(fill, new Vector2(0.5f, 0f)));
+            var bottom = FrameShapeSprite.SampleGradient(fill, FrameShapeSprite.GradientPosition(fill, new Vector2(0.5f, 1f)));
+            var glyphSpan = GlyphSpanInBox(node, fontAsset);
+            text.color = new Color(1f, 1f, 1f, fill.opacity);
+            text.enableVertexGradient = true;
+            text.colorGradient = new VertexGradient(
+                Color.Lerp(top, bottom, glyphSpan.x), Color.Lerp(top, bottom, glyphSpan.x),
+                Color.Lerp(top, bottom, glyphSpan.y), Color.Lerp(top, bottom, glyphSpan.y));
+        }
+
+        /// <summary>
+        ///     Cap line and baseline of the first line as fractions of the box height: where a capital's
+        ///     quad starts and ends, so the corner colours match the gradient at the glyph, not at the box.
+        /// </summary>
+        private static Vector2 GlyphSpanInBox(Node node, TMP_FontAsset fontAsset)
+        {
+            var boxHeight = node.size != null ? node.size.y : 0f;
+            var face = fontAsset.faceInfo;
+            if (boxHeight <= 0f || face.pointSize <= 0f) return new Vector2(0f, 1f);
+            var scale = node.style.fontSize / face.pointSize;
+            var capTop = FirstLineAscentInBox(node, fontAsset) - face.capLine * scale;
+            var baseline = FirstLineAscentInBox(node, fontAsset);
+            return new Vector2(Mathf.Clamp01(capTop / boxHeight), Mathf.Clamp01(baseline / boxHeight));
+        }
+
+        /// <summary>Distance from the box top to the first baseline, as Figma lays the line out.</summary>
+        private static float FirstLineAscentInBox(Node node, TMP_FontAsset fontAsset)
+        {
+            var face = fontAsset.faceInfo;
+            var scale = node.style.fontSize / face.pointSize;
+            if (IsCapHeightTrimmed(node.style)) return face.capLine * scale;
+            var ascent = face.ascentLine * scale;
+            var descent = -face.descentLine * scale;
+            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : ascent + descent;
+            return (lineHeight - (ascent + descent)) * 0.5f + ascent;
+        }
+
+        private static bool IsCapHeightTrimmed(TypeStyle style)
+        {
+            return string.Equals(style.leadingTrim, "CAP_HEIGHT", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        ///     Figma spaces lines by <c>lineHeightPx</c> and centres the font's ascent and descent in each
+        ///     line, so half the leading sits above the first line and below the last. TMP stacks lines by
+        ///     the font's own line height from the first ascender to the last descender. Line spacing makes
+        ///     up the difference between lines, and the vertical margins the half leading at both ends.
+        ///     A cap-height leading trim cuts the box at the first cap line and the last baseline instead.
+        /// </summary>
+        private static void ApplyLineMetrics(TMP_Text text, Node node, TMP_FontAsset fontAsset)
+        {
+            var style = node.style;
+            var face = fontAsset.faceInfo;
+            if (style.fontSize <= 0f || face.pointSize <= 0f) return;
+            var scale = style.fontSize / face.pointSize;
+            var ascent = face.ascentLine * scale;
+            var descent = -face.descentLine * scale;
+
+            if (style.lineHeightPx > 0f)
+                text.lineSpacing = PixelsToEm(style.lineHeightPx - face.lineHeight * scale, style.fontSize);
+
+            float marginTop, marginBottom;
+            if (IsCapHeightTrimmed(style))
+            {
+                marginTop = face.capLine * scale - ascent;
+                marginBottom = -descent;
+            }
+            else
+            {
+                var halfLeading = style.lineHeightPx > 0f ? (style.lineHeightPx - (ascent + descent)) * 0.5f : 0f;
+                marginTop = halfLeading;
+                marginBottom = halfLeading;
+            }
+            var margin = text.margin;
+            text.margin = new Vector4(margin.x, marginTop, margin.z, marginBottom);
         }
 
         private static Color AverageGradientColor(Paint paint)

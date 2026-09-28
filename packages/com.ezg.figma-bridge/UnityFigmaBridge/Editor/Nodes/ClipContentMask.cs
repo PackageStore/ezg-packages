@@ -50,6 +50,10 @@ namespace UnityFigmaBridge.Editor.Nodes
             {
                 Debug.LogWarning($"[ClipContentMask] '{node.name}' clips its content and has an image fill: the fill's alpha is the mask, its corner radius is not applied.", nodeGameObject);
             }
+            else if (hasVisibleFill && image.sprite != null && FrameShapeSprite.IsNeeded(node))
+            {
+                // The frame's own shape sprite already carries its corner radius and is the mask
+            }
             else
             {
                 image.sprite = RoundedRectSprite(radii, figmaImportProcessData.Settings);

@@ -21,6 +21,13 @@ namespace UnityFigmaBridge.Editor.NineSlice
         private const int KeptCenterPixels = 2;
 
         /// <summary>
+        ///     Band lines kept on each side of the stretched centre, inside the border. Bilinear
+        ///     filtering samples one texel past the centre's edge; without a band texel there, the
+        ///     stretched centre fades into the border colour over a quarter of its width.
+        /// </summary>
+        private const int GuardPixels = 1;
+
+        /// <summary>
         ///     Largest premultiplied 8 bit channel difference two render lines may have and still count as
         ///     one. Figma dithers gradients and shadows by up to 3 levels, so exact equality finds no band.
         /// </summary>
@@ -80,30 +87,69 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 var pixels = texture.GetPixels32();
 
                 var geometry = GeometryBorder(node);
-                var columns = SliceAxis(pixels, width, height, true,
-                    ToPixels(geometry.x, renderScale), ToPixels(geometry.z, renderScale));
-                // Texture rows count from the bottom, so the near side of the row axis is the bottom border
-                var rows = SliceAxis(pixels, width, height, false,
-                    ToPixels(geometry.y, renderScale), ToPixels(geometry.w, renderScale));
+                var result = Slice(pixels, width, height, new Vector4(
+                    ToPixels(geometry.x, renderScale), ToPixels(geometry.y, renderScale),
+                    ToPixels(geometry.z, renderScale), ToPixels(geometry.w, renderScale)));
 
-                if (columns.removed > 0 || rows.removed > 0)
+                if (result.Compacted)
                 {
-                    AverageBand(pixels, width, height, true, columns);
-                    AverageBand(pixels, width, height, false, rows);
-                    var compactPixels = Compact(pixels, width, height, columns, rows, out var compactWidth, out var compactHeight);
-                    var compactTexture = new Texture2D(compactWidth, compactHeight, TextureFormat.RGBA32, false);
-                    compactTexture.SetPixels32(compactPixels);
-                    compactTexture.Apply();
-                    bytes = compactTexture.EncodeToPNG();
+                    bytes = EncodePng(result);
                     File.WriteAllBytes(path, bytes);
-                    Object.DestroyImmediate(compactTexture);
                     AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                     wasCompacted = true;
                 }
 
-                var border = new Vector4(columns.near, rows.near, columns.far, rows.far);
-                ConfigureImporter(path, border, ReferencePixelsPerUnit * renderScale, SlicedMarker + Md5(bytes));
-                return border != Vector4.zero;
+                ConfigureImporter(path, result.Border, ReferencePixelsPerUnit * renderScale, SlicedMarker + Md5(bytes));
+                return result.Border != Vector4.zero;
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        internal struct SliceResult
+        {
+            public Color32[] Pixels;
+            public int Width;
+            public int Height;
+            /// <summary>Sprite border in texels: left, bottom, right, top.</summary>
+            public Vector4 Border;
+            public bool Compacted;
+        }
+
+        /// <param name="geometryBorder">
+        ///     Border in texels (left, bottom, right, top) that an axis without a uniform band falls back to.
+        /// </param>
+        internal static SliceResult Slice(Color32[] pixels, int width, int height, Vector4 geometryBorder)
+        {
+            var columns = SliceAxis(pixels, width, height, true, (int)geometryBorder.x, (int)geometryBorder.z);
+            // Texture rows count from the bottom, so the near side of the row axis is the bottom border
+            var rows = SliceAxis(pixels, width, height, false, (int)geometryBorder.y, (int)geometryBorder.w);
+            var result = new SliceResult
+            {
+                Pixels = pixels,
+                Width = width,
+                Height = height,
+                Border = new Vector4(columns.near, rows.near, columns.far, rows.far)
+            };
+            if (columns.removed <= 0 && rows.removed <= 0) return result;
+
+            AverageBand(pixels, width, height, true, columns);
+            AverageBand(pixels, width, height, false, rows);
+            result.Pixels = Compact(pixels, width, height, columns, rows, out result.Width, out result.Height);
+            result.Compacted = true;
+            return result;
+        }
+
+        internal static byte[] EncodePng(SliceResult result)
+        {
+            var texture = new Texture2D(result.Width, result.Height, TextureFormat.RGBA32, false);
+            try
+            {
+                texture.SetPixels32(result.Pixels);
+                texture.Apply();
+                return texture.EncodeToPNG();
             }
             finally
             {
@@ -115,6 +161,9 @@ namespace UnityFigmaBridge.Editor.NineSlice
         {
             public int near;
             public int far;
+            /// <summary>First line of the uniform band, and how many of its lines stay in the sprite.</summary>
+            public int bandStart;
+            public int kept;
             /// <summary>First line of the uniform band that is dropped, and how many lines are dropped.</summary>
             public int removedStart;
             public int removed;
@@ -130,12 +179,16 @@ namespace UnityFigmaBridge.Editor.NineSlice
             var bandIsCenter = geometryNear + geometryFar == 0 || length * 2 >= geometryCenter;
             if (length >= KeptCenterPixels && bandIsCenter)
             {
+                var kept = Mathf.Min(length, KeptCenterPixels + 2 * GuardPixels);
+                var nearGuard = (kept - KeptCenterPixels) / 2;
                 return new AxisSlice
                 {
-                    near = start,
-                    far = lineCount - start - length,
-                    removedStart = start + KeptCenterPixels,
-                    removed = length - KeptCenterPixels
+                    near = start + nearGuard,
+                    far = lineCount - start - length + kept - KeptCenterPixels - nearGuard,
+                    bandStart = start,
+                    kept = kept,
+                    removedStart = start + kept,
+                    removed = length - kept
                 };
             }
 
@@ -205,8 +258,8 @@ namespace UnityFigmaBridge.Editor.NineSlice
         private static void AverageBand(Color32[] pixels, int width, int height, bool columns, AxisSlice slice)
         {
             if (slice.removed <= 0) return;
-            var bandStart = slice.near;
-            var bandLength = slice.removed + KeptCenterPixels;
+            var bandStart = slice.bandStart;
+            var bandLength = slice.removed + slice.kept;
             var span = columns ? height : width;
             for (var i = 0; i < span; i++)
             {
@@ -220,7 +273,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
                     ? new Color32((byte)Math.Round(r / alpha), (byte)Math.Round(g / alpha), (byte)Math.Round(b / alpha),
                         (byte)Math.Round(alpha / bandLength))
                     : new Color32(0, 0, 0, 0);
-                for (var line = bandStart; line < bandStart + KeptCenterPixels; line++)
+                for (var line = bandStart; line < bandStart + slice.kept; line++)
                 {
                     if (columns) pixels[i * width + line] = mean;
                     else pixels[line * width + i] = mean;

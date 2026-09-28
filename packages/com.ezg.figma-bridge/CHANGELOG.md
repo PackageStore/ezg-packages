@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.6.6] - 2026-09-28
+### Added
+- **Frame shape sprites.** A frame, component or instance with children whose own look a flat
+  Image cannot draw (corner radius, gradient, stroke, inner shadow, or more than one visible fill)
+  gets a locally drawn 9-sliced background sprite: its visible solid and gradient fills (linear,
+  radial, diamond, angular) composited bottom to top, its inside stroke, and its inner shadows,
+  clipped to its corner radii. Sprites are named by content hash under
+  `<ImageFillFolder>/<document>/Shapes/`, so nodes that look the same share one file. A clipping
+  frame keeps that sprite as its Mask graphic.
+- **Per-instance renders for stretched shapes.** An instance that resizes a server-rendered vector
+  shape, or a render with an image or pattern fill, gets a render at its own size: the component's
+  render could not be sliced to that size without distortion.
+- **Text line metrics.** Figma's `lineHeightPx` becomes TMP line spacing, and the half leading
+  above the first and below the last line becomes the vertical margins, so the first baseline
+  sits where Figma puts it. `leadingTrim: CAP_HEIGHT` boxes (first cap line to last baseline) use
+  negative margins and keep their Figma height. Figma letter spacing is added to
+  `CharacterSpacing`.
+- **Gradient text fills** become a TMP vertex gradient, sampled at the cap line and baseline.
+
+### Changed
+- `CharacterSpacing` defaults to 0 and is now an offset on top of Figma's letter spacing. The old
+  -0.7 only matched Figma while the design font was substituted. Existing settings assets keep
+  their value; set it to 0.
+- Auto-width text (`WIDTH_AND_HEIGHT`) no longer wraps.
+- Render cache format version 2: every render is fetched and sliced again once.
+
+### Fixed
+- **Sliced renders bled their border into the centre.** The compacted centre kept only 2 texels,
+  so bilinear filtering faded the stretched centre into the border colour over a quarter of its
+  width. One band texel now stays on each side of the centre, inside the border.
+- A Google Fonts family that Figma names with run-together words ("Saira ExtraCondensed") is
+  looked up spaced as well ("Saira Extra Condensed"), instead of falling back to LiberationSans.
+- Frames and texts took `fills[0]` even when it was hidden: a hidden first fill disabled the
+  whole Image. The top visible fill is used now, and hidden text strokes and drop shadows are ignored.
+
 ## [0.6.5] - 2026-09-24
 ### Added
 - **Import timing report.** Every Sync (online or offline) logs one console report when it ends:

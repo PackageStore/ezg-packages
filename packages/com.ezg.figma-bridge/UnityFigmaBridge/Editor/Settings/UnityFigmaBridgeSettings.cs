@@ -186,8 +186,8 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Hệ số nới rect chữ auto-size theo chiều dọc (FixedRectAutoSize).\nVí dụ: 1.1 = cao thêm 10%.")]
         public float TextHeightPadding = 1.1f;
 
-        [Tooltip("characterSpacing của TMP cho mọi text.\nVí dụ: -0.7 khớp cách chữ của Figma nhất.")]
-        public float CharacterSpacing = -0.7f;
+        [Tooltip("characterSpacing của TMP cộng thêm cho mọi text, ngoài letter spacing của Figma.\nVí dụ: 0 khớp Figma khi text dùng đúng font của thiết kế.")]
+        public float CharacterSpacing = 0f;
 
         [Header("Sprites")]
         [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +

@@ -25,7 +25,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     public sealed class ServerRenderCache
     {
         /// <summary>Bump whenever the render request, the download import or the slicer changes what a render PNG holds.</summary>
-        public const int FormatVersion = 1;
+        public const int FormatVersion = 2;
 
         /// <summary>Project-relative; under Library so it stays per machine and out of version control.</summary>
         public const string ManifestPath = "Library/FigmaBridge/server-render-cache.json";
