@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 42
+      "count": 43
     },
     {
       "id": "Templates",
@@ -2637,6 +2637,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
       "sha256": "7211c0368e66b4d83c1551ceaca443685be757d1b1fd47c31780c3f549306d17",
       "size": 5657
+    },
+    {
+      "id": "Skills/refactor-ui",
+      "name": "refactor-ui",
+      "category": "Skills",
+      "description": "Senior UI/UX + motion designer mode — rework (hoặc dựng mới) MỘT màn/popup/prefab UI Unity cho khớp tính năng của nó và ship thành bản FINAL chuyên nghiệp — art direction, layout, art FX, motion DOTween mượt (vào / idle / feedback / ra), localize, chụp kiểm đa tỷ lệ, compile check — tự làm trọn, KHÔNG hỏi confirm, xong thì /auto-clear. Dùng khi user gõ \"/refactor-ui <yêu cầu>\" hoặc nói \"refactor UI X\", \"refactor lại UI màn X\", \"rework UI X\", \"làm lại UI X cho đẹp/xịn/smooth\", \"UI X xấu quá làm lại\", \"thiết kế lại popup X\", \"tạo UI mới thật chuyên nghiệp cho X\". KHÔNG dùng khi dev đưa art PSD/Figma của hoạ sĩ để ghép đúng theo (→ merge-psd-ui / psd-to-feature / figma-to-unity), hay chỉ đổi một sprite/một text lẻ (sửa tay).",
+      "installPath": ".claude/skills/refactor-ui",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/refactor-ui/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "extra",
+      "fileName": "refactor-ui.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
+      "sha256": "5535f2f2309ef23d01023a8f1ec361419bb3b6abd2d77f7eb5c2096412f73443",
+      "size": 12233
     },
     {
       "id": "Skills/restart-unity",
