@@ -6,7 +6,7 @@ dùng được y như vậy.
 
 > **Tóm tắt 10 dòng**
 > 1. File kịch bản nằm trong `Assets/_Project/AutoTests/Scenarios/<Nhóm>/<Tên>Scenario.cs` — tạo bằng menu
->    `Assets > Create > EZG > Auto Test Scenario` hoặc `AutoTestScaffolder.CreateScenario(...)`.
+>    `Assets > Create > Ezg > Auto Test Scenario` hoặc `AutoTestScaffolder.CreateScenario(...)`.
 > 2. Class kế thừa `AutoTestScenario`, có `[AutoTestScenario("Tên tiếng Việt", Category = …, Description = …)]`,
 >    bọc trong `#if UNITY_EDITOR || EZG_AUTOTEST`.
 > 3. `SetUp`: `await GameFlow.EnsureReady(ctx);` rồi chuẩn bị state (lưu giá trị gốc trước khi đổi).
@@ -88,7 +88,7 @@ release, thiếu guard là build release lỗi compile. (Template sinh ra luôn 
 
 | Cách | Dùng khi |
 |------|----------|
-| Menu **Assets > Create > EZG > Auto Test Scenario** | Dev tạo tay. Nhập Tên / Nhóm / Mô tả → file sinh ra, được ping, prompt AI được copy vào clipboard. |
+| Menu **Assets > Create > Ezg > Auto Test Scenario** | Dev tạo tay. Nhập Tên / Nhóm / Mô tả → file sinh ra, được ping, prompt AI được copy vào clipboard. |
 | `Ezg.AutoTest.Editor.AutoTestScaffolder.CreateScenario(name, category, description)` | Agent tạo qua Unity MCP (`unity_execute_code`). Trả asset path; file đã có ⇒ trả đường dẫn cũ, không ghi đè. |
 | Viết tay | Được, miễn đúng thư mục + guard + attribute. Nhớ tạo asmdef trước (`AutoTestScaffolder.EnsureAutoTestsFolder()`). |
 
@@ -957,7 +957,7 @@ trong cùng assembly đều biến mất khỏi cửa sổ.
 
 ### 9.2 Chạy
 
-**Trong cửa sổ** (dev / QA): **EZG > Auto Test System** → suite **Kịch bản riêng** → chọn kịch bản → **Chạy riêng case này** (hoặc tick rồi **Chạy mục đã chọn**).
+**Trong cửa sổ** (dev / QA): **Ezg > Auto test system** → suite **Kịch bản riêng** → chọn kịch bản → **Chạy riêng case này** (hoặc tick rồi **Chạy mục đã chọn**).
 
 **Qua Unity MCP** (AI agent) — `unity_execute_code`:
 

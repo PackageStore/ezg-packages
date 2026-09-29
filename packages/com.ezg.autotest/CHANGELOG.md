@@ -3,6 +3,14 @@
 Mọi thay đổi đáng chú ý của `com.ezg.autotest`. Định dạng theo [Keep a Changelog](https://keepachangelog.com/),
 đánh số theo [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-09-29
+
+### Sửa
+
+- Menu theo đúng quy ước chung của các package EZG (gốc `Ezg`, không tạo thêm menu gốc `EZG` riêng):
+  cửa sổ mở ở **`Ezg > Auto test system`** (phím tắt giữ nguyên Ctrl/Cmd+Shift+T), tạo kịch bản ở
+  `Assets/Create/Ezg/Auto Test Scenario`, Settings ở **Project Settings > Ezg > Auto Test**.
+
 ## [0.1.0] - 2026-09-29
 
 Bản đầu tiên.

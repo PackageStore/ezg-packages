@@ -7,7 +7,7 @@ namespace Ezg.AutoTest.Editor
 {
     /// <summary>
     ///     Cấu hình auto test của project — lưu JSON ở ProjectSettings/EZGAutoTestSettings.json (commit vào git
-    ///     để cả team + CI dùng chung). Sửa qua Project Settings &gt; EZG &gt; Auto Test hoặc tab Settings của cửa sổ.
+    ///     để cả team + CI dùng chung). Sửa qua Project Settings &gt; Ezg &gt; Auto Test hoặc tab Settings của cửa sổ.
     /// </summary>
     public static class AutoTestSettings
     {
@@ -79,14 +79,14 @@ namespace Ezg.AutoTest.Editor
         public AutoTestConfig config = new();
     }
 
-    /// <summary>Trang Project Settings &gt; EZG &gt; Auto Test.</summary>
+    /// <summary>Trang Project Settings &gt; Ezg &gt; Auto Test.</summary>
     internal sealed class AutoTestSettingsProvider : SettingsProvider
     {
         AutoTestSettingsHolder _holder;
         SerializedObject _so;
         Vector2 _scroll;
 
-        AutoTestSettingsProvider() : base("Project/EZG/Auto Test", SettingsScope.Project)
+        AutoTestSettingsProvider() : base("Project/Ezg/Auto Test", SettingsScope.Project)
         {
             keywords = new[] { "auto test", "qa", "smoke", "ezg", "test" };
         }

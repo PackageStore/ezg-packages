@@ -14,14 +14,14 @@ Ba file minh hoạ API viết kịch bản riêng của **EZG Auto Test System**
 Window > Package Manager > **EZG Auto Test System** > tab *Samples* > **Import** "Example Scenarios".
 Unity copy vào `Assets/Samples/EZG Auto Test System/<version>/Example Scenarios/`.
 
-Hai kịch bản mẫu hiện trong suite **Kịch bản riêng** (nhóm "Mẫu") của cửa sổ `EZG > Auto Test System`.
+Hai kịch bản mẫu hiện trong suite **Kịch bản riêng** (nhóm "Mẫu") của cửa sổ `Ezg > Auto test system`.
 
 ## Lưu ý
 
 - Mọi file bọc `#if UNITY_EDITOR || EZG_AUTOTEST` — assembly `Ezg.AutoTest` chỉ tồn tại trong Editor
   và build test (define `EZG_AUTOTEST`), build release không có nó.
 - Sample nằm trong `Assembly-CSharp` nên **không gọi được code game nằm trong asmdef**. Kịch bản thật của
-  game nên tạo bằng menu `Assets > Create > EZG > Auto Test Scenario` — file sinh ra nằm trong
+  game nên tạo bằng menu `Assets > Create > Ezg > Auto Test Scenario` — file sinh ra nằm trong
   `Assets/_Project/AutoTests/` với asmdef tham chiếu sẵn assembly game.
 - Xoá thư mục sample khi đã hiểu cách viết — hai kịch bản mẫu sẽ chạy mỗi lần chạy suite *Kịch bản riêng*.
 - Hướng dẫn đầy đủ (kể cả cho AI agent): `Packages/com.ezg.autotest/Documentation~/AI-SCENARIO-GUIDE.md`.

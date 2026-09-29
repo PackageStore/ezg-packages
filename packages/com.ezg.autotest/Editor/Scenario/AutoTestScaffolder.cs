@@ -62,7 +62,7 @@ namespace Ezg.AutoTest.Editor
 
         #region Menu
 
-        [MenuItem("Assets/Create/EZG/Auto Test Scenario", false, 81)]
+        [MenuItem("Assets/Create/Ezg/Auto Test Scenario", false, 81)]
         static void CreateScenarioMenu()
         {
             AutoTestNewScenarioWindow.Open(GuessCategoryFromSelection());
@@ -508,7 +508,7 @@ namespace Ezg.AutoTest.Editor
                 .Append("`ctx.Check` / `ctx.Assert` với severity phù hợp, chụp màn hình ở điểm quan trọng, ")
                 .Append("khôi phục mọi state đã đổi trong `TearDown`. Xoá dòng `ctx.Skip(\"Kịch bản chưa được triển khai\")` khi xong.\n");
             sb.Append("4. Chạy compile-check qua Unity MCP (Assets/Refresh → chờ compile xong → unity_get_compilation_errors) và sửa hết lỗi.\n");
-            sb.Append("5. Chạy kịch bản trong cửa sổ EZG > Auto Test System (suite \"Kịch bản riêng\") hoặc qua ")
+            sb.Append("5. Chạy kịch bản trong cửa sổ Ezg > Auto test system (suite \"Kịch bản riêng\") hoặc qua ")
                 .Append("`Ezg.AutoTest.Editor.AutoTestRunner` như hướng dẫn trong guide, đọc report (summary.md, report.json, ảnh chụp) ")
                 .Append("rồi sửa tới khi pass — hoặc tới khi xác định được bug thật của game: khi đó KHÔNG nới lỏng kiểm tra ")
                 .Append("cho pass, mà báo lại bug kèm các bước tái hiện, expected/actual và ảnh chụp.\n");

@@ -6,8 +6,8 @@ hình, audit UI, bấm thử mọi nút, monkey stress, logic tiền tệ, đo h
 trên device thật qua adb và các **kịch bản riêng** của từng game. Mỗi lần chạy xuất báo cáo HTML/JSON/JUnit/CSV
 cho QA và CI.
 
-- Mở: **EZG > Auto Test System** (`Ctrl+Shift+T` / `Cmd+Shift+T`).
-- Cấu hình: **Project Settings > EZG > Auto Test** (lưu ở `ProjectSettings/EZGAutoTestSettings.json`,
+- Mở: **Ezg > Auto test system** (`Ctrl+Shift+T` / `Cmd+Shift+T`).
+- Cấu hình: **Project Settings > Ezg > Auto Test** (lưu ở `ProjectSettings/EZGAutoTestSettings.json`,
   commit vào git để cả team dùng chung).
 - Báo cáo: `<project>/AutoTestReports/<runId>/`.
 
@@ -28,7 +28,7 @@ cho QA và CI.
 
 ## Bắt đầu nhanh
 
-1. Mở **EZG > Auto Test System**. Cột trái là danh sách suite; phần thông tin adapter cho biết hệ thống đã
+1. Mở **Ezg > Auto test system**. Cột trái là danh sách suite; phần thông tin adapter cho biết hệ thống đã
    nhận ra kiến trúc game chưa (vd *EZG Template: capabilities = ReadyState, Features, Economy…*).
 2. Tick các suite muốn chạy (lần đầu nên chọn `static` + `smoke`) rồi bấm **Chạy mục đã chọn** (hoặc **Chạy tất cả**). Suite Play mode tự vào
    Play, chờ game boot, chạy xong tự thoát Play. Bấm **Dừng** bất cứ lúc nào — report vẫn được ghi.
@@ -64,7 +64,7 @@ vào `Packages/manifest.json`:
     }
   ],
   "dependencies": {
-    "com.ezg.autotest": "0.1.0"
+    "com.ezg.autotest": "0.1.1"
   }
 }
 ```
@@ -94,7 +94,7 @@ Sau khi cài:
 
 ## Viết kịch bản riêng cho game
 
-- Menu **Assets > Create > EZG > Auto Test Scenario** → nhập tên / nhóm / mô tả → file sinh trong
+- Menu **Assets > Create > Ezg > Auto Test Scenario** → nhập tên / nhóm / mô tả → file sinh trong
   `Assets/_Project/AutoTests/Scenarios/<Nhóm>/`, kèm asmdef tham chiếu sẵn assembly game. Prompt cho AI được
   copy vào clipboard — dán cho Claude Code là nó biết phải làm gì.
 - Hướng dẫn cho dev + AI agent: [Documentation~/AI-SCENARIO-GUIDE.md](Documentation~/AI-SCENARIO-GUIDE.md).
@@ -125,7 +125,7 @@ không đại diện cho máy thật. Ngưỡng tuyệt đối (FPS, bộ nhớ)
 `device`.
 
 **Báo lỗi sai (false positive) thì làm sao?**
-Không sửa code test — thêm vào danh sách loại trừ trong Project Settings > EZG > Auto Test:
+Không sửa code test — thêm vào danh sách loại trừ trong Project Settings > Ezg > Auto Test:
 `smoke.excludedFeatures` (màn không mở độc lập được), `general.ignoredLogPatterns` (log nhiễu của SDK),
 `uiAudit.ignoredObjectPatterns`, `buttonSweep.blacklistPatterns`, `visual.maskObjectPatterns`,
 `staticCheck.excludeFolders`, hoặc tắt riêng case (`disabledCases`). Project cần logic loại trừ riêng ⇒ project

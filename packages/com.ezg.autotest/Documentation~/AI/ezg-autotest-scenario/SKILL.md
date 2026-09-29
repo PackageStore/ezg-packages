@@ -32,7 +32,7 @@ Xác định loại việc:
 
 ## STEP 1 — Tìm hoặc tạo file kịch bản
 
-1. Có sẵn file (user đưa đường dẫn, hoặc dev đã tạo bằng menu `Assets > Create > EZG > Auto Test Scenario`) ⇒ dùng
+1. Có sẵn file (user đưa đường dẫn, hoặc dev đã tạo bằng menu `Assets > Create > Ezg > Auto Test Scenario`) ⇒ dùng
    luôn. File mới tạo có `ctx.Skip("Kịch bản chưa được triển khai")` ở đầu `Run` và các comment `// AI:` hướng dẫn.
 2. Chưa có ⇒ tạo qua Unity MCP `unity_execute_code`:
 
@@ -124,7 +124,7 @@ string) ⇒ dùng `severity: Severity.X`.
      **không** nới kiểm tra / hạ severity để pass. Giữ kiểm tra, ghi lại bằng chứng, báo user ở STEP 6.
 7. Pass rồi ⇒ **chạy lại lần 2** liên tiếp; lần 2 lỗi = TearDown chưa khôi phục đủ.
 
-Runner API không tồn tại (package bản cũ) ⇒ mở cửa sổ `unity_execute_menu_item("EZG/Auto Test System")` và nhờ user
+Runner API không tồn tại (package bản cũ) ⇒ mở cửa sổ `unity_execute_menu_item("Ezg/Auto test system")` và nhờ user
 bấm chạy suite Kịch bản riêng, sau đó đọc report như bước 4–6.
 
 ## STEP 6 — Báo cáo

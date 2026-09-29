@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Ezg.AutoTest.Editor
 {
     /// <summary>
-    ///     Cửa sổ EZG &gt; Auto Test System (Ctrl/Cmd+Shift+T): chọn suite/case, chạy, dừng, xem tiến độ trực tiếp,
+    ///     Cửa sổ Ezg &gt; Auto test system (Ctrl/Cmd+Shift+T): chọn suite/case, chạy, dừng, xem tiến độ trực tiếp,
     ///     kết quả chi tiết (issue, ảnh, log), lịch sử report và cấu hình.
     /// </summary>
     public sealed partial class AutoTestWindow : EditorWindow
@@ -43,7 +43,7 @@ namespace Ezg.AutoTest.Editor
         TestRunReport _lastReport;
         string _lastReportFolder;
 
-        [MenuItem("EZG/Auto Test System %#t", false, 0)]
+        [MenuItem("Ezg/Auto test system %#t", false, 0)]
         public static void Open()
         {
             var w = GetWindow<AutoTestWindow>();

@@ -39,7 +39,7 @@ sandbox dữ liệu, toàn bộ cấu hình và quy trình QA đề xuất. Vi�
 
 ## 2. Chạy test trong Editor
 
-1. **EZG > Auto Test System** (`Ctrl+Shift+T` / `Cmd+Shift+T`).
+1. **Ezg > Auto test system** (`Ctrl+Shift+T` / `Cmd+Shift+T`).
 2. Chọn suite (và case bên trong nếu muốn chạy lẻ). Case bị tắt trong Settings hiện nhưng không chạy.
 3. **Chạy mục đã chọn** (hoặc **Chạy tất cả** — mọi suite đang bật trừ Device / E2E, hoặc **Chạy riêng** một suite / case). Suite Edit mode (`static`) chạy ngay trong Editor; suite Play mode tự vào Play từ scene boot
    (`general.bootScenePath`, rỗng = scene đầu tiên trong Build Settings), chờ game boot xong, chạy các case,
@@ -286,7 +286,7 @@ Kịch bản gameplay đặc thù của từng game, viết trong `Assets/_Proje
 `AutoTestScenario` có attribute `[AutoTestScenario]`), tự xuất hiện — không cần đăng ký. Mỗi kịch bản là một
 case, nhóm theo `Category`. Kịch bản đánh `Disabled = true` hiện nhưng bị bỏ qua.
 
-Tạo mới: **Assets > Create > EZG > Auto Test Scenario**. Cách viết (cho dev và AI):
+Tạo mới: **Assets > Create > Ezg > Auto Test Scenario**. Cách viết (cho dev và AI):
 [AI-SCENARIO-GUIDE.md](AI-SCENARIO-GUIDE.md).
 
 ---
@@ -365,7 +365,7 @@ quan trọng mà sandbox không che được. Tắt sandbox chỉ khi cố ý mu
 
 ## 10. Tham chiếu Settings
 
-Project Settings > **EZG > Auto Test**, lưu ở `ProjectSettings/EZGAutoTestSettings.json` (commit vào git).
+Project Settings > **Ezg > Auto Test**, lưu ở `ProjectSettings/EZGAutoTestSettings.json` (commit vào git).
 Build test trên device được bake cùng cấu hình này. Danh sách "regex" không phân biệt hoa thường, khớp một phần
 (dùng `^…$` để khớp nguyên tên); regex sai cú pháp được coi là chuỗi con thường.
 

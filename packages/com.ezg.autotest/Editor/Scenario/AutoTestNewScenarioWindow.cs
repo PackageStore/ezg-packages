@@ -9,7 +9,7 @@ namespace Ezg.AutoTest.Editor
     /// <summary>
     ///     Cửa sổ nhỏ tạo kịch bản auto test mới: nhập Tên / Nhóm / Mô tả → sinh file từ template, ping file,
     ///     copy sẵn prompt AI vào clipboard (dán cho Claude Code để triển khai). Mở từ menu
-    ///     Assets/Create/EZG/Auto Test Scenario hoặc từ cửa sổ Auto Test (<see cref="Open()" />).
+    ///     Assets/Create/Ezg/Auto Test Scenario hoặc từ cửa sổ Auto Test (<see cref="Open()" />).
     /// </summary>
     public sealed class AutoTestNewScenarioWindow : EditorWindow
     {
