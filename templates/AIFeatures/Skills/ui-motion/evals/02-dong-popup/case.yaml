@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 02-dong-popup
+description: "Đóng popup có UIMotionPanel. Ẩn rồi mới tắt (6.6), M-11 (8.1), chỗ đổi trong code của project."
+tags: [popup, dev]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Dev làm popup Settings mới, đã có UIMotionPanel (hiện, ẩn). Đóng nó bằng UIManager.ClosePopup như mấy popup khác (gọi SetActive(false)) được không?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: khong_setactive_6.6
+    criteria: >-
+      Câu trả lời nói SetActive(false) thẳng lên popup có UIMotionPanel làm mất motion ẩn và là vi phạm M-11.
+  - type: llm
+    name: cach_dong_6.6
+    criteria: >-
+      Câu trả lời nói đóng bằng UIMotion.SetActiveAnimated(go, false) hoặc UIMotionPanel.Hide(), và chỉ ra chỗ đổi là UIManager.ClosePopup / CloseAll (hàm đang SetActive(false)) trong code của project.
+  - type: llm
+    name: canh_bao_8.1
+    criteria: >-
+      Câu trả lời nhắc Console cảnh báo khi có SetActive(false) thẳng, hoặc gate M-11 bắt lỗi này lúc chạy.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

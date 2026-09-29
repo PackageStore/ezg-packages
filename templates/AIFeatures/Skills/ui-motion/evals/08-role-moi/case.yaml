@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 08-role-moi
+description: "Thêm role mới cho module: sửa ở nguồn module, enum cuối (6.10), Định nghĩa xong (11), không thêm thứ riêng của project."
+tags: [dev, module]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Dev muốn thêm role mới Stepper (cụm nút tăng giảm số lượng) vào module UI Motion. Cần làm những gì để coi là xong?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: enum_cuoi_6.10
+    criteria: >-
+      Câu trả lời nói thêm Stepper vào cuối enum UIRole, không đổi số các role cũ.
+  - type: llm
+    name: day_du_11
+    criteria: >-
+      Câu trả lời có ít nhất 5 ý của Định nghĩa xong: dòng RoleMap mặc định (UpgradeDefaults gộp được); resolver nhận diện; binder + phạm vi Settings; rule gate nếu bắt buộc; ô trong Bảng role của Role Sandbox; test Play mode; CHANGELOG.
+  - type: llm
+    name: nguon_module
+    criteria: >-
+      Câu trả lời nói sửa ở nguồn module (không sửa folder module trong project game) và tăng bản, hoặc nhắc không đưa class / tên riêng của một project vào bảng mặc định.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

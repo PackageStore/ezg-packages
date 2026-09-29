@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 01-nut-press
+description: "Nút mới cần nhấn, nút cũ đã tự nhún. Tool tự gắn (7.1), class tự có motion của project vào file luật riêng (2.4), số từ Profile (2.1)."
+tags: [button, project-rules]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Nút btnBuy trong prefab ItemView chưa có hiệu ứng nhấn. Mấy nút ở HomeScreen thì đã tự nhún bằng script riêng rồi. Làm sao cho btnBuy có nhấn mà không gắn chồng lên mấy nút kia?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: tu_gan_7.1
+    criteria: >-
+      Câu trả lời nói không cần viết tween cho btnBuy: save prefab trong Prefab Mode thì tool tự gắn UIMotionButton theo role Button (hoặc chạy Tools/UI Motion/Quét và gắn). Trượt nếu hướng dẫn viết script DOTween riêng cho nút.
+  - type: llm
+    name: class_rieng_2.4
+    criteria: >-
+      Câu trả lời nhận ra ClickScale là script nhún riêng của project trên các nút HomeScreen và nói khai nó trong ProjectSettings/UIMotionProject.json (componentRules, role Button, ownMotion true) rồi áp luật riêng (Tools/UI Motion/Áp luật riêng của project), để tool không gắn UIMotionButton chồng lên các nút đó.
+  - type: llm
+    name: so_profile_2.1
+    criteria: >-
+      Câu trả lời nói cảm giác nhấn của btnBuy lấy từ Profile (PressScale…), chỉnh ở Profile / dropdown trên component, không gõ số riêng trên từng nút.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

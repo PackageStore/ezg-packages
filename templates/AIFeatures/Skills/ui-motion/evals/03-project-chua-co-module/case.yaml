@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: 03-project-chua-co-module
+description: "Project chưa có module. Khảo sát → file riêng (2.4) → cài module → asset → áp luật → quét rồi gắn → đóng screen → sfx → gate (7.2)."
+tags: [retrofit]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Project này chưa có UI Motion. Mình muốn đưa vào. Làm theo các bước nào, và project này có gì cần lưu ý?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: khao_sat_file_rieng
+    criteria: >-
+      Câu trả lời dặn khảo sát project trước và lập file riêng của project (ProjectSettings/UIMotionProject.json cho luật, UIMotionProject.md cho ghi chú), xác nhận các ứng viên chưa chắc với người giữ project.
+  - type: llm
+    name: class_tu_co_motion
+    criteria: >-
+      Câu trả lời nêu ít nhất 2 trong 3 class tự có motion của project: PopupBase (popup tự jump in / out, phủ luôn ShopPopup), ClickScale (nút tự nhún), ListStagger (list tự hiện lần lượt) — và nói khai chúng để tool không gắn chồng.
+  - type: llm
+    name: cai_va_ap
+    criteria: >-
+      Câu trả lời có các bước: chép một folder module vào project; trong Unity Tạo asset mẫu; Áp luật riêng của project; Quét (không đổi gì) đọc báo cáo rồi mới Gắn; chạy gate (Tools/UI Motion/Kiểm tra).
+  - type: llm
+    name: dong_screen_sfx
+    criteria: >-
+      Câu trả lời nhắc ít nhất một: đổi UIManager.ClosePopup / CloseAll sang UIMotion.SetActiveAnimated; nối sfx qua AudioHub bằng sink IUIMotionSfxSink đặt trong code của project; ClickScale đã tự phát tiếng Tap nên coi chừng tiếng kép.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

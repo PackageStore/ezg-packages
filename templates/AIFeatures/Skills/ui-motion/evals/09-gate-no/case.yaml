@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 09-gate-no
+description: "Qua gate: M-10 vùng chạm gameplay (7.3), cố ý không đếm (M-9, 8.3), không tắt cả phạm vi."
+tags: [gate]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Gate báo M-10 ở tapMap (vùng chạm kéo map, dùng TapArea). Còn lblCoinValue mình cố ý không muốn chạy hiệu ứng đếm. Xử lý thế nào cho qua gate?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: m10_7.3
+    criteria: >-
+      Câu trả lời nói với vùng chạm gameplay: gắn UI Motion Role (gắn tay) = Không motion kèm lý do, hoặc Bỏ qua ghi nợ kèm lý do; hoặc khai TapArea trong file luật riêng nếu nó là nút thật.
+  - type: llm
+    name: co_y_M-9
+    criteria: >-
+      Với lblCoinValue: đặt UI Motion Role = Không motion (None) kèm lý do, hoặc ghi nợ kèm lý do. Trượt nếu khuyên tắt cả phạm vi Counter trong Settings chỉ vì một label.
+  - type: llm
+    name: no_8.3
+    criteria: >-
+      Câu trả lời nói nợ lưu ở ProjectSettings/UIMotionDebt.json (lý do, người, ngày), hoặc nợ quá 30 ngày bị tô vàng.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

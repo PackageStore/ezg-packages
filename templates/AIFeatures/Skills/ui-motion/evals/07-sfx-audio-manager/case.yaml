@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 07-sfx-audio-manager
+description: "Sfx qua audio manager của project: sink trong code project (5), key ui.<role>.<event>, tiếng kép."
+tags: [sfx, dev]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Project dùng AudioHub để phát tiếng. Làm sao cho tiếng bấm nút, mở / đóng popup của UI Motion đi qua AudioHub?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: sink_5
+    criteria: >-
+      Câu trả lời nói viết class implement IUIMotionSfxSink (constructor rỗng) trong code của project, gọi AudioHub.Instance.PlaySfx(SfxId.…), rồi chọn trong Settings (Sink sfx) hoặc ghi settings.sfxSinkType trong UIMotionProject.json.
+  - type: llm
+    name: map_su_kien
+    criteria: >-
+      Câu trả lời map sự kiện sang tiếng của project: click → SfxId.Tap, show → SfxId.Open, hide → SfxId.Close (hoặc tương đương), và nêu key dạng ui.<role>.<event>.
+  - type: llm
+    name: tieng_kep
+    criteria: >-
+      Câu trả lời cảnh báo tiếng kép: ClickScale đã tự phát SfxId.Tap khi nhấn, nên nút có ClickScale không được kêu thêm lần nữa (khai ownMotion để tool không gắn chồng, hoặc sink bỏ qua).
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

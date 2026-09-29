@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 06-cam-giac-ca-game
+description: "Đổi cảm giác cả game: một chỗ kiểm soát (0), Profile 5 trục, preset (2.1), Hệ số tốc độ (2.3)."
+tags: [profile]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Game này là puzzle, muốn toàn bộ UI nảy hơn một chút và chậm lại. Chỉnh ở đâu?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: profile_0_2.1
+    criteria: >-
+      Câu trả lời nói chỉnh ở asset Profile, một chỗ cho cả game, không mở từng screen hay sửa từng component.
+  - type: llm
+    name: truc_2.1
+    criteria: >-
+      Câu trả lời nói tăng trục Bounce để nảy hơn và giảm trục Tempo để chậm lại (có thể chọn preset Puzzle làm điểm xuất phát).
+  - type: llm
+    name: luu_y
+    criteria: >-
+      Câu trả lời có ít nhất một ý: áp preset thay cả 5 trục lẫn danh sách ghi đè; popup cũ tự có motion (PopupBase) không đổi theo Profile; Hệ số tốc độ trong Settings để thử nhanh chậm.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

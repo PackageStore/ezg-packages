@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: 11-dung-dieu-cua-project
+description: "Trả lời bằng điều của chính project (khảo sát / đọc code), không bằng trí nhớ về project khác."
+tags: [project-rules, negative]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Trong project này class nào đang lo jump in / out của popup? Tool có gắn UIMotionPanel lên ShopPopup không, và cần làm gì để chắc là không?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: popupbase
+    criteria: >-
+      Câu trả lời nói PopupBase tự jump in / out (DOScale + DOFade) và ShopPopup kế thừa PopupBase.
+  - type: llm
+    name: khai_luat
+    criteria: >-
+      Câu trả lời nói khai PopupBase (role Popup, ownMotion true) trong ProjectSettings/UIMotionProject.json rồi áp luật riêng — luật khớp cả lớp con nên phủ ShopPopup — để tool không gắn UIMotionPanel / Backdrop chồng lên.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

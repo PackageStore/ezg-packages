@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: 04-keyword-role
+description: "Suy role từ tên theo thói quen đặt tên của project: thứ tự suy (3.2), keyword riêng vào file luật (2.4, 3.3)."
+tags: [role, keyword]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Project này đặt tên kiểu pnlTop, pnlBottom, lblGold, icoNew. Tool nhận role mấy object này thế nào? Muốn mọi thứ tên pnl* ra Panel thì sửa ở đâu?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: thu_tu_3.2
+    criteria: >-
+      Câu trả lời nêu thứ tự suy role: UIMotionRole gắn tay, rồi bảng Component, rồi keyword trong tên, rồi cấu trúc.
+  - type: llm
+    name: vi_du
+    criteria: >-
+      Câu trả lời nói pnl không phải keyword mặc định nên pnlTop / pnlBottom chưa ra Panel theo tên; lblGold là chữ (Text) có keyword gold nên ra Counter.
+  - type: llm
+    name: sua_o_dau
+    criteria: >-
+      Câu trả lời nói thêm keyword pnl → Panel trong ProjectSettings/UIMotionProject.json (keywords.add) rồi áp luật riêng, hoặc sửa tab Keyword của RoleMap — không sửa code của module.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).

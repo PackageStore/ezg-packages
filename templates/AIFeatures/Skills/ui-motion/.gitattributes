@@ -1,0 +1,3 @@
+# Script giữ xuống dòng LF: bash và node trên Windows lỗi khi file bị đổi sang CRLF
+*.sh text eol=lf
+*.mjs text eol=lf

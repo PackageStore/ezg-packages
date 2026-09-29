@@ -17,6 +17,9 @@
     },
     "Config/project-profile.json": {
       "description": "Profile project (đường dẫn, quy ước) mà script AI đọc — CÀI ĐÈ file hiện có."
+    },
+    "Skills/ui-motion": {
+      "description": "Motion, sfx, feedback cho UI uGUI theo role bằng module UI Motion và quy chuẩn đi kèm module, dùng cho mọi project: khảo sát project, sinh luật riêng (ProjectSettings/UIMotionProject.json + .md), gắn motion cho prefab, chạy gate M-1…M-12, đưa module vào project cũ. Cần module UIMotion trong project (tab Unity Packages > EZG Shared > UIMotion) và Node 18+ cho script khảo sát."
     }
   }
 }

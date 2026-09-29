@@ -1,0 +1,4 @@
+# Kết quả claude plugin eval (sinh ra mỗi lần chạy)
+evals/results/
+# Bản cài ghi nguồn module của máy đó
+install.json

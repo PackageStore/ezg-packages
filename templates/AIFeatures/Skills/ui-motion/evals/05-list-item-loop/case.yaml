@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: 05-list-item-loop
+description: "Yêu cầu trái quy chuẩn: cấm loop trong item của list (4, 6.8, M-8), prefab item (3.4), hiệu năng (9)."
+tags: [list, negative-rule]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Mình muốn icon trong từng OfferView của lstOffers nhấp nháy (pulse) liên tục cho bắt mắt. Gắn thế nào?
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: ui-motion
+    min: 1
+    arm: with-only
+  - type: llm
+    name: cam_loop_M-8
+    criteria: >-
+      Câu trả lời nói quy chuẩn cấm loop trong item của list (gate M-8) và không hướng dẫn làm theo yêu cầu mà không cảnh báo điều này.
+  - type: llm
+    name: thay_the
+    criteria: >-
+      Câu trả lời đưa lý do (hiệu năng, item bị list tái dùng) hoặc cách thay đúng quy chuẩn: Emphasize cho item, trang trí loop đặt ngoài list (Decoration), hoặc nếu vẫn muốn thì ghi nợ kèm lý do.
+  - type: llm
+    name: khong_dung_project_khac
+    criteria: >-
+      Câu trả lời chỉ nói về class / file có trong project đang thử (FixtureGame: PopupBase, ShopPopup, ClickScale, TapArea, NewBadge, ListStagger, UIManager, AudioHub, SfxId, Boot; prefab HomeScreen, ShopPopup, ItemView, OfferView, RewardView, PanelTemplate) và API của module UI Motion. Trượt nếu nhắc một class, file hay số cụ thể không có trong project này như thể nó có ở đây (dấu hiệu trả lời bằng trí nhớ về project khác).
