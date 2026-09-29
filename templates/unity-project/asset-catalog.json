@@ -382,6 +382,16 @@
       "sha256": "f1ce725ad85b06dc0e5373109bde131283a7298e8b2eb5c9469069545217877a",
       "installedByDefault": false,
       "markerPaths": [ "Assets/ThirdParties/Feel" ]
+    },
+    {
+      "name": "UIMotion",
+      "fileName": "UIMotion.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/UIMotion.unitypackage",
+      "category": "EZG Shared",
+      "sha256": "61b051ba5ca3055eb0319e034d5eb9cbd4b63c35d9bac9400074277710ad412c",
+      "installedByDefault": false,
+      "markerPaths": [ "Assets/_Project/Core/Modules/UIMotion" ],
+      "description": "Module UI Motion 0.4.0 cho uGUI: motion, sfx, feedback theo role (UIRole: Screen, Popup, Button, List...), RoleMap tu gan motion theo component / ten object, Profile chinh cam giac, SetActiveAnimated de dong screen co motion, gate M-1..M-12 (co the chan build). Dung chung moi project: luat rieng cua project nam o ProjectSettings/UIMotionProject.json, du lieu RoleMap / Settings / Profile nam ngoai module (mac dinh Assets/Resources/UIMotion, tao bang Tools/UI Motion/Tao asset mau). Yeu cau DOTween kem DOTween Modules (project tu template da co); Odin tuy chon (module co stub); TMP / UniTask / UIEffect / UI Extensions tu bat define khi co. Skill di kem cho Claude: tab AI Feature > Skills > ui-motion (khao sat project, sinh luat rieng, gan motion, chay gate). Nang tu ban cu: lam theo skill ui-motion, vi import khong xoa file thua va ban 0.3 tro ve truoc de asset trong folder module."
     }
   ]
 }
