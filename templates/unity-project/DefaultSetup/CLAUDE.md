@@ -329,6 +329,9 @@ powershell -ExecutionPolicy Bypass -File .claude/scripts/sync-to-agents.ps1
 - **Vietnamese comments** are common and intentional — leave them in place; write new comments in Vietnamese.
 - **Odin Inspector** attributes (`[TabGroup]`, `[SerializeField]`, `[ShowIf]`) are used throughout MonoBehaviours.
 - **Editor tools** under `Assets/_Project/Editor/` are `#if UNITY_EDITOR` only.
+- **Không reference game khác** — không tên game/studio bên thứ ba, không "giống game X", không ảnh/video
+  game khác trong code, comment, asset, GDD, TechSpec, task, mockup. Chi tiết + ngoại lệ:
+  [.claude/rules/no-external-game-refs.md](.claude/rules/no-external-game-refs.md).
 - **Generated files** — `DataManager.Generated.cs`, `CsvAssetDir.cs`, `AssetBundleName.cs` are produced by
   tooling. Edit the source (CSV file / bundle config) and regenerate instead of hand-editing.
 - **Template placeholders** — identity trong `ProjectSettings.asset` chưa điền: `applicationIdentifier` rỗng,

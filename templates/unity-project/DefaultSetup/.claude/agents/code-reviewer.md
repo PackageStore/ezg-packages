@@ -135,6 +135,11 @@ Only judge this when the task carries `[CHEAT]` on its `**Guardrails:**` line (o
 - All user-facing text (strings in UI, Notifications, popups) must go through the localize system. Hardcoded Vietnamese/English in code = **block**.
 - New localize keys must exist in the localize source sheet, not only in a generated file. Diff adding a call to `Localize.Get("key.x")` where the key does not exist in the sheet = **warn** (the orchestrator might not know yet, but manual verification will detect it).
 
+### No External Game References (`.claude/rules/no-external-game-refs.md`)
+
+- Name of a third-party game/studio, or a "like game X" / "X clone" comparison, anywhere in the diff (code, comment, identifier, file name, CSV, localize, docs, task spec) = **block** for player-facing content (UI text, localize, email subject, store metadata), **warn** elsewhere. Engine/SDK/plugin names and internal EZG codenames (`sm00x`…) in dev docs are fine.
+- A screenshot / video / GIF / audio captured from another game added to the repo = **block**.
+
 ### Backend Security
 
 - **Write to Supabase DIRECTLY from client = block.** All mutations must go through a Cloudflare Worker endpoint. Reason: protect the Supabase service key, server-validate input, audit logs.

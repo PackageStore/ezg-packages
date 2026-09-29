@@ -137,10 +137,11 @@ Từ System Formalization bên dưới, hãy tạo GDD production-ready hoàn ch
 - Output phải audit-ready cho gdd-final-generate.
 - Không narrative dư thừa.
 - Không giải thích ngoài GDD.
+- KHÔNG nhắc tên bất kỳ game/studio nào khác, KHÔNG so sánh "giống game X", KHÔNG đính kèm ảnh/video của game khác — tả cơ chế bằng lời trung tính.
 
 - Mọi con số trong GDD phải được tag nguồn gốc ngay sau giá trị theo format: `[DERIVED]`, `[BENCHMARK]`, hoặc `[ASSUMED]`.
   - `[DERIVED]` — tính toán từ số khác đã có trong GDD.
-  - `[BENCHMARK]` — dựa trên market data hoặc tham chiếu rõ ràng.
+  - `[BENCHMARK]` — dựa trên market data hoặc tham chiếu rõ ràng. Nguồn ghi theo thể loại/thị trường (vd "mobile idle tycoon"), KHÔNG ghi tên tựa game.
   - `[ASSUMED]` — AI tự đặt, chưa có cơ sở xác thực, cần human review.
 - Cuối Section XIII. DESIGN ASSUMPTIONS, phải có bảng tổng hợp toàn bộ tag `[ASSUMED]`:
 

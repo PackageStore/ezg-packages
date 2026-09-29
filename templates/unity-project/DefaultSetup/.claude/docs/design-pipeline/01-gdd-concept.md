@@ -22,6 +22,8 @@ MỤC TIÊU:
 
 - Có tiềm năng monetization nhưng không được phá integrity.
 
+- KHÔNG nhắc tên bất kỳ game/studio nào khác, KHÔNG so sánh "giống game X", KHÔNG đính kèm ảnh/video của game khác — tả cơ chế bằng lời trung tính.
+
 YÊU CẦU OUTPUT:
 
 =====================
