@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 41
+      "count": 42
     },
     {
       "id": "Templates",
@@ -1997,6 +1997,26 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-build-setup.zip",
       "sha256": "189d29fbc324fb80e5a468821a31602a0809999a691f00547e1364f6fb3a608d",
       "size": 9099
+    },
+    {
+      "id": "Skills/auto-clear",
+      "name": "auto-clear",
+      "category": "Skills",
+      "description": "Push phần việc của session qua /push-in-session rồi tự /clear chính session Claude Code đang chạy ngay sau khi lượt trả lời kết thúc — push xong mới bật cờ cho đúng pane iTerm2 (macOS) / console Windows Terminal (Windows, thử nghiệm), Stop hook đọc cờ và gõ \"/clear\" + Enter vào đúng pane đó. Dùng khi user nói \"/auto-clear\", \"xong việc thì tự clear\", \"clear sau khi xong\", hoặc prompt/goal có bước \"/clear\" sau khi hoàn thành. \"/auto-clear # UI:\" để chỉ định prefix + tag commit, \"/auto-clear off\" để hủy, \"/auto-clear install\" để đăng ký hook trên máy mới.",
+      "installPath": ".claude/skills/auto-clear",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/auto-clear/SKILL.md",
+        ".claude/skills/auto-clear/scripts/auto-clear.ps1",
+        ".claude/skills/auto-clear/scripts/auto-clear.sh"
+      ],
+      "fileCount": 3,
+      "installedByDefault": false,
+      "source": "extra",
+      "fileName": "auto-clear.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
+      "sha256": "1890c78cf1bd573cb4bc1488e9f0c3dc2cbc5050ce52ddd46a3afe38f209bc35",
+      "size": 13314
     },
     {
       "id": "Skills/backend-communication",
