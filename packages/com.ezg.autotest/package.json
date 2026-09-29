@@ -1,0 +1,31 @@
+{
+  "name": "com.ezg.autotest",
+  "version": "0.1.0",
+  "displayName": "EZG Auto Test System",
+  "description": "Hệ thống auto test dùng chung cho game Unity dựng trên template EZG: kiểm tra tĩnh asset/cấu hình, smoke PlayMode mở mọi màn hình, UI audit, button sweep + monkey stress, logic/economy, performance, visual regression, chạy trên device thật (adb) và kịch bản riêng từng game. Mở bằng EZG > Auto Test System (Ctrl/Cmd+Shift+T). Mỗi lần chạy xuất báo cáo HTML/JSON/JUnit/CSV cho QA + CI, dừng được giữa chừng, chạy batchmode trên CI.",
+  "unity": "6000.0",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "ezg",
+    "test",
+    "qa",
+    "automation",
+    "smoke-test",
+    "ci"
+  ],
+  "license": "MIT",
+  "type": "tool",
+  "hideInEditor": false,
+  "dependencies": {
+    "com.unity.ugui": "2.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Example Scenarios",
+      "description": "Kịch bản mẫu minh hoạ API AutoTestScenario (mở màn hình, bấm nút, kiểm tra tiền tệ, chụp màn hình).",
+      "path": "Samples~/ExampleScenarios"
+    }
+  ]
+}
