@@ -324,7 +324,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             // Write prefab
             GameObject screenPrefab;
             using (FigmaImportTimer.Measure("Save screen prefabs"))
-                screenPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(screenRectTransform.gameObject,
+                screenPrefab = StablePrefabSave.SaveAsPrefabAssetAndConnect(screenRectTransform.gameObject,
                     FigmaPaths.GetPathForScreenPrefab(node,screenNameCount), InteractionMode.UserAction);
             // Restore original position
             screenRectTransform.anchoredPosition = current;
@@ -391,7 +391,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             // Increment count to ensure no naming collisions
             figmaImportProcessData.PagePrefabNameCounter[node.name] = pageNameCount + 1;
 
-            var pagePrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(pageGameObject,
+            var pagePrefab = StablePrefabSave.SaveAsPrefabAssetAndConnect(pageGameObject,
                 FigmaPaths.GetPathForPagePrefab(node,pageNameCount),InteractionMode.UserAction);
             figmaImportProcessData.PagePrefabs.Add(pagePrefab);
         }

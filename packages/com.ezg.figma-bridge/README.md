@@ -49,6 +49,10 @@ These are on by default and shape the output:
   Figma `imageRef` hash, so a re-import produces stable, readable asset names. A fill whose art
   is already on disk under one of its names keeps that file, so new art in Figma never renames
   (or swaps the art behind) the sprites that were there before it.
+- **Stable object ids on re-import.** A component, screen or page prefab keeps the object id of
+  each node that stayed at its place (same name path, same order among same-named siblings), even
+  when many nodes share one name, so overrides other prefabs hold on it stay on that node. Placed
+  instances carry no override that only repeats the component's own value.
 - **`[ignore]` nodes.** A node whose name contains `[ignore]` (any case) is dropped from the
   document with its whole subtree before anything else runs: no sprite, no server render, no
   GameObject, not in the screen list. An ignored component master leaves its instances in place;

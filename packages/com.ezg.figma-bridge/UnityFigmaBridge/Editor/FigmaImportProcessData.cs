@@ -126,6 +126,11 @@ namespace UnityFigmaBridge.Editor
         public List<string> DuplicateSiblingRenames = new();
 
         /// <summary>
+        /// Instance overrides dropped because they only repeated the component's value, for one summary log.
+        /// </summary>
+        public int PrunedInstanceOverrides;
+
+        /// <summary>
         /// True when the import was rebuilt from the cached document without the network.
         /// </summary>
         public bool Offline;

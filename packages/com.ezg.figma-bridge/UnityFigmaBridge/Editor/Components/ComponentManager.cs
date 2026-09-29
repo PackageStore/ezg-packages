@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -75,7 +76,7 @@ namespace UnityFigmaBridge.Editor.Components
             figmaImportProcessData.ComponentData.IncrementComponentNameCount(countKey, 1);
             GameObject componentPrefab;
             using (FigmaImportTimer.Measure("Save component prefabs"))
-                componentPrefab = PrefabUtility.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);
+                componentPrefab = StablePrefabSave.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);
             figmaImportProcessData.ComponentData.RegisterComponentPrefab(node.id, componentPrefab);
 
             if (parentNode is { type: NodeType.COMPONENT_SET } && !s_ProcessedSets.Contains(parentNode.id))
@@ -104,6 +105,10 @@ namespace UnityFigmaBridge.Editor.Components
             // Instantiate components within pages
             if (figmaImportProcessData.PagePrefabs.Count > 0) FigmaImportTimer.Begin("Place instances in page prefabs");
             InstantiateComponentsInPrefabSet(figmaImportProcessData.PagePrefabs,figmaImportProcessData,"Connecting page components");
+
+            if (figmaImportProcessData.PrunedInstanceOverrides > 0)
+                Debug.Log($"[FigmaBridge] Dropped {figmaImportProcessData.PrunedInstanceOverrides} instance override(s) that only " +
+                          "repeated the component's own value");
         }
 
         /// <summary>
@@ -221,15 +226,12 @@ namespace UnityFigmaBridge.Editor.Components
             // Save prefab and all changes
             try
             {
+                if (modifiedPrefabInstances.Count > 0)
+                    figmaImportProcessData.PrunedInstanceOverrides += PruneRedundantInstanceOverrides(prefabContents);
+
                 // We might have issue with nested elements so need try catch loop
                 // TODO - Check for recurisve nested components
                 PrefabUtility.SaveAsPrefabAsset(prefabContents, assetPath);
-                
-                // Apply changes to the instance as modifications
-                foreach (var modifiedPrefabInstance in modifiedPrefabInstances)
-                {
-                    PrefabUtility.RecordPrefabInstancePropertyModifications(modifiedPrefabInstance);
-                }
             }
             catch (Exception e)
             {
@@ -369,6 +371,115 @@ namespace UnityFigmaBridge.Editor.Components
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     How far a pixel value may drift and still be the component's own value. A placed instance's
+        ///     children are laid out again from Figma's absolute coordinates (around 10^4 px, where a float
+        ///     step is ~0.001), so a child exactly where the component put it comes back a few thousandths
+        ///     of a pixel off.
+        /// </summary>
+        private const float PIXEL_TOLERANCE = 0.01f;
+
+        /// <summary>Tolerance for every other float (anchors, pivots, colours, scale).</summary>
+        private const float VALUE_TOLERANCE = 0.0001f;
+
+        private static readonly string[] s_PixelProperties =
+        {
+            "m_AnchoredPosition", "m_SizeDelta", "m_LocalPosition",
+            "m_MinWidth", "m_MinHeight", "m_PreferredWidth", "m_PreferredHeight"
+        };
+
+        /// <summary>
+        ///     Drops the overrides on the objects inside each placed instance that only repeat the value
+        ///     the component itself holds. Re-applying the Figma properties to an instance writes every
+        ///     child again, and Unity records each one as an override - nine cell positions for one slice
+        ///     plate. Those overrides pin the instance to the component as it was on that import, and
+        ///     since they are keyed by object id they end up on the wrong node whenever that id moves.
+        ///     Overrides on the instance root (its own place and size) and real differences stay.
+        /// </summary>
+        /// <returns>The number of overrides dropped.</returns>
+        private static int PruneRedundantInstanceOverrides(GameObject prefabContents)
+        {
+            var instanceRoots = new List<GameObject>();
+            foreach (var transform in prefabContents.GetComponentsInChildren<Transform>(true))
+                if (PrefabUtility.IsOutermostPrefabInstanceRoot(transform.gameObject)) instanceRoots.Add(transform.gameObject);
+
+            var pruned = 0;
+            foreach (var instanceRoot in instanceRoots)
+            {
+                // The transform pass centres pivots by moving nodes through their world position, and
+                // a RectTransform's serialized anchoredPosition catches up only on its next update:
+                // without this the record reads the value from before the move
+                foreach (var rectTransform in instanceRoot.GetComponentsInChildren<RectTransform>(true))
+                    rectTransform.ForceUpdateRectTransforms();
+
+                // Script edits become overrides only once recorded
+                foreach (var component in instanceRoot.GetComponentsInChildren<UnityEngine.Component>(true))
+                    if (component != null) PrefabUtility.RecordPrefabInstancePropertyModifications(component);
+
+                var modifications = PrefabUtility.GetPropertyModifications(instanceRoot);
+                if (modifications == null) continue;
+
+                var rootSource = PrefabUtility.GetCorrespondingObjectFromSource(instanceRoot);
+                var sources = new Dictionary<Object, SerializedObject>();
+                var kept = new List<PropertyModification>(modifications.Length);
+                foreach (var modification in modifications)
+                {
+                    if (!TargetsInstanceRoot(modification.target, rootSource) && RepeatsSource(modification, sources))
+                        continue;
+                    kept.Add(modification);
+                }
+
+                if (kept.Count == modifications.Length) continue;
+                pruned += modifications.Length - kept.Count;
+                PrefabUtility.SetPropertyModifications(instanceRoot, kept.ToArray());
+            }
+            return pruned;
+        }
+
+        private static bool TargetsInstanceRoot(Object target, GameObject rootSource)
+        {
+            return target == rootSource || (target is UnityEngine.Component component && component.gameObject == rootSource);
+        }
+
+        /// <summary>True when the override holds the value its target already has in the source prefab.</summary>
+        private static bool RepeatsSource(PropertyModification modification, Dictionary<Object, SerializedObject> sources)
+        {
+            if (modification.target == null) return false;
+            if (!sources.TryGetValue(modification.target, out var source))
+                sources[modification.target] = source = new SerializedObject(modification.target);
+
+            var property = source.FindProperty(modification.propertyPath);
+            if (property == null) return false;
+
+            switch (property.propertyType)
+            {
+                case SerializedPropertyType.Float:
+                    return float.TryParse(modification.value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+                           && Mathf.Abs(number - property.floatValue) <= ToleranceFor(modification.propertyPath);
+                case SerializedPropertyType.Integer:
+                    return long.TryParse(modification.value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var whole)
+                           && whole == property.longValue;
+                case SerializedPropertyType.Enum:
+                    return int.TryParse(modification.value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var enumValue)
+                           && enumValue == property.intValue;
+                case SerializedPropertyType.Boolean:
+                    return modification.value == (property.boolValue ? "1" : "0");
+                case SerializedPropertyType.String:
+                    return modification.value == property.stringValue;
+                case SerializedPropertyType.ObjectReference:
+                    return modification.objectReference == property.objectReferenceValue;
+                default:
+                    return false;
+            }
+        }
+
+        private static float ToleranceFor(string propertyPath)
+        {
+            foreach (var pixelProperty in s_PixelProperties)
+                if (propertyPath.StartsWith(pixelProperty, StringComparison.Ordinal)) return PIXEL_TOLERANCE;
+            return VALUE_TOLERANCE;
         }
     }
 }

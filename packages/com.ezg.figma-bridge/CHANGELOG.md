@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.9] - 2026-09-29
+### Fixed
+- **Re-import moved the object ids of same-named nodes, so another prefab's override landed on
+  the wrong node.** A prefab is replaced by saving a new tree over it, and Unity carries object ids
+  across by GameObject name over the whole tree: the first new `Rectangle` took the id of one old
+  `Rectangle` (not the one at its place) and the other eight got new ids. The nine cells of a slice
+  plate, or the text under each repeated row, came back with ids moved between nodes, and an
+  override held on one of them - by a variant or screen the import did not rebuild, or set by hand -
+  moved another node: the bottom-right cell's position put the top-left cell of a popup frame
+  outside the frame. Component, screen and page prefabs are now saved with every repeated name
+  suffixed on both sides by its path of `name#occurrence`, then renamed back, so each node keeps the
+  id of the node at its place in the previous import. A prefab written by an earlier version keeps
+  its current ids from the first import on.
+- **Every child of a placed instance carried an override.** Re-applying the Figma properties to an
+  instance lays its children out again from absolute coordinates, a few thousandths of a pixel off,
+  and Unity recorded each value as an override (nine cell positions and sizes for one slice plate).
+  Overrides on an instance's children that only repeat the component's own value (within 0.01 px
+  for positions and sizes, 0.0001 for other floats) are dropped before the prefab is saved; the
+  instance root's place and size and real differences stay. Values are compared after the
+  RectTransforms update, since pivot centring moves a node through its world position and its
+  serialized `anchoredPosition` lags until then. The count is logged once per import.
+
 ## [0.6.8] - 2026-09-28
 ### Fixed
 - **New art in Figma renamed the fills already on disk and swapped the art behind their GUIDs.**
