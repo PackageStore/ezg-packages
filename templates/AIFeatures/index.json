@@ -30,7 +30,7 @@
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 7
+      "count": 8
     },
     {
       "id": "Scripts",
@@ -73,8 +73,8 @@
       "source": "defaultsetup",
       "fileName": "code-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/code-reviewer.zip",
-      "sha256": "24084d7696df58b7fa1517680478ed452d4ce1fc65a7c05c55550ad7191769ba",
-      "size": 7575
+      "sha256": "a0f4132eb1c5b0e68e82eb960b5b2f968299bbf7b70f7a8ca624d82925e17b6b",
+      "size": 7825
     },
     {
       "id": "Agents/mockup-drafter",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "ea914d7677b940a44e22e755b0b970485037e7c13c1df66d6a40606692e4eeef",
-      "size": 11393
+      "sha256": "71fb84837049e104f0e97c0552db7b63ae2d6a823d978383c4a34714ef59d75e",
+      "size": 11508
     },
     {
       "id": "Config/project-profile.json",
@@ -800,8 +800,8 @@
       "source": "defaultsetup",
       "fileName": "design-pipeline.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip",
-      "sha256": "17a3321c862b7bc151414151e1e915f03eb1b8bb77115f460052d2ee3dfd72b2",
-      "size": 28053
+      "sha256": "a466a5d30b166d50c363bd667e15377d97350c8486bddff4067db3eaaf2f684c",
+      "size": 28510
     },
     {
       "id": "Docs/design-style",
@@ -1072,6 +1072,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/data-persistence.zip",
       "sha256": "ba59a34e6442cd5f96e83b674888a0ce4259200d62059e300b51cd84b442ffa9",
       "size": 410
+    },
+    {
+      "id": "Rules/no-external-game-refs",
+      "name": "no-external-game-refs",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/no-external-game-refs.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/no-external-game-refs.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "no-external-game-refs.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/no-external-game-refs.zip",
+      "sha256": "9ab3400bab5b48cdd5dcce81d6e3237a73e7ffa2f5a4b6a885805b9d77f08ca2",
+      "size": 1757
     },
     {
       "id": "Rules/output-format",
