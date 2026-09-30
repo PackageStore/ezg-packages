@@ -9,7 +9,8 @@ Mọi component của module bắn sự kiện qua `UIMotionFeedback` (quy chu�
 
 ## Viết sink
 
-1. Chép `<module>/Docs/Samples/UIMotionSfxSink.cs.txt` thành một file `.cs` **trong code của project** (cạnh audio manager),
+1. Chép `<module>/Docs/Samples/UIMotionSfxSink.cs.txt` (hoặc bản đi kèm skill `<skill>/docs/Samples/`) thành một file
+   `.cs` **trong code của project** (cạnh audio manager),
    không trong folder module. Đổi namespace, tên class.
 2. Lấp các chỗ TODO bằng lệnh phát của project, theo cách gọi survey tìm ra (ví dụ gọi, kiểu tham số: enum hay class hằng
    chuỗi). Constructor phải rỗng.

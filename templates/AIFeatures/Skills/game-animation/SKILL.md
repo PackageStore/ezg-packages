@@ -14,10 +14,10 @@ file của chính game đó: xem mục 2. Không dùng trí nhớ về game khá
 
 ## 1. Tìm và đọc
 
-1. Glob `**/GameAnimation/Docs/GameAnimation_QuyChuan.md` trong project. Không thấy: skill nằm trong `Skill~` của module
-   thì đọc ở module nguồn, `<skill>/../../Docs/` (`<skill>` là folder chứa file này). Vẫn không thấy thì dừng và báo
-   user là project chưa có module Game Animation (cài gói `.unitypackage` của module hoặc chép folder module), không làm
-   theo trí nhớ.
+1. Glob `**/GameAnimation/Docs/GameAnimation_QuyChuan.md` trong project: có thì đọc bản đó (đúng bản module của
+   project). Không thấy: đọc bản đi kèm skill, `<skill>/docs/GameAnimation_QuyChuan.md` (`<skill>` là folder chứa file
+   này; cùng bản với skill, không cần cài module chỉ để đọc luật). `docs/` là bản chép `Docs` của module, không sửa ở
+   đây. Vẫn không thấy thì dừng và báo user, không làm theo trí nhớ.
 2. Đọc từ đầu tới hết mục 0: phiên bản, cách hiểu các con số (mặc định, *(đề xuất)*, *(đo)*), bảng "Bạn là / Đọc
    trước", nguyên tắc gốc.
 3. Grep `^#{2,3} ` trong file để lấy danh sách mục kèm số dòng. Chọn **mọi** mục dính tới việc, không chỉ mục trùng tên

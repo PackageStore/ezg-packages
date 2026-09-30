@@ -10,7 +10,7 @@ Skill này **không chứa thông tin riêng của project nào**. Có ba nguồ
 
 | Nguồn | Giữ gì | Ở đâu |
 |---|---|---|
-| Quy chuẩn của module | Luật chung: role, motion mặc định, sfx, quy tắc kỹ thuật, gate | `<module>/Docs/UIMotion_QuyChuan.md` |
+| Quy chuẩn của module | Luật chung: role, motion mặc định, sfx, quy tắc kỹ thuật, gate | `<module>/Docs/UIMotion_QuyChuan.md`; skill mang sẵn bản chép cùng bản ở `<skill>/docs/` (kèm `README.md`, `CHANGELOG.md`, `Samples/`) cho project chưa có module |
 | File riêng của project | Điều chỉ đúng cho project đang làm: class tự có motion, audio manager, chỗ đóng screen, thói quen đặt tên, quyết định, bẫy | `ProjectSettings/UIMotionProject.json` (luật máy đọc) và `ProjectSettings/UIMotionProject.md` (ghi chú) |
 | Script của skill | Khảo sát project, sinh hai file trên, kiểm file luật, cài module | `scripts/uimotion.mjs` (Node 18+, không cần cài gì) |
 
@@ -48,9 +48,10 @@ In: Unity, module UI Motion (đường dẫn, bản), quy chuẩn, asset của p
 
 ## 3. Đọc quy chuẩn
 
-1. Quy chuẩn: `<module>/Docs/UIMotion_QuyChuan.md` (survey in đường dẫn). Project chưa có module: đọc ở module nguồn —
-   `<skill>/../..` khi skill nằm trong `Skill~` của module, hoặc `moduleSource` trong `<skill>/install.json`. Không thấy ở
-   đâu thì dừng và báo user, không làm theo trí nhớ.
+1. Quy chuẩn: project có module thì đọc `<module>/Docs/UIMotion_QuyChuan.md` (đúng bản module của project; survey in
+   đường dẫn). Project chưa có module: đọc bản đi kèm skill, `<skill>/docs/UIMotion_QuyChuan.md` (cùng bản với skill;
+   `README.md`, `CHANGELOG.md`, `Samples/` cũng ở đó). `docs/` là bản chép `Docs` của module, không sửa ở đây. Không thấy
+   ở đâu thì dừng và báo user, không làm theo trí nhớ.
 2. Đọc từ đầu tới hết mục 0: phiên bản, phần "Đổi so với", năm nguyên tắc gốc.
 3. Grep `^#{2,3} ` lấy danh sách mục kèm số dòng. Chọn **mọi** mục dính tới việc (một cái nút dính role, keyword, luật gắn,
    motion mặc định, sfx, gate), đọc bằng Read với offset / limit. Gặp dẫn chéo ảnh hưởng tới việc thì đọc luôn.

@@ -193,7 +193,7 @@ async function cmdSelftest() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uimotion-selftest-"));
   try {
     const ok = runSelftest({ dir, makeFixture, moduleSource: moduleSource(), survey, rulesFromSurvey, projectNotes, surveyReport, validateRules, rolesFromSource });
-    process.exit(ok ? 0 : 1);
+    process.exitCode = ok ? 0 : 1;
   } finally {
     if (!flag("--keep")) fs.rmSync(dir, { recursive: true, force: true });
     else console.log("giữ lại: " + dir);

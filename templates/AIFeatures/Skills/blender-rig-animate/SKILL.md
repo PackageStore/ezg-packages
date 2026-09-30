@@ -7,7 +7,8 @@ argument-hint: [model file] [clip list]
 # Rig và animate bằng Blender headless (rigkit)
 
 Skill này thay cách làm cũ (viết tay weight theo toạ độ, pose bằng Euler, duyệt bằng mắt trên ảnh nhỏ) bằng một
-chuỗi bước có **gate đo được**. Nó thực thi `GameAnimation_QuyChuan.md` (trong `Docs` của module Game Animation):
+chuỗi bước có **gate đo được**. Nó thực thi `GameAnimation_QuyChuan.md` (trong `Docs` của module Game Animation;
+project không có module thì đọc bản đi kèm skill `game-animation`, `<skills>/game-animation/docs/`):
 tên xương mục 5.2, skin 5.3, xuất FBX 5.7, clip tại chỗ 7.2, event 7.4, fps 30, rigkit 5.10. Dùng cùng skill
 `game-animation` (đọc và áp quy chuẩn); skill này làm phần Blender. Quy chuẩn 5.8: nhân vật chính vẫn key tay,
 clip do rigkit dựng dùng cho quái, NPC, nhân vật phụ, clip tạm và blocking.

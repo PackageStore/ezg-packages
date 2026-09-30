@@ -1,0 +1,56 @@
+// Mẫu sink sfx: nối sự kiện của UI Motion vào audio manager riêng của project.
+// Cách dùng: chép thành file .cs trong CODE CỦA PROJECT (không đặt trong folder module), đổi namespace / tên class, thay
+// các chỗ TODO bằng lệnh phát tiếng của project, rồi chọn class trong UIMotionSettings > Sink sfx (hoặc ghi
+// "settings.sfxSinkType" trong ProjectSettings/UIMotionProject.json rồi áp luật riêng).
+// Chỉ phát cho sự kiện project ĐÃ có tiếng; sự kiện khác để im, giữ thiết kế âm thanh cũ. Nút / screen mà code cũ đã tự
+// phát tiếng (và được khai "Đã có motion" trong bảng Component) không bị tool gắn chồng nên không kêu hai lần.
+using Assets._Project.Core.Modules.UIMotion;
+
+namespace MyGame.Audio // TODO: namespace của project
+{
+    public sealed class ProjectUIMotionSfxSink : IUIMotionSfxSink // TODO: tên class
+    {
+        // Constructor rỗng: module tự tạo sink theo tên class ghi trong Settings.
+        public ProjectUIMotionSfxSink() { }
+
+        public void Play(UIMotionSfxRequest request)
+        {
+            // request.Key = key trong RoleMap hoặc "ui.<role>.<event>" (vd "ui.button.click"); request.Volume, request.Intensity
+            // (0..1) dùng nếu audio manager nhận âm lượng.
+            switch (request.Event)
+            {
+                case UIMotionEvent.Click:
+                    if (IsPressable(request.Role)) Play("TODO: tiếng bấm nút của project");
+                    break;
+                case UIMotionEvent.Show:
+                    if (IsScreenLike(request.Role)) Play("TODO: tiếng mở popup / screen");
+                    break;
+                case UIMotionEvent.Hide:
+                    if (IsScreenLike(request.Role)) Play("TODO: tiếng đóng popup / screen");
+                    break;
+                case UIMotionEvent.Arrive:
+                    Play("TODO: tiếng coin / tài nguyên bay tới đích");
+                    break;
+                case UIMotionEvent.Error:
+                    Play("TODO: tiếng lỗi (tuỳ chọn)");
+                    break;
+            }
+        }
+
+        private static void Play(string sound)
+        {
+            // TODO: lệnh phát của project, vd AudioManager.Instance.PlaySfx(sound);
+        }
+
+        private static bool IsPressable(UIRole role)
+        {
+            return role == UIRole.Button || role == UIRole.Toggle || role == UIRole.Tab || role == UIRole.Card ||
+                   role == UIRole.Dropdown;
+        }
+
+        private static bool IsScreenLike(UIRole role)
+        {
+            return role == UIRole.Screen || role == UIRole.Popup || role == UIRole.Sheet;
+        }
+    }
+}
