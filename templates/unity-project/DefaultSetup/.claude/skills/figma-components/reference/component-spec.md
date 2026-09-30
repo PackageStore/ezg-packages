@@ -31,7 +31,8 @@ substitute the project's own. Generic archetype names (`Button`, `Row`, `Card`,
 5. **Base plus composed.** A shared plate becomes its own master, and the public
    component instances it. A bottom-nav button whose background is an instance of
    the shared plate master, rather than a copy of the plate art, is the pattern to
-   follow.
+   follow. Each set owns one axis; the next axis comes from a nested, exposed
+   instance (see *Composed sets* below).
 
 ## Private and base components
 
@@ -51,14 +52,18 @@ pipeline updated in the same pass.
 ## Component anatomy
 
 ```
-ComponentSet "Button"
+ComponentSet "Button"                  State axis only
 ├── State=Default
 │   └── [auto-layout: horizontal, gap → space/tight, padding → space/default]
-│       ├── Bg          (instance of the plate master, Color=Green)
+│       ├── Bg          (exposed instance of Base-Plate, Color=Green; absolute)
 │       ├── Icon-Price  (instance of an icon set, INSTANCE_SWAP)
-│       └── Price_Value (TEXT, textStyleId → Price_Value)
-├── State=Pressed
-└── State=Hover
+│       └── Price-Value (TEXT, textStyleId → Price-Value)
+├── State=Pressed        (content moved down, Overlay on Bg)
+└── State=Hover          (Overlay on Bg)
+
+ComponentSet "Base-Plate"              Color axis only
+├── Color=Green
+└── Color=Yellow
 ```
 
 Child node names follow `figma-hygiene` S-2/S-3 and the layer table in
@@ -78,6 +83,32 @@ Boolean properties for toggles: a `Show Plus` boolean on a currency bar is the
 existing example. Instance-swap properties for icon slots. Text properties for
 editable labels.
 
+## Composed sets — one axis per set
+
+Each set owns one axis. A quality on another axis comes from a nested instance
+of the set that owns it, marked `isExposedInstance = true`, so its variant
+property shows on the parent instance's panel.
+
+| Build | Variants designed | Combinations offered |
+|---|---|---|
+| One `Button` set with `Color` × `State` | N × 3 | N × 3 |
+| `Base-Plate` (`Color`) nested in `Button` (`State`) | N + 3 | N × 3 |
+
+The precondition is a recipe that does not read the nested axis. A `State`
+recipe that swaps per-colour rim tokens needs one variant per colour and forces
+the multiply; an overlay bound to one colour-agnostic token does not. Keep two
+axes in one set only when one axis's recipe must read the other axis's value.
+
+Never override a fill on the nested instance to show a state. A fill override
+survives a `Color` swap on the placed instance and pins the old colour. The
+state goes on a sibling `Overlay` node instead.
+
+In Unity each `State` variant becomes a prefab that nests the plate variant's
+prefab. A placed instance that picks another `Color` has a nested instance whose
+component changed, and the bridge replaces that nested prefab with the new
+variant's prefab (`figma-to-unity/reference/prefab-contract.md`, *Composed
+sets*).
+
 ## Archetypes and their required states
 
 There is no keyboard, so there is no `Focused`; there are no forms, so there is
@@ -93,13 +124,14 @@ prefabs — the prefab file names derive from the variant names.
 | State | Required | Recipe |
 |---|---|---|
 | `Default` | yes | The base. |
-| `Pressed` | yes | Content translates down by `space/tight`; the rim inner-shadow pair swaps — the `*-high` token moves to the bottom edge and the `*-low` token to the top, inverting the bevel. |
-| `Hover` | yes | The plate lightens: one SOLID overlay fill on top of the plate fills, bound to a hover token (e.g. `color/effect/btn-hover`, white at low alpha). No offset; the rim stays. |
+| `Pressed` | yes | Content other than `Bg` translates down by `space/tight`; an `Overlay` rectangle on `Bg`, bound to `color/btn/pressed` (black at low alpha). The rim stays: it belongs to the plate set. |
+| `Hover` | yes | An `Overlay` rectangle on `Bg`, bound to `color/btn/hover` (white at low alpha). No offset. |
 
-The rim tokens already exist per colour: `color/effect/btn-<color>-high` /
-`color/effect/btn-<color>-low`, plus `color/effect/plate-low`. `Pressed` needs
-no new token. `Hover` needs one hover token; if it does not exist, hand the job
-to `figma-tokens` first.
+The `Overlay` copies `Bg`'s box and corner radii, constraints STRETCH/STRETCH.
+The per-colour plate tokens (`color/btn/<color>/…`) belong to the plate set's
+`Color` variants only. The two state tokens, `color/btn/pressed` and
+`color/btn/hover`, are colour-agnostic: one value serves every colour. If
+either does not exist, hand the job to `figma-tokens` first.
 
 ### Row (upgrade / list rows)
 

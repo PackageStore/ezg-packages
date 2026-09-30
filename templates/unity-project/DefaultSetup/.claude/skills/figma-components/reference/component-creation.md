@@ -144,29 +144,38 @@ Order traps, all of them real:
 
 ### Define the axes before writing code
 
-```
-Plate set:
-  Color → [one value per button colour]
-  State → [Default, Pressed, Hover]
-  Total = colours × states
+One axis per set (rule 7). The second axis is a nested, exposed instance.
 
-Nav button:
-  Type  → [one value per destination]
+```
+Base-Plate set:
+  Color → [one value per button colour]
+  Total = colours
+
+Button set:
   State → [Default, Pressed, Hover]
-  Total = destinations × states
+  each variant nests an exposed Base-Plate instance as Bg
+  Total = 3; the instance panel offers colours × 3
+
+Nav button set:
+  State → [Default, Pressed, Hover]
+  each variant nests an exposed instance of the destination set (Type)
+  Total = 3; the instance panel offers destinations × 3
 ```
 
 ### The 30-combination cap
 
-Past 30, split. Three ways, in preference order:
+Composition keeps most sets far below it. Past 30, split. Four ways, in
+preference order:
 
-1. **Move a visual axis to `INSTANCE_SWAP`.** An icon axis is never a variant
+1. **Compose.** Move the axis into its own set and nest it as an exposed
+   instance (above).
+2. **Move a visual axis to `INSTANCE_SWAP`.** An icon axis is never a variant
    axis. A large icon set folded in multiplies by its own variant count.
-2. **Extract a Building Block** when the sub-element has its own state machine.
-3. **Split by the primary axis** into separate sets. Last resort — it doubles
+3. **Extract a Building Block** when the sub-element has its own state machine.
+4. **Split by the primary axis** into separate sets. Last resort — it doubles
    the registry entries and the Unity prefab count.
 
-### Clone per combination
+### Clone per axis value
 
 ```javascript
 const BASE_ID = 'BASE_ID_FROM_PREVIOUS_CALL';
@@ -177,35 +186,20 @@ const base = await figma.getNodeByIdAsync(BASE_ID);
 const byName = {};
 for (const v of await figma.variables.getLocalVariablesAsync()) byName[v.name] = v;
 
-const axes = { Color: ['Green', 'Yellow'], State: ['Default', 'Pressed', 'Hover'] };
+// Base-Plate carries Color only; State is a separate set that nests it (§9).
+const axes = { Color: ['Green', 'Yellow'] };
 
 const rim = {
   Green:  { high: byName['color/effect/btn-green-high'], low: byName['color/effect/btn-green-low'] },
   Yellow: { high: byName['color/effect/btn-gold-high'],  low: byName['color/effect/btn-gold-low'] },
 };
 
-const hover = byName['color/effect/btn-hover'];
-
 const made = [];
 for (const color of axes.Color) {
-  for (const state of axes.State) {
-    const v = base.clone();
-    v.name = 'Color=' + color + ', State=' + state;
-
-    const pair = rim[color];
-    // Default and Hover: high on top, low on bottom. Pressed: swapped.
-    v.effects = state === 'Pressed'
-      ? [innerShadow(pair.low, 0, -6), innerShadow(pair.high, 0, 6)]
-      : [innerShadow(pair.high, 0, -6), innerShadow(pair.low, 0, 6)];
-
-    if (state === 'Hover') {
-      const overlay = figma.variables.setBoundVariableForPaint(
-        { type: 'SOLID', color: { r: 1, g: 1, b: 1 } }, 'color', hover);
-      v.fills = v.fills.concat([overlay]);
-    }
-
-    made.push(v);
-  }
+  const v = base.clone();
+  v.name = 'Color=' + color;
+  v.effects = [innerShadow(rim[color].high, 0, -6), innerShadow(rim[color].low, 0, 6)];
+  made.push(v);
 }
 
 function innerShadow(variable, ox, oy) {
@@ -234,25 +228,20 @@ const nodes = (await Promise.all(VARIANT_IDS.map(id => figma.getNodeByIdAsync(id
   .filter(n => n && n.type === 'COMPONENT');
 
 const cs = figma.combineAsVariants(nodes, page);
-cs.name = 'Button';
+cs.name = 'Base-Plate';
 
-const axes = { Color: ['Green', 'Yellow'], State: ['Default', 'Pressed', 'Hover'] };
-const COL_AXIS = 'State';
-const ROW_AXIS = 'Color';
+const AXIS = 'Color';
+const values = ['Green', 'Yellow'];
 
 const GAP = 20;        // between variants on the canvas — the file's own scale, not upstream's 16
 const PAD = 30;        // set-frame inset
 
 const w = Math.max(...cs.children.map(c => c.width));
-const h = Math.max(...cs.children.map(c => c.height));
 
 for (const child of cs.children) {
-  const props = {};
-  child.name.split(', ').forEach(p => { const [k, val] = p.split('='); props[k] = val; });
-  const col = axes[COL_AXIS].indexOf(props[COL_AXIS]);
-  const row = axes[ROW_AXIS].indexOf(props[ROW_AXIS]);
+  const col = values.indexOf(child.name.replace(AXIS + '=', ''));
   child.x = PAD + col * (w + GAP);
-  child.y = PAD + row * (h + GAP);
+  child.y = PAD;
 }
 
 let maxX = 0, maxY = 0;
@@ -277,8 +266,9 @@ Rules that bite:
 - `resizeWithoutConstraints` after positioning, or the frame clips its children.
 - There is no `figma.createComponentSet()`. You cannot make an empty set.
 
-**Columns are `State`, rows are the identity axis.** State is what a reviewer
-scans horizontally to check that the ladder is consistent.
+**One row, in axis order.** A one-axis set lays its variants left to right in
+the order of its values; a `State` set reads Default, Pressed, Hover, which is
+what a reviewer scans to check that the ladder is consistent.
 
 ## 6. Component properties
 
@@ -361,8 +351,7 @@ cs.description = [
   '- Rim: paired inner shadows, color/effect/btn-<color>-high and -low.',
   '',
   'STATES',
-  '- Pressed swaps the rim pair, inverting the bevel.',
-  '- Hover lays a light overlay on the plate, bound to color/effect/btn-hover.',
+  '- None. State lives in the parent set that nests this plate as an exposed Bg.',
 ].join('\n');
 ```
 
@@ -398,18 +387,23 @@ sweep.
 | `componentPropertyDefinitions` throws | Read from a variant, or duplicate variant names | Narrow to the set; make names unique |
 | `resize()` silently does nothing | The node is a child of an `INSTANCE` | Edit the master |
 
-## 9. Worked example — adding `State` to an existing set
+## 9. Worked example — making a `State` set
 
 The Phase 3 job. `scripts/addStateVariants.js` does this; the shape is:
 
-1. Read the set, capture its existing axis name and values, and clone the
-   `State=Default` row from the current variants.
-2. For each existing variant, clone once per new state value, rename to
-   `<ExistingAxis>=<Value>, State=<NewValue>`, and apply the state recipe.
-3. Rename the original variants to append `, State=Default`.
-4. Figma promotes the set to two axes automatically once every variant carries
-   both properties. There is no separate "add axis" API.
-5. Re-lay out the grid with `State` on columns.
-6. Validate, then update the description's `STATES` section.
+1. Start from the Default master: a standalone component that nests the plate
+   set as a `Bg` instance, absolute-positioned when the master uses auto-layout.
+   Mark `Bg` `isExposedInstance = true`, so the plate's `Color` shows on the
+   parent instance.
+2. Clone the master once per new state and name each clone `State=<Value>`.
+3. Apply the recipe to each clone: `Pressed` moves the content down and adds an
+   `Overlay` rectangle on `Bg`, bound to `color/btn/pressed`; `Hover` adds an
+   `Overlay` bound to `color/btn/hover`. Never override a fill on `Bg`.
+4. Rename the master `State=Default` and `combineAsVariants` it with the clones.
+   The set takes the master's old name, so instances already placed from the
+   master stay linked.
+5. Lay out the set in one row: Default, Pressed, Hover.
+6. Validate, then write the description's `STATES` section.
 
-Do one set per `use_figma` call. Verify before the next.
+Never clone the plate set once per state: that is the multiplied matrix rule 7
+forbids. Do one set per `use_figma` call. Verify before the next.

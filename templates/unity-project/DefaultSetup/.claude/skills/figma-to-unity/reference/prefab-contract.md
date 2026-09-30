@@ -64,6 +64,17 @@ Axes not classified by the directive appear in `Variants`. Sets with no
 `UNITY:` directive produce empty `RuntimeAxes` and `DesignAxes`; all axes go to
 `Variants`. No runtime code reads this file yet.
 
+## Composed sets
+
+A `State` set whose variants nest an exposed instance of a `Color` set
+(`figma-components` rule 7) imports as one prefab per `State` variant, each
+nesting the prefab of the plate variant it holds. No prefab exists per
+combination. A placed instance that picks another `Color` has a nested instance
+whose component changed, so `ComponentManager.SwapChangedComponent` replaces
+that nested prefab with the new variant's prefab, keeping its place, transform
+and node id. The `Overlay` of a `Pressed` or `Hover` variant is a plain shape
+node inside that variant's prefab.
+
 ## Server render slicing
 
 When `SliceServerRenders` is on, `ServerRenderSlicer.Run` processes every

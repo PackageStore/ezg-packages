@@ -63,7 +63,7 @@ Why each:
 | File | Why |
 |---|---|
 | `scripts/auditComponentCoverage.js` | Neither upstream measures how much of a screen is instances versus loose nodes. That ratio is the diagnosis. |
-| `scripts/addStateVariants.js` | Adding a `State` axis to an existing set is the single largest gap in this file, and Figma has no "add axis" API. |
+| `scripts/addStateVariants.js` | Figma has no "add axis" API. The script makes a `State` set from a Default master that nests the plate set as an exposed instance, so colours and states add instead of multiplying (rule 7). |
 | `scripts/promoteToComponent.js` | Promotion plus instance adoption, with a dry run, a size-mismatch refusal and a hand-off to the `psd-to-figma` verify pass. |
 
 ## Measured while forking (2026-08-28)

@@ -130,9 +130,14 @@ description.
 6. **Every variant name is unique within its set.** A duplicate puts the set
    into an error state, after which reading `componentPropertyDefinitions`
    throws `Component set has existing errors`.
-7. **Cap the matrix at 30 combinations.** Past that, split by the primary axis,
-   move a visual axis to `INSTANCE_SWAP`, or extract a `Building Blocks/`
-   sub-component. See `reference/component-creation.md` §4.
+7. **One axis per set; compose, never multiply.** A set carries one variant
+   axis. A second quality comes from a nested instance of the set that owns it,
+   marked `isExposedInstance = true`: N colours and 3 states are N + 3
+   variants, not N × 3, and the instance panel still offers all N × 3. Keep two
+   axes in one set only when one axis's recipe reads the other axis's value.
+   The 30-combination cap stays as the backstop. See
+   `reference/component-spec.md` *Composed sets* and
+   `reference/component-creation.md` §4.
 8. **One `INSTANCE_SWAP`, never a variant per icon.** An icon set with many
    variants, folded into a parent as an axis, multiplies that set by its own
    variant count.
@@ -211,7 +216,9 @@ Read `reference/component-spec.md` for the anatomy, then
 `reference/component-creation.md` for the script. Order:
 
 1. Build the base as an auto-layout frame with every visual property bound.
-2. Clone per variant combination; change only the bindings that differ.
+2. Clone once per value of the set's one axis; change only the bindings that
+   differ. A second axis is a nested, exposed instance of its own set, built
+   first.
 3. `figma.combineAsVariants`, then **position the variants** — they stack at
    (0,0) and stay there until you lay them out.
 4. Add `TEXT` / `BOOLEAN` / `INSTANCE_SWAP` properties on the set.
@@ -220,14 +227,16 @@ Read `reference/component-spec.md` for the anatomy, then
 
 ### Phase 3 — States
 
-The largest single gap in this file. Interactive sets that carry only a `Type`
-or `Color` axis need a `State` axis added.
+Interactive masters need a `State` axis. It is its own set, never a second
+axis on the `Color` or `Type` set (rule 7).
 
-Use `scripts/addStateVariants.js`. It adds a `State` axis to an existing set
-without touching the existing axis, and applies the state recipe from
-`reference/component-spec.md`. No new art is needed: `Pressed` is a downward
-offset plus a darkened rim, `Hover` is a light overlay fill bound to a hover
-token from `figma-tokens`.
+Use `scripts/addStateVariants.js`. It takes the Default master — a standalone
+component that nests the plate set as an exposed `Bg` instance — clones it once
+per state and combines the clones into a `State` set. The recipe from
+`reference/component-spec.md` is colour-agnostic, so no new art and no
+per-colour token is needed: `Pressed` moves the content down and lays a dark
+`Overlay` on `Bg`, `Hover` lays a light `Overlay` on `Bg`. Each overlay binds
+to one state token from `figma-tokens`.
 
 ### Phase 4 — Adopt
 
@@ -257,6 +266,7 @@ defects. Run Phase 0 and record the recurring classes below as you find them:
 | A lowercase or placeholder variant axis value | audit's `variants` per set | Axis values are PascalCase and name a real role; rename |
 | Loose frames on the `Components` page | audit's `looseTopLevel` | Promote or delete |
 | A registry entry not on the page | cross-check `component_ids.json` against the audit | `psd-to-figma/reference/component-registry.md` is stale; refresh it |
+| A set with more than one variant axis | `validateComponent.js` warning | Multiplied matrix. Compose it per rule 7 unless a recipe reads another axis |
 | Slot API unavailable | `figma.createSlot` does not exist in this environment | Use the boolean + instance-swap fallback in `reference/slots-guide.md` |
 
 ## Related skills

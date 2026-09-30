@@ -105,9 +105,11 @@ against the ledger file. Names are stable; ids in your head are not.
 or absent. If a *previous* call created it and a later call failed, delete by
 the ids in the ledger and rebuild.
 
-**States half applied.** `addStateVariants.js` clones then renames. If it failed
-after cloning, the set has variants whose names lack the `State=` part, which
-puts the set into a duplicate-name error. Delete the clones by id and re-run.
+**States half applied.** `addStateVariants.js` builds the whole `State` set in
+one call, and a throwing script rolls back every write. So the master is either
+still standalone or already a `State` set; the script refuses a master that is
+already in a set. If a later hand edit left loose `State=` components beside the
+set, delete them by id and re-run on the Default master.
 
 **Promotion half applied.** Some screen copies are instances and some are not.
 This is the dangerous one — it changes the Screens page. Finish the swap rather
