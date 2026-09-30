@@ -108,6 +108,9 @@ description.
    master binds to a `Semantic` variable from `figma-tokens`. A raw value in a
    master is a defect. There is one collection and every token is a literal
    value named for owner and role — never mint a value-named token to bind.
+   A shape nested in another shape's corner binds the inner token of its
+   radius pair (`radius/<owner>/inner`), never the outer one — `figma-hygiene`
+   V-5.
 2. **Never detach a component.** Vary content with a variant, a boolean, an
    instance swap, or the master's own slot node. This holds even when the slot
    API would be the cleaner answer — see `reference/slots-guide.md`.

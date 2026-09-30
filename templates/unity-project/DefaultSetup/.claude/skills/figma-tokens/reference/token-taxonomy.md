@@ -329,6 +329,12 @@ when it clears the 3-occurrence bar. Two things to exclude:
   token for it — see trap 000.
 - Radii used once or twice — leave hardcoded.
 
+**Concentric pairs.** A shape nested in another shape's corner takes
+`r_outer − d` (`figma-hygiene` V-5). Variables cannot calculate, so the pair is
+two literal tokens, `radius/<owner>/outer` and `radius/<owner>/inner`. Mint the
+inner token with its outer, even under the 3-occurrence bar. When the outer
+value or the inset changes, change the inner token in the same pass.
+
 For a radius applied to top corners only as `MIXED(r,r,0,0)`, bind per corner
 (trap 0a).
 

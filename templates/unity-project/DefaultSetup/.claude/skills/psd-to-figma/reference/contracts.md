@@ -32,7 +32,8 @@ the script lists the ids to skip.
 
 **Hygiene block.** Each extract file carries a `hygiene` object reporting
 structural checks per frame: S-1 (flat screen), S-2 (naming), S-7 (clip
-content), S-9 (hyphen naming), V-3 (font violations), V-4 (style binding).
+content), S-9 (hyphen naming), V-3 (font violations), V-4 (style binding),
+V-5 (concentric radius, warn-only — never changes the exit code).
 `verify_figma_vs_psd.py --hygiene-strict` exits 1 when any screen has a non-empty
 S-2/S-7/S-9/V-3 list. The hygiene contract is owned by the `figma-hygiene` skill;
 the extract only reports, it does not enforce. An `accepted_debt.json.hygiene_allow`

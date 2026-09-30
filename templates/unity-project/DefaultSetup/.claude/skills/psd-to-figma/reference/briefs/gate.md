@@ -40,7 +40,8 @@ python3 <scripts>/verify_figma_vs_psd.py --selftest
 - `--selftest` runs the recipe resolver's unit checks and exits without reading
   data.
 - `--hygiene-strict` exits 1 when any screen has a non-empty S-2/S-7/S-9/V-3
-  list in the hygiene block.
+  list in the hygiene block. V-5 (concentric radius) is warn-only and never
+  changes the exit code.
 - `--learn-ids` writes `node_ids_<key>.json` for every screen whose extract
   paired by geometry; run once a screen passes so renames never break the gate.
 

@@ -54,6 +54,40 @@ Mask-Pattern      FRAME, Clip content ON, radius 84, no fill
   pattern         RECTANGLE, PATTERN fill, radius 0
 ```
 
+### Corner radius — concentric
+
+A rounded shape inside a rounded shape follows the outer curve. When an inner
+shape sits in an outer shape's corner with the same inset on both edges, its
+radius is:
+
+```
+r_inner = max(0, r_outer − d)
+```
+
+`d` is the inset between the outer box and the inner box. A plate inset 8 px in
+a frame with a 20 px radius has a 12 px radius. An equal radius makes the gap
+thicker at the corner than along the edges; a zero radius points the inner
+corner into the curve.
+
+- The outer shape is the smallest shape drawn below the inner one whose box
+  holds it: its parent, or an earlier sibling such as the `Bg` plate instance
+  under a button's content.
+- The rule applies per corner, and only where the two edge insets match (±1 px)
+  and the inset is smaller than the outer radius. Content away from a corner is
+  not bound by it.
+- Figma clamps a radius to half the short side, so a pill inside a pill follows
+  the rule on its own.
+- Exempt: image-fill art and 9-slice plates (the radius is in the PNG), children
+  of a `Mask-*` frame (they carry radius 0; the mask radius is the shape), and
+  imported masters that are pinned debt. Pin those with a `V5` entry in
+  `hygiene_allow`; never resize or re-radius them.
+- Tokens: Figma variables cannot calculate, so a concentric pair is two literal
+  tokens, `radius/<owner>/outer` and `radius/<owner>/inner`. V-5 checks that
+  their values agree.
+
+This is what `V-5` checks. V-5 is warn-only for now: it is reported and never
+blocks.
+
 ### Popup composition — one container holds the popup
 
 A popup is one object. In Figma it is one frame; in Unity it becomes one prefab
@@ -129,10 +163,11 @@ These checks use `get_metadata` only (no pixel comparison).
 | V-1 | **9-slice usage** | Every button plate and frame background listed in the project's nine-slice registry is built as 9-slice, not image fill |
 | V-3 | **Text style binding** | Every TEXT node has a non-empty `textStyleId` bound to a shared text style defined by the project |
 | V-4 | **Grid style presence** | Screen frame has an applied grid style (see *Layout grid* above) |
+| V-5 | **Concentric radius** | Every inner shape in an outer shape's corner has radius `max(0, r_outer − d)` ±1 px (see *Corner radius* above). **Warn-only**: reported, never blocks |
 
 ## Running the checks
 
-### Automated gate (S-1, S-2, S-3, S-7, S-9, V-3, V-4)
+### Automated gate (S-1, S-2, S-3, S-7, S-9, V-3, V-4, V-5)
 
 Extract the screen, then run the hygiene gate:
 
@@ -144,7 +179,8 @@ python3 <psd-to-figma scripts>/verify_figma_vs_psd.py --data-dir <data> --screen
 Pass condition: both commands exit 0. The extract writes
 `figma_extract_<key>.json` with a `hygiene` block; the gate reads it and
 reports per-rule results in `verify_report.json` under
-`screens.<key>.hygiene`.
+`screens.<key>.hygiene`. V-5 shows as `V5 warn` in the report line and as
+`hygiene.V5` in the JSON; it never changes the exit code.
 
 Without `FIGMA_TOKEN`, use the Plugin-based extract path: run
 `figma_extract.js` (gen, paste, save), then the same gate command.

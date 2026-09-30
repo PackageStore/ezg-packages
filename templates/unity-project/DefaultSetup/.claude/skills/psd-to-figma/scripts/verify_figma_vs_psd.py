@@ -59,6 +59,8 @@ carries none of these — the summary line there would break D-3.
 --hygiene-strict  exit 1 when any screen has a non-empty S2/S7/S9/V3 list,
                   S1 false, or V4 false, after the allow-list. Without this
                   flag, the exit code is unchanged and hygiene is informational.
+                  V5 (concentric radius) is warn-only: it is reported and never
+                  changes the exit code.
 
 --learn-ids       after a run, write node_ids_<key>.json for every screen in
                   scope with the ids of rows paired by geometry whose deltas are
@@ -322,7 +324,7 @@ def map_hygiene(raw, allow_list):
     """Map extractor hygiene block to rule-id summary; apply allow-list."""
     allowed_ids = set()
     rule_to_key = {"S2": "genericNames", "S3": "nonContainerGroupingFrames",
-                   "S7": "clipping", "V3": "unstyledText"}
+                   "S7": "clipping", "V3": "unstyledText", "V5": "concentric"}
     all_ids = {}
     for rule, key in rule_to_key.items():
         for entry in raw.get(key, []):
@@ -346,6 +348,8 @@ def map_hygiene(raw, allow_list):
         "S9": sorted(set(raw.get("underscoreNames", []) + raw.get("spaceNames", []))),
         "V3": _names("unstyledText"),
         "V4": raw.get("gridStyle", False),
+        "V5": sorted({f"{e['name']} r{e['radius']:g}≠{e['expected']:g}"
+                      for e in raw.get("concentric", []) if e["id"] not in allowed_ids}),
         "allowed": sorted(allowed_ids),
     }
 
@@ -399,6 +403,8 @@ def _selftest():
         "underscoreNames": ["Bg_Demo"], "spaceNames": ["Bad Name"],
         "unstyledText": [{"id": "3:3", "name": "Txt"}],
         "gridStyle": True, "screenNameUnderscore": False,
+        "concentric": [{"id": "4:4", "name": "Inner", "outer": "Outer",
+                        "radius": 20, "expected": 12}],
     }
     h = map_hygiene(hyg_raw, [])
     assert h["S1"] is True and h["V4"] is True
@@ -406,6 +412,8 @@ def _selftest():
     assert h["S7"] == ["Clip"]
     assert sorted(h["S9"]) == ["Bad Name", "Bg_Demo"]
     assert h["S8"]["rootContainers"] == 1 and h["S8"]["centered"] is True
+    assert h["V5"] == ["Inner r20≠12"]
+    assert map_hygiene(hyg_raw, [{"id": "4:4", "rule": "V5"}])["V5"] == []
     h2 = map_hygiene(hyg_raw, [{"id": "1:1", "rule": "S2", "reason": "lib"}])
     assert h2["S2"] == [] and h2["allowed"] == ["1:1"]
     print("map_hygiene self-test OK")
@@ -957,6 +965,8 @@ def main():
             parts = []
             for rule in ("S1", "S2", "S7", "S9", "V3", "V4"):
                 parts.append(f"{rule} {_tag(rule, h[rule])}")
+            if h["V5"]:
+                parts.append(f"V5 warn {_tag('V5', h['V5'])}")
             lines.append(f"{k}: {' · '.join(parts)}")
     else:
         for k in present_keys:
