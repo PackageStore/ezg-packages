@@ -46,7 +46,8 @@ them.
    Plugin API rules and script templates. Never call `use_figma` without it.
 2. `figma-hygiene` runs as the pre/post gate on any write. `S-6` (component
    reuse) is the rule this skill exists to satisfy; `S-2`/`S-3` govern the node
-   names inside every master you build.
+   names inside every master you build; `S-10` governs where each master sits
+   on the page.
 3. `figma-tokens` owns variables, scopes, text styles and all naming. This skill
    **binds** to tokens that already exist; it never mints one. If a component
    needs a colour, radius or spacing value that has no token, stop and hand the
@@ -170,6 +171,11 @@ description.
     (art tolerance 0.00 px, text ink 2 px) plus the `figma-hygiene` post-flight.
 15. **Never renumber or re-case an existing component.** `component_ids.json`,
     `style_ids.json` and the Unity prefab names all key off the current names.
+16. **Keep the page tidy, 100 px apart.** A new master or set goes at the end of
+    the page's last row, 100 px right of its rightmost node. After the last
+    write to a page, run `figma-hygiene/scripts/tidyCanvas.js` with
+    `MODE: 'tidy'` on it — the designer arranges the file by eye and needs the
+    masters close together. `figma-hygiene` S-10 enforces this.
 
 ## Workflow
 
@@ -220,7 +226,8 @@ Read `reference/component-spec.md` for the anatomy, then
    differ. A second axis is a nested, exposed instance of its own set, built
    first.
 3. `figma.combineAsVariants`, then **position the variants** — they stack at
-   (0,0) and stay there until you lay them out.
+   (0,0) and stay there until you lay them out. Put the set at the end of the
+   page's last row (rule 16).
 4. Add `TEXT` / `BOOLEAN` / `INSTANCE_SWAP` properties on the set.
 5. Write the description using
    `figma-tokens/reference/component-description-template.md`.
@@ -252,6 +259,8 @@ Then run the `psd-to-figma` verify pass on every screen touched.
   definitions, unbound visual properties, generic child names.
 - `figma-tokens/scripts/audit-tokens.js` per set: the unbound count must drop.
 - `psd-to-figma` verify pass on every screen whose masters changed.
+- `figma-hygiene/scripts/tidyCanvas.js` with `MODE: 'tidy'` on every page
+  written to (rule 16).
 - `figma-hygiene` post-flight gate.
 
 ## Known live findings

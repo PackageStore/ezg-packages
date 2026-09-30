@@ -47,6 +47,14 @@ prose. Then group per the plan's grouping list (`Container-<Content>` or a secti
 name, never `Frame N`; hyphens, never `_`) and re-run extract + gate — grouping
 must not move a leaf.
 
+## Tidy the page
+
+The build puts a new frame at the end of the Screens page's last row, 100 px
+from its rightmost frame; a rebuild keeps the old frame's position. Then run
+`figma-hygiene/scripts/tidyCanvas.js` via `use_figma` with the screens page id
+and `MODE: 'tidy'`. It sets every gap between screens to 100 px and moves no
+node inside a frame, so the gate result does not change (`figma-hygiene` S-10).
+
 ## Learn ids
 
 Once the screen passes, record node ids so renames never break the gate:
@@ -58,6 +66,7 @@ python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --screen <key> --json
 ## Acceptance
 
 - Frame at its position, `frame.w×frame.h`, grid style bound, `clipsContent`.
+- Screens page tidy: `tidyCanvas.js` `MODE: 'check'` returns `pass: true`.
 - `unmapped: 0`; art `0.00`; text `≤2.00` or a pin candidate with measured
   values for the gate stage; zero font/style violations.
 - Hygiene S-1/S-2/S-7/S-9 clean in `verify_report.json`.

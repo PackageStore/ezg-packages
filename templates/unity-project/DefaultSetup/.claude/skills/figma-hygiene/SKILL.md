@@ -1,6 +1,6 @@
 ---
 name: figma-hygiene
-description: Pre-flight and post-flight contract gate for Figma design files. Checks structure (no flat screens, naming, grouping) and visual integrity (9-slice, component reuse, text style binding, layout grid). Enforces layout-grid and reuse design rules. Runs automatically before and after any Figma workflow, blocks on failure. Also invocable manually via /figma-hygiene.
+description: Pre-flight and post-flight contract gate for Figma design files. Checks structure (no flat screens, naming, grouping, a tidy canvas with nodes at most 100 px apart) and visual integrity (9-slice, component reuse, text style binding, layout grid). Enforces layout-grid and reuse design rules. Runs automatically before and after any Figma workflow, blocks on failure. Also invocable manually via /figma-hygiene.
 ---
 
 # Figma Hygiene Gate
@@ -138,6 +138,30 @@ regex; it is a contract, not a layer name, and it stays as is.
 
 This is what `S-9` checks.
 
+### Canvas layout — tidy rows, 100 px apart
+
+The designer arranges the file by eye, so every page stays compact and tidy.
+The top-level nodes of a page — screen frames on `Screens`, masters and sets on
+`Components` and `Icons` — sit in rows, and no two neighbours are more than
+100 px apart.
+
+- **Rows, left to right.** A row is a band of nodes whose top edges start above
+  the band's bottom edge. Nodes in a row are top-aligned.
+- **100 px maximum.** The gap between row neighbours and between consecutive
+  rows is at most 100 px. No two top-level nodes overlap.
+- **A new node goes at the end of the last row**, 100 px right of its rightmost
+  node, top-aligned with that row. A rebuilt screen keeps the position of the
+  frame it replaces. Never leave a new node at (0,0) on top of another node, or
+  far from the rest.
+- **Tidy after every write.** The last step of any workflow that adds, removes
+  or resizes a top-level node is `scripts/tidyCanvas.js` with `MODE: 'tidy'` on
+  that page. Tidy keeps each node's row and order and sets every gap to exactly
+  100 px. It moves top-level nodes only, so no screen or set content changes.
+- **Sections are blocks.** A `SECTION` moves as one node; its children are not
+  tidied.
+
+This is what `S-10` checks.
+
 ## Contract tiers
 
 ### Tier 1 — Structure (pre-flight + post-flight)
@@ -155,6 +179,7 @@ These checks use `get_metadata` only (no pixel comparison).
 | S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and `Mask-*` frames (see *Clip content* above) |
 | S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*` frame whose left/right edges sit on column edges and whose bottom edge sits above the bottom safe zone, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) |
 | S-9 | **No underscores** | Zero names containing `_` in the subtree — nodes, instances, screen frame, and the styles they bind — except `slice_ROW_COL` cells (see *Naming* above) |
+| S-10 | **Tidy canvas** | On the page the workflow writes to, no two top-level nodes overlap and every gap between row neighbours and between rows is ≤ 100 px (see *Canvas layout* above) |
 
 ### Tier 2 — Visual integrity (post-flight only)
 
@@ -182,6 +207,10 @@ reports per-rule results in `verify_report.json` under
 `screens.<key>.hygiene`. V-5 shows as `V5 warn` in the report line and as
 `hygiene.V5` in the JSON; it never changes the exit code.
 
+S-10 is page-level, so it has its own check. Run `scripts/tidyCanvas.js` via
+`use_figma` with `PAGE_ID` and `MODE: 'check'`; the pass condition is
+`pass: true`. `MODE: 'tidy'` fixes a failure.
+
 Without `FIGMA_TOKEN`, use the Plugin-based extract path: run
 `figma_extract.js` (gen, paste, save), then the same gate command.
 
@@ -191,12 +220,14 @@ Plugin walk on the frame id directly.
 
 ### Pre-flight (structure only)
 
-Run the extract + gate above. A failure in any S-rule blocks the workflow
-from proceeding to Figma writes.
+Run the extract + gate above, and the S-10 check on the page the workflow
+writes to. A failure in any S-rule blocks the workflow from proceeding to Figma
+writes.
 
 ### Post-flight (full gate)
 
-Run the same extract + gate. Post-flight adds the numeric tier (art/text
+Run `tidyCanvas.js` with `MODE: 'tidy'` on every page the workflow wrote to,
+then the same extract + gate. Post-flight adds the numeric tier (art/text
 tolerance, unmapped nodes) to the report. A failure in either tier blocks
 the workflow from marking the screen as done.
 
@@ -215,6 +246,7 @@ the workflow from marking the screen as done.
 | Failure tier | Action |
 |---|---|
 | Tier 1 (Structure) | Fix the violating nodes. The gate names each node and rule. |
+| S-10 (Tidy canvas) | Run `tidyCanvas.js` with `MODE: 'tidy'` on the page, then check again. |
 | Tier 2 (Visual) | Fix or add to `accepted_debt.json` with reason. |
 | Hygiene allow-list | Add `{id, rule, reason}` entries to `accepted_debt.json` under `hygiene_allow`. The gate subtracts allowed ids before checking. |
 

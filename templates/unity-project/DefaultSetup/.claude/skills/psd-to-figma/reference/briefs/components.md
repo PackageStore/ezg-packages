@@ -33,7 +33,10 @@ python3 -c "import json,sys; print(json.dumps(json.load(open(sys.argv[1])),inden
 Paste `figma-build/scripts/figma_helpers.js` ahead of the build, then call `nineSliceFrame`
 (plate masters, border `[L,T,R,B]` from `nine_slice.json`, hash from
 `image_hashes.json`), `rectHash`, `instanceAt`. Combine masters with the Plugin
-API's `figma.combineAsVariants`, then set a unique `Type=` per variant. Verify the helpers once per session:
+API's `figma.combineAsVariants`, then set a unique `Type=` per variant. Put each
+new master or set at the end of the page's last row, 100 px from its rightmost
+node, and after the last write run `figma-hygiene/scripts/tidyCanvas.js` with
+`MODE: 'tidy'` on the page (`figma-hygiene` S-10). Verify the helpers once per session:
 `python3 <figma-build>/scripts/figma_build_gen.py --helpers-selftest --page-id <id> --font <figma.fonts.body as Family/Style>`,
 paste the payload; require `{pass:true}` and no leftover node.
 
@@ -60,6 +63,7 @@ If this component needs a new stem uploaded, run `briefs/art.md` first.
 - The set exists; `componentPropertyDefinitions` reads without an error state.
 - Each variant's size matches its source; `applied` borders recorded.
 - `registry_add.py --self-test` passes; ids land in `component_ids.json`.
+- Components page tidy: `tidyCanvas.js` `MODE: 'check'` returns `pass: true`.
 
 ## Traps
 

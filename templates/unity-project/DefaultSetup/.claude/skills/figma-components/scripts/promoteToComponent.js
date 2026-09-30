@@ -8,9 +8,10 @@
  *           SOURCE_NODE_ID (string, required) — the best copy to lift
  *           NAME (string, required) — the new master's name
  *         Output: { masterId, name, w, h, span, offGrid }
- *           The master is created on the Screens page next to the source so the
- *           script keeps its single setCurrentPageAsync. Move it to Components
- *           in a follow-up call.
+ *           The master is created on the Screens page, at the end of its last
+ *           row, so the script keeps its single setCurrentPageAsync. Move it to
+ *           Components in a follow-up call, then tidy both pages with
+ *           figma-hygiene/scripts/tidyCanvas.js (S-10).
  *
  *         MODE 'adopt' (runs on the Screens page):
  *           MASTER_ID (string, required)
@@ -49,8 +50,11 @@ if (MODE === 'promote') {
   const master = figma.createComponent();
   master.name = NAME;
   master.resize(src.width, src.height);
-  master.x = src.absoluteBoundingBox.x + src.width + 200;
-  master.y = src.absoluteBoundingBox.y;
+  const others = page.children.filter(n => n.id !== master.id);
+  const lastTop = Math.max(...others.map(n => n.y));
+  const row = others.filter(n => n.y + n.height >= lastTop);
+  master.x = Math.max(...row.map(n => n.x + n.width)) + 100;
+  master.y = Math.min(...row.map(n => n.y));
   page.appendChild(master);
 
   if ('children' in copy) {

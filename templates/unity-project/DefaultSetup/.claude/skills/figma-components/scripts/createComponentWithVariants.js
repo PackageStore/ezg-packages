@@ -10,6 +10,8 @@
  *         DESCRIPTION (string, optional)
  * Output: { componentSetId, variantCount, axes, positions, createdNodeIds }
  *
+ * Tidy the page afterwards with figma-hygiene/scripts/tidyCanvas.js (S-10).
+ *
  * Build the base fully bound in a previous call. Binding after
  * combineAsVariants is the most common cause of a set where every variant
  * looks the same.
@@ -83,12 +85,14 @@ let maxX = 0, maxY = 0;
 for (const c of cs.children) { maxX = Math.max(maxX, c.x + c.width); maxY = Math.max(maxY, c.y + c.height); }
 cs.resizeWithoutConstraints(maxX + PAD, maxY + PAD);
 
-// Never leave a top-level node at (0,0).
-const right = page.children
-  .filter(n => n.id !== cs.id)
-  .reduce((m, n) => Math.max(m, n.x + n.width), 0);
-cs.x = right + 200;
-cs.y = 0;
+// End of the last row, 100 px from its rightmost node (figma-hygiene S-10).
+const others = page.children.filter(n => n.id !== cs.id);
+if (others.length) {
+  const lastTop = Math.max(...others.map(n => n.y));
+  const row = others.filter(n => n.y + n.height >= lastTop);
+  cs.x = Math.max(...row.map(n => n.x + n.width)) + 100;
+  cs.y = Math.min(...row.map(n => n.y));
+}
 
 return {
   componentSetId: cs.id,

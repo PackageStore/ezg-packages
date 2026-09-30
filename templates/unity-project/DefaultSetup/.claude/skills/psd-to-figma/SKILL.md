@@ -149,3 +149,5 @@ the leaf rule and the full numeric tier live in `reference/contracts.md`.
 - `visual_diff.py` leaves no unexplained region.
 - `component_ids.json` and `nine_slice.json` record every node created.
 - Every deviation is fixed or pinned with a reason; no probe frame remains.
+- Every page written to is tidy, 100 px apart (`figma-hygiene` S-10,
+  `tidyCanvas.js`).

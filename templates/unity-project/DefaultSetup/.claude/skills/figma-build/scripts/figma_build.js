@@ -22,9 +22,11 @@
 
   const _existing = _page.children.find(c => c.name === PLAN.frameName);
   let _replacedId = null;
+  let _home = null;
   if (_existing) {
     if (PLAN.replace === true) {
       _replacedId = _existing.id;
+      _home = { x: _existing.x, y: _existing.y };
       _existing.remove();
     } else {
       throw new Error('figma_build: frame already exists: ' + PLAN.frameName +
@@ -35,8 +37,18 @@
   const _frame = figma.createFrame();
   _frame.name = PLAN.frameName;
   _frame.resizeWithoutConstraints(PLAN.frame.w, PLAN.frame.h);
-  if (PLAN.frame.x != null) _frame.x = PLAN.frame.x;
-  if (PLAN.frame.y != null) _frame.y = PLAN.frame.y;
+  if (!_home) {
+    // A new frame goes at the end of the last row, 100 px from its rightmost node (figma-hygiene S-10).
+    const _others = _page.children.filter(c => c.id !== _frame.id);
+    _home = { x: 0, y: 0 };
+    if (_others.length) {
+      const _lastTop = Math.max(..._others.map(c => c.y));
+      const _row = _others.filter(c => c.y + c.height >= _lastTop);
+      _home = { x: Math.max(..._row.map(c => c.x + c.width)) + 100, y: Math.min(..._row.map(c => c.y)) };
+    }
+  }
+  _frame.x = PLAN.frame.x != null ? PLAN.frame.x : _home.x;
+  _frame.y = PLAN.frame.y != null ? PLAN.frame.y : _home.y;
   _frame.clipsContent = true;
   _frame.fills = [];
   if (PLAN.gridStyleId) await _frame.setGridStyleIdAsync(PLAN.gridStyleId);

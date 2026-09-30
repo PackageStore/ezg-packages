@@ -54,6 +54,9 @@ node before a real build. Save the build's return object; it maps op ids and
   is the residual and must be ≤ 0.01px.
 - **Fonts arrive from the caller** (`--font` or `plan.font`). No font name is
   written in this skill.
+- **One frame, never its neighbours.** The build places the frame by
+  `figma-hygiene` S-10 but moves no other node. The caller tidies the page
+  afterwards with `figma-hygiene/scripts/tidyCanvas.js` (`MODE: 'tidy'`).
 
 ## Producers
 

@@ -16,6 +16,9 @@
  *                Pressed; pass the value of `space/tight`. Defaults to 0.
  * Output: { set, exposed, added, variantCount, axes, noVisualChange, positions }
  *
+ * The set keeps the master's position but is wider than the master. Tidy the
+ * page afterwards with figma-hygiene/scripts/tidyCanvas.js (S-10).
+ *
  * One axis per set (figma-components rule 7). The plate set keeps its Color
  * axis; this set carries State only and nests the plate as an exposed
  * instance, so N colours and 3 states are N + 3 variants, not N × 3.

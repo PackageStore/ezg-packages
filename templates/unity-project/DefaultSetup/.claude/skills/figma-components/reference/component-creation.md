@@ -56,17 +56,26 @@ All masters go on the `Components` page; icon sets go on `Icons`. Read the page
 ids from `page_ids.json`. One page per component is an upstream convention and is
 out — see `SKILL.md` rule 11.
 
-Position a new set clear of the existing ones. Never leave a top-level node at
-(0,0):
+Put a new set at the end of the page's last row, 100 px right of its
+rightmost node (`figma-hygiene` S-10). Never leave a new node at (0,0) on top
+of another node, or far from the rest:
 
 ```javascript
 const page = figma.root.children.find(p => p.name === 'Components');
 await figma.setCurrentPageAsync(page);
 
-const right = page.children.reduce((m, n) => Math.max(m, n.x + n.width), 0);
-const NEW_X = right + 200;
-const NEW_Y = 0;
+let NEW_X = 0, NEW_Y = 0;
+if (page.children.length) {
+  const lastTop = Math.max(...page.children.map(n => n.y));
+  const row = page.children.filter(n => n.y + n.height >= lastTop);
+  NEW_X = Math.max(...row.map(n => n.x + n.width)) + 100;
+  NEW_Y = Math.min(...row.map(n => n.y));
+}
 ```
+
+After the last write to the page, run `figma-hygiene/scripts/tidyCanvas.js`
+with `MODE: 'tidy'`. It keeps every row and its order and sets each gap to
+100 px.
 
 `setCurrentPageAsync` may be called at most once per script, and
 `figma.currentPage` resets between calls.
@@ -248,10 +257,13 @@ let maxX = 0, maxY = 0;
 for (const c of cs.children) { maxX = Math.max(maxX, c.x + c.width); maxY = Math.max(maxY, c.y + c.height); }
 cs.resizeWithoutConstraints(maxX + PAD, maxY + PAD);
 
-const right = page.children.filter(n => n.id !== cs.id)
-  .reduce((m, n) => Math.max(m, n.x + n.width), 0);
-cs.x = right + 200;
-cs.y = 0;
+const others = page.children.filter(n => n.id !== cs.id);
+if (others.length) {
+  const lastTop = Math.max(...others.map(n => n.y));
+  const row = others.filter(n => n.y + n.height >= lastTop);
+  cs.x = Math.max(...row.map(n => n.x + n.width)) + 100;
+  cs.y = Math.min(...row.map(n => n.y));
+}
 
 return { componentSetId: cs.id, variantCount: cs.children.length,
          positions: cs.children.map(c => ({ name: c.name, x: c.x, y: c.y })) };

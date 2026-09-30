@@ -13,7 +13,7 @@ file) that writes this shape gets the same frame.
 | `key` | string | Producer's id for this frame; echoed in the result. |
 | `pageName` | string | Page to build on. Must exist; the script throws otherwise. |
 | `frameName` | string | Name of the new top-level frame. |
-| `frame` | `{x, y, w, h}` | Size is required. `x`/`y` may be `null` (Figma default). |
+| `frame` | `{x, y, w, h}` | Size is required. `x`/`y` may be `null`: a rebuild keeps the replaced frame's position, and a new frame goes 100 px right of the last row's rightmost node (`figma-hygiene` S-10). |
 | `replace` | bool | `true` deletes an existing frame of the same name first. Otherwise a name clash throws. |
 | `gridStyleId` | string or null | Layout grid style bound to the frame. |
 | `font` | `{family, style}` or absent | Default font for `text` ops without `recipe.font`. |
