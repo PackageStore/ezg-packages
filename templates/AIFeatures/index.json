@@ -2284,8 +2284,8 @@
       "source": "defaultsetup",
       "fileName": "figma-build.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-build.zip",
-      "sha256": "4289c9d1f76d092bbedf23211d840146c7a4c55016dd266563ec9bc9eb02e22b",
-      "size": 17466
+      "sha256": "41874f6f62197abc8f0512a8fb17f221c146d12e583ba907ac44ddd0b4fc4bc2",
+      "size": 17848
     },
     {
       "id": "Skills/figma-components",
@@ -2315,26 +2315,27 @@
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "a24fe2a64f67c11b9eda54acad4c26acce032859d44064246c17f2fd8de5565d",
-      "size": 43788
+      "sha256": "fbf5ba7ba028fde66fcc06d4f53cc11d8b63a006dd008838301ead109763f3bd",
+      "size": 44474
     },
     {
       "id": "Skills/figma-hygiene",
       "name": "figma-hygiene",
       "category": "Skills",
-      "description": "Pre-flight and post-flight contract gate for Figma design files. Checks structure (no flat screens, naming, grouping) and visual integrity (9-slice, component reuse, text style binding, layout grid). Enforces layout-grid and reuse design rules. Runs automatically before and after any Figma workflow, blocks on failure. Also invocable manually via /figma-hygiene.",
+      "description": "Pre-flight and post-flight contract gate for Figma design files. Checks structure (no flat screens, naming, grouping, a tidy canvas with nodes at most 100 px apart) and visual integrity (9-slice, component reuse, text style binding, layout grid). Enforces layout-grid and reuse design rules. Runs automatically before and after any Figma workflow, blocks on failure. Also invocable manually via /figma-hygiene.",
       "installPath": ".claude/skills/figma-hygiene",
       "isDirectory": true,
       "files": [
-        ".claude/skills/figma-hygiene/SKILL.md"
+        ".claude/skills/figma-hygiene/SKILL.md",
+        ".claude/skills/figma-hygiene/scripts/tidyCanvas.js"
       ],
-      "fileCount": 1,
+      "fileCount": 2,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-hygiene.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
-      "sha256": "51ffcb8d73d665a3db7ccacc50931891fa47c67eb2df189a4440e67e60d98f7a",
-      "size": 6424
+      "sha256": "29d63091e4fc9b211e7e1d878eee1f017c0bd367faaaa204712598cc25183968",
+      "size": 8843
     },
     {
       "id": "Skills/figma-to-unity",
@@ -2724,8 +2725,8 @@
       "source": "defaultsetup",
       "fileName": "psd-to-figma.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
-      "sha256": "561a5ef647d6c9fab4e0b2e1cecfd7fcdc05cdb32880f4651d6d54f9cd6eb524",
-      "size": 114743
+      "sha256": "defb9fd2938d817c71739f4f196e0022a47ea59c695b0774e337b88d440178e4",
+      "size": 115133
     },
     {
       "id": "Skills/publish-ai-features",
