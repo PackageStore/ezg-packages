@@ -26,6 +26,9 @@
     },
     "Skills/blender-rig-animate": {
       "description": "Rig, skin, pose và animate nhân vật, quái, prop, xe 3D bằng Blender headless (rigkit) cho Unity, có lò xo theo đà (follow-through) và gate đo từng frame: weight, giới hạn khớp, xuyên người, vật cứng xuyên sàn, trượt chân, loop, pose trung tâm, biên độ; xuất FBX kèm AnimationEvent. Spec của từng nhân vật để trong project game, cạnh model. Cần Blender 4.2+ trên máy. Cài kèm Skills > game-animation: quy chuẩn rigkit thực thi nằm trong docs/ của skill đó."
+    },
+    "Skills/game-vfx": {
+      "description": "Quy chuẩn VFX 2D, 3D cho game mobile của team (module Game VFX), dùng cho mọi project: cấp quan trọng, timing, trần ngân sách mobile theo cấp và tier máy, ParticleSystem, stop action và pool, giờ game / giờ thật, sorting, texture, material, tên FX_, pack VFX mua sẵn, hạt trên UI; dùng thư viện hiệu ứng (FXEffect, shader EZG/VFX/Particle); quét VFX cả project tìm nợ (Node 18+). Mang sẵn quy chuẩn và danh mục hiệu ứng có ảnh (docs/ trong skill): cài skill là đọc được luật, không cần cài module. FXEffect và shader chung: tab Unity Packages > EZG Shared > GameVFX (phần lõi, không kèm prefab của thư viện)."
     }
   }
 }

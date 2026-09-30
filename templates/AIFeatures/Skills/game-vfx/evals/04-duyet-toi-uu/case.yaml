@@ -1,0 +1,42 @@
+schema_version: "1.0"
+name: 04-duyet-toi-uu
+description: "Duyệt một hiệu ứng nặng: trần Damage (6.2), Max Particles (7.2), stop action (6.8), giờ game (3.4), prewarm."
+tags: [review, mobile]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Prefab FX_Skill_Meteor_Impact của game đang có 14 system, Max Particles để 1000 ở mọi system, prewarm bật, mọi system chạy unscaled time, còn object thì tắt bằng coroutine WaitForSeconds(5). Đây là kỹ năng gây sát thương thường trong một game mobile. Duyệt giúp, cần sửa gì?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: cap_tran_damage
+    criteria: >-
+      Câu trả lời xếp vào cấp Damage và đưa trần: tối đa 5 system, khoảng 60 hạt đỉnh, tối đa 3 material, thời gian
+      không lặp tối đa 1,5 s; nói 14 system là vượt trần, phải gộp hoặc bỏ lớp.
+  - type: llm
+    name: max_particles_7.2
+    criteria: >-
+      Câu trả lời dặn đặt Max Particles theo số hạt cần thật (khoảng 1,2 lần số ước tính), không để 1000.
+  - type: llm
+    name: stop_action_6.8
+    criteria: >-
+      Câu trả lời thay hẹn giờ 5 s bằng Stop Action Callback trên root (hoặc FXEffect.Finished) rồi mới trả pool.
+  - type: llm
+    name: gio_game_3.4
+    criteria: >-
+      Câu trả lời nói hiệu ứng gameplay phải chạy giờ game (useUnscaledTime tắt) và chỉ ra chỗ lệch: hạt chạy giờ thật
+      trong khi WaitForSeconds đếm giờ game, nên ở tốc độ x2, x3 hiệu ứng bị cắt và lúc pause hạt vẫn chạy.
+  - type: llm
+    name: prewarm_7.2
+    criteria: >-
+      Câu trả lời dặn tắt prewarm (chỉ để cho hiệu ứng Ambient đặt sẵn trong scene).

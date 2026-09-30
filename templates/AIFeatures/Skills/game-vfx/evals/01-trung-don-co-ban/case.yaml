@@ -1,0 +1,45 @@
+schema_version: "1.0"
+name: 01-trung-don-co-ban
+description: "Trúng đòn của đòn thường. Luật rải ở cấp (2.1), timing (3.1), trần (6.2), ParticleSystem (7.2), tên (8.2)."
+tags: [hit, 3d]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    VFX artist mới hỏi: sắp làm hiệu ứng trúng đòn cho đòn đánh thường của lính cận chiến trong một game mobile 3D. Dặn giúp: đặt tên prefab thế nào, hiệu ứng dài bao lâu, được bao nhiêu system và hạt, và ParticleSystem phải thiết lập gì.
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: cap_2.1
+    criteria: >-
+      Câu trả lời xếp hiệu ứng vào cấp Basic (trúng đòn của đòn thường), hoặc nói cấp do GD xếp và đề xuất Basic.
+  - type: llm
+    name: tran_6.2
+    criteria: >-
+      Câu trả lời đưa trần của cấp Basic: tối đa 3 system, khoảng 20 hạt đỉnh, tối đa 2 material, tối đa 2 texture cạnh
+      256 trên Android. Trượt nếu không có số, hoặc số lệch hẳn (ví dụ 5 system, 100 hạt, texture 1024).
+  - type: llm
+    name: thoi_gian_3.1
+    criteria: >-
+      Câu trả lời nói hiệu ứng ngắn: đỉnh ngay ở frame va chạm (0 tới 2 frame sau), tan khoảng 100 tới 300 ms, tổng
+      không quá khoảng 0,4 tới 0,5 s. Trượt nếu cho từ 1 s trở lên.
+  - type: llm
+    name: ten_8.2
+    criteria: >-
+      Câu trả lời đề xuất tên có tiền tố FX_ và nhóm Hit, PascalCase nối bằng dấu gạch dưới, ví dụ FX_Hit_Slash_01 hoặc
+      FX_<Subject>_Hit_<Tên>. Trượt nếu tên kiểu hit_effect, VFX_Hit_Sword, hoặc không có nhóm Hit.
+  - type: llm
+    name: particle_7.2
+    criteria: >-
+      Câu trả lời nêu ít nhất ba trong các thiết lập: root là ParticleSystem điều khiển với Stop Action Callback; Max
+      Particles theo số hạt cần thật (không để 1000); Looping và Prewarm tắt; chạy giờ game (useUnscaledTime tắt);
+      Culling Mode Automatic; Scaling Mode Hierarchy.

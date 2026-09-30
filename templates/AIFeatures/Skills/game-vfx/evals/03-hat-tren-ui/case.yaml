@@ -1,0 +1,34 @@
+schema_version: "1.0"
+name: 03-hat-tren-ui
+description: "Hạt trên Canvas: thư viện UI particle (7.5), giờ thật (3.4), trần UI nhỏ (6.2), hiệu ứng UI có sẵn."
+tags: [ui]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Thêm hạt lấp lánh quanh icon phần thưởng trong popup nhận thưởng (uGUI, Canvas Screen Space Overlay). Làm sao cho đúng?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: ui_particle_7.5
+    criteria: >-
+      Câu trả lời dùng một thư viện UI particle để hạt vẽ trong Canvas (ví dụ UIParticle của Coffee, thứ thư viện của
+      module dùng), không đặt ParticleSystem thường trước camera; và nói mỗi game chỉ chọn một thư viện UI particle.
+  - type: llm
+    name: gio_that_3.4
+    criteria: >-
+      Câu trả lời nói hạt trên UI chạy giờ thật (useUnscaledTime bật) để vẫn chạy khi game pause.
+  - type: llm
+    name: tran_ui_6.2
+    criteria: >-
+      Câu trả lời đưa trần của UI nhỏ (tối đa 2 system, khoảng 20 hạt, 1 material, 1 texture cạnh 256), hoặc lấy một
+      hiệu ứng UI nhỏ có sẵn trong thư viện (ví dụ FX_UI_Shine_Star, FX_UI_Shine_Gold).

@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: 05-pack-mua-san
+description: "Dùng pack VFX mua sẵn (7.7): giữ pack, chép ra, không tham chiếu thẳng, kiểm trần 6.2."
+tags: [pack]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Team vừa mua một pack VFX trên Asset Store, muốn dùng vài hiệu ứng trong đó cho game. Làm thế nào cho đúng?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: giu_pack_7.7
+    criteria: >-
+      Câu trả lời nói để nguyên pack trong folder của pack, không sửa file trong pack.
+  - type: llm
+    name: chep_ra_7.7
+    criteria: >-
+      Câu trả lời nói chép hiệu ứng dùng thật ra folder VFX của game, đặt tên lại theo quy tắc FX_, dùng material,
+      texture của game (hoặc chép chúng ra), và game không tham chiếu thẳng prefab, material, texture trong folder pack.
+  - type: llm
+    name: tran_6.2
+    criteria: >-
+      Câu trả lời dặn kiểm hiệu ứng chép ra theo trần của cấp (số system, hạt, material, texture) và sửa phần vượt.

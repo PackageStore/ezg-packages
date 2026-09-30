@@ -1,0 +1,35 @@
+schema_version: "1.0"
+name: 02-thu-vien-pool
+description: "Dùng hiệu ứng của thư viện với pool: FXEffect.Finished thay hẹn giờ (6.8, 7.8, ThuVien 2)."
+tags: [library, code]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Project đã có module Game VFX kèm thư viện hiệu ứng. Viết giúp đoạn code C#: khi quái chết thì phát hiệu ứng chết của thư viện tại vị trí quái, xong thì trả về pool.
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: fxeffect_finished
+    criteria: >-
+      Code dùng component FXEffect trên root của hiệu ứng và trả object về pool khi sự kiện Finished bắn (hoặc dùng
+      whenFinished của FXEffect), không dùng WaitForSeconds, Invoke hay một số giây gõ tay để tắt.
+  - type: llm
+    name: thu_vien
+    criteria: >-
+      Câu trả lời chọn một hiệu ứng chết có trong thư viện theo đúng tên, ví dụ FX_Death_Unit hoặc FX_Death_Soul
+      (FX_Death_Building cho công trình), hoặc chỉ tới danh mục của thư viện để chọn.
+  - type: llm
+    name: play_dung
+    criteria: >-
+      Code đặt vị trí trước khi phát, phát bằng Play() hoặc bật object, và không gắn thêm handler Finished mới ở mỗi lần
+      spawn (gắn một lần lúc tạo object, hoặc gỡ ra sau khi chạy).
