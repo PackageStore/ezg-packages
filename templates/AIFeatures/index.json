@@ -2076,7 +2076,7 @@
       "id": "Skills/blender-rig-animate",
       "name": "blender-rig-animate",
       "category": "Skills",
-      "description": "Rig, skin, pose và animate nhân vật, quái, prop, xe 3D bằng Blender headless (rigkit) cho Unity, có lò xo theo đà (follow-through) và gate đo từng frame: weight, giới hạn khớp, xuyên người, vật cứng xuyên sàn, trượt chân, loop, pose trung tâm, biên độ; xuất FBX kèm AnimationEvent. Spec của từng nhân vật để trong project game, cạnh model. Cần Blender 4.2+ trên máy. Dùng kèm Skills > game-animation (quy chuẩn).",
+      "description": "Rig, skin, pose và animate nhân vật, quái, prop, xe 3D bằng Blender headless (rigkit) cho Unity, có lò xo theo đà (follow-through) và gate đo từng frame: weight, giới hạn khớp, xuyên người, vật cứng xuyên sàn, trượt chân, loop, pose trung tâm, biên độ; xuất FBX kèm AnimationEvent. Spec của từng nhân vật để trong project game, cạnh model. Cần Blender 4.2+ trên máy. Cài kèm Skills > game-animation: quy chuẩn rigkit thực thi nằm trong docs/ của skill đó.",
       "installPath": ".claude/skills/blender-rig-animate",
       "isDirectory": true,
       "files": [
@@ -2113,8 +2113,8 @@
       "source": "extra",
       "fileName": "blender-rig-animate.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/blender-rig-animate.zip",
-      "sha256": "c8d4f9a6d871cd024a0649d69c0f40e62b5d41cc3363bb1390e7ad0010ff0a0f",
-      "size": 119310
+      "sha256": "77a47533e8c3ff982f440f904788cdabccc66065e2c8c5ab852b3ae254d64873",
+      "size": 119348
     },
     {
       "id": "Skills/compile-check",
@@ -2389,12 +2389,16 @@
       "id": "Skills/game-animation",
       "name": "game-animation",
       "category": "Skills",
-      "description": "Quy chuẩn Rigging và Animation 2D, 3D của team (module Game Animation), dùng cho mọi project: rig, skin, xương, clip, loop, đặt tên, xuất FBX từ Blender, import FBX / PSD / Aseprite, Mixamo, pack mua sẵn, Animator Controller, blend tree, frame data, hitstop, event, IK. Điều riêng của game ghi ở brief của game (quy chuẩn 9.2). Cần module GameAnimation trong project (tab Unity Packages > EZG Shared > GameAnimation). Làm thật trong Blender thì cài thêm Skills > blender-rig-animate.",
+      "description": "Quy chuẩn Rigging và Animation 2D, 3D của team (module Game Animation), dùng cho mọi project: rig, skin, xương, clip, loop, đặt tên, xuất FBX từ Blender, import FBX / PSD / Aseprite, Mixamo, pack mua sẵn, Animator Controller, blend tree, frame data, hitstop, event, IK. Điều riêng của game ghi ở brief của game (quy chuẩn 9.2). Mang sẵn quy chuẩn, nguyên lý và phân tích pack mua sẵn (docs/ trong skill): cài skill là đọc được luật, không cần cài module. Module GameAnimation (tab Unity Packages > EZG Shared) chỉ cần khi muốn tool đổi tên xương Mixamo. Làm thật trong Blender thì cài thêm Skills > blender-rig-animate.",
       "installPath": ".claude/skills/game-animation",
       "isDirectory": true,
       "files": [
         ".claude/skills/game-animation/.gitattributes",
         ".claude/skills/game-animation/SKILL.md",
+        ".claude/skills/game-animation/docs/CHANGELOG.md",
+        ".claude/skills/game-animation/docs/GameAnimation_NguyenLy.md",
+        ".claude/skills/game-animation/docs/GameAnimation_PackExplosiveLLC.md",
+        ".claude/skills/game-animation/docs/GameAnimation_QuyChuan.md",
         ".claude/skills/game-animation/evals/01-clip-chay-2d/case.yaml",
         ".claude/skills/game-animation/evals/01-clip-chay-2d/scaffold.sh",
         ".claude/skills/game-animation/evals/02-mixamo-import/case.yaml",
@@ -2417,13 +2421,13 @@
         ".claude/skills/game-animation/evals/10-ui-nut-play/scaffold.sh",
         ".claude/skills/game-animation/evals/_shared/scaffold.sh"
       ],
-      "fileCount": 23,
+      "fileCount": 27,
       "installedByDefault": false,
       "source": "extra",
       "fileName": "game-animation.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-animation.zip",
-      "sha256": "a858d155ddaaf95d020ab82c5aec80e8c4d8c14a0e329bc030c361503331f62f",
-      "size": 17847
+      "sha256": "a33bdcc620429045009682319ec1c314f6927fd80de43ef2692fccf075415e51",
+      "size": 111487
     },
     {
       "id": "Skills/game-systems",
@@ -2890,13 +2894,17 @@
       "id": "Skills/ui-motion",
       "name": "ui-motion",
       "category": "Skills",
-      "description": "Motion, sfx, feedback cho UI uGUI theo role bằng module UI Motion và quy chuẩn đi kèm module, dùng cho mọi project: khảo sát project, sinh luật riêng (ProjectSettings/UIMotionProject.json + .md), gắn motion cho prefab, chạy gate M-1…M-12, đưa module vào project cũ. Cần module UIMotion trong project (tab Unity Packages > EZG Shared > UIMotion) và Node 18+ cho script khảo sát.",
+      "description": "Motion, sfx, feedback cho UI uGUI theo role bằng module UI Motion và quy chuẩn đi kèm module, dùng cho mọi project: khảo sát project, sinh luật riêng (ProjectSettings/UIMotionProject.json + .md), gắn motion cho prefab, chạy gate M-1…M-12, đưa module vào project cũ. Mang sẵn quy chuẩn UI Motion (docs/ trong skill): đọc được luật cả khi project chưa có module. Gắn motion vào prefab thì cần module UIMotion trong project (tab Unity Packages > EZG Shared > UIMotion); script khảo sát cần Node 18+.",
       "installPath": ".claude/skills/ui-motion",
       "isDirectory": true,
       "files": [
         ".claude/skills/ui-motion/.gitattributes",
         ".claude/skills/ui-motion/.gitignore",
         ".claude/skills/ui-motion/SKILL.md",
+        ".claude/skills/ui-motion/docs/CHANGELOG.md",
+        ".claude/skills/ui-motion/docs/README.md",
+        ".claude/skills/ui-motion/docs/Samples/UIMotionSfxSink.cs.txt",
+        ".claude/skills/ui-motion/docs/UIMotion_QuyChuan.md",
         ".claude/skills/ui-motion/evals/01-nut-press/case.yaml",
         ".claude/skills/ui-motion/evals/01-nut-press/scaffold.sh",
         ".claude/skills/ui-motion/evals/02-dong-popup/case.yaml",
@@ -2937,13 +2945,13 @@
         ".claude/skills/ui-motion/scripts/tests/selftest.mjs",
         ".claude/skills/ui-motion/scripts/uimotion.mjs"
       ],
-      "fileCount": 42,
+      "fileCount": 46,
       "installedByDefault": false,
       "source": "extra",
       "fileName": "ui-motion.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip",
-      "sha256": "4b778260df7d4459635650356335388b85d15b8424f1cd0bfe1cffc657b97093",
-      "size": 78045
+      "sha256": "38f3530c1bad60f6b62f31ad0fb2aaa703ddffaea9c1a50cc0acde57e101ff91",
+      "size": 106146
     },
     {
       "id": "Skills/validate-release",
