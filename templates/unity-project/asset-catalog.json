@@ -388,20 +388,20 @@
       "fileName": "UIMotion.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/UIMotion.unitypackage",
       "category": "EZG Shared",
-      "sha256": "61b051ba5ca3055eb0319e034d5eb9cbd4b63c35d9bac9400074277710ad412c",
+      "sha256": "9295af9dab982394d7bb9230da4bf801b428f78af3e5f06c5483ccc87742dde7",
       "installedByDefault": false,
       "markerPaths": [ "Assets/_Project/Core/Modules/UIMotion" ],
-      "description": "Module UI Motion 0.4.0 cho uGUI: motion, sfx, feedback theo role (UIRole: Screen, Popup, Button, List...), RoleMap tu gan motion theo component / ten object, Profile chinh cam giac, SetActiveAnimated de dong screen co motion, gate M-1..M-12 (co the chan build). Dung chung moi project: luat rieng cua project nam o ProjectSettings/UIMotionProject.json, du lieu RoleMap / Settings / Profile nam ngoai module (mac dinh Assets/Resources/UIMotion, tao bang Tools/UI Motion/Tao asset mau). Yeu cau DOTween kem DOTween Modules (project tu template da co); Odin tuy chon (module co stub); TMP / UniTask / UIEffect / UI Extensions tu bat define khi co. Skill di kem cho Claude: tab AI Feature > Skills > ui-motion (khao sat project, sinh luat rieng, gan motion, chay gate). Nang tu ban cu: lam theo skill ui-motion, vi import khong xoa file thua va ban 0.3 tro ve truoc de asset trong folder module."
+      "description": "Module UI Motion 0.4.1 cho uGUI: motion, sfx, feedback theo role (UIRole: Screen, Popup, Button, List...), RoleMap tu gan motion theo component / ten object, Profile chinh cam giac, SetActiveAnimated de dong screen co motion, gate M-1..M-12 (co the chan build). Dung chung moi project: luat rieng cua project nam o ProjectSettings/UIMotionProject.json, du lieu RoleMap / Settings / Profile nam ngoai module (mac dinh Assets/Resources/UIMotion, tao bang Tools/UI Motion/Tao asset mau). Yeu cau DOTween kem DOTween Modules (project tu template da co); Odin tuy chon (module co stub); TMP / UniTask / UIEffect / UI Extensions tu bat define khi co. Skill di kem cho Claude: tab AI Feature > Skills > ui-motion (khao sat project, sinh luat rieng, gan motion, chay gate; skill mang san ban chep quy chuan). Nang tu ban cu: lam theo skill ui-motion, vi import khong xoa file thua va ban 0.3 tro ve truoc de asset trong folder module."
     },
     {
       "name": "GameAnimation",
       "fileName": "GameAnimation.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GameAnimation.unitypackage",
       "category": "EZG Shared",
-      "sha256": "3b4f14f8b4f811669c8e9a3557e2fe2527b4f26d0845a150633e6e5322d0ce67",
+      "sha256": "2778161e5de6747c18991079a2c021a9853c73c8286f6e6b332682a4069ad3de",
       "installedByDefault": false,
       "markerPaths": [ "Assets/_Project/Core/Modules/GameAnimation" ],
-      "description": "Module Game Animation 0.1.8: quy chuan Rigging va Animation 2D, 3D cua team (Docs: GameAnimation_QuyChuan.md, NguyenLy, phan tich pack ExplosiveLLC, CHANGELOG) va tool Editor doi ten xuong Mixamo sang ten chuan (quy chuan 5.9). Dung chung moi project: dieu rieng cua game ghi o brief cua game (quy chuan 9.2). Luu y: module co AssetPostprocessor doi ten xuong mixamorig* sang ten chuan moi lan import model co duong dan chua /Art/Characters/, /Art/Props/, /Art/Vehicles/ hoac /Art/Animation/ (tru model danh co giu ten qua menu Tools/Game Animation), va Unity co the import lai model ngay sau khi cai; project dang dung ten Mixamo trong cac folder do thi can nhac truoc khi cai. Khong can package ngoai. Skill di kem cho Claude: tab AI Feature > Skills > game-animation (doc va ap quy chuan) va blender-rig-animate (rig, animate bang Blender headless co gate, can Blender 4.2+)."
+      "description": "Module Game Animation 0.1.9: quy chuan Rigging va Animation 2D, 3D cua team (Docs: GameAnimation_QuyChuan.md, NguyenLy, phan tich pack ExplosiveLLC, CHANGELOG) va tool Editor doi ten xuong Mixamo sang ten chuan (quy chuan 5.9). Dung chung moi project: dieu rieng cua game ghi o brief cua game (quy chuan 9.2). Luu y: module co AssetPostprocessor doi ten xuong mixamorig* sang ten chuan moi lan import model co duong dan chua /Art/Characters/, /Art/Props/, /Art/Vehicles/ hoac /Art/Animation/ (tru model danh co giu ten qua menu Tools/Game Animation), va Unity co the import lai model ngay sau khi cai; project dang dung ten Mixamo trong cac folder do thi can nhac truoc khi cai. Khong can package ngoai. Skill di kem cho Claude: tab AI Feature > Skills > game-animation (doc va ap quy chuan, skill mang san ban chep quy chuan nen chi can doc luat thi khong phai cai module nay) va blender-rig-animate (rig, animate bang Blender headless co gate, can Blender 4.2+)."
     }
   ]
 }
