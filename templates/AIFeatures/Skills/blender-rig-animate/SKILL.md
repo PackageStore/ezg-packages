@@ -1,6 +1,6 @@
 ---
 name: blender-rig-animate
-description: Rig, skin, pose and animate a 3D game character, monster, prop or vehicle in headless Blender for Unity, with gates that measure weights, joint limits, penetration, foot sliding and loops frame by frame. Use when asked to "rig this model", "animate idle / attack / run / die", "làm anim cho nhân vật", "rig và animate", "weight sai", "anim bị xuyên", "pose kỳ quặc", "fix the skinning", "export FBX animation for Unity", or whenever a .blend / .fbx / .glb model must get bones, weights or clips. Does not do 2D (Unity 2D Animation) or runtime Unity code.
+description: Rig, skin, pose and animate a 3D game character, monster, prop or vehicle in headless Blender for Unity, with follow-through springs and gates that measure weights, joint limits, penetration (props into the floor too), foot sliding and loops frame by frame. Use when asked to "rig this model", "animate idle / attack / run / die", "làm anim cho nhân vật", "rig và animate", "weight sai", "anim bị xuyên", "pose kỳ quặc", "follow through quá nhẹ", "fix the skinning", "export FBX animation for Unity", or whenever a .blend / .fbx / .glb model must get bones, weights or clips. Does not do 2D (Unity 2D Animation) or runtime Unity code.
 argument-hint: [model file] [clip list]
 ---
 
@@ -22,7 +22,7 @@ ngay "pose kỳ quặc, weight sai tùm lum" (`reference/failure-catalog.md`).
 | Blender | `blender.exe` 4.2+ (đã chạy trên 4.5 LTS). Tìm: biến môi trường `BLENDER`, `where blender`, `C:/Program Files/Blender Foundation/*`, `<thư viện Steam>/steamapps/common/Blender`; không thấy thì hỏi người dùng |
 | Runner | `scripts/rk.py`: mỗi bước một lệnh `blender -b <file> --factory-startup --python-exit-code 1 --python scripts/rk.py -- <bước> ...`, exit 1 khi gate lỗi |
 | Thư viện | `scripts/rigkit/` (numpy + mathutils, không cần cài gì) |
-| Tự kiểm | `scripts/tests/selftest_weights.py`: weight tốt phải qua, weight hỏng phải trượt (chạy khi sửa rigkit). `scripts/tests/measure_clips.py`: đo biên độ và pose trung tâm của clip bất kỳ (FBX của pack, .blend) bằng thước của gate, để hiệu chỉnh ngưỡng |
+| Tự kiểm | `scripts/tests/selftest_weights.py`: weight tốt phải qua, weight hỏng phải trượt (chạy khi sửa rigkit). `scripts/tests/selftest_follow.py`: lò xo theo đà (toán và bake trên rig thử tự dựng). `scripts/tests/measure_clips.py`: đo biên độ và pose trung tâm của clip bất kỳ (FBX của pack, .blend) bằng thước của gate, để hiệu chỉnh ngưỡng |
 | File của nhân vật | rig spec, skin spec, key pose, clip, `run.sh` chạy cả chuỗi: dữ liệu của project, để trong project game (mục dưới). Lỗi đã gặp và spec đã chỉnh vì gate nào, trên một chibi cầm rìu và khiên: `reference/failure-catalog.md` |
 | Luật và nguồn | `reference/rules.md` (manual Blender, video, quy chuẩn) · `reference/failure-catalog.md` (lỗi đã gặp) |
 | Định dạng spec | `reference/specs.md` · Tỉ lệ chibi, ngắn chân: `reference/proportions.md` · API Blender 4.x: `reference/blender-notes.md` |
@@ -95,7 +95,8 @@ dụ, ROM hạ cổ, đầu, cánh tay, đùi và `limb_grow` (`reference/failur
 lần đầu thử trên chibi ví dụ, gate bắt 23 lỗi trong 10 pose mà ảnh nhỏ nhìn vẫn "ổn".
 
 **8. Clip** — viết `clips.py` bằng API `Clip` (reference/specs.md), `-- anim --clips clips.py --out anim.blend`,
-rồi `-- check_anim --out a.json`. **Phải 0 lỗi.** Gate kiểm từng frame: giới hạn khớp, lún đất, trượt chân lúc chạm
+rồi `-- check_anim --out a.json`. **Phải 0 lỗi.** Gate kiểm từng frame: giới hạn khớp, lún đất (da mềm: GROUND; vật
+cứng như vũ khí, khiên, mũ, mặt: PROP_UNDER_FLOOR, chạm sàn được, xuyên sàn thì không), trượt chân lúc chạm
 đất, đạo cụ xuyên người và xuyên nhau, tay chân xuyên thân, rách/lật da, loop hở, giật (pop), Root dời, scale
 không đều trên xương có con, đạo cụ rơi quá xa thân (DROP_FAR), pose đầu / cuối lệch pose trung tâm (HUB_START,
 HUB_END: frame 0 của Idle), biên độ quá nhỏ (LOW_AMPLITUDE). Hai gate sau hiệu chỉnh trên pack ExplosiveLLC (team
@@ -111,7 +112,8 @@ tính cách trên ảnh; nhịp, spacing, giật chỉ thấy trên video (loop 
 **10. export + verify_fbx** — `-- export --out Model/<Subject>_Rig.fbx [--mode split] [--names mixamo]`, rồi
 `blender -b --factory-startup --python rk.py -- verify_fbx --fbx ... --source anim.blend --out v.json`. Một
 SkinnedMeshRenderer, không xương `_end`, độ lệch sau vòng xuất–nhập ≤ 2 mm. `<out>.events.json` chứa
-AnimationEvent cho Unity (FBX không mang).
+AnimationEvent cho Unity (FBX không mang). verify_fbx gỡ nối mọi xương sau khi import rồi mới đo: importer của Blender
+nối con duy nhất vào đuôi xương cha và bỏ qua location của nó (prop rơi xa đọc lệch cả mét), Unity thì không có "nối".
 
 ## Luật cứng (vì sao: reference/rules.md, reference/failure-catalog.md)
 
@@ -140,7 +142,11 @@ AnimationEvent cho Unity (FBX không mang).
 13. Timing theo quy chuẩn 3.x; key pose → breakdown → spline. Ease theo mục đích: `impact` ở va chạm (tới nhanh,
     dừng gắt), `stop` ở pose giữ, `burst` khi người chơi bấm, `auto` (clamped, không vọt quá) cho phần còn lại.
 14. Rơi nhanh hơn lên; tiếp đất có nén và lắng; hold không bao giờ đứng im tuyệt đối (`wave`).
-15. Overlap bằng `drag` cho bộ phận lỏng; phụ kiện ôm sát (mũ) không được lắc riêng.
+15. Overlap bằng `drag` cho bộ phận lỏng; phụ kiện ôm sát (mũ) không được lắc riêng. Theo đà sau cú dừng gắt
+    (follow-through: đi tiếp, vọt quá, lắng) bằng lò xo: vật cầm hay vật lơ lửng dùng **một** `spring(bone, "turn"
+    | "grip")` trên hướng của xương mang nó, không lò xo từng khớp của tay IK; khớp FK đơn (đầu, ngực) dùng
+    `spring_channel`. Đặt `windows` để pose trung tâm và khung chạm đúng key; `max_deg` cho vũ khí vung nhanh; không
+    `spring` lên Hips hay chân. Lò xo đẩy vật xuống thấp: xem PROP_UNDER_FLOOR.
 16. Mỗi clip key đủ location/rotation/scale của mọi xương (clip thiếu kênh giữ giá trị clip trước).
 17. Loop: key cuối = key đầu, tiếp tuyến vòng qua chỗ nối (API tự làm); tốc độ gốc ghi vào clip.
 18. Đạo cụ rơi (`drop`) bay ra xa chỗ thân sẽ ngã xuống nhưng nằm lại gần thân (dưới 0,6 chiều cao), thả đúng lúc

@@ -16,6 +16,8 @@ Các nguồn, ghi ký hiệu ở cuối mỗi luật:
   2Hand-Sword) bằng đúng thước của `check_anim`, 2026-09-28: biên độ thân trên, độ lệch pose đầu / cuối so với Idle.
 - **[T]** Nhận xét của team, 2026-09-28: một bộ clip chibi sinh bằng code "chán, tệ", còn pack ExplosiveLLC chuyển
   state mượt.
+- **[RB]** Bài học khi làm một nhân vật tròn không tay chân, kiếm và khiên lơ lửng, bằng rigkit, 2026-09-30 (người
+  dùng: "follow through đang quá nhẹ"); chi tiết trong `failure-catalog.md` mục E.
 
 ## 1. Rig
 
@@ -90,6 +92,9 @@ Các nguồn, ghi ký hiệu ở cuối mỗi luật:
 | A19 | Loop: frame cuối = frame đầu và tiếp tuyến liền qua chỗ nối | [Q 7.1] |
 | A20 | Clip hành động bắt đầu và kết thúc ở pose trung tâm (frame 0 của Idle): trong rigkit key đầu và cuối là `{}` trên base READY, sóng của Idle gần 0 ở frame 0. Pack lệch trung bình 0–9°, clip bị chê lệch 35° (một xương 134°) | [E] [T] |
 | A21 | Idle phải sống: xương thân trên xoay trung bình ≥ 8° (pack 15–16°, idle chibi bị chê ~5°); đòn ≥ 20° (pack 42–86°). Chibi bị chặn (khiên chạm vành mũ, tay ngắn): dồn biên độ vào đầu, cổ tay, độ xoắn lan dần từ lưng lên đầu, tay không cầm khiên | [E] [T] [RK] |
+| A22 | Theo đà sau cú dừng gắt: phần lỏng đi tiếp, vọt quá rồi lắng trong vài nhịp nhỏ dần (lò xo tắt dần), không chỉ trễ một frame rồi dừng theo. Phần xa hơn thì lỏng hơn, chậm hơn (ngực → đầu, tay → vũ khí) để cú dừng lăn dọc cơ thể. rigkit: `spring`, `spring_channel` | [Q 2] [Q 7.6.9] [RB] |
+| A23 | Vật cầm, vật lơ lửng theo đà bằng một lò xo trên hướng của chính vật (armature space), không lò xo từng khớp của tay IK; góc lò xo có trần mềm, khớp có giới hạn mềm; ghi ngược bằng hiệu góc trước / sau khi xoay | [RB] |
+| A24 | Vật cứng (vũ khí, khiên, mũ, mặt) được chạm sàn, không được xuyên sàn: đo bằng gate riêng, GROUND chỉ đo da mềm | [RB] [RK] |
 
 ## 5. Xuất và Unity
 
@@ -98,4 +103,5 @@ Các nguồn, ghi ký hiệu ở cuối mỗi luật:
 | X1 | FBX: FBX Units Scale, Forward -Z Up Y, tắt Apply Transform, tắt Add Leaf Bones, chỉ xương deform, Bake Animation + Key All Bones, Force Start/End Keying, Simplify 0 | [Q 5.7] |
 | X2 | Một SkinnedMeshRenderer mỗi nhân vật (gộp mesh lúc xuất, .blend giữ riêng) | [Q 5.3.6] |
 | X3 | Import Blender của FBX dời animation +1 frame (`anim_offset` mặc định 1): so khớp phải đặt 0 | [RK] |
+| X3b | Import Blender của FBX nối con duy nhất vào đuôi xương cha, xương đã nối bỏ qua location; Unity không có "nối": so khớp phải gỡ nối mọi xương sau import | [RB] |
 | X4 | Unity: Generic, Root node None, Optimal 0,5°, Remove Constant Scale Curves; event lấy từ `<out>.events.json` | [Q 8.1, 7.4] |

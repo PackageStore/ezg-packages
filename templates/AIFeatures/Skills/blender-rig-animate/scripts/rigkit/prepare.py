@@ -1,7 +1,8 @@
 """prepare: make the source model rig-ready and save it as a NEW file (the source is never saved).
 
   * leave Edit Mode everywhere, bake object transforms into the meshes (location 0, rotation 0, scale 1)
-  * scale to game size (1 unit = 1 m): --height H (top of --ref meshes) or --scale S
+  * scale to game size (1 unit = 1 m): --height H (top of --ref meshes) or --scale S; --height is kept in the file
+    (scene rk_height) as the character height check_anim scales its tolerances with
   * put the feet on the ground (lowest point of --ground-mesh at z = 0) and centre the body on X = 0
   * scene at 30 fps (GameAnimation_QuyChuan 3.1), metric, unit scale 1
 
@@ -54,6 +55,8 @@ def main(argv):
         ob.data.transform(M)
         ob.data.update()
     sc = bpy.context.scene
+    if a.height:
+        sc["rk_height"] = float(a.height)   # the declared character height: check_anim scales its tolerances with it
     sc.render.fps = a.fps
     sc.render.fps_base = 1.0
     sc.unit_settings.system = "METRIC"

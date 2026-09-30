@@ -99,6 +99,8 @@ atk.key(11, STRIKE, ease="impact")      # va chạm: tới nhanh, dừng gắt
 atk.key(14, FOLLOW)
 atk.key(30, {}, ease="stop")
 atk.drag("Head", parent="Chest", delay=1, amount=0.25)   # overlap: đầu trễ theo ngực 1 frame
+atk.spring("Prop_Sword", kind="turn", gain=0.6, max_deg=40, windows=[(11, 30)])   # lưỡi theo đà sau va chạm
+atk.spring_channel(("Head", "flex"), gain=0.4, hz=2.4)                            # đầu gật theo đà rồi lắng
 atk.event(8, "AE_Sfx", "anim.hero.swing")                # event quy chuẩn 7.4
 CLIPS = [atk]
 ```
@@ -108,7 +110,10 @@ CLIPS = [atk]
 | `Clip(name, frames, loop, base, fps=30, hub_end=True, hub_start=None)` | clip; `base` là pose nền, mỗi key = base + phần đè; `hub_end=False` cho clip cố ý kết thúc ở pose khác (Die); `hub_start=False` cho clip được lệch frame đầu (Hit, quy chuẩn A-22; tên có `_Hit` thì mặc định vậy). Pose trung tâm là frame 0 của Idle cùng bộ: clip `Hero_Sword_Atk…` so với `Hero_Sword_Idle` |
 | `key(frame, pose, ease)` | key pose đủ; ease: `auto` `stop` `impact` `burst` `linear` `hold` |
 | `wave(target, amp, period, phase, frames)` | lớp sóng cộng thêm trên một kênh, ví dụ `("Hips","side")` hay `("Hips","loc",2)`; `frames=(f0,f1)` cho moving hold |
-| `drag(bone, parent, delay, amount)` | overlap: xương giữ một phần hướng của cha từ `delay` frame trước |
+| `drag(bone, parent, delay, amount)` | overlap: xương giữ một phần hướng của cha từ `delay` frame trước (trễ cố định, không vọt quá) |
+| `spring(bone, kind, gain, hz, zeta, max_deg, windows, fade, grip)` | theo đà (follow-through, `rigkit/follow.py`): xương treo trên lò xo tắt dần, cú dừng gắt thì đi tiếp, vọt quá rồi lắng. Chạy trong bake sau pose và IK, trước drag / drop, trên hướng của xương trong armature space. `kind="turn"`: theo hướng của chính xương (lưỡi đi tiếp sau cú chém); `"grip"`: con lắc quanh đầu xương, kéo bởi chuyển động thế giới của đầu xương `grip` (`spring("UpperArm_R", "grip", grip="Hand_R")`: vũ khí trễ theo cả cú nảy của thân). Ghi ngược thành góc giải phẫu trong giới hạn khớp (mềm), `max_deg` là trần mềm của góc. Mặc định `hz` 2,8 (một nhịp ~11 frame), `zeta` 0,3 (hai nhịp thấy rõ, lắng trong ~0,5 s), `gain` 1 = giữ nguyên vận tốc như khớp tự do. Nhiều lò xo chạy theo thứ tự thêm vào (grip trên tay rồi turn trên bàn tay). Không đặt lên Hips hay chân (chạy sau IK chân) |
+| `spring_channel(target, gain, hz, zeta, room, windows, fade)` | lò xo trên kênh của key, trước bake: một xương (flex, side, twist), một kênh `("Head","flex")` hay danh sách. Theo đà của chính kênh đó (cái gật dừng gắt); kênh giải phẫu nằm trong giới hạn khớp (mềm), `room=(lo, hi)` giới hạn lệch của kênh không có giới hạn (kênh ảo) |
+| `windows=[(start, end[, fade[, gain]])]` | (cả hai kiểu lò xo) lò xo bắt đầu từ trạng thái nghỉ ở `start` (cú dừng rơi đúng `start` vẫn đá), mờ về 0 trong `fade` frame trước `end`. Mặc định cả clip, mờ trước frame cuối trừ khi `hub_end=False`: frame đầu, cuối giữ đúng key (pose trung tâm A-22). Cửa sổ kết thúc trước khung chạm giữ cú đánh đúng key; cửa sổ bắt đầu ở khung chạm cho cú dừng lăn ra. Loop: chạy 3 vòng lấy vòng cuối, không có cửa sổ |
 | `drop(bone, frame, velocity, spin, restitution, friction, mesh, inherit)` | đạo cụ rời tay, rơi theo trọng lực, nảy trên mặt đất; bắt đầu với `inherit` × vận tốc lúc thả + `velocity`. Thả ở key `impact` thì tay có thể đang đi 5–10 m/s: hạ `inherit` (chibi ví dụ trong failure-catalog.md: 0,1) hoặc thả sau frame dừng |
 | `contact(foot, f0, f1)` | khai frame bàn chân phải chạm đất (gate trượt chân) |
 | `event(frame, function, param)` | AnimationEvent, xuất ra `<fbx>.events.json` |
@@ -116,6 +121,12 @@ CLIPS = [atk]
 
 Key tay (`reach`, `aim`) được giải thành góc FK **một lần ở mỗi key**; giữa các key nội suy góc FK, nên tay đi cung
 và không nhảy nghiệm. Chân giải IK mỗi frame (cắm đất, hở đất). Mọi frame được bake và key tuyến tính cho đủ xương.
+
+Kênh vắng ở một key lấy giá trị của `base` ở key đó; kênh không có trong `base` thì nhận 0. Kênh ảo (một điều khiển do
+file clip tự đọc, ví dụ mức nén) mà chỉ vài key dùng thì khai trong `base`, không các key còn lại kéo nó về 0.
+
+Vật cầm hay vật lơ lửng: **một** `spring` trên hướng của xương mang vật, không đặt lò xo lên từng khớp của tay giải bằng
+IK (các khớp dư bù trừ nhau, lò xo từng khớp phá thế bù: vũ khí lắc 95° lúc bật nhảy dù gần như không xoay).
 
 ## 5. Bảng mã gate
 
@@ -125,5 +136,5 @@ và không nhảy nghiệm. Chân giải IK mỗi frame (cắm đất, hở đ�
 | skin | UNWEIGHTED, RIGID_BONE, RIGID_NODEFORM | HEAT_PARTIAL |
 | check_weights | UNWEIGHTED, NOT_NORMALIZED, TOO_MANY_INFLUENCES, NONDEFORM_WEIGHT, CROSS_SIDE, STRAY_WEIGHT, TEAR, COLLAPSE, FLIP | TINY_WEIGHTS, DISCONNECTED, ACCESSORY_SKIN, PRESERVE_VOLUME, ENVELOPES |
 | anim | | IK_REACH, ARM_LIMIT |
-| check_anim | LIMIT, GROUND, FOOT_SLIDE, PROP_PENETRATION, LIMB_PENETRATION, TEAR, FLIP, LOOP_SEAM, POP, ROOT_MOTION, SCALE_CHILDREN, DROP_FAR (đạo cụ rơi cách thân > 2 lần chiều cao), HUB_START / HUB_END (pose đầu / cuối lệch Idle f0 trung bình > 20° hoặc một xương > 90°) | FOOT_FLOAT, LOOP_VELOCITY, DROP_FAR (> 0,6 chiều cao), HUB_START / HUB_END (> 10° hoặc > 45°), LOW_AMPLITUDE (Idle < 8°, đòn < 20° trung bình), HUB_MISSING (không có Idle nền để so) |
-| verify_fbx | ARMATURES, BONES_MISSING, LEAF_BONES, TAKE_MISSING, DEVIATION | BONES_EXTRA, MESHES, RANGE |
+| check_anim (ngưỡng tính theo chiều cao nhân vật: `--height`, không có thì `prepare --height`, không có nữa thì tư thế nghỉ của da mềm và phần cứng trừ vũ khí / khiên cầm tay; báo cáo ghi `height_m`) | LIMIT, GROUND (da mềm), PROP_UNDER_FLOOR (mesh cứng: đạo cụ, vũ khí, mũ, mặt thấp hơn sàn > 2% chiều cao; chạm sàn được, xuyên thì không), FOOT_SLIDE, PROP_PENETRATION (sâu > 1% chiều cao, hoặc tỉ lệ điểm của đạo cụ nằm trong thân tăng > 4% so với rest), LIMB_PENETRATION, TEAR, FLIP, LOOP_SEAM, POP, ROOT_MOTION, SCALE_CHILDREN, DROP_FAR (đạo cụ rơi cách thân > 2 lần chiều cao), HUB_START / HUB_END (pose đầu / cuối lệch Idle f0 trung bình > 20° hoặc một xương > 90°) | FOOT_FLOAT, LOOP_VELOCITY, DROP_FAR (> 0,6 chiều cao), HUB_START / HUB_END (> 10° hoặc > 45°), LOW_AMPLITUDE (Idle < 8°, đòn < 20° trung bình), HUB_MISSING (không có Idle nền để so) |
+| verify_fbx | ARMATURES, BONES_MISSING, LEAF_BONES, TAKE_MISSING, DEVIATION (đo sau khi gỡ nối mọi xương đã import: Unity không có "connect") | BONES_EXTRA, MESHES, RANGE |

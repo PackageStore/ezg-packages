@@ -21,6 +21,8 @@ Per-key ease (the video's handle types, as code):
     "linear"  straight segment after this key   "hold"    step: keep the value until the next key
 Loops: the pose of frame 0 is reused at the last frame and tangents wrap around, so the cycle has no seam.
 Every frame is baked (FK + IK) and keyed LINEAR; the solver keeps feet planted and bone lengths fixed.
+Follow-through: clip.drag(...) delays a bone behind its parent (never overshoots); clip.spring_channel(...) and
+clip.spring(...) hang parts on damped springs that carry on past a dead stop and settle (follow.py).
 """
 import argparse
 import importlib.util
@@ -32,6 +34,7 @@ import bpy
 from mathutils import Matrix, Quaternion, Vector
 
 from . import common as C
+from . import follow as FL
 from . import pose as P
 from . import skeleton as SK
 
@@ -192,6 +195,8 @@ class Clip:
         self.drops = []
         self.notes = []
         self.waves = []
+        self.chan_springs = []
+        self.springs = []
 
     def key(self, frame, pose=None, ease="auto"):
         if ease not in EASES:
@@ -208,6 +213,31 @@ class Clip:
     def drag(self, bone, parent=None, delay=2, amount=0.6):
         """Overlap: bone keeps part of its parent's orientation from `delay` frames ago (hat, weapon tip, ears)."""
         self.drags.append((bone, parent, int(delay), float(amount)))
+        return self
+
+    def spring_channel(self, target, gain=1.0, hz=None, zeta=None, room=None, windows=None, fade=4):
+        """Follow-through spring on channels of the keys (follow.py): target = a bone (its flex, side, twist), a channel
+        tuple ("Head", "flex") or a list. The channel rolls out past its own dead stops and settles; an anatomical
+        channel stays softly inside the joint limits, room=(lo, hi) bounds a channel without limits (virtual control).
+        windows=[(start, end[, fade[, gain]])]: where the spring acts (default: the whole clip, faded before the end)."""
+        self.chan_springs.append({"channels": FL.channel_targets(target), "gain": float(gain),
+                                  "hz": FL.HZ if hz is None else float(hz), "zeta": FL.ZETA if zeta is None else float(zeta),
+                                  "room": room, "windows": windows, "fade": fade})
+        return self
+
+    def spring(self, bone, kind="turn", gain=1.0, hz=None, zeta=None, max_deg=None, windows=None, fade=4, grip=None):
+        """Follow-through spring on the orientation of `bone` in armature space, run in the bake after the pose and the
+        IK, before drag / drop (follow.py). kind "turn": driven by the bone's own orientation (a blade carries on past
+        a dead stop); "grip": a pendulum about the bone's head driven by the world motion of the head of `grip`
+        (spring("UpperArm_R", "grip", grip="Hand_R"): the weapon lags the hops of the body). max_deg: soft cap of the
+        spring angle. Written back as anatomical angles inside the joint limits. Not on Hips or legs."""
+        if kind not in FL.KINDS:
+            raise ValueError("spring kind must be one of %s" % (FL.KINDS,))
+        if kind == "grip" and not grip:
+            raise ValueError("spring(%s, 'grip') needs grip=<bone whose head is the grip point>" % bone)
+        self.springs.append({"bone": bone, "kind": kind, "gain": float(gain), "hz": FL.HZ if hz is None else float(hz),
+                             "zeta": FL.ZETA if zeta is None else float(zeta), "max_deg": max_deg,
+                             "windows": windows, "fade": fade, "grip": grip})
         return self
 
     def event(self, frame, function, param=None):
@@ -269,6 +299,9 @@ class Clip:
                 w = math.sin(math.pi * (f - f0) / span)  # fades in and out inside the window
             ch[target] = ch.get(target, 0.0) + w * amp * math.sin(2 * math.pi * (f / period + phase))
             template = _ensure_path(template, target)
+        offs = getattr(self, "_spring_off", None)   # set by bake() from spring_channel
+        if offs:
+            FL.add_channel_offsets(ch, int(round(f)), offs, self._spring_lim)
         return unflatten(ch, template)
 
 
@@ -389,6 +422,15 @@ def bake(arm, clip, rep):
             rep.warn("ARM_LIMIT", "%s: a key asks %s for a pose outside its joint limits (%.0f deg over)"
                      % (clip.name, n[1], n[2]), clip=clip.name)
     tracks, template = clip.tracks()
+    # follow-through springs on channels of the keys: offsets per frame, added (soft-limited) in pose_at
+    spring_info = {}
+    if getattr(clip, "chan_springs", None):
+        clip._spring_off, clip._spring_lim, spring_info, unused = FL.channel_offsets(clip, tracks, sk)
+        if unused:
+            rep.warn("SPRING_UNUSED", "%s: spring_channel on %s does nothing: no key moves it (a spring follows keys, "
+                     "not waves)" % (clip.name, sorted({".".join(str(x) for x in c) for c in unused})), clip=clip.name)
+    else:
+        clip._spring_off, clip._spring_lim = {}, {}
     # every bone but Root: non-deform bones with deform children (Shoulder) are exported as transforms too
     names = [n for n in sk.order if n != "Root"]
     ik_notes = []
@@ -400,6 +442,13 @@ def bake(arm, clip, rep):
         P.apply(sk, pose, ik_notes)
         states.append(sk.copy_state())
         world_hist.append({n: sk.pose[n].copy() for n in sk.order})
+    # follow-through springs on orientations (turn / grip): after the pose and the IK, before drag and drop
+    if getattr(clip, "springs", None):
+        rot_info, unused = FL.rotation_pass(clip, sk, states, world_hist)
+        spring_info.update(rot_info)
+        if unused:
+            rep.warn("SPRING_UNUSED", "%s: spring on %s: no such bone in the rig" % (clip.name, sorted(set(unused))),
+                     clip=clip.name)
     # overlap / drag: second pass, using the history of the parent's orientation
     if clip.drags:
         for f in range(clip.frames + 1):
@@ -474,6 +523,8 @@ def bake(arm, clip, rep):
                  sorted({r[1] for r in reach})), clip=clip.name)
     rep.info.setdefault("clips", {})[clip.name] = {"frames": clip.frames, "loop": clip.loop, "keys": len(clip.keys),
                                                   "bones_keyed": len(names), "events": len(clip.events)}
+    if spring_info:  # largest spring offset per channel (its unit) and per bone (degrees), to see how much follows
+        rep.info["clips"][clip.name]["springs"] = spring_info
     return act
 
 

@@ -6,6 +6,9 @@
 Errors:
   LIMIT              a joint leaves its anatomical range (bone, axis, value, frames)
   GROUND             the skin goes below the ground (> 1 cm)
+  PROP_UNDER_FLOOR   a rigid mesh (prop, weapon, helmet, face: 100% one bone) goes below the ground (> 2 % of the
+                     height, ~3 cm): it may touch the floor (a slam ends with the blade on it), not go through it.
+                     GROUND measures the soft skin only
   FOOT_SLIDE         a foot moves while it should be planted (declared contact or detected contact)
   PROP_PENETRATION   a rigid prop / accessory goes > 1.5 cm into the body (hand holding it excluded)
   LIMB_PENETRATION   an arm or leg goes > 2 cm into the torso or the other leg
@@ -25,6 +28,8 @@ Warnings: FOOT_FLOAT (declared contact but the sole is > 1.5 cm above ground), L
 The hub and amplitude numbers are calibrated on clips the team judged (see HUB_WARN): the ExplosiveLLC pack passes
 without a warning, a set of code-generated chibi clips the team rejected does not.
 Tolerances are fractions of the character height (see GROUND_TOL ...), the cm above are for a 1.46 m character.
+The height: --height, else what prepare --height was given, else the rest-pose extent of the skin and of the rigid
+parts (face, helmet, hat) with the hand-held props left out; the report says which (info.height_m, height_from).
 """
 import argparse
 import json
@@ -45,6 +50,7 @@ from . import skeleton as SK
 
 # tolerances as a fraction of the character height (1.46 m chibi -> ~1 cm ground, ~1.5 cm prop)
 GROUND_TOL = 0.007
+FLOOR_TOL = 0.02   # rigid meshes: touching the floor is fine, going through is not (PROP_UNDER_FLOOR)
 PROP_TOL = 0.01
 LIMB_TOL = 0.014
 SLIDE_TOL = 0.008
@@ -158,10 +164,39 @@ def hub_checks(sc, rep, hub=None):
                 rep.warn(code, msg, clip=name, bone=bone)
 
 
+def character_height(arm, soft, rigid, override=None):
+    """(height, where it came from): the height every tolerance scales with. --height, else the height prepare was
+    given (scene rk_height), else the rest-pose extent of the skin and of every rigid part but the hand-held props:
+    weapons and shields stick out of the rest pose, while a face, eyes, a helmet or a hat are part of the character
+    (a character whose only soft skin is a tunic is as tall as its helmet, not as its tunic)."""
+    if override:
+        return float(override), "--height"
+    declared = bpy.context.scene.get("rk_height")
+    if declared:
+        return float(declared), "prepare --height"
+    raw = arm.get("rk_spec")
+    try:
+        spec = json.loads(raw) if raw else None
+    except (TypeError, ValueError):
+        spec = None
+    if spec is not None:
+        held = {p.get("bone") for p in spec.get("props", [])} | {p.get("object") for p in spec.get("props", [])}
+    obs = [ob for ob, _, _ in soft]
+    for ob, bone in rigid:
+        # rig spec "props" are the hand-held ones; without a spec, leave every Prop_ bone out
+        if (ob.name in held or bone in held) if spec is not None else bone.startswith("Prop_"):
+            continue
+        obs.append(ob)
+    if not obs:
+        return 1.0, "default"
+    z = np.concatenate([C.world_coords(ob)[:, 2] for ob in obs])
+    return float(z.max() - z.min()), "rest meshes"
+
+
 class Scene:
     """Everything the per-frame checks need, computed once."""
 
-    def __init__(self, arm):
+    def __init__(self, arm, height=None):
         self.arm = arm
         self.meshes = CW.armature_meshes(arm)
         self.soft, self.rigid = [], []
@@ -195,14 +230,17 @@ class Scene:
             self.regions[ob.name] = tri_reg
         rest_min = min((C.world_coords(ob)[:, 2].min() for ob, _, _ in self.soft), default=0.0)
         self.ground = min(rest_min, 0.0)
-        self.height = max((float(np.ptp(C.world_coords(ob)[:, 2])) for ob, _, _ in self.soft), default=1.0)
+        self.height, self.height_from = character_height(arm, self.soft, self.rigid, height)
         self.tol = {k: v * self.height for k, v in (("ground", GROUND_TOL), ("prop", PROP_TOL), ("limb", LIMB_TOL),
-                                                     ("slide", SLIDE_TOL))}
+                                                     ("slide", SLIDE_TOL), ("floor", FLOOR_TOL))}
         # what already touches in the rest pose (thighs under a tunic, a helmet on the head) is by design
         pos = arm.data.pose_position
         arm.data.pose_position = "REST"
         bpy.context.view_layer.update()
-        self.baseline = penetrations(self, self.evaluated())
+        ev_rest = self.evaluated()
+        self.baseline = penetrations(self, ev_rest)
+        # a rigid mesh that already sits lower than the ground at rest is measured from there (by design)
+        self.floor = {ob.name: min(self.ground, float(ev_rest[ob.name][:, 2].min())) for ob, _ in self.rigid}
         arm.data.pose_position = pos
         bpy.context.view_layer.update()
 
@@ -311,6 +349,13 @@ def frame_checks(sc, f, ev, sk, out):
         z = ev[ob.name][i, 2]
         if z < sc.ground - sc.tol["ground"]:
             out["ground"].append((f, ob.name, round(float(sc.ground - z), 3), C.r(ev[ob.name][i], 3)))
+    # rigid meshes (props, weapons, helmet, face): GROUND above measures the skin only
+    for ob, _ in sc.rigid:
+        i = int(np.argmin(ev[ob.name][:, 2]))
+        z = ev[ob.name][i, 2]
+        floor = sc.floor.get(ob.name, sc.ground)
+        if z < floor - sc.tol["floor"]:
+            out["floor"].append((f, ob.name, round(float(floor - z), 3), C.r(ev[ob.name][i], 3)))
     # skin deformation
     for ob, _, _ in sc.soft:
         spike, collapse, flip = CW.deform_metrics(sc.topo[ob.name], ev[ob.name])
@@ -351,7 +396,7 @@ def check_action(sc, act, rep, png_dir=None, frames_png=None):
     gs = float(meta.get("ground_speed", 0.0))
     contacts = meta.get("contacts", {})
     sk = SK.Skeleton(arm)
-    out = {k: [] for k in ("ground", "tear", "flip", "prop", "limb")}
+    out = {k: [] for k in ("ground", "floor", "tear", "flip", "prop", "limb")}
     out["limits"] = {}
     feet = feet_points(sc)
     foot_track = {n: [] for n in feet}
@@ -369,6 +414,7 @@ def check_action(sc, act, rep, png_dir=None, frames_png=None):
         frame_checks(sc, f, ev, sk, out)
         if rom:  # a ROM tests the skin: props, ground and feet are not part of it
             out["ground"] = []
+            out["floor"] = []
             out["prop"] = []
         for n, (obn, ids) in feet.items():
             pts = ev[obn][ids]
@@ -391,7 +437,8 @@ def check_action(sc, act, rep, png_dir=None, frames_png=None):
         rep.error("LIMIT", "%s: %s %s = %.0f deg (limit %s..%s) on %d frames, worst at f%d"
                   % (name, bone, axis, worst[1], worst[2][0], worst[2][1], len(hits), worst[0]),
                   clip=name, bone=bone, frames=[h[0] for h in hits])
-    for key, code, unit in (("ground", "GROUND", "m below ground"), ("prop", "PROP_PENETRATION", "m inside the body"),
+    for key, code, unit in (("ground", "GROUND", "m below ground"), ("floor", "PROP_UNDER_FLOOR", "m below ground"),
+                            ("prop", "PROP_PENETRATION", "m inside the body"),
                             ("limb", "LIMB_PENETRATION", "m inside the torso"), ("tear", "TEAR", "spike"),
                             ("flip", "FLIP", "flipped fraction")):
         if out[key]:
@@ -511,11 +558,15 @@ def main(argv):
     ap.add_argument("--out", required=True)
     ap.add_argument("--hub", default=None, help="action whose first frame is the hub pose for every clip "
                     "(default: per clip, the *_Idle clip of its set)")
+    ap.add_argument("--height", type=float, default=0.0, help="character height (m) the tolerances scale with "
+                    "(default: prepare --height, else the rest-pose skin and rigid parts, hand-held props left out)")
     a = ap.parse_args(argv)
     C.force_object_mode()
     arm = bpy.data.objects.get(a.armature) if a.armature else next(o for o in bpy.data.objects if o.type == "ARMATURE")
     rep = C.Report("check_anim")
-    sc = Scene(arm)
+    sc = Scene(arm, a.height or None)
+    rep.info["height_m"] = C.r(sc.height, 3)
+    rep.info["height_from"] = sc.height_from
     if a.poses:
         import importlib.util
         import sys
@@ -535,14 +586,14 @@ def main(argv):
             P.apply(sk, P.solve_goals(sk, mod.POSES[nm], notes), notes)
             sk.apply(arm)
             bpy.context.view_layer.update()
-            out = {k: [] for k in ("ground", "tear", "flip", "prop", "limb")}
+            out = {k: [] for k in ("ground", "floor", "tear", "flip", "prop", "limb")}
             out["limits"] = {}
             frame_checks(sc, 0, sc.evaluated(), sk, out)
             for (bone, axis), hits in out["limits"].items():
                 rep.error("LIMIT", "pose %s: %s %s = %.0f (limit %s..%s)" % (nm, bone, axis, hits[0][1], hits[0][2][0],
                                                                            hits[0][2][1]), pose=nm)
-            for key, code in (("ground", "GROUND"), ("prop", "PROP_PENETRATION"), ("limb", "LIMB_PENETRATION"),
-                              ("tear", "TEAR"), ("flip", "FLIP")):
+            for key, code in (("ground", "GROUND"), ("floor", "PROP_UNDER_FLOOR"), ("prop", "PROP_PENETRATION"),
+                              ("limb", "LIMB_PENETRATION"), ("tear", "TEAR"), ("flip", "FLIP")):
                 for h in out[key]:
                     at = (" at %s (rest position)" % (h[3],)) if len(h) > 3 and key == "flip" else (
                         (" at %s" % (h[3],)) if len(h) > 3 else "")

@@ -16,6 +16,8 @@ export
 verify_fbx
   * imports the FBX into an empty scene, compares bone names, takes, frame ranges and bone positions of every
     take with the source .blend (max deviation per take), and reports leaf bones / extra meshes
+  * every imported bone is unconnected first (rest kept): the importer connects a lone child to its parent's tail
+    and a connected bone ignores its location in Blender, while Unity plays the full TRS (a dropped prop read ~1 m off)
 """
 import argparse
 import json
@@ -174,6 +176,14 @@ def main_verify_fbx(argv):
         rep.error("ARMATURES", "expected 1 armature, got %d" % len(arms))
         return rep.dump(a.out)
     arm = arms[0]
+    # Blender's FBX importer connects a lone child to its parent's tail (a prop bone under a hand), and a connected
+    # bone ignores its location: a dropped prop far from the hand then reads as ~1 m off. Unity has no "connect" (a
+    # transform always plays its full TRS), so measure with every bone unconnected, rest kept.
+    with C.ctx(arm, [arm]):
+        bpy.ops.object.mode_set(mode="EDIT")
+        for eb in arm.data.edit_bones:
+            eb.use_connect = False
+        bpy.ops.object.mode_set(mode="OBJECT")
     names = {b.name for b in arm.data.bones}
     expect = {mixamo_name(n) for n in src_bones} if a.names == "mixamo" else src_bones
     missing = sorted(expect - names)

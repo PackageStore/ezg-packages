@@ -1,8 +1,9 @@
 # Lỗi đã gặp: triệu chứng → nguyên nhân → luật → gate bắt
 
-Đọc trước khi rig một nhân vật mới. Mỗi dòng là một lỗi thật, có số đo, trên một chibi cầm rìu và khiên (cao 1,46 m
-ở cỡ game). "Script tay" là lần rig nó ngày 2026-09-25 bằng script viết tay (không gate); "rigkit" là lúc làm lại bằng
-bộ công cụ này ngày 2026-09-28.
+Đọc trước khi rig một nhân vật mới. Mỗi dòng là một lỗi thật, có số đo. Mục A–D: một chibi cầm rìu và khiên (cao
+1,46 m ở cỡ game); "script tay" là lần rig nó ngày 2026-09-25 bằng script viết tay (không gate), "rigkit" là lúc làm
+lại bằng bộ công cụ này ngày 2026-09-28. Mục E: một nhân vật tròn không tay chân, kiếm và khiên lơ lửng (cao 1,46 m),
+làm bằng rigkit ngày 2026-09-30.
 
 ## Kết quả trên cùng một nhân vật, cùng gate
 
@@ -15,7 +16,9 @@ bộ công cụ này ngày 2026-09-28.
 | Biên độ, pose trung tâm (đo cùng thước) | Idle thân trên trung bình 5,6°; đòn lệch Idle f0 trung bình 1,8° | Idle 8,5° (pack 15–16°); đòn lệch 0,7° |
 | FBX vòng xuất–nhập | không kiểm | lệch < 0,1 mm, 1 mesh, không xương `_end` |
 
-(Bản script tay rig ở cỡ gốc 0,47 m nên các số dưới đây của nó nhân 3,4 thì ra cỡ game.)
+(Bản script tay rig ở cỡ gốc 0,47 m nên các số dưới đây của nó nhân 3,4 thì ra cỡ game.) Cột rigkit là gate của ngày
+2026-09-28; gate PROP_UNDER_FLOOR thêm sau đó bắt thêm 3 lỗi trên chính nhân vật này (rìu cắm sàn ở 2 pose và clip
+Attack, mũ lún sàn ở Die: mục B, C). Gate sạch chỉ nói những gì gate đo.
 
 ## A. Weight
 
@@ -45,6 +48,7 @@ bộ công cụ này ngày 2026-09-28.
 | Cổ chân gập 47° khi lao tới | hông lao trước 1,5 cm + xuống 2,2 cm trên chân 21 cm | Hông hạ tối đa 2,5 cm; lao tới bằng thân trên | LIMIT Foot_* |
 | Nhấc gót làm cổ chân gập thêm (36° → 51°) | chân ngắn, bàn chân dài: nhấc gót nâng cổ chân 6,8 cm, gối gập thêm | Tự nhấc gót thử nhiều mức, giữ mức ít vi phạm nhất (có khi là không nhấc) | LIMIT Foot_* |
 | Khiên chạm vành mũ | khiên 1 m, tay đưa ra ngang | Khiên thấp và phía trước (tay READY) | PROP_PENETRATION hat/shield |
+| Rìu cắm sàn 8,3 cm ở pose chém, 24,5 cm ở pose theo đà; 12 pose "0 lỗi" vì chưa gate nào đo (tìm ra 2026-09-30, khi thêm PROP_UNDER_FLOOR) | rìu 1,05 m vung xuống trước người; GROUND chỉ đo da mềm | Vũ khí dài chạm sàn thì dừng trên sàn: nâng tay, gập cổ tay ở pose chém và theo đà | PROP_UNDER_FLOOR |
 
 ## C. Clip
 
@@ -60,6 +64,7 @@ bộ công cụ này ngày 2026-09-28.
 | Khiên văng 4,4 m khỏi thân lúc ngã, ảnh review cắt mất | thả ở key `impact`: tay đang đi 9,2 m/s và đạo cụ giữ nguyên vận tốc đó; khung review lấy theo frame đầu | `drop(..., inherit=0.1)`; review lấy khung theo mọi frame | DROP_FAR |
 | Idle "đúng mà chán": thân trên xoay trung bình 1,5° (đầu 6°, tay 2°), 0 lỗi gate | chỉ thở nhẹ; tay khiên nâng lên là khiên chạm vành mũ nên không dám cho tay động | Idle ≥ 8° trung bình: đầu nhìn quanh ±10°, xoắn lan từ lưng lên đầu, cổ tay đưa rìu, khiên nghiêng; tay khiên đứng gần READY | LOW_AMPLITUDE |
 | Clip hành động bắt đầu ở READY nhưng Idle f0 lệch READY (gối 10,9°) | key 0 của Idle có hông và ngực riêng; sóng có pha khác 0 | Key 0 của Idle là `{}`; action bắt đầu, kết thúc bằng `{}` trên cùng base | HUB_START, HUB_END |
+| Mũ lún sàn 4,3 cm ở frame đầu chạm đất của Die rồi mới bật ra (tìm ra 2026-09-30) | `drop` mũ đúng frame đầu chạm đất: frame đó mũ còn trên đầu | Thả trước một frame, lúc đầu còn trên sàn, hoặc cho đầu dừng trên sàn | PROP_UNDER_FLOOR |
 | Cứng như robot, dừng ở mọi key (idle của bản script tay) | Bezier auto-clamped có key mỗi 15 frame, pose giữ im | Idle bằng 2 key + lớp sóng (`wave`) lệch pha; hold luôn có chuyển động nhỏ | review (mắt) |
 
 ## D. Công cụ và kiểm
@@ -70,4 +75,19 @@ bộ công cụ này ngày 2026-09-28.
 | Stress test báo rách ở mọi rig (cả rig tốt) | gập mọi khớp 45°, đo cạnh ngắn ở nếp gấp | Gập 70% giới hạn của từng khớp; đo gai so với lân cận, hiệu chỉnh bằng selftest |
 | Độ sâu xuyên 25–29 cm vô lý | đo mặt gần nhất trên vùng mesh hở, xa chỗ cắt nhau | Chỉ đo trên đỉnh của tam giác thật sự cắt nhau |
 | Ảnh review xỉn màu | view transform AgX | Workbench + Standard |
+| (Nhân vật mục E) verify_fbx báo DEVIATION 1,2 m ở clip Die (prop rơi xa tay), trong Unity clip lệch nguồn chỉ 5–11 mm (nén Optimal) | importer FBX của Blender nối (use_connect) con duy nhất vào đuôi xương cha (prop dưới bàn tay), xương đã nối bỏ qua location; Unity không có "nối", luôn chơi đủ TRS | verify_fbx gỡ nối mọi xương sau import rồi mới đo (rigkit làm sẵn); vẫn bắt lỗi thật (key lệch 5 cm báo 0,050 m) |
+| (Nhân vật mục E) mọi ngưỡng theo chiều cao chặt gấp đôi: khiên lệch dưới sàn 1,5–2,5 cm báo lỗi (ngưỡng 2% còn 14 mm), Die báo DROP_FAR ở 0,57–0,66 m | check_anim lấy chiều cao từ da mềm; da mềm của nhân vật này chỉ là cái áo (0,72 m trên 1,46 m) | Chiều cao = `prepare --height` (lưu trong file), không có thì lấy tư thế nghỉ của da mềm cộng mọi phần cứng trừ vũ khí / khiên cầm tay (mặt, mũ tính vào); `--height` để ghi đè; báo cáo ghi `height_m` |
+| `review` chạy song song vào cùng thư mục thì crash | các lượt dùng chung file tạm `_rk_frame.png` | Chạy lần lượt, hoặc mỗi lượt một thư mục `--out` riêng |
 | Ngưỡng pose trung tâm lấy theo ghi chép (lệch 0–3°) đánh lỗi chính pack mà team khen | ghi chép đo khác thước (trung bình, bộ xương khác); đo lại bằng thước của gate: pack lệch trung bình 2,5–9,2°, xương tệ nhất 15–42,5° | Hiệu chỉnh ngưỡng bằng `scripts/tests/measure_clips.py` (cùng thước với gate) trên clip team khen và clip team chê (HUB lỗi ở trung bình > 20° hoặc một xương > 90°) |
+
+## E. Theo đà (lò xo) và vật cứng (nhân vật tròn, vũ khí lơ lửng)
+
+| Triệu chứng | Nguyên nhân | Luật | Gate |
+|---|---|---|---|
+| "Follow through đang quá nhẹ": thân dừng thì các phần dừng theo sau một frame | overlap chỉ trễ frame (`drag`, trễ cố định), không bao giờ vọt quá | Lò xo tắt dần: `spring` / `spring_channel` (hz 2,8, zeta 0,3). Sau khi thêm, đầu kiếm lệch bản không lò xo 17–48° ở đòn đánh, 9° ở Idle, 5° ở Move | review (mắt, video) |
+| Kiếm lắc 95° lúc bật nhảy, dù thực tế nó gần như không xoay | lò xo riêng trên từng khớp của tay giải bằng IK: các khớp dư bù trừ nhau, lò xo từng khớp phá thế bù đó | Một lò xo trên hướng của chính vật, trong armature space: `spring(bone, "turn")`, hoặc `"grip"` để vật trễ theo cả cú nảy của thân | review; LIMIT |
+| Chém dọc 2 frame quét ~180°: tay tự do văng thêm ~100°, cổ tay ra ngoài giới hạn; kẹp từng trục thì hướng vỡ (lệch 197°) | lò xo không có trần; kẹp riêng từng góc giải phẫu làm sai hướng | Trần mềm cho góc lò xo (`max_deg`: kiếm 40°, khiên 30°), giới hạn khớp mềm từng trục | LIMIT |
+| 0,1° lò xo thành một cú xoay lớn (kiếm cắm vào mũ) | ghi ngược bằng "góc sau khi xoay − giá trị kênh trên key": cùng một hướng có thể là bộ ba góc khác | Lấy góc giải phẫu cả trước lẫn sau khi xoay, trừ nhau, wrap ±180 (rigkit làm sẵn, `tests/selftest_follow.py` kiểm) | PROP_PENETRATION, POP |
+| Lò xo nén áo thêm, áo phình vào mặt | lò xo trên kênh ảo (mức nén) đẩy quá giá trị key | `room` nhỏ cho kênh ảo, hạ gain ở clip đó | PROP_PENETRATION (tỉ lệ điểm > 4%) |
+| Khiên, kiếm cắm sàn 5,9–10,6 cm (lò xo đẩy xuống), không gate nào báo | GROUND chỉ đo da mềm; kiếm, khiên, mũ, mặt là mesh cứng | Gate cho mesh cứng: lệch dưới sàn > 2% chiều cao là lỗi (chạm sàn được, xuyên thì không) | PROP_UNDER_FLOOR |
+| Lò xo mạnh dần: gain 1,0 qua gate, 1,2 trượt 3 lỗi, 1,5 trượt 9 lỗi | lò xo đẩy vật vào người, vào sàn | Tăng dần và chạy gate sau mỗi nấc; gate phải bắt được khi quá tay | PROP_UNDER_FLOOR, PROP_PENETRATION |
