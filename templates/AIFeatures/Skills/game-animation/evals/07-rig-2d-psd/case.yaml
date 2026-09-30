@@ -1,0 +1,44 @@
+schema_version: "1.0"
+name: 07-rig-2d-psd
+description: Chuẩn bị PSD (6.1), import PSD phải chọn PSD Importer (6.2, từ 0.1.2), Sorting Group nằm ở mục khác (6.7) nên dễ sót.
+tags: [rig, 2d, import]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Họa sĩ gửi file PSD nhân vật 2D để rig xương trong Unity. Cần dặn họa sĩ chuẩn bị file thế nào, và import vào Unity setting ra sao?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: psd_6.1
+    criteria: >-
+      Câu trả lời giữ file .psd (không bắt đổi sang .psb), dặn mỗi bộ phận một layer, vẽ ở pose trung tính, và tô lấn phần
+      bị che ở các khớp xoay (vai, khuỷu, hông, gối). Trượt nếu bảo phải lưu thành .psb.
+  - type: llm
+    name: khong_effect_6.1
+    criteria: >-
+      Câu trả lời dặn không dựa vào blend mode, opacity của layer hay layer effect (importer bỏ qua, phải bake vào pixel),
+      và vẽ đúng độ phân giải cuối theo PPU của project (không vẽ to rồi thu nhỏ trong Unity).
+  - type: llm
+    name: importer_6.2
+    criteria: >-
+      Câu trả lời dặn đổi importer của file .psd sang PSD Importer (UnityEditor.U2D.PSD.PSDImporter, ở dropdown Importer
+      trong Inspector), vì Unity mặc định import .psd bằng Texture Importer thành ảnh phẳng, không rig được.
+  - type: llm
+    name: import_6.2
+    criteria: >-
+      Câu trả lời cho setting import: Import Mode là Individual Sprites (Mosaic), bật Use as Rig, tắt Generate Mip Maps,
+      và dùng một PPU thống nhất cho cả project.
+  - type: llm
+    name: sorting_6.7
+    criteria: >-
+      Câu trả lời dặn đặt Sorting Group trên gốc nhân vật.

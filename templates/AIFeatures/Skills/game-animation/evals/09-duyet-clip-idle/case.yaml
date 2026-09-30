@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: 09-duyet-clip-idle
+description: Duyệt clip idle. Loop (7.1), độ dài (3.6), Root (7.2), duyệt trong engine (0, 9.3, 11).
+tags: [review, 3d]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Animator vừa gửi clip idle thở của nhân vật chính (3D). Mình cần kiểm những gì trước khi cho qua?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: loop_7.1
+    criteria: >-
+      Câu trả lời kiểm loop: key cuối giống hệt key đầu, Loop Time bật (đèn loop match xanh), cho lặp lâu không giật và
+      không có chi tiết gây khó chịu.
+  - type: llm
+    name: thong_so_4.3_3.6
+    criteria: >-
+      Câu trả lời kiểm tên đúng mẫu (nhóm Idle, ví dụ Hero_Idle...), 30 fps, và độ dài idle thở khoảng 2 đến 4 s.
+  - type: llm
+    name: root_7.2
+    criteria: >-
+      Câu trả lời kiểm xương Root đứng yên (không có key dời hay xoay).
+  - type: llm
+    name: duyet_0_9.3
+    criteria: >-
+      Câu trả lời dặn duyệt trong Unity ở góc và khoảng cách camera gameplay, trên máy thật (không chỉ xem trong Blender),
+      theo checklist duyệt hoặc Định nghĩa xong của team.

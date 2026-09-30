@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: 01-clip-chay-2d
+description: Clip chạy 2D skeletal. Luật nằm rải ở 4 mục (tên 4, fps và độ dài 3, loop và tại chỗ 7), đọc mỗi mục tên thì sót.
+tags: [clip, 2d]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Animator mới vào team sắp làm clip chạy cho quái Orc (game 2D, rig xương bằng Unity 2D Animation). Dặn giúp: đặt tên file thế nào, làm bao nhiêu frame, và phải kiểm gì trước khi giao.
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: ten_4.2
+    criteria: >-
+      Câu trả lời đề xuất tên clip theo mẫu <Subject>_<Nhóm>_<Hành động>: PascalCase, nối bằng dấu gạch dưới, có nhóm
+      Loco, ví dụ Orc_Loco_Run.anim (được thêm hướng hoặc biến thể ở cuối). Trượt nếu tên kiểu orc_run, OrcRun, Orc-Run,
+      hoặc thiếu nhóm Loco.
+  - type: llm
+    name: fps_do_dai_3.1_3.6
+    criteria: >-
+      Câu trả lời nói làm ở 30 fps, và cycle chạy dài khoảng 0,5 s, tức khoảng 15 frame ở 30 fps. Trượt nếu không nêu
+      fps, hoặc độ dài cycle lệch hẳn (ví dụ 1 s, 24 frame, 30 frame).
+  - type: llm
+    name: loop_7.1
+    criteria: >-
+      Câu trả lời nói key cuối phải giống hệt key đầu (không cắt bỏ frame cuối) và bật Loop Time trong Unity.
+  - type: llm
+    name: tai_cho_7.2
+    criteria: >-
+      Câu trả lời nói clip làm tại chỗ (in-place): xương gốc hoặc Root không dời, không xoay trong clip, code dời nhân
+      vật; và dặn ghi tốc độ gốc (m/s) của clip cho dev.

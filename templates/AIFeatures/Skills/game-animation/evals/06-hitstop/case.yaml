@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: 06-hitstop
+description: Hitstop và rung. Số theo lực (3.4), cách làm bằng Animator.speed (7.5), điều kiện bật (3.4, 7.5).
+tags: [game-feel, dev]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Muốn đòn chém trúng quái có lực hơn. Hitstop với rung camera nên làm thế nào, để bao nhiêu?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: so_3.4
+    criteria: >-
+      Câu trả lời cho số hitstop theo lực, nằm trong các dải: đòn nhẹ khoảng 67 đến 100 ms, vừa khoảng 117 đến 133 ms,
+      mạnh hoặc chí mạng khoảng 150 đến 200 ms, kết liễu hoặc boss khoảng 217 đến 333 ms (ghi bằng frame ở 60 fps cũng
+      được: 4-6, 7-8, 9-12, 13-20); rung camera tăng theo lực. Đạt nếu ít nhất mức nhẹ và mức mạnh đúng dải.
+  - type: llm
+    name: cach_lam_7.5
+    criteria: >-
+      Câu trả lời nói dừng hình bằng Animator.speed = 0 trên từng nhân vật trong N frame rồi trả về 1, và không dùng
+      Time.timeScale cho hitstop (vì timeScale dừng cả physics, particle và mọi nhân vật khác).
+  - type: llm
+    name: dieu_kien_3.4_7.5
+    criteria: >-
+      Câu trả lời có ít nhất hai ý sau: hitstop chỉ bật khi đòn trúng thật (đòn trượt không có); bám vào frame va chạm
+      (frame active đầu tiên); giảm khi nhiều quái trúng cùng lúc; trong lúc hitstop bên bị đánh rung, bên đánh gần như
+      đứng yên.

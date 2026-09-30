@@ -1,0 +1,42 @@
+schema_version: "1.0"
+name: 02-mixamo-import
+description: Mixamo vào Unity. Có tool tự đổi tên xương (5.9); đặt tên file trước khi kéo vào; In Place và Generic (5.8).
+tags: [import, 3d, mixamo]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Mình vừa tải một nhân vật và vài clip chạy, nhảy từ Mixamo về. Kéo vào Unity thế nào cho đúng? Tên xương mixamorig có phải sửa tay không?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: tool_tu_doi_5.9
+    criteria: >-
+      Câu trả lời nói không cần sửa tay tên xương mixamorig: tool GameAnimMixamoImport có sẵn trong project tự đổi lúc
+      import khi model nằm trong thư mục chuẩn (Art/Characters, Art/Props, Art/Vehicles, Art/Animation), còn chỗ khác thì
+      chạy menu Tools/Game Animation. Trượt nếu bảo đổi tên tay trong Blender hoặc tự viết script mà không nhắc tool có sẵn.
+  - type: llm
+    name: ten_file_5.9_4.2
+    criteria: >-
+      Câu trả lời dặn đặt tên file FBX theo mẫu chuẩn trước khi kéo vào Unity, vì clip tên mixamo.com sẽ lấy theo tên
+      file (ví dụ Mixamo_Loco_Run_F.fbx, hoặc dạng <Subject>_<Nhóm>_<Hành động>.fbx).
+  - type: llm
+    name: in_place_generic_5.8
+    criteria: >-
+      Câu trả lời dặn tải bản In Place của clip (clip tại chỗ, code dời nhân vật) và cho nhân vật chạy rig Generic (retarget
+      lúc làm nếu cần), không để Humanoid retarget lúc chạy. Trượt nếu khuyên dùng Humanoid lúc chạy mà không nói là
+      ngoại lệ.
+  - type: llm
+    name: canh_bao_5.9
+    criteria: >-
+      Câu trả lời có ít nhất một lưu ý sau: rig Mixamo không có xương Root nên coi là một archetype riêng; hoặc đổi tên
+      xương làm mất tham chiếu ở asset cũ (prefab gắn đồ vào xương, code tìm xương theo tên cũ, avatar đã map theo tên cũ).

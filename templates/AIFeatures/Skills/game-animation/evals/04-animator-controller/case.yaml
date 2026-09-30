@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: 04-animator-controller
+description: Dựng Animator Controller (8.3), tên tham số (4.4), tại chỗ (7.2), blend vào đòn (3.5).
+tags: [animator, 3d, dev]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Dev cần dựng Animator Controller cho nhân vật người chơi Knight (game action 3D: chạy, đánh combo, né, bị đánh, chết). Nên tổ chức controller thế nào?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: override_8.3
+    criteria: >-
+      Câu trả lời dùng một controller gốc dùng chung cho archetype (ví dụ HumanM_Base.controller) và một Animator Override
+      Controller cho Knight (ví dụ Knight.overrideController) chỉ thay clip. Trượt nếu dựng controller riêng cho Knight mà
+      không có controller gốc dùng chung.
+  - type: llm
+    name: vao_hanh_dong_8.3
+    criteria: >-
+      Câu trả lời nói transition vào hành động (đánh, né) tắt Has Exit Time, blend ngắn (khoảng 0 đến 0,1 s), và không đặt
+      state trống ở giữa để rẽ nhánh (hoặc nói đi thẳng tới state của hành động, hay code gọi CrossFade thẳng vào state).
+  - type: llm
+    name: tham_so_any_state_8.3
+    criteria: >-
+      Câu trả lời dùng một trigger cho mỗi nhóm hành động (ví dụ Attack, Dodge, Hit) kèm tham số int Variant hoặc Stance,
+      và dùng Any State cho Death, Hit... với Death xếp ưu tiên trên cùng.
+  - type: llm
+    name: tai_cho_7.2
+    criteria: >-
+      Câu trả lời nói tắt Apply Root Motion, clip tại chỗ, code dời nhân vật (không dùng root motion, không viết
+      OnAnimatorMove).

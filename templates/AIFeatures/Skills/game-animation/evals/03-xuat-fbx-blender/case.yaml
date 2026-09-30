@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: 03-xuat-fbx-blender
+description: Xuất FBX từ Blender (5.7), đơn vị và hướng (5.1), tên file (4.2).
+tags: [rig, 3d, export]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Rigger chuẩn bị xuất nhân vật Hero từ Blender sang Unity. Chỉ giúp các setting export FBX quan trọng và cách đặt tên file.
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: scale_5.7
+    criteria: >-
+      Câu trả lời đặt Apply Scalings = FBX Units Scale (không để All Local, vì model sẽ to gấp 100 lần trong Unity), và
+      scene dùng đơn vị Metric, Unit Scale 1.0.
+  - type: llm
+    name: xuong_5.7
+    criteria: >-
+      Câu trả lời tắt Add Leaf Bones (không có xương _end thừa) và bật Only Deform Bones (không xuất control rig, IK
+      helper).
+  - type: llm
+    name: transform_5.7_5.1
+    criteria: >-
+      Câu trả lời tắt Apply Transform với rig, và có ít nhất một trong các ý: Forward -Z / Up Y; nhân vật nhìn +Z trong
+      Unity; xương Root ở gốc (0, 0, 0); bind pose là T-pose.
+  - type: llm
+    name: ten_4.2
+    criteria: >-
+      Câu trả lời đặt tên file model kèm rig là Hero_Rig.fbx, và clip xuất mỗi clip một file theo mẫu
+      Hero_<Nhóm>_<Hành động>... (ví dụ Hero_Atk_Light_01.fbx, Hero_Loco_Run_F.fbx).

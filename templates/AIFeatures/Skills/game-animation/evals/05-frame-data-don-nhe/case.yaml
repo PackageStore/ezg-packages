@@ -1,0 +1,35 @@
+schema_version: "1.0"
+name: 05-frame-data-don-nhe
+description: Frame data đòn nhẹ. Ngân sách startup (3.2), cách tính độ dài clip (3.7), GD giữ bảng (0, 3.7).
+tags: [timing, gd]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    GD hỏi: đòn chém nhẹ của nhân vật người chơi nên có startup, active, recovery bao nhiêu frame, và clip dài bao nhiêu thì khớp?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: ngan_sach_3.2
+    criteria: >-
+      Câu trả lời nêu ngân sách startup của đòn nhẹ cho người chơi: tối đa khoảng 100 ms, tức khoảng 3 frame ở 30 fps.
+      Được phép nhắc thêm ví dụ khác, miễn là có nêu ngân sách này. Trượt nếu không nêu ngân sách startup nào, hoặc đề
+      xuất startup dài hơn hẳn (ví dụ 6 đến 10 frame ở 30 fps) mà không nói là vượt ngân sách.
+  - type: llm
+    name: tong_3.7
+    criteria: >-
+      Câu trả lời nói độ dài clip bằng startup + active + recovery (đếm frame ở 30 fps), để clip khớp bảng frame data.
+  - type: llm
+    name: nguon_so_3.7
+    criteria: >-
+      Câu trả lời nói số frame data do GD chốt và ghi vào bảng frame data của nhân vật, là nguồn chung cho cả code lẫn
+      animator (đổi số trong bảng là đổi clip theo).

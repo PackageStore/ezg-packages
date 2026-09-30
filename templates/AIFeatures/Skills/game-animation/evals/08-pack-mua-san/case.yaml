@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: 08-pack-mua-san
+description: Dùng pack mua sẵn (8.8, 4.5), retarget (5.8), root motion (7.2), đổi tên và event (4.2, 7.4).
+tags: [pack, 3d]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Team định mua một pack animation trên Asset Store cho nhân vật chính (rig Humanoid, có sẵn Animator Controller và script mẫu). Dùng vào game thế nào cho đúng?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-animation
+    min: 1
+    arm: with-only
+  - type: llm
+    name: khong_dung_thang_8.8_4.5
+    criteria: >-
+      Câu trả lời nói không đưa thẳng Animator Controller, script, prefab của pack vào game (chỉ đọc để học, dựng controller
+      theo chuẩn của team), và để nguyên pack trong thư mục riêng, không sửa file trong pack.
+  - type: llm
+    name: retarget_generic_5.8
+    criteria: >-
+      Câu trả lời nói retarget clip của pack sang cây xương chuẩn của team lúc làm và lưu thành clip Generic (không để
+      Humanoid retarget lúc chạy; nếu vẫn chạy Humanoid thì phải ghi nợ).
+  - type: llm
+    name: root_motion_7.2_8.8
+    criteria: >-
+      Câu trả lời xử lý root motion của pack: đo tốc độ và quãng dời trên nhân vật thật của game (bằng tool, không tin
+      averageSpeed), rồi dùng clip tại chỗ, code dời nhân vật; hoặc nhắc bỏ component có OnAnimatorMove của pack.
+  - type: llm
+    name: chuan_hoa_4.2_7.4
+    criteria: >-
+      Câu trả lời dặn đổi tên clip theo mẫu tên của team và đổi event của pack sang danh sách event chuẩn (tiền tố AE_),
+      hoặc dặn kiểm timing đòn đánh theo ngân sách phản hồi của người chơi.
