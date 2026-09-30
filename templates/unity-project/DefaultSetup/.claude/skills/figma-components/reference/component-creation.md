@@ -147,12 +147,12 @@ Order traps, all of them real:
 ```
 Plate set:
   Color → [one value per button colour]
-  State → [Normal, Pressed, Disabled]
+  State → [Default, Pressed, Hover]
   Total = colours × states
 
 Nav button:
   Type  → [one value per destination]
-  State → [Normal, Pressed, Active]
+  State → [Default, Pressed, Hover]
   Total = destinations × states
 ```
 
@@ -177,12 +177,14 @@ const base = await figma.getNodeByIdAsync(BASE_ID);
 const byName = {};
 for (const v of await figma.variables.getLocalVariablesAsync()) byName[v.name] = v;
 
-const axes = { Color: ['Green', 'Yellow'], State: ['Normal', 'Pressed', 'Disabled'] };
+const axes = { Color: ['Green', 'Yellow'], State: ['Default', 'Pressed', 'Hover'] };
 
 const rim = {
   Green:  { high: byName['color/effect/btn-green-high'], low: byName['color/effect/btn-green-low'] },
   Yellow: { high: byName['color/effect/btn-gold-high'],  low: byName['color/effect/btn-gold-low'] },
 };
+
+const hover = byName['color/effect/btn-hover'];
 
 const made = [];
 for (const color of axes.Color) {
@@ -191,14 +193,16 @@ for (const color of axes.Color) {
     v.name = 'Color=' + color + ', State=' + state;
 
     const pair = rim[color];
-    // Normal: high on top, low on bottom. Pressed: swapped. Disabled: no rim.
-    const eff = state === 'Disabled' ? []
-      : state === 'Pressed'
-        ? [innerShadow(pair.low, 0, -6), innerShadow(pair.high, 0, 6)]
-        : [innerShadow(pair.high, 0, -6), innerShadow(pair.low, 0, 6)];
-    v.effects = eff;
+    // Default and Hover: high on top, low on bottom. Pressed: swapped.
+    v.effects = state === 'Pressed'
+      ? [innerShadow(pair.low, 0, -6), innerShadow(pair.high, 0, 6)]
+      : [innerShadow(pair.high, 0, -6), innerShadow(pair.low, 0, 6)];
 
-    v.opacity = state === 'Disabled' ? 0.45 : 1;
+    if (state === 'Hover') {
+      const overlay = figma.variables.setBoundVariableForPaint(
+        { type: 'SOLID', color: { r: 1, g: 1, b: 1 } }, 'color', hover);
+      v.fills = v.fills.concat([overlay]);
+    }
 
     made.push(v);
   }
@@ -232,7 +236,7 @@ const nodes = (await Promise.all(VARIANT_IDS.map(id => figma.getNodeByIdAsync(id
 const cs = figma.combineAsVariants(nodes, page);
 cs.name = 'Button';
 
-const axes = { Color: ['Green', 'Yellow'], State: ['Normal', 'Pressed', 'Disabled'] };
+const axes = { Color: ['Green', 'Yellow'], State: ['Default', 'Pressed', 'Hover'] };
 const COL_AXIS = 'State';
 const ROW_AXIS = 'Color';
 
@@ -358,7 +362,7 @@ cs.description = [
   '',
   'STATES',
   '- Pressed swaps the rim pair, inverting the bevel.',
-  '- Disabled drops the rim and sets opacity 0.45.',
+  '- Hover lays a light overlay on the plate, bound to color/effect/btn-hover.',
 ].join('\n');
 ```
 
@@ -399,10 +403,10 @@ sweep.
 The Phase 3 job. `scripts/addStateVariants.js` does this; the shape is:
 
 1. Read the set, capture its existing axis name and values, and clone the
-   `State=Normal` row from the current variants.
+   `State=Default` row from the current variants.
 2. For each existing variant, clone once per new state value, rename to
    `<ExistingAxis>=<Value>, State=<NewValue>`, and apply the state recipe.
-3. Rename the original variants to append `, State=Normal`.
+3. Rename the original variants to append `, State=Default`.
 4. Figma promotes the set to two axes automatically once every variant carries
    both properties. There is no separate "add axis" API.
 5. Re-lay out the grid with `State` on columns.

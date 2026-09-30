@@ -70,7 +70,7 @@ them.
 
 Every screen is the project frame size on the file-local grid style
 (`figma.gridStyleId`): a fixed number of equal columns with a fixed gutter and
-side margin, plus two row bands marking the top and bottom safe zones. Read the
+side margin, plus one row band marking the bottom safe zone. Read the
 concrete geometry from the grid style; never hardcode it here. The measures and
 their tokens:
 
@@ -92,10 +92,10 @@ the `psd-to-figma` art tolerance is 0.00 px (`N-1`), so resizing it to the
 nearest span moves art and fails the verify pass on every screen that instances
 it. Snap new work; leave imported work alone.
 
-**Safe zones bind the master, not just the screen.** A component placed in a
-screen's top or bottom safe zone must be designed to sit outside it — a bottom
-navigation bar, for instance, must end above the bottom safe-zone line, not
-overlap it.
+**The safe zone binds the master, not just the screen.** A component placed at
+the bottom of a screen must be designed to sit above the bottom safe zone — a
+bottom navigation bar, for instance, must end above the safe-zone line, not
+overlap it. The top edge has no safe zone.
 
 **Minimum touch target is ≈44 pt.** Convert that to a px floor at the project's
 design width (`frame.w`) and hold every tappable master to it. Anything smaller
@@ -115,9 +115,9 @@ description.
    `INSTANCE` cannot be resized or repositioned: `resize()` is silently ignored
    and `x`/`y` assignment throws. Only fills, `characters`, `name`, `visible`
    and variant properties override.
-4. **`State` is `Normal` / `Pressed` / `Disabled` / `Active`.** No `Hover`, no
-   `Focused`, no `Loading`, no `Error`. Touch game: no pointer, no keyboard
-   focus ring, no form validation. Upstream's six-state web ladder does not
+4. **`State` is `Default` / `Pressed` / `Hover`.** No `Normal`, no `Disabled`,
+   no `Active`, no `Focused`, no `Loading`, no `Error`. There is no keyboard
+   focus ring and no form validation. Upstream's six-state web ladder does not
    apply and must not be re-imported.
 5. **Component properties are set-level with a single default, not one per
    variant.** After `combineAsVariants`, per-variant `BOOLEAN` and
@@ -223,7 +223,8 @@ or `Color` axis need a `State` axis added.
 Use `scripts/addStateVariants.js`. It adds a `State` axis to an existing set
 without touching the existing axis, and applies the state recipe from
 `reference/component-spec.md`. No new art is needed: `Pressed` is a downward
-offset plus a darkened rim, `Disabled` is a desaturated fill at reduced opacity.
+offset plus a darkened rim, `Hover` is a light overlay fill bound to a hover
+token from `figma-tokens`.
 
 ### Phase 4 — Adopt
 

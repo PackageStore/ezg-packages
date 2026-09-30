@@ -74,10 +74,12 @@ axis:
 
 Rules:
 
-- **`State` values are `Normal` / `Pressed` / `Disabled` / `Active` only.** There
-  is no `Hover` and no `Focused` anywhere in this file, and none may be added:
-  this is a touch game with no pointer and no keyboard focus ring. Upstream's
-  state ladders assume a web pointer — ignore them.
+- **`State` values are `Default` / `Pressed` / `Hover` only.** No `Normal`,
+  `Disabled`, `Active` or `Focused` may be added: there is no keyboard focus
+  ring and no form. Upstream's web state ladders do not apply — ignore them. An
+  existing set that still ships `Normal`, `Disabled` or `Active` is debt; rename
+  it only in a pass that also updates `component_ids.json` and re-imports its
+  prefabs.
 - **Every variant name must be unique within its set.** A duplicate puts the set
   into an error state, after which reading `componentPropertyDefinitions` throws
   `Component set has existing errors`.

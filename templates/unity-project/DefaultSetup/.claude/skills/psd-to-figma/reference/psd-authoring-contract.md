@@ -72,7 +72,7 @@ un-sliceable — keep gradients perpendicular or use a solid centre.
 
 A hidden layer that overlaps a visible sibling with the same stem name is
 treated as a state variant (**L-8**). Move each variant into its own group
-named `<Name>-State-<State>` (e.g. `Btn-Buy-State-Disabled`), still hidden.
+named `<Name>-State-<State>` (e.g. `Btn-Buy-State-Pressed`), still hidden.
 
 ## 9. Checklist
 

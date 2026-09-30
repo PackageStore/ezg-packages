@@ -16,7 +16,7 @@ authoring, which the token skill does not.
 
 | Local | Upstream | Change |
 |---|---|---|
-| `reference/component-spec.md` | `references/build/component-spec.md` | Core-10 web specs replaced with this project's archetypes; web state ladder cut to Normal/Pressed/Disabled/Active; focus ring, WCAG gates and the Size axis dropped; `.`/`__` private prefix replaced with `Base_` |
+| `reference/component-spec.md` | `references/build/component-spec.md` | Core-10 web specs replaced with this project's archetypes; web state ladder cut to Default/Pressed/Hover; focus ring, WCAG gates and the Size axis dropped; `.`/`__` private prefix replaced with `Base_` |
 | `reference/slots-guide.md` | `references/build/slots-guide.md` | Decision tree kept; slot implementation replaced with the exposed-instance fallback after measuring that `figma.createSlot` does not exist here; Leading/Trailing/Header/Footer names replaced with the file's own |
 | `reference/patterns-guide.md` | `references/build/patterns-guide.md` | Fixed-width wrapper replaced with the project's fixed-frame multi-column grid; `P{section}.{number}` numbering dropped; dedicated Patterns page dropped; upstream's form/page/empty-state patterns replaced with this product's |
 

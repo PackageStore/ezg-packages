@@ -27,9 +27,9 @@ if (!cs || cs.type !== 'COMPONENT_SET') {
 
 // CONFIG — expected states per component archetype. The keys are archetype
 // fragments matched against a component-set name; tune them to the project's own
-// component naming. The state VALUES are the touch-game ladder
-// (Normal/Pressed/Disabled/Active, Empty/Filled, Off/On) and should not gain web
-// states (no Hover, no Focused).
+// component naming. The state VALUES are the project ladder
+// (Default/Pressed/Hover, Empty/Filled, Off/On) and should not gain web
+// states (no Disabled, no Active, no Focused).
 //
 // Multi-word keys exist alongside single-word ones because a "Radio Button"
 // is *not* a button (no Pressed) and an "Inline Link" needs Visited like a
@@ -44,45 +44,45 @@ if (!cs || cs.type !== 'COMPONENT_SET') {
 const stateMap = {
   // Multi-word archetypes — must come before single-word fallbacks.
   // Longest match wins, so 'btn plate' beats 'btn'.
-  'btn plate':     ['Normal'],
-  'bg btn':        ['Normal'],
-  'icon button':   ['Normal', 'Pressed', 'Disabled'],
-  'menu button':   ['Normal', 'Pressed', 'Disabled'],
-  'resource bar':  ['Normal'],
-  'stat container':['Normal'],
-  'text template': ['Normal'],
+  'btn plate':     ['Default'],
+  'bg btn':        ['Default'],
+  'icon button':   ['Default', 'Pressed', 'Hover'],
+  'menu button':   ['Default', 'Pressed', 'Hover'],
+  'resource bar':  ['Default'],
+  'stat container':['Default'],
+  'text template': ['Default'],
   'merge slot':    ['Empty', 'Filled'],
 
   // Single-word archetypes.
-  btn:      ['Normal', 'Pressed', 'Disabled'],
-  button:   ['Normal', 'Pressed', 'Disabled'],
-  row:      ['Normal', 'Disabled'],
-  card:     ['Normal', 'Active'],
-  boost:    ['Normal', 'Active'],
+  btn:      ['Default', 'Pressed', 'Hover'],
+  button:   ['Default', 'Pressed', 'Hover'],
+  row:      ['Default'],
+  card:     ['Default'],
+  boost:    ['Default'],
   slot:     ['Empty', 'Filled'],
   toggle:   ['Off', 'On'],
-  tab:      ['Normal', 'Active', 'Disabled'],
+  tab:      ['Default', 'Pressed', 'Hover'],
 
   // Static — variant axis is Type/Color/Icon, not State.
-  plate:    ['Normal'],
-  popup:    ['Normal'],
-  progress: ['Normal'],
-  bar:      ['Normal'],
-  timer:    ['Normal'],
-  rarity:   ['Normal'],
-  currency: ['Normal'],
-  holder:   ['Normal'],
-  icon:     ['Normal'],
-  frame:    ['Normal'],
-  container:['Normal'],
-  text:     ['Normal']
+  plate:    ['Default'],
+  popup:    ['Default'],
+  progress: ['Default'],
+  bar:      ['Default'],
+  timer:    ['Default'],
+  rarity:   ['Default'],
+  currency: ['Default'],
+  holder:   ['Default'],
+  icon:     ['Default'],
+  frame:    ['Default'],
+  container:['Default'],
+  text:     ['Default']
 };
 
 // Archetypes with no interactive state axis at all. A missing State property
-// on these is correct, not a gap. This is a touch game: there is no Hover and
-// no Focused anywhere in this file — never add them.
+// on these is correct, not a gap. Rows and cards carry no State: the tap target
+// is the button inside them.
 const NO_STATE_REQUIRED = new Set([
-  'plate', 'bg btn', 'btn plate',
+  'plate', 'bg btn', 'btn plate', 'row', 'card', 'boost',
   'popup', 'progress', 'bar', 'timer',
   'rarity', 'currency', 'resource bar', 'holder',
   'text', 'text template', 'stat container',

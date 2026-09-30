@@ -3,26 +3,27 @@
  *
  * Module: 3 — Add a State axis to an existing component set
  * Input:  COMPONENT_SET_ID (string, required)
- *         STATES (string[], optional) — defaults to ['Pressed', 'Disabled'].
- *                Allowed values: Normal, Pressed, Disabled, Active. No Hover,
- *                no Focused — this is a touch game.
+ *         STATES (string[], optional) — defaults to ['Pressed', 'Hover'].
+ *                Allowed values: Pressed, Hover. Default is the original
+ *                variant and is never cloned.
  *         TARGET_CHILD (string, optional) — name of the child carrying the rim
- *                effects. Defaults to the variant frame itself.
- *         DISABLED_OPACITY (number, optional) — defaults to 0.45.
+ *                effects and the plate fills. Defaults to the variant frame itself.
+ *         HOVER_TOKEN (string, optional) — name of the COLOR variable the Hover
+ *                overlay fill binds to, e.g. 'color/effect/btn-hover'.
  * Output: { set, added, renamed, variantCount, noVisualChange, positions }
  *
  * Mechanics: Figma has no "add a variant axis" API. An axis appears once every
  * variant carries the property. So: clone each existing variant once per new
  * state, name the clone `<existing>, State=<value>`, then rename the originals
- * to `<existing>, State=Normal`.
+ * to `<existing>, State=Default`.
  *
  * Recipe:
  *   Pressed  — every INNER_SHADOW on the target has its offset.y negated, which
  *              inverts the bevel. Geometry-free, so it works whether or not the
  *              variant uses auto-layout.
- *   Disabled — variant opacity DISABLED_OPACITY, inner shadows removed.
- *   Active   — no automatic recipe. The variant is created and reported in
- *              noVisualChange for hand work.
+ *   Hover    — one SOLID fill bound to HOVER_TOKEN is added on top of the
+ *              target's fills. Without HOVER_TOKEN the variant is created and
+ *              reported in noVisualChange for hand work.
  *
  * A variant with no inner shadows gets no automatic Pressed change and is
  * reported in noVisualChange. Do not assume the ladder is done because the
@@ -38,9 +39,9 @@ if (!set || set.type !== 'COMPONENT_SET') {
 }
 await figma.setCurrentPageAsync(set.parent.type === 'PAGE' ? set.parent : figma.currentPage);
 
-const ALLOWED = ['Normal', 'Pressed', 'Disabled', 'Active'];
+const ALLOWED = ['Pressed', 'Hover'];
 const states = (typeof STATES !== 'undefined' && STATES && STATES.length)
-  ? STATES : ['Pressed', 'Disabled'];
+  ? STATES : ['Pressed', 'Hover'];
 const bad = states.filter(s => !ALLOWED.includes(s));
 if (bad.length) return { error: `disallowed State values: ${bad.join(', ')}. Allowed: ${ALLOWED.join(', ')}` };
 
@@ -50,7 +51,12 @@ if (originals.some(v => /(^|,\s*)State=/.test(v.name))) {
 }
 
 const targetName = typeof TARGET_CHILD !== 'undefined' ? TARGET_CHILD : null;
-const disabledOpacity = typeof DISABLED_OPACITY === 'number' ? DISABLED_OPACITY : 0.45;
+
+let hoverVar = null;
+if (typeof HOVER_TOKEN === 'string') {
+  hoverVar = (await figma.variables.getLocalVariablesAsync('COLOR')).find(v => v.name === HOVER_TOKEN);
+  if (!hoverVar) return { error: `HOVER_TOKEN ${HOVER_TOKEN} is not a local COLOR variable` };
+}
 
 const pick = variant => {
   if (!targetName) return variant;
@@ -79,11 +85,15 @@ for (const orig of originals) {
       } else {
         noVisualChange.push({ id: clone.id, name: clone.name, why: 'no inner shadows to invert' });
       }
-    } else if (state === 'Disabled') {
-      clone.opacity = disabledOpacity;
-      if (inner.length) target.effects = target.effects.filter(e => e.type !== 'INNER_SHADOW');
-    } else {
-      noVisualChange.push({ id: clone.id, name: clone.name, why: 'Active has no automatic recipe' });
+    } else if (state === 'Hover') {
+      if (hoverVar && Array.isArray(target.fills)) {
+        const overlay = figma.variables.setBoundVariableForPaint(
+          { type: 'SOLID', color: { r: 1, g: 1, b: 1 } }, 'color', hoverVar);
+        target.fills = target.fills.concat([overlay]);
+      } else {
+        noVisualChange.push({ id: clone.id, name: clone.name,
+          why: hoverVar ? 'target fills are mixed or absent' : 'no HOVER_TOKEN given' });
+      }
     }
   }
 }
@@ -91,15 +101,15 @@ for (const orig of originals) {
 const renamed = [];
 for (const orig of originals) {
   const before = orig.name;
-  orig.name = before + ', State=Normal';
+  orig.name = before + ', State=Default';
   renamed.push({ id: orig.id, from: before, to: orig.name });
 }
 
 // Re-lay out: State on columns, the original axis on rows.
 const GAP = 20;   // space/default
 const PAD = 30;   // space/margin
-const colOrder = ['Normal'].concat(states);
-const rowKeys = originals.map(o => o.name.replace(/,\s*State=Normal$/, ''));
+const colOrder = ['Default'].concat(states);
+const rowKeys = originals.map(o => o.name.replace(/,\s*State=Default$/, ''));
 
 const w = Math.max(...set.children.map(c => c.width));
 const h = Math.max(...set.children.map(c => c.height));

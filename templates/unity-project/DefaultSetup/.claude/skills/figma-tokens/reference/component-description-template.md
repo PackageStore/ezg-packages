@@ -140,7 +140,7 @@ USAGE
 UNITY NOTES
 - Each Type variant imports as a separate plain prefab (no Prefab Variants — D6)
 - Plate is 9-slice; the icon is a plain Image
-- Anchors to the top-left column edge, below the top safe zone
+- Anchors to the top-left column edge
 
 UNITY: design-axis=Type
 ```

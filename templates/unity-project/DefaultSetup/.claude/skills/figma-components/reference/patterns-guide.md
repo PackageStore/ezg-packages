@@ -38,10 +38,10 @@ width, gutter, margin, row pitch and safe-zone bands from the project grid style
 
 ### Top bar
 
-Full width, below the top safe zone. A `Resources-Group` of currency-bar
-instances on the left, an icon button on the right.
+Full width at the top of the screen; the top edge has no safe zone. A
+`Resources-Group` of currency-bar instances on the left, an icon button on the
+right.
 
-- Container starts at or below the top safe-zone line.
 - Each currency pill is `span(2)`. Two pills plus one gutter is `span(4)` — size
   the group to a whole span rather than to the loose sum.
 - Gap between pills → `space/gutter`.
@@ -80,8 +80,8 @@ One container that holds the whole popup; the plate is only its first child.
 - **Anchoring** — popup container CENTER/CENTER to the screen; each panel
   centred to the container; leaves to their own panel; a corner overlay to the
   corner it hangs from.
-- **Safe zone** — the container's top and bottom, overhang included, stay
-  inside the safe zones.
+- **Safe zone** — the container's bottom, overhang included, stays above the
+  bottom safe zone.
 
 ### Upgrade list
 
@@ -120,7 +120,7 @@ way until a second screen shares the shape.
 1. **Composition** — which components, in what order.
 2. **Grid** — the column span of the container and of each child.
 3. **Spacing** — the spacing token for every gap and pad.
-4. **Safe zone** — whether the pattern touches the top or bottom safe zone.
+4. **Safe zone** — whether the pattern touches the bottom safe zone.
 5. **Variations** — what changes between the screens that use it.
 
 ## Anti-patterns

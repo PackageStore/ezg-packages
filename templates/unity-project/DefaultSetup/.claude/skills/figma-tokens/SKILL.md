@@ -181,7 +181,7 @@ values through the UnityFigmaBridge importer, not through a token file.
 | `color/status/{success,warning,error,info}` | No validation messages, no error toasts. The real axes are rarity, currency and affordability — already variant properties. |
 | `audit-accessibility.js` and the WCAG AA contrast checks in `validate-design-system.js` | False errors on stylised game art with stroked, drop-shadowed text. |
 | `COMMON_SCALE = [2,4,6,8,…96]` in `audit-tokens.js` | A 4/8 web ladder against a game-art screen grid flags nothing real and misses everything real. Replaced with discovery mode. |
-| Web state ladders (`Hover`, `Focused`, `Visited`, `Filled`, …) | Touch game: no pointer, no focus ring. Replaced with `Normal`/`Pressed`/`Disabled`/`Active`. |
+| Web state ladders (`Focused`, `Visited`, `Disabled`, …) | No keyboard focus ring, no forms. Replaced with `Default`/`Pressed`/`Hover`. |
 | Default component list (Button, Input, Select, Checkbox, Radio, Toggle, Modal, Toast) | A form-app library, not a game HUD. |
 | Phase 3 file structure (Cover / Getting Started / Foundations pages, 996 px wrappers) | Conflicts with the existing Screens / Components / Icons pages. |
 | `C{section}.{number} {Name}` component numbering | Would rename every set and break the component registry, `style_ids.json`, the screen name table (name-keyed), and Unity prefab names (which derive from component names — see `figma-to-unity/reference/prefab-contract.md`). |

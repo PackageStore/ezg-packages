@@ -24,10 +24,10 @@ workflow if any contract fails.
 Every screen is composed on a 6-column grid. It is the backbone of the whole UI system, in Figma and in Unity alike — never optional.
 
 - Design frame is 1080×2400 portrait. 6 columns of 150 px, 24 px gutters, 30 px side margins. Column left edges are at x = 30, 204, 378, 552, 726, 900.
-- Safe zones: no interactive element in the top 100 px or the bottom 60 px.
+- Safe zone: no interactive element in the bottom 60 px. The top edge has no safe zone.
 - Figma: every screen-size frame must have an applied layout grid style. Apply it when you create the frame (this is what `V-4` checks).
 - Spanning: full-width panels span 6 columns, cards span 2, item-grid slots span 1.5–2.
-- Unity: anchor screens to the same column math. Nudge elements onto the nearest column edge and out of the safe zones.
+- Unity: anchor screens to the same column math. Nudge elements onto the nearest column edge and out of the bottom safe zone.
 
 ### Reuse rule — components and instances, never copies
 
@@ -67,8 +67,8 @@ screen root can never be that object.
   the popup: backdrop, dim layer, the chrome still visible around it.
 - **The container is the footprint, not the plate.** Its bounds enclose every
   child, overhang included. Size it to the grid: left and right edges on column
-  edges (normally the full content span between the side margins), top and
-  bottom inside the safe zones. The plate inside it also spans whole columns,
+  edges (normally the full content span between the side margins), bottom
+  above the bottom safe zone. The plate inside it also spans whole columns,
   centred in the container. A plate whose width is pinned debt is centred,
   never resized.
 - **One sub-container per panel.** The main plate and its content form one
@@ -119,7 +119,7 @@ These checks use `get_metadata` only (no pixel comparison).
 | S-5 | **Grid where grid** | When instances form an NxM pattern (N≥2, M≥2), their parent is a single container |
 | S-6 | **Component reuse** | Art/structure repeating ≥3 times across screens is a component, not loose nodes (see *Reuse rule* above) |
 | S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and `Mask-*` frames (see *Clip content* above) |
-| S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*` frame whose left/right edges sit on column edges inside the safe zones, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) |
+| S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*` frame whose left/right edges sit on column edges and whose bottom edge sits above the bottom safe zone, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) |
 | S-9 | **No underscores** | Zero names containing `_` in the subtree — nodes, instances, screen frame, and the styles they bind — except `slice_ROW_COL` cells (see *Naming* above) |
 
 ### Tier 2 — Visual integrity (post-flight only)

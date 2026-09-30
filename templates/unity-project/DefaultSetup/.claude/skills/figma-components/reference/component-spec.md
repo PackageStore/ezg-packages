@@ -15,7 +15,7 @@ substitute the project's own. Generic archetype names (`Button`, `Row`, `Card`,
 
 ## Core principles
 
-1. **States first.** Design `Pressed` and `Disabled` before the happy path. A
+1. **States first.** Design `Pressed` and `Hover` before the happy path. A
    button set without them is incomplete, and interactive sets that ship only a
    `Type` axis are incomplete today.
 2. **Auto-layout for anything that stacks or repeats.** Absolute position is for
@@ -52,13 +52,13 @@ pipeline updated in the same pass.
 
 ```
 ComponentSet "Button"
-├── State=Normal
+├── State=Default
 │   └── [auto-layout: horizontal, gap → space/tight, padding → space/default]
 │       ├── Bg          (instance of the plate master, Color=Green)
 │       ├── Icon-Price  (instance of an icon set, INSTANCE_SWAP)
 │       └── Price_Value (TEXT, textStyleId → Price_Value)
 ├── State=Pressed
-└── State=Disabled
+└── State=Hover
 ```
 
 Child node names follow `figma-hygiene` S-2/S-3 and the layer table in
@@ -72,7 +72,7 @@ Child node names follow `figma-hygiene` S-2/S-3 and the layer table in
 | Kind | `Type` | one value per kind — icon role, currency, destination, rarity, empty/filled | icon buttons, currency bars, nav buttons, slots |
 | Colour | `Color` | one value per button colour | button plates |
 | Icon | `Icon` | one value per icon drawing | stat containers |
-| State | `State` | `Normal`, `Pressed`, `Disabled`, `Active` | interactive sets |
+| State | `State` | `Default`, `Pressed`, `Hover` | interactive sets |
 
 Boolean properties for toggles: a `Show Plus` boolean on a currency bar is the
 existing example. Instance-swap properties for icon slots. Text properties for
@@ -80,38 +80,35 @@ editable labels.
 
 ## Archetypes and their required states
 
-This is a touch game. There is no pointer, so there is no `Hover`; there is no
-keyboard, so there is no `Focused`; there are no forms, so there is no `Error`,
-`Success` or `Read-only`. The four values below are the entire ladder.
+There is no keyboard, so there is no `Focused`; there are no forms, so there is
+no `Error`, `Success` or `Read-only`. There is no `Disabled` and no `Active`.
+`Default`, `Pressed` and `Hover` are the entire ladder.
+
+An existing set that still ships `Normal`, `Disabled` or `Active` is debt. Rename
+it only in a pass that also updates `component_ids.json` and re-imports its
+prefabs — the prefab file names derive from the variant names.
 
 ### Button (icon buttons, buy buttons, plates, nav buttons)
 
 | State | Required | Recipe |
 |---|---|---|
-| `Normal` | yes | The base. |
+| `Default` | yes | The base. |
 | `Pressed` | yes | Content translates down by `space/tight`; the rim inner-shadow pair swaps — the `*-high` token moves to the bottom edge and the `*-low` token to the top, inverting the bevel. |
-| `Disabled` | yes where the button can be unaffordable or locked | Variant opacity 0.45, rim effects removed, label fill → `color/text/on-dark`. |
-| `Active` | only for a selected tab or a latched toggle | A bottom-nav tab needs it; a one-shot buy button does not. |
+| `Hover` | yes | The plate lightens: one SOLID overlay fill on top of the plate fills, bound to a hover token (e.g. `color/effect/btn-hover`, white at low alpha). No offset; the rim stays. |
 
 The rim tokens already exist per colour: `color/effect/btn-<color>-high` /
 `color/effect/btn-<color>-low`, plus `color/effect/plate-low`. `Pressed` needs
-no new token.
+no new token. `Hover` needs one hover token; if it does not exist, hand the job
+to `figma-tokens` first.
 
 ### Row (upgrade / list rows)
 
-| State | Required | Recipe |
-|---|---|---|
-| `Normal` | yes | The base. |
-| `Disabled` | yes | The unaffordable row. Opacity 0.45 on the price cluster only, not the whole row — the player must still read the name and the stat. |
-| `Pressed` | no | The row is not the tap target; its embedded buy button is. |
+No `State`. The row is not the tap target; its embedded buy button is, and it
+carries the button ladder.
 
 ### Card and slot
 
-| State | Required | Recipe |
-|---|---|---|
-| `Normal` | yes | The base. |
-| `Active` | yes where the card can be owned, selected or running | A card that already ships `State=Normal` / `State=Active` is the reference. |
-| `Pressed` | no | Cards are large; the press affordance lives on the button inside. |
+No `State`. Cards are large; the press affordance lives on the button inside.
 
 Emptiness is a `Type`, not a `State`: a slot uses `Type=Empty` / `Type=<Filled>`.
 Keep it that way — an empty slot is a different thing, not a different condition
@@ -167,7 +164,7 @@ and hold every tappable master to it.
 | Upstream | Why it is out |
 |---|---|
 | The core-10 specs (Button/Input/Select/Checkbox/Radio/Badge/Avatar/Card/Modal/Toast) with web pixel sizes h=32/40/48 | A form-app library. This UI has no text input, no dropdown, no checkbox, no radio, no toast. The archetypes above replace them. |
-| `Hover`, `Focused`, `Loading`, `Error`, `Success`, `Read-only` states | Touch game, no pointer, no keyboard, no forms. |
+| `Disabled`, `Focused`, `Loading`, `Error`, `Success`, `Read-only` states | Not in this project's ladder: no keyboard, no forms. |
 | The focus-ring standard (2 px outline, `color/border/focus`, 2 px offset) | No focus ring exists or is wanted; there is no `color/border/focus` token. |
 | WCAG AA contrast gates (4.5:1 / 3:1) | False failures on stylised game art with stroked, drop-shadowed text. `figma-tokens` dropped the same check. |
 | `Size` axis (Small/Medium/Large) | One fixed frame. Size differences here are per-usage art sizes, not a scale ladder. |

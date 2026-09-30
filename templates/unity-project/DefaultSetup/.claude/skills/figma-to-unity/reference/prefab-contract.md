@@ -45,8 +45,8 @@ Duplicate-name collisions append `_N`.
 - **Variant (child of COMPONENT_SET):**
   `<ComponentPrefabFolder>/<MakeValidFileName(setName)>/<NormalisedVariant>.prefab`
 
-`NormaliseVariantName` turns Figma's `State=Normal, Color=Green` into
-`State-Normal_Color-Green`, then `MakeValidFileName` replaces characters in
+`NormaliseVariantName` turns Figma's `State=Default, Color=Green` into
+`State-Default_Color-Green`, then `MakeValidFileName` replaces characters in
 `Path.GetInvalidFileNameChars()` plus `.` with `_`.
 
 ## Axis intent
