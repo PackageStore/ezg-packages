@@ -2452,7 +2452,7 @@
       "id": "Skills/game-vfx",
       "name": "game-vfx",
       "category": "Skills",
-      "description": "Quy chuẩn VFX 2D, 3D cho game mobile của team (module Game VFX), dùng cho mọi project: cấp quan trọng, timing, trần ngân sách mobile theo cấp và tier máy, ParticleSystem, stop action và pool, giờ game / giờ thật, sorting, texture, material, tên FX_, pack VFX mua sẵn, hạt trên UI; dùng thư viện hiệu ứng (FXEffect, shader EZG/VFX/Particle); quét VFX cả project tìm nợ (Node 18+). Mang sẵn quy chuẩn và danh mục hiệu ứng có ảnh (docs/ trong skill): cài skill là đọc được luật, không cần cài module. FXEffect và shader chung: tab Unity Packages > EZG Shared > GameVFX (phần lõi, không kèm prefab của thư viện).",
+      "description": "Quy chuẩn VFX 2D, 3D cho game mobile của team (module Game VFX), dùng cho mọi project: cấp quan trọng, timing, trần ngân sách mobile theo cấp và tier máy, ParticleSystem, stop action và pool, giờ game / giờ thật, sorting, texture, material, tên FX_, pack VFX mua sẵn, hạt trên UI, VFX không frame-by-frame (hạt và shader ăn mòn); dùng thư viện hiệu ứng (FXEffect, shader EZG/VFX/Particle có Erosion, UV Scroll, Mask, Ramp); quét VFX cả project tìm nợ (Node 18+). Mang sẵn quy chuẩn và danh mục hiệu ứng có ảnh (docs/ trong skill): cài skill là đọc được luật, không cần cài module. FXEffect và shader chung: tab Unity Packages > EZG Shared > GameVFX (phần lõi, không kèm prefab của thư viện).",
       "installPath": ".claude/skills/game-vfx",
       "isDirectory": true,
       "files": [
@@ -2543,19 +2543,21 @@
         ".claude/skills/game-vfx/evals/06-khong-bat-ui-tween/scaffold.sh",
         ".claude/skills/game-vfx/evals/07-khong-bat-anim/case.yaml",
         ".claude/skills/game-vfx/evals/07-khong-bat-anim/scaffold.sh",
+        ".claude/skills/game-vfx/evals/08-khong-frame-by-frame/case.yaml",
+        ".claude/skills/game-vfx/evals/08-khong-frame-by-frame/scaffold.sh",
         ".claude/skills/game-vfx/evals/README.md",
         ".claude/skills/game-vfx/evals/_shared/scaffold.sh",
         ".claude/skills/game-vfx/scripts/report.cjs",
         ".claude/skills/game-vfx/scripts/tex_report.cjs",
         ".claude/skills/game-vfx/scripts/vfx_scan.mjs"
       ],
-      "fileCount": 92,
+      "fileCount": 94,
       "installedByDefault": false,
       "source": "extra",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "beedb1aa4e0762a965e3e883f79d2a7ba5a5d23e33d4d205f7a28dab8c8d326e",
-      "size": 1596482
+      "sha256": "d0fd673ea5488523a434f3845ac50ce16d44a0d4280f2c0368249132c00f3c84",
+      "size": 1549354
     },
     {
       "id": "Skills/item-preview",
