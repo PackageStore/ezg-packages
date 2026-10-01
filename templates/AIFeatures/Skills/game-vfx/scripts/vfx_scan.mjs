@@ -16,14 +16,16 @@ fs.mkdirSync(outDir, { recursive: true });
 const rel = (p) => path.relative(root, p).split(path.sep).join('/');
 
 // ---------- 1. file walk + guid index ----------
-const SKIP_DIRS = new Set(['Library', 'Temp', 'Logs', 'obj', 'Build', 'Builds', 'UserSettings', '.git', '.vs', '.idea', 'ProfilerCaptures']);
+// Unity bỏ qua trong Assets: tên bắt đầu bằng '.', kết thúc bằng '~', tên 'cvs', đuôi '.tmp'. Library, Temp, Logs của Unity nằm ở gốc
+// project, ngoài Assets: không lọc theo tên đó (folder Library của module GameVFX là asset thật).
+const skipDir = (n) => n.startsWith('.') || n.endsWith('~') || n.toLowerCase() === 'cvs' || n.endsWith('.tmp');
 const files = [];
 function walk(dir) {
   let ents;
   try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const e of ents) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !e.name.endsWith('~')) walk(p); }
+    if (e.isDirectory()) { if (!skipDir(e.name)) walk(p); }
     else files.push(p);
   }
 }
@@ -177,6 +179,13 @@ function curveMin(mm) {
   if (st === 0) return s;
   if (st === 3) return Math.min(s, num(mm.minScalar));
   return curveMax(mm);
+}
+function curveSpread(mm) { // MinMaxCurve dạng đường cong: biên độ giá trị × scalar; hằng số, random hai hằng số -> 0
+  if (!mm || typeof mm !== 'object') return 0;
+  const st = num(mm.minMaxState);
+  if (st !== 1 && st !== 2) return 0;
+  const spread = (c) => { const v = ((c && c.m_Curve) || []).map((k) => num(k.value)); return v.length ? Math.max(...v) - Math.min(...v) : 0; };
+  return Math.abs(num(mm.scalar)) * Math.max(spread(mm.maxCurve), st === 2 ? spread(mm.minCurve) : 0);
 }
 function hex(c) {
   if (!c || typeof c !== 'object') return '';
@@ -399,6 +408,9 @@ function scanPrefab(p, depth = 0) {
       trigger: en('TriggerModule'), subEmitters: en('SubModule') ? (Array.isArray(sub.subEmitters) ? sub.subEmitters.length : 1) : 0,
       lightsMod: en('LightsModule'), trailsMod: en('TrailModule'), externalForces: en('ExternalForcesModule'), clampVel: en('ClampVelocityModule'),
       sheet: en('UVModule') ? (num(uv.mode) === 1 ? 'sprites' : num(uv.tilesX, 1) + 'x' + num(uv.tilesY, 1)) : '',
+      // frame-by-frame thật: đổi khung theo thời gian (Speed / FPS, hoặc Frame over Time là đường cong); sheet chọn hình tĩnh không tính
+      sheetAnim: en('UVModule') && (num(uv.mode) === 1 ? sheetSprites.length : num(uv.tilesX, 1) * (num(uv.animationType) === 1 ? 1 : num(uv.tilesY, 1))) > 1
+        && (num(uv.timeMode) !== 0 || curveSpread(uv.frameOverTime) > 0.01),
       shape: en('ShapeModule') ? num((ps.ShapeModule || {}).type) : -1,
       colorOverLife: en('ColorModule'), sizeOverLife: en('SizeModule'), rotOverLife: en('RotationModule'), velOverLife: en('VelocityModule'),
       startColors: startCols.map(hex), startAlphaMax: Math.max(0, ...startCols.map((c) => num(c && c.a, 1))),
@@ -485,7 +497,7 @@ for (const p of prefabFiles) {
     stopActions: [...new Set(sys.map((s) => s.stopAction))].join('|'), culling: [...new Set(sys.map((s) => s.cullingMode))].join('|'),
     scaling: [...new Set(sys.map((s) => s.scalingMode))].join('|'), simSpace: [...new Set(sys.map((s) => s.simSpace))].join('|'), unscaled: sys.filter((s) => s.unscaled).length,
     noise: sys.filter((s) => s.noise).length, collision: sys.filter((s) => s.collision).length, subEmitters: sys.reduce((a, s) => a + s.subEmitters, 0),
-    lightsMod: sys.filter((s) => s.lightsMod).length, trailsMod: sys.filter((s) => s.trailsMod).length, sheets: sys.filter((s) => s.sheet).length,
+    lightsMod: sys.filter((s) => s.lightsMod).length, trailsMod: sys.filter((s) => s.trailsMod).length, sheets: sys.filter((s) => s.sheet).length, sheetAnim: sys.filter((s) => s.sheetAnim).length,
     renderModes: [...new Set(sys.map((s) => s.renderMode))].join('|'), meshParticles: sys.filter((s) => s.renderMode === 4).length,
     trailRenderers: c.trails.length, lineRenderers: c.lines.length, spriteRenderers: c.spriteRenderers, animators: c.animators, lightComponents: c.lights,
     materials: mats.length, shaders: shaders.join('|'), blends: blends.join('|'), costly: costly.join('|'), textures: texs.length, maxTex, texMPix: +(texPixels / 1e6).toFixed(3),
@@ -532,7 +544,7 @@ function summarize(list, label) {
     scalingMode: countBy(sys.map((s) => ['Hierarchy', 'Local', 'Shape'][s.scalingMode] || s.scalingMode)),
     simSpace: countBy(sys.map((s) => ['Local', 'World', 'Custom'][s.simSpace] || s.simSpace)),
     renderMode: countBy(sys.map((s) => ['Billboard', 'Stretched', 'Horizontal', 'Vertical', 'Mesh', 'None'][s.renderMode] ?? 'noRenderer')),
-    modules: { noise: sys.filter((s) => s.noise).length, collision: sys.filter((s) => s.collision).length, trigger: sys.filter((s) => s.trigger).length, subEmitters: sys.filter((s) => s.subEmitters).length, lights: sys.filter((s) => s.lightsMod).length, trails: sys.filter((s) => s.trailsMod).length, sheet: sys.filter((s) => s.sheet).length, externalForces: sys.filter((s) => s.externalForces).length, clampVel: sys.filter((s) => s.clampVel).length, prewarm: sys.filter((s) => s.prewarm).length, unscaled: sys.filter((s) => s.unscaled).length, gpuInstancing: sys.filter((s) => s.gpuInstancing).length, rateOverDistance: sys.filter((s) => s.rateDist > 0).length },
+    modules: { noise: sys.filter((s) => s.noise).length, collision: sys.filter((s) => s.collision).length, trigger: sys.filter((s) => s.trigger).length, subEmitters: sys.filter((s) => s.subEmitters).length, lights: sys.filter((s) => s.lightsMod).length, trails: sys.filter((s) => s.trailsMod).length, sheet: sys.filter((s) => s.sheet).length, sheetAnim: sys.filter((s) => s.sheetAnim).length, externalForces: sys.filter((s) => s.externalForces).length, clampVel: sys.filter((s) => s.clampVel).length, prewarm: sys.filter((s) => s.prewarm).length, unscaled: sys.filter((s) => s.unscaled).length, gpuInstancing: sys.filter((s) => s.gpuInstancing).length, rateOverDistance: sys.filter((s) => s.rateDist > 0).length },
     sheetSizes: countBy(sys.filter((s) => s.sheet).map((s) => s.sheet)),
     blends: countBy(list.flatMap((e) => e.blends.split('|'))), shaders: countBy(list.flatMap((e) => e.shaders.split('|'))),
     costly: countBy(list.flatMap((e) => e.costly ? e.costly.split('|') : [])),

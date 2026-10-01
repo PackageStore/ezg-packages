@@ -2,6 +2,31 @@
 
 Quy chuẩn: `GameVFX_QuyChuan.md`. Nền lý thuyết và nguồn: `GameVFX_NguyenLy.md`. Thư viện hiệu ứng: `GameVFX_ThuVien.md`.
 
+## 0.2.2 — 2026-10-01
+
+Thư viện không frame-by-frame: chuyển động của hình làm bằng hạt và shader.
+
+- Shader `EZG/VFX/Particle` thêm bốn tính năng, bật riêng từng cái (material không bật thì không tốn gì): Erosion (alpha của hạt
+  là ngưỡng ăn mòn hình theo noise, có viền màu, noise trôi, lệch noise theo từng hạt qua stream StableRandom.x, dải ngưỡng
+  Erosion Range), UV Scroll, Mask, Ramp (tô màu texture xám theo độ sáng).
+- Quy chuẩn 0.2.2: mục mới 4.7 "Không frame-by-frame: hạt và shader" (cách làm khói, lửa, đĩa nổ, vòng sóng, vệt chém, đổi
+  tông; bảy luật: alpha là ngưỡng, số lần đọc texture, noise dùng chung, stream ngẫu nhiên, hình vẽ tay, `_Time` lúc pause,
+  duyệt). 4.4 trỏ sang 4.7 khi game không dùng frame-by-frame; 6.6.8 kể bốn tính năng của shader chung; brief của game (9.2)
+  ghi có dùng frame-by-frame hay không.
+- Thư viện: 16 hiệu ứng chạy khung (12 world, 4 UI; 24 system) đổi sang một khung đầy hình nhất + Erosion. Đĩa, vòng, sóng ăn
+  mòn hướng tâm (đĩa khoét thành vòng, vòng mỏng dần từ trong ra); lửa có noise trôi lên; khói tan mềm. Texture dùng chung
+  mới: `FX_TX_Noise_Erosion`, `FX_TX_Erosion_Radial`. 10 hiệu ứng có sheet chỉ để chọn ngẫu nhiên một hình tĩnh giữ nguyên.
+  Ảnh xem trước dựng lại.
+- Nợ mới: hình vẽ tay đổi nhiều qua các khung (lửa 2D, lõi thiên thạch, lửa UI) kém sống động hơn bản chạy khung, cần vẽ lại cho
+  shader; texture dùng chung thêm vào làm 8 hiệu ứng vượt trần số texture (hiệu ứng trong trần: 28 thành 24).
+- Tool dựng thư viện: bước `ConvertFrameByFrame` chạy sau khi chuẩn hoá (giữ sheet chạy khung bằng `-fxKeepFbf`); xuất gói lõi
+  cho Feature Hub bằng `ExportCorePackage -fxPackage <file>`. Danh mục ghi số hiệu ứng đã đổi và tên từng hiệu ứng.
+- Skill `game-vfx`: game không dùng frame-by-frame thì làm theo 4.7; câu thử mới `08-khong-frame-by-frame`. Script quét thêm
+  cột `sheetAnim` (system chạy khung thật; `sheets` gồm cả sheet chỉ chọn hình tĩnh), và không còn bỏ qua folder tên `Library`,
+  `Build`, `Temp`… trong `Assets` (bỏ qua đúng như Unity: tên bắt đầu bằng `.`, kết thúc bằng `~`): trước đây quét project
+  có module này là sót cả thư viện. Sáu game đã khảo sát không có prefab nào trong các folder đó: số khảo sát không đổi.
+- Gói `GameVFX` trên Feature Hub và skill `game-vfx` cập nhật theo (shader, quy chuẩn, tài liệu thư viện).
+
 ## 0.2.1 — 2026-09-30
 
 Skill Claude `game-vfx` và gói lõi trên Feature Hub.

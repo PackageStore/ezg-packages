@@ -1,6 +1,6 @@
 ---
 name: game-vfx
-description: Quy chuẩn VFX 2D, 3D cho game mobile của team (GameVFX_QuyChuan.md, module Game VFX) và thư viện hiệu ứng dùng chung của module (FXEffect, shader EZG/VFX/Particle), dùng cho bất kỳ project Unity nào. Dùng khi làm, hỏi hoặc duyệt hiệu ứng hạt, flipbook, shader VFX trong thế giới game (trúng đòn, chém, đạn, nổ, vùng, cảnh báo, buff, trạng thái, xuất hiện, chết, môi trường) hoặc hạt trên UI canvas (thưởng, mở rương, UIParticle); ParticleSystem, Max Particles, stop action, pool, culling, giờ game / giờ thật, sorting layer, texture, material, additive, bloom, overdraw, ngân sách mobile theo cấp và tier máy, tên FX_, pack VFX mua sẵn; lấy hiệu ứng có sẵn của thư viện; quét VFX cả project tìm nợ; kể cả khi user không nhắc tới quy chuẩn. English triggers: "make a hit VFX", "optimize particles for mobile", "review this VFX prefab". Không dùng cho tween, rung, loé màn hình, số sát thương của UI (UI Motion) hay animation nhân vật, hitstop (Game Animation).
+description: Quy chuẩn VFX 2D, 3D cho game mobile của team (GameVFX_QuyChuan.md, module Game VFX) và thư viện hiệu ứng dùng chung của module (FXEffect, shader EZG/VFX/Particle), dùng cho bất kỳ project Unity nào. Dùng khi làm, hỏi hoặc duyệt hiệu ứng hạt, flipbook hay không frame-by-frame (erosion, dissolve), shader VFX trong thế giới game (trúng đòn, chém, đạn, nổ, vùng, cảnh báo, buff, trạng thái, xuất hiện, chết, môi trường) hoặc hạt trên UI canvas (thưởng, mở rương, UIParticle); ParticleSystem, Max Particles, stop action, pool, culling, giờ game / giờ thật, sorting layer, texture, material, additive, bloom, overdraw, ngân sách mobile theo cấp và tier máy, tên FX_, pack VFX mua sẵn; lấy hiệu ứng có sẵn của thư viện; quét VFX cả project tìm nợ; kể cả khi user không nhắc tới quy chuẩn. English triggers: "make a hit VFX", "optimize particles for mobile", "review this VFX prefab". Không dùng cho tween, rung, loé màn hình, số sát thương của UI (UI Motion) hay animation nhân vật, hitstop (Game Animation).
 ---
 
 # Game VFX: làm theo quy chuẩn
@@ -50,6 +50,9 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
   sửa prefab, material, texture trong folder module.
 - Project chỉ có gói lõi (có `Runtime/FXEffect.cs` nhưng không có `Library/World`, `Library/UI`): prefab của thư viện nằm ở
   repo phát triển module, không có trên Feature Hub vì chứa file của pack mua. Nói với user, không tự tìm nguồn khác.
+- Game không dùng frame-by-frame (brief của game, 9.2; hỏi user nếu chưa ghi): không làm Texture Sheet Animation chạy khung,
+  làm theo 4.7 (một hình, ăn mòn bằng Erosion của shader chung, UV Scroll, Mask, Ramp; alpha của hạt là ngưỡng tan). Sheet chỉ
+  để mỗi hạt lấy ngẫu nhiên một hình tĩnh thì được. Thư viện không có hiệu ứng chạy khung.
 - Code: mỗi hiệu ứng là một prefab có `FXEffect` trên root; phát bằng bật object hoặc `Play()`, pool thu lại khi `Finished`,
   không hẹn giờ tắt (quy chuẩn 6.8, 7.8; mẫu `ObjectPool` ở `GameVFX_ThuVien.md` mục 2). Game có sẵn đường spawn riêng thì
   nối vào đường đó, không viết đường thứ hai.
@@ -76,7 +79,8 @@ node <skill>/scripts/tex_report.cjs <thư mục kết quả>
   5000–6500 prefab mất khoảng 1 phút; project rất lớn chạy `node --max-old-space-size=8192`.
 - Đọc số theo luật: `maxParticles` để 1000 (7.2, gate V-3), stop action None (6.8, V-10), hiệu ứng gameplay chạy giờ thật
   (3.4, V-13), Always Simulate (6.5, V-11), prewarm (7.2, V-12), sorting layer `Default` (7.3, V-14), texture nguồn > 2048
-  hoặc không override Android (4.2, 4.5, V-5), material thiếu (V-6). Báo là ứng viên kèm đường dẫn prefab, không phải kết
+  hoặc không override Android (4.2, 4.5, V-5), material thiếu (V-6), `sheetAnim` > 0 (system chạy khung thật; `sheets` gồm
+  cả sheet chỉ chọn hình tĩnh) ở game không dùng frame-by-frame (4.7). Báo là ứng viên kèm đường dẫn prefab, không phải kết
   luận.
 
 ## 5. Trước khi trả lời xong

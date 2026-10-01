@@ -1,0 +1,39 @@
+schema_version: "1.0"
+name: 08-khong-frame-by-frame
+description: "Game không dùng frame-by-frame: nổ làm bằng hạt và shader. Luật ở 4.7 (cách làm, alpha là ngưỡng, noise dùng chung, stream ngẫu nhiên), 6.6.8."
+tags: [no-flipbook, shader, 2d]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Game mobile 2D của tụi mình chốt không dùng frame-by-frame cho VFX (không sheet chạy khung, cho nhẹ texture). Giờ cần hiệu ứng nổ cho quả bom ném ra: một cú bùng rồi tan thành khói. Làm thế nào, dùng shader gì, ParticleSystem chỉnh gì?
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-vfx
+    min: 1
+    arm: with-only
+  - type: llm
+    name: khong_chay_khung_4.7
+    criteria: >-
+      Câu trả lời không dùng Texture Sheet Animation đổi khung theo thời gian; chuyển động của hình làm bằng shader ăn mòn
+      (erosion / dissolve theo noise, hoặc hướng tâm cho đĩa, vòng) trên một hình tĩnh, cùng module của hạt (cỡ, màu theo
+      đời). Được nhắc rằng sheet chỉ để mỗi hạt lấy ngẫu nhiên một hình tĩnh vẫn dùng được. Trượt nếu đề xuất flipbook chạy khung.
+  - type: llm
+    name: alpha_la_nguong
+    criteria: >-
+      Câu trả lời nói alpha của hạt (Color over Lifetime) là ngưỡng ăn mòn chứ không phải độ mờ: hiện, giữ, rồi tan ở cuối đời
+      (khoảng 40 % cuối), không nhấp nháy alpha giữa đời. Trượt nếu chỉ bảo giảm alpha để mờ dần mà không nói alpha điều
+      khiển ăn mòn.
+  - type: llm
+    name: shader_va_noise
+    criteria: >-
+      Câu trả lời chỉ shader cụ thể: shader chung EZG/VFX/Particle bật Erosion (hoặc shader VFX chung của game có ăn mòn), và
+      nêu ít nhất hai trong các ý: noise dùng chung cả game và tính vào trần texture; mỗi hạt lệch noise bằng custom vertex
+      stream StableRandom.x; lửa cho noise trôi lên (Noise Scroll), khói Softness cao cho tan mềm; mỗi tính năng bật thêm một
+      lần đọc texture (6.6.2).

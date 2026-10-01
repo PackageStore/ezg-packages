@@ -408,10 +408,10 @@
       "fileName": "GameVFX.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/GameVFX.unitypackage",
       "category": "EZG Shared",
-      "sha256": "db0dd95074218ed830cf1c1b7ebef73f1f40b52f973b88a8489f2ee5c34dbf76",
+      "sha256": "cb772aff8db908337177502dd64bb1dcbf0747bd5332ba0f2f151222f2a1d4f3",
       "installedByDefault": false,
       "markerPaths": [ "Assets/_Project/Core/Modules/GameVFX" ],
-      "description": "Module Game VFX 0.2.1, phan loi: quy chuan VFX 2D, 3D cho game mobile (Docs: GameVFX_QuyChuan.md, NguyenLy, ThuVien, CHANGELOG), component FXEffect (Play, Stop, su kien Finished de pool thu lai thay cho hen gio, whenFinished, autoStopAfter, LowQuality tat con _Sec o may yeu, DefaultSortingLayer) va shader chung EZG/VFX/Particle (unlit, 4 kieu tron Alpha / Additive / Premultiply / Multiply, chay ca Built-in lan URP, co stencil cho Mask). Khong co prefab, material, texture cua thu vien 67 hieu ung (chua file cua pack mua): lay tu repo phat trien module. Khong can package ngoai; hieu ung UI cua thu vien can UIParticle (com.coffee.ui-particle). Skill di kem cho Claude: tab AI Feature > Skills > game-vfx (doc va ap quy chuan, quet VFX ca project)."
+      "description": "Module Game VFX 0.2.2, phan loi: quy chuan VFX 2D, 3D cho game mobile (Docs: GameVFX_QuyChuan.md, NguyenLy, ThuVien, CHANGELOG), component FXEffect (Play, Stop, su kien Finished de pool thu lai thay cho hen gio, whenFinished, autoStopAfter, LowQuality tat con _Sec o may yeu, DefaultSortingLayer) va shader chung EZG/VFX/Particle (unlit, 4 kieu tron Alpha / Additive / Premultiply / Multiply, chay ca Built-in lan URP, co stencil cho Mask; bat rieng Erosion, UV Scroll, Mask, Ramp de lam VFX khong frame-by-frame). Khong co prefab, material, texture cua thu vien 67 hieu ung (chua file cua pack mua): lay tu repo phat trien module. Khong can package ngoai; hieu ung UI cua thu vien can UIParticle (com.coffee.ui-particle). Skill di kem cho Claude: tab AI Feature > Skills > game-vfx (doc va ap quy chuan, quet VFX ca project)."
     }
   ]
 }

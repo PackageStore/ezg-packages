@@ -1,6 +1,6 @@
 # Quy chuẩn VFX (2D, 3D, mobile)
 
-Phiên bản 0.2.1 (nháp) · 2026-09-30 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
+Phiên bản 0.2.2 (nháp) · 2026-10-01 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
 hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project);
 gate trong Unity vẫn làm sau. Nguồn chính là tài liệu VFX của
 Liên Minh Huyền Thoại (Riot, *The Complete Guide to Creating Visual Effects within League of Legends*), tài liệu công khai của
@@ -25,7 +25,7 @@ hiệu chỉnh (mục 12.3).
 | Bạn là | Đọc trước |
 |---|---|
 | VFX artist | 0, 2, 3, 4, 5, 6.2, 7.1–7.4, 8, 9, 11 |
-| Tech art | 0, 4.4–4.6, 6, 7, 8, 10 |
+| Tech art | 0, 4.4–4.7, 6, 7, 8, 10 |
 | Game design | 0, 2.1, 2.4–2.7, 3.1, 3.3, 9.2 |
 | Dev | 3.3–3.4, 6.5–6.8, 7.8, 13 |
 | Art lead | 0, 2, 5, 9, 12 |
@@ -347,6 +347,8 @@ giác. Game đã chọn preset thì VFX theo preset đó.
 
 ### 4.4 Flipbook
 
+Game không dùng frame-by-frame (ghi trong brief, 9.2): bỏ mục này, làm theo 4.7.
+
 1. Lưới lũy thừa của 2 (2 × 2, 4 × 4, 8 × 2 cho vệt chém ngang); 16 khung (4 × 4) gần như là tối đa cho game stylized; sheet
    512, 1024, tối đa 2048, không 4K [21].
 2. Tên có hậu tố lưới: `FX_TX_Smoke_4x4` (8.2) [36].
@@ -379,6 +381,33 @@ giác. Game đã chọn preset thì VFX theo preset đó.
 1. Sprite VFX dùng cùng PPU với nhân vật của game.
 2. Pivot của hiệu ứng đặt ở điểm chạm đất (hoặc điểm va chạm) để sort theo trục Y đúng với nhân vật (7.4).
 3. Hiệu ứng mặt đất (vùng, vết, bóng) ở layer dưới nhân vật; hiệu ứng trúng đòn, trên đầu ở layer trên nhân vật (7.3).
+
+### 4.7 Không frame-by-frame: hạt và shader **[VFX] [TA]**
+
+Game chọn không dùng frame-by-frame (ghi trong brief, 9.2) thì chuyển động của hình làm bằng shader và module của hạt, không
+chạy khung. Sheet chỉ để mỗi hạt lấy ngẫu nhiên một hình tĩnh (Frame over Time hằng số hoặc random giữa hai hằng số, chế độ
+Lifetime) không phải frame-by-frame, dùng được. Thư viện của module không có frame-by-frame từ bản 0.2.2.
+
+| Cần | Làm bằng | Shader chung `EZG/VFX/Particle` (6.6.8) |
+|---|---|---|
+| Khói, mây, bụi tan | một hình, ăn mòn theo noise, cỡ tăng theo đời hạt | Erosion, Softness cao (khoảng 0,35) cho tan mềm, không vỡ vụn |
+| Lửa, nổ | một hình đầy, ăn mòn theo noise trôi lên; hai lớp (cộng ở lõi, trộn ở rìa) | Erosion, Noise Scroll khoảng (0, −0,6) |
+| Đĩa nổ, vòng sóng, vòng mở rộng | ăn mòn hướng tâm: đĩa khoét thành vòng, vòng mỏng dần từ trong ra | Erosion + texture hướng tâm, Noise Random 0, Erosion Range theo bán kính thật của hình |
+| Vệt chém, tia, sóng chạy | mesh hoặc trail, UV cuộn trong mặt nạ | UV Scroll + Mask |
+| Đổi tông theo nguyên tố, phe | texture xám tô màu theo ramp (4.3) | Ramp |
+
+1. Alpha của hạt (Color over Lifetime) là ngưỡng ăn mòn: hiện dần ở đầu đời nếu cần, giữ nguyên, tan ở khoảng 40 % cuối đời.
+   Không dùng alpha để nhấp nháy giữa đời: hình bị ăn lỗ lúc đang chạy (lõi của hiệu ứng lặp hay dính).
+2. Số lần đọc texture vẫn theo 6.6.2: Erosion, Mask, Ramp mỗi thứ thêm một lần. Basic, Support, Ambient chỉ được bật một thứ.
+3. Noise và texture hướng tâm (256, xám) dùng chung cho cả game: tính vào trần số texture của hiệu ứng (6.2), nhưng chỉ nạp một
+   lần cho cả game.
+4. Mỗi hạt lệch noise một khác (custom vertex stream StableRandom.x đặt ngay sau UV), không thì mọi hạt của một system tan y hệt
+   nhau. Hạt trên UI qua UIParticle chưa dùng stream này: mỗi system UI ít hạt thì không lộ.
+5. Hình vẽ tay đổi nhiều qua các khung (lửa 2D vẽ tay, vật biến hình) mất nét khi chỉ giữ một khung rồi ăn mòn. Game không
+   frame-by-frame thì vẽ hình cho shader ngay từ đầu (một hình đầy, rìa rõ, texture xám), không cắt một khung từ sheet cũ.
+6. Noise trôi và UV cuộn chạy theo `_Time` (giờ game): lúc pause, phần cuộn đứng, kể cả ở hiệu ứng UI chạy giờ thật (3.4).
+7. Duyệt như mọi hiệu ứng (9.3), thêm: ảnh đen trắng của pha tan (2.3.7) vẫn đọc được, viền mòn không thành răng cưa ở cỡ thật
+   trên máy.
 
 ---
 
@@ -545,9 +574,10 @@ thành nợ, sửa dần (10).
 6. Blend mode, emission, normal map là biến thể shader, chia batch: bớt biến thể không cần [24].
 7. Không đổi shader của material pack sang shader khác rồi giữ tên cũ; không dùng material của scene demo (một game dùng
    material ví dụ của một plugin cho vệt đạn) *(đo)*.
-8. Game chưa có shader VFX chung thì dùng shader của thư viện, `EZG/VFX/Particle` (`GameVFX_ThuVien.md`): unlit, một texture,
-   bốn kiểu trộn, chạy cả Built-in lẫn URP, có stencil cho Mask trên canvas. Không soft particle, không distortion: hiệu ứng cần
-   thứ đó dùng shader riêng của game, ghi trong brief.
+8. Game chưa có shader VFX chung thì dùng shader của thư viện, `EZG/VFX/Particle` (`GameVFX_ThuVien.md`): unlit, bốn kiểu trộn,
+   chạy cả Built-in lẫn URP, có stencil cho Mask trên canvas. Bốn tính năng bật riêng từng cái, material không bật thì không tốn
+   gì: Erosion (alpha của hạt ăn mòn hình theo noise hoặc hướng tâm), UV Scroll, Mask, Ramp (4.7). Không soft particle, không
+   distortion: hiệu ứng cần thứ đó dùng shader riêng của game, ghi trong brief.
 
 ### 6.7 Material, atlas, batching **[TA] [DEV]**
 
@@ -818,7 +848,7 @@ Thứ tự khi có việc chen ngang như Riot: lỗi gameplay trước, độ d
 
 Phần của cả game, ghi một lần trong file riêng của game (7.8, 12.2): preset mood, hex ba phe (2.5), bảng màu nguyên tố và độ hiếm
 (5.3), dải sáng / đậm đo được của môi trường và nhân vật (2.3.6), sorting layer và order (7.3), shader được dùng (6.6), thư viện UI
-particle (7.5), máy thử từng tier (6.1), quy ước key cũ nếu có (8.1).
+particle (7.5), có dùng frame-by-frame hay không (4.4, 4.7), máy thử từng tier (6.1), quy ước key cũ nếu có (8.1).
 
 ### 9.3 Checklist duyệt
 
