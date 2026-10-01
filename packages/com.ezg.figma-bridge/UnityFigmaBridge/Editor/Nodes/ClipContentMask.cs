@@ -43,7 +43,8 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             RemoveComponent<RectMask2D>(nodeGameObject);
             var image = UnityUiUtils.GetOrAddComponent<Image>(nodeGameObject);
-            var hasVisibleFill = node.fills != null && System.Array.Exists(node.fills, f => f != null && f.visible);
+            var hasVisibleFill = node.fills != null && System.Array.Exists(node.fills, f => f != null && f.visible &&
+                !FigmaDataUtils.IsShaderPaint(f));
             var hasBitmapFill = node.fills != null && System.Array.Exists(node.fills, f => f != null && f.visible &&
                 (f.type == Paint.PaintType.IMAGE || f.type == Paint.PaintType.PATTERN));
             if (hasBitmapFill)

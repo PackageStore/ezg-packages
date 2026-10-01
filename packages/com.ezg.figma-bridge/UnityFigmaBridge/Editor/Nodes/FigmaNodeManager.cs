@@ -292,7 +292,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             else image.type = Image.Type.Simple;
             image.preserveAspect = sprite != null && !isPattern && firstFill.scaleMode == Paint.ScaleMode.FIT;
 
-            var hasStroke = node.strokes != null && node.strokes.Length > 0 && node.strokeWeight > 0;
+            var hasStroke = node.strokes != null && node.strokeWeight > 0 &&
+                            System.Array.Exists(node.strokes, s => s != null && !FigmaDataUtils.IsShaderPaint(s));
             var cornerRadius = FigmaDataUtils.MaxCornerRadius(node);
             var isGradient = firstFill != null && FigmaDataUtils.IsGradient(firstFill);
             var isShape = node.type == NodeType.ELLIPSE || node.type == NodeType.STAR;
@@ -319,7 +320,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         {
             if (paints == null) return null;
             for (var i = paints.Length - 1; i >= 0; i--)
-                if (paints[i] != null && paints[i].visible) return paints[i];
+                if (paints[i] != null && paints[i].visible && !FigmaDataUtils.IsShaderPaint(paints[i])) return paints[i];
             return null;
         }
 

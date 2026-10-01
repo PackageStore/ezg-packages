@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.10] - 2026-10-01
+### Fixed
+- **A Figma code shader fill broke the whole document download.** Figma REST now returns such a
+  fill as `"type":"CUSTOM"` (with `customEffectId` and `componentPropAssignments`), and Newtonsoft
+  failed on it with "Error converting value CUSTOM to type Paint+PaintType". `Paint.PaintType` gains
+  `CUSTOM` and `UNKNOWN`, read through a tolerant converter (any unrecognised type becomes `UNKNOWN`,
+  with one warning per value), so unknown or `CUSTOM` paints no longer break document decode. The
+  shader data is kept opaque. A childless node with such a paint is rendered server-side as an
+  image (an instance that stretches it gets its own render); local drawing (flat Image, frame
+  shape sprite, clip mask, text colour) skips the paint instead of drawing it as white. A frame
+  with children keeps its other fills and logs a warning: put the shader on a childless rectangle
+  behind the children.
+
 ## [0.6.9] - 2026-09-29
 ### Fixed
 - **Re-import moved the object ids of same-named nodes, so another prefab's override landed on

@@ -61,6 +61,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             // Make sure 
             if(paint != null && !paint.visible) return new UnityEngine.Color(0,0,0,0);
+            if (IsShaderPaint(paint)) return new UnityEngine.Color(0,0,0,0);
             return paint?.color == null ? new UnityEngine.Color(1,1,1,paint?.opacity ?? 1) : new UnityEngine.Color(paint.color.r, paint.color.g, paint.color.b, paint.color.a*paint.opacity);
         }
 
@@ -494,8 +495,13 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 });
                 return;
             }
-            
+
             if (figmaNode.children == null) return;
+
+            if ((isSelectedPage || withinComponentDefinition) && figmaNode.children.Length > 0 &&
+                figmaNode.fills != null && figmaNode.fills.Any(f => f != null && f.visible && IsShaderPaint(f)))
+                Debug.LogWarning($"[FigmaBridge] '{figmaNode.name}' ({figmaNode.id}) has a shader fill and children: " +
+                                 "the shader is skipped. Put it on a childless rectangle behind the children so Figma renders it.");
 
             // If this is a component, we want to ensure we include all server render components within (even if the page is ignored)
             if (figmaNode.type == NodeType.COMPONENT) withinComponentDefinition = true;
@@ -569,7 +575,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 Mathf.Abs(node.size.y - componentNode.size.y) <= tolerance) return false;
 
             var hasBitmapFill = node.fills != null && node.fills.Any(fill => fill != null && fill.visible &&
-                (fill.type == Paint.PaintType.IMAGE || fill.type == Paint.PaintType.PATTERN));
+                (fill.type == Paint.PaintType.IMAGE || fill.type == Paint.PaintType.PATTERN || IsShaderPaint(fill)));
             var isRectangleLike = node.type is NodeType.RECTANGLE or NodeType.FRAME or NodeType.COMPONENT or NodeType.INSTANCE;
             return hasBitmapFill || !isRectangleLike;
         }
@@ -595,7 +601,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // If a given node has the word "render", mark for rendering
             if (node.name.ToLower().Contains("render")) return true;
 
-            if (NeedsShapeRender(node)) return true;
+            if (NeedsShapeRender(node) || NeedsShaderRender(node)) return true;
 
             // Some types we always render server-side. This may change if we support native vector rendering
             switch (node.type)
@@ -646,6 +652,26 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (node.type == NodeType.ELLIPSE || node.type == NodeType.STAR) return true;
             if (MaxCornerRadius(node) > 0f) return true;
             return node.fills.Any(f => f != null && f.visible && IsGradient(f));
+        }
+
+        /// <summary>
+        ///     A shader (CUSTOM) or unrecognised paint: nothing in Unity can draw it, only Figma can.
+        /// </summary>
+        public static bool IsShaderPaint(Paint paint)
+        {
+            return paint != null && (paint.type == Paint.PaintType.CUSTOM || paint.type == Paint.PaintType.UNKNOWN);
+        }
+
+        /// <summary>
+        ///     A childless node with a visible shader fill, or a visible shader stroke that draws, is
+        ///     rendered by Figma. As with <see cref="NeedsShapeRender"/>, a node with children is not:
+        ///     its render would contain the children, which then draw twice.
+        /// </summary>
+        public static bool NeedsShaderRender(Node node)
+        {
+            if (node.children != null && node.children.Length > 0) return false;
+            if (node.fills != null && node.fills.Any(f => f != null && f.visible && IsShaderPaint(f))) return true;
+            return node.strokeWeight > 0 && node.strokes != null && node.strokes.Any(f => f != null && f.visible && IsShaderPaint(f));
         }
 
         public static bool IsGradient(Paint paint)

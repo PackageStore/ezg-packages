@@ -808,12 +808,42 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             IMAGE,
             EMOJI,
             VIDEO,
-            PATTERN
+            PATTERN,
+            // Fill shader viết bằng code của Figma — bridge không dựng được, node render server-side thành ảnh
+            CUSTOM,
+            // Loại paint Figma thêm sau này mà enum chưa biết → rơi vào đây thay vì throw khi deserialize
+            UNKNOWN,
+        }
+
+        /// <summary>
+        /// Parse PaintType chịu lỗi: chuỗi lạ → UNKNOWN (cảnh báo 1 lần / loại) thay vì
+        /// JsonSerializationException làm hỏng toàn bộ document.
+        /// </summary>
+        public class TolerantPaintTypeConverter : Newtonsoft.Json.JsonConverter<PaintType>
+        {
+            private static readonly HashSet<string> s_WarnedTypes = new HashSet<string>();
+
+            public override PaintType ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, PaintType existingValue,
+                bool hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                var raw = reader.Value?.ToString();
+                if (!string.IsNullOrEmpty(raw) && Enum.TryParse(raw, true, out PaintType parsed)) return parsed;
+
+                if (s_WarnedTypes.Add(raw ?? "<null>"))
+                    UnityEngine.Debug.LogWarning($"[FigmaBridge] Paint type '{raw}' chưa hỗ trợ — node có paint này được render server-side thành ảnh.");
+                return PaintType.UNKNOWN;
+            }
+
+            public override void WriteJson(Newtonsoft.Json.JsonWriter writer, PaintType value, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                writer.WriteValue(value.ToString());
+            }
         }
 
         /// <summary>
         /// Type of paint as a string enum
         /// </summary>
+        [Newtonsoft.Json.JsonConverter(typeof(TolerantPaintTypeConverter))]
         public PaintType type;
         
         /// <summary>
@@ -905,6 +935,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// UGUI can only tile a rectangular grid, the hexagonal layouts are drawn rectangular.
         /// </summary>
         public string tileType;
+
+        // For CUSTOM paints (Figma code shader fill); kept opaque, the bridge never reads them
+
+        public string customEffectId;
+
+        public Newtonsoft.Json.Linq.JToken componentPropAssignments;
 
     }
     /// <summary>

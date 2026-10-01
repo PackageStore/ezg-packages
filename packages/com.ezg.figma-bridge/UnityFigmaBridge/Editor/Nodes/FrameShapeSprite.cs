@@ -47,7 +47,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             var hasGradient = false;
             foreach (var fill in node.fills)
             {
-                if (fill == null || !fill.visible) continue;
+                if (fill == null || !fill.visible || FigmaDataUtils.IsShaderPaint(fill)) continue;
                 if (fill.type == Paint.PaintType.IMAGE || fill.type == Paint.PaintType.PATTERN) return false;
                 if (FigmaDataUtils.IsGradient(fill)) hasGradient = true;
                 visibleFills++;
@@ -131,7 +131,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             Paint top = null;
             foreach (var stroke in node.strokes)
             {
-                if (stroke == null || !stroke.visible) continue;
+                if (stroke == null || !stroke.visible || FigmaDataUtils.IsShaderPaint(stroke)) continue;
                 if (stroke.type == Paint.PaintType.IMAGE || stroke.type == Paint.PaintType.PATTERN) continue;
                 top = stroke;
             }
@@ -172,7 +172,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                 var colour = new Color(0f, 0f, 0f, 0f);
                 foreach (var fill in node.fills)
                 {
-                    if (fill == null || !fill.visible) continue;
+                    if (fill == null || !fill.visible || FigmaDataUtils.IsShaderPaint(fill)) continue;
                     colour = Over(PaintColour(fill, normalised), colour);
                 }
 
