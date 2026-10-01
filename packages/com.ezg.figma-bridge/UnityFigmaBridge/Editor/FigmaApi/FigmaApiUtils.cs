@@ -57,6 +57,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>Where the last downloaded document is cached; the offline re-import reads it back.</summary>
         public static string CachedDocumentPath => Path.Combine("Assets", WRITE_FILE_PATH).Replace('\\', '/');
 
+        private const string DOCUMENT_DOWNLOAD_PATH = "Temp/FigmaBridge/document-download.json";
+        private const int DOCUMENT_DOWNLOAD_ATTEMPTS = 3;
+
         private static readonly JsonSerializerSettings s_DocumentJsonSettings = new JsonSerializerSettings
         {
             // Ignore missing members and null fields that sometimes come from Figma
@@ -72,9 +75,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (!File.Exists(path)) return null;
             try
             {
-                var figmaFile = JsonConvert.DeserializeObject<FigmaFile>(File.ReadAllText(path), s_DocumentJsonSettings);
-                FigmaDataUtils.PruneIgnoredNodes(figmaFile);
-                return figmaFile;
+                return ReadDocument(path);
             }
             catch (Exception e)
             {
@@ -167,32 +168,90 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
             FigmaFile figmaFile = null;
             FigmaImportTimer.Begin("Document JSON download (Figma API)");
-            // Download the Figma Document
-            var webRequest = UnityWebRequest.Get(url);
-            webRequest.SetRequestHeader("X-Figma-Token", accessToken);
-            await webRequest.SendWebRequest();
-
-            if (webRequest.result == UnityWebRequest.Result.ProtocolError ||
-                webRequest.result == UnityWebRequest.Result.ConnectionError)
+            Directory.CreateDirectory(Path.GetDirectoryName(DOCUMENT_DOWNLOAD_PATH));
+            for (var attempt = 1; ; attempt++)
             {
+                using var webRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET,
+                    new DownloadHandlerFile(DOCUMENT_DOWNLOAD_PATH) { removeFileOnAbort = true }, null);
+                webRequest.SetRequestHeader("X-Figma-Token", accessToken);
+                var operation = webRequest.SendWebRequest();
+                // Figma sends no length for the document, so the bar can only report the bytes so far
+                while (!operation.isDone)
+                {
+                    EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE,
+                        $"Downloading file ({webRequest.downloadedBytes / 1048576.0:0.0} MB)", webRequest.downloadProgress);
+                    await Task.Delay(100);
+                }
+
+                if (webRequest.result == UnityWebRequest.Result.Success) break;
+                // A document of hundreds of MB can lose its HTTP/2 stream part-way (curl error 92)
+                if (webRequest.result == UnityWebRequest.Result.ConnectionError && attempt < DOCUMENT_DOWNLOAD_ATTEMPTS)
+                {
+                    Debug.LogWarning($"[FigmaBridge] Document download failed ({DescribeFailure(webRequest)}), attempt {attempt + 1} of {DOCUMENT_DOWNLOAD_ATTEMPTS}");
+                    continue;
+                }
                 throw new Exception($"{DescribeFailure(webRequest)}\nError downloading FIGMA document, url - {url}");
             }
 
             FigmaImportTimer.Begin("Document JSON decode and cache write");
+            EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, "Decoding file", 1);
+            var strippedPath = DOCUMENT_DOWNLOAD_PATH + ".stripped";
             try
             {
-                // Deserialize the document
-                figmaFile = JsonConvert.DeserializeObject<FigmaFile>(webRequest.downloadHandler.text, s_DocumentJsonSettings);
-                FigmaDataUtils.PruneIgnoredNodes(figmaFile);
-
+                WriteWithoutTextGeometry(DOCUMENT_DOWNLOAD_PATH, strippedPath);
+                figmaFile = ReadDocument(strippedPath);
                 Debug.Log($"Figma file downloaded, name {figmaFile.name}");
+                if (writeFile) File.Copy(strippedPath, CachedDocumentPath, true);
             }
             catch (Exception e)
             {
                 throw new Exception($"Problem decoding Figma document JSON {e.ToString()}");
             }
+            finally
+            {
+                File.Delete(DOCUMENT_DOWNLOAD_PATH);
+                File.Delete(strippedPath);
+            }
 
-            if (writeFile) File.WriteAllText(Path.Combine("Assets", WRITE_FILE_PATH), webRequest.downloadHandler.text);
+            return figmaFile;
+        }
+
+        /// <summary>
+        ///     Copies the document without the glyph outlines of TEXT nodes. TMP draws text from the
+        ///     characters and style, and an outside stroke on text can add megabytes of outline per
+        ///     node. Figma writes a node's type before its geometry; geometry met first is kept.
+        /// </summary>
+        private static void WriteWithoutTextGeometry(string sourcePath, string targetPath)
+        {
+            using var reader = new JsonTextReader(File.OpenText(sourcePath)) { DateParseHandling = DateParseHandling.None };
+            using var writer = new JsonTextWriter(File.CreateText(targetPath));
+            var objectTypes = new Stack<string>();
+            var typeValueNext = false;
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonToken.PropertyName && reader.Value is "fillGeometry" or "strokeGeometry" &&
+                    objectTypes.Peek() == "TEXT")
+                {
+                    reader.Skip();
+                    continue;
+                }
+                if (typeValueNext && reader.TokenType == JsonToken.String)
+                {
+                    objectTypes.Pop();
+                    objectTypes.Push((string)reader.Value);
+                }
+                typeValueNext = reader.TokenType == JsonToken.PropertyName && (string)reader.Value == "type";
+                if (reader.TokenType == JsonToken.StartObject) objectTypes.Push(null);
+                else if (reader.TokenType == JsonToken.EndObject) objectTypes.Pop();
+                writer.WriteToken(reader, false);
+            }
+        }
+
+        private static FigmaFile ReadDocument(string path)
+        {
+            using var reader = new JsonTextReader(File.OpenText(path));
+            var figmaFile = JsonSerializer.Create(s_DocumentJsonSettings).Deserialize<FigmaFile>(reader);
+            FigmaDataUtils.PruneIgnoredNodes(figmaFile);
             return figmaFile;
         }
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.11] - 2026-10-01
+### Fixed
+- **Sync froze at "Downloading file" 0% on a file with stroked text.** An outside stroke on a TEXT
+  node makes Figma return megabytes of glyph outline in `strokeGeometry` per node (one 6,500-node
+  file came back as 593 MB, 515 MB of it text outlines). The bridge read the whole response into
+  one string and decoded it in one call, which froze the editor. The document now downloads to
+  `Temp/FigmaBridge/`, the progress bar shows the megabytes received, the `fillGeometry` and
+  `strokeGeometry` of TEXT nodes are dropped while the file is copied (TMP draws text from the
+  characters and style), and the result is decoded as a stream. The same file now caches at 8.9 MB
+  in `Assets/FigmaOutput.json`. The offline re-import also decodes the cache as a stream. Server
+  render hashes change once, because text nodes in the cached JSON lose their outlines.
+- **A large document download that lost its HTTP/2 stream part-way failed the Sync** ("Curl error 92",
+  reported as "HTTP 200 Unknown Error"). A connection error on the document download now retries up
+  to 3 attempts.
+
 ## [0.6.10] - 2026-10-01
 ### Fixed
 - **A Figma code shader fill broke the whole document download.** Figma REST now returns such a
