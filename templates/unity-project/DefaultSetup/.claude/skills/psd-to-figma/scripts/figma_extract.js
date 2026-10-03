@@ -92,121 +92,6 @@ function walk(n, frame, out, clippedOut, currentFrame) {
   if ('children' in n) for (const c of n.children) walk(c, frame, out, clippedOut, currentFrame);
 }
 
-const GENERIC_RE = /^(Frame|Group|Rectangle|Ellipse|Vector|Component|Instance)( \d+)?$/;
-const SLICE_NAME_RE = /^slice_\d_\d$/;
-const HYG_PREFIXES = ['Container-', 'Container_', 'Btn-', 'Header-', 'Row-', 'Slot-', 'Group-'];
-const SHAPE_TYPES = ['FRAME', 'RECTANGLE', 'COMPONENT', 'INSTANCE'];
-const CONCENTRIC_TOL = 1, CONTAIN_TOL = 0.5;
-
-function shapeKind(n, slice) {
-  if (slice) return 'art';
-  if (n.name.indexOf('Mask-') === 0) return 'shape';
-  const fills = Array.isArray(n.fills) ? n.fills : [];
-  const strokes = Array.isArray(n.strokes) ? n.strokes : [];
-  const paints = fills.concat(strokes).filter(p => p.visible !== false);
-  if (paints.some(p => p.type === 'IMAGE')) return 'art';
-  return paints.length ? 'shape' : null;
-}
-
-function cornerRadii(n) {
-  return [n.topLeftRadius || 0, n.topRightRadius || 0, n.bottomRightRadius || 0, n.bottomLeftRadius || 0];
-}
-
-// V-5: an inner shape in an outer shape's corner has radius = outer - inset.
-// Mirrors concentric_check in figma_extract_hygiene.py; keep the two in step.
-function concentricCheck(shapes) {
-  const out = [];
-  shapes.forEach((c, i) => {
-    if (c.kind !== 'shape' || c.masked) return;
-    const [cx, cy, cw, chh] = c.box;
-    let outer = null;
-    for (const o of shapes.slice(0, i)) {
-      const [ox, oy, ow, oh] = o.box;
-      if (ox - CONTAIN_TOL <= cx && oy - CONTAIN_TOL <= cy
-          && cx + cw <= ox + ow + CONTAIN_TOL && cy + chh <= oy + oh + CONTAIN_TOL
-          && (!outer || ow * oh <= outer.box[2] * outer.box[3]))
-        outer = o;
-    }
-    if (!outer || outer.kind !== 'shape') return;
-    const [ox, oy, ow, oh] = outer.box;
-    const left = cx - ox, top = cy - oy, right = ox + ow - cx - cw, bottom = oy + oh - cy - chh;
-    let worst = null;
-    [[left, top], [right, top], [right, bottom], [left, bottom]].forEach(([dx, dy], k) => {
-      const ro = Math.min(outer.radii[k], Math.min(ow, oh) / 2);
-      const d = (dx + dy) / 2;
-      if (ro <= 0 || Math.abs(dx - dy) > CONCENTRIC_TOL || d >= ro) return;
-      const expected = Math.min(ro - d, Math.min(cw, chh) / 2);
-      const actual = Math.min(c.radii[k], Math.min(cw, chh) / 2);
-      if (Math.abs(actual - expected) > CONCENTRIC_TOL
-          && (!worst || Math.abs(actual - expected) > Math.abs(worst[0] - worst[1])))
-        worst = [actual, expected];
-    });
-    if (worst)
-      out.push({ id: c.id, name: c.name, outer: outer.name,
-                 radius: Math.round(worst[0] * 100) / 100, expected: Math.round(worst[1] * 100) / 100 });
-  });
-  return out;
-}
-
-function hygieneWalk(screenFrame) {
-  const fab = screenFrame.absoluteBoundingBox;
-  const ch = 'children' in screenFrame ? screenFrame.children : [];
-  const uSet = new Set(), sSet = new Set();
-  const shapes = [];
-  const h = {
-    rootFrameChildren: ch.length, rootLeaves: [], rootContainers: [],
-    genericNames: [], nonContainerGroupingFrames: [], clipping: [],
-    underscoreNames: [], spaceNames: [], unstyledText: [],
-    gridStyle: !!(screenFrame.gridStyleId),
-    screenNameUnderscore: screenFrame.name.indexOf('_') >= 0
-  };
-  for (const c of ch) {
-    if (c.type !== 'FRAME')
-      h.rootLeaves.push(c.type + ':' + c.name);
-    if ((c.name.indexOf('Container-') === 0 || c.name.indexOf('Container_') === 0)
-        && c.absoluteBoundingBox) {
-      const cab = c.absoluteBoundingBox;
-      const cs = c.constraints || {};
-      h.rootContainers.push({
-        name: c.name,
-        constraints: (cs.horizontal || 'MIN') + '/' + (cs.vertical || 'MIN'),
-        x: cab.x - fab.x, y: cab.y - fab.y, w: cab.width, h: cab.height
-      });
-    }
-  }
-  function _hw(nd, pn, masked, hidden) {
-    const nm = nd.name;
-    if (GENERIC_RE.test(nm))
-      h.genericNames.push({ id: nd.id, name: nm, parent: pn });
-    if (nm.indexOf('_') >= 0 && !SLICE_NAME_RE.test(nm)) uSet.add(nm);
-    if (nm.indexOf(' ') >= 0) sSet.add(nm);
-    const slice = isSliceFrame(nd);
-    if (nd.type === 'FRAME' && 'children' in nd && nd.children.length >= 2 && !slice
-        && !HYG_PREFIXES.some(p => nm.indexOf(p) === 0)
-        && nm !== 'Title' && nm.indexOf('Scroll') < 0)
-      h.nonContainerGroupingFrames.push({ id: nd.id, name: nm });
-    if ('clipsContent' in nd && nd.clipsContent === true && !slice && nm.indexOf('Scroll') < 0
-        && nm.indexOf('Mask-') !== 0)
-      h.clipping.push({ id: nd.id, name: nm, type: nd.type });
-    if (nd.type === 'TEXT' && !nd.textStyleId)
-      h.unstyledText.push({ id: nd.id, name: nm });
-    hidden = hidden || nd.visible === false;
-    if (SHAPE_TYPES.indexOf(nd.type) >= 0 && !hidden && !nd.rotation && nd.absoluteBoundingBox) {
-      const kind = shapeKind(nd, slice);
-      const b = nd.absoluteBoundingBox;
-      if (kind) shapes.push({ id: nd.id, name: nm, kind, box: [b.x, b.y, b.width, b.height],
-                              radii: cornerRadii(nd), masked });
-    }
-    if ('children' in nd)
-      for (const c of nd.children) _hw(c, nm, masked || nm.indexOf('Mask-') === 0, hidden);
-  }
-  for (const c of ch) _hw(c, screenFrame.name, false, false);
-  h.underscoreNames = Array.from(uSet).sort();
-  h.spaceNames = Array.from(sSet).sort();
-  h.concentric = concentricCheck(shapes);
-  return h;
-}
-
 const res = {};
 for (const [fname, key] of Object.entries(CONFIG.frames)) {
   const frame = page.children.find(c => c.name === fname);
@@ -215,7 +100,6 @@ for (const [fname, key] of Object.entries(CONFIG.frames)) {
   const clippedText = [];
   for (const c of frame.children) walk(c, ab, nodes, clippedText, fname);
   res[key] = { frameId: frame.id, frameName: frame.name, frameX: 0, frameY: 0,
-                 frameW: ab.width, frameH: ab.height, nodes, clippedText,
-                 hygiene: hygieneWalk(frame) };
+                 frameW: ab.width, frameH: ab.height, nodes, clippedText };
 }
 return res;

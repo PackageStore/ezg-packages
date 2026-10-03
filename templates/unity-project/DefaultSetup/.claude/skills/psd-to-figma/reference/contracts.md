@@ -27,17 +27,10 @@ clipped text node fails the gate identically to any other violation.
 `textStyleId`. Mixed-value properties emit the string `"MIXED"`.
 
 **Repeated rows.** Only the first instance of a repeating row is extracted; the
-manifest defines one row and the pitch is verified separately. `OTHER_ROWS` in
+manifest defines one row and the pitch is verified separately. `CONFIG.rowFilter.skipRows` in
 the script lists the ids to skip.
 
-**Hygiene block.** Each extract file carries a `hygiene` object reporting
-structural checks per frame: S-1 (flat screen), S-2 (naming), S-7 (clip
-content), S-9 (hyphen naming), V-3 (font violations), V-4 (style binding),
-V-5 (concentric radius, warn-only — never changes the exit code).
-`verify_figma_vs_psd.py --hygiene-strict` exits 1 when any screen has a non-empty
-S-2/S-7/S-9/V-3 list. The hygiene contract is owned by the `figma-hygiene` skill;
-the extract only reports, it does not enforce. An `accepted_debt.json.hygiene_allow`
-key can whitelist specific entries.
+**Hygiene.** The extract carries no hygiene data. Hygiene is the `figma-hygiene` skill's audit engine (`scripts/audit.mjs`, rules in `rules.json`); the psd gate is the numeric gate exit 0 and `audit.mjs --fail-on block` exit 0. Waived findings live in `tools/figma-audit/debt/<fileKey>.json`, not in `accepted_debt.json`.
 
 **Node-id table.** `node_ids_<key>.json` maps each layer key to its Figma node
 id, written by `--learn-ids` after a screen passes. The verify script reads these

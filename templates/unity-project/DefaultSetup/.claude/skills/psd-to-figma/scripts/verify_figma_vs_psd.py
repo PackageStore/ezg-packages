@@ -56,12 +56,6 @@ stderr and, under --json, added to verify_report.json as top-level "recipe"
 counts and "recipeIgnored"/"recipeMissing"/"pinUnused" arrays. verify_report.md
 carries none of these — the summary line there would break D-3.
 
---hygiene-strict  exit 1 when any screen has a non-empty S2/S7/S9/V3 list,
-                  S1 false, or V4 false, after the allow-list. Without this
-                  flag, the exit code is unchanged and hygiene is informational.
-                  V5 (concentric radius) is warn-only: it is reported and never
-                  changes the exit code.
-
 --learn-ids       after a run, write node_ids_<key>.json for every screen in
                   scope with the ids of rows paired by geometry whose deltas are
                   within tolerance (art <= 0, text <= TEXT_TOL), merging over an
@@ -320,40 +314,6 @@ def check_font_identity(nodes, expected_font, valid_style_ids):
     return font_violations, style_violations
 
 
-def map_hygiene(raw, allow_list):
-    """Map extractor hygiene block to rule-id summary; apply allow-list."""
-    allowed_ids = set()
-    rule_to_key = {"S2": "genericNames", "S3": "nonContainerGroupingFrames",
-                   "S7": "clipping", "V3": "unstyledText", "V5": "concentric"}
-    all_ids = {}
-    for rule, key in rule_to_key.items():
-        for entry in raw.get(key, []):
-            all_ids[entry["id"]] = rule
-    for al in allow_list:
-        aid = al.get("id", "")
-        if aid in all_ids and all_ids[aid] == al.get("rule", ""):
-            allowed_ids.add(aid)
-
-    def _names(key):
-        return [e["name"] for e in raw.get(key, []) if e["id"] not in allowed_ids]
-
-    rc = raw.get("rootContainers", [])
-    centered = all("CENTER" in c.get("constraints", "") for c in rc) if rc else False
-    return {
-        "S1": raw.get("rootFrameChildren", 0) > 0,
-        "S2": _names("genericNames"),
-        "S3": _names("nonContainerGroupingFrames"),
-        "S7": _names("clipping"),
-        "S8": {"rootContainers": len(rc), "centered": centered},
-        "S9": sorted(set(raw.get("underscoreNames", []) + raw.get("spaceNames", []))),
-        "V3": _names("unstyledText"),
-        "V4": raw.get("gridStyle", False),
-        "V5": sorted({f"{e['name']} r{e['radius']:g}≠{e['expected']:g}"
-                      for e in raw.get("concentric", []) if e["id"] not in allowed_ids}),
-        "allowed": sorted(allowed_ids),
-    }
-
-
 def _selftest():
     shadow = [{"type": "DROP_SHADOW", "radius": 3,
                "offset": {"x": 0, "y": 6}, "visible": True}]
@@ -393,31 +353,6 @@ def _selftest():
     assert src == "override", src
     print("resolve_recipe self-test OK")
 
-    hyg_raw = {
-        "rootFrameChildren": 3, "rootLeaves": [],
-        "rootContainers": [{"name": "C", "constraints": "CENTER/MIN",
-                            "x": 0, "y": 0, "w": 100, "h": 200}],
-        "genericNames": [{"id": "1:1", "name": "Vector", "parent": "X"}],
-        "nonContainerGroupingFrames": [],
-        "clipping": [{"id": "2:2", "name": "Clip", "type": "FRAME"}],
-        "underscoreNames": ["Bg_Demo"], "spaceNames": ["Bad Name"],
-        "unstyledText": [{"id": "3:3", "name": "Txt"}],
-        "gridStyle": True, "screenNameUnderscore": False,
-        "concentric": [{"id": "4:4", "name": "Inner", "outer": "Outer",
-                        "radius": 20, "expected": 12}],
-    }
-    h = map_hygiene(hyg_raw, [])
-    assert h["S1"] is True and h["V4"] is True
-    assert h["S2"] == ["Vector"] and h["V3"] == ["Txt"]
-    assert h["S7"] == ["Clip"]
-    assert sorted(h["S9"]) == ["Bad Name", "Bg_Demo"]
-    assert h["S8"]["rootContainers"] == 1 and h["S8"]["centered"] is True
-    assert h["V5"] == ["Inner r20≠12"]
-    assert map_hygiene(hyg_raw, [{"id": "4:4", "rule": "V5"}])["V5"] == []
-    h2 = map_hygiene(hyg_raw, [{"id": "1:1", "rule": "S2", "reason": "lib"}])
-    assert h2["S2"] == [] and h2["allowed"] == ["1:1"]
-    print("map_hygiene self-test OK")
-
     # inkBox expected-size override
     layer_ib = {"x": 10, "y": 20, "w": 100, "h": 50, "role": "text",
                 "node": "Txt", "screen": "s",
@@ -443,7 +378,6 @@ def main():
     parser = argparse.ArgumentParser(prog="verify_figma_vs_psd", add_help=False)
     parser.add_argument("--screen", action="append")
     parser.add_argument("--json", action="store_true", dest="json_out")
-    parser.add_argument("--hygiene-strict", action="store_true", dest="hygiene_strict")
     parser.add_argument("--learn-ids", action="store_true", dest="learn_ids")
     parser.add_argument("--dry-run", action="store_true", dest="dry_run")
     args = parser.parse_args(argv)
@@ -491,14 +425,7 @@ def main():
             node_ids[k] = nid_data.get("layers", {})
 
     exceptions = debt.get("verification_exceptions", [])
-    hygiene_allow = debt.get("hygiene_allow", [])
     figma = {k: load(v)["nodes"] for k, v in EXTRACT.items()}
-    hygiene_raw = {}
-    for k, v in EXTRACT.items():
-        data = load(v)
-        if "hygiene" in data:
-            hygiene_raw[k] = data["hygiene"]
-
     expected_font = load_expected_font(cfg)
     valid_style_ids = load_valid_style_ids(cfg)
 
@@ -943,35 +870,6 @@ def main():
     else:
         lines.append("All TEXT nodes: bound to a valid shared text style.")
 
-    # ---- hygiene section ----
-    hygiene_mapped = {}
-    for k in present_keys:
-        if k in hygiene_raw:
-            hygiene_mapped[k] = map_hygiene(hygiene_raw[k], hygiene_allow)
-
-    if hygiene_mapped:
-        lines.append(f"\n## Hygiene\n")
-        for k in present_keys:
-            if k not in hygiene_mapped:
-                lines.append(f"{k}: hygiene: n/a")
-                continue
-            h = hygiene_mapped[k]
-
-            def _tag(rule, val):
-                if isinstance(val, bool):
-                    return "ok" if val else "FAIL"
-                return "ok" if not val else f"{len(val)} ({', '.join(val[:3])}{'...' if len(val) > 3 else ''})"
-
-            parts = []
-            for rule in ("S1", "S2", "S7", "S9", "V3", "V4"):
-                parts.append(f"{rule} {_tag(rule, h[rule])}")
-            if h["V5"]:
-                parts.append(f"V5 warn {_tag('V5', h['V5'])}")
-            lines.append(f"{k}: {' · '.join(parts)}")
-    else:
-        for k in present_keys:
-            pass  # no hygiene block at all — D-3: no section added
-
     all_deltas.sort(key=lambda x: x[2], reverse=True)
     worst = [f"{n} {r}={d:.2f}" for n, r, d in all_deltas[:8]]
 
@@ -995,18 +893,7 @@ def main():
     report_path.write_text(report)
     print(report)
 
-    hygiene_strict_fail = False
-    if args.hygiene_strict and hygiene_mapped:
-        for k, h in hygiene_mapped.items():
-            if (not h["S1"] or h["S2"] or h["S7"] or h["S9"] or h["V3"]
-                    or not h["V4"]):
-                hygiene_strict_fail = True
-                break
-
     exit_code = 0 if (bar_met and not missing) else 1
-    if hygiene_strict_fail:
-        exit_code = 1
-
     if missing:
         print("\nMissing extracts:")
         for k in missing:
@@ -1077,8 +964,6 @@ def main():
                     "style_violations": sum(
                         1 for s, *_ in all_style_violations if s == k),
                     "rows": json_rows[k],
-                    **({"hygiene": hygiene_mapped[k]}
-                       if k in hygiene_mapped else {}),
                 }
                 for k in present_keys
             },

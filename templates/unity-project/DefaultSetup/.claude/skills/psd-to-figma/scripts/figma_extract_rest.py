@@ -5,7 +5,6 @@ Same output shape as the Plugin-based figma_extract.js + figma_extract_save.py.
 import argparse, json, os, sys, time
 import urllib.error, urllib.request
 from figma_extract_save import write_results
-from figma_extract_hygiene import hygiene_walk
 from pipeline_config import resolve
 
 WEIGHT_MAP = {100: "Thin", 200: "ExtraLight", 300: "Light", 400: "Regular",
@@ -138,19 +137,7 @@ def selftest():
     assert [n["name"] for n in out] == ["Bg", "T", "P"], out
     t = out[1]
     assert (t["x"], t["y"], t["inkX"], t["textStyleId"], t["fontName"]["style"]) == (5, 5, 6, "S:abc,", "SemiBold"), t
-    assert derive_style({"fontWeight": 700}, {}) == "Bold" and hygiene_walk(doc)["rootFrameChildren"] == 3
-    solid = [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1, "a": 1}}]
-
-    def plate(inner_r, inner_fills=solid):
-        return {"id": "1:0", "name": "S", "type": "FRAME", "absoluteBoundingBox": box(0, 0, 400, 400), "children": [
-            {"id": "1:1", "name": "Outer", "type": "FRAME", "cornerRadius": 20, "fills": solid,
-             "absoluteBoundingBox": box(10, 10, 200, 100), "children": [
-                 {"id": "1:2", "name": "Inner", "type": "RECTANGLE", "cornerRadius": inner_r, "fills": inner_fills,
-                  "absoluteBoundingBox": box(18, 18, 184, 84)}]}]}
-    bad = hygiene_walk(plate(20))["concentric"]
-    assert [(v["name"], v["radius"], v["expected"]) for v in bad] == [("Inner", 20, 12)], bad
-    assert hygiene_walk(plate(12))["concentric"] == []
-    assert hygiene_walk(plate(20, [{"type": "IMAGE", "imageRef": "x"}]))["concentric"] == []
+    assert derive_style({"fontWeight": 700}, {}) == "Bold"
     print("figma_extract_rest self-test OK")
 
 
@@ -199,8 +186,7 @@ def main():
         result[key] = {"frameId": fid, "frameName": fname, "frameX": 0,
                         "frameY": 0, "frameW": fab["width"],
                         "frameH": fab["height"], "nodes": nodes,
-                        "clippedText": clipped,
-                        "hygiene": hygiene_walk(doc)}
+                        "clippedText": clipped}
     write_results(result, cfg, args.dry_run)
 
 if __name__ == "__main__":

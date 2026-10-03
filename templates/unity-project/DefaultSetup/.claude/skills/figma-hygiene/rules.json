@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "S-1",
+      "title": "No flat screens",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": true,
+      "fix": "Wrap the screen's root-level art and text in FRAME children so at least one root child is a FRAME.",
+      "eval": {
+        "predicate": "s1-flat.js"
+      }
+    },
+    {
+      "id": "S-2",
+      "title": "No generic frame names",
+      "scope": "screen",
+      "engine": "lint",
+      "blocks": true,
+      "fix": "Rename each node called Frame, Frame N, Group or Group N to a semantic name.",
+      "lint": {
+        "rule": "generic-name"
+      }
+    },
+    {
+      "id": "S-3",
+      "title": "Container- naming",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": true,
+      "fix": "Rename the grouping frame to Container-<Content>, or to another allowed prefix or semantic section name.",
+      "params": {
+        "minChildren": 2,
+        "allowedPrefixes": [
+          "Container-",
+          "Btn-",
+          "Header-",
+          "Row-",
+          "Slot-",
+          "Group-"
+        ],
+        "exemptNames": [
+          "Title",
+          "Top-Bar",
+          "Bottom"
+        ],
+        "exemptContains": [
+          "Scroll"
+        ]
+      },
+      "eval": {
+        "predicate": "s3-container.js"
+      }
+    },
+    {
+      "id": "S-4",
+      "title": "Auto-layout where uniform",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": false,
+      "fix": "Turn the parent of the evenly spaced sibling instances into an auto-layout frame.",
+      "params": {
+        "minSiblings": 2,
+        "spacingTol": 1
+      },
+      "eval": {
+        "predicate": "s4-autolayout.js"
+      }
+    },
+    {
+      "id": "S-5",
+      "title": "Grid where grid",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": false,
+      "fix": "Put the instances that form the NxM pattern under a single container.",
+      "params": {
+        "minRows": 2,
+        "minCols": 2,
+        "alignTol": 1
+      },
+      "eval": {
+        "predicate": "s5-grid.js"
+      }
+    },
+    {
+      "id": "S-6",
+      "title": "Component reuse",
+      "scope": "screen",
+      "engine": "lint",
+      "blocks": false,
+      "fix": "Promote the art or structure repeated three or more times into a component and swap the copies for instances.",
+      "lint": {
+        "rule": "reuse",
+        "options": {
+          "reuse": {
+            "min": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "S-7",
+      "title": "No clip content",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": true,
+      "fix": "Turn clipsContent off, unless the node is a scroll list or a Mask-* frame.",
+      "params": {
+        "allowPattern": "Scroll|^Mask-"
+      },
+      "eval": {
+        "predicate": "s7-clip.js"
+      }
+    },
+    {
+      "id": "S-8",
+      "title": "Popup containment",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": false,
+      "fix": "Move the plate, close button, content and panels into one root-level Container-*Popup frame on column edges, above the bottom safe zone, constraints CENTER/CENTER, clipsContent off.",
+      "params": {
+        "containerPattern": "^Container-.*Popup$",
+        "edgeTol": 1
+      },
+      "eval": {
+        "predicate": "s8-popup.js"
+      }
+    },
+    {
+      "id": "S-9",
+      "title": "No underscores",
+      "scope": "screen",
+      "engine": "lint",
+      "blocks": true,
+      "fix": "Replace underscores in the name with hyphens; only slice_ROW_COL cells keep them.",
+      "lint": {
+        "rule": "name-pattern",
+        "options": {
+          "name-pattern": {
+            "pattern": "^(slice_\\d+_\\d+|[^_ ]+)$"
+          }
+        }
+      }
+    },
+    {
+      "id": "S-10",
+      "title": "Tidy canvas",
+      "scope": "page",
+      "engine": "script",
+      "blocks": true,
+      "fix": "Run tidyCanvas.js with MODE: 'tidy' on the page.",
+      "script": {
+        "file": "tidyCanvas.js",
+        "inject": {
+          "PAGE_ID": "$page",
+          "MODE": "check"
+        },
+        "map": "tidy"
+      }
+    },
+    {
+      "id": "V-1",
+      "title": "9-slice usage",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": false,
+      "fix": "Rebuild the registry-listed plate or frame background as a 9-slice instead of an image fill.",
+      "params": {},
+      "eval": {
+        "predicate": "v1-nine-slice.js"
+      }
+    },
+    {
+      "id": "V-3",
+      "title": "Text style binding",
+      "scope": "screen",
+      "engine": "lint",
+      "blocks": true,
+      "fix": "Bind the text node to a shared text style.",
+      "lint": {
+        "rule": "text-no-style"
+      }
+    },
+    {
+      "id": "V-4",
+      "title": "Grid style presence",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": true,
+      "fix": "Apply the project's layout grid style to the screen frame.",
+      "params": {},
+      "eval": {
+        "predicate": "v4-grid.js"
+      }
+    },
+    {
+      "id": "V-5",
+      "title": "Concentric radius",
+      "scope": "screen",
+      "engine": "eval",
+      "blocks": false,
+      "fix": "Set the inner shape's corner radius to max(0, r_outer - d) within 1 px.",
+      "params": {
+        "tol": 1,
+        "containTol": 0.5,
+        "exemptMaskedPrefix": "Mask-"
+      },
+      "eval": {
+        "predicate": "v5-concentric.js"
+      }
+    }
+  ]
+}

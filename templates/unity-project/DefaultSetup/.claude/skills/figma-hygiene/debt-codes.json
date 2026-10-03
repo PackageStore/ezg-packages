@@ -1,0 +1,32 @@
+{
+  "codes": [
+    {
+      "code": "remote-library",
+      "meaning": "Node is in a remote library component, so we cannot change it."
+    },
+    {
+      "code": "art-group",
+      "meaning": "Imported art group kept as one unit."
+    },
+    {
+      "code": "mixed-font",
+      "meaning": "Text with mixed styles cannot bind one text style."
+    },
+    {
+      "code": "no-registry",
+      "meaning": "No registry entry exists yet."
+    },
+    {
+      "code": "pinned-geometry",
+      "meaning": "Geometry is pinned to its source and must not move."
+    },
+    {
+      "code": "designer-intent",
+      "meaning": "The designer confirmed the deviation."
+    },
+    {
+      "code": "other",
+      "meaning": "Anything else. It needs issue."
+    }
+  ]
+}

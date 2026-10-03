@@ -27,9 +27,12 @@ visual diff).
    arrive stringified — `JSON.parse` before indexing (P-9).
 2. **Gate this screen** and read the numbers from `verify_report.json` (`art_max`,
    `text_max`, `unmapped`, `font_violations`, `style_violations`, `rows`).
-3. **Hygiene.** Confirm no flat screen (at least one `Container-`/section frame,
-   never `Frame N`); copy the grouping shape from a sibling screen that already
-   passes, read from its `figma_extract_<sibling>.json`.
+3. **Hygiene.** Run the audit engine on the frame. It exits 0 when no blocking
+   rule (D-3: S-1, S-2, S-3, S-7, S-9, S-10, V-3, V-4) has a kept finding; warn
+   rules (S-4, S-5, S-8, V-1) are listed but do not fail. Exit 1 = blocking
+   findings, 2 = usage/config/debt-file error, 3 = bridge unreachable. Fix the
+   findings in Figma; copy the grouping shape from a sibling screen that already
+   passes if S-1/S-3 fails.
 4. **Visual diff.** Render both sides into `<data>/diff/`: the Figma frame via
    `exportAsync {format:'PNG', constraint:{type:'SCALE', value:1}}` →
    `diff/figma_<key>.png`; the PSD composite cropped to `[−dx, 0, frame.w, frame.h]`
@@ -43,6 +46,9 @@ FIGMA_TOKEN=... python3 <scripts>/figma_extract_rest.py --data-dir <data> --keys
 # MCP fallback:
 python3 <scripts>/figma_extract_gen.py --data-dir <data> --keys <key>
 python3 <scripts>/figma_extract_save.py --data-dir <data> --in <result.json>
+# Hygiene (live file, through the bridge):
+node <skills>/figma-hygiene/scripts/audit.mjs --project tools/figma-audit/project.json \
+  --screens <frame> --fail-on block
 # Gate and visual diff:
 python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --screen <key> --json
 python3 <scripts>/visual_diff.py --data-dir <data> --screen <key>
@@ -58,6 +64,7 @@ in step 4 and writes only `diff/diff_<key>.png`; a known screen with no `diff_re
 
 ## Acceptance
 
+- `audit.mjs --screens <frame> --fail-on block` exits 0.
 - `unmapped: 0`, `art_max: 0.00`, `text_max ≤ 2.00`, `font_violations: 0`,
   `style_violations: 0` for this screen.
 - Every visual-diff region with `max > 40` or `mean > 4` has a named cause

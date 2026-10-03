@@ -24,8 +24,10 @@ FIGMA_TOKEN=... python3 <scripts>/figma_extract_rest.py --data-dir <data>
 python3 <scripts>/figma_extract_gen.py --data-dir <data>          # no filter = all frames
 python3 <scripts>/figma_extract_save.py --data-dir <data> --in <result.json>
 # Gate:
-python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --json [--hygiene-strict] [--learn-ids]
+python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --json [--learn-ids]
 python3 <scripts>/verify_figma_vs_psd.py --selftest
+# Hygiene (needs the bridge connected; <frame> is the Figma frame name):
+node .claude/skills/figma-hygiene/scripts/audit.mjs --project tools/figma-audit/project.json --screens <frame> --fail-on block
 ```
 
 - No `--screen`: gates every screen; exits 0 only when the bar is met and no
@@ -39,9 +41,18 @@ python3 <scripts>/verify_figma_vs_psd.py --selftest
   PASS/FAIL/EXC_PASS/EXC_FAIL/UNMAPPED), plus top-level `missing` and `exit`.
 - `--selftest` runs the recipe resolver's unit checks and exits without reading
   data.
-- `--hygiene-strict` exits 1 when any screen has a non-empty S-2/S-7/S-9/V-3
-  list in the hygiene block. V-5 (concentric radius) is warn-only and never
-  changes the exit code.
+- The gate passes only when the numeric gate exits 0 **and** `audit.mjs
+  --fail-on block` exits 0. Audit exit codes: 0 policy passed; 1 blocking
+  findings; 2 usage, config or debt-file error; 3 bridge unreachable or no file
+  matches. Blocking rules are the `blocks: true` rows in
+  `figma-hygiene/rules.json`; warn-only rows never change the exit code. Debt
+  lives in `tools/figma-audit/debt/<fileKey>.json`.
+- `audit.mjs` targets frames by Figma frame name on the project's screens page
+  (`--screens`), not by the `screens.json` keys the numeric gate uses.
+- Known limit: the audit needs the Figma bridge connected, while the REST
+  extract needs only `FIGMA_TOKEN`. A token-only CI run cannot gate hygiene.
+  `pipeline.py` has no hygiene stage (its stages are offline); adding one is a
+  follow-up.
 - `--learn-ids` writes `node_ids_<key>.json` for every screen whose extract
   paired by geometry; run once a screen passes so renames never break the gate.
 

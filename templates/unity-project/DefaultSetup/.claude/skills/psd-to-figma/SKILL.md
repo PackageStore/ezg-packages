@@ -65,7 +65,7 @@ brief carrying its inputs, exact commands, acceptance, traps and hand-off.
 | Plan | `briefs/screen-build.md` | `build_plan_gen.py --keys <key>` |
 | Build | `briefs/screen-build.md` | `figma_build_gen.py --key <key>` (wraps the `figma-build` skill) → `use_figma` → `figma_build_save.py` |
 | Extract | `briefs/screen-verify.md` | `figma_extract_rest.py` (`FIGMA_TOKEN`) or `figma_extract_gen/save` |
-| Gate | `briefs/gate.md` | `verify_figma_vs_psd.py --json [--hygiene-strict] [--learn-ids]` |
+| Gate | `briefs/gate.md` | `verify_figma_vs_psd.py --json [--learn-ids]`, then `figma-hygiene/scripts/audit.mjs --project <project.json> --screens <frame> --fail-on block` |
 
 Eight runner stages: `lint`, `manifest`, `export`, `icons`, `borders`, `plan`,
 `extract`, `gate`; `extract` needs `FIGMA_TOKEN`; build is the one MCP step the
@@ -121,7 +121,7 @@ instances, never loose art. Record every component, 9-slice and style through
 ## Verify
 
 The bar is **0.00 px art, 2.00 px text ink, 0 unmapped**, plus zero font/style
-violations and hygiene S-1/S-2/S-7/S-9 clean (`--hygiene-strict`). Gate one
+violations and `audit.mjs` exiting 0 (blocking rules in `figma-hygiene/rules.json`). Gate one
 screen with `verify_figma_vs_psd.py --screen <key>` (repeatable); `--json` writes
 `verify_report.json` — read numbers from it, not the prose. An irreducible
 deviation is pinned in `accepted_debt.json` per `node`+`screen` with a 0.5 px

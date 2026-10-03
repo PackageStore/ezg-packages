@@ -69,7 +69,8 @@ python3 <scripts>/verify_figma_vs_psd.py --data-dir <data> --screen <key> --json
 - Screens page tidy: `tidyCanvas.js` `MODE: 'check'` returns `pass: true`.
 - `unmapped: 0`; art `0.00`; text `≤2.00` or a pin candidate with measured
   values for the gate stage; zero font/style violations.
-- Hygiene S-1/S-2/S-7/S-9 clean in `verify_report.json`.
+- `audit.mjs --screens <frame> --fail-on block` exits 0 (covers S-10 as well as
+  the tidy check above).
 - Every instance target is a live component; no re-uploaded art for a reuse row.
 
 ## Traps
