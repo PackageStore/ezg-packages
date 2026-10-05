@@ -16,6 +16,10 @@ Generate one UI mockup for this project. The `.ui-spec.json` is the single sourc
 ## Procedure
 
 1. Read `.claude/ui-kit/ui-kit.json` and the supplied requirements. Use only kit template names. A template's `usage` note is **binding**, not commentary: it carries the composition rules the geometry cannot show (which parent a template must sit in, what it may contain).
+   Then read the project's art direction, `.claude/docs/ArtStyle.md`, and `Read` the board images it lists under `.claude/docs/ArtStyle/`. The kit tells you *which* templates exist; ArtStyle tells you how the game *looks*. It is binding the same way:
+   - every `color` in the spec is an ArtStyle palette token (write the hex, and name the token in `assumptions[]` when it is not obvious); every `fontSize` sits on its type table. Never invent a hex. A needed colour with no token → use the nearest token and log it in `assumptions[]`;
+   - follow its layout rules (where close/back sits, popup vs full-screen, the offer-popup family) and never draft anything in its "rejected directions" section;
+   - style is not a `questions[]` topic — ArtStyle answers it. Missing file or `Status: template` → draft from the kit only and record `assumptions[]: "ArtStyle.md chưa điền — màu/chữ theo kit, cần dev duyệt"`.
 2. Build a v1 spec following `.claude/docs/ui-spec-schema.json`:
    - `specVersion: 1`, resolution `[1080,1920]`, and `contentRoot` (`content` for Popup, `Mid` for FullScreen).
    - Mirror Unity containment. Every non-template-owned element must descend from `contentRoot`; mark only title/close/template chrome as `baseChrome: true`.

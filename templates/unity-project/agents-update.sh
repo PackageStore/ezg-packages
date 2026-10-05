@@ -10,6 +10,8 @@
 #   - project-profile.json and .mcp.json — seeded once, then owned by the project.
 #     The list is READ FROM the builder (DEFAULT_SETUP_PRESERVE) rather than copied
 #     here, so the two can never disagree about what is seed-once.
+#   - .claude/docs/ArtStyle.md (+ docs/ArtStyle/) — the project's own art direction; the
+#     template ships only the empty frame docs/ArtStyle.template.md, which bootstrap copies once.
 #   - anything outside `.claude/` and the `.agents/` link view.
 #
 # Files the template no longer ships are REPORTED, not deleted: a project may have
@@ -115,6 +117,9 @@ while IFS= read -r -d '' dst_file; do
   case "$rel_claude" in
     ui-kit/ui-kit.json|ui-kit/ui-kit.css|ui-kit/kit-preview.html|ui-kit/ui-kit-usage.json) continue ;;
     tmp/*|state|state/*|__pycache__/*|*/__pycache__/*) continue ;;
+    # Project-owned art direction: the template ships only docs/ArtStyle.template.md, so the
+    # filled-in copy (and its generated reference boards) always looks orphaned — never prune it.
+    docs/ArtStyle.md|docs/ArtStyle/*) continue ;;
   esac
   if [ "$PRUNE" = "1" ]; then
     run rm -f "$dst_file"

@@ -34,6 +34,8 @@ from that `screen=` hint instead of from `/new-ui` Workflow args.
 
 **Prerequisite:** `.claude/ui-kit/ui-kit.json` exists and is current — `python3 .claude/scripts/ui-kit-sync.py --check` (exit 1 = regenerate with the same script minus `--check`; lifecycle in skill `ui-kit`). New drafts also produce sibling `<Screen>.ui-spec.json`; the task contract deliberately remains the `.html`/`.png` `groundTruth` states above.
 
+**Art direction:** `.claude/docs/ArtStyle.md` (palette tokens, kit, type table, layout rules, rejected directions) — `mockup-drafter` and the dashboard's regenerate prompt both read it, so a mockup never invents a colour. Missing or `Status: template` → drafts still run but say so in `assumptions[]`; fill it in (its § Bootstrap) before trusting the look.
+
 ## Invocation
 
 - **Automatic** — `/planning-task` / `/planning-system` run drafting + auto-approve inline after writing planning tasks. Nothing to do.
@@ -86,7 +88,7 @@ No Chrome → ask the dev to open the HTML at 100% zoom, screenshot to the sibli
 
 ## STEP 4 — Dev review / edits (only when needed)
 
-Run `python3 .claude/scripts/ui-review.py serve` and hand the printed URL to the dev. The dashboard (styled per `.claude/docs/design-style/`) is token-protected, loopback-only, and shows ONLY screens that still need a human: it renders each 1080×1920 preview in-page, surfaces the drafter's `questions[]` as pickable options (⚡ options carry deterministic JSON patches applied server-side without AI), `assumptions[]` collapsible, and a free-text edit box per screen.
+Run `python3 .claude/scripts/ui-review.py serve` and hand the printed URL to the dev. The dashboard (its own look is `.claude/docs/design-style/` — the review tool's, not the game's) is token-protected, loopback-only, and shows ONLY screens that still need a human: it renders each 1080×1920 preview in-page, surfaces the drafter's `questions[]` as pickable options (⚡ options carry deterministic JSON patches applied server-side without AI), `assumptions[]` collapsible, and a free-text edit box per screen.
 
 - **⚡ Apply choices** — hash-checked, patches the authoritative spec, re-renders, re-validates. No AI.
 - **✦ AI Regenerate** — free-form visual requests spawn the bounded headless `claude -p` (scoped `Edit(TechSpec/Mockups/**)` under `--permission-mode default`, git-diff containment proof, live progress + ✕ Huỷ). Requests are durably queued in `TechSpec/Mockups/_regen-queue.jsonl` first.

@@ -65,7 +65,7 @@ foreach ($candidate in @("py", "python3", "python")) {
 if (-not $py) { Write-Fail "no working Python on PATH - install Python 3.9+ (or disable the Store alias) and re-run." }
 
 # --- 1. link view -----------------------------------------------------------
-Write-Host "[1/4] Link view" -ForegroundColor Cyan
+Write-Host "[1/5] Link view" -ForegroundColor Cyan
 $syncScript = Get-ChildItem -Path $ScriptDir -Filter "sync-to-*.ps1" -File -ErrorAction SilentlyContinue |
               Select-Object -First 1
 if ($syncScript) {
@@ -81,7 +81,7 @@ Write-Host ""
 # `git init`-ed yet cannot have one. A project generated from the base template is
 # exactly that case, and initialising is the only sensible answer - an empty repo
 # with no commits and no remote is trivially undone (remove the .git folder).
-Write-Host "[2/4] Git repository" -ForegroundColor Cyan
+Write-Host "[2/5] Git repository" -ForegroundColor Cyan
 git rev-parse --git-dir 2>&1 | Out-Null
 $isRepo = ($LASTEXITCODE -eq 0)
 if ($isRepo) {
@@ -94,7 +94,7 @@ if ($isRepo) {
 Write-Host ""
 
 # --- 3. backlog -------------------------------------------------------------
-Write-Host "[3/4] Backlog" -ForegroundColor Cyan
+Write-Host "[3/5] Backlog" -ForegroundColor Cyan
 if ($py -and $isRepo) {
     & $py (Join-Path $ScriptDir "backlog-ops.py") init | Out-Null
     if ($LASTEXITCODE -ne 0) {
@@ -114,7 +114,7 @@ Write-Host ""
 # the developer should produce and review deliberately. Neither case is fatal -
 # a project without UI prefabs is a perfectly good state, and bootstrap that
 # reports INCOMPLETE for it would train everyone to ignore the exit code.
-Write-Host "[4/4] UI kit" -ForegroundColor Cyan
+Write-Host "[4/5] UI kit" -ForegroundColor Cyan
 $kitSync = Join-Path $ScriptDir "ui-kit-sync.py"
 $kitState = ""
 if ($py) {
@@ -136,6 +136,36 @@ switch ($kitState) {
     "stale"        { Write-Host "  WARN kit is out of date (see next steps)" -ForegroundColor Yellow }
     ""             { Write-Host "  WARN could not read the kit state (needs python3)" -ForegroundColor Yellow }
     default        { Write-Host "  WARN kit state: $kitState (see next steps)" -ForegroundColor Yellow }
+}
+Write-Host ""
+
+# --- 5. Art style -----------------------------------------------------------
+# ArtStyle.md is OWNED BY THE PROJECT (its palette, kit, rejected directions) and is
+# never shipped by the template - only ArtStyle.template.md is, so a template update
+# can never overwrite a filled-in style guide. Copy the frame when the project has
+# none; an unfilled one is a next-step note, not a failure.
+Write-Host "[5/5] Art style" -ForegroundColor Cyan
+$docsDir = Join-Path (Split-Path -Parent $ScriptDir) "docs"
+$artDoc = Join-Path $docsDir "ArtStyle.md"
+$artTemplate = Join-Path $docsDir "ArtStyle.template.md"
+$artState = ""
+if (Test-Path $artDoc) {
+    if (Select-String -Path $artDoc -Pattern '^\*\*Status:\*\* template' -Quiet) {
+        $artState = "template"
+        Write-Host "  WARN ArtStyle.md is still the empty frame (see next steps)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  OK  ArtStyle.md present" -ForegroundColor Green
+    }
+} elseif (Test-Path $artTemplate) {
+    try {
+        Copy-Item $artTemplate $artDoc -ErrorAction Stop
+        $artState = "template"
+        Write-Host "  NEW ArtStyle.md created from the template" -ForegroundColor Yellow
+    } catch {
+        Write-Fail "could not create ArtStyle.md"
+    }
+} else {
+    Write-Host "  --  no ArtStyle.template.md in this setup - skipped"
 }
 Write-Host ""
 
@@ -169,6 +199,11 @@ if ($LASTEXITCODE -eq 0) {
 if ($kitState -and $kitState -notin @("fresh", "no-templates", "missing")) {
     Write-Host "  - [ACTION] UI kit needs regenerating: python3 .agents/scripts/ui-kit-sync.py" -ForegroundColor Yellow
     Write-Host "    (it is generated from the screen templates - see .agents/skills/ui-kit/SKILL.md)"
+}
+
+if ($artState -eq "template") {
+    Write-Host "  - [ACTION] Fill in .claude/docs/ArtStyle.md (palette, UI kit, layout, fonts) - every visual" -ForegroundColor Yellow
+    Write-Host "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
 }
 
 Write-Host "  - Queue work with /planning-task then /add-to-backlog, and run it with /run-backlog."

@@ -27,6 +27,8 @@ How the image reaches each mode:
 | **Interactive** | User pastes/attaches the image in chat when invoking `/new-ui` — already in session context. If they give a file path, `Read` it once at the start so it is loaded, not just named. |
 | **Autonomous (`/run-backlog`)** | No live chat. Image must exist as a file in the repo — normally the approved mockup `TechSpec/Mockups/<F>/<S>.png`, recorded at planning time in the task's `**Workflow args:**` as `<Feature> \| groundTruth=<path>`. Orchestrator passes that path as `groundTruth` to `ui-visual-reviewer`, which `Read`s it before comparing (see that agent's Step 1). `groundTruth=clone:<Prefab>` or no image → the §0c spec-sheet (extracted from that existing prefab) is the ground truth. |
 
+**Art direction — `.claude/docs/ArtStyle.md`, read it before any reference hunt** (+ `Read` the board images it lists under `.claude/docs/ArtStyle/`). An approved mockup / artist PSD outranks it; everything else ranks below it: its palette tokens, type table, kit and layout rules (close/back position, popup vs full-screen, offer-popup family, rejected directions) beat colours and font sizes copied from an old prefab — an old prefab supplies **geometry only**. Missing or `Status: template` → run its § Bootstrap first (rule `art-style`).
+
 **No reference supplied** → find one existing prefab of the same layout kind (Popup vs Full-screen, same content type — item-preview list, purchase pack, etc.) under `<featuresRoot>/*/Resources/`, and inspect it live with `unity_prefab_info` + `unity_component_get_properties` to extract **real numbers**: sizes, `m_AnchoredPosition`, spacing between siblings, `m_FontSize`, colors. These real numbers are the raw material for the §0c spec-sheet — they replace vague "match existing conventions" with numbers the agent copies instead of guesses.
 
 ### 0b. Branch by name suffix
@@ -70,7 +72,7 @@ Inspect the base template live first (`unity_select_instance` if multiple instan
 
 Whatever the ground-truth source, distill it into a **spec-sheet** before the first Unity call: one row per element; every later property write copies its numbers from here. The image (if any) stays the *visual* truth checkpoints are graded against; the sheet is the *numeric* truth the build executes.
 
-| Element | Parent (container per §3c) | Template (§3d) | Anchor preset | Size px | Position px | Font px | Color |
+| Element | Parent (container per §3c) | Template (§3d) | Anchor preset | Size px | Position px | Font px | Color (ArtStyle token) |
 |---------|----------------------------|----------------|---------------|---------|-------------|---------|-------|
 
 - **From an approved v1 mockup** (preferred) — copy directly from sibling `.ui-spec.json`; generated HTML embeds identical JSON and validation rejects drift. The PNG is only the visual truth for checkpoint grading.
@@ -258,7 +260,7 @@ Màn xếp nhiều khối nội dung mà mỗi khối cần một tiêu đề (l
 - **Khoảng cách của list cha:** pill nhô 30px lên trên frame, nên container xếp các khối phải có `spacing ≥ 40` và `padding.bottom ≥ 30`. Spacing chật là title đè lên khối phía trên (validator warn `section_parent_gap` / `section_padding_top`).
 - Verify: mọi khối có tiêu đề đều carry `m_SourcePrefab` `FrameTemplateInside`; pill là instance `ButtonTitleTemplate` với `ignoreLayout = true`; `TitleText` có `LocalizesUI` + key đã đăng ký; không `Image` nào bị recolor tay để giả frame. Mẫu chuẩn: `StageOverview.prefab` (`Popup/content/ScrollView/Viewport/Content`, 4 khối), `DungeonGuide.prefab` (`FullScreen/Mid/pageArea/pageScroll/Viewport/Content`, 3 khối).
 
-Match existing UI conventions (or the §0c spec-sheet numbers).
+Match `.claude/docs/ArtStyle.md` (palette tokens, kit, type table) and the §0c spec-sheet numbers.
 
 ### 3e. Positioning strategy — layout-group-first (critical for visual quality)
 
@@ -354,6 +356,7 @@ Legacy tasks without `specVersion: 1` do not require this report.
 | **Localize** | Mọi STATIC label có `LocalizesUI` + `LangKey` đăng ký (tái dụng key generic khi có; title = `#[featurename]_title`); mọi DYNAMIC label KHÔNG có `LocalizesUI` (§3b). Không node nào gắn 2 component. **Ngoại lệ:** nhãn cheat trong `CheatMenu/Menu` là dev-only → KHÔNG localize. |
 | **Spec-sheet gate** | Spec-sheet existed before the first Unity mutation (§0c); interactive: user approved it at Checkpoint 0 (§0d). |
 | **Layout groups** | Every row/column/grid of ≥2 siblings is driven by a layout group with spec-sheet spacing/padding (§3e) — no hand-spaced sibling chains. |
+| **ArtStyle** | Every colour is an `ArtStyle.md` palette token, every font size on its type table, frames/buttons/close from its kit table, layout per its rules, nothing from its rejected-directions table (§0a). An approved mockup / artist PSD that disagrees wins — record it at §0d. |
 | **Pinned view** | Every checkpoint screenshot was taken at the pinned 1080×1920 Game view (playbook §0). |
 | **v1 evidence** | `.ui-build-report.json` validates against current spec/kit hashes and `.ui-visual-diff.json`; `.unity.png` is clean 1080×1920; structural, visual, localization all `pass`; missing references = 0. |
 | **Package branch** | Prefab is still a **Variant** of `PackageTemplate.prefab` (Variant Parent populated); `Popup/content/PurchaseTemplate/PurchaseTemplateController` wired into `_purchase` (not stale/null); IAP product id resolves against `pack_id` in `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv` (not the legacy `Assets/Csv/Collection/Packages/…`). |

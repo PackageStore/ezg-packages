@@ -141,6 +141,10 @@ Nếu chỉ muốn cài lẻ (không vào bộ mặc định) thì đích là
 Rà lại trước khi commit: bỏ `.DS_Store`, `settings.local.json`, path tuyệt đối của máy, secret,
 tên project riêng. Thứ này sẽ chạy trên máy người khác.
 
+**Không bao giờ đẩy `.claude/docs/ArtStyle.md` hay `.claude/docs/ArtStyle/`** — đó là art style riêng của
+game (palette, kit, hướng đã loại). Bộ dùng chung chỉ ship khung `ArtStyle.template.md`; đẩy bản của một
+game lên là mọi project khác bị bám nhầm style.
+
 ---
 
 ## STEP 4 — Commit + push (đây là bước deploy)

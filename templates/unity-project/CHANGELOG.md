@@ -4,6 +4,29 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-05
+
+Mỗi game giờ có một nguồn chuẩn art style, `.claude/docs/ArtStyle.md`, và mọi skill/agent ra quyết định
+hình ảnh đọc nó trước khi chọn màu, sprite, bố cục hay sinh art. Trước đây agent tự suy style từ tên game
+và từ "màn gần nhất", nên rework hay lệch style và màn lệch lại thành mẫu cho màn sau.
+
+**Added**
+- `docs/ArtStyle.template.md` — khung điền art style: palette token, kit UI, bố cục, chữ, icon/hero art
+  (kèm prompt AI nền), motion, màn mẫu, hướng đã bị loại, § Bootstrap để agent rút bản nháp từ art có sẵn.
+  Template chỉ ship khung; `ArtStyle.md` là file **của project** và không bao giờ bị cập nhật ghi đè.
+- `rules/art-style.md` — mọi quyết định visual bám ArtStyle.md; phản hồi duyệt/chê của dev ghi vào đó.
+- `scripts/art-style-board.py` — dựng board ảnh `docs/ArtStyle/*.png` từ thư mục kit khai trong
+  ArtStyle.md (đọc được cả PSD qua `psd-tools`), để agent nhìn thấy house style.
+- `bootstrap.sh` / `bootstrap.ps1` bước 5/5 — copy khung thành `ArtStyle.md` khi project chưa có, nhắc dev điền.
+
+**Changed**
+- `refactor-ui`, `create-ui`, `new-ui-guide`, `mockup-drafter`, `ui-visual-reviewer` (thêm tiêu chí "khớp
+  ArtStyle" và cho phép block khi vi phạm), `/gen-icon` (dùng prompt style của project thay vì prompt
+  sticker cố định), `/ui-mockup`, `ui-review.py` (prompt regenerate), `psd-to-feature` (font khoá theo
+  ArtStyle thay vì `TiltWarp2` viết cứng), design-pipeline 05 — đều đọc ArtStyle.md.
+- `agents-update.sh` không coi `docs/ArtStyle.md` + `docs/ArtStyle/` là orphan (`--prune` không xoá);
+  `sync-agent-system.sh` không bao giờ kéo ArtStyle của upstream; catalog AI loại trừ `Docs/ArtStyle`.
+
 ## 2026-09-23
 
 **Fixed**

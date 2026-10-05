@@ -195,19 +195,21 @@ Photoshop là số CHƯA nhân transform), baseline `ty`, và màu từng run.
   level 20). Không thì chữ tràn sang icon/mép thẻ.
 - Layer bẹt không có engine data → đo từ pixel, sai số ~1px vì antialias. Ghi rõ trong comment
   con số nào lấy từ PSD, con số nào đo tay.
-- **Font: KHÓA Ở `TiltWarp2 SDF`** — guardrail `[FONT]`, chốt user 2026-08-20, chi tiết trong
-  `.claude/rules/code-style.md`. Report `--text` ra tên font gì cũng **không import `.ttf/.otf`
-  mới, không tạo TMP font asset mới, không set `fallbackFontAssetTable`**. Dựng bằng TiltWarp2
-  rồi **báo lại user** là mockup dùng font khác — đừng tự thêm font cho giống PSD, cũng đừng
-  xin font trong file order art.
-- Chữ có dấu **không cần font fallback**: `TiltWarp2 SDF` là Dynamic atlas
-  (`m_AtlasPopulationMode: 1`) trỏ về `TiltWarp2.ttf`, ttf phủ đủ 90/90 codepoint
-  `U+1EA0–U+1EF9` + `đ/Đ/ơ/ư/ă/â` → glyph tự bake lúc runtime. Bảng glyph trong `.asset` chỉ
-  có 71 ký tự là **bình thường** (mới bake tới đó), không phải thiếu font.
-- Viền/bóng/gradient theo PSD → **material preset của chính TiltWarp2**, không phải font khác
-  (mẫu sẵn: `…/EndResultPsd/generated/TiltWarp2 SDF - EndResult *.mat` và `TiltWarp2-Num-*.mat`
-  cạnh font asset). Shader phải là `TextMeshPro/Distance Field` — `Mobile/Distance Field` vẽ
-  ra trống trơn, không log lỗi gì.
+- **Font: KHÓA ở font của game ghi trong `.claude/docs/ArtStyle.md` § Chữ** (project gốc của
+  skill khoá `TiltWarp2 SDF`; project khác có font riêng). Report `--text` ra tên font gì cũng
+  **không import `.ttf/.otf` mới, không tạo font asset mới, không set `fallbackFontAssetTable`**.
+  Dựng bằng font đó rồi **báo lại user** là mockup dùng font khác — đừng tự thêm font cho giống
+  PSD, cũng đừng xin font trong file order art. ArtStyle chưa ghi font → dùng font của text
+  template prefab (`uiTemplatesRoot`) và ghi nó vào ArtStyle § Chữ.
+- Font TMP Dynamic atlas (`m_AtlasPopulationMode: 1`, vd `TiltWarp2 SDF`) **không cần font
+  fallback** cho chữ có dấu khi ttf gốc phủ đủ `U+1EA0–U+1EF9` + `đ/Đ/ơ/ư/ă/â` → glyph tự bake
+  lúc runtime. Bảng glyph trong `.asset` ít ký tự là **bình thường** (mới bake tới đó), không phải
+  thiếu font.
+- Viền/bóng/gradient theo PSD → **hiệu ứng của chính font đó**, không phải font khác: TMP →
+  material preset cạnh font asset (vd `TiltWarp2 SDF - EndResult *.mat`), shader phải là
+  `TextMeshPro/Distance Field` — `Mobile/Distance Field` vẽ ra trống trơn, không log lỗi gì;
+  uGUI `Text` → `UIEffect` (Outline) + `Shadow` như text template. Màu viền lấy token trong
+  ArtStyle § Palette.
 - Text hiển thị vẫn phải qua localize ([LOCALIZE]) — nhưng repo **chưa có `LanguageData` nào**,
   nên `GameSystems.Localize(key)` trả `"Common: <key>"` cho MỌI key (kiểm chứng bằng cách gọi
   thẳng hàm đó lúc Play, đừng suy đoán từ prefab: `LocalizeHelper` chỉ ghi đè khi object ACTIVE

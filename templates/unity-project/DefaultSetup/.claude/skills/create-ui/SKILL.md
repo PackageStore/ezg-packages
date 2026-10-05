@@ -18,6 +18,8 @@ Use this skill to choose an existing shared prefab template, instantiate it with
 - `PENDING-MOCKUP` / `PENDING-APPROVAL:*` — the visual contract is NOT approved yet: do not build; route through `/ui-mockup` first (building a screen from a text description alone is the documented main visual-failure mode).
 - No `groundTruth` at all (ad-hoc request outside the backlog) — proceed, but screenshot-verify extra carefully (step 7 below).
 
+**Art direction — `.claude/docs/ArtStyle.md`.** Read it (and `Read` the board images it lists under `.claude/docs/ArtStyle/`) before choosing any colour, font size, sprite or frame. An approved mockup / artist PSD outranks it; without one, ArtStyle IS the visual truth: colours are its palette tokens, buttons/frames/close come from its kit table, text follows its type table, layout follows its rules (close/back position, popup vs full-screen, offer-popup family), and nothing from its rejected-directions table. A visual decision ArtStyle does not cover → pick the closest fit and add it to ArtStyle (rule `art-style`). Missing file or `Status: template` → run that file's § Bootstrap first (copy `.claude/docs/ArtStyle.template.md` when missing).
+
 Read [references/prefab-templates.md](references/prefab-templates.md) before editing when the request depends on choosing a template or understanding a prefab's hierarchy and runtime behavior.
 
 For the **executable layer** — exact Unity MCP tool sequence, property paths (`m_*`), value formats, reference wiring, the screenshot verify loop, and screen registration — follow [references/mcp-playbook.md](references/mcp-playbook.md). This skill decides *what* to build; the playbook is the deterministic *how*. Do not improvise MCP commands when the playbook covers the operation.
@@ -28,7 +30,7 @@ For the **executable layer** — exact Unity MCP tool sequence, property paths (
 2. If the root object should inherit from `FeatureBaseController`, start from `Popup_Template/screen_template` as a prefab variant.
 3. If the request is only for a reusable block inside a screen, choose the closest prefab from `Templates/Templates`.
 4. Assemble the UI by reusing existing prefabs before creating raw GameObjects, following the MCP tool loop in [references/mcp-playbook.md](references/mcp-playbook.md) §1.
-5. Change only the safe surfaces first: text, icon sprites, anchored position, size delta, spacing, padding, colors, child activation, and serialized lists intended for configuration. Use the exact `m_*` property paths and value formats in the playbook §3.
+5. Change only the safe surfaces first: text, icon sprites, anchored position, size delta, spacing, padding, colors, child activation, and serialized lists intended for configuration. Use the exact `m_*` property paths and value formats in the playbook §3. Colours and sprites come from the mockup spec, else from `ArtStyle.md` tokens/kit — never a hex picked by eye.
 6. Wire serialized references (close buttons, `MainUI`, tab toggles) per playbook §4 — a screen renders but stays non-functional until references are wired.
 7. **Screenshot and self-correct** (`unity_screenshot_game`) after each meaningful chunk — playbook §5. Do not declare the UI done without looking at it; building blind is the main failure mode.
 8. Validate the result in hierarchy terms: correct parent, correct anchors, no broken references, dynamic children placed in the intended container, and root feature fields still consistent with `FeatureBaseController` (runnable checks in playbook §9).

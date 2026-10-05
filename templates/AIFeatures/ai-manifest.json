@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
   "description": "Curation cho AI catalog: publish thêm nguồn ngoài, bỏ bớt item, ghi đè metadata. Xem README.md cạnh file này.",
-  "exclude": [],
+  "exclude": [
+    "Docs/ArtStyle"
+  ],
   "sources": {
     "Skills/publish-ai-features": ".agents/skills/publish-ai-features"
   },
@@ -29,6 +31,15 @@
     },
     "Skills/game-vfx": {
       "description": "Quy chuẩn VFX 2D, 3D cho game mobile của team (module Game VFX), dùng cho mọi project: cấp quan trọng, timing, trần ngân sách mobile theo cấp và tier máy, ParticleSystem, stop action và pool, giờ game / giờ thật, sorting, texture, material, tên FX_, pack VFX mua sẵn, hạt trên UI, VFX không frame-by-frame (hạt và shader ăn mòn); dùng thư viện hiệu ứng (FXEffect, shader EZG/VFX/Particle có Erosion, UV Scroll, Mask, Ramp); quét VFX cả project tìm nợ (Node 18+). Mang sẵn quy chuẩn và danh mục hiệu ứng có ảnh (docs/ trong skill): cài skill là đọc được luật, không cần cài module. FXEffect và shader chung: tab Unity Packages > EZG Shared > GameVFX (phần lõi, không kèm prefab của thư viện)."
+    },
+    "Docs/ArtStyle.template": {
+      "description": "Khung art style của game (palette token, kit UI, bố cục, chữ, icon/hero art, motion, màn mẫu, hướng đã bị loại). bootstrap copy thành .claude/docs/ArtStyle.md của project — file đó project tự điền, Feature Hub không bao giờ ghi đè. Cài kèm rule art-style + script art-style-board.py."
+    },
+    "Rules/art-style": {
+      "description": "Mọi quyết định hình ảnh (màu, sprite, bố cục, icon/art AI, mockup, review visual) bám .claude/docs/ArtStyle.md của project; phản hồi visual của dev được ghi lại vào đó thay vì memory riêng."
+    },
+    "Scripts/art-style-board.py": {
+      "description": "Dựng board ảnh tham chiếu (.claude/docs/ArtStyle/*.png) từ các thư mục kit khai trong ArtStyle.md — để agent NHÌN được house style, kể cả art dạng PSD. Cần Pillow (+ psd-tools cho PSD)."
     }
   }
 }

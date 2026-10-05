@@ -56,7 +56,7 @@ if [ -z "$PY" ]; then
 fi
 
 # --- 1. link view -----------------------------------------------------------
-note "[1/4] Link view"
+note "[1/5] Link view"
 sync_script=""
 for candidate in "$SCRIPT_DIR"/sync-to-*.sh; do
   [ -f "$candidate" ] && { sync_script="$candidate"; break; }   # first match wins
@@ -73,7 +73,7 @@ note ""
 # `git init`-ed yet cannot have one. A project generated from the base template is
 # exactly that case, and initialising is the only sensible answer — an empty repo
 # with no commits and no remote is trivially undone (`rm -rf .git`).
-note "[2/4] Git repository"
+note "[2/5] Git repository"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   note "  OK  already a git repository"
 else
@@ -83,7 +83,7 @@ fi
 note ""
 
 # --- 3. backlog -------------------------------------------------------------
-note "[3/4] Backlog"
+note "[3/5] Backlog"
 if [ -n "$PY" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   "$PY" "$SCRIPT_DIR/backlog-ops.py" init >/dev/null || fail "backlog-ops.py init failed"
   BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"
@@ -99,7 +99,7 @@ note ""
 # the developer should produce and review deliberately. Neither case is fatal —
 # a project without UI prefabs is a perfectly good state, and bootstrap that
 # reports INCOMPLETE for it would train everyone to ignore the exit code.
-note "[4/4] UI kit"
+note "[4/5] UI kit"
 KIT_STATE=""
 if [ -n "$PY" ]; then
   KIT_STATE="$("$PY" "$SCRIPT_DIR/ui-kit-sync.py" --check 2>/dev/null \
@@ -118,6 +118,29 @@ case "$KIT_STATE" in
   "")           note "  WARN could not read the kit state (needs python3)" ;;
   *)            note "  WARN kit state: $KIT_STATE (see next steps)" ;;
 esac
+note ""
+
+# --- 5. Art style -----------------------------------------------------------
+# ArtStyle.md is OWNED BY THE PROJECT (its palette, kit, rejected directions) and is
+# never shipped by the template — only ArtStyle.template.md is, so a template update
+# can never overwrite a filled-in style guide. Copy the frame when the project has
+# none; an unfilled one is a next-step note, not a failure.
+note "[5/5] Art style"
+DOCS_DIR="$(cd "$SCRIPT_DIR/../docs" 2>/dev/null && pwd)"
+ART_STATE=""
+if [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/ArtStyle.md" ]; then
+  if grep -q '^\*\*Status:\*\* template' "$DOCS_DIR/ArtStyle.md"; then
+    ART_STATE="template"; note "  WARN ArtStyle.md is still the empty frame (see next steps)"
+  else
+    note "  OK  ArtStyle.md present"
+  fi
+elif [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/ArtStyle.template.md" ]; then
+  cp "$DOCS_DIR/ArtStyle.template.md" "$DOCS_DIR/ArtStyle.md" \
+    && { ART_STATE="template"; note "  NEW ArtStyle.md created from the template"; } \
+    || fail "could not create ArtStyle.md"
+else
+  note "  --  no ArtStyle.template.md in this setup — skipped"
+fi
 note ""
 
 # --- what the project still owes --------------------------------------------
@@ -150,6 +173,11 @@ case "$KIT_STATE" in
   *) note "  - [ACTION] UI kit needs regenerating: python3 .agents/scripts/ui-kit-sync.py"
      note "    (it is generated from the screen templates — see .agents/skills/ui-kit/SKILL.md)" ;;
 esac
+
+if [ "$ART_STATE" = "template" ]; then
+  note "  - [ACTION] Fill in .claude/docs/ArtStyle.md (palette, UI kit, layout, fonts) — every visual"
+  note "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
+fi
 
 note "  - Queue work with /planning-task then /add-to-backlog, and run it with /run-backlog."
 note ""

@@ -31,6 +31,7 @@ Nhận Architecture doc (từ [04-feature-analysis.md](04-feature-analysis.md)) 
 4. **Kiểm tra Coverage & UX/UI (Bắt buộc khi có GDD gốc):**
    - Đối chiếu các con số cụ thể trong Tech Spec với GDD gốc.
    - Nếu GDD gốc có section mô tả Visual, Audio → tạo **Section 11. UX/UI Notes** trong TechSpec và liệt kê các yêu cầu visual/audio/animation theo format bảng.
+   - Yêu cầu visual đối chiếu với `.claude/docs/ArtStyle.md` (palette, kit, bố cục, hướng đã loại): khớp → ghi tham chiếu section ArtStyle thay vì chép lại; mâu thuẫn → `[DECISION NEEDED]`, không tự chọn bên nào.
 
 5. **Lưu kết quả Technical Spec:**
    - Dùng công cụ `Write` để lưu bản Specification hoàn chỉnh vào **đúng đường dẫn cố định**: `TechSpec/[FeatureName]-TechSpec.md` (KHÔNG đổi thư mục/tên — stage sau parse theo đường dẫn này).

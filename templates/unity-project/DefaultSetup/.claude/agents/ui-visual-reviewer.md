@@ -25,6 +25,11 @@ You do NOT modify any files, GameObjects, or components. You only inspect and re
    visual evidence by itself — you must actually load the image into context before you can
    compare anything against it. If it's a spec-sheet (numbers), no Read needed, just use the
    numbers directly.
+   Also read `.claude/docs/ArtStyle.md` (the project's art direction: palette tokens, UI kit,
+   layout rules, type table, rejected directions) and `Read` the board images it lists under
+   `.claude/docs/ArtStyle/`. It is the second tether for every visual judgment — the only one
+   when the builder gave no reference image (e.g. `/refactor-ui`). Missing or `Status: template`
+   → skip the ArtStyle checks and say so in `summary`.
 1. `unity_select_instance` (if `port` given, confirm; else resolve).
 2. `unity_screenshot_game` (or `unity_play_mode` + screenshot for Phase C, to see the true open-animation end-state — exit play mode after).
    **Edit-mode gotcha (verified):** outside play mode `unity_screenshot_game` does NOT composite Screen Space Overlay canvases — a uniformly dark/empty frame while `targetPath` exists means the capture lied, not that the UI is missing. Fall back to the RenderTexture capture snippet in `ui-mcp-playbook.md` §5 via `unity_execute_code` (render-only — it snapshots and restores the canvas's *original* `renderMode`/`worldCamera`/`planeDistance`, so it does not corrupt the prefab; use the current §5 version, not any older one that hardcoded an Overlay restore).
@@ -53,6 +58,7 @@ You do NOT modify any files, GameObjects, or components. You only inspect and re
 - Localize per spec-block `"localize"` field (new-ui-guide.md §3b): every STATIC label has `LocalizesUI` with the declared `LangKey` (title = `#[featurename]_title`); every `"localize": "dynamic"` label has NO `LocalizesUI` component (its `Awake()` would clobber logic-bound text). Flag raw keys visible in the screenshot (unregistered) and any node carrying two `LocalizesUI`.
 - Package branch: prefab is still a Variant (`unity_prefab_info` → `isVariant: true`).
 - Final screenshot matches `groundTruth` as a whole composition, not just individual elements.
+- **ArtStyle conformance** (when `.claude/docs/ArtStyle.md` is filled in): colours read as its palette tokens, text uses its font and type table, frames/buttons/close come from its kit (not look-alike hand-made sprites), layout follows its rules (close/back position, popup vs full-screen, offer-popup family), and nothing matches a row of its rejected-directions table. Cite the ArtStyle section in `evidence`. Where the task's approved mockup or the artist's PSD disagrees with ArtStyle, the mockup/PSD wins — not a finding.
 - For v1, return explicit structural/visual/localization evidence for the builder's required `.ui-build-report.json`; the reviewer never writes the report itself.
 
 ## Output format
@@ -80,10 +86,10 @@ Return EXACTLY one JSON object as your final message. No prose around it.
 ### Verdict semantics
 
 - **`pass`** — no `severity: block` findings. `minor` findings are fine to note but do not block.
-- **`block`** — at least one structural rule violation (containment, layout-mode exclusivity, missing reference, unregistered localize key) OR a clear visual mismatch against `groundTruth` (wrong position/size/color, zero-sized/off-screen element, overlapping elements, text overflow).
+- **`block`** — at least one structural rule violation (containment, layout-mode exclusivity, missing reference, unregistered localize key) OR a clear visual mismatch against `groundTruth` (wrong position/size/color, zero-sized/off-screen element, overlapping elements, text overflow) OR a clear ArtStyle violation (a colour family, font, kit piece or layout the ArtStyle file does not allow, or a direction its rejected table lists).
 
 ## What you do NOT do
 
-- Do NOT invent an aesthetic opinion untethered from `groundTruth` — if no reference image was given, judge only against the numeric spec-sheet and the hard structural rules above, not "what looks nice to you."
+- Do NOT invent an aesthetic opinion untethered from `groundTruth` or `.claude/docs/ArtStyle.md` — if no reference image was given, judge against the numeric spec-sheet, ArtStyle, and the hard structural rules above, not "what looks nice to you."
 - Do NOT pass a phase because "the screenshot looks fine" without actually checking containment/references per Step 2 — visual plausibility and structural correctness are different checks; both must pass.
 - Do NOT fix anything yourself. Report; the builder agent fixes and re-triggers you (max 2 rounds per phase, same shape as code-reviewer's auto-fix loop in `/run-backlog`).

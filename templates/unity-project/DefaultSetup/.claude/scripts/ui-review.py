@@ -663,6 +663,7 @@ def regen_prompt(html_rel: str, expected_hash: str, text: str) -> str:
         f"BƯỚC 2 — áp dụng yêu cầu của human bằng cách CHỈ sửa file {spec_rel} qua tool Edit (TUYỆT ĐỐI không sửa tay HTML). "
         f"Yêu cầu của human: {json.dumps(text, ensure_ascii=False)}. "
         f"Quy tắc: chỉ dùng template có trong .claude/ui-kit/ui-kit.json; mọi text phải có localize (#key / dynamic / none); "
+        f"đọc .claude/docs/ArtStyle.md nếu có — màu/cỡ chữ chỉ lấy từ token + bảng chữ trong đó, theo luật bố cục của nó, không vẽ hướng nằm trong bảng đã loại; "
         f"giữ nguyên designResolution 1080×1920. "
         f"QUAN TRỌNG — sau khi áp dụng, XÓA khỏi mảng `questions[]` mọi câu hỏi mà human vừa trả lời (nếu đã trả lời hết thì đặt `questions: []`). "
         f"KHÔNG để lại text literal `[?]` trong bất kỳ element nào — literal `[?]` sẽ CHẶN approval (validator ở mode approve coi là lỗi placeholder). "
