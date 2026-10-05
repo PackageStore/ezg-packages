@@ -24,19 +24,19 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 12
+      "count": 13
     },
     {
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 8
+      "count": 9
     },
     {
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 45
+      "count": 46
     },
     {
       "id": "Skills",
@@ -91,8 +91,8 @@
       "source": "defaultsetup",
       "fileName": "mockup-drafter.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/mockup-drafter.zip",
-      "sha256": "9fadef536f2f755aea88b887fe78a045d719e74f477c86e0684979628636c944",
-      "size": 5358
+      "sha256": "7610543f9ed51a28af204af3ef925e65d837f2031e26cccf857e901644feff76",
+      "size": 5750
     },
     {
       "id": "Agents/performance-reviewer",
@@ -181,8 +181,8 @@
       "source": "defaultsetup",
       "fileName": "ui-visual-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
-      "sha256": "ad7eb5e770d19a8d6392bd91f40946c3401e52dd39fcb6557f3ccd9eb318e741",
-      "size": 4345
+      "sha256": "8890e9035e6f4f9e624d6d84a4a175f7135470d39cf9a71600964b2532f6d439",
+      "size": 4806
     },
     {
       "id": "Commands/add-localize",
@@ -368,7 +368,7 @@
       "id": "Commands/gen-icon",
       "name": "gen-icon",
       "category": "Commands",
-      "description": "Generate a 2D UI game icon in a cute sticker art style",
+      "description": "Generate a 2D UI game icon in the project's art style (ArtStyle.md), falling back to a cute sticker style",
       "installPath": ".claude/commands/gen-icon.md",
       "isDirectory": false,
       "files": [
@@ -379,8 +379,8 @@
       "source": "defaultsetup",
       "fileName": "gen-icon.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gen-icon.zip",
-      "sha256": "8044ece44452e8d0bdb4f9bde9ffc5cfac4d99bf4028ba098184e81c32e82023",
-      "size": 721
+      "sha256": "64cc62ce4e099924dbcf9292bcb9ab50452e51e0cec82e9e65ed84010b44dc1e",
+      "size": 1060
     },
     {
       "id": "Commands/new-class",
@@ -667,8 +667,8 @@
       "source": "defaultsetup",
       "fileName": "ui-mockup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-mockup.zip",
-      "sha256": "abf4cdf5c2a45b06ea83c1d2121716d5ca7b95c9fcdc26d8da174edaedc814a0",
-      "size": 4207
+      "sha256": "18a4df33236f9b2c31eee6b5095b2f88e2c23026d7f8e31b4b7da0a3c9b3d67f",
+      "size": 4394
     },
     {
       "id": "Commands/user-data-rule",
@@ -779,6 +779,24 @@
       "size": 203
     },
     {
+      "id": "Docs/ArtStyle.template",
+      "name": "ArtStyle.template",
+      "category": "Docs",
+      "description": "Khung art style của game (palette token, kit UI, bố cục, chữ, icon/hero art, motion, màn mẫu, hướng đã bị loại). bootstrap copy thành .claude/docs/ArtStyle.md của project — file đó project tự điền, Feature Hub không bao giờ ghi đè. Cài kèm rule art-style + script art-style-board.py.",
+      "installPath": ".claude/docs/ArtStyle.template.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/ArtStyle.template.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ArtStyle.template.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
+      "sha256": "c84ac334bd3561a2625a1e0f6e4e752eebc7fd06ee924d385c24bd7742dea750",
+      "size": 3342
+    },
+    {
       "id": "Docs/design-pipeline",
       "name": "design-pipeline",
       "category": "Docs",
@@ -800,8 +818,8 @@
       "source": "defaultsetup",
       "fileName": "design-pipeline.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip",
-      "sha256": "a466a5d30b166d50c363bd667e15377d97350c8486bddff4067db3eaaf2f684c",
-      "size": 28510
+      "sha256": "fd68fb88ee472e69da8bdb738b71ab21fffae1a622f5eb00886480f35ca18f11",
+      "size": 28609
     },
     {
       "id": "Docs/design-style",
@@ -890,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "new-ui-guide.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
-      "sha256": "1d84152b63f12bf89f895c9eaef2c0caf4102620c3d418a531004769aced4d5b",
-      "size": 17842
+      "sha256": "1a55f4c4524fda11d3c59b2826abc6838e00f4a52dfd636cfd389448f11c9c0a",
+      "size": 18202
     },
     {
       "id": "Docs/planning-task-flow",
@@ -1000,6 +1018,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
       "sha256": "ba3d79fdb1e6cea75ccd4af75affe0587496a5798d1aac251682d07c4cede0dc",
       "size": 2175
+    },
+    {
+      "id": "Rules/art-style",
+      "name": "art-style",
+      "category": "Rules",
+      "description": "Mọi quyết định hình ảnh (màu, sprite, bố cục, icon/art AI, mockup, review visual) bám .claude/docs/ArtStyle.md của project; phản hồi visual của dev được ghi lại vào đó thay vì memory riêng.",
+      "installPath": ".claude/rules/art-style.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/art-style.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "art-style.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip",
+      "sha256": "a303d9590b9cf5f7f75fbd283f63b298b416fe5852fe58b6619f50bd5bec4518",
+      "size": 1222
     },
     {
       "id": "Rules/code-style",
@@ -1164,6 +1200,24 @@
       "size": 2662
     },
     {
+      "id": "Scripts/art-style-board.py",
+      "name": "art-style-board.py",
+      "category": "Scripts",
+      "description": "Dựng board ảnh tham chiếu (.claude/docs/ArtStyle/*.png) từ các thư mục kit khai trong ArtStyle.md — để agent NHÌN được house style, kể cả art dạng PSD. Cần Pillow (+ psd-tools cho PSD).",
+      "installPath": ".claude/scripts/art-style-board.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/art-style-board.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "art-style-board.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/art-style-board.py.zip",
+      "sha256": "1d715c5836bd0559e6977b2ca6a901c19c8494c8fc1c5583a8e48e8400656855",
+      "size": 2537
+    },
+    {
       "id": "Scripts/backlog-ops.py",
       "name": "backlog-ops.py",
       "category": "Scripts",
@@ -1268,8 +1322,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
-      "sha256": "97d683e35f85bf2c2de2516bea3d2ac7ce24584945685a44bf1d7de899662c1b",
-      "size": 3441
+      "sha256": "c322e74c910370b868a5d9e1ca0b853b4315197e71a80ae208916061c93d0129",
+      "size": 3891
     },
     {
       "id": "Scripts/bootstrap.sh",
@@ -1286,8 +1340,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
-      "sha256": "56888910f74b2ec73febbef4c0ec215167e70ce055cadb5588448298b76d1cd3",
-      "size": 2938
+      "sha256": "b8094fbf80703f5c07663c9287afa130814fb859269aae1d803ea2d769a55bb0",
+      "size": 3369
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1885,8 +1939,8 @@
       "source": "defaultsetup",
       "fileName": "ui-review.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review.py.zip",
-      "sha256": "d2cfb542d359cc1509a4336e4ffb5698246d27a70962721d777792404e6a521b",
-      "size": 17290
+      "sha256": "17e5ad3cac8f89413bfec342abe232ad347e7f86df127df1b98924872798000d",
+      "size": 17399
     },
     {
       "id": "Scripts/ui-spec-extract.py",
@@ -2170,8 +2224,8 @@
       "source": "defaultsetup",
       "fileName": "create-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-ui.zip",
-      "sha256": "c6444e85cc102b6ac7ba4b97d97df9b0bc8212ed6c1c1995fa824e4e694ba1b9",
-      "size": 21574
+      "sha256": "7d97c8c8729241687a373e5981f90433ba265e6fd80d42ca94c310de6ceec95c",
+      "size": 21916
     },
     {
       "id": "Skills/csv-config",
@@ -2700,8 +2754,8 @@
       "source": "defaultsetup",
       "fileName": "psd-to-feature.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-feature.zip",
-      "sha256": "9049ef3a7ac310c87357c2bd9276166f70b41464d691df422b9a19a17d9b5629",
-      "size": 31243
+      "sha256": "3a596abb3effa66d4364fdad8767b65d10453e0870cf22aaf35a966b16625695",
+      "size": 31304
     },
     {
       "id": "Skills/psd-to-figma",
@@ -2774,8 +2828,8 @@
       "source": "extra",
       "fileName": "publish-ai-features.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip",
-      "sha256": "8b840933c925834e86fe32c4a4076661949bb5657f39ebead0aaaaea90a61a40",
-      "size": 5110
+      "sha256": "1da5ea0b3396872231cbe0e329f3bc9108c5b58631c6eaeb8163bc7b3fb9fffc",
+      "size": 5235
     },
     {
       "id": "Skills/publish-feature",
@@ -2882,8 +2936,8 @@
       "source": "extra",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "5535f2f2309ef23d01023a8f1ec361419bb3b6abd2d77f7eb5c2096412f73443",
-      "size": 12233
+      "sha256": "c9d85935e3145d5cf504b65f618512daa9e248f7d1ad6170aa7f328fb044963e",
+      "size": 12964
     },
     {
       "id": "Skills/restart-unity",
