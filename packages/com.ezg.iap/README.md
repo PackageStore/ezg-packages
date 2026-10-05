@@ -16,6 +16,8 @@ interfaces (the *seam*) and injected at startup — the package references **no 
 | `Runtime/IPurchasing.cs` | Seam: danh mục product + các Action vòng đời mua |
 | `Runtime/IIapProfile.cs` | Seam: `AccountId`, `IsCheatEnabled`, `RecordPurchase(price)` |
 | `Runtime/IIapReporter.cs` | Seam: `OnPurchaseClick`, `OnPurchaseValidated`, `OnConversionData`, `RequestSync` |
+| `Runtime/IIapOrderLedger.cs` | Seam (tuỳ chọn): sổ giao dịch bền vững chống cấp quà 2 lần khi store giao lại đơn |
+| `Runtime/IIapRestoreListener.cs` | Seam (tuỳ chọn, 0.3.3): nhận kết quả Restore kèm danh sách product, thay cho `OnTransactionRestored` |
 | `Runtime/IapSecurityConfig.cs` | Dữ liệu inject: tangle bytes, AppsFlyer public key, provider giá mặc định |
 | `Runtime/IapPurchaseInfo.cs` | DTO truyền dữ liệu một giao dịch ra game (đã parse khỏi receipt) |
 | `Runtime/AppsFlyerListener.cs` | `IAppsFlyerConversionData` → forward conversion data qua `IIapReporter` |
@@ -66,4 +68,14 @@ and the default-price fallback into `IapSecurityConfig`.
 
 - **Secrets stay out of the package** — tangle bytes + AppsFlyer public key are injected via `IapSecurityConfig`.
 - **Init order:** `Configure()` must run before `Init()` / `Buy()` (guarded by `IsConfigured()`).
+- **Failure reporting:** every purchase that does not reach the store raises `IPurchasing.OnPurchaseFailed(reason)`
+  (`PurchasingUnavailable` / `ProductUnavailable` / `Unknown`) plus the caller's `unSuccess`. A tap while another purchase is
+  running only gets `unSuccess`.
+- **Reconnect:** after `Init()` has been called once, the module reconnects / re-fetches products by itself when the app returns
+  to the foreground and when a purchase or restore is attempted while the store is not ready.
+- **Restore:** the result (`RestoreItem()` then `OnTransactionRestored(bool)`, or `IIapRestoreListener.OnRestoreCompleted`) is
+  reported once, after the store's purchase list has been fetched.
+- **Order recovery:** a pending order whose product is not in the fetched catalog yet is kept pending (never confirmed without a
+  grant); it is granted on the next purchase fetch once the catalog is there. Orders already settled in the session are not
+  granted or reported twice.
 - `k_Environment = "production"` (Unity Services environment) is currently fixed in `InAppManager`.
