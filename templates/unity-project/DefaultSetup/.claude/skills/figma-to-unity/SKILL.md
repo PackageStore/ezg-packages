@@ -20,12 +20,12 @@ component internals.
 | Piece | Where |
 |---|---|
 | Bridge | UPM package `com.ezg.figma-bridge` from the EZG scoped registry. Source: `packages/com.ezg.figma-bridge` in the `ezg-packages` monorepo; a push to its `main` publishes a new version |
-| Window | **Tools > EZG Technical Art > Figma Bridge** (Setup and Token tabs, Sync buttons, Visual Check) |
+| Window | **Tools > EZG Technical Art > Figma Bridge** (bridge 0.8.0+): a Source panel (REST API / Bridge (EZG Tools) tabs inside the panel; only the panel content switches), closed foldouts for the other settings (Output Folders, Pages & Naming, Text, Sprites, Layout & Nine-Slice, Advanced, Other for fields the table does not list), then the import-scope toggles (`OnlyImportSelectedPages`, `ImportSelectionOnly`, `OnlyImportListedScreens`), the page list and the screen/component list, and the action buttons (Sync, Visual Check) |
 | Settings asset | the project's `UnityFigmaBridgeSettings` asset (`t:UnityFigmaBridgeSettings`) |
 | Screen / component / page prefabs | `ScreenPrefabFolder` / `ComponentPrefabFolder` / `PagePrefabFolder` on the settings asset |
 | Image fills | `<ImageFillFolder>/<Figma document name>` |
 | Server renders | next to image fills, by owner and node path (`NameServerRendersByNodePath`, bridge 0.6.1+): `<ImageFillFolder>/<Figma document name>/Components/<component>/`, `Screens/<screen>/` or `Shared/`. A render outside the imported pages keeps `<AssetsRootFolder>/ServerRenderedImages/<node id>.png` (`:` becomes `_`) |
-| Cached document | `Assets/FigmaOutput.json`, written by every online Sync |
+| Cached document | `Assets/FigmaOutput.json`, written by every online sync |
 | Visual check output | `Library/FigmaVisualCheck/<prefab name>/` |
 
 Bridge changes belong in the package source (with a version bump), never in
@@ -65,8 +65,18 @@ no pattern matching. Editor state JSON has no space after colons
 
 `FigmaAccessToken.Read()` (`Editor/Utils/FigmaAccessToken.cs`) reads the
 personal access token from Unity `PlayerPrefs` on this machine. Set it in the
-window's **Token** tab. It is never written into the settings asset (a
-ScriptableObject under version control) and never logged.
+Connection block's REST fields (token field plus Save). Only the Rest source
+needs it. It is never written into the settings asset (a ScriptableObject under
+version control) and never logged.
+
+**Bridge source** (bridge 0.8.0+): with Source = Bridge the importer takes the
+file from the Figma file open in the EZG Tools plugin, with its MCP tab
+connected. It needs no DocumentUrl and no token. The window binds the file it
+imported (`BridgeFileKey`/`BridgeFileName`). A Sync on a different file than the
+bound one asks for confirmation naming both files; with dialogs suppressed
+(`SuppressDialogs` or batch mode) the import aborts with a logged error
+instead. An unsaved Figma draft has no key and cannot be imported. Offline
+re-import also works in Bridge mode with no DocumentUrl.
 
 ## Run it
 
@@ -74,10 +84,13 @@ Window buttons, or the same calls through `execute_code`:
 
 | Button | Call | Figma API |
 |---|---|---|
-| Sync Document | `UnityFigmaBridgeImporter.SyncDocument()` | document, renders, image fills |
-| Re-import from cache (offline) | `UnityFigmaBridgeImporter.SyncDocumentOffline()` | none: uses `Assets/FigmaOutput.json` and the files on disk |
+| Sync from Figma API (Rest) / Sync from open Figma file (Bridge) | `UnityFigmaBridgeImporter.SyncDocument()` | document, renders, image fills |
+| Re-import from cache (offline) | `UnityFigmaBridgeImporter.SyncDocumentOffline()` | none: uses `Assets/FigmaOutput.json` and the files on disk; works in Bridge mode with no DocumentUrl |
 | Run Post-Processors (no Sync) | `UnityFigmaBridgeImporter.RunPostProcessorsOnly()` | none |
 | Visual Check (selected screen prefab) | `Verify.FigmaVisualCheck.Run(prefabPath)` | one frame render, then cached |
+
+The page and screen list has its own button, `Refresh from Figma` (Rest) /
+`Refresh from open file` (Bridge).
 
 Both syncs are `async void`, but an import holds the main thread for long
 stretches, so an `execute_code` call that starts one directly gets no answer.
@@ -90,12 +103,12 @@ is unfocused. Then poll `ImportInProgress`, `LastImportStartedUtc`,
 
 Use the offline re-import whenever the change does not need new downloads (a
 fix in prefab building, slicing or text). It costs no API quota. Changes to what
-is rendered, or how, need an online Sync.
+is rendered, or how, need an online sync.
 
 **First run, or after pages change in Figma:** the import aborts with
 "The pages found in the Figma document have changed". It writes the new page
 list into the settings asset and selects it in the Inspector. Tick the pages you
-want, then Sync again.
+want, then sync again.
 
 **Do not edit any script while a download is running.** The download is async;
 saving a `.cs` triggers a domain reload that silently kills it.
