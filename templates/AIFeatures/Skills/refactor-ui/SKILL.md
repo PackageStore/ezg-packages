@@ -19,11 +19,14 @@ per-project (`featuresRoot`, `uiTemplatesRoot`, `localize.*`) đọc bằng
 
 - **Đọc `CLAUDE.md` § Trạng thái & Gotchas trước khi đụng UI** — project có thể có luật riêng mà
   skill này phải tuân (UI port đông cứng, bẫy URP, prefab cố tình không ghi đè).
-- **Đọc `.claude/docs/ArtStyle.md` + `Read` các board `.claude/docs/ArtStyle/*.png` trước khi viết
-  brief** — art direction của game (palette token, kit, bố cục, chữ, icon/hero art, motion, màn mẫu,
-  hướng đã bị loại). "Tự quyết" dưới đây là tự quyết **bên trong** ArtStyle, không phải chế style
-  mới. Thiếu file / `Status: template` → làm § Bootstrap của nó trước (rule `art-style`) và ghi trong
-  report là dev cần duyệt file đó.
+- **Đọc `.claude/docs/ArtStyle.md` + `Read` các board `.claude/docs/ArtStyle/*.png` + ảnh màn đã duyệt
+  (§8, `ArtStyle/screens/approved/`) và ảnh hướng bị loại (§9, `screens/rejected/`) trước khi viết
+  brief** — art direction của game (palette token, kit, bố cục + họ màn khoá, ngôn ngữ trạng thái, chữ,
+  icon/hero art, motion, luật concept, tiêu chí duyệt). Skill này **không** chứa giá trị style nào —
+  mọi màu, cỡ, nhịp, concept, kit đều đọc từ ArtStyle. "Tự quyết" dưới đây là tự quyết **bên trong**
+  ArtStyle, không phải chế style mới. Thiếu file / `Status: template` → làm § Bootstrap của nó trước
+  (rule `art-style`) và ghi trong report là dev cần duyệt file đó. Ảnh `screens/pending/` (màn đã ship
+  nhưng dev chưa duyệt) **không** bao giờ là mốc.
 - **Không hỏi, tự quyết**: art direction, bố cục, màu, typography, motion, copy text, cách tách node,
   refactor phần view của controller. Chọn phương án tốt nhất rồi làm — ghi lý do ngắn trong design
   brief (§2), không đưa lựa chọn cho user.
@@ -84,56 +87,63 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
 - Liệt kê **mọi trạng thái** (locked / available / claimed / cooldown / empty / maxed / premium vs free /
   lỗi mạng / chưa mở khoá feature…) và **biên dữ liệu thật** — đếm số phần tử lớn nhất từ CSV, không từ ảnh cũ.
 - Chụp ảnh **"before"** (cách chụp: §6) để làm mốc so sánh.
-- Đọc luật UI: `.claude/docs/new-ui-guide.md` §0c (spec-sheet, cỡ chữ 30–72), §3b–3e (localize,
+- Đọc luật UI: `.claude/docs/new-ui-guide.md` §0c (spec-sheet; cỡ chữ theo ArtStyle §5), §3b–3e (localize,
   containment, template catalog, layout-group-first), §5 hard checklist; skill `create-ui`; cách làm
   bằng MCP trong `.claude/docs/ui-mcp-playbook.md` §0, §3–§5, §8. UI-kit contract: `ui-kit.json` do
   skill `ui-kit` sinh + luật ghép `.claude/ui-kit/ui-kit-usage.json` (kit stale → `ui-kit-sync.py` trước).
-- Mốc chất lượng: mở 1–2 màn đã làm lại gần đây
-  (`git log --oneline -E --grep '^. UI: (rework|redesign|restyle)'`) — bản mới phải ngang hoặc hơn.
+- Mốc chất lượng: **chỉ** các màn trong bảng "Đã duyệt" của ArtStyle §8 — `Read` ảnh `approved/` của
+  chúng, ưu tiên màn cùng họ §4b. Màn làm lại gần đây (`git log … UI: rework|redesign|restyle`) mà chưa
+  vào bảng đó **không phải mốc**: chưa duyệt thì có thể chính là hướng sắp bị loại, lấy làm mẫu là nhân
+  lỗi sang màn sau. §8 trống → mốc là board kit §3 + chính bản đang ship, bản mới phải vượt rõ nó.
   Màn port từ project donor (CLAUDE.md § Project nguồn) → mở bản gốc bên donor để hiểu hành vi
   (read-only, không copy asset về).
 - Prefab/child template của màn có được **prefab khác dùng lại** không (item element, popup con) —
   đổi nó là đổi cả màn kia (§0 luật đông cứng), phải chụp kiểm cả hai.
-- Nguyên liệu hình: `Read` các board của ArtStyle (`.claude/docs/ArtStyle/*.png`) trước, rồi dựng **contact sheet** (Pillow ghép thumbnail) các sprite của GUI pack, template
-  prefab, art feature (`<Feature>/Visuals/`) và FX sẵn có (`Features/_Shared/UI/Fx/Visuals/`),
-  `Read` ảnh đó để chọn — nhìn thấy rồi mới chọn, không đoán theo tên file.
+- Nguyên liệu hình: `Read` các board của ArtStyle (`.claude/docs/ArtStyle/*.png`) trước, rồi dựng
+  **contact sheet** (Pillow ghép thumbnail) các sprite của kit + FX dùng chung khai ở ArtStyle §3,
+  template prefab và art feature (`<Feature>/Visuals/`), `Read` ảnh đó để chọn — nhìn thấy rồi mới
+  chọn, không đoán theo tên file.
 
 **Design brief** (ghi vào scratchpad, 10–20 dòng — đây là "vision", tự quyết):
-- **Concept / ẩn dụ** gắn với tính năng và theme game (đọc ArtStyle §1 bản sắc + §8 màn mẫu, rồi art sẵn có) — màn không
-  phải "một list trong khung": ví dụ theme nông trại idle → daily login = "lịch mùa vụ", quest =
-  "bảng việc nhà kho", offline earning = "kho thu hoạch qua đêm", shop = "chợ phiên". Concept tả bằng
-  lời trung tính — **không** "giống game X" (rule `no-external-game-refs`).
+- **Họ màn**: màn thuộc họ nào trong ArtStyle §4b (hay không thuộc họ nào) → ghi phần khoá + phần
+  được đổi. Mọi quyết định dưới đây chỉ chạm phần được đổi.
+- **Concept / ẩn dụ** gắn với tính năng — lấy từ nguồn mà **luật concept ArtStyle §1** cho phép, không
+  thuộc danh sách cấm của nó; đọc thêm §8 màn mẫu rồi art sẵn có. Màn không phải "một list trong
+  khung". Họ màn khoá → concept chỉ là phần được đổi (thường là hero + họ màu). Concept tả bằng lời
+  trung tính — **không** "giống game X" (rule `no-external-game-refs`).
 - **Focal point** duy nhất (phần thưởng lớn / CTA chính / hero) — mọi thứ khác lùi lại.
-- **Phân cấp**: 1 CTA chính nổi nhất, phụ mờ hơn; trạng thái nhận ra được trong 0.5 giây
-  (màu + icon + độ sáng, không chỉ dựa vào chữ).
-- **Palette** 3–5 màu, **chỉ chọn token trong ArtStyle §2** (màn offer/IAP: một họ recolor của nó) —
-  không đặt hex mới; thiếu thì thêm token vào ArtStyle kèm lý do. Độ tương phản chữ đủ đọc trên nền;
-  **typography** theo bảng chữ ArtStyle §5 (trong khung 30/34/40/48/56–72).
-- **Kiểm hướng đã loại**: đối chiếu concept + palette + bố cục với ArtStyle §9 — trùng dòng nào thì
-  đổi ngay trong brief, trước khi dựng.
-- **Layout**: Popup vs FullScreen, container nào nhận chiều cao dư ở 20:9/21:9, grid/row tính số
-  thực (`N × cell + (N−1) × spacing ≤ usable width`) cho **worst case**.
-- **Motion language** (§5): easing chủ đạo, nhịp, beat nào là "khoảnh khắc sướng" của màn.
+- **Phân cấp**: 1 CTA chính nổi nhất, phụ mờ hơn; mọi trạng thái của màn (§2 research) thể hiện theo
+  **ngôn ngữ trạng thái ArtStyle §4c** — trạng thái chưa có dòng ở đó → đề xuất vào §4c, không tự chế
+  riêng cho màn.
+- **Palette** 3–5 màu, **chỉ chọn token trong ArtStyle §2** (kể cả họ recolor của nó) — không đặt hex
+  mới; thiếu thì thêm token vào ArtStyle kèm lý do. Độ tương phản chữ đủ đọc trên nền;
+  **typography** theo bảng chữ + khung cỡ ArtStyle §5.
+- **Kiểm hướng đã loại**: đối chiếu concept + palette + bố cục với ArtStyle §9 (cả ảnh `rejected/`) và
+  "Từ khoá KHÔNG" §1 — trùng dòng nào thì đổi ngay trong brief, trước khi dựng.
+- **Layout**: Popup vs FullScreen (theo §4/§4b), container nào nhận chiều cao dư ở 20:9/21:9,
+  grid/row tính số thực (`N × cell + (N−1) × spacing ≤ usable width`) cho **worst case**, khoảng cách
+  theo thang ArtStyle §4.
+- **Motion language** (§5): easing + nhịp lấy từ ArtStyle §7, beat nào là "khoảnh khắc sướng" của màn.
 
 Sau brief là **spec-sheet** new-ui-guide §0c (bắt buộc, số cho từng node) — autonomous nên không chờ duyệt.
 
 ## 3. Art
 
 Thứ tự ưu tiên — **tái dụng trước, vẽ sau**:
-1. Template/kit của project (`uiTemplatesRoot` — frame, button, title pill, scroll, tab, money bar,
-   effect) + sprite có sẵn (`<Feature>/Visuals/`, bộ GUI pack của project) + FX dùng chung
-   `Features/_Shared/UI/Fx/Visuals/` (`fx_rays`, `fx_soft_glow`, `fx_shine_band`, `fx_sparkle_star`).
+1. Kit UI khai ở ArtStyle §3 (frame, button, X, ribbon, header, tiến độ, FX dùng chung) + template
+   prefab (`uiTemplatesRoot` — title pill, scroll, tab, money bar, effect) + sprite có sẵn của feature
+   (`<Feature>/Visuals/`).
 2. **Sprite FX procedural bằng Pillow** (`python3`): glow, rays, ring/halo, shine sweep, sparkle,
    vignette, gradient nền, ribbon/stamp đơn giản. Vẽ **trắng + alpha** (tint trong Unity), supersample
    4× rồi thu nhỏ LANCZOS, cạnh mềm, không viền răng cưa. Lưu `<Feature>/Visuals/<prefix>_fx_<name>.png`
    (một prefix cho cả màn), art lớn `<prefix>_<tên>.png`. Import: Sprite (2D and UI) Single, tắt
    mipmap, alpha is transparency, Clamp, Bilinear, mesh FullRect, tắt fallback physics shape, max
    size 512 cho FX / 2048 cho nền; 9-slice (`spriteBorder`) cho khung co giãn. Chép `.meta` từ một
-   sprite FX trong `_Shared/UI/Fx/Visuals/` là cách nhanh nhất để đúng chuẩn (đổi GUID).
+   sprite FX dùng chung (ArtStyle §3) là cách nhanh nhất để đúng chuẩn (đổi GUID).
 3. Emblem / hero art cần vẽ tay → công cụ sinh ảnh AI nếu máy có (command `/gen-icon` →
    `generate_image`, hoặc MCP sinh ảnh của studio nếu đã authenticate; luôn **mở ảnh ra xem** trước
-   khi dùng — tool có thể lặng lẽ trả hình vẽ bằng code), không có thì ghép layer từ icon sẵn có +
-   Pillow. Không để ô trống / placeholder trong bản final.
+   khi dùng — tool có thể lặng lẽ trả hình vẽ bằng code), không có thì ghép layer từ sprite sẵn có (art feature,
+   kit + nguồn ghép layer dự phòng khai ở ArtStyle §3) + Pillow. Không để ô trống / placeholder trong bản final.
 
 **House style cho mọi art mới** (FX, emblem, hero AI, recolor): theo ArtStyle §6 — prompt nền, ảnh
 tham chiếu đính kèm và luật kỹ thuật ở đó; recolor kit có sẵn theo họ màu ArtStyle cho phép. Đặt art
@@ -188,14 +198,17 @@ tĩnh (§7), neo đúng mép cho đa tỷ lệ, nền full-bleed, không `SetAct
 
 ## 5. Motion — "smooth" nghĩa là gì
 
-Mỗi màn có đủ 4 lớp, cùng một "cảm giác tay":
+Mỗi màn có đủ 4 lớp, cùng một "cảm giác tay". **Easing, thời lượng, biên độ của từng lớp lấy từ
+ArtStyle §7** — bảng dưới chỉ là cấu trúc, không phải giá trị:
 
-| Lớp | Nội dung | Nhịp tham khảo |
-|---|---|---|
-| **Vào** | nền fade → khung chính scale → phần tử con stagger | tổng ≤ 0.6–0.8 s; stagger 0.03–0.06 s/phần tử |
-| **Idle** | chỉ trên focal point: rays xoay chậm, glow thở (yoyo 1.5–2.5 s), shine quét mỗi 3–4 s, float nhẹ | biên độ nhỏ, không giật mắt |
-| **Feedback** | nhấn nút (press có sẵn của button template), claim/purchase: punch + stamp + ripple/sparkle burst, số đếm tăng dần, đổi trạng thái crossfade | 0.2–0.5 s mỗi beat, có "khoảnh khắc sướng" rõ |
-| **Ra / đổi tab** | nhanh, gọn | 0.15–0.25 s |
+| Lớp | Nội dung |
+|---|---|
+| **Vào** | nền → khung chính → phần tử con stagger |
+| **Idle** | chỉ trên focal point (rays / glow / shine / float…), biên độ nhỏ, không giật mắt |
+| **Feedback** | nhấn nút (press có sẵn của button template), claim/purchase: punch / stamp / ripple / sparkle, số đếm tăng dần, đổi trạng thái crossfade — có "khoảnh khắc sướng" rõ |
+| **Ra / đổi tab** | nhanh, gọn |
+
+§7 thiếu giá trị cho lớp nào → chọn, ghi vào §7 (`Status: draft`) rồi mới dùng.
 
 Dùng thứ project đã có trước, viết mới sau:
 - **Vào/Ra của khung chính đã có sẵn**: `FeatureBaseController.AnimOpenUI/AnimCloseUI` (virtual) chạy
@@ -256,14 +269,26 @@ Luật kỹ thuật (bắt buộc):
   ở giữa trên tablet, popup giữ bề rộng cố định neo tâm. Quét xong pin lại 1080×1920.
 - **Tự phản biện ít nhất 2 vòng**: mỗi lần chụp, chấm theo checklist dưới, sửa chỗ yếu nhất, chụp lại.
   Hỏi thẳng: "Designer giỏi nhìn màn này có thấy nghiệp dư chỗ nào không?"
-  - focal point rõ, CTA chính nổi nhất; căn lề/khoảng cách đều (layout group, bội số 8/10);
-  - không lỗ hổng, không chồng lấn, không chữ tràn/cắt, cỡ chữ 30–72;
-  - trạng thái phân biệt ngay; nền phủ kín mọi tỷ lệ; art sắc nét, không vỡ/giãn méo, không khối trắng;
-  - motion có nhịp, không giật, không chờ lâu mới bấm được;
-  - khớp ArtStyle: màu là token, khung/nút/X đúng bảng kit, bố cục đúng luật (vị trí X/back, popup vs
-    full-screen), đặt cạnh board kit không lộ họ art khác, không trùng dòng nào ở §9.
-- Cuối cùng spawn `ui-visual-reviewer` (độc lập, tự chụp; không có mockup thì nó chấm style theo ArtStyle); `block` → sửa, tối đa 2 vòng. Chạy
-  new-ui-guide §5 hard checklist + playbook §8.
+  - focal point rõ, CTA chính nổi nhất; căn lề/khoảng cách đều (layout group, thang ArtStyle §4);
+  - không lỗ hổng, không chồng lấn, không chữ tràn/cắt, cỡ chữ trong bảng + khung ArtStyle §5;
+  - trạng thái phân biệt ngay (ArtStyle §4c); nền phủ kín mọi tỷ lệ; art sắc nét, không vỡ/giãn méo,
+    không khối trắng;
+  - motion có nhịp (ArtStyle §7), không giật, không chờ lâu mới bấm được.
+- **ArtStyle gate** (bắt buộc, trước reviewer): ghép ảnh after (tỷ lệ thiết kế) cạnh ảnh §8 `approved/`
+  cùng họ và ảnh §9 `rejected/` của chính màn này (nếu có) thành một PNG so sánh, `Read` nó, rồi chấm
+  **từng dòng ArtStyle §11** — mỗi dòng ghi pass/fail + bằng chứng (node, sprite, token, ảnh) vào
+  `artstyle_gate.md` trong scratchpad. Dòng mức `block` fail → sửa, chụp lại, chấm lại. Không được
+  "pass" một dòng mà không chỉ ra bằng chứng. §11 trống / `Status: template` → ghi rõ gate bị bỏ qua vì
+  sao (report phải nói).
+- Cuối cùng spawn `ui-visual-reviewer` (độc lập, tự chụp); `block` → sửa, tối đa 2 vòng. Prompt cho
+  reviewer **phải** có đủ:
+  - `mode: refactor`, `phase: C`, `port`, `targetPath` = path prefab asset (reviewer tự dựng preview,
+    không sửa asset) + công thức chụp đa tỷ lệ của §6;
+  - `groundTruth` = ArtStyle (§8 ảnh `approved/` cùng họ, §9 + ảnh `rejected/`, §11) — **không** đưa
+    design brief hay màn chưa duyệt làm groundTruth; brief + `artstyle_gate.md` chỉ đi kèm dưới nhãn
+    `builderClaims` (reviewer kiểm lại, không tin);
+  - ảnh before (mốc so) + họ màn §4b + danh sách trạng thái cần chụp + lời chê của dev (nếu task có).
+  Sau đó chạy new-ui-guide §5 hard checklist + playbook §8.
 - `.cs` đã sửa → compile check theo rule `compile-validation` (`/compile-check`); Editor không kết nối
   → skip êm như rule quy định. Editor đang bị session khác giữ play → compile headless (Roslyn đi kèm
   Unity, từ csproj — thêm cả file `.cs` mới chưa track), **DLL output để ở scratchpad**, tuyệt đối
@@ -301,8 +326,10 @@ Gotchas — Metal Toolchain / shader keyword), không phải bug của UI vừa 
 
 0. Ghi `TechSpec/<Screen>-UIRefactor.md` ngắn (concept, bảng node chính, art đã tạo, motion beat +
    hằng số, luật logic giữ nguyên) để lần chỉnh sau không phải đoán lại. Cập nhật `ArtStyle.md`:
-   token/kit/kiểu art mới vừa tạo → §2/§3/§6; thêm màn vào §8 với trạng thái "đang ship, chờ dev xác
-   nhận" (không tự ghi "duyệt"). Dev chê ở lượt sau → hướng đó vào §9 (rule `art-style`).
+   token/kit/kiểu art mới vừa tạo → §2/§3/§6; giá trị motion/trạng thái mới → §7/§4c; chép ảnh after
+   (tỷ lệ thiết kế, thu rộng ~540 px) vào `.claude/docs/ArtStyle/screens/pending/<Màn>.png` và thêm
+   dòng vào bảng "Chờ duyệt" của §8 (ảnh cũ cùng màn ở `pending/` bị thay thế). **Không** tự đưa màn
+   vào bảng "Đã duyệt". Dev chê ở lượt sau → hướng đó vào §9, ảnh sang `rejected/` (rule `art-style`).
 1. Report theo rule `output-format`: chỉ danh sách file đã đổi, mỗi file một dòng mô tả (link
    `file:///…` tuyệt đối). Thêm đúng 1 dòng trỏ ảnh before/after (đường dẫn scratchpad) nếu có.
 2. **`/auto-clear * UI:`** (REFACTOR) hoặc **`/auto-clear + UI:`** (CREATE) — theo skill
