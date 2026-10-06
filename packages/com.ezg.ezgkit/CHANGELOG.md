@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.0.0] - 2026-10-06
+### Changed
+- **Viết lại toàn bộ UI bằng UI Toolkit** (bỏ hẳn IMGUI của 0.x: `EzgKitWindow`, `EzgKitStyles`, `SetupGui`,
+  `IEzgKitPage`, mọi `*SetupPage`, `ReadinessPage`, `PublisherPage`). Cột trái: các mục setup kèm trạng thái
+  (Xong / Còn việc / Chưa làm / Để sau / Không áp dụng / Có lỗi) + thanh tiến độ; nhóm "Nâng cao" gấp được.
+  Bên phải: tiêu đề + pill trạng thái, khối "Còn việc", form theo card, kiểm tra giá trị ngay khi gõ, ô secret che,
+  thanh nút cố định (Xem thay đổi · Áp dụng · Để sau · Không áp dụng). Light / dark theo skin Editor (`EzgKit.uss`).
+- **Mọi lần ghi đều qua bảng thay đổi** (cũ → mới theo từng nơi ghi) và một hộp xác nhận; asset ghi qua
+  SerializedObject (Undo), file text được backup vào `Library/EzgKit/Backups/`.
+- **Sửa đích ghi AppSecrets.** Template mới giữ AppsFlyer dev key, App Store ID, cờ sandbox, webhook / bot
+  Discord, endpoint backend, link privacy / terms trong `AppSecretsConfig.asset` chứ không còn `const` trong
+  `GameConstant.cs` — bản 0.x ghi vào hư không và Readiness báo lỗi sai (AppsFlyer, Privacy, Terms, const Social
+  "thiếu"). Marketing / Readiness / Social / Publisher giờ đọc + ghi `AppSecretsConfig` khi dự án có type đó (tự
+  tạo asset ở `Assets/_Project/Resources/`), template cũ vẫn dùng GameConstant.
+- Marketing không còn ghi bundle id / product name từ sheet một cách lặng lẽ: mặc định chỉ gợi ý ở trang
+  "Thông tin dự án" (bật "Ghi cả bundle id / tên game" nếu muốn). `ApplyFromCli` (batchmode) giữ hành vi cũ.
+- Readiness nhóm IAP dựng từ `IapAudit` (cùng nguồn `ShopService.GetAllProductId()` với trang Gói bán) thay vì
+  asset `ShopPackCatalog` mà template mới không có.
+- Logic bị kẹt trong page cũ tách ra lõi: `IapAudit` (phán quyết IAP), `FirebaseSetupHelpers` (đọc key, phát hiện
+  config dự án khác, keytool SHA-1, FirebaseConfig), `DiscordLinkProbe` (kiểm invite / webhook).
+
+### Added
+- Mục **Thông tin dự án**: tên dự án (`.claude/project-profile.json`), company, product name, bundle id Android /
+  iOS (kiểm định dạng + chặn giá trị mẫu, cảnh báo product id IAP lệch prefix bundle mới).
+- Mục **Ads & Privacy**: debug ads, format, MAX sdk key + ad unit, define `MEDIATION_MAX` (thiếu là code MAX của
+  com.ezg.ads bị compile bỏ), AdMob app id (tạo AppLovinSettings qua `Instance` nếu chưa có), consent flow / ATT,
+  đối tượng người chơi (COPPA), Facebook app id + cảnh báo khi code không gọi `FB.Init`.
+- Mục **ArtStyle**: trạng thái `.claude/docs/ArtStyle.md` (Status, mục nào còn khung trống so với template),
+  sửa khối `art-style-boards`, dựng board bằng `art-style-board.py` (chạy nền), xem trước ảnh board,
+  "Nhờ Claude soạn" (ghi yêu cầu cho `/setup-project`).
+- Mục **Localization**: link file localize (kiểm link mở công khai), service account (cảnh báo key nằm trong repo mà
+  không bị ignore), thư mục CSV dùng CHUNG cho LocalizeDownloader và add-localize, tab cần tải, nút Tải localize.
+- Luồng **Setup tất cả** và quyết định **Để sau / Không áp dụng** lưu ở `ProjectSettings/EzgKitSetup.json`.
+- **`Ezg.EzgKit.EzgKitApi`** cho automation qua Unity MCP: `GetStatusJson`, `GetPageValuesJson`, `Apply(page, json,
+  dryRun)`, `SetMarker`, `ClearRequest`, `Open`, `SetupAll`.
+
+### Removed
+- Menu `Ezg/Marketing/*`, `Ezg/Firebase/*`, `Ezg/Social…`, `Ezg/IAP…`, `Ezg/Readiness…`, `Ezg/Nha phat hanh/*` —
+  mọi lối vào đi qua `Ezg/EzgKit` (mỗi menu cũ mở một dialog chặn Editor).
+- Contract `IEzgKitPage` (thêm mục mới: kế thừa `SetupPage`).
+
 ## [0.5.0] - 2026-09-09
 ### Changed
 - **Nguồn chuẩn của tab IAP đổi sang `ShopService.GetAllProductId()`** (gọi qua reflection —

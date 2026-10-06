@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Ezg.Editor.Shared.Social
 {
-    /// <summary>Kết quả tra Discord (nút bấm ở tab Social — không tự chạy khi mở tab).</summary>
+    /// <summary>Kết quả tra Discord (nút bấm ở trang Social — không tự chạy khi mở tab).</summary>
     internal sealed class DiscordLookup
     {
         internal string InviteCode;
@@ -35,7 +35,7 @@ namespace Ezg.Editor.Shared.Social
     ///     GameConstant — đó chính là cách link của game khác đi theo template mà không ai thấy.
     ///     <para>
     ///         Kết quả đổ vào <see cref="ReadinessReport" /> nhóm <see cref="ReadinessGroup.Social" />,
-    ///         nên tab Readiness cũng có nhóm này; tab Social vẽ cùng dữ liệu kèm ô nhập.
+    ///         nên tab Readiness cũng có nhóm này; trang Social vẽ cùng dữ liệu kèm ô nhập.
     ///     </para>
     /// </summary>
     internal static class SocialChecks
@@ -104,8 +104,8 @@ namespace Ezg.Editor.Shared.Social
             var gameConstant = FindGameConstant();
             var text = gameConstant == null ? null : File.ReadAllText(gameConstant);
             var marketing = LoadMarketing();
-            var socialTab = ReadinessActions.KitTab("Mở tab Social", EzgKitWindow.Tab.Social);
-            var marketingTab = ReadinessActions.KitTab("Mở tab Marketing", EzgKitWindow.Tab.Marketing);
+            var socialTab = ReadinessActions.KitTab("Mở trang Social", PageIds.SOCIAL);
+            var marketingTab = ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING);
 
             if (text == null)
             {
@@ -142,17 +142,17 @@ namespace Ezg.Editor.Shared.Social
             else if (string.IsNullOrEmpty(discord))
                 report.Add(new ReadinessItem(G, "Discord invite", null, EzgStatus.Warn,
                         "Nút Discord trong game không mở gì.",
-                        "Tab Social > điền link mời (Discord > Server > Invite People > Edit invite link: Never expire) > Lưu + Ghi.")
+                        "Trang Social > điền link mời (Discord > Server > Invite People > Edit invite link: Never expire) > Lưu + Ghi.")
                     .With(socialTab, open(CONST_DISCORD)));
             else if (code == null)
                 report.Add(new ReadinessItem(G, "Discord invite", discord, EzgStatus.Error,
                         "Không phải link mời Discord (cần discord.gg/<code> hoặc discord.com/invite/<code>).",
-                        "Tab Social > sửa lại link mời > Lưu + Ghi.")
+                        "Trang Social > sửa lại link mời > Lưu + Ghi.")
                     .With(socialTab, open(CONST_DISCORD)));
             else if (lookup != null && lookup.InviteCode == code && !string.IsNullOrEmpty(lookup.InviteError))
                 report.Add(new ReadinessItem(G, "Discord invite", discord, EzgStatus.Error,
                         "Discord trả lỗi cho link này: " + lookup.InviteError + " (hết hạn / bị xoá?).",
-                        "Tạo invite mới KHÔNG hết hạn (Edit invite link > Expire after: Never) rồi Tab Social > Lưu + Ghi.")
+                        "Tạo invite mới KHÔNG hết hạn (Edit invite link > Expire after: Never) rồi Trang Social > Lưu + Ghi.")
                     .With(socialTab, open(CONST_DISCORD)));
             else if (lookup != null && lookup.InviteCode == code && lookup.InviteOk)
                 report.Add(new ReadinessItem(G, "Discord invite", discord, EzgStatus.Ok,
@@ -160,11 +160,11 @@ namespace Ezg.Editor.Shared.Social
             else if (source != null && !string.IsNullOrEmpty(source.discordInvite) && source.discordInvite != discord)
                 report.Add(new ReadinessItem(G, "Discord invite", discord, EzgStatus.Warn,
                         $"SocialConfig.json có `{source.discordInvite}` nhưng chưa ghi vào GameConstant.",
-                        "Tab Social > Ghi vào GameConstant.cs.")
+                        "Trang Social > Ghi vào GameConstant.cs.")
                     .With(socialTab));
             else
                 report.Add(new ReadinessItem(G, "Discord invite", discord, EzgStatus.Ok,
-                        "Chưa xác minh với Discord — bấm \"Kiểm Discord\" ở tab Social để chắc link còn sống.")
+                        "Chưa xác minh với Discord — bấm \"Kiểm Discord\" ở trang Social để chắc link còn sống.")
                     .With(socialTab));
 
             // Support URL
@@ -174,17 +174,17 @@ namespace Ezg.Editor.Shared.Social
             else if (string.IsNullOrEmpty(support))
                 report.Add(new ReadinessItem(G, "Support link", null, EzgStatus.Warn,
                         "Nút Support trong Settings không mở gì.",
-                        "Tab Social > điền link form/trang hỗ trợ (Google Form, Zendesk…) > Lưu + Ghi.",
+                        "Trang Social > điền link form/trang hỗ trợ (Google Form, Zendesk…) > Lưu + Ghi.",
                         ("Google Forms", URL_GOOGLE_FORMS))
                     .With(socialTab, open(CONST_SUPPORT)));
             else if (!IsHttp(support))
                 report.Add(new ReadinessItem(G, "Support link", support, EzgStatus.Error,
-                        "Không phải URL http(s).", "Tab Social > sửa link > Lưu + Ghi.")
+                        "Không phải URL http(s).", "Trang Social > sửa link > Lưu + Ghi.")
                     .With(socialTab, open(CONST_SUPPORT)));
             else if (source != null && !string.IsNullOrEmpty(source.supportUrl) && source.supportUrl != support)
                 report.Add(new ReadinessItem(G, "Support link", support, EzgStatus.Warn,
                         $"SocialConfig.json có `{source.supportUrl}` nhưng chưa ghi vào GameConstant.",
-                        "Tab Social > Ghi vào GameConstant.cs.")
+                        "Trang Social > Ghi vào GameConstant.cs.")
                     .With(socialTab));
             else
                 report.Add(new ReadinessItem(G, "Support link", support,
@@ -193,7 +193,7 @@ namespace Ezg.Editor.Shared.Social
                             ? "GameConstant có link nhưng SocialConfig.json chưa có — không rõ link này của dự án này hay đi theo template."
                             : null,
                         source == null || string.IsNullOrEmpty(source.supportUrl)
-                            ? "Tab Social > xác nhận link đúng là của dự án này (điền lại vào ô Support) > Lưu."
+                            ? "Trang Social > xác nhận link đúng là của dự án này (điền lại vào ô Support) > Lưu."
                             : null)
                     .With(socialTab));
 
@@ -204,25 +204,29 @@ namespace Ezg.Editor.Shared.Social
             else if (string.IsNullOrEmpty(email))
                 report.Add(new ReadinessItem(G, "Support email", null, EzgStatus.Warn,
                         "Nút Gmail trong Settings chỉ mở Gmail trống, không tới địa chỉ nào.",
-                        "Tab Social > điền email hỗ trợ > Lưu + Ghi (nút sẽ mở mailto: tới email này).")
+                        "Trang Social > điền email hỗ trợ > Lưu + Ghi (nút sẽ mở mailto: tới email này).")
                     .With(socialTab, open(CONST_SUPPORT_EMAIL)));
             else if (!_email.IsMatch(email))
                 report.Add(new ReadinessItem(G, "Support email", email, EzgStatus.Error,
-                        "Không phải địa chỉ email.", "Tab Social > sửa email > Lưu + Ghi.")
+                        "Không phải địa chỉ email.", "Trang Social > sửa email > Lưu + Ghi.")
                     .With(socialTab, open(CONST_SUPPORT_EMAIL)));
             else if (source != null && !string.IsNullOrEmpty(source.supportEmail) && source.supportEmail != email)
                 report.Add(new ReadinessItem(G, "Support email", email, EzgStatus.Warn,
                         $"SocialConfig.json có `{source.supportEmail}` nhưng chưa ghi vào GameConstant.",
-                        "Tab Social > Ghi vào GameConstant.cs.")
+                        "Trang Social > Ghi vào GameConstant.cs.")
                     .With(socialTab));
             else
                 report.Add(new ReadinessItem(G, "Support email", email, EzgStatus.Ok).With(socialTab));
         }
 
         private static ReadinessItem MissingConst(string name, string gameConstant, (string, Action) socialTab) =>
-            new ReadinessItem(G, name, null, EzgStatus.Warn,
-                    $"GameConstant.cs chưa có `public const string {name}` — tab Social không có chỗ ghi.",
-                    $"Bấm \"Ghi vào GameConstant.cs\" ở tab Social: tool tự thêm const `{name}` ngay sau `LinkFacebook`.")
+            // Template mới (có AppSecretsConfig) không ship các const social — game chưa đọc chúng thì thiếu
+            // const KHÔNG phải việc phải làm, chỉ là chưa dùng. Template cũ thì vẫn là cảnh báo như 0.x.
+            new ReadinessItem(G, name, null, AppSecretsSink.TypeExists ? EzgStatus.None : EzgStatus.Warn,
+                    AppSecretsSink.TypeExists
+                        ? $"GameConstant.cs không có `{name}` — dự án chưa dùng link này. Cần thì trang Social > Áp dụng sẽ thêm const."
+                        : $"GameConstant.cs chưa có `public const string {name}` — trang Social không có chỗ ghi.",
+                    $"Trang Social > Áp dụng: kit tự thêm const `{name}` ngay sau `LinkFacebook`.")
                 .With(socialTab, ReadinessActions.OpenScript("Mở GameConstant.cs", gameConstant, "LinkFacebook"));
 
         #endregion
@@ -242,16 +246,16 @@ namespace Ezg.Editor.Shared.Social
             if (string.IsNullOrEmpty(facebook))
                 report.Add(new ReadinessItem(G, "Fanpage (LinkFacebook)", null, EzgStatus.Warn,
                         "Rỗng — nút fanpage (nếu có) không mở gì.",
-                        "Điền links.facebookPage trong sheet marketing rồi tab Marketing > ghi.")
+                        "Điền links.facebookPage trong sheet marketing rồi trang Marketing > Áp dụng.")
                     .With(marketingTab, open(CONST_FACEBOOK)));
             else if (!string.IsNullOrEmpty(sheetFacebook) && sheetFacebook != facebook)
                 report.Add(new ReadinessItem(G, "Fanpage (LinkFacebook)", facebook, EzgStatus.Warn,
-                        $"Khác sheet marketing (`{sheetFacebook}`).", "Tab Marketing > ghi lại GameConstant.")
+                        $"Khác sheet marketing (`{sheetFacebook}`).", "Trang Marketing > Áp dụng.")
                     .With(marketingTab, open(CONST_FACEBOOK)));
             else if (string.IsNullOrEmpty(sheetFacebook))
                 report.Add(new ReadinessItem(G, "Fanpage (LinkFacebook)", facebook, EzgStatus.Warn,
                         "Sheet marketing chưa có fanpage nên không đối chiếu được — link này có thể của game khác đi theo template.",
-                        "Điền links.facebookPage trong sheet marketing rồi tab Marketing > ghi.")
+                        "Điền links.facebookPage trong sheet marketing rồi trang Marketing > Áp dụng.")
                     .With(marketingTab, open(CONST_FACEBOOK)));
             else
                 report.Add(new ReadinessItem(G, "Fanpage (LinkFacebook)", facebook, EzgStatus.Ok).With(marketingTab));
@@ -263,15 +267,19 @@ namespace Ezg.Editor.Shared.Social
                          (CONST_TERMS, "Terms of service", marketing?.applovin?.termsOfServiceUrl),
                      })
             {
-                var value = ReadConst(text, name);
+                var value = AppSecretsSink.TypeExists
+                    ? AppSecretsSink.Read(name == CONST_PRIVACY ? AppSecretsSink.F_PRIVACY : AppSecretsSink.F_TERMS)
+                    : ReadConst(text, name);
                 if (string.IsNullOrEmpty(value) || !IsHttp(value))
                     report.Add(new ReadinessItem(G, label, value, EzgStatus.Error,
                             "Store review yêu cầu link công khai; MAX consent flow cũng mở link này.",
-                            "Điền applovin.privacyPolicyUrl / termsOfServiceUrl trong sheet marketing rồi tab Marketing > ghi.")
+                            AppSecretsSink.TypeExists
+                                ? "Trang Marketing & AppSecrets > điền Privacy / Terms URL > Áp dụng (ghi vào AppSecretsConfig)."
+                                : "Điền applovin.privacyPolicyUrl / termsOfServiceUrl trong sheet marketing rồi trang Marketing > Áp dụng.")
                         .With(marketingTab, open(name)));
                 else if (!string.IsNullOrEmpty(sheet) && sheet != value)
                     report.Add(new ReadinessItem(G, label, value, EzgStatus.Warn,
-                            $"Khác sheet marketing (`{sheet}`).", "Tab Marketing > ghi lại GameConstant.")
+                            $"Khác sheet marketing (`{sheet}`).", "Trang Marketing > Áp dụng.")
                         .With(marketingTab, open(name)));
                 else
                     report.Add(new ReadinessItem(G, label, value, EzgStatus.Ok).With(marketingTab));
@@ -281,34 +289,36 @@ namespace Ezg.Editor.Shared.Social
             var storeAndroid = ReadConst(text, CONST_STORE_ANDROID);
             if (string.IsNullOrEmpty(storeAndroid))
                 report.Add(new ReadinessItem(G, "Link store Android", null, EzgStatus.Warn,
-                        "Rỗng — nút rate/update Android không mở gì.", "Tab Marketing > ghi (tự dựng từ package name).")
+                        "Rỗng — nút rate/update Android không mở gì.", "Trang Marketing > ghi (tự dựng từ package name).")
                     .With(marketingTab, open(CONST_STORE_ANDROID)));
             else if (!string.IsNullOrEmpty(androidId) && !storeAndroid.Contains("id=" + androidId))
                 report.Add(new ReadinessItem(G, "Link store Android", storeAndroid, EzgStatus.Error,
                         $"Link trỏ app khác — package name hiện tại là `{androidId}`.",
-                        "Tab Marketing > ghi lại GameConstant (LinkStoreFree dựng từ package name).")
+                        "Trang Marketing > Áp dụng (LinkStoreFree dựng từ package name).")
                     .With(marketingTab, open(CONST_STORE_ANDROID)));
             else
                 report.Add(new ReadinessItem(G, "Link store Android", storeAndroid, EzgStatus.Ok).With(marketingTab));
 
             var storeIos = ReadConst(text, CONST_STORE_IOS);
-            var iosAppId = ReadConst(text, CONST_IOS_APP_ID);
+            var iosAppId = AppSecretsSink.TypeExists
+                ? AppSecretsSink.Read(AppSecretsSink.F_IOS_APP_ID)
+                : ReadConst(text, CONST_IOS_APP_ID);
             var linkId = Match(storeIos, "/id(\\d+)");
             if (string.IsNullOrEmpty(storeIos))
                 report.Add(new ReadinessItem(G, "Link store iOS", null, EzgStatus.Warn,
                         "Rỗng — rating iOS (fallback) và nút update không mở gì.",
-                        "Điền appleId trong sheet marketing rồi tab Marketing > ghi (link dựng từ Apple ID).")
+                        "Điền appleId trong sheet marketing rồi trang Marketing > Áp dụng (link dựng từ Apple ID).")
                     .With(marketingTab, open(CONST_STORE_IOS)));
             else if (!string.IsNullOrEmpty(iosAppId) && linkId != null && linkId != iosAppId)
                 report.Add(new ReadinessItem(G, "Link store iOS", storeIos, EzgStatus.Error,
                         $"Id trong link (`{linkId}`) khác IOSAppId (`{iosAppId}`) — một trong hai là của app khác đi theo template.",
-                        "Điền appleId THẬT (ASC > App Information) trong sheet marketing rồi tab Marketing > ghi — cả IOSAppId và LinkStoreIos sẽ cùng theo sheet.")
+                        "Điền appleId THẬT (ASC > App Information) trong sheet marketing rồi trang Marketing > Áp dụng — cả IOSAppId và LinkStoreIos sẽ cùng theo sheet.")
                     .With(marketingTab, open(CONST_STORE_IOS)));
             else
                 report.Add(new ReadinessItem(G, "Link store iOS", storeIos,
                         string.IsNullOrEmpty(marketing?.appleId) ? EzgStatus.Warn : EzgStatus.Ok,
                         string.IsNullOrEmpty(marketing?.appleId) ? "Sheet marketing chưa có appleId nên chưa xác minh được id trong link." : null,
-                        string.IsNullOrEmpty(marketing?.appleId) ? "Điền appleId trong sheet marketing rồi tab Marketing > ghi." : null)
+                        string.IsNullOrEmpty(marketing?.appleId) ? "Điền appleId trong sheet marketing rồi trang Marketing > Áp dụng." : null)
                     .With(marketingTab));
         }
 
@@ -432,9 +442,30 @@ namespace Ezg.Editor.Shared.Social
                 }
             }
 
+            if (AppSecretsSink.TypeExists)
+            {
+                // Template mới: webhook / bot nằm trong AppSecretsConfig.asset — đi theo bản build như source.
+                foreach (var (field, label) in new[]
+                         {
+                             (AppSecretsSink.F_DISCORD_BUG, "Discord webhook bug report"),
+                             (AppSecretsSink.F_DISCORD_FEEDBACK, "Discord webhook feedback"),
+                         })
+                {
+                    var url = AppSecretsSink.Read(field);
+                    if (string.IsNullOrEmpty(url)) continue;
+                    if (!webhooks.Exists(w => w.Url == url)) webhooks.Add((url, AppSecretsSink.AssetPath ?? "AppSecretsConfig"));
+                }
+
+                if (!string.IsNullOrEmpty(AppSecretsSink.Read(AppSecretsSink.F_DISCORD_BOT)))
+                    report.Add(new ReadinessItem(G, "Bot token Discord trong AppSecretsConfig", "***", EzgStatus.Warn,
+                        "Asset nằm trong Resources = đi theo bản build; ai giải nén APK/IPA cũng lấy được token bot.",
+                        "Chỉ giữ token nếu thật sự cần luồng bot; tốt nhất chuyển việc tạo thread sang server/Cloudflare Worker.",
+                        ("Developer Portal", URL_DISCORD_DEV)));
+            }
+
             if (webhooks.Count == 0)
                 report.Add(new ReadinessItem(G, "Discord webhook (bug report / feedback)", null, EzgStatus.None,
-                    "Không có webhook Discord trong source — dự án không dùng BugLogger Discord."));
+                    "Không có webhook Discord — dự án không dùng BugLogger Discord."));
             else
                 foreach (var (url, file) in webhooks)
                 {
@@ -449,11 +480,13 @@ namespace Ezg.Editor.Shared.Social
                     else if (lookup != null && lookup.WebhookNames.TryGetValue(url, out var name))
                         note = "Webhook \"" + name + "\"";
                     else
-                        note = "Chưa xác minh — bấm \"Kiểm Discord\" ở tab Social.";
+                        note = "Chưa xác minh — bấm \"Kiểm Discord\" ở trang Social.";
 
                     report.Add(new ReadinessItem(G, $"Discord webhook: {Path.GetFileName(file)}", shortUrl, status, note,
                             status == EzgStatus.Error ? "Tạo webhook mới trên kênh Discord (Channel > Integrations > Webhooks) rồi thay trong file." : null)
-                        .With(ReadinessActions.OpenScript("Mở file", file, "api/webhooks")));
+                        .With(file.StartsWith("Assets/", StringComparison.Ordinal)
+                            ? ReadinessActions.SelectAsset("Chọn asset", file)
+                            : ReadinessActions.OpenScript("Mở file", file, "api/webhooks")));
                 }
 
             foreach (var (file, line) in tokens)
@@ -571,6 +604,13 @@ namespace Ezg.Editor.Shared.Social
                 foreach (Match m in _webhook.Matches(text))
                     if (!result.Contains(m.Value)) result.Add(m.Value);
             }
+
+            if (AppSecretsSink.TypeExists)
+                foreach (var field in new[] { AppSecretsSink.F_DISCORD_BUG, AppSecretsSink.F_DISCORD_FEEDBACK })
+                {
+                    var url = AppSecretsSink.Read(field);
+                    if (!string.IsNullOrEmpty(url) && !result.Contains(url)) result.Add(url);
+                }
 
             return result;
         }

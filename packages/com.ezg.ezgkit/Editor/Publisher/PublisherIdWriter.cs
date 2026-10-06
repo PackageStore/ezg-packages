@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Ezg.Editor.Shared.EzgKit;
 using Ezg.Editor.Shared.Marketing;
 using Ezg.Editor.Shared.Social;
 using UnityEditor;
@@ -205,6 +206,30 @@ namespace Ezg.Editor.Shared.Publisher
         private static bool WriteAppsFlyer(List<Entry> entries, bool dryRun, List<string> changes, out string error)
         {
             error = null;
+
+            // Template mới: ghi vào AppSecretsConfig.asset (GameConstant không còn const AppsFlyerId/IOSAppId).
+            if (AppSecretsSink.TypeExists)
+            {
+                var values = new Dictionary<string, string>();
+                foreach (var entry in entries)
+                    values[entry.Key == "devKey" ? AppSecretsSink.F_APPSFLYER_KEY : AppSecretsSink.F_IOS_APP_ID] = entry.Value;
+
+                var rows = new List<ChangeRow>();
+                if (!AppSecretsSink.Write(values, dryRun, rows, out error)) return false;
+                foreach (var row in rows)
+                    changes.Add(row.Matched
+                        ? $"AppSecretsConfig.{row.Field}: {UNCHANGED} ({Display(row.Secret ? Mask.Secret(row.NewValue) : row.NewValue)})"
+                        : $"AppSecretsConfig.{row.Field}: {Display(row.Secret ? Mask.Secret(row.OldValue) : row.OldValue)} -> {Display(row.Secret ? Mask.Secret(row.NewValue) : row.NewValue)}");
+
+                foreach (var entry in entries)
+                {
+                    var name = entry.Key == "devKey" ? SdkCatalog.CONST_APPSFLYER : SdkCatalog.CONST_IOS_APP_ID;
+                    if (_marketingField.TryGetValue(name, out var field)) SyncMarketingJson(null, field, entry.Value, dryRun, changes);
+                }
+
+                return true;
+            }
+
             var path = SocialChecks.FindGameConstant();
             if (path == null || !File.Exists(path))
             {

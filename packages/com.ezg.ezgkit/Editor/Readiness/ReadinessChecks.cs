@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using Ezg.Editor.Shared.EzgKit;
+using Ezg.Editor.Shared.Iap;
 using Ezg.Editor.Shared.Marketing;
 using Ezg.Editor.Shared.Social;
 using UnityEditor;
@@ -314,164 +315,64 @@ namespace Ezg.Editor.Shared.Readiness
         }
 
         /// <summary>
-        ///     Bảng SKU thật sự sẽ đăng ký với store: đọc <c>ShopPackCatalog</c> (asset trong Resources)
-        ///     qua SerializedObject — từng bảng có <c>isEnabled</c> / <c>isNonConsumable</c>, từng gói có
-        ///     <c>purchaseList[].purchaseType/purchaseCount</c> + product id.
+        ///     SKU thật sự sẽ đăng ký với store — đọc từ <see cref="IapAudit" /> (gọi đúng
+        ///     <c>ShopService.GetAllProductId()</c> qua reflection, cùng nguồn với trang "Gói bán"). Bản 0.x đọc
+        ///     asset <c>ShopPackCatalog</c>, thứ template mới không có → cả nhóm IAP trống trơn.
         /// </summary>
         private static void CheckShopCatalog(ReadinessReport report, string androidId)
         {
             const ReadinessGroup g = ReadinessGroup.Iap;
+            var iapPage = ReadinessActions.KitTab("Mở trang Gói bán", PageIds.IAP);
 
-            var guids = AssetDatabase.FindAssets("t:" + SHOP_CATALOG_TYPE);
-            if (guids.Length == 0)
+            IapAudit audit;
+            try
             {
-                report.Add(new ReadinessItem(g, "Shop pack catalog", null, EzgStatus.Warn,
-                    "Không có ShopPackCatalog — SKU đăng ký theo đường fallback trong ShopService.",
-                    "Chuột phải trong Resources của Shop > Create > ScriptableObjects > Shop Pack Catalog, kéo các bảng pack vào."));
+                audit = IapAudit.Current();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                report.Add(new ReadinessItem(g, "Danh mục gói bán", null, EzgStatus.Error,
+                    "Không đọc được danh mục client: " + exception.Message,
+                    "Mở Console xem stack trace.").With(iapPage));
                 return;
             }
 
-            var catalogPath = AssetDatabase.GUIDToAssetPath(guids[0]);
-            var catalog = AssetDatabase.LoadAssetAtPath<ScriptableObject>(catalogPath);
-            if (catalog == null) return;
-            var selectCatalog = ReadinessActions.SelectObject("Chọn catalog", catalog);
-
-            var so = new SerializedObject(catalog);
-            var tables = so.FindProperty("tables");
-            if (tables == null || !tables.isArray)
+            if (!audit.HasClient)
             {
-                report.Add(new ReadinessItem(g, "Shop pack catalog", catalog.name, EzgStatus.Warn,
-                        "Asset không có mảng `tables` — format catalog đã đổi, tool chưa đọc được.",
-                        "Cập nhật ReadinessChecks theo format catalog mới.")
-                    .With(selectCatalog));
+                report.Add(new ReadinessItem(g, "Danh mục gói bán", null, EzgStatus.Warn,
+                        audit.Catalog?.Error ?? "Không đọc được nguồn đăng ký SKU phía client.",
+                        "Trang Gói bán nói rõ hàm nguồn đang thiếu gì.")
+                    .With(iapPage));
+                CheckRestoreWired(report, 0);
                 return;
             }
 
-            var nonConsumableTables = 0;
-            var skuSet = new HashSet<string>();
-            var prefix = string.IsNullOrEmpty(androidId) ? null : androidId + ".";
+            foreach (var todo in audit.Todos)
+                report.Add(new ReadinessItem(g, todo.What, null, todo.Status, null, todo.Fix,
+                        ("App Store Connect", URL_ASC), ("Play Console", URL_PLAY_CONSOLE))
+                    .With(iapPage));
 
-            for (var t = 0; t < tables.arraySize; t++)
+            var skuSet = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var id in audit.Catalog.RegisteredIds) skuSet.Add(id);
+            foreach (var sku in audit.Catalog.Skus)
             {
-                var entry = tables.GetArrayElementAtIndex(t);
-                var label = entry.FindPropertyRelative("label")?.stringValue ?? $"bảng {t}";
-                var enabled = entry.FindPropertyRelative("isEnabled")?.boolValue ?? true;
-                var nonConsumable = entry.FindPropertyRelative("isNonConsumable")?.boolValue ?? false;
-                var table = entry.FindPropertyRelative("table")?.objectReferenceValue as ScriptableObject;
-                if (nonConsumable) nonConsumableTables++;
-
-                if (table == null)
-                {
-                    report.Add(new ReadinessItem(g, label, null, enabled ? EzgStatus.Error : EzgStatus.None,
-                            "Dòng catalog không trỏ tới bảng nào.", "Chọn catalog, kéo asset bảng pack vào ô `table` của dòng này.")
-                        .With(selectCatalog));
-                    continue;
-                }
-
-                var groups = new SerializedObject(table).FindProperty("dataGroups");
-                if (groups == null || !groups.isArray) continue;
-
-                // Nút chung cho mọi gói của bảng này: chọn bảng (asset đã import), mở CSV nguồn (nơi sửa thật).
-                var csvPath = FindCsv(table.name);
-                var tableActions = new List<(string, Action)>
-                {
-                    selectCatalog,
-                    ReadinessActions.SelectObject($"Chọn bảng {table.name}", table),
-                };
-                if (csvPath != null) tableActions.Add(ReadinessActions.SelectAsset($"Mở CSV {table.name}", csvPath));
-                var actions = tableActions.ToArray();
-
-                for (var i = 0; i < groups.arraySize; i++)
-                {
-                    var pack = groups.GetArrayElementAtIndex(i);
-                    var purchases = pack.FindPropertyRelative("purchaseList");
-                    var iapCount = 0;
-                    var isIap = false;
-                    if (purchases != null && purchases.isArray)
-                        for (var p = 0; p < purchases.arraySize; p++)
-                        {
-                            var purchase = purchases.GetArrayElementAtIndex(p);
-                            var type = purchase.FindPropertyRelative("purchaseType");
-                            if (type == null || type.intValue != PURCHASE_TYPE_IAP) continue;
-                            isIap = true;
-                            iapCount += purchase.FindPropertyRelative("purchaseCount")?.intValue ?? 0;
-                        }
-
-                    if (!isIap) continue;
-
-                    var packName = pack.FindPropertyRelative("packName")?.stringValue ?? $"#{i}";
-                    var google = pack.FindPropertyRelative("googleProductId")?.stringValue ?? "";
-                    var apple = pack.FindPropertyRelative("appleProductId")?.stringValue ?? "";
-                    var cost = pack.FindPropertyRelative("iapCost")?.floatValue ?? 0f;
-                    var kind = nonConsumable ? "Non-Consumable" : "Consumable";
-                    var rowLabel = $"{label} / {packName}";
-                    var value = $"{google}  ·  ${cost:0.00}  ·  {kind}";
-
-                    if (!enabled)
-                    {
-                        report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.None,
-                            "Bảng đang tắt trong catalog — không đăng ký với store."));
-                        continue;
-                    }
-
-                    if (string.IsNullOrEmpty(google) || string.IsNullOrEmpty(apple))
-                    {
-                        report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.Error,
-                                "Thiếu product id.",
-                                $"Mở CSV {table.name}, điền google_product_id / apple_product_id cho `{packName}` rồi import lại CSV.")
-                            .With(actions));
-                        continue;
-                    }
-
-                    skuSet.Add(google);
-                    if (apple != google) skuSet.Add(apple);
-
-                    if (prefix != null && !google.StartsWith(prefix, StringComparison.Ordinal))
-                    {
-                        report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.Error,
-                                $"Product id không theo package name `{androidId}`.",
-                                $"Mở CSV {table.name}, đổi product id thành `{prefix}{packName}` (hoặc sửa package name ở Player Settings) rồi import lại.")
-                            .With(actions));
-                        continue;
-                    }
-
-                    if (apple != google)
-                    {
-                        report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.Warn,
-                                $"Apple id khác Google id (`{apple}`).",
-                                "Tạo đúng cả hai id trên hai store, hoặc đặt apple_product_id = google_product_id trong CSV.",
-                                ("App Store Connect", URL_ASC), ("Play Console", URL_PLAY_CONSOLE))
-                            .With(actions));
-                        continue;
-                    }
-
-                    if (!nonConsumable && iapCount == 1)
-                    {
-                        report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.Warn,
-                                "purchase_count = 1 mà khai Consumable: hết hàng vĩnh viễn sau lần mua đầu, "
-                                + "StoreKit không restore, cài lại máy là mất quyền.",
-                                $"Nếu là entitlement (remove ads, boost vĩnh viễn): đổi SKU sang Non-Consumable trên ASC/Play TRƯỚC, rồi chọn catalog > dòng `{label}` > tick isNonConsumable. "
-                                + $"Nếu là hàng tiêu hao: mở CSV {table.name}, tăng purchase_count.",
-                                ("App Store Connect", URL_ASC), ("Play Console", URL_PLAY_CONSOLE))
-                            .With(actions));
-                        continue;
-                    }
-
-                    report.Add(new ReadinessItem(g, rowLabel, value, EzgStatus.Ok).With(actions));
-                }
+                if (!sku.Registered) continue;
+                if (!string.IsNullOrEmpty(sku.GoogleId)) skuSet.Add(sku.GoogleId);
+                if (!string.IsNullOrEmpty(sku.AppleId)) skuSet.Add(sku.AppleId);
             }
 
             report.Skus.AddRange(skuSet);
             report.Skus.Sort(StringComparer.Ordinal);
             report.Add(new ReadinessItem(g, "SKU phải có trên store", skuSet.Count.ToString(),
                     skuSet.Count == 0 ? EzgStatus.Warn : EzgStatus.Ok,
-                    "Tool không thấy được console: tạo tay từng SKU trên Play Console + ASC, ĐÚNG loại "
-                    + "Consumable/Non-Consumable như catalog. Danh sách nằm trong báo cáo (nút Copy).",
-                    skuSet.Count == 0 ? "Chọn catalog, bật (isEnabled) ít nhất một bảng có gói IAP." : null,
+                    "Tạo từng SKU trên Play Console + ASC, ĐÚNG loại Consumable/Non-Consumable như client khai. "
+                    + "Danh sách nằm trong báo cáo (nút Copy).",
+                    skuSet.Count == 0 ? "Chưa có gói nào được client đăng ký — tạo gói bán bằng MCP gói bán." : null,
                     ("App Store Connect", URL_ASC), ("Play Console", URL_PLAY_CONSOLE))
-                .With(selectCatalog));
+                .With(iapPage));
 
-            CheckRestoreWired(report, nonConsumableTables);
+            CheckRestoreWired(report, audit.Catalog.NonConsumableCount);
         }
 
         /// <summary>
@@ -552,19 +453,19 @@ namespace Ezg.Editor.Shared.Readiness
             var plistBundle = Match(plist, "<key>BUNDLE_ID</key>\\s*<string>([^<]+)</string>");
             var xmlProject = Match(xml, "name=\"project_id\"[^>]*>([^<]+)<");
 
-            var firebaseTab = ReadinessActions.KitTab("Mở tab Firebase", EzgKitWindow.Tab.Firebase);
+            var firebaseTab = ReadinessActions.KitTab("Mở trang Firebase", PageIds.FIREBASE);
             var selectJson = ReadinessActions.SelectAsset("Chọn google-services.json", ANDROID_FIREBASE_JSON);
             var selectPlist = ReadinessActions.SelectAsset("Chọn GoogleService-Info.plist", IOS_FIREBASE_PLIST);
 
             if (json == null)
                 report.Add(new ReadinessItem(g, "google-services.json", null, EzgStatus.Error,
                         "Android build không có Firebase (Analytics/RemoteConfig/Crashlytics đều tắt).",
-                        "Tab Firebase > chọn file service account > Tạo app + tải config (ghi google-services.json vào Assets/).")
+                        "Trang Firebase (Nâng cao) > chọn file service account > Tạo app + tải config (ghi google-services.json vào Assets/).")
                     .With(firebaseTab));
             else if (!string.IsNullOrEmpty(androidId) && jsonPackage != androidId)
                 report.Add(new ReadinessItem(g, "google-services.json", $"{jsonProject} · {jsonPackage}",
                         EzgStatus.Error, $"package_name khác PlayerSettings `{androidId}` — số liệu chảy sang app khác.",
-                        "Tab Firebase > Tạo app + tải config để lấy json đúng package name (hoặc sửa package name ở Player Settings nếu json mới đúng).")
+                        "Trang Firebase (Nâng cao) > Tạo app + tải config để lấy json đúng package name (hoặc sửa package name ở Player Settings nếu json mới đúng).")
                     .With(firebaseTab, selectJson, ReadinessActions.ProjectSettings("Mở Player Settings", SETTINGS_PLAYER)));
             else
                 report.Add(new ReadinessItem(g, "google-services.json", $"{jsonProject} · {jsonPackage}", EzgStatus.Ok)
@@ -572,12 +473,12 @@ namespace Ezg.Editor.Shared.Readiness
 
             if (plist == null)
                 report.Add(new ReadinessItem(g, "GoogleService-Info.plist", null, EzgStatus.Error,
-                        "iOS build không có Firebase.", "Tab Firebase > Tạo app + tải config (ghi GoogleService-Info.plist vào Assets/).")
+                        "iOS build không có Firebase.", "Trang Firebase (Nâng cao) > Tạo app + tải config (ghi GoogleService-Info.plist vào Assets/).")
                     .With(firebaseTab));
             else if (!string.IsNullOrEmpty(iosId) && plistBundle != iosId)
                 report.Add(new ReadinessItem(g, "GoogleService-Info.plist", $"{plistProject} · {plistBundle}",
                         EzgStatus.Error, $"BUNDLE_ID khác PlayerSettings `{iosId}`.",
-                        "Tab Firebase > Tạo app + tải config để lấy plist đúng bundle id.")
+                        "Trang Firebase (Nâng cao) > Tạo app + tải config để lấy plist đúng bundle id.")
                     .With(firebaseTab, selectPlist, ReadinessActions.ProjectSettings("Mở Player Settings", SETTINGS_PLAYER)));
             else
                 report.Add(new ReadinessItem(g, "GoogleService-Info.plist", $"{plistProject} · {plistBundle}", EzgStatus.Ok)
@@ -602,7 +503,7 @@ namespace Ezg.Editor.Shared.Readiness
                 if (plistProject != null && plistProject != jsonProject)
                     report.Add(new ReadinessItem(g, "Android/iOS cùng project", $"{jsonProject} ≠ {plistProject}",
                             EzgStatus.Error, "Hai nền tảng đang ở hai project Firebase khác nhau.",
-                            "Tab Firebase > Tạo app + tải config cho cả hai nền tảng từ cùng một project.")
+                            "Trang Firebase (Nâng cao) > Tạo app + tải config cho cả hai nền tảng từ cùng một project.")
                         .With(firebaseTab, selectJson, selectPlist));
             }
 
@@ -678,14 +579,14 @@ namespace Ezg.Editor.Shared.Readiness
             AppStoreLookup lookup)
         {
             const ReadinessGroup g = ReadinessGroup.Sdk;
-            var marketingTab = ReadinessActions.KitTab("Mở tab Marketing", EzgKitWindow.Tab.Marketing);
+            var marketingTab = ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING);
 
             // MAX / AdsConfig
             var ads = Resources.Load<ScriptableObject>(ADS_CONFIG_NAME);
             if (ads == null)
                 report.Add(new ReadinessItem(g, "AdsConfig", null, EzgStatus.Warn,
                         "Không có Resources/AdsConfig — module ads không có key nào để init.",
-                        "Tạo AdsConfig (Create > Ezg > Ads > AdsConfig) trong Resources rồi chạy tab Marketing để ghi key.")
+                        "Tạo AdsConfig (Create > Ezg > Ads > AdsConfig) trong Resources rồi chạy trang Marketing để ghi key.")
                     .With(marketingTab));
             else
             {
@@ -702,15 +603,15 @@ namespace Ezg.Editor.Shared.Readiness
 
                 report.Add(KeyItem(g, "MAX SDK key", so.FindProperty("maxAndroidSdkKey")?.stringValue,
                     so.FindProperty("maxIosSdkKey")?.stringValue,
-                    "Lấy SDK key ở MAX dashboard > Account > Keys, điền sheet marketing rồi tab Marketing > ghi.", URL_MAX,
+                    "Lấy SDK key ở MAX dashboard > Account > Keys, điền sheet marketing rồi trang Marketing > Áp dụng.", URL_MAX,
                     selectAds, marketingTab));
                 report.Add(KeyItem(g, "MAX Interstitial id", so.FindProperty("maxAndroidInterstitialId")?.stringValue,
                     so.FindProperty("maxIosInterstitialId")?.stringValue,
-                    "Tạo ad unit Interstitial trên MAX dashboard cho nền tảng còn trống, điền sheet rồi tab Marketing > ghi.", URL_MAX,
+                    "Tạo ad unit Interstitial trên MAX dashboard cho nền tảng còn trống, điền sheet rồi trang Marketing > Áp dụng.", URL_MAX,
                     selectAds, marketingTab));
                 report.Add(KeyItem(g, "MAX Rewarded id", so.FindProperty("maxAndroidRewardedId")?.stringValue,
                     so.FindProperty("maxIosRewardedId")?.stringValue,
-                    "Tạo ad unit Rewarded trên MAX dashboard cho nền tảng còn trống, điền sheet rồi tab Marketing > ghi.", URL_MAX,
+                    "Tạo ad unit Rewarded trên MAX dashboard cho nền tảng còn trống, điền sheet rồi trang Marketing > Áp dụng.", URL_MAX,
                     selectAds, marketingTab));
             }
 
@@ -725,27 +626,31 @@ namespace Ezg.Editor.Shared.Readiness
                 report.Add(new ReadinessItem(g, "AdMob app id (MAX adapter)",
                         $"{Dash(admobAndroid)} · {Dash(admobIos)}", ok ? EzgStatus.Ok : EzgStatus.Warn,
                         ok ? null : "Thiếu app id AdMob → adapter Google không fill, không log gì.",
-                        ok ? null : "Điền admob.android/ios.appId (ca-app-pub-…~…) trong sheet marketing rồi tab Marketing > ghi AppLovinSettings; hoặc chọn AppLovinSettings sửa tay.")
+                        ok ? null : "Điền admob.android/ios.appId (ca-app-pub-…~…) trong sheet marketing rồi trang Marketing > Áp dụng AppLovinSettings; hoặc chọn AppLovinSettings sửa tay.")
                     .With(ReadinessActions.SelectAsset("Chọn AppLovinSettings", APPLOVIN_SETTINGS_PATH), marketingTab));
             }
 
-            // AppsFlyer
-            var gameConstant = FindScript("GameConstant");
-            var constants = gameConstant == null ? null : File.ReadAllText(gameConstant);
-            var devKey = Match(constants, "public const string AppsFlyerId = \"([^\"]*)\"");
-            var iosAppId = Match(constants, "public const string IOSAppId = \"([^\"]*)\"");
-            if (constants == null)
-                report.Add(new ReadinessItem(g, "AppsFlyer", null, EzgStatus.None, "Không có GameConstant.cs."));
+            // AppsFlyer — template mới giữ key trong AppSecretsConfig; template cũ trong const GameConstant.
+            if (AppSecretsSink.TypeExists) CheckAppSecrets(report, marketing, iosId, lookup, marketingTab);
             else
             {
-                report.Add(new ReadinessItem(g, "AppsFlyer dev key", devKey,
-                        string.IsNullOrEmpty(devKey) ? EzgStatus.Error : EzgStatus.Ok,
-                        string.IsNullOrEmpty(devKey) ? "SDK không init — không có attribution." : null,
-                        string.IsNullOrEmpty(devKey) ? "Lấy dev key ở AppsFlyer > App Settings, điền appsflyerDevKey trong sheet rồi tab Marketing > ghi GameConstant." : null,
-                        ("AppsFlyer", URL_APPSFLYER))
-                    .With(ReadinessActions.OpenScript("Mở GameConstant.cs", gameConstant, "AppsFlyerId"), marketingTab));
-                report.Add(AppsFlyerIosItem(iosAppId, marketing?.appleId, iosId, lookup)
-                    .With(ReadinessActions.OpenScript("Mở GameConstant.cs", gameConstant, "IOSAppId"), marketingTab));
+                var gameConstant = FindScript("GameConstant");
+                var constants = gameConstant == null ? null : File.ReadAllText(gameConstant);
+                var devKey = Match(constants, "public const string AppsFlyerId = \"([^\"]*)\"");
+                var iosAppId = Match(constants, "public const string IOSAppId = \"([^\"]*)\"");
+                if (constants == null)
+                    report.Add(new ReadinessItem(g, "AppsFlyer", null, EzgStatus.None, "Không có GameConstant.cs."));
+                else
+                {
+                    report.Add(new ReadinessItem(g, "AppsFlyer dev key", devKey,
+                            string.IsNullOrEmpty(devKey) ? EzgStatus.Error : EzgStatus.Ok,
+                            string.IsNullOrEmpty(devKey) ? "SDK không init — không có attribution." : null,
+                            string.IsNullOrEmpty(devKey) ? "Lấy dev key ở AppsFlyer > App Settings, điền appsflyerDevKey trong sheet rồi trang Marketing > Áp dụng." : null,
+                            ("AppsFlyer", URL_APPSFLYER))
+                        .With(ReadinessActions.OpenScript("Mở GameConstant.cs", gameConstant, "AppsFlyerId"), marketingTab));
+                    report.Add(AppsFlyerIosItem(iosAppId, marketing?.appleId, iosId, lookup)
+                        .With(ReadinessActions.OpenScript("Mở GameConstant.cs", gameConstant, "IOSAppId"), marketingTab));
+                }
             }
 
             // Facebook
@@ -770,9 +675,48 @@ namespace Ezg.Editor.Shared.Readiness
                 else status = EzgStatus.Ok;
 
                 report.Add(new ReadinessItem(g, "Facebook app id", appId, status, note,
-                        status == EzgStatus.Warn ? "Tab Marketing > ghi lại FacebookSettings từ sheet (appId + client token)." : null)
+                        status == EzgStatus.Warn ? "Trang Marketing > ghi lại FacebookSettings từ sheet (appId + client token)." : null)
                     .With(ReadinessActions.SelectAsset("Chọn FacebookSettings", FACEBOOK_SETTINGS_PATH), marketingTab));
             }
+        }
+
+        /// <summary>AppsFlyer + App Store ID + sandbox đọc từ <c>AppSecretsConfig.asset</c> (template mới).</summary>
+        private static void CheckAppSecrets(ReadinessReport report, MarketingConfig marketing, string iosId,
+            AppStoreLookup lookup, (string, Action) marketingTab)
+        {
+            const ReadinessGroup g = ReadinessGroup.Sdk;
+            var asset = AppSecretsSink.FindAsset();
+            if (asset == null)
+            {
+                report.Add(new ReadinessItem(g, "AppSecretsConfig.asset", null, EzgStatus.Error,
+                        "Chưa có asset → AppsFlyer, Discord bug logger, giờ server, link pháp lý đều TẮT im lặng.",
+                        "Trang Marketing & AppSecrets > điền rồi Áp dụng (kit tạo " + AppSecretsSink.DEFAULT_ASSET_PATH + ").")
+                    .With(marketingTab));
+                return;
+            }
+
+            var select = ReadinessActions.SelectObject("Chọn AppSecretsConfig", asset);
+            var placement = AppSecretsSink.PlacementProblem();
+            if (placement != null)
+                report.Add(new ReadinessItem(g, "AppSecretsConfig.asset", AssetDatabase.GetAssetPath(asset), EzgStatus.Error,
+                    placement, "Chuyển asset vào một thư mục Resources và đặt tên AppSecretsConfig.").With(select));
+
+            var devKey = AppSecretsSink.Read(AppSecretsSink.F_APPSFLYER_KEY);
+            report.Add(new ReadinessItem(g, "AppsFlyer dev key", string.IsNullOrEmpty(devKey) ? null : Mask.Secret(devKey),
+                    string.IsNullOrEmpty(devKey) ? EzgStatus.Error : EzgStatus.Ok,
+                    string.IsNullOrEmpty(devKey) ? "SDK không init — không có attribution." : null,
+                    string.IsNullOrEmpty(devKey) ? "Trang Marketing & AppSecrets > AppsFlyer dev key > Áp dụng." : null,
+                    ("AppsFlyer", URL_APPSFLYER))
+                .With(marketingTab, select));
+
+            report.Add(AppsFlyerIosItem(AppSecretsSink.Read(AppSecretsSink.F_IOS_APP_ID), marketing?.appleId, iosId, lookup)
+                .With(marketingTab, select));
+
+            if (AppSecretsSink.ReadBool(AppSecretsSink.F_SANDBOX))
+                report.Add(new ReadinessItem(g, "AppsFlyer purchase sandbox", "BẬT", EzgStatus.Warn,
+                        "Bản production bật sandbox thì doanh thu thật KHÔNG được ghi nhận.",
+                        "Trang Marketing & AppSecrets > tắt \"Purchase sandbox\" trước khi build store.")
+                    .With(marketingTab, select));
         }
 
         private static ReadinessItem KeyItem(ReadinessGroup g, string label, string android, string ios,
@@ -804,7 +748,7 @@ namespace Ezg.Editor.Shared.Readiness
             if (string.IsNullOrEmpty(iosAppId))
                 return new ReadinessItem(g, label, null, EzgStatus.Warn,
                     "Trống → attribution iOS không hoạt động.",
-                    howToGet + ", điền appleId trong sheet marketing rồi tab Marketing > ghi GameConstant.", links);
+                    howToGet + ", điền appleId trong sheet marketing (hoặc ô App Store ID) rồi trang Marketing & AppSecrets > Áp dụng.", links);
 
             if (lookup != null && lookup.QueriedId == iosAppId)
             {
@@ -814,12 +758,12 @@ namespace Ezg.Editor.Shared.Readiness
                 if (!lookup.Found)
                     return new ReadinessItem(g, label, iosAppId, EzgStatus.Warn,
                         "App Store không trả về app nào cho id này (app chưa public thì lookup cũng rỗng).",
-                        howToGet + " và đối chiếu tay với IOSAppId.", links);
+                        howToGet + " và đối chiếu tay với App Store ID đang khai.", links);
                 if (!string.IsNullOrEmpty(iosBundle) && lookup.BundleId != iosBundle)
                     return new ReadinessItem(g, label, iosAppId, EzgStatus.Error,
                         $"Id này là app \"{lookup.TrackName}\" ({lookup.BundleId}, {lookup.Seller}) — KHÔNG phải app này. "
                         + "Attribution iOS đang chảy sang app lạ.",
-                        howToGet + " của CHÍNH app này, điền appleId trong sheet marketing rồi tab Marketing > ghi GameConstant (hoặc mở GameConstant.cs sửa IOSAppId tay).",
+                        howToGet + " của CHÍNH app này, điền appleId trong sheet marketing rồi trang Marketing & AppSecrets > Áp dụng.",
                         links);
                 return new ReadinessItem(g, label, iosAppId, EzgStatus.Ok,
                     $"App Store: \"{lookup.TrackName}\" · {lookup.BundleId}");
@@ -828,7 +772,7 @@ namespace Ezg.Editor.Shared.Readiness
             if (!string.IsNullOrEmpty(sheetAppleId) && sheetAppleId != iosAppId)
                 return new ReadinessItem(g, label, iosAppId, EzgStatus.Error,
                     $"Khác appleId trong sheet marketing (`{sheetAppleId}`).",
-                    "Tab Marketing > ghi lại GameConstant để IOSAppId theo sheet.", links);
+                    "Trang Marketing & AppSecrets > Áp dụng để App Store ID theo sheet.", links);
 
             return new ReadinessItem(g, label, iosAppId,
                 string.IsNullOrEmpty(sheetAppleId) ? EzgStatus.Warn : EzgStatus.Ok,
@@ -836,7 +780,7 @@ namespace Ezg.Editor.Shared.Readiness
                     ? "Sheet marketing chưa có appleId nên chưa đối chiếu được — id có thể là số copy từ template."
                     : null,
                 string.IsNullOrEmpty(sheetAppleId)
-                    ? "Bấm \"Tra App Store id\" ở đầu trang để xác minh id này là app nào; rồi " + howToGet + " và điền appleId vào sheet."
+                    ? "Bấm \"Tra App Store\" ở trang Tổng quan để xác minh id này là app nào; rồi " + howToGet + " và điền appleId vào sheet."
                     : null, links);
         }
 
@@ -848,7 +792,7 @@ namespace Ezg.Editor.Shared.Readiness
         {
             const ReadinessGroup g = ReadinessGroup.Store;
             var playerSettings = ReadinessActions.ProjectSettings("Mở Player Settings", SETTINGS_PLAYER);
-            var marketingTab = ReadinessActions.KitTab("Mở tab Marketing", EzgKitWindow.Tab.Marketing);
+            var marketingTab = ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING);
 
             var version = PlayerSettings.bundleVersion;
             report.Add(new ReadinessItem(g, "Version",
@@ -887,20 +831,20 @@ namespace Ezg.Editor.Shared.Readiness
                 report.Add(new ReadinessItem(g, "Link Google Play", play,
                         string.IsNullOrEmpty(play) ? EzgStatus.Warn : EzgStatus.Ok,
                         string.IsNullOrEmpty(play) ? "Rỗng → nút rate/share trỏ link tự dựng từ package name (app chưa public thì 404)." : null,
-                        string.IsNullOrEmpty(play) ? "Khi listing đã có: điền links.googlePlay trong sheet marketing rồi tab Marketing > ghi." : null,
+                        string.IsNullOrEmpty(play) ? "Khi listing đã có: điền links.googlePlay trong sheet marketing rồi trang Marketing > Áp dụng." : null,
                         ("Play Console", URL_PLAY_CONSOLE))
                     .With(marketingTab));
                 report.Add(new ReadinessItem(g, "Link App Store", appStore,
                         string.IsNullOrEmpty(appStore) ? EzgStatus.Warn : EzgStatus.Ok,
                         string.IsNullOrEmpty(appStore) ? "Rỗng — cần Apple ID để dựng link." : null,
-                        string.IsNullOrEmpty(appStore) ? "Điền appleId (hoặc links.appStore) trong sheet marketing rồi tab Marketing > ghi." : null,
+                        string.IsNullOrEmpty(appStore) ? "Điền appleId (hoặc links.appStore) trong sheet marketing rồi trang Marketing > Áp dụng." : null,
                         ("App Store Connect", URL_ASC))
                     .With(marketingTab));
             }
             else
                 report.Add(new ReadinessItem(g, "MarketingConfig.json", null, EzgStatus.Warn,
                         "Chưa tải sheet marketing — không đối chiếu được link store / Apple ID.",
-                        "Tab Marketing > dán link sheet > Tải sheet.")
+                        "Trang Marketing > dán link sheet > Tải sheet.")
                     .With(marketingTab));
         }
 

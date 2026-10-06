@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Ezg.Editor.Shared.EzgKit;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
@@ -37,8 +38,13 @@ namespace Ezg.Editor.Shared.Marketing
     ///         </item>
     ///         <item>PlayerSettings — applicationIdentifier (Android + iOS) và productName.</item>
     ///         <item>
-    ///             <c>GameConstant.cs</c> — <c>AppsFlyerId</c> (dev key) và <c>IOSAppId</c>. Hai giá trị này
-    ///             là <c>const</c> nên phải sửa vào source; thay đổi hiện rõ trong git diff.
+    ///             <c>AppSecretsConfig.asset</c> (template mới) — AppsFlyer dev key, App Store ID, link
+    ///             privacy/terms. Dự án KHÔNG có type <c>AppSecretsConfig</c> (template cũ) thì các số này
+    ///             ghi vào <c>const</c> trong <c>GameConstant.cs</c> như bản 0.x.
+    ///         </item>
+    ///         <item>
+    ///             <c>GameConstant.cs</c> — link store + package name (const có sẵn trong file mới được ghi;
+    ///             const không có thì bỏ qua, không chèn).
     ///         </item>
     ///     </list>
     ///
@@ -160,47 +166,29 @@ namespace Ezg.Editor.Shared.Marketing
             }
         }
 
+        /// <summary>
+        ///     Tuỳ chọn của một lượt đối chiếu/ghi. Mặc định giữ hành vi 0.x cho batchmode
+        ///     (<see cref="ApplyFromCli" />); cửa sổ EzgKit 1.0 tắt <see cref="WritePlayerSettings" /> vì bundle id /
+        ///     product name thuộc trang "Thông tin dự án" — sheet chỉ ĐỀ XUẤT, không được ghi đè lặng lẽ.
+        /// </summary>
+        public class Options
+        {
+            /// <summary>Ghi applicationIdentifier + productName từ sheet vào PlayerSettings.</summary>
+            public bool WritePlayerSettings = true;
+
+            /// <summary>
+            ///     Giá trị người dùng gõ ở trang (field AppSecretsConfig → giá trị). Ô nào có trong đây thắng
+            ///     giá trị của sheet; null = theo sheet.
+            /// </summary>
+            public Dictionary<string, string> AppSecretsOverrides;
+        }
+
         #endregion
 
         #region Menu
 
-        /// <summary>
-        ///     Nút chính: Google Sheet -> marketing_config.json -> asset/manifest/PlayerSettings/code.
-        ///     Fetch hỏng thì DỪNG, không apply bằng file JSON cũ (apply nhầm bản cũ mà báo "xong" còn
-        ///     tệ hơn báo lỗi).
-        /// </summary>
-        [MenuItem("Ezg/Marketing/Setup All (1 Click)", false, 99)]
-        public static void SetupAll()
-        {
-            if (!MarketingSheetFetcher.Fetch(out var fetchReport))
-            {
-                Debug.LogError($"[Marketing] {fetchReport}");
-                EditorUtility.DisplayDialog("Marketing - khong tai duoc sheet", fetchReport, "OK");
-                return;
-            }
-
-            Debug.Log($"[Marketing] {fetchReport}");
-            EditorUtility.DisplayDialog("Marketing - da setup",
-                Truncate(fetchReport + "\n" + Run(false), 3000), "OK");
-        }
-
-        [MenuItem("Ezg/Marketing/Check Config (Dry Run)", false, 120)]
-        public static void CheckConfig() =>
-            EditorUtility.DisplayDialog("Marketing config - check", Truncate(Run(true), 3000), "OK");
-
-        [MenuItem("Ezg/Marketing/Apply Config (khong tai sheet)", false, 121)]
-        public static void ApplyConfig()
-        {
-            if (!EditorUtility.DisplayDialog(
-                    "Apply marketing config",
-                    "Ghi toan bo thong so trong marketing_config.json vao AdsConfig, AppLovinSettings, "
-                    + "FacebookSettings, AndroidManifest, PlayerSettings va GameConstant.cs.\n\n"
-                    + "Chay 'Check Config (Dry Run)' truoc de xem se doi nhung gi.",
-                    "Apply", "Huy"))
-                return;
-
-            EditorUtility.DisplayDialog("Marketing config - applied", Truncate(Run(false), 3000), "OK");
-        }
+        // Menu Ezg/Marketing/* của bản 0.x đã bỏ: trang "Marketing & AppSecrets" của Ezg > EzgKit hiện bảng
+        // thay đổi trước khi ghi. Batchmode / CI vẫn dùng hai entry point bên dưới.
 
         /// <summary>
         ///     Entry point cho batchmode/CI/automation:
@@ -219,17 +207,27 @@ namespace Ezg.Editor.Shared.Marketing
         /// <summary>Chạy toàn bộ sink, log report ra Console và trả report về cho caller.</summary>
         private static string Run(bool dryRun) => Report(Collect(dryRun), dryRun);
 
+        /// <summary>Bản giữ chữ ký 0.x — ghi đủ mọi sink như trước (kể cả PlayerSettings).</summary>
+        public static Status Collect(bool dryRun) => Collect(dryRun, null);
+
         /// <summary>
         ///     Đối chiếu (và ghi, nếu <paramref name="dryRun" /> = false) toàn bộ sink, trả về ảnh chụp
         ///     trạng thái. Đây là API cho <c>MarketingSetupPage</c> — bảng được dựng từ đây chứ không
         ///     parse lại text báo cáo.
         /// </summary>
-        public static Status Collect(bool dryRun)
+        public static Status Collect(bool dryRun, Options options)
         {
-            var status = new Status { Config = MarketingConfig.Load() };
+            options ??= new Options();
+            if (!dryRun) EzgBackup.BeginSession();
+            var status = new Status { Config = File.Exists(MarketingConfig.JsonPath) ? MarketingConfig.Load() : null };
             if (status.Config == null)
             {
-                status.Errors.Add($"Khong doc duoc {MarketingConfig.JsonPath} - xem Console.");
+                // Chưa có sheet vẫn ghi được phần AppSecrets người dùng gõ tay ở trang.
+                status.Errors.Add(File.Exists(MarketingConfig.JsonPath)
+                    ? $"Khong doc duoc {MarketingConfig.JsonPath} - xem Console."
+                    : "Chua tai sheet marketing (MarketingConfig.json chua co) - chi ghi phan AppSecrets nhap tay.");
+                ApplyAppSecrets(null, options, dryRun, status.Rows, status.Errors, status.Skipped);
+                if (!dryRun && status.PendingCount > 0) AssetDatabase.SaveAssets();
                 return status;
             }
 
@@ -246,7 +244,11 @@ namespace Ezg.Editor.Shared.Marketing
             ApplyAppLovinConsentFlow(cfg, dryRun, changes, errors, skipped);
             ApplyFacebookSettings(cfg, dryRun, changes, errors, skipped);
             ApplyAndroidManifest(cfg, dryRun, changes, skipped);
-            ApplyPlayerSettings(cfg, dryRun, changes);
+            if (options.WritePlayerSettings) ApplyPlayerSettings(cfg, dryRun, changes);
+            else
+                skipped.Add("PlayerSettings - khong ghi tu sheet (bundle id / product name sua o trang Thong tin du an)"
+                            + (string.IsNullOrEmpty(cfg.packageName) ? "." : $"; sheet de xuat: {cfg.packageName} / {cfg.gameName}."));
+            ApplyAppSecrets(cfg, options, dryRun, changes, errors, skipped);
             ApplyGameConstant(cfg, dryRun, changes, skipped);
 
             status.Todos.AddRange(CollectManualTodos(cfg));
@@ -408,14 +410,22 @@ namespace Ezg.Editor.Shared.Marketing
             }
 
             var text = ReadText(full, out var hadBom);
+            var original = text;
             const string sink = "GameConstant.cs";
 
-            ReplaceCapture(ref text,
-                new Regex("(public const string AppsFlyerId = \")([^\"]*)(\";)"),
-                cfg.appsflyerDevKey, sink, "AppsFlyerId", changes);
-            ReplaceCapture(ref text,
-                new Regex("(public const string IOSAppId = \")([^\"]*)(\";)"),
-                cfg.appleId, sink, "IOSAppId", changes);
+            // Template mới giữ AppsFlyer / App Store ID / privacy / terms trong AppSecretsConfig — các const đó
+            // đã bị xoá khỏi GameConstant. Ghi vào đây nữa là ghi vào hư không (kèm cảnh báo vô nghĩa).
+            var secretsOwned = AppSecretsSink.TypeExists;
+            if (!secretsOwned)
+            {
+                ReplaceCapture(ref text,
+                    new Regex("(public const string AppsFlyerId = \")([^\"]*)(\";)"),
+                    cfg.appsflyerDevKey, sink, "AppsFlyerId", changes);
+                ReplaceCapture(ref text,
+                    new Regex("(public const string IOSAppId = \")([^\"]*)(\";)"),
+                    cfg.appleId, sink, "IOSAppId", changes);
+            }
+
             ReplaceCapture(ref text,
                 new Regex("(public const string PackNameAndroidFree = \")([^\"]*)(\";)"),
                 cfg.packageName, sink, "PackNameAndroidFree", changes);
@@ -440,15 +450,67 @@ namespace Ezg.Editor.Shared.Marketing
             ReplaceCapture(ref text,
                 new Regex("(public const string LinkFacebook =\\s*\")([^\"]*)(\";)"),
                 cfg.links.facebookPage, sink, "LinkFacebook", changes);
-            ReplaceCapture(ref text,
-                new Regex("(public const string LinkPrivacyPolicy =\\s*\")([^\"]*)(\";)"),
-                cfg.applovin.privacyPolicyUrl, sink, "LinkPrivacyPolicy", changes);
-            ReplaceCapture(ref text,
-                new Regex("(public const string LinkTermsOfService =\\s*\")([^\"]*)(\";)"),
-                cfg.applovin.termsOfServiceUrl, sink, "LinkTermsOfService", changes);
+            if (!secretsOwned)
+            {
+                ReplaceCapture(ref text,
+                    new Regex("(public const string LinkPrivacyPolicy =\\s*\")([^\"]*)(\";)"),
+                    cfg.applovin.privacyPolicyUrl, sink, "LinkPrivacyPolicy", changes);
+                ReplaceCapture(ref text,
+                    new Regex("(public const string LinkTermsOfService =\\s*\")([^\"]*)(\";)"),
+                    cfg.applovin.termsOfServiceUrl, sink, "LinkTermsOfService", changes);
+            }
 
-            if (dryRun) return;
+            if (dryRun || text == original) return;
             WriteText(full, text, hadBom);
+        }
+
+        /// <summary>
+        ///     AppsFlyer dev key, App Store ID, link privacy/terms → <c>AppSecretsConfig.asset</c> (template mới).
+        ///     Giá trị người dùng gõ ở trang (<see cref="Options.AppSecretsOverrides" />) thắng sheet; ô sheet rỗng
+        ///     thì giữ nguyên asset (cùng luật "rỗng = chưa có" như mọi sink khác).
+        /// </summary>
+        private static void ApplyAppSecrets(MarketingConfig cfg, Options options, bool dryRun, List<Change> changes,
+            List<string> errors, List<string> skipped)
+        {
+            if (!AppSecretsSink.TypeExists)
+            {
+                if (cfg != null) skipped.Add("AppSecretsConfig - du an khong co type nay (template cu dung GameConstant).");
+                return;
+            }
+
+            var values = new Dictionary<string, string>();
+
+            void FromSheet(string field, string value)
+            {
+                if (!string.IsNullOrEmpty(value)) values[field] = value;
+            }
+
+            if (cfg != null)
+            {
+                FromSheet(AppSecretsSink.F_APPSFLYER_KEY, cfg.appsflyerDevKey);
+                FromSheet(AppSecretsSink.F_IOS_APP_ID, cfg.appleId);
+                FromSheet(AppSecretsSink.F_PRIVACY, cfg.applovin?.privacyPolicyUrl);
+                FromSheet(AppSecretsSink.F_TERMS, cfg.applovin?.termsOfServiceUrl);
+            }
+
+            if (options.AppSecretsOverrides != null)
+                foreach (var pair in options.AppSecretsOverrides)
+                    if (pair.Value != null)
+                        values[pair.Key] = pair.Value;
+
+            if (values.Count == 0) return;
+
+            var rows = new List<ChangeRow>();
+            if (!AppSecretsSink.Write(values, dryRun, rows, out var error))
+            {
+                errors.Add("AppSecretsConfig: " + error);
+                return;
+            }
+
+            foreach (var row in rows)
+                changes.Add(new Change("AppSecretsConfig", row.Field,
+                    row.Secret ? Mask.Secret(row.OldValue) : row.OldValue,
+                    row.Secret ? Mask.Secret(row.NewValue) : row.NewValue, row.Matched));
         }
 
         /// <summary>
@@ -650,8 +712,11 @@ namespace Ezg.Editor.Shared.Marketing
             return new UTF8Encoding(false).GetString(bytes, hadBom ? 3 : 0, bytes.Length - (hadBom ? 3 : 0));
         }
 
-        private static void WriteText(string path, string text, bool hadBom) =>
+        private static void WriteText(string path, string text, bool hadBom)
+        {
+            EzgBackup.Save(path);
             File.WriteAllText(path, text, new UTF8Encoding(hadBom));
+        }
 
         #endregion
 
@@ -735,8 +800,8 @@ namespace Ezg.Editor.Shared.Marketing
             var todo = new List<string>();
 
             if (string.IsNullOrEmpty(cfg.appleId))
-                todo.Add("Sheet chua co Apple ID -> GameConstant.IOSAppId + LinkStoreIos giu gia tri cu; "
-                         + "attribution AppsFlyer tren iOS con sai.");
+                todo.Add("Sheet chua co Apple ID -> App Store ID (AppSecretsConfig / GameConstant) + LinkStoreIos giu "
+                         + "gia tri cu; attribution AppsFlyer tren iOS con sai.");
             if (string.IsNullOrEmpty(cfg.links.facebookPage))
                 todo.Add("Sheet chua co link fanpage -> GameConstant.LinkFacebook giu gia tri cu.");
             if (string.IsNullOrEmpty(cfg.max.android.banner) && string.IsNullOrEmpty(cfg.max.ios.banner))

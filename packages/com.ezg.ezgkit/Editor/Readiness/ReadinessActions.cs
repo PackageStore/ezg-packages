@@ -116,9 +116,9 @@ namespace Ezg.Editor.Shared.Readiness
         internal static (string, Action) PackageManager(string label, string packageName) =>
             (label, () => UnityEditor.PackageManager.UI.Window.Open(packageName));
 
-        /// <summary>Nhảy sang tab khác của kit — dữ liệu gốc (sheet marketing, app Firebase) sửa ở đó.</summary>
-        internal static (string, Action) KitTab(string label, EzgKitWindow.Tab tab) =>
-            (label, () => EzgKitWindow.Open(tab));
+        /// <summary>Nhảy sang trang khác của kit — dữ liệu gốc (sheet marketing, app Firebase) sửa ở đó.</summary>
+        internal static (string, Action) KitTab(string label, string pageId) =>
+            (label, () => EzgKitWindow.Open(pageId));
 
         #endregion
 

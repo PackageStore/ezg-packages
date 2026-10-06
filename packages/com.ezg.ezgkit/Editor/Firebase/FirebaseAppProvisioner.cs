@@ -187,33 +187,8 @@ namespace Ezg.Editor.Shared.Firebase
 
         #region Menu
 
-        [MenuItem("Ezg/Firebase/Tao app + tai config (1 Click)", false, 99)]
-        private static void MenuRun()
-        {
-            if (!Run(true, null, out var plan))
-            {
-                EditorUtility.DisplayDialog("Firebase", plan, "Dong");
-                EzgKitWindow.Open(EzgKitWindow.Tab.Firebase);
-                return;
-            }
-
-            if (!EditorUtility.DisplayDialog("Firebase - xac nhan",
-                    plan + "\n\nLuu y: packageName / bundleId cua app Firebase KHONG sua duoc sau khi tao.",
-                    "Lam di", "Huy"))
-                return;
-
-            Run(false, null, out var report);
-            EditorUtility.DisplayDialog("Firebase", report, "Dong");
-        }
-
-        [MenuItem("Ezg/Firebase/Kiem tra (Dry Run)", false, 120)]
-        private static void MenuDryRun()
-        {
-            Run(true, null, out var report);
-            EditorUtility.DisplayDialog("Firebase - dry run", report, "Dong");
-        }
-
-        // Menu "Cai dat..." nam trong EzgKitWindow - no la chu cua cua so do.
+        // Không còn menu riêng: mọi lối vào đi qua trang "Firebase" của Ezg > EzgKit (nhóm Nâng cao) —
+        // ở đó có dry-run, xem kế hoạch và xác nhận trong cửa sổ trước khi tạo app (không sửa được sau khi tạo).
 
         #endregion
 

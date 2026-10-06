@@ -1,0 +1,745 @@
+/* EzgKit 1.0 — một file style cho cả cửa sổ. Màu CHỈ mang nghĩa trạng thái; mọi thứ khác dùng tông trung tính. */
+
+.ezg-root {
+    --bg: #1e2024;
+    --nav-bg: #17181b;
+    --card: #26292e;
+    --card-alt: #2c3036;
+    --border: #363a41;
+    --text: #e7e9ec;
+    --muted: #9aa1aa;
+    --faint: #6d747d;
+    --accent: #4c8dff;
+    --accent-soft: rgba(76, 141, 255, 0.16);
+    --accent-text: #ffffff;
+    --ok: #3ecf8e;
+    --ok-soft: rgba(62, 207, 142, 0.14);
+    --warn: #f5a623;
+    --warn-soft: rgba(245, 166, 35, 0.15);
+    --err: #ff5f63;
+    --err-soft: rgba(255, 95, 99, 0.15);
+    --info: #8f99a8;
+    --info-soft: rgba(143, 153, 168, 0.14);
+    --blue: #6aa8ff;
+    --blue-soft: rgba(106, 168, 255, 0.14);
+    --input: #1b1d21;
+    --hover: rgba(255, 255, 255, 0.05);
+
+    flex-grow: 1;
+    background-color: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+}
+
+.ezg-root.ezg-light {
+    --bg: #f3f4f6;
+    --nav-bg: #e8eaee;
+    --card: #ffffff;
+    --card-alt: #f7f8fa;
+    --border: #d7dbe0;
+    --text: #1d2025;
+    --muted: #5f6772;
+    --faint: #8a929c;
+    --accent: #2f6fec;
+    --accent-soft: rgba(47, 111, 236, 0.12);
+    --ok: #16a36b;
+    --ok-soft: rgba(22, 163, 107, 0.12);
+    --warn: #c47a00;
+    --warn-soft: rgba(196, 122, 0, 0.12);
+    --err: #d93438;
+    --err-soft: rgba(217, 52, 56, 0.11);
+    --info: #66707d;
+    --info-soft: rgba(102, 112, 125, 0.11);
+    --blue: #2f6fec;
+    --blue-soft: rgba(47, 111, 236, 0.10);
+    --input: #ffffff;
+    --hover: rgba(0, 0, 0, 0.04);
+}
+
+/* Quy tắc chung đặt TRƯỚC: các class cụ thể bên dưới (cùng độ ưu tiên) ghi đè được. */
+.ezg-text {
+    color: var(--text);
+    white-space: normal;
+}
+
+/* ---------- Khung ---------- */
+
+.ezg-split {
+    flex-grow: 1;
+}
+
+.ezg-nav {
+    background-color: var(--nav-bg);
+    border-right-width: 1px;
+    border-right-color: var(--border);
+    min-width: 210px;
+    flex-grow: 1;
+}
+
+.ezg-nav-header {
+    flex-shrink: 0;
+    padding: 16px 14px 12px 14px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+}
+
+.ezg-brand {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: var(--accent);
+    letter-spacing: 1px;
+}
+
+.ezg-project {
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-top: 4px;
+    white-space: normal;
+}
+
+.ezg-ids {
+    color: var(--muted);
+    font-size: 10px;
+    margin-top: 3px;
+    white-space: normal;
+}
+
+.ezg-progress {
+    margin-top: 10px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--border);
+    overflow: hidden;
+}
+
+.ezg-progress-fill {
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--ok);
+}
+
+.ezg-progress-label {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.ezg-nav-scroll {
+    flex-grow: 1;
+}
+
+.ezg-nav-group {
+    margin: 12px 8px 0 8px;
+}
+
+.ezg-nav-group-title {
+    color: var(--faint);
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    margin: 0 6px 6px 6px;
+}
+
+.ezg-nav-fold > Toggle {
+    margin: 0 0 4px 0;
+}
+
+.ezg-nav-fold > Toggle Label {
+    color: var(--faint);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.ezg-nav-fold > #unity-content {
+    margin-left: 0;
+}
+
+.ezg-nav-item {
+    flex-direction: row;
+    align-items: center;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    margin-bottom: 2px;
+    border-radius: 6px;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+.ezg-nav-item:hover {
+    background-color: var(--hover);
+}
+
+.ezg-nav-item.ezg-selected {
+    background-color: var(--accent-soft);
+    border-left-color: var(--accent);
+}
+
+.ezg-nav-index {
+    width: 18px;
+    color: var(--faint);
+    font-size: 11px;
+}
+
+.ezg-nav-title {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ezg-nav-item.ezg-selected .ezg-nav-title {
+    -unity-font-style: bold;
+}
+
+.ezg-nav-state {
+    font-size: 10px;
+    color: var(--faint);
+    margin: 0 6px 0 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.ezg-nav-footer {
+    flex-shrink: 0;
+    padding: 10px;
+    border-top-width: 1px;
+    border-top-color: var(--border);
+}
+
+.ezg-main {
+    flex-grow: 1;
+    background-color: var(--bg);
+}
+
+.ezg-page-header {
+    flex-shrink: 0;
+    padding: 18px 22px 14px 22px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+}
+
+.ezg-page-title-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 32px;
+    margin-bottom: 2px;
+}
+
+.ezg-page-title {
+    font-size: 19px;
+    -unity-font-style: bold;
+    flex-grow: 1;
+    flex-shrink: 1;
+    white-space: nowrap;
+    min-height: 28px;
+    -unity-text-align: middle-left;
+}
+
+.ezg-page-desc {
+    margin-top: 4px;
+    color: var(--muted);
+    white-space: normal;
+}
+
+.ezg-page-summary {
+    margin-top: 8px;
+    white-space: normal;
+}
+
+.ezg-body-scroll {
+    flex-grow: 1;
+}
+
+.ezg-body {
+    padding: 16px 22px 24px 22px;
+}
+
+.ezg-toast {
+    flex-shrink: 0;
+    margin: 0 22px 8px 22px;
+}
+
+.ezg-footer {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 22px;
+    border-top-width: 1px;
+    border-top-color: var(--border);
+    background-color: var(--nav-bg);
+}
+
+/* ---------- Card ---------- */
+
+.ezg-card {
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+
+.ezg-card-header {
+    padding: 11px 14px 9px 14px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+    background-color: var(--card-alt);
+}
+
+.ezg-card-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.ezg-card-subtitle {
+    margin-top: 3px;
+    color: var(--muted);
+    white-space: normal;
+}
+
+.ezg-card-content {
+    padding: 10px 14px 12px 14px;
+}
+
+.ezg-card-todos {
+    border-color: var(--warn);
+}
+
+.ezg-card-diff {
+    border-color: var(--accent);
+}
+
+.ezg-card-applied {
+    border-color: var(--ok);
+}
+
+.ezg-fold {
+    margin-top: 6px;
+}
+
+.ezg-fold > Toggle Label {
+    -unity-font-style: bold;
+    color: var(--muted);
+}
+
+/* ---------- Text ---------- */
+
+.ezg-hint {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 2px;
+    white-space: normal;
+}
+
+.ezg-value {
+    flex-shrink: 1;
+    white-space: normal;
+    -unity-font-style: bold;
+}
+
+.ezg-mono {
+    -unity-font-style: normal;
+}
+
+.ezg-strong {
+    -unity-font-style: bold;
+}
+
+/* ---------- Field ---------- */
+
+.ezg-field {
+    margin: 5px 0 7px 0;
+}
+
+.ezg-field-line {
+    flex-direction: row;
+    align-items: center;
+    min-height: 22px;
+}
+
+.ezg-field-label {
+    width: 190px;
+    min-width: 190px;
+    color: var(--muted);
+    padding-right: 10px;
+    white-space: normal;
+}
+
+.ezg-field-control {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ezg-field-below {
+    margin-left: 190px;
+}
+
+.ezg-validation {
+    font-size: 11px;
+    margin-top: 2px;
+    white-space: normal;
+}
+
+.ezg-validation.st-error {
+    color: var(--err);
+}
+
+.ezg-validation.st-partial {
+    color: var(--warn);
+}
+
+.ezg-input {
+    margin: 0;
+}
+
+.ezg-input > .unity-base-text-field__input,
+.ezg-input > .unity-base-field__input {
+    background-color: var(--input);
+    border-color: var(--border);
+    border-radius: 4px;
+    padding: 3px 6px;
+    min-height: 22px;
+}
+
+.ezg-toggle {
+    margin: 0;
+}
+
+/* Toggle có nhãn đứng cạnh (format ads, tab localize…): bỏ min-width mặc định của nhãn field. */
+.ezg-inline-toggle {
+    margin: 0 16px 0 0;
+}
+
+.ezg-inline-toggle > .unity-base-field__label {
+    min-width: 0;
+    width: auto;
+    padding-right: 6px;
+    color: var(--text);
+}
+
+/* ---------- Layout helpers ---------- */
+
+.ezg-hrow {
+    flex-direction: row;
+    align-items: center;
+}
+
+.ezg-wrap {
+    flex-wrap: wrap;
+}
+
+.ezg-grow {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.ezg-spacer {
+    flex-grow: 1;
+}
+
+.ezg-gap {
+    height: 8px;
+}
+
+/* ---------- Pill / dot ---------- */
+
+.ezg-pill {
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ezg-dot {
+    width: 9px;
+    height: 9px;
+    min-width: 9px;
+    border-radius: 5px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.ezg-pill.st-done { background-color: var(--ok-soft); color: var(--ok); }
+.ezg-pill.st-partial { background-color: var(--warn-soft); color: var(--warn); }
+.ezg-pill.st-error { background-color: var(--err-soft); color: var(--err); }
+.ezg-pill.st-todo { background-color: var(--info-soft); color: var(--info); }
+.ezg-pill.st-deferred { background-color: var(--blue-soft); color: var(--blue); }
+.ezg-pill.st-na { background-color: var(--info-soft); color: var(--faint); }
+.ezg-pill.st-info { background-color: var(--accent-soft); color: var(--accent); }
+
+.ezg-dot.st-done { background-color: var(--ok); }
+.ezg-dot.st-partial { background-color: var(--warn); }
+.ezg-dot.st-error { background-color: var(--err); }
+.ezg-dot.st-todo { background-color: rgba(0, 0, 0, 0); border-width: 2px; border-color: var(--info); }
+.ezg-dot.st-deferred { background-color: var(--blue); }
+.ezg-dot.st-na { background-color: var(--faint); opacity: 0.5; }
+.ezg-dot.st-info { background-color: var(--accent); }
+
+/* ---------- Message ---------- */
+
+.ezg-msg {
+    padding: 8px 11px;
+    border-radius: 6px;
+    margin: 4px 0 8px 0;
+    border-left-width: 3px;
+    white-space: normal;
+}
+
+.ezg-msg.st-error { background-color: var(--err-soft); border-left-color: var(--err); }
+.ezg-msg.st-partial { background-color: var(--warn-soft); border-left-color: var(--warn); }
+.ezg-msg.st-done { background-color: var(--ok-soft); border-left-color: var(--ok); }
+.ezg-msg.st-na { background-color: var(--info-soft); border-left-color: var(--info); }
+
+/* ---------- Todo ---------- */
+
+.ezg-todo {
+    align-items: flex-start;
+    margin: 4px 0;
+}
+
+.ezg-todo > .ezg-dot {
+    margin-top: 4px;
+}
+
+.ezg-todo-text {
+    white-space: normal;
+}
+
+.ezg-todo-fix {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 2px;
+    white-space: normal;
+}
+
+/* ---------- Button ---------- */
+
+.ezg-btn {
+    height: 28px;
+    padding: 0 14px;
+    margin: 0 6px 0 0;
+    border-radius: 6px;
+    border-width: 1px;
+    -unity-font-style: bold;
+}
+
+.ezg-btn-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+}
+
+.ezg-btn-primary:hover {
+    opacity: 0.9;
+}
+
+.ezg-btn-secondary {
+    background-color: var(--card-alt);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.ezg-btn-danger {
+    background-color: var(--err-soft);
+    border-color: var(--err);
+    color: var(--err);
+}
+
+.ezg-btn-ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--muted);
+}
+
+.ezg-btn-link {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--accent);
+    padding: 0 6px;
+    height: 22px;
+    -unity-font-style: normal;
+}
+
+.ezg-btn-mini {
+    height: 22px;
+    margin: 0 0 0 6px;
+    padding: 0 9px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.ezg-btn-block {
+    margin: 0 0 6px 0;
+}
+
+.ezg-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.ezg-actions > .ezg-btn {
+    margin-bottom: 6px;
+}
+
+/* ---------- Overview cards ---------- */
+
+.ezg-tiles {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 0 -6px 8px -6px;
+}
+
+.ezg-tile {
+    width: 31%;
+    min-width: 190px;
+    flex-grow: 1;
+    margin: 0 6px 12px 6px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: var(--border);
+    background-color: var(--card);
+}
+
+.ezg-tile:hover {
+    border-color: var(--accent);
+}
+
+.ezg-tile-title {
+    -unity-font-style: bold;
+    font-size: 13px;
+    flex-grow: 1;
+}
+
+.ezg-tile-summary {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    white-space: normal;
+}
+
+/* ---------- Readiness list ---------- */
+
+.ezg-ready-row {
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+}
+
+.ezg-ready-row > .ezg-dot {
+    margin-top: 4px;
+}
+
+.ezg-ready-label {
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.ezg-ready-value {
+    color: var(--muted);
+    white-space: normal;
+    font-size: 11px;
+}
+
+/* ---------- Diff ---------- */
+
+.ezg-diff-head {
+    padding-bottom: 4px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+    margin-bottom: 2px;
+}
+
+.ezg-diff-head > Label {
+    color: var(--faint);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.ezg-diff-row {
+    padding: 4px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--hover);
+    align-items: flex-start;
+}
+
+.ezg-diff-same {
+    opacity: 0.55;
+}
+
+.ezg-diff-sink {
+    width: 22%;
+    color: var(--muted);
+    padding-right: 6px;
+}
+
+.ezg-diff-field {
+    width: 22%;
+    padding-right: 6px;
+}
+
+.ezg-diff-old {
+    width: 28%;
+    color: var(--err);
+    padding-right: 6px;
+}
+
+.ezg-diff-new {
+    width: 28%;
+    color: var(--ok);
+}
+
+/* ---------- Table (IAP, SDK) ---------- */
+
+.ezg-table-head {
+    padding: 4px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+}
+
+.ezg-table-head > Label {
+    color: var(--faint);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.ezg-table-row {
+    padding: 5px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--hover);
+    align-items: flex-start;
+}
+
+.ezg-col-xs { width: 18px; }
+.ezg-col-s { width: 14%; padding-right: 6px; }
+.ezg-col-m { width: 22%; padding-right: 6px; }
+.ezg-col-l { width: 34%; padding-right: 6px; }
+.ezg-col-grow { flex-grow: 1; flex-shrink: 1; }
+
+/* ---------- Preview ---------- */
+
+.ezg-board {
+    margin: 6px 0 10px 0;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--border);
+    background-color: var(--input);
+}
+
+.ezg-log {
+    margin-top: 6px;
+    padding: 8px;
+    border-radius: 6px;
+    background-color: var(--input);
+    color: var(--muted);
+    font-size: 11px;
+    white-space: normal;
+}

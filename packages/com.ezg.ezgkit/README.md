@@ -1,111 +1,122 @@
 # EZG EzgKit
 
-`Ezg > EzgKit` — một cửa sổ Editor gom mọi bước setup của một dự án mới vào đúng thứ tự phải chạy.
+`Ezg > EzgKit` — cửa sổ setup một dự án Unity vừa sinh từ template: mỗi việc phải điền theo dự án (bundle id,
+id quảng cáo, key AppsFlyer, link pháp lý, localize, art style…) là một mục ở cột trái, có trạng thái, form bên
+phải, và luôn hiện **bảng thay đổi** trước khi ghi.
 
-Editor-only, **không phụ thuộc package nào khác**, không third-party lib. Chỉ Unity + BCL.
+Editor-only, không phụ thuộc package nào khác (Unity + BCL). Mọi SDK bên thứ ba (MAX, Facebook, com.ezg.ads,
+com.ezg.localize, com.ezg.firebase) và type của game (`AppSecretsConfig`, `ShopService`) được dò bằng reflection —
+dự án chưa có thứ đó thì mục tương ứng nói "không áp dụng", không vỡ compile.
 
 ## Cài đặt
 
 ```json
 "scopedRegistries": [
-  {
-    "name": "Easygoing code base",
-    "url": "https://upm-registry-worker.developer-a1f.workers.dev",
-    "scopes": ["com.ezg"]
-  }
+  { "name": "Easygoing code base", "url": "https://upm-registry-worker.developer-a1f.workers.dev", "scopes": ["com.ezg"] }
 ],
-"dependencies": {
-  "com.ezg.ezgkit": "0.1.0"
-}
+"dependencies": { "com.ezg.ezgkit": "1.0.0" }
 ```
 
-## Có gì trong này
+## Cửa sổ
+
+```
+┌ EZGKIT · PROJECT SETUP ─────┬─────────────────────────────────────────────────────────┐
+│ <tên dự án>                 │ Thông tin dự án                              [Còn việc] │
+│ Android … · iOS … · v1.0    │ Tên dự án, công ty, tên hiển thị và bundle id …          │
+│ ▓▓▓▓░░░░  2/6 mục Setup xong├─────────────────────────────────────────────────────────┤
+│ SETUP                       │ ┌ Còn việc ──────────────────────────────────────────┐  │
+│ 1 Thông tin dự án  Còn việc●│ │ ● Bundle id Android: đang là id mẫu …              │  │
+│ 2 Marketing & …    Chưa làm○│ └────────────────────────────────────────────────────┘  │
+│ 3 Ads & Privacy    Chưa làm○│ ┌ Bundle id ─────────────────────────────────────────┐  │
+│ 4 Gói bán (IAP)    Còn việc●│ │ Android   [com.studio.game          ]  ✓            │  │
+│ 5 ArtStyle         Để sau  ●│ │ iOS       [☑ dùng chung id Android  ]               │  │
+│ 6 Localization     Xong    ●│ └────────────────────────────────────────────────────┘  │
+│ ▾ NÂNG CAO                  │ ┌ Xem thay đổi — 3 ô sẽ ghi ─────────────────────────┐  │
+│   Firebase · Nhà phát hành  │ │ PlayerSettings  applicationIdentifier  cũ → mới    │  │
+│   · Social                  │ └────────────────────────────────────────────────────┘  │
+│ [Setup tất cả →]            ├─────────────────────────────────────────────────────────┤
+│ [Làm mới trạng thái]        │ [Xem thay đổi] [Áp dụng]        Để sau  Không áp dụng   │
+└─────────────────────────────┴─────────────────────────────────────────────────────────┘
+```
+
+- **Mở cửa sổ chỉ đọc.** Ghi chỉ xảy ra khi bấm **Áp dụng**: kit chạy dry-run, hỏi lại kèm danh sách ô sẽ đổi, rồi
+  mới ghi. Asset ghi qua `SerializedObject` (có Undo); file text (GameConstant.cs, AndroidManifest.xml,
+  ArtStyle.md, project-profile.json) được backup vào `Library/EzgKit/Backups/<giờ>/` trước khi ghi.
+- **Trạng thái mỗi mục** do detector đọc thẳng từ project mỗi lần làm mới: `Xong`, `Còn việc`, `Chưa làm`,
+  `Có lỗi`. Hai trạng thái còn lại là quyết định của người: **Để sau** và **Không áp dụng** — lưu lại và thắng
+  detector (để sau mà project thực tế đã xong thì vẫn hiện Xong).
+- **Setup tất cả** đi lần lượt qua các mục Setup còn `Chưa làm / Còn việc / Có lỗi`; mỗi trang có nút **Tiếp →**.
+- Secret (key, token, webhook) hiện dạng ô mật khẩu có nút Hiện, bảng thay đổi che còn 4 ký tự cuối.
+
+## Các mục
+
+| Id | Mục | Ghi vào |
+|---|---|---|
+| `overview` | Tổng quan — thẻ trạng thái mọi mục + danh sách sẵn sàng phát hành (IAP / Firebase / SDK / Store / Social), nút copy báo cáo cho PM, tra App Store ID | — (chỉ đọc) |
+| `project` | Thông tin dự án — tên dự án (agent system), company, product name, bundle id Android / iOS | PlayerSettings, `.claude/project-profile.json › projectName` |
+| `marketing` | Marketing & AppSecrets — Google Sheet của PM → `ProjectSettings/MarketingConfig.json` → mọi nơi project đọc; key riêng của app | AdsConfig, AppLovinSettings, consent MAX, FacebookSettings, AndroidManifest, GameConstant (link store / package name), **`AppSecretsConfig.asset`** |
+| `ads` | Ads & Privacy — debug ads, format, MAX sdk key + ad unit, define `MEDIATION_MAX`, AdMob app id, consent flow / ATT, đối tượng người chơi (COPPA), Facebook app id | AdsConfig, scripting define (Android + iOS), AppLovinSettings, AppLovinInternalSettings, FacebookSettings |
+| `iap` | Gói bán (IAP) — **chỉ đọc**: SKU client đăng ký (`ShopService.GetAllProductId()`), loại, giá tham chiếu, trạng thái trên Google Play / App Store Connect (API project-ezg, có cache). Tạo / sửa gói bằng MCP gói bán | — |
+| `artstyle` | ArtStyle — `.claude/docs/ArtStyle.md`: Status, mục nào còn khung trống, khối `art-style-boards`, dựng board (`art-style-board.py`), **Nhờ Claude soạn** | ArtStyle.md (chỉ khối boards) |
+| `localize` | Localization — link file localize, service account, thư mục CSV dùng chung, tab cần tải, nút Tải localize | `LocalizeDownloader.asset`, `.claude/project-profile.json › localize` |
+| `firebase` | *(Nâng cao)* Firebase — service account → tạo app Android + iOS → tải config, SHA-1, `FirebaseConfig.asset` đúng bucket | Assets/google-services.json, GoogleService-Info.plist, FirebaseConfig.asset |
+| `publisher` | *(Nâng cao)* Nhà phát hành — bộ SDK theo publisher (Ezg / Neptune / SayGame), điền ID, chuyển bộ SDK | asset SDK, define `EZG_SDK_*`, `PublisherConfig.json` |
+| `social` | *(Nâng cao)* Social — Discord invite / trang hỗ trợ / email, quét link hardcode + token Discord bị lộ | `SocialConfig.json`, GameConstant |
+
+### AppSecretsConfig vs GameConstant
+
+Template mới để AppsFlyer dev key, App Store ID, cờ sandbox, webhook / bot Discord, endpoint backend và link
+privacy / terms trong ScriptableObject `AppSecretsConfig` (`Resources/AppSecretsConfig`), không còn là `const`
+trong `GameConstant.cs`. Bản 0.x vẫn ghi các const đó → ghi vào hư không và báo lỗi sai. Từ 1.0 mọi đường đọc /
+ghi các số này đi qua `AppSecretsConfig` khi dự án có type đó (tạo asset ở `Assets/_Project/Resources/` nếu
+chưa có); dự án template cũ (không có type) vẫn ghi vào GameConstant như trước.
+
+## File dữ liệu
+
+| File | Nội dung | Git |
+|---|---|---|
+| `ProjectSettings/EzgKitSetup.json` | `{schema, pages:{<id>:{marker,at,note}}, answers:{<id>:{…}}, requests:[…]}` — quyết định Để sau / Không áp dụng / Xong, câu trả lời không bí mật, yêu cầu nhờ Claude | track |
+| `ProjectSettings/MarketingSource.json`, `MarketingConfig.json` | link sheet + bản chép sheet marketing | track |
+| `ProjectSettings/FirebaseSource.json`, `SocialConfig.json`, `PublisherConfig.json` | khai báo của từng mục nâng cao | track |
+| EditorPrefs (theo máy) | đường dẫn key Firebase, API key IAP | không |
+| `Library/EzgKit/` | cache store IAP, backup file trước khi ghi | không |
+
+Secret không bao giờ nằm trong `EzgKitSetup.json`.
+
+## API cho automation (Claude `/setup-project`)
+
+`Ezg.EzgKit.EzgKitApi` — public static, trả về chuỗi JSON, không mở dialog. Gọi qua Unity MCP
+(`unity_execute_code`), ví dụ `return Ezg.EzgKit.EzgKitApi.GetStatusJson();`.
+
+| Hàm | Trả về / việc |
+|---|---|
+| `GetStatusJson()` | `{api, project, productName, androidId, iosId, version, progress:{done,total}, pages:[{id,title,group,canApply,status,marker,summary,todos:[{level,text,fix}]}], requests:[…]}` |
+| `GetPageValuesJson(pageId)` | `{page, canApply, values:{…}}` — giá trị hiện tại, secret che bằng `•` |
+| `Apply(pageId, valuesJson, dryRun = true)` | `{page, ok, dryRun, error, changed, rows:[{sink,field,old,new,changed}], notes:[…]}`; chỉ key có trong `valuesJson` mới được đụng; giá trị chứa `•` bị bỏ qua; ghi thật thành công → marker `done` |
+| `SetMarker(pageId, marker)` | `done` \| `deferred` \| `na` \| `clear` |
+| `ClearRequest(id)` | gỡ yêu cầu nhờ Claude (vd `artstyle`) sau khi xử lý |
+| `Open(pageId = null)` | mở / focus cửa sổ ở trang đó |
+| `SetupAll()` | mở cửa sổ + bắt đầu luồng Setup tất cả |
+
+- `status`: `todo` · `partial` · `done` · `deferred` · `na` · `error` · `info` (Tổng quan). `group`: `overview` · `setup` · `advanced`.
+- Ghi được bằng `Apply`: `project`, `marketing`, `ads`, `localize`, `artstyle`, `social`. `iap` chỉ đọc; `firebase` /
+  `publisher` ghi qua nút trên cửa sổ (tạo app Firebase / chuyển bộ SDK không undo được nên luôn cần người bấm).
+- `requests`: trang ArtStyle nút **Nhờ Claude soạn** thêm `artstyle` → skill `/setup-project artstyle` soạn
+  `ArtStyle.md` theo § Bootstrap của template rồi `ClearRequest("artstyle")`.
+
+Batchmode / CI vẫn có `Ezg.Editor.Shared.Marketing.MarketingConfigApplier.ApplyFromCli` (tải xong sheet thì ghi
+mọi sink, kể cả PlayerSettings, như bản 0.x).
+
+## Thư mục
 
 | Thư mục | Vai trò |
 |---|---|
-| `Editor/EzgKit/` | khung cửa sổ + bộ style dùng chung (`EzgKitStyles`, `SetupGui`) + contract `IEzgKitPage` |
-| `Editor/Marketing/` | tab Marketing: Google Sheet → PlayerSettings / AdsConfig / AppLovinSettings / FacebookSettings / AndroidManifest / GameConstant |
-| `Editor/Firebase/` | tab Firebase: service account `.json` → tạo app Android + iOS → tải `google-services.json` / `GoogleService-Info.plist` |
-| `Editor/Iap/` | tab IAP: SKU client đăng ký (`ShopService.GetAllProductId()` qua reflection) ↔ gói thật trên store (API chỉ-đọc của `project-ezg`, có cache) |
+| `Editor/Core/` | trạng thái (`EzgKitState`), JSON, đích ghi `AppSecretsConfig`, define, chạy tiến trình, HTTP bất đồng bộ |
+| `Editor/UI/` | `EzgKitWindow`, bộ dựng UI (`Ui`), `EzgKit.uss`, khung trang (`SetupPage`) |
+| `Editor/UI/Pages/` | một file mỗi mục — nửa Core (`Detect / GetValues / Apply`, không UI) + nửa UI (`Build / CollectUi`) |
+| `Editor/Setup/` | cầu nối SDK (AdsConfig, AppLovin, Facebook), ArtStyle.md, LocalizeDownloader, kiểm giá trị nhập |
+| `Editor/Marketing/`, `Firebase/`, `Iap/`, `Publisher/`, `Social/`, `Readiness/` | lõi nghiệp vụ (giữ từ 0.x, sửa đích ghi) |
+| `Editor/Api/` | `EzgKitApi` |
 
-Chi tiết bố cục, quy tắc màu và cách thêm một tab mới: [`Editor/EzgKit/README.md`](Editor/EzgKit/README.md).
-Chi tiết luồng Marketing: [`Editor/Marketing/README.md`](Editor/Marketing/README.md).
-
-## Menu
-
-| Menu | Việc |
-|---|---|
-| `Ezg/EzgKit` | mở tab Tổng quan |
-| `Ezg/Marketing/Bang thong so (Marketing Dashboard)` | mở tab Marketing |
-| `Ezg/Firebase/Cai dat...` | mở tab Firebase |
-| `Ezg/IAP (SKU client - store)` | mở tab IAP |
-| `Ezg/Marketing/Setup All (1 Click)` | tải sheet + ghi vào project, không mở cửa sổ |
-| `Ezg/Marketing/Check Config (Dry Run)` | chỉ đối chiếu, không ghi |
-| `Ezg/Marketing/Apply Config (khong tai sheet)` | ghi từ JSON hiện có |
-| `Ezg/Firebase/Tao app + tai config (1 Click)` | tạo app + tải config, không mở cửa sổ |
-| `Ezg/Firebase/Kiem tra (Dry Run)` | chỉ GET, không tạo gì |
-
-## Yêu cầu
-
-- Unity **2022.3** trở lên — tool dùng overload `PlayerSettings.GetApplicationIdentifier(NamedBuildTarget)`.
-- **Không có peer requirement.** Không cần Odin, DOTween, UniTask hay Newtonsoft.
-- Tab Firebase cần một file **service account `.json`** có quyền trên Firebase project. Đường dẫn file
-  key nằm ở `EditorPrefs` theo máy, **không** đi vào repo; `FirebaseServiceAccount.TryLoad` từ chối
-  thẳng file key nằm trong `Assets/`.
-
-## Dữ liệu nằm ở đâu
-
-Cấu hình của từng dự án nằm **ngoài `Assets/`**, trong `ProjectSettings/`:
-
-- `ProjectSettings/marketing_config.json` — source of truth cho mọi số marketing/ads.
-- `ProjectSettings/FirebaseSource.json` — project id / app name đang khai (KHÔNG chứa key).
-- `ProjectSettings/SocialConfig.json` — Discord invite / support link / email.
-- `ProjectSettings/AppLovinInternalSettings.json` — consent flow của MAX (do AppLovin quản).
-
-Package chỉ chứa code; nó không mang theo dữ liệu của dự án nào.
-
-Tab **IAP** không có file cấu hình nào trong `ProjectSettings/`: nguồn chuẩn của nó là một HÀM trong
-code game (`ShopService.GetAllProductId()`, gọi qua reflection), không phải một đường dẫn ai đó phải
-điền. Bản lưu của lượt xác minh store nằm ở `Library/EzgKit/IapStoreCache.json` — theo từng máy, không
-vào git, xoá được ngay trong tab.
-
-Phần **xác minh store** thì đường gọi là một hằng trong code
-(`https://project.easygoing.vn/api/v1/iap/products` — giống nhau ở mọi dự án, và dự án nào là do chính
-API key quyết định), nên chỉ còn API key, mà key là secret.
-
-**Secret thì KHÔNG nằm trong `ProjectSettings/`** (thư mục đó được track git). Hai secret của kit
-sống ở `EditorPrefs` theo từng project trên máy, đều có fallback biến môi trường cho CI:
-
-| Secret | EditorPrefs | Biến môi trường |
-|---|---|---|
-| Firebase service account key (đường dẫn file) | `Ezg.Firebase.KeyPath:<dataPath>` | `GOOGLE_APPLICATION_CREDENTIALS` |
-| API key xác minh IAP (`project-ezg`) | `Ezg.Iap.ApiKey:<dataPath>` | `EZG_IAP_API_KEY` |
-
-Riêng **link server xác minh IAP** đổi được mà không phải sửa code: đặt biến môi trường
-`EZG_IAP_API_URL` (ví dụ `http://localhost:3001/api/v1/iap/products` khi chạy `project-ezg` tại máy)
-trước khi mở Unity — tab hiện rõ khi link đến từ env hoặc đang trỏ về localhost.
-
-## Coupling đã biết (không phải lỗi)
-
-Tab Marketing ghi vào các "sink" của EZG code-template. Nó **dò theo tên file** bằng `AssetDatabase`
-chứ không hardcode đường dẫn, và **bỏ qua êm** nếu dự án không có sink đó:
-
-| Sink | Cách tìm |
-|---|---|
-| `AdsConfig.asset` | tìm asset tên `AdsConfig` bất kỳ đâu dưới `Assets/` |
-| `AppLovinSettings.asset` | tìm asset tên `AppLovinSettings` |
-| `FacebookSettings.asset` | tìm asset tên `FacebookSettings` |
-| `Assets/Plugins/Android/AndroidManifest.xml` | đường dẫn cố định (manifest chép tay) |
-| `GameConstant.cs` | tìm file tên `GameConstant`, rồi thay giá trị bằng regex trên tên const: `AppsFlyerId`, `IOSAppId`, `PackNameAndroid*`, `LinkStore*`, `LinkFacebook`, `LinkPrivacyPolicy` |
-
-Nghĩa là: dự án nào **không** theo quy ước đặt tên của code-template thì tab Marketing sẽ báo
-"khong tim thay" ở sink đó và bỏ qua — phần còn lại vẫn chạy.
-
-> Package này **khác** `com.ezg.firebase`. `com.ezg.firebase` là runtime SDK (auth / Firestore /
-> Remote Config); tab Firebase ở đây là tool Editor để **tạo app trên Firebase console** lúc setup dự án.
-
-## Thêm một tab setup mới
-
-Implement `IEzgKitPage`, rồi thêm vào `EzgKitWindow.BuildPages()` + enum `EzgKitWindow.Tab`.
-Ràng buộc quan trọng (`Status`/`Headline` phải rẻ, không chạy việc nặng lúc vẽ) ghi đầy đủ ở
-[`Editor/EzgKit/README.md`](Editor/EzgKit/README.md).
+Thêm một mục: viết class kế thừa `SetupPage` trong `Editor/UI/Pages/`, thêm một dòng vào `SetupPages.Create()`
+và một id vào `PageIds` (id phải ổn định — skill gọi theo id).

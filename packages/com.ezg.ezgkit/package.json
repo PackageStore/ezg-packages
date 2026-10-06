@@ -1,8 +1,8 @@
 {
   "name": "com.ezg.ezgkit",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "displayName": "EZG EzgKit",
-  "description": "One-window Unity Editor setup kit that walks a new project through its per-project configuration in the order it must happen. Sidebar splits into two groups: Setup Ezg and Publishers (one tab per SDK set — Ezg in-house default, Neptune CPI test, SayGame placeholder — showing required vs installed vs extra SDKs and which IDs to change where, with a one-click Switch that caches and removes extra SDKs, installs missing ones, writes publisher IDs and toggles EZG_SDK_* defines; add a profile class to add a publisher). Setup Ezg ships five tabs: Marketing (pull a Google Sheet of store/ads identifiers and write them into PlayerSettings, AdsConfig, AppLovinSettings, FacebookSettings, AndroidManifest and GameConstant.cs), Firebase (pick a service-account .json, provision the Android + iOS apps, then download google-services.json / GoogleService-Info.plist), Social (Discord invite / support link / support email into GameConstant, plus a scan for hardcoded links and leaked Discord tokens), IAP (read the SKUs the client actually registers by calling ShopService.GetAllProductId() through reflection, enrich them from the project's pack collection assets, and reconcile them against the products that really exist on App Store Connect / Google Play through an internal read-only API — every check is cached to Library/ so reopening the tab costs no network call), and Readiness (Ready / Warning / Error board for IAP SKUs, Firebase config, ads/attribution SDK keys and store/build settings, with a copy-for-PM text report). Opening the window only ever reads; every write sits behind an explicit button. Also ships the shared EzgKitStyles / SetupGui drawing toolkit and the IEzgKitPage contract so a project can add its own setup tab.",
+  "description": "Cửa sổ setup dự án mới (Ezg > EzgKit), viết lại hoàn toàn bằng UI Toolkit: cột trái là các mục setup kèm trạng thái (Xong / Còn việc / Chưa làm / Để sau / Không áp dụng / Có lỗi) và tiến độ, bên phải là form điền theo card, kiểm tra tại chỗ, bảng 'Xem thay đổi' (cũ → mới theo từng nơi ghi) trước mỗi lần Áp dụng, và luồng 'Setup tất cả'. Nhóm Setup: Thông tin dự án (tên dự án, company, product, bundle id Android/iOS), Marketing & AppSecrets (Google Sheet marketing → AdsConfig, AppLovinSettings, consent MAX, FacebookSettings, AndroidManifest, GameConstant và AppSecretsConfig.asset), Ads & Privacy (debug ads, format, id MAX, define MEDIATION_MAX, AdMob app id, consent / ATT, đối tượng người chơi, Facebook), Gói bán IAP (chỉ đọc: SKU client đăng ký qua ShopService.GetAllProductId + trạng thái trên store), ArtStyle (.claude/docs/ArtStyle.md: trạng thái từng mục, board tham chiếu, nhờ Claude soạn) và Localization (link file localize, service account, thư mục dữ liệu chung cho LocalizeDownloader + add-localize). Nhóm Nâng cao: Firebase (tạo app + tải config + FirebaseConfig đúng bucket), Nhà phát hành (bộ SDK theo publisher, điền ID, chuyển bộ SDK) và Social. Trạng thái + quyết định lưu ở ProjectSettings/EzgKitSetup.json (không chứa secret). API công khai Ezg.EzgKit.EzgKitApi (GetStatusJson, GetPageValuesJson, Apply, SetMarker, ClearRequest, Open, SetupAll) cho skill /setup-project của Claude gọi qua Unity MCP.",
   "unity": "2022.3",
   "author": {
     "name": "EZG Studio"
@@ -10,8 +10,12 @@
   "keywords": [
     "editor",
     "setup",
+    "project-setup",
     "firebase",
-    "marketing"
+    "marketing",
+    "ads",
+    "localization",
+    "ui-toolkit"
   ],
   "repository": {
     "url": "https://github.com/PackageStore/ezg-packages",

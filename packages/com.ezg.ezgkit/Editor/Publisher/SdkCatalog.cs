@@ -269,8 +269,12 @@ namespace Ezg.Editor.Shared.Publisher
             {
                 (SdkKind.Meta, "appId") or (SdkKind.Meta, "clientToken") =>
                     "FacebookSettings.asset (Facebook > Edit Settings) → Regenerate Android Manifest. Hoặc sheet marketing facebook.appId/clientToken → tab Marketing ghi.",
-                (SdkKind.AppsFlyer, "devKey") => "GameConstant.AppsFlyerId (+ appsflyerDevKey trong MarketingConfig.json & Google Sheet marketing).",
-                (SdkKind.AppsFlyer, "iosAppId") => "GameConstant.IOSAppId (+ appleId trong sheet marketing).",
+                (SdkKind.AppsFlyer, "devKey") => AppSecretsSink.TypeExists
+                    ? "AppSecretsConfig.appsFlyerDevKey (+ appsflyerDevKey trong MarketingConfig.json & Google Sheet marketing)."
+                    : "GameConstant.AppsFlyerId (+ appsflyerDevKey trong MarketingConfig.json & Google Sheet marketing).",
+                (SdkKind.AppsFlyer, "iosAppId") => AppSecretsSink.TypeExists
+                    ? "AppSecretsConfig.iosAppId (+ appleId trong sheet marketing)."
+                    : "GameConstant.IOSAppId (+ appleId trong sheet marketing).",
                 (SdkKind.GameAnalytics, "gameKey") or (SdkKind.GameAnalytics, "secretKey") =>
                     "Assets/Resources/GameAnalytics/Settings.asset (Assets > GameAnalytics > Select Settings).",
                 _ => null,
@@ -295,7 +299,7 @@ namespace Ezg.Editor.Shared.Publisher
                     report.Actions = new[]
                     {
                         ReadinessActions.SelectAsset("Chọn FacebookSettings", FACEBOOK_SETTINGS_PATH),
-                        ReadinessActions.KitTab("Mở tab Marketing", EzgKitWindow.Tab.Marketing),
+                        ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING),
                     };
                     if (slot.Key == "appId" && !string.IsNullOrEmpty(report.Current))
                     {
@@ -313,6 +317,22 @@ namespace Ezg.Editor.Shared.Publisher
                 case (SdkKind.AppsFlyer, "devKey"):
                 case (SdkKind.AppsFlyer, "iosAppId"):
                 {
+                    if (AppSecretsSink.TypeExists)
+                    {
+                        // Template mới: dev key + App Store ID nằm trong AppSecretsConfig.asset.
+                        var value = AppSecretsSink.Read(slot.Key == "devKey" ? AppSecretsSink.F_APPSFLYER_KEY : AppSecretsSink.F_IOS_APP_ID);
+                        report.Current = string.IsNullOrEmpty(value) ? null : value;
+                        var assetPath = AppSecretsSink.AssetPath;
+                        report.Actions = assetPath == null
+                            ? new[] { ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING) }
+                            : new[]
+                            {
+                                ReadinessActions.SelectAsset("Chọn AppSecretsConfig", assetPath),
+                                ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING),
+                            };
+                        break;
+                    }
+
                     var constName = slot.Key == "devKey" ? CONST_APPSFLYER : CONST_IOS_APP_ID;
                     var path = SocialChecks.FindGameConstant();
                     var text = path == null ? null : File.ReadAllText(path);
@@ -321,7 +341,7 @@ namespace Ezg.Editor.Shared.Publisher
                         report.Actions = new[]
                         {
                             ReadinessActions.OpenScript("Mở GameConstant.cs", path, constName),
-                            ReadinessActions.KitTab("Mở tab Marketing", EzgKitWindow.Tab.Marketing),
+                            ReadinessActions.KitTab("Mở trang Marketing", PageIds.MARKETING),
                         };
                     break;
                 }
