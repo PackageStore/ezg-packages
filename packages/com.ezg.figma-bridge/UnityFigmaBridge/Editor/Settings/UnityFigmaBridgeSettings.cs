@@ -214,6 +214,10 @@ namespace UnityFigmaBridge.Editor.Settings
         [HideInInspector] public string BridgeFileKey = "";
         [HideInInspector] public string BridgeFileName = "";
 
+        // The file the page, screen and component lists were read from. Node ids repeat across
+        // files (every file has a page 0:1), so lists from another file must not be reused.
+        [HideInInspector] public string ListsFileKey = "";
+
         string IFolderDefaults.DefaultFolder(string propertyPath)
         {
             var folders = FigmaPaths.Resolve(this, "<document name>", warnOnInvalid: false);
@@ -261,7 +265,37 @@ namespace UnityFigmaBridge.Editor.Settings
                 var index = PageDataList.FindIndex(p => p.NodeId == deletePageId);
                 PageDataList.RemoveAt(index);
             }
+            foreach (var page in PageDataList)
+            {
+                var node = pageNodeList.FirstOrDefault(p => p.id == page.NodeId);
+                if (node != null) page.Name = node.name;
+            }
             PageDataList.OrderBy(p => p.NodeId);
+        }
+
+        /// <summary>
+        /// Record that the lists now belong to <paramref name="fileKey"/>. When they were read from
+        /// another file, the page selection, screen rows and component ticks are dropped and rebuilt
+        /// from <paramref name="file"/>. An asset written before 0.8.1 has no record; its lists came
+        /// from the REST file in DocumentUrl. Returns true when the lists were rebuilt.
+        /// </summary>
+        public bool BindListsToFile(string fileKey, FigmaFile file)
+        {
+            if (string.IsNullOrEmpty(fileKey) || file == null) return false;
+            var listsKey = string.IsNullOrEmpty(ListsFileKey) ? FileId : ListsFileKey;
+            ListsFileKey = fileKey;
+            if (string.IsNullOrEmpty(listsKey) || listsKey == fileKey) return false;
+
+            OnlyImportSelectedPages = false;
+            PageDataList.Clear();
+            ScreenNameOverrides.Clear();
+            ComponentSelections.Clear();
+            RefreshForUpdatedPages(file);
+            RefreshForUpdatedScreens(file);
+            RefreshForUpdatedComponents(file);
+            Debug.LogWarning($"[UnityFigmaBridge] The page, screen and component lists came from another Figma file ({listsKey}). " +
+                             $"They were rebuilt from '{file.name}' ({fileKey}): every page and screen is selected, no component is ticked.");
+            return true;
         }
 
         /// <summary>

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.1] - 2026-10-06
+### Fixed
+- **Lists from another Figma file are no longer reused.** The page selection, the screen rows and
+  the component ticks are keyed by node id, and ids repeat across files (every file has a page
+  `0:1`). After a switch of file (Bridge to another open file, or REST to Bridge), Sync could import
+  the page that was ticked in the old file and find no screens. The settings now record the file
+  the lists came from (`ListsFileKey`, hidden). When Sync or Refresh gets another file, the lists
+  are rebuilt from it: every page and screen selected, no component ticked, and a warning is logged.
+- **Refresh updates page names.** A renamed page kept its old name in the page list.
+
 ## [0.8.0] - 2026-10-06
 ### Added
 - **Source panel with REST API / Bridge (EZG Tools) tabs.** Only the panel content switches; the

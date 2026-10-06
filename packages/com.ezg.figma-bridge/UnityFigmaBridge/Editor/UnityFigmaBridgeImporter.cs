@@ -237,6 +237,7 @@ namespace UnityFigmaBridge.Editor
             {
                 figmaFile = await DownloadFigmaDocument(importKey);
                 if (figmaFile == null) return;
+                BindListsToFile(importKey, figmaFile);
             }
             if (File.Exists(FigmaApiUtils.CachedDocumentPath))
                 FigmaImportTimer.SetDetail(offline ? "Load cached document" : "Document JSON download (Figma API)",
@@ -556,7 +557,19 @@ namespace UnityFigmaBridge.Editor
             if (!CheckRequirements()) return null;
             var target = await ResolveTargetOrReport();
             if (target == null) return null;
-            return await DownloadFigmaDocument(target.Value.Key);
+            var figmaFile = await DownloadFigmaDocument(target.Value.Key);
+            BindListsToFile(target.Value.Key, figmaFile);
+            return figmaFile;
+        }
+
+        private static void BindListsToFile(string fileKey, FigmaFile figmaFile)
+        {
+            if (figmaFile == null) return;
+            var listsKeyBefore = s_UnityFigmaBridgeSettings.ListsFileKey;
+            if (!s_UnityFigmaBridgeSettings.BindListsToFile(fileKey, figmaFile) &&
+                listsKeyBefore == s_UnityFigmaBridgeSettings.ListsFileKey) return;
+            EditorUtility.SetDirty(s_UnityFigmaBridgeSettings);
+            AssetDatabase.SaveAssetIfDirty(s_UnityFigmaBridgeSettings);
         }
 
         public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
