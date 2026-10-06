@@ -247,7 +247,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             }
         }
 
-        private static FigmaFile ReadDocument(string path)
+        /// <summary>Decodes a document file with the shared JSON settings and prunes ignored nodes; used by the REST download and the Bridge source.</summary>
+        internal static FigmaFile ReadDocument(string path)
         {
             using var reader = new JsonTextReader(File.OpenText(path));
             var figmaFile = JsonSerializer.Create(s_DocumentJsonSettings).Deserialize<FigmaFile>(reader);

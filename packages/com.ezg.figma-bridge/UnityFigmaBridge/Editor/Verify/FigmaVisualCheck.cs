@@ -12,6 +12,7 @@ using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Settings;
+using UnityFigmaBridge.Editor.Source;
 using UnityFigmaBridge.Editor.Utils;
 using Color = UnityEngine.Color;
 using Object = UnityEngine.Object;
@@ -227,6 +228,12 @@ namespace UnityFigmaBridge.Editor.Verify
         private static byte[] FetchFigmaRender(string nodeId)
         {
             var settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
+            if (settings != null && settings.Source == FigmaSourceKind.Bridge)
+            {
+                using var source = new BridgeFigmaSource(settings.BridgePort);
+                return source.RenderPngBlocking(settings.FileId, nodeId, true, TimeSpan.FromSeconds(RequestTimeoutSeconds));
+            }
+
             var token = FigmaAccessToken.Read();
             if (settings == null || string.IsNullOrEmpty(token))
                 throw new InvalidOperationException("Bridge settings or Figma token missing");

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0] - 2026-10-06
+### Added
+- **Bridge source: import from the open Figma file through the EZG Tools plugin.** The settings asset
+  gains `Source` (Rest | Bridge, default Rest) and `BridgePort` (default 39410). With Bridge, the
+  importer reads the document, the server renders and the image fills from the Figma file open in
+  Figma desktop, over the plugin's MCP tab connection. There is no REST quota and no token, and no
+  Claude or MCP client is needed in the import path. A font missing in Figma is logged as a warning
+  and the import goes on.
+### Changed
+- **The first Sync after a source switch renders every server render again.** The render-cache
+  hashes differ between sources, so nothing is reused until the second Sync. `Source = Rest`
+  behaves as in 0.6.11.
+- **The visual check takes its reference from the selected source.** With Bridge it compares against
+  the plugin's render, not a REST render.
+
+### Requires
+- EZG Tools plugin with `doc.snapshot` and `images.get`, released from `ezg-figma-tools` `main`.
+  The MCP tab must be connected. Bridge is only usable with the plugin up to date.
+
 ## [0.6.11] - 2026-10-01
 ### Fixed
 - **Sync froze at "Downloading file" 0% on a file with stroked text.** An outside stroke on a TEXT

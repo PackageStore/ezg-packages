@@ -18,6 +18,7 @@ using UnityFigmaBridge.Editor.Nodes;
 using UnityFigmaBridge.Editor.PostProcess;
 using UnityFigmaBridge.Editor.PrototypeFlow;
 using UnityFigmaBridge.Editor.Settings;
+using UnityFigmaBridge.Editor.Source;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
 using Object = UnityEngine.Object;
@@ -78,6 +79,8 @@ namespace UnityFigmaBridge.Editor
         private const int SERVER_RENDER_RETRY_DELAY_MS = 1500;
 
         private static string s_PersonalAccessToken;
+
+        private static IFigmaSource s_Source;
 
         /// <summary>
         /// Active canvas used for construction
@@ -167,6 +170,8 @@ namespace UnityFigmaBridge.Editor
             }
             finally
             {
+                s_Source?.Dispose();
+                s_Source = null;
                 ImportInProgress = false;
                 FigmaImportTimer.Finish(LastImportError);
             }
@@ -180,6 +185,13 @@ namespace UnityFigmaBridge.Editor
             {
                 LastImportError ??= "Requirements not met: settings asset, document url or token";
                 return;
+            }
+            if (!offline)
+            {
+                var sourceDescription = FigmaSources.Describe(s_UnityFigmaBridgeSettings);
+                Debug.Log($"[FigmaBridge] Source: {sourceDescription}");
+                FigmaImportTimer.SetDetail("Check settings and token", sourceDescription);
+                s_Source = FigmaSources.Create(s_UnityFigmaBridgeSettings, s_PersonalAccessToken);
             }
 
             FigmaFile figmaFile;
@@ -282,7 +294,7 @@ namespace UnityFigmaBridge.Editor
                 return false;
             }
 
-            if (requireToken)
+            if (requireToken && FigmaSources.NeedsToken(s_UnityFigmaBridgeSettings))
             {
                 s_PersonalAccessToken = FigmaAccessToken.Read();
 
@@ -464,6 +476,9 @@ namespace UnityFigmaBridge.Editor
         {
             if (!(e is FigmaApiRequestException apiError) || !apiError.IsTransient || settings == null) return string.Empty;
 
+            if (s_Source?.Kind == FigmaSourceKind.Bridge)
+                return "\n\nPlugin Figma không trả lời kịp: mở lại EZG Tools trong Figma, hoặc hạ Server Render Batch Size.";
+
             var status = apiError.StatusCode == 0 ? "timeout / mất kết nối" : $"HTTP {apiError.StatusCode}";
             var hint = $"\n\nServer Figma render không kịp ({status}). Xem các mục sau trong {FigmaBridgeWindow.MENU_PATH}:";
 
@@ -491,11 +506,12 @@ namespace UnityFigmaBridge.Editor
         {
             // Download figma document
             EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading file", 0);
+            var ownedSource = s_Source == null
+                ? FigmaSources.Create(s_UnityFigmaBridgeSettings, s_PersonalAccessToken)
+                : null;
             try
             {
-                var figmaTask = FigmaApiUtils.GetFigmaDocument(fileId, s_PersonalAccessToken, true);
-                await figmaTask;
-                return figmaTask.Result;
+                return await (s_Source ?? ownedSource).GetDocument(fileId);
             }
             catch (Exception e)
             {
@@ -503,6 +519,7 @@ namespace UnityFigmaBridge.Editor
             }
             finally
             {
+                ownedSource?.Dispose();
                 EditorUtility.ClearProgressBar();
             }
             return null;
@@ -627,10 +644,8 @@ namespace UnityFigmaBridge.Editor
                     {
                         renderRequestCount++;
                         FigmaImportTimer.SetDetail("Server render requests (Figma API)", RenderRequestDetail());
-                        var figmaTask = FigmaApiUtils.GetFigmaServerRenderData(fileId, s_PersonalAccessToken,
-                            nodeBatch, serverRenderScale, useAbsoluteBounds);
-                        await figmaTask;
-                        serverRenderData.Add(figmaTask.Result);
+                        serverRenderData.Add(await s_Source.GetServerRenderData(fileId,
+                            nodeBatch, serverRenderScale, useAbsoluteBounds));
                         pendingBatches.RemoveAt(0);
                         renderedCount += nodeBatch.Count;
                         singleNodeRetries = 0;
@@ -691,9 +706,7 @@ namespace UnityFigmaBridge.Editor
                 EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading image fill data", 0);
                 try
                 {
-                    var figmaTask = FigmaApiUtils.GetDocumentImageFillData(fileId, s_PersonalAccessToken);
-                    await figmaTask;
-                    activeFigmaImageFillData = figmaTask.Result;
+                    activeFigmaImageFillData = await s_Source.GetImageFillData(fileId, foundImageFills);
                 }
                 catch (Exception e)
                 {

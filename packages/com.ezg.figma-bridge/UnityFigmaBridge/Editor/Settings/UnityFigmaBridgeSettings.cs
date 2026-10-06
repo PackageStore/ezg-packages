@@ -5,6 +5,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Source;
 using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Settings
@@ -41,6 +42,15 @@ namespace UnityFigmaBridge.Editor.Settings
         // example line. Unity draws tooltips as plain text, so no markup here.
         [Tooltip("URL tài liệu Figma cần import.\nVí dụ: https://www.figma.com/design/aBc123/Ten-File")]
         public string DocumentUrl;
+
+        [Header("Source")]
+        [Tooltip("Nguồn dữ liệu Figma. Rest dùng Figma API và token; Bridge đọc file đang mở qua plugin EZG Tools (tab MCP đã kết nối), không tốn quota API.\n" +
+                 "Ví dụ: chọn Bridge khi Figma đang mở file và plugin đã kết nối.")]
+        public FigmaSourceKind Source = FigmaSourceKind.Rest;
+
+        [Tooltip("Cổng của hub, xem trong tab MCP của plugin.\nVí dụ: 39410.")]
+        [Range(39410, 39419)]
+        public int BridgePort = 39410;
 
         [Tooltip("Tự sinh liên kết chuyển screen theo Prototype của Figma (mở scene runtime, thêm PrototypeFlowController).\n" +
                  "Ví dụ: nút Play mở screen Game. Mặc định tắt từ 0.3.0.")]
