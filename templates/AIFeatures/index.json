@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 47
+      "count": 48
     },
     {
       "id": "Templates",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "71fb84837049e104f0e97c0552db7b63ae2d6a823d978383c4a34714ef59d75e",
-      "size": 11508
+      "sha256": "6e8980345b60fe01044c8349dbccc59d8b79317cdfb81ca4521d3e4702c847ac",
+      "size": 11992
     },
     {
       "id": "Config/project-profile.json",
@@ -872,8 +872,8 @@
       "source": "defaultsetup",
       "fileName": "GETTING-STARTED.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
-      "sha256": "3287338e3a291e15d50bcd6bf359bf2f9d26bcff23d4cd71868b7ef4ef9153f5",
-      "size": 4687
+      "sha256": "cb6c218643a0d70b198f7f29c43d0c4e039128c8fa9d2642d88aebb9884bb414",
+      "size": 5404
     },
     {
       "id": "Docs/new-package-guide",
@@ -1322,8 +1322,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
-      "sha256": "c322e74c910370b868a5d9e1ca0b853b4315197e71a80ae208916061c93d0129",
-      "size": 3891
+      "sha256": "bbda24560686f0aa2511cb1de78ae2e4f676df5bf5fb5df7ddf4659814aab1ee",
+      "size": 3995
     },
     {
       "id": "Scripts/bootstrap.sh",
@@ -1340,8 +1340,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
-      "sha256": "b8094fbf80703f5c07663c9287afa130814fb859269aae1d803ea2d769a55bb0",
-      "size": 3369
+      "sha256": "5f0ce024233c2f9dce4b0377d45c3a711a5a03e641ae1e12658902bac3c9e45d",
+      "size": 3469
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -2084,7 +2084,7 @@
       ],
       "fileCount": 3,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
       "sha256": "1890c78cf1bd573cb4bc1488e9f0c3dc2cbc5050ce52ddd46a3afe38f209bc35",
@@ -2130,7 +2130,7 @@
       "id": "Skills/blender-rig-animate",
       "name": "blender-rig-animate",
       "category": "Skills",
-      "description": "Rig, skin, pose và animate nhân vật, quái, prop, xe 3D bằng Blender headless (rigkit) cho Unity, có lò xo theo đà (follow-through) và gate đo từng frame: weight, giới hạn khớp, xuyên người, vật cứng xuyên sàn, trượt chân, loop, pose trung tâm, biên độ; xuất FBX kèm AnimationEvent. Spec của từng nhân vật để trong project game, cạnh model. Cần Blender 4.2+ trên máy. Cài kèm Skills > game-animation: quy chuẩn rigkit thực thi nằm trong docs/ của skill đó.",
+      "description": "Rig, skin, pose và animate nhân vật, quái, prop, xe 3D bằng Blender headless (rigkit) cho Unity, có lò xo theo đà (follow-through) và gate đo từng frame: weight, giới hạn khớp, xuyên người, vật cứng xuyên sàn, trượt chân, loop, pose trung tâm, biên độ; xuất FBX kèm AnimationEvent. Spec của từng nhân vật để trong project game, cạnh model. Cần Blender 4.2+ trên máy. Đi cặp với Skills > game-animation (có sẵn trong DefaultSetup): quy chuẩn rigkit thực thi nằm trong docs/ của skill đó.",
       "installPath": ".claude/skills/blender-rig-animate",
       "isDirectory": true,
       "files": [
@@ -2164,7 +2164,7 @@
       ],
       "fileCount": 27,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "blender-rig-animate.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/blender-rig-animate.zip",
       "sha256": "77a47533e8c3ff982f440f904788cdabccc66065e2c8c5ab852b3ae254d64873",
@@ -2439,8 +2439,8 @@
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "3cf5489c20844441d2fbaac94604a43e7f569d88940f8aaab5a401fc26b02d71",
-      "size": 17565
+      "sha256": "5595cdf231f8c2f4b96cd875c510fea6f606a29e5c1a6c5f1fbd582192423ee8",
+      "size": 17937
     },
     {
       "id": "Skills/figma-tokens",
@@ -2474,7 +2474,7 @@
       "id": "Skills/game-animation",
       "name": "game-animation",
       "category": "Skills",
-      "description": "Quy chuẩn Rigging và Animation 2D, 3D của team (module Game Animation), dùng cho mọi project: rig, skin, xương, clip, loop, đặt tên, xuất FBX từ Blender, import FBX / PSD / Aseprite, Mixamo, pack mua sẵn, Animator Controller, blend tree, frame data, hitstop, event, IK. Điều riêng của game ghi ở brief của game (quy chuẩn 9.2). Mang sẵn quy chuẩn, nguyên lý và phân tích pack mua sẵn (docs/ trong skill): cài skill là đọc được luật, không cần cài module. Module GameAnimation (tab Unity Packages > EZG Shared) chỉ cần khi muốn tool đổi tên xương Mixamo. Làm thật trong Blender thì cài thêm Skills > blender-rig-animate.",
+      "description": "Quy chuẩn Rigging và Animation 2D, 3D của team (module Game Animation), dùng cho mọi project: rig, skin, xương, clip, loop, đặt tên, xuất FBX từ Blender, import FBX / PSD / Aseprite, Mixamo, pack mua sẵn, Animator Controller, blend tree, frame data, hitstop, event, IK. Điều riêng của game ghi ở brief của game (quy chuẩn 9.2). Mang sẵn quy chuẩn, nguyên lý và phân tích pack mua sẵn (docs/ trong skill): cài skill là đọc được luật, không cần cài module. Module GameAnimation (tab Unity Packages > EZG Shared) chỉ cần khi muốn tool đổi tên xương Mixamo. Làm thật trong Blender thì dùng Skills > blender-rig-animate (có sẵn trong DefaultSetup).",
       "installPath": ".claude/skills/game-animation",
       "isDirectory": true,
       "files": [
@@ -2508,11 +2508,11 @@
       ],
       "fileCount": 27,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "game-animation.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-animation.zip",
-      "sha256": "a33bdcc620429045009682319ec1c314f6927fd80de43ef2692fccf075415e51",
-      "size": 111487
+      "sha256": "61a10a17bc47ce61078899105832290dc14df66a2ee94f5ee0d8c1667c467b35",
+      "size": 111485
     },
     {
       "id": "Skills/game-systems",
@@ -2637,11 +2637,11 @@
       ],
       "fileCount": 94,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "d0fd673ea5488523a434f3845ac50ce16d44a0d4280f2c0368249132c00f3c84",
-      "size": 1549354
+      "sha256": "575d1a30ea217d84e2571e3816d83b602228f8b19686aa44ff927f80c0cfbf0d",
+      "size": 1549116
     },
     {
       "id": "Skills/item-preview",
@@ -2933,7 +2933,7 @@
       ],
       "fileCount": 1,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
       "sha256": "e54969f6cc1bd0fabb582c78c4594025ede344fba50c91423b8151e0247c5ddf",
@@ -2953,7 +2953,7 @@
       ],
       "fileCount": 3,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "restart-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/restart-unity.zip",
       "sha256": "960116e820c19b441eccc45faeff73ce897ae4861ad88b17025b95545f856444",
@@ -3012,6 +3012,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-package-push.zip",
       "sha256": "ea27ea022b63137a08b00bee455d46ed96cadd8a141a8f332a53469b7a0e5442",
       "size": 3793
+    },
+    {
+      "id": "Skills/setup-project",
+      "name": "setup-project",
+      "category": "Skills",
+      "description": "Setup một project Unity vừa sinh từ template — mở cửa sổ Ezg > EzgKit (menu trái là các mục setup có trạng thái, form bên phải để điền) rồi làm phần cần AI mà form không tự làm được (soạn ArtStyle.md từ art của game, kiểm tra link localize). Dùng khi dev gõ /setup-project, nói \"setup project mới\", \"điền bundle id / marketing / ads / localize cho project\", hoặc hỏi project còn thiếu setup gì. Chạy tay, KHÔNG đi qua backlog.",
+      "installPath": ".claude/skills/setup-project",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/setup-project/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "setup-project.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-project.zip",
+      "sha256": "c8a64e794e744676b0106109cbcd6c004288e47773d2c7f33f201eb72ed2b5ae",
+      "size": 4259
     },
     {
       "id": "Skills/time-manager",
@@ -3142,7 +3160,7 @@
       ],
       "fileCount": 46,
       "installedByDefault": false,
-      "source": "extra",
+      "source": "defaultsetup",
       "fileName": "ui-motion.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip",
       "sha256": "38f3530c1bad60f6b62f31ad0fb2aaa703ddffaea9c1a50cc0acde57e101ff91",
