@@ -170,7 +170,7 @@
       "id": "Agents/ui-visual-reviewer",
       "name": "ui-visual-reviewer",
       "category": "Agents",
-      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
+      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
       "installPath": ".claude/agents/ui-visual-reviewer.md",
       "isDirectory": false,
       "files": [
@@ -181,8 +181,8 @@
       "source": "defaultsetup",
       "fileName": "ui-visual-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
-      "sha256": "8890e9035e6f4f9e624d6d84a4a175f7135470d39cf9a71600964b2532f6d439",
-      "size": 4806
+      "sha256": "bccb66bb0e8a143c420591a9585edf19b470f516bd01888dea13fc2607cc0927",
+      "size": 6293
     },
     {
       "id": "Commands/add-localize",
@@ -793,8 +793,8 @@
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "c84ac334bd3561a2625a1e0f6e4e752eebc7fd06ee924d385c24bd7742dea750",
-      "size": 3342
+      "sha256": "7e9e7408e1f270105c61b5774674533d41fa655108db058707c39259b21b608d",
+      "size": 5256
     },
     {
       "id": "Docs/design-pipeline",
@@ -908,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "new-ui-guide.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
-      "sha256": "1a55f4c4524fda11d3c59b2826abc6838e00f4a52dfd636cfd389448f11c9c0a",
-      "size": 18202
+      "sha256": "1512ab9842d221129bc5ed74c63cf04aef62c2c0d2b12ed736ea7ea7c138b824",
+      "size": 18208
     },
     {
       "id": "Docs/planning-task-flow",
@@ -1034,8 +1034,8 @@
       "source": "defaultsetup",
       "fileName": "art-style.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip",
-      "sha256": "a303d9590b9cf5f7f75fbd283f63b298b416fe5852fe58b6619f50bd5bec4518",
-      "size": 1222
+      "sha256": "f2b66c91c4a4b6f8f97498916249a913247bd0b5e6a4bfb043cac91a331f1f7f",
+      "size": 1609
     },
     {
       "id": "Rules/code-style",
@@ -2936,8 +2936,8 @@
       "source": "extra",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "c9d85935e3145d5cf504b65f618512daa9e248f7d1ad6170aa7f328fb044963e",
-      "size": 12964
+      "sha256": "e54969f6cc1bd0fabb582c78c4594025ede344fba50c91423b8151e0247c5ddf",
+      "size": 13709
     },
     {
       "id": "Skills/restart-unity",
