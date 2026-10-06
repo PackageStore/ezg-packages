@@ -177,10 +177,21 @@ children is not rendered (its children would draw twice); it keeps a flat
 - **Master size.** A sublayer of a component is rendered once, at the
   component master's size. An instance resized in Figma draws that render at
   its own size, which is why every render is sliced (below).
-- **Restyled sublayers.** When an instance overrides the fills, strokes,
-  effects, radius, opacity or visibility of a rendered sublayer, that sublayer
-  gets its own render under its instance-side id (`I<instance>;<node>`), and
-  the instance's sprite replaces the component's.
+- **Tint** (bridge 0.8.5+, `SolidTint`). A render whose whole visible subtree
+  paints solid paints of one RGB (no gradient, image, effect, mask or
+  per-range text style) is whitened after download (RGB 255, alpha kept,
+  `ServerRenderTint`) and its `Image.color` carries the RGB. A frame shape
+  drawn locally (`FrameShapeSprite`) is drawn white when its fills and stroke
+  share one RGB and every inner shadow is black. A shape with a coloured inner
+  shadow stays baked, one `Shape-*.png` per colour.
+- **Restyled sublayers.** The instance subtree is compared with the component
+  subtree (bridge 0.8.5+), so a variant recoloured through a variable mode,
+  which leaves the `overrides` list empty, is caught too. A tintable render
+  that differs only in RGB keeps the component's sprite and gets an
+  `m_Color` override. Any other difference (or a fills, strokes, effects,
+  radius, opacity or visibility override on a render that does not tint)
+  gives the sublayer its own render under its instance-side id
+  (`I<instance>;<node>`), which replaces the component's sprite.
 - **Scale.** Renders are always made at scale 1 (bridge 0.6.5; there is no
   setting) and import at 100 pixels per unit, so a border draws at design size.
 - **Render cache.** An online import renders and downloads only the render

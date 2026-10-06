@@ -19,7 +19,7 @@ lines move with every release.
 | INSTANCE (definition missing) | Built inline as a regular node, no prefab link | `FigmaAssetGenerator.BuildFigmaNode` |
 | CANVAS (Figma page) | Page prefab at `FigmaPaths.FigmaPagePrefabFolder`, written but nothing reads it | `FigmaAssetGenerator.SaveFigmaPageAsPrefab` |
 | SECTION | Registered with `PrototypeFlowController` if `BuildPrototypeFlow` is on | `FigmaAssetGenerator.RegisterFigmaSection` |
-| Node a plain `Image` cannot draw (vector, boolean, vector-only group, childless shape with stroke/radius/gradient, ellipse, star) | `Image` with a server-rendered sprite, sized to `absoluteRenderBounds`, `Sliced` when the sprite has a border | `FigmaDataUtils.GetNodeSubstitutionStatus`, `NeedsShapeRender`, `FigmaAssetGenerator.BuildFigmaNode` |
+| Node a plain `Image` cannot draw (vector, boolean, vector-only group, childless shape with stroke/radius/gradient, ellipse, star) | `Image` with a server-rendered sprite, sized to `absoluteRenderBounds`, `Sliced` when the sprite has a border; a one-RGB render is white with the RGB in `Image.color` (0.8.5+) | `FigmaDataUtils.GetNodeSubstitutionStatus`, `NeedsShapeRender`, `FigmaAssetGenerator.BuildFigmaNode`, `SolidTint` |
 | Rendered sublayer that an instance restyles | Its own render, keyed by the instance-side id, assigned in that instance | `FigmaDataUtils.AddRestyledSublayerRenders`, `ComponentManager.ApplyInstanceRender` |
 | All other (RECTANGLE, TEXT, GROUP, FRAME with children, etc.) | GameObject with UGUI components under the parent; no separate prefab | `FigmaNodeManager.CreateUnityComponentsForNode` / `ApplyUnityComponentPropertiesForNode` |
 
