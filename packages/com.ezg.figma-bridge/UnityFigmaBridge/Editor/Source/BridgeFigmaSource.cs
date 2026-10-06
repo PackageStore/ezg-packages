@@ -14,11 +14,14 @@ namespace UnityFigmaBridge.Editor.Source
     /// Reads the open Figma file through the EZG Tools plugin and hands it to the importer as REST DTOs with file:// URLs.
     public sealed class BridgeFigmaSource : IFigmaSource
     {
-        const int ExportChunk = 50;
+        /// Nodes per export request. Figma renders on one thread, so a large group only waits longer;
+        /// the importer also sends batches of this size, so its progress bar moves per group.
+        public const int ExportBatchSize = 10;
         const int ImagesChunk = 100;
         static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(3);
         static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(120);
         static readonly TimeSpan BatchTimeout = TimeSpan.FromSeconds(60);
+        static readonly TimeSpan ExportTimeoutPerNode = TimeSpan.FromSeconds(10);
 
         sealed class Session { public HubClient Client; public HubFile File; }
 
@@ -45,9 +48,12 @@ namespace UnityFigmaBridge.Editor.Source
             int scale, bool useAbsoluteBounds)
         {
             var images = new Dictionary<string, string>();
-            foreach (var chunk in Chunks(nodeIds, ExportChunk))
+            foreach (var chunk in Chunks(nodeIds, ExportBatchSize))
             {
-                var result = await Export(fileId, chunk, scale, useAbsoluteBounds, BatchTimeout).ConfigureAwait(false);
+                // A heavy render can take seconds, and a timed-out export keeps running in the plugin
+                // until its next yield, so the limit grows with the group.
+                var timeout = BatchTimeout + TimeSpan.FromTicks(ExportTimeoutPerNode.Ticks * chunk.Count);
+                var result = await Export(fileId, chunk, scale, useAbsoluteBounds, timeout).ConfigureAwait(false);
                 foreach (var file in result["files"] as JArray ?? new JArray())
                 {
                     var id = (string)file["nodeId"];

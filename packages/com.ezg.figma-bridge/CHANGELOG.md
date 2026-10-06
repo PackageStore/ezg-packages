@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.2] - 2026-10-06
+### Fixed
+- **Bridge server renders no longer stall at 0/N.** Bridge mode sent 300-node batches split into
+  50-node exports with a fixed 60 s limit. Heavy renders passed the limit, the importer split the
+  batch and started again from its first node, and the cancelled export kept running in the
+  plugin, so each retry was slower. Bridge now sends 10 nodes per request
+  (`BridgeFigmaSource.ExportBatchSize`), the limit is 60 s plus 10 s per node, and the importer
+  batches at the same size, so the progress bar moves per group and a timeout retries only that
+  group. REST batching is unchanged.
+
 ## [0.8.1] - 2026-10-06
 ### Fixed
 - **Lists from another Figma file are no longer reused.** The page selection, the screen rows and

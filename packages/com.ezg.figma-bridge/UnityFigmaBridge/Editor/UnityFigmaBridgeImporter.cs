@@ -671,7 +671,8 @@ namespace UnityFigmaBridge.Editor
                     ? serverRenderNodes.Where(n => n.RenderType != ServerRenderType.Export).Select(n => n.SourceNode.id)
                     : Enumerable.Empty<string>());
             var serverRenderScale = SERVER_RENDER_SCALE;
-            var serverRenderBatchSize = Mathf.Clamp(s_UnityFigmaBridgeSettings.ServerRenderBatchSize, 1, MAX_SERVER_RENDER_IMAGE_BATCH_SIZE);
+            var serverRenderBatchSize = Mathf.Clamp(s_UnityFigmaBridgeSettings.ServerRenderBatchSize, 1,
+                s_Source?.Kind == FigmaSourceKind.Bridge ? BridgeFigmaSource.ExportBatchSize : MAX_SERVER_RENDER_IMAGE_BATCH_SIZE);
 
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
