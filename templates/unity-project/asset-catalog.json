@@ -179,7 +179,7 @@
       "fileName": "ezg.base.features.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features.unitypackage",
       "category": "EZG Base",
-      "sha256": "a7cf4e883520f275221fb0a06dec1c3ba5cdb9be26441a195d10cd93bc0c10d4",
+      "sha256": "c809525a7225de0763aea0899930bd309a133149628ab1bbb87de0dd743e9260",
       "installedByDefault": true
     },
     {
@@ -187,7 +187,7 @@
       "fileName": "ezg.base.default.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.default.unitypackage",
       "category": "EZG Base",
-      "sha256": "c92ff146837438ae0403cf8ab62e7a235ba6f1746c2463348fe96038fbe28acb",
+      "sha256": "5d36c90d7ca2580be41cf2df2009d665978c3b9d668cdc97611af599f9f53a59",
       "installedByDefault": true,
       "description": "Default setup package including ProjectSettings, .gitignore, AI tooling configuration, and backlog."
     },
@@ -196,7 +196,7 @@
       "fileName": "ezg.base.visuals.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals.unitypackage",
       "category": "EZG Base",
-      "sha256": "2f44b35863935df629d86c364bdfe6e3b93f752d6d51267a9fe6b8d8817ab2c1",
+      "sha256": "9b770f7a2a3cefac4402020b418b032e08d24fe043991928c639f129a2981e5d",
       "installedByDefault": true
     },
     {

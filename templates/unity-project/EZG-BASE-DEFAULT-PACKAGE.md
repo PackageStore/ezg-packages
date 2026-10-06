@@ -34,7 +34,7 @@ templates/unity-project/DefaultSetup/
   "fileName": "ezg.base.default.unitypackage",
   "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.default.unitypackage",
   "category": "EZG Base",
-  "sha256": "aba253f0b47c3f66fb2f088511bc12e9a5f75ea1504684026ae80d81c775cc93",
+  "sha256": "5d36c90d7ca2580be41cf2df2009d665978c3b9d668cdc97611af599f9f53a59",
   "installedByDefault": true,
   "description": "Default setup package including ProjectSettings, .gitignore, AI tooling configuration, and backlog."
 }

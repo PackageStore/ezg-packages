@@ -4,6 +4,56 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-06
+
+Project mới sinh ra không còn dấu vết của các game cũ mà template được ghép từ đó, có sẵn mọi skill AI
+của catalog, và có một lối setup duy nhất: `/setup-project` → cửa sổ `Ezg > EzgKit` 1.0.
+
+**Added**
+- `DefaultSetup/.claude/skills/setup-project/` — skill `/setup-project [id|status|all|artstyle]`: kết nối đúng
+  Editor qua Unity MCP, mở cửa sổ EzgKit đúng mục, in trạng thái từng mục từ `EzgKitApi.GetStatusJson()`,
+  dry-run → diff → Apply khi dev đưa giá trị trong chat, và làm phần AI theo `requests` (soạn `ArtStyle.md`
+  theo § Bootstrap, kiểm tra link localize). Khai trong bảng command + danh sách out-of-band của `CLAUDE.md`,
+  thêm mục 1b ở `GETTING-STARTED.md`, và một dòng `[ACTION]` ở cuối `bootstrap.sh` / `bootstrap.ps1`.
+- 7 skill chuyển từ `templates/AIFeatures/Skills/` vào `DefaultSetup/.claude/skills/` (git mv, id catalog
+  giữ nguyên `Skills/<name>`): `auto-clear`, `blender-rig-animate`, `game-animation`, `game-vfx`,
+  `refactor-ui`, `restart-unity`, `ui-motion`. `AIFeatures/Skills/` giờ trống; `publish-ai-features` vẫn là
+  skill maintainer, cố ý không ship.
+
+**Changed**
+- `game-vfx` / `game-animation` docs: ~190 chỗ nhắc tên game, studio, nhân vật của bên thứ ba được viết lại
+  thành mô tả trung tính (theo rule `no-external-game-refs`); số liệu, thứ tự và số trích dẫn `[n]` giữ nguyên,
+  URL có tên game bị bỏ.
+- `ezg.base.features.unitypackage` (43,5 → 17,2 MB, 767 → 706 entry) và `ezg.base.visuals.unitypackage`
+  (138 → 48,6 MB, 1170 → 720 entry) được dọn sạch phần còn sót của các game cũ:
+  - xoá 397 asset không còn ai dùng hoặc thuộc gameplay cũ (cả thư mục `_Recovered`, nhân vật/quái, anim
+    booster/box/screw/boss-chest/gacha, icon tiền tệ không tồn tại, prefab battle/stage/booster/upgrade/gacha,
+    font trùng, ảnh logo/splash của game khác, dump PSD layer);
+  - 40 ảnh mang nhận diện game cũ (logo, splash, 12 avatar, frame "chef", NPC, mascot, icon đồ ăn/trang bị,
+    coin có biểu tượng cũ) thay bằng placeholder trung tính cùng kích thước, cùng GUID/meta;
+  - 81 asset còn dùng dời ra khỏi `_Recovered` và đặt tên trung tính (`Shared/Textures/{Buttons/Flat,Tooltip,
+    Icon/...}`, `Features/.../Visuals/...`); icon tiền tệ đổi thành `currency_<id>` cho khớp loader
+    `Currencies/currency_<id>` (trước đây không bao giờ load được);
+  - Home bỏ 6 nút tính năng không có trong template (video bonus có mascot Spine, infinity pack, piggy bank,
+    starter pack, task, daily reward) + nút test noti; màn cheat bỏ 10 nút gọi method không còn tồn tại;
+    loading bỏ con quái chạy + HeroGroup + video intro + nested prefab bị missing;
+  - UnityEvent: 81 persistent call trỏ lại đúng type, 25 call mồ côi bị xoá; reserialize 280 asset + xoá
+    override thừa ở 88 prefab nên không còn namespace của game cũ trong YAML; 223 reference treo (sprite của
+    game cũ chưa từng được ship) được gỡ — 0 GUID dangling;
+  - 29 script bỏ dead code của game cũ (hero/skill/pet/map/enemy, infinity x2 gold, booster, starter pack,
+    piggy bank, recipe…), CSV `GeneralConfig` / `ResourceExchange` bỏ cột tương ứng, `RemoveAdsPack` không
+    còn thưởng tiền tệ id 5–8, `DailyDealsPack_1` có product id riêng và header hợp lệ;
+  - bundle name cũ (`tutorial__tutorials`, `packages__openning_pack`, `events__petal_plate_party`) bị gỡ.
+  - `PlayerResource.AddCurrency` không còn cộng Energy 2 lần (kẹp số đang có về trần rồi cộng đúng một lần);
+  - màn cheat: ô nhập số lượng (trước trống vì placeholder mất font) + 3 nút Add Gold / Add Gem / Add Energy nối
+    `ChooseX()` → `AddResource()`, bỏ ô `CheatScene` mồ côi.
+  `unity-template.json` + `asset-catalog.json` mang sha256 mới (`c809525a…` features, `9b770f7a…` visuals) —
+  **upload 2 file lên R2 trước khi push** (xem `README.md` › upload template assets), nếu không builder lệch sha.
+- `com.ezg.ezgkit` 1.0.0 (package, xem CHANGELOG của package): UI viết lại bằng UI Toolkit, thêm trang
+  Thông tin dự án / Ads & Privacy / Gói bán / ArtStyle / Localization, ghi đúng `AppSecretsConfig`, API cho Claude.
+- `AIFeatures/README.md`: `installedByDefault` chỉ là metadata (Feature Hub không đọc cho AI item).
+- `ezg.base.default.unitypackage` (legacy, tab Unity Packages) build lại từ DefaultSetup mới (`5d36c90d…`).
+
 ## 2026-10-05
 
 Mỗi game giờ có một nguồn chuẩn art style, `.claude/docs/ArtStyle.md`, và mọi skill/agent ra quyết định

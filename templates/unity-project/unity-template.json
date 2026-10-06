@@ -233,12 +233,12 @@
       {
         "fileName": "ezg.base.features.unitypackage",
         "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features.unitypackage",
-        "sha256": "a7cf4e883520f275221fb0a06dec1c3ba5cdb9be26441a195d10cd93bc0c10d4"
+        "sha256": "c809525a7225de0763aea0899930bd309a133149628ab1bbb87de0dd743e9260"
       },
       {
         "fileName": "ezg.base.visuals.unitypackage",
         "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals.unitypackage",
-        "sha256": "2f44b35863935df629d86c364bdfe6e3b93f752d6d51267a9fe6b8d8817ab2c1"
+        "sha256": "9b770f7a2a3cefac4402020b418b032e08d24fe043991928c639f129a2981e5d"
       }
     ]
   },
