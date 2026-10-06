@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.3] - 2026-10-06
+### Fixed
+- **Bridge image fills no longer fail with 'Figma file disconnected'.** One images.get request
+  asked for up to 100 fills. A reply over about 15M characters goes out in parts, and a bridge hub
+  older than the EZG Tools plugin closes the plugin's connection on a part frame. Bridge now asks
+  for 10 fills per request. When the file still disconnects, the request is split in half and sent
+  again after the plugin reconnects (up to 15 s), so the import goes on. A warning names the old
+  hub as the likely cause.
+
 ## [0.8.2] - 2026-10-06
 ### Fixed
 - **Bridge server renders no longer stall at 0/N.** Bridge mode sent 300-node batches split into

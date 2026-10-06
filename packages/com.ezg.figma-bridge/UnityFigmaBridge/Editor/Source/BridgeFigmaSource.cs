@@ -17,8 +17,11 @@ namespace UnityFigmaBridge.Editor.Source
         /// Nodes per export request. Figma renders on one thread, so a large group only waits longer;
         /// the importer also sends batches of this size, so its progress bar moves per group.
         public const int ExportBatchSize = 10;
-        const int ImagesChunk = 100;
+        // A reply over ~15M chars goes out in parts, and a hub older than the plugin closes the
+        // plugin's socket on a part frame. Ten large PSD fills stay under that.
+        const int ImagesChunk = 10;
         static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(3);
+        static readonly TimeSpan ReconnectTimeout = TimeSpan.FromSeconds(15);
         static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(120);
         static readonly TimeSpan BatchTimeout = TimeSpan.FromSeconds(60);
         static readonly TimeSpan ExportTimeoutPerNode = TimeSpan.FromSeconds(10);
@@ -77,10 +80,35 @@ namespace UnityFigmaBridge.Editor.Source
         public async Task<FigmaImageFillData> GetImageFillData(string fileId, IReadOnlyCollection<string> usedImageRefs)
         {
             var images = new Dictionary<string, string>();
-            foreach (var chunk in Chunks(usedImageRefs.Distinct().ToList(), ImagesChunk))
+            var pending = new List<List<string>>(Chunks(usedImageRefs.Distinct().ToList(), ImagesChunk));
+            var reconnects = 0;
+            while (pending.Count > 0)
             {
+                var chunk = pending[0];
                 var payload = new JObject { ["hashes"] = new JArray(chunk) };
-                var result = await Request(fileId, "images.get", payload, BatchTimeout).ConfigureAwait(false);
+                JToken result;
+                try
+                {
+                    result = await RequestOnce(fileId, "images.get", payload, BatchTimeout, reconnects > 0).ConfigureAwait(false);
+                }
+                catch (HubRequestException e) when (e.Kind == HubRequestKind.Closed && (chunk.Count > 1 || reconnects < 2))
+                {
+                    // The plugin reconnects by itself; a smaller reply usually gets through.
+                    reconnects++;
+                    pending.RemoveAt(0);
+                    if (chunk.Count > 1)
+                    {
+                        var half = chunk.Count / 2;
+                        pending.Insert(0, chunk.GetRange(half, chunk.Count - half));
+                        pending.Insert(0, chunk.GetRange(0, half));
+                    }
+                    else pending.Insert(0, chunk);
+                    Debug.LogWarning($"[FigmaBridge] The Figma file disconnected during images.get ({chunk.Count} fills); " +
+                                     "retrying with smaller requests. If this repeats, restart the EZG bridge hub: it may be older than the plugin.");
+                    continue;
+                }
+                catch (HubRequestException e) { throw Translate(e); }
+                pending.RemoveAt(0);
                 foreach (var image in result["images"] as JArray ?? new JArray())
                 {
                     var hash = (string)image["hash"];
@@ -143,12 +171,18 @@ namespace UnityFigmaBridge.Editor.Source
 
         async Task<JToken> Request(string fileId, string op, JToken payload, TimeSpan timeout)
         {
-            var session = await GetSession(fileId).ConfigureAwait(false);
+            try { return await RequestOnce(fileId, op, payload, timeout, false).ConfigureAwait(false); }
+            catch (HubRequestException e) { throw Translate(e); }
+        }
+
+        async Task<JToken> RequestOnce(string fileId, string op, JToken payload, TimeSpan timeout, bool afterReconnect)
+        {
+            var session = await GetSession(fileId, afterReconnect ? ReconnectTimeout : ConnectTimeout).ConfigureAwait(false);
             try { return await session.Client.Request(session.File.ConnectionId, op, payload, timeout).ConfigureAwait(false); }
             catch (HubRequestException e)
             {
                 if (e.Kind == HubRequestKind.Closed) Forget(session);
-                throw Translate(e);
+                throw;
             }
         }
 
@@ -172,16 +206,16 @@ namespace UnityFigmaBridge.Editor.Source
             session.Client.Dispose();
         }
 
-        Task<Session> GetSession(string fileId)
+        Task<Session> GetSession(string fileId, TimeSpan waitForFile)
         {
             lock (_gate)
             {
-                if (_session == null || _session.IsFaulted || _session.IsCanceled) _session = Open(fileId);
+                if (_session == null || _session.IsFaulted || _session.IsCanceled) _session = Open(fileId, waitForFile);
                 return _session;
             }
         }
 
-        async Task<Session> Open(string fileId)
+        async Task<Session> Open(string fileId, TimeSpan waitForFile)
         {
             HubClient client;
             try { client = await HubClient.Connect(_port, ConnectTimeout).ConfigureAwait(false); }
@@ -189,7 +223,7 @@ namespace UnityFigmaBridge.Editor.Source
             {
                 throw new Exception(FigmaSourceText.BridgeNoHub(_port) + (string.IsNullOrWhiteSpace(e.Message) ? "" : " (" + e.Message + ")"));
             }
-            var file = await client.WaitForFile(fileId, ConnectTimeout).ConfigureAwait(false);
+            var file = await client.WaitForFile(fileId, waitForFile).ConfigureAwait(false);
             if (file == null)
             {
                 var open = client.Files.Select(f => FigmaSourceText.DescribeFile(f.FileName, f.FileKey)).ToList();
