@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0] - 2026-10-06
+### Added
+- **Source panel with REST API / Bridge (EZG Tools) tabs.** Only the panel content switches; the
+  settings and the lists below it stay in place. Rest shows the document URL, the token field
+  with Save and status, and the FileID check. Bridge shows the port, the live hub status and a
+  picker of connected files. Bridge needs no DocumentUrl and no token: the file is taken from the
+  Figma file open in EZG Tools, and a picker appears when several files are open. Unsaved files
+  (no key) cannot be imported.
+- **The bound Bridge file is remembered.** It is stored in the new hidden `BridgeFileKey` and
+  `BridgeFileName` fields, written after a successful import. A Sync that would import a different
+  file than the bound one asks for confirmation; in batch mode it aborts with an error.
+### Changed
+- **The token tab is removed.** The token field lives in the Rest block. The token store is
+  unchanged (`PlayerPrefs`, per machine).
+- **Settings sit in closed foldouts** (Output Folders, Pages & Naming, Text, Sprites, Layout &
+  Nine-Slice, Advanced) with conditional fields. Foldout state is per user, not in the asset. The
+  window, the settings asset inspector and Project Settings use the same drawer.
+- **Labels and error messages are source-specific.** Bridge texts never mention URL or token. The
+  `[Header]` groups on the settings class are gone.
+### Upgrade
+- Existing settings assets need no migration. The two hidden fields appear on the next save. No
+  existing field is renamed, retyped or reordered.
+
 ## [0.7.0] - 2026-10-06
 ### Added
 - **Bridge source: import from the open Figma file through the EZG Tools plugin.** The settings asset

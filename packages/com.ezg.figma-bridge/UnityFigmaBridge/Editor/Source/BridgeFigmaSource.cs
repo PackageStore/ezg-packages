@@ -181,16 +181,16 @@ namespace UnityFigmaBridge.Editor.Source
             try { client = await HubClient.Connect(_port, ConnectTimeout).ConfigureAwait(false); }
             catch (Exception e) when (!(e is OperationCanceledException))
             {
-                throw new Exception($"No hub on port {_port}: is the MCP tab connected, and is Bridge Port the port shown there? ({e.Message})");
+                throw new Exception(FigmaSourceText.BridgeNoHub(_port) + (string.IsNullOrWhiteSpace(e.Message) ? "" : " (" + e.Message + ")"));
             }
             var file = await client.WaitForFile(fileId, ConnectTimeout).ConfigureAwait(false);
             if (file == null)
             {
-                var open = client.Files.Select(f => $"{f.FileName} ({f.FileKey})").ToList();
+                var open = client.Files.Select(f => FigmaSourceText.DescribeFile(f.FileName, f.FileKey)).ToList();
+                var list = open.Count == 0 ? "none" : string.Join(", ", open);
+                var key = string.IsNullOrEmpty(fileId) ? "(no file key)" : fileId;
                 client.Dispose();
-                throw new Exception(
-                    $"Figma file '{fileId}' is not connected to the bridge. Connected: {(open.Count == 0 ? "none" : string.Join(", ", open))}. " +
-                    "Open EZG Tools, MCP tab, press \"Kết nối tới MCP server\", on the file in DocumentUrl.");
+                throw new Exception(FigmaSourceText.BridgeFileNotConnected(key, list));
             }
             if (client.IsUsable(file)) return new Session { Client = client, File = file };
             client.Dispose();

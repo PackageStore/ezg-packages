@@ -8,27 +8,13 @@ namespace UnityFigmaBridge.Editor.Settings
 
     public class UnityFigmaBridgeSettingsProvider : SettingsProvider
     {
-        private GUIStyle m_RedStyle;
-        private GUIStyle m_GreenStyle;
+        private SerializedObject m_SerializedObject;
+        private FigmaConnectionPanel m_Panel;
 
         public UnityFigmaBridgeSettingsProvider(string path, SettingsScope scopes, IEnumerable<string> keywords = null)
             : base(path, scopes, keywords)
         {
         }
-
-        // EditorStyles is not ready while Unity discovers [SettingsProvider] methods at startup;
-        // building the styles in the constructor threw and the provider was dropped
-        // ("Cannot create Settings Provider"). They are built on first draw instead.
-        private void EnsureStyles()
-        {
-            if (m_RedStyle != null) return;
-            m_RedStyle = new GUIStyle(EditorStyles.label);
-            m_RedStyle.normal.textColor = UnityEngine.Color.red;
-
-            m_GreenStyle = new GUIStyle(EditorStyles.label);
-            m_GreenStyle.normal.textColor = UnityEngine.Color.green;
-        }
-
 
         public static bool IsSettingsAvailable()
         {
@@ -37,10 +23,43 @@ namespace UnityFigmaBridge.Editor.Settings
 
         private UnityFigmaBridgeSettings unityFigmaBridgeSettingsAsset;
 
+        private void BuildPanel()
+        {
+            if (unityFigmaBridgeSettingsAsset == null || m_Panel != null) return;
+            m_SerializedObject = new SerializedObject(unityFigmaBridgeSettingsAsset);
+            m_Panel = new FigmaConnectionPanel(() => UnityEditorInternal.InternalEditorUtility.RepaintAllViews());
+        }
+
+        private void TearDown()
+        {
+            EditorApplication.update -= OnUpdate;
+            m_Panel?.Dispose();
+            m_Panel = null;
+            m_SerializedObject = null;
+        }
+
+        private void Attach()
+        {
+            EditorApplication.update -= OnUpdate;
+            EditorApplication.update += OnUpdate;
+            BuildPanel();
+        }
+
+        private void OnUpdate()
+        {
+            if (m_Panel == null || unityFigmaBridgeSettingsAsset == null) return;
+            m_Panel.Tick(unityFigmaBridgeSettingsAsset);
+        }
+
         public override void OnActivate(string searchContext, VisualElement rootElement)
         {
-
             unityFigmaBridgeSettingsAsset = FindUnityBridgeSettingsAsset();
+            if (unityFigmaBridgeSettingsAsset != null) Attach();
+        }
+
+        public override void OnDeactivate()
+        {
+            TearDown();
         }
 
         /// <summary>
@@ -56,39 +75,46 @@ namespace UnityFigmaBridge.Editor.Settings
 
         public override void OnGUI(string searchContext)
         {
-            EnsureStyles();
+            if (unityFigmaBridgeSettingsAsset == null)
+            {
+                TearDown();
+                unityFigmaBridgeSettingsAsset = FindUnityBridgeSettingsAsset();
+                if (unityFigmaBridgeSettingsAsset != null) Attach();
+            }
+
             if (unityFigmaBridgeSettingsAsset == null)
             {
                 GUILayout.Label("Create Unity Figma Bridge Settings Asset");
                 if (GUILayout.Button("Create..."))
                 {
                     unityFigmaBridgeSettingsAsset = GenerateUnityFigmaBridgeSettingsAsset();
+                    Attach();
                 }
 
                 return;
             }
 
-            // Use IMGUI to display UI:
-            var serializedObject = new SerializedObject(unityFigmaBridgeSettingsAsset);
-            SerializedProperty prop = serializedObject.GetIterator();
-            if (prop.NextVisible(true))
-            {
-                do
-                {
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty(prop.name), true);
-                } while (prop.NextVisible(false));
-            }
+            if (m_Panel == null) BuildPanel();
 
-            serializedObject.ApplyModifiedProperties();
+            var changed = m_Panel.Draw(m_SerializedObject, unityFigmaBridgeSettingsAsset);
 
-            GUILayout.Space(10);
-            var (isValid, fileId) = FigmaApi.FigmaApiUtils.GetFigmaDocumentIdFromUrl(unityFigmaBridgeSettingsAsset.DocumentUrl);
-            if (!isValid)
+            m_SerializedObject.Update();
+            FigmaSettingsDrawer.DrawField(m_SerializedObject, "OnlyImportSelectedPages");
+            FigmaSettingsDrawer.DrawField(m_SerializedObject, "ImportSelectionOnly");
+            FigmaSettingsDrawer.DrawField(m_SerializedObject, "OnlyImportListedScreens");
+            m_SerializedObject.ApplyModifiedProperties();
+
+            FigmaSettingsDrawer.DrawFoldouts(m_SerializedObject);
+
+            GUILayout.Space(6);
+            if (GUILayout.Button("Open Figma Bridge window", GUILayout.Height(28)))
+                FigmaBridgeWindow.Open();
+
+            if (changed)
             {
-                GUILayout.Label($"Invalid Figma Document URL",m_RedStyle);
-                return;
+                EditorUtility.SetDirty(unityFigmaBridgeSettingsAsset);
+                AssetDatabase.SaveAssets();
             }
-            GUILayout.Label($"Valid Figma Document URL - FileID: {fileId}",m_GreenStyle);
         }
 
 

@@ -3,22 +3,20 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Source;
 using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Settings
 {
     /// <summary>
-    /// Dedicated editor window for driving the Figma bridge - settings, token and sync
+    /// Dedicated editor window for driving the Figma bridge - connection, import scope and sync
     /// </summary>
     public sealed class FigmaBridgeWindow : EditorWindow
     {
-        private static readonly string[] s_TabLabels = { "Setup", "Token" };
-
         private UnityFigmaBridgeSettings m_Settings;
         private SerializedObject m_SerializedSettings;
-
-        private int m_SelectedTab;
-        private string m_TokenDraft;
+        private FigmaConnectionPanel m_Panel;
+        private string m_LastFileKey;
 
         private Vector2 m_MainScrollPos;
         private string m_SelectedPageId;
@@ -42,6 +40,26 @@ namespace UnityFigmaBridge.Editor.Settings
         private void OnEnable()
         {
             m_Settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
+            m_Panel = new FigmaConnectionPanel(Repaint);
+            EditorApplication.update -= OnEditorUpdate;
+            EditorApplication.update += OnEditorUpdate;
+            if (m_Settings != null) m_LastFileKey = m_Panel.CurrentFileKey(m_Settings);
+
+            foreach (var field in new[] { "OnlyImportSelectedPages", "ImportSelectionOnly", "OnlyImportListedScreens" })
+                Debug.Assert(System.Array.IndexOf(FigmaSettingsDrawer.MainViewFields, field) >= 0,
+                    $"FigmaSettingsDrawer.MainViewFields no longer lists {field}");
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.update -= OnEditorUpdate;
+            m_Panel?.Dispose();
+            m_Panel = null;
+        }
+
+        private void OnEditorUpdate()
+        {
+            if (m_Settings != null) m_Panel?.Tick(m_Settings);
         }
 
         private void OnGUI()
@@ -61,144 +79,110 @@ namespace UnityFigmaBridge.Editor.Settings
                 return;
             }
 
-            var prev = m_SelectedTab;
-            m_SelectedTab = GUILayout.Toolbar(m_SelectedTab, s_TabLabels);
-            GUILayout.Space(8);
+            if (m_Panel == null) m_Panel = new FigmaConnectionPanel(Repaint);
+            if (m_SerializedSettings == null || m_SerializedSettings.targetObject != m_Settings)
+                m_SerializedSettings = new SerializedObject(m_Settings);
+
+            var changed = false;
+            var sourceBefore = m_Settings.Source;
 
             using (var scroll = new EditorGUILayout.ScrollViewScope(m_MainScrollPos))
             {
                 m_MainScrollPos = scroll.scrollPosition;
 
-                if (m_SelectedTab == 0)
-                    DrawSetupTab();
-                else
-                    DrawTokenTab(prev != 1);
-            }
+                m_SerializedSettings.Update();
+                changed |= m_Panel.Draw(m_SerializedSettings, m_Settings);
+                var sourceChanged = m_Settings.Source != sourceBefore;
+                m_SerializedSettings.Update();
 
-            // Outside the scroll view, so a long screen list never pushes it out of reach
-            if (m_SelectedTab == 0)
-            {
-                GUILayout.Space(4);
-                if (GUILayout.Button("Sync Document", GUILayout.Height(32)))
-                    UnityFigmaBridgeImporter.SyncDocument();
+                GUILayout.Space(8);
+                changed |= FigmaSettingsDrawer.DrawFoldouts(m_SerializedSettings);
+                m_SerializedSettings.Update();
 
-                using (new EditorGUILayout.HorizontalScope())
+                GUILayout.Space(8);
+                var pre =m_SerializedSettings.FindProperty("OnlyImportSelectedPages").boolValue;
+                changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "OnlyImportSelectedPages");
+                if (m_SerializedSettings.FindProperty("OnlyImportSelectedPages").boolValue)
+                    changed |= ListPages("Select Pages to import", m_Settings.PageDataList);
+                changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "ImportSelectionOnly");
+                changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "OnlyImportListedScreens");
+
+                m_SerializedSettings.ApplyModifiedProperties();
+                m_SerializedSettings.Update();
+
+                GUILayout.Space(8);
+                changed |= ListScreens(m_Settings);
+
+                var key = m_Panel.CurrentFileKey(m_Settings);
+                var reset = !sourceChanged &&
+                            !string.IsNullOrEmpty(m_LastFileKey) && !string.IsNullOrEmpty(key) && key != m_LastFileKey;
+                if (reset)
                 {
-                    var hasCache = System.IO.File.Exists(FigmaApiUtils.CachedDocumentPath);
-                    using (new EditorGUI.DisabledScope(!hasCache))
+                    m_SerializedSettings.ApplyModifiedProperties();
+                    if (m_Settings.OnlyImportSelectedPages)
                     {
-                        if (GUILayout.Button(new GUIContent("Re-import from cache (offline)",
-                                hasCache
-                                    ? "Rebuild every output from Assets/FigmaOutput.json and the sprites already on disk. No Figma API call."
-                                    : "No cached document yet - run Sync Document online once."), GUILayout.Height(24)))
-                            UnityFigmaBridgeImporter.SyncDocumentOffline();
+                        m_Settings.OnlyImportSelectedPages = false;
+                        m_Settings.PageDataList.Clear();
                     }
-
-                    if (GUILayout.Button(new GUIContent("Run Post-Processors (no Sync)",
-                            "Run every IFigmaImportPostProcessor in the project against the prefabs on disk."), GUILayout.Height(24)))
-                        UnityFigmaBridgeImporter.RunPostProcessorsOnly();
+                    m_SerializedSettings.Update();
+                    changed = true;
                 }
-
-                var selectedPrefab = Verify.FigmaVisualCheck.SelectedPrefabPath();
-                using (new EditorGUI.DisabledScope(selectedPrefab == null))
+                else if (m_Settings.OnlyImportSelectedPages != pre)
                 {
-                    if (GUILayout.Button(new GUIContent("Visual Check (selected screen prefab)",
-                            "Compare the selected screen prefab with Figma's render of its frame, container by container " +
-                            $"(SSIM, pass {Verify.FigmaVisualCheck.DefaultPassScore:0.00}, text-only {Verify.FigmaVisualCheck.DefaultTextPassScore:0.00}). " +
-                            $"Output: {Verify.FigmaVisualCheck.OutputRoot}."),
-                            GUILayout.Height(24)))
-                        Debug.Log(Verify.FigmaVisualCheck.Run(selectedPrefab).ToString());
+                    m_SerializedSettings.ApplyModifiedProperties();
+                    if (m_Settings.OnlyImportSelectedPages)
+                        RefreshPageList(m_Settings);
+                    else
+                        m_Settings.PageDataList.Clear();
+                    m_SerializedSettings.Update();
                 }
-            }
-        }
-
-        private void DrawSetupTab()
-        {
-            var onlyImportPages = m_Settings.OnlyImportSelectedPages;
-            var preEditUrl = m_Settings.DocumentUrl;
-
-            DrawSettingsFields();
-
-            // If the URL has changed, we want to reset the select pages to off and clear
-            if (m_Settings.DocumentUrl != preEditUrl)
-            {
-                if (m_Settings.OnlyImportSelectedPages)
-                {
-                    m_Settings.OnlyImportSelectedPages = false;
-                    m_Settings.PageDataList.Clear();
-                }
-            }
-            else if (m_Settings.OnlyImportSelectedPages != onlyImportPages)
-            {
-                if (m_Settings.OnlyImportSelectedPages)
-                    RefreshPageList(m_Settings);
-                else
-                    m_Settings.PageDataList.Clear();
+                m_LastFileKey = key;
             }
 
-            if (m_Settings.OnlyImportSelectedPages)
-            {
-                GUILayout.Space(20);
-                var changed = ListPages("Select Pages to import", m_Settings.PageDataList);
-                if (changed)
-                {
-                    EditorUtility.SetDirty(m_Settings);
-                    AssetDatabase.SaveAssetIfDirty(m_Settings);
-                }
-            }
-
-            GUILayout.Space(20);
-            if (ListScreens(m_Settings))
+            if (changed)
             {
                 EditorUtility.SetDirty(m_Settings);
                 AssetDatabase.SaveAssetIfDirty(m_Settings);
             }
-        }
 
-        private void DrawSettingsFields()
-        {
-            if (m_SerializedSettings == null || m_SerializedSettings.targetObject != m_Settings)
-                m_SerializedSettings = new SerializedObject(m_Settings);
+            // Outside the scroll view, so a long screen list never pushes it out of reach
+            GUILayout.Space(4);
+            var canSync = m_Panel.CanSync(m_Settings, out var reason);
+            if (!canSync) EditorGUILayout.HelpBox(reason, MessageType.Warning);
 
-            m_SerializedSettings.Update();
-            var prop = m_SerializedSettings.GetIterator();
-            var enterChildren = true;
-            while (prop.NextVisible(enterChildren))
+            using (new EditorGUI.DisabledScope(!canSync))
             {
-                enterChildren = false;
-                if (prop.propertyPath == "m_Script") continue;
-                EditorGUILayout.PropertyField(prop, true);
-            }
-            m_SerializedSettings.ApplyModifiedProperties();
-
-            GUILayout.Space(10);
-            var (isValid, fileId) = FigmaApiUtils.GetFigmaDocumentIdFromUrl(m_Settings.DocumentUrl);
-            EditorGUILayout.HelpBox(
-                isValid ? $"Valid Figma Document URL - FileID: {fileId}" : "Invalid Figma Document URL",
-                isValid ? MessageType.Info : MessageType.Error);
-        }
-
-        private void DrawTokenTab(bool justSwitched)
-        {
-            if (m_TokenDraft == null || justSwitched)
-                m_TokenDraft = FigmaAccessToken.Read() ?? "";
-
-            GUILayout.Label("Figma Personal Access Token", EditorStyles.boldLabel);
-            GUILayout.Label("Stored in Unity PlayerPrefs on this machine - never written into the settings asset.",
-                EditorStyles.miniLabel);
-            GUILayout.Space(6);
-
-            m_TokenDraft = EditorGUILayout.TextField("Token", m_TokenDraft);
-
-            if (GUILayout.Button("Save Token"))
-            {
-                FigmaAccessToken.Write(m_TokenDraft);
-                m_TokenDraft = FigmaAccessToken.Read() ?? "";
-                GUI.FocusControl(null);
+                if (GUILayout.Button(FigmaSourceText.SyncLabel(m_Settings.Source), GUILayout.Height(32)))
+                    UnityFigmaBridgeImporter.SyncDocument();
             }
 
-            var hasToken = !string.IsNullOrEmpty(FigmaAccessToken.Read());
-            EditorGUILayout.LabelField("Status", hasToken ? "Token set" : "No token set", EditorStyles.miniLabel);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var hasCache = System.IO.File.Exists(FigmaApiUtils.CachedDocumentPath);
+                using (new EditorGUI.DisabledScope(!hasCache))
+                {
+                    if (GUILayout.Button(new GUIContent("Re-import from cache (offline)",
+                            hasCache
+                                ? FigmaSourceText.OfflineTooltip(m_Settings.Source)
+                                : "No cached document yet - run a full sync first."), GUILayout.Height(24)))
+                        UnityFigmaBridgeImporter.SyncDocumentOffline();
+                }
+
+                if (GUILayout.Button(new GUIContent("Run Post-Processors (no Sync)",
+                        "Run every IFigmaImportPostProcessor in the project against the prefabs on disk."), GUILayout.Height(24)))
+                    UnityFigmaBridgeImporter.RunPostProcessorsOnly();
+            }
+
+            var selectedPrefab = Verify.FigmaVisualCheck.SelectedPrefabPath();
+            using (new EditorGUI.DisabledScope(selectedPrefab == null))
+            {
+                if (GUILayout.Button(new GUIContent("Visual Check (selected screen prefab)",
+                        "Compare the selected screen prefab with Figma's render of its frame, container by container " +
+                        $"(SSIM, pass {Verify.FigmaVisualCheck.DefaultPassScore:0.00}, text-only {Verify.FigmaVisualCheck.DefaultTextPassScore:0.00}). " +
+                        $"Output: {Verify.FigmaVisualCheck.OutputRoot}."),
+                        GUILayout.Height(24)))
+                    Debug.Log(Verify.FigmaVisualCheck.Run(selectedPrefab).ToString());
+            }
         }
 
         /// <summary>
@@ -206,12 +190,7 @@ namespace UnityFigmaBridge.Editor.Settings
         /// </summary>
         private async void RefreshPageList(UnityFigmaBridgeSettings settings)
         {
-            // Only refresh pages if we have a valid file
-            var requirementsMet = UnityFigmaBridgeImporter.CheckRequirements();
-            if (!requirementsMet) return;
-
-            // Retrieve the Figma document
-            var figmaFile = await UnityFigmaBridgeImporter.DownloadFigmaDocument(settings.FileId);
+            var figmaFile = await UnityFigmaBridgeImporter.DownloadCurrentDocument();
             if (figmaFile == null) return;
 
             settings.RefreshForUpdatedPages(figmaFile);
@@ -225,10 +204,7 @@ namespace UnityFigmaBridge.Editor.Settings
         /// </summary>
         private async void RefreshScreenList(UnityFigmaBridgeSettings settings)
         {
-            var requirementsMet = UnityFigmaBridgeImporter.CheckRequirements();
-            if (!requirementsMet) return;
-
-            var figmaFile = await UnityFigmaBridgeImporter.DownloadFigmaDocument(settings.FileId);
+            var figmaFile = await UnityFigmaBridgeImporter.DownloadCurrentDocument();
             if (figmaFile == null) return;
 
             UnityFigmaBridgeImporter.WarnMissingRequiredPages(figmaFile, settings);
@@ -257,7 +233,7 @@ namespace UnityFigmaBridge.Editor.Settings
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Refresh from Figma", GUILayout.Width(130)))
+                    if (GUILayout.Button(FigmaSourceText.RefreshLabel(settings.Source), GUILayout.MinWidth(130)))
                         RefreshScreenList(settings);
 
                     if (GUILayout.Button("Select all", GUILayout.Width(80)))
@@ -278,7 +254,7 @@ namespace UnityFigmaBridge.Editor.Settings
 
                 if (screenRows.Count == 0 && componentRows.Count == 0)
                 {
-                    EditorGUILayout.HelpBox("No screens or components listed yet - press Refresh from Figma.",
+                    EditorGUILayout.HelpBox("No screens or components listed yet - press " + FigmaSourceText.RefreshLabel(settings.Source) + ".",
                         MessageType.Info);
                     return applyChanges;
                 }

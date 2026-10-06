@@ -11,7 +11,7 @@ Feature Hub (**Ezg > Feature Hub**, UPM Packages tab), or add it directly:
 "scopedRegistries": [
   { "name": "Easygoing code base", "url": "https://upm-registry-worker.developer-a1f.workers.dev", "scopes": ["com.ezg"] }
 ],
-"dependencies": { "com.ezg.figma-bridge": "0.1.0" }
+"dependencies": { "com.ezg.figma-bridge": "0.8.0" }
 ```
 
 Requires Unity 6000.3 or newer. Dependencies (`com.unity.ugui`, `com.unity.nuget.newtonsoft-json`)
@@ -19,25 +19,35 @@ resolve automatically from the Unity registry.
 
 ## Setup
 
-1. Open **Tools > EZG Technical Art > Figma Bridge**.
+**Rest**
+
+1. Open **Tools > EZG Technical Art > Figma Bridge** and select Rest.
 2. Paste the Figma document URL.
-3. Set a [Figma personal access token](https://www.figma.com/developers/api#authentication).
-   It is stored per machine in `PlayerPrefs`, never in the project or in source control.
-4. Choose which pages and screens to import, then sync.
+3. Enter a [Figma personal access token](https://www.figma.com/developers/api#authentication) in
+   the Rest block and Save. It is stored per machine in `PlayerPrefs`, never in the project or in
+   source control.
+4. Pick pages and screens, then Sync.
+
+**Bridge**
+
+1. Open EZG Tools in Figma and connect the MCP tab.
+2. Open **Tools > EZG Technical Art > Figma Bridge** and select Bridge.
+3. Pick the file if several are listed.
+4. Pick pages and screens, then Sync. No URL and no token.
 
 ## Settings
 
-The settings asset drives every path and toggle. The fields worth knowing:
+The settings asset drives every path and toggle. The fields below sit in closed foldouts of the window. The fields worth knowing:
 
-| Field | Controls |
-|---|---|
-| `AssetsRootFolder` | root for every generated asset; blank = `Assets/_Project/UI` |
-| `ScreenPrefabFolder` | where screen prefabs are written; blank = `<root>/Screens` |
-| `ComponentPrefabFolder` | where component prefabs are written; blank = `<root>/Components` |
-| `PagePrefabFolder` | where page prefabs are written; blank = `<root>/Pages` |
-| `ImageFillFolder` | parent of the sprite folders; image fills go in `<folder>/<Figma document name>`; blank = `<root>/Sprites` |
-| `OnlyImportListedScreens` | import just the named screens instead of every frame |
-| `CollapseSliceGrids` | collapse a 9-slice plate into one sprite with borders |
+| Field | Controls | Foldout |
+|---|---|---|
+| `AssetsRootFolder` | root for every generated asset; blank = `Assets/_Project/UI` | Output Folders |
+| `ScreenPrefabFolder` | where screen prefabs are written; blank = `<root>/Screens` | Output Folders |
+| `ComponentPrefabFolder` | where component prefabs are written; blank = `<root>/Components` | Output Folders |
+| `PagePrefabFolder` | where page prefabs are written; blank = `<root>/Pages` | Output Folders |
+| `ImageFillFolder` | parent of the sprite folders; image fills go in `<folder>/<Figma document name>`; blank = `<root>/Sprites` | Output Folders |
+| `OnlyImportListedScreens` | import just the named screens instead of every frame | main view |
+| `CollapseSliceGrids` | collapse a 9-slice plate into one sprite with borders | Layout & Nine-Slice |
 
 ## Behaviour worth knowing
 

@@ -43,7 +43,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("URL tài liệu Figma cần import.\nVí dụ: https://www.figma.com/design/aBc123/Ten-File")]
         public string DocumentUrl;
 
-        [Header("Source")]
         [Tooltip("Nguồn dữ liệu Figma. Rest dùng Figma API và token; Bridge đọc file đang mở qua plugin EZG Tools (tab MCP đã kết nối), không tốn quota API.\n" +
                  "Ví dụ: chọn Bridge khi Figma đang mở file và plugin đã kết nối.")]
         public FigmaSourceKind Source = FigmaSourceKind.Rest;
@@ -56,7 +55,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: nút Play mở screen Game. Mặc định tắt từ 0.3.0.")]
         public bool BuildPrototypeFlow=false;
 
-        [Space(10)]
         [Tooltip("Scene chứa canvas và asset runtime của prototype.\nVí dụ: Assets/Scenes/Main.unity")]
         public string RunTimeAssetsScenePath;
 
@@ -94,7 +92,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [HideInInspector]
         public List<FigmaPageData> PageDataList = new ();
 
-        [Header("Output Folders")]
         [FolderPath, Tooltip("Thư mục gốc cho mọi asset sinh ra. Để trống dùng Assets/_Project/UI.\n" +
                              "Ví dụ: Assets/_Project/UI")]
         public string AssetsRootFolder = "";
@@ -122,7 +119,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [HideInInspector]
         public List<FigmaComponentSelection> ComponentSelections = new();
 
-        [Header("Pages")]
         [Tooltip("Trang duy nhất chứa screen. Mọi frame trên trang này là screen; frame ở trang khác chỉ là khung chứa component.\n" +
                  "Ví dụ: Screens")]
         public string ScreensPageName = "Screens";
@@ -131,7 +127,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: Components")]
         public string ComponentsPageName = "Components";
 
-        [Header("Screen Names")]
         [Tooltip("Chỉ import screen có trong danh sách bên dưới.\n" +
                  "Ví dụ: frame mới trong Figma bị bỏ qua đến khi bấm Refresh.")]
         public bool OnlyImportListedScreens = false;
@@ -149,7 +144,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: Assets/TextMesh Pro/Fonts")]
         public string FontMaterialPresetsFolder = "";
 
-        [Header("Image Fills")]
         [Tooltip("Đặt tên sprite theo node Figma dùng nó, thay cho mã hash imageRef.\n" +
                  "Ví dụ: btn_play.png thay cho 3f9a2c81.png")]
         public bool NameImageFillsByNodePath = true;
@@ -158,7 +152,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: Sprites/<tài liệu>/Components/Popup/Mask group.png thay cho ServerRenderedImages/335_1485.png")]
         public bool NameServerRendersByNodePath = true;
 
-        [Header("Nine-Slice")]
         [Tooltip("Gộp lưới slice_ROW_COL thành một Image kiểu Sliced.\n" +
                  "Ví dụ: 9 ô slice thành 1 sprite có border.")]
         public bool CollapseSliceGrids = true;
@@ -168,7 +161,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: nút bo góc 28 vẽ ở mọi kích thước instance mà góc không bị kéo méo.")]
         public bool SliceServerRenders = true;
 
-        [Header("Output Shape")]
         [Tooltip("Gắn LayoutElement cho node nào. OnlyUnderAutoLayout: chỉ con của frame auto layout.\n" +
                  "Ví dụ: Always giữ nếp 0.2, mỗi node một LayoutElement.")]
         public LayoutElementMode AddLayoutElements = LayoutElementMode.Always;
@@ -181,7 +173,6 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: button | ^Btn_")]
         public string ButtonNamePattern = "button";
 
-        [Header("Text")]
         [Tooltip("Font TMP dùng cho mọi text, bỏ qua font của Figma và không tải Google Fonts.\n" +
                  "Ví dụ: font duy nhất của project.")]
         public TMP_FontAsset FontOverride;
@@ -199,7 +190,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("characterSpacing của TMP cộng thêm cho mọi text, ngoài letter spacing của Figma.\nVí dụ: 0 khớp Figma khi text dùng đúng font của thiết kế.")]
         public float CharacterSpacing = 0f;
 
-        [Header("Sprites")]
         [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +
                  "Ví dụ: bật khi ảnh được scale nhỏ nhiều lần trong world space.")]
         public bool SpriteMipmaps = false;
@@ -221,6 +211,9 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: frame Mask-Pattern bo góc 84 cắt pattern bên trong theo góc bo.")]
         public bool ClipContentAsMask = true;
 
+        [HideInInspector] public string BridgeFileKey = "";
+        [HideInInspector] public string BridgeFileName = "";
+
         string IFolderDefaults.DefaultFolder(string propertyPath)
         {
             var folders = FigmaPaths.Resolve(this, "<document name>", warnOnInvalid: false);
@@ -238,6 +231,7 @@ namespace UnityFigmaBridge.Editor.Settings
         public string FileId {
             get
             {
+                if (string.IsNullOrEmpty(DocumentUrl)) return "";
                 var (isValid, fileId) = FigmaApiUtils.GetFigmaDocumentIdFromUrl(DocumentUrl);
                 return isValid ? fileId : "";
             }

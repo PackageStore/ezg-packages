@@ -25,7 +25,9 @@ namespace UnityFigmaBridge.Editor.Bridge
         readonly List<HubFile> _files = new List<HubFile>();
         readonly HashSet<string> _unusable = new HashSet<string>();
         TaskCompletionSource<bool> _changed = NewSignal();
-        bool _closed;
+        volatile bool _closed;
+        volatile bool _welcomed;
+        int _filesVersion;
 
         HubClient() { _requests = new HubRequests(text => Send(text, _cts.Token)); }
         /// ws://127.0.0.1:{port}/agent, sends agent-hello, waits for agent-welcome.
@@ -35,6 +37,9 @@ namespace UnityFigmaBridge.Editor.Bridge
             try { await client.Open(port, timeout, ct).ConfigureAwait(false); return client; }
             catch (Exception) { client.Dispose(); throw; }
         }
+
+        public bool IsConnected => _welcomed && !_closed;
+        public int FilesVersion => Volatile.Read(ref _filesVersion);
 
         public IReadOnlyList<HubFile> Files { get { lock (_gate) return _files.ToArray(); } }
         /// False for a file whose plugin speaks another protocol than this client; requests to it are refused.
@@ -130,7 +135,7 @@ namespace UnityFigmaBridge.Editor.Bridge
             if (message == null) return;
             switch (message.Kind)
             {
-                case HubMessageKind.Welcome: _welcome.TrySetResult(true); break;
+                case HubMessageKind.Welcome: _welcomed = true; _welcome.TrySetResult(true); break;
                 case HubMessageKind.Hello: AddFile(message); break;
                 case HubMessageKind.Closed: RemoveFile(message.ConnectionId); break;
                 case HubMessageKind.Reply: _requests.OnReply(message); break;
@@ -148,6 +153,7 @@ namespace UnityFigmaBridge.Editor.Bridge
                 if (_closed) return;
                 _files.RemoveAll(f => f.ConnectionId == file.ConnectionId);
                 _files.Add(file);
+                _filesVersion++;
                 if (message.Protocol == HubProtocol.PluginProtocol) _unusable.Remove(file.ConnectionId);
                 else _unusable.Add(file.ConnectionId);
                 previous = _changed;
@@ -157,7 +163,12 @@ namespace UnityFigmaBridge.Editor.Bridge
         }
         void RemoveFile(string connectionId)
         {
-            lock (_gate) { _files.RemoveAll(f => f.ConnectionId == connectionId); _unusable.Remove(connectionId); }
+            lock (_gate)
+            {
+                var removed = _files.RemoveAll(f => f.ConnectionId == connectionId);
+                if (removed > 0) _filesVersion++;
+                _unusable.Remove(connectionId);
+            }
             _requests.FailConnection(connectionId);
         }
         void Shutdown(string reason)
@@ -166,6 +177,7 @@ namespace UnityFigmaBridge.Editor.Bridge
             {
                 if (_closed) return;
                 _closed = true;
+                if (_files.Count > 0) _filesVersion++;
                 _files.Clear();
                 _unusable.Clear();
             }

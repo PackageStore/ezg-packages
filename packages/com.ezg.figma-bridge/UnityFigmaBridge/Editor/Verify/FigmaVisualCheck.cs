@@ -26,6 +26,10 @@ namespace UnityFigmaBridge.Editor.Verify
     ///     report and a side-by-side crop (Figma | Unity | difference) of every container below its
     ///     pass score (<c>low/</c>) are written to <see cref="OutputRoot"/>/&lt;prefab name&gt;.
     /// </summary>
+    /// <remarks>
+    ///     Figma's render comes from the file the bridge's file-target resolver picks, which can differ
+    ///     from the file the prefab was imported from.
+    /// </remarks>
     public static class FigmaVisualCheck
     {
         public const float DefaultPassScore = 0.9f;
@@ -38,6 +42,7 @@ namespace UnityFigmaBridge.Editor.Verify
         private const int WindowSize = 8;
         private const int WindowStride = 4;
         private const double RequestTimeoutSeconds = 120;
+        private const double ResolveTimeoutSeconds = 3;
 
         // SSIM stabilisers for 8 bit channels: (0.01 * 255)^2 and (0.03 * 255)^2
         private const double C1 = 6.5025;
@@ -102,7 +107,15 @@ namespace UnityFigmaBridge.Editor.Verify
 
             var referencePath = $"{folder}/figma.png";
             if (refreshReference || !File.Exists(referencePath))
-                File.WriteAllBytes(referencePath, FetchFigmaRender(frame.id));
+            {
+                var settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
+                if (settings == null || (settings.Source != FigmaSourceKind.Bridge && string.IsNullOrEmpty(FigmaAccessToken.Read())))
+                    throw new InvalidOperationException("Bridge settings or Figma token missing");
+                string key;
+                try { key = FigmaFileTargets.Resolve(settings, TimeSpan.FromSeconds(ResolveTimeoutSeconds)).Key; }
+                catch (FigmaFileTargetException e) { throw new InvalidOperationException(e.Message, e); }
+                File.WriteAllBytes(referencePath, FetchFigmaRender(settings, frame.id, key));
+            }
             var reference = LoadPixels(File.ReadAllBytes(referencePath), out var referenceWidth, out var referenceHeight);
             if (referenceWidth != width || referenceHeight != height)
                 throw new InvalidOperationException($"Figma render is {referenceWidth}x{referenceHeight}, frame is {width}x{height}");
@@ -225,20 +238,16 @@ namespace UnityFigmaBridge.Editor.Verify
             return new RectInt(x0, y0, x1 - x0, y1 - y0);
         }
 
-        private static byte[] FetchFigmaRender(string nodeId)
+        private static byte[] FetchFigmaRender(UnityFigmaBridgeSettings settings, string nodeId, string fileKey)
         {
-            var settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
-            if (settings != null && settings.Source == FigmaSourceKind.Bridge)
+            if (settings.Source == FigmaSourceKind.Bridge)
             {
                 using var source = new BridgeFigmaSource(settings.BridgePort);
-                return source.RenderPngBlocking(settings.FileId, nodeId, true, TimeSpan.FromSeconds(RequestTimeoutSeconds));
+                return source.RenderPngBlocking(fileKey, nodeId, true, TimeSpan.FromSeconds(RequestTimeoutSeconds));
             }
 
             var token = FigmaAccessToken.Read();
-            if (settings == null || string.IsNullOrEmpty(token))
-                throw new InvalidOperationException("Bridge settings or Figma token missing");
-
-            var url = $"https://api.figma.com/v1/images/{settings.FileId}?ids={Uri.EscapeDataString(nodeId)}" +
+            var url = $"https://api.figma.com/v1/images/{fileKey}?ids={Uri.EscapeDataString(nodeId)}" +
                       "&scale=1&format=png&use_absolute_bounds=true";
             var renderData = JsonConvert.DeserializeObject<FigmaServerRenderData>(
                 System.Text.Encoding.UTF8.GetString(GetBlocking(url, token)));

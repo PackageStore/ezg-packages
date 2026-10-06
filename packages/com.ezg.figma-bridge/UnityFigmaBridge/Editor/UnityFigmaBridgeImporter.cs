@@ -81,6 +81,8 @@ namespace UnityFigmaBridge.Editor
         private static string s_PersonalAccessToken;
 
         private static IFigmaSource s_Source;
+        private const string OfflineRequirementsFailed = "Requirements not met for the offline re-import: see the preceding dialog or console message.";
+        private static FigmaSourceKind ActiveSourceKind => s_Source?.Kind ?? s_UnityFigmaBridgeSettings?.Source ?? FigmaSourceKind.Rest;
 
         /// <summary>
         /// Active canvas used for construction
@@ -179,19 +181,42 @@ namespace UnityFigmaBridge.Editor
 
         private static async Task SyncCore(bool offline)
         {
-            FigmaImportTimer.Begin("Check settings and token");
+            FigmaImportTimer.Begin("Check settings");
             var requirementsMet = CheckRequirements(requireToken: !offline);
             if (!requirementsMet)
             {
-                LastImportError ??= "Requirements not met: settings asset, document url or token";
+                LastImportError ??= offline ? OfflineRequirementsFailed : FigmaSourceText.RequirementsFailed(ActiveSourceKind);
                 return;
             }
+            string importKey;
+            FigmaFileTarget? target = null;
             if (!offline)
             {
                 var sourceDescription = FigmaSources.Describe(s_UnityFigmaBridgeSettings);
                 Debug.Log($"[FigmaBridge] Source: {sourceDescription}");
-                FigmaImportTimer.SetDetail("Check settings and token", sourceDescription);
+                FigmaImportTimer.SetDetail("Check settings", sourceDescription);
                 s_Source = FigmaSources.Create(s_UnityFigmaBridgeSettings, s_PersonalAccessToken);
+
+                target = await ResolveTargetOrReport();
+                if (target == null) return;
+
+                var boundKey = s_UnityFigmaBridgeSettings.BridgeFileKey;
+                if (s_UnityFigmaBridgeSettings.Source == FigmaSourceKind.Bridge
+                    && !string.IsNullOrEmpty(boundKey) && boundKey != target.Value.Key
+                    && !Dialog(FigmaSourceText.BridgeFileChangedTitle,
+                        FigmaSourceText.BridgeFileChangedBody(s_UnityFigmaBridgeSettings.BridgeFileName, target.Value.Name),
+                        "Import", "Cancel"))
+                {
+                    LastImportError = "Import cancelled: the open Figma file differs from the file bound to this project.";
+                    return;
+                }
+                importKey = target.Value.Key;
+            }
+            else
+            {
+                importKey = s_UnityFigmaBridgeSettings.Source == FigmaSourceKind.Rest
+                    ? s_UnityFigmaBridgeSettings.FileId
+                    : s_UnityFigmaBridgeSettings.BridgeFileKey;
             }
 
             FigmaFile figmaFile;
@@ -210,7 +235,7 @@ namespace UnityFigmaBridge.Editor
             }
             else
             {
-                figmaFile = await DownloadFigmaDocument(s_UnityFigmaBridgeSettings.FileId);
+                figmaFile = await DownloadFigmaDocument(importKey);
                 if (figmaFile == null) return;
             }
             if (File.Exists(FigmaApiUtils.CachedDocumentPath))
@@ -253,8 +278,15 @@ namespace UnityFigmaBridge.Editor
                 pageNodeList = pageNodeList.Where(p => enabledPageIdList.Contains(p.id)).ToList();
             }
 
-            await ImportDocument(s_UnityFigmaBridgeSettings.FileId, figmaFile, pageNodeList, offline);
+            await ImportDocument(importKey, figmaFile, pageNodeList, offline);
 
+            if (!offline && target != null && s_UnityFigmaBridgeSettings.Source == FigmaSourceKind.Bridge && LastImportError == null)
+            {
+                s_UnityFigmaBridgeSettings.BridgeFileKey = target.Value.Key;
+                s_UnityFigmaBridgeSettings.BridgeFileName = target.Value.Name;
+                EditorUtility.SetDirty(s_UnityFigmaBridgeSettings);
+                AssetDatabase.SaveAssetIfDirty(s_UnityFigmaBridgeSettings);
+            }
         }
 
         /// <summary>
@@ -288,9 +320,9 @@ namespace UnityFigmaBridge.Editor
                 return false;
             }
 
-            if (s_UnityFigmaBridgeSettings.FileId.Length == 0)
+            if (s_UnityFigmaBridgeSettings.Source == FigmaSourceKind.Rest && s_UnityFigmaBridgeSettings.FileId.Length == 0)
             {
-                Dialog("Missing Figma Document" ,"Figma Document Url is not valid, please enter valid URL","OK");
+                Dialog(FigmaSourceText.RestInvalidUrlTitle, FigmaSourceText.RestInvalidUrlBody, "OK");
                 return false;
             }
 
@@ -429,15 +461,19 @@ namespace UnityFigmaBridge.Editor
         private static void ReportApiError(string context, Exception e, string extraHint = null)
         {
             var firstLine = (e.Message ?? string.Empty).Split('\n')[0].Trim();
-            var hint = firstLine.Contains("HTTP 429")
-                ? "\n\nFigma rate limit (429): the seat's API quota is spent for now. Wait for the " +
-                  "retry-after shown above, use a token from a Dev/Full seat, or use " +
-                  "'Re-import from cache (offline)' to rebuild from the last downloaded document."
-                : firstLine.Contains("HTTP 403") || firstLine.Contains("HTTP 401")
-                    ? "\n\nCheck that the personal access token is valid and has file read scope for this document."
-                    : firstLine.Contains("HTTP 404")
-                        ? "\n\nCheck the document url - the file id was not found."
-                        : BuildDocumentDecodeHint(e);
+            string hint;
+            if (ActiveSourceKind == FigmaSourceKind.Rest)
+                hint = firstLine.Contains("HTTP 429")
+                    ? "\n\nFigma rate limit (429): the seat's API quota is spent for now. Wait for the " +
+                      "retry-after shown above, use a token from a Dev/Full seat, or use " +
+                      "'Re-import from cache (offline)' to rebuild from the last downloaded document."
+                    : firstLine.Contains("HTTP 403") || firstLine.Contains("HTTP 401")
+                        ? "\n\nCheck that the personal access token is valid and has file read scope for this document."
+                        : firstLine.Contains("HTTP 404")
+                            ? "\n\nCheck the document url - the file id was not found."
+                            : BuildDocumentDecodeHint(e);
+            else
+                hint = BuildDocumentDecodeHint(e);
             if (!string.IsNullOrEmpty(extraHint)) hint += extraHint;
             ReportError($"{context}\n{firstLine}{hint}", e.ToString());
         }
@@ -500,6 +536,27 @@ namespace UnityFigmaBridge.Editor
         {
             var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(UnityFigmaBridgeImporter).Assembly);
             return info != null ? info.version : string.Empty;
+        }
+
+        private static async Task<FigmaFileTarget?> ResolveTargetOrReport()
+        {
+            try
+            {
+                return await FigmaFileTargets.ResolveAsync(s_UnityFigmaBridgeSettings, TimeSpan.FromSeconds(3));
+            }
+            catch (FigmaFileTargetException e)
+            {
+                ReportError(e.Message, e.ToString());
+                return null;
+            }
+        }
+
+        public static async Task<FigmaFile> DownloadCurrentDocument()
+        {
+            if (!CheckRequirements()) return null;
+            var target = await ResolveTargetOrReport();
+            if (target == null) return null;
+            return await DownloadFigmaDocument(target.Value.Key);
         }
 
         public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
@@ -614,12 +671,12 @@ namespace UnityFigmaBridge.Editor
                     s_UnityFigmaBridgeSettings, FigmaDataUtils.GetPatternSourceNodeIds(figmaFile, downloadPageIdList, importScope));
                 var staleRenderNodes = serverRenderCache.StaleNodes;
 
-                FigmaImportTimer.Begin("Server render requests (Figma API)");
+                FigmaImportTimer.Begin("Server render requests");
                 var renderRequestCount = 0;
                 string RenderRequestDetail() =>
                     $"{serverRenderNodes.Count} nodes: {serverRenderNodes.Count - staleRenderNodes.Count} cached, " +
                     $"{staleRenderNodes.Count} rendered, {renderRequestCount} request(s), scale {serverRenderScale}";
-                FigmaImportTimer.SetDetail("Server render requests (Figma API)", RenderRequestDetail());
+                FigmaImportTimer.SetDetail("Server render requests", RenderRequestDetail());
                 // A pattern tile is the source node's layout box. Every other render keeps what draws
                 // outside the box (outside strokes, shadows): its RectTransform covers the render bounds.
                 // Request render quá nặng làm gateway Figma trả 504. Batch khởi đầu theo Settings.ServerRenderBatchSize;
@@ -643,7 +700,7 @@ namespace UnityFigmaBridge.Editor
                     try
                     {
                         renderRequestCount++;
-                        FigmaImportTimer.SetDetail("Server render requests (Figma API)", RenderRequestDetail());
+                        FigmaImportTimer.SetDetail("Server render requests", RenderRequestDetail());
                         serverRenderData.Add(await s_Source.GetServerRenderData(fileId,
                             nodeBatch, serverRenderScale, useAbsoluteBounds));
                         pendingBatches.RemoveAt(0);
@@ -701,7 +758,7 @@ namespace UnityFigmaBridge.Editor
             if (!offline)
             {
                 // Get image fill data for the document (list of urls to download any bitmap data used)
-                FigmaImportTimer.Begin("Image fill URLs (Figma API)");
+                FigmaImportTimer.Begin("Image fill URLs");
                 FigmaImageFillData activeFigmaImageFillData;
                 EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading image fill data", 0);
                 try
