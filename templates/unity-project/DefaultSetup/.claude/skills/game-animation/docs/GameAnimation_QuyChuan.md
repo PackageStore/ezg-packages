@@ -210,7 +210,7 @@ tới giữa clip.
 | Mọi input | pose đổi ở frame kế tiếp | vào thẳng pose lấy đà, không ease ra khỏi pose cũ |
 | Bắt đầu đi / chạy | blend ≤ 0,15 s, không lấy đà | |
 | Nhảy | rời đất ở frame đầu hoặc thứ hai | pose ngồi lấy đà cực ngắn, hoặc bỏ |
-| Đòn nhẹ | startup ≤ 100 ms (≤ 3 frame) | tham chiếu: đấm nhẹ của Street Fighter 6 là 4 frame ở 60 fps |
+| Đòn nhẹ | startup ≤ 100 ms (≤ 3 frame) | tham chiếu: đấm nhẹ của một dòng game đối kháng 2D lâu đời là 4 frame ở 60 fps |
 | Đòn nặng, kỹ năng | startup ≤ 300 ms | chậm hơn phải là chủ ý của GD, và có tín hiệu trong lúc lấy đà |
 | Né, lướt | bất tử bắt đầu ≤ 100 ms | |
 | Cancel | recovery của đòn nhẹ cancel được sang né | đòn mạnh trả giá bằng recovery dài |
@@ -251,7 +251,7 @@ Lấy đà mà không trễ (Williams, Annand):
 | Mạnh, chí mạng | 150–200 ms (9–12) | vừa |
 | Kết liễu, boss | 217–333 ms (13–20) | mạnh |
 
-Tham chiếu: beat 'em up của Capcom 4–10 frame; Smash Ultimate tăng theo sát thương (khoảng 6 frame ở 1%, 12 ở 10%, 19 ở
+Tham chiếu: beat 'em up của một studio game đối kháng Nhật Bản 4–10 frame; một tựa đối kháng platform tăng theo sát thương (khoảng 6 frame ở 1%, 12 ở 10%, 19 ở
 20%, tối đa 30). Hitstop dừng cả hai bên và chỉ bật khi trúng thật (7.5). Nhiều quái trúng cùng lúc thì giảm: hitstop dồn
 lại làm game chậm. Game không combat (Puzzle, Cozy) không có hitstop; khoảnh khắc lớn như thắng màn, combo có thể dừng hình
 rất ngắn rồi chậm dần về tốc độ thường (7.5).
@@ -337,7 +337,7 @@ animator.
 | Nhặt đồ (game không combat) | `Farmer_Interact_Pickup` | 6 | 1 (lúc cầm) | 8 | 9 | 0 | vật bay vào túi từ frame 7 |
 
 - Đơn vị: frame ở 30 fps. Startup = số frame **trước** frame active đầu tiên; Active bắt đầu ở frame Startup + 1. Cancel
-  từ = số thứ tự frame tính từ đầu clip. (Street Fighter tính frame active đầu vào startup; quy chuẩn này không tính, để
+  từ = số thứ tự frame tính từ đầu clip. (Dòng game đối kháng 2D tham chiếu ở 3.2 tính frame active đầu vào startup; quy chuẩn này không tính, để
   tổng clip = startup + active + recovery.)
 - Frame active đầu tiên là frame va chạm, và là nơi hitstop, vfx, sfx trúng đòn bám vào. Pose ở đó là key (game cần trúng
   đúng một điểm của cú vung, Annand), và là pose đã qua điểm chạm, không phải pose vừa chạm (3.4).

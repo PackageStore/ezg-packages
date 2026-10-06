@@ -50,6 +50,28 @@ bash .claude/scripts/codegraph-doctor.sh --fix       # hoặc để doctor tự 
 
 ---
 
+## 1b. Setup project — `/setup-project`
+
+Mở project trong Unity, rồi trong Claude Code gõ `/setup-project`. Skill mở cửa sổ **`Ezg > EzgKit`**
+(package `com.ezg.ezgkit` ≥ 1.0): menu bên trái là các mục setup kèm trạng thái (✅ xong · 🟡 dở · ⬜ chưa làm ·
+⏸ để sau · ➖ không áp dụng), form bên phải để điền. Nút **Setup tất cả** đi lần lượt qua các mục chưa xong.
+
+| Mục | Điền gì |
+|-----|---------|
+| Thông tin dự án | tên dự án, company, product name, bundle id Android/iOS |
+| Marketing & AppSecrets | link Google Sheet marketing → xem diff → Áp dụng; AppsFlyer, iOS App ID, URL privacy/terms |
+| Ads & Privacy | MAX key + ad unit, tắt debug ads, consent, ATT, đối tượng người chơi |
+| Gói bán (IAP) | chỉ xem danh sách gói + cảnh báo; tạo/sửa gói bằng MCP gói bán |
+| ArtStyle | thư mục art cho board → "Nhờ Claude soạn" (skill soạn `ArtStyle.md` từ art của game) |
+| Localization | link file localize, service account, tab |
+| Nâng cao | Firebase (tạo app + tải config), nhà phát hành, social |
+
+Trạng thái lưu ở `ProjectSettings/EzgKitSetup.json` (commit cho cả team, không chứa secret). Secret chỉ đi vào
+field của cửa sổ (EditorPrefs / asset cấu hình), không vào chat hay commit. Chạy lại `/setup-project status`
+bất cứ lúc nào để xem còn thiếu gì.
+
+---
+
 ## 2. Điền `.claude/project-profile.json`
 
 File này là **chỗ duy nhất** mang giá trị riêng của project. Mọi skill/agent/script còn lại giữ

@@ -179,6 +179,8 @@ if [ "$ART_STATE" = "template" ]; then
   note "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
 fi
 
+note "  - [ACTION] Open the project in Unity, then run /setup-project in Claude Code — it opens the"
+note "    Ezg > EzgKit window (identity, marketing sheet, ads & privacy, IAP list, ArtStyle, localization)."
 note "  - Queue work with /planning-task then /add-to-backlog, and run it with /run-backlog."
 note ""
 

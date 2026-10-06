@@ -2,10 +2,10 @@
 
 Phiên bản 0.2.2 (nháp) · 2026-10-01 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
 hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project);
-gate trong Unity vẫn làm sau. Nguồn chính là tài liệu VFX của
-Liên Minh Huyền Thoại (Riot, *The Complete Guide to Creating Visual Effects within League of Legends*), tài liệu công khai của
-Riot, Supercell, Tencent, Unity, Arm, W3C, Microsoft, và số đo trên sáu game mobile đã ship của team (ba game 2D ở bản 0.1, ba
-game 3D thêm ở bản 0.2). Lý do của từng luật và danh sách nguồn: `GameVFX_NguyenLy.md`.
+gate trong Unity vẫn làm sau. Nguồn chính là hướng dẫn VFX công khai
+(PDF, 37 trang, 6 phần) của một studio MOBA PC lớn cho tựa MOBA PC của họ, tài liệu công khai khác của studio đó, của một studio
+mobile lớn, một publisher mobile lớn, của Unity, Arm, W3C, Microsoft, và số đo trên sáu game mobile đã ship của team (ba game 2D
+ở bản 0.1, ba game 3D thêm ở bản 0.2). Lý do của từng luật và danh sách nguồn: `GameVFX_NguyenLy.md`.
 
 Áp dụng cho VFX trong game Unity 6000.3 (URP hoặc Built-in), mobile trước, cả 2D và 3D: hiệu ứng trong thế giới game (đòn
 đánh, kỹ năng, trúng đòn, trạng thái, xuất hiện, chết, môi trường) và hiệu ứng hạt, flipbook, shader trên UI (thưởng, mở
@@ -37,8 +37,8 @@ hiệu chỉnh (mục 12.3).
 ## 0. Bảy nguyên tắc gốc
 
 1. **Gameplay trước, đẹp sau.** VFX nói đúng bốn điều: chuyện gì xảy ra, ở đâu (vùng, hitbox), khi nào (lúc có tác dụng),
-   của ai (mình, đồng minh, địch). Sai một trong bốn là lỗi gameplay, sửa trước mọi việc khác. Riot xếp việc sửa VFX theo thứ
-   tự: sửa gameplay, rồi độ dễ đọc, rồi chủ đề [4].
+   của ai (mình, đồng minh, địch). Sai một trong bốn là lỗi gameplay, sửa trước mọi việc khác. Studio MOBA PC xếp việc sửa
+   VFX theo thứ tự: sửa gameplay, rồi độ dễ đọc, rồi chủ đề [4].
 2. **To nhỏ theo tầm quan trọng.** Mỗi hiệu ứng có một cấp (2.1). Đòn thường nhỏ, tối thượng lớn; phần trang trí không được
    át cảnh báo và phản hồi.
 3. **Một tiêu điểm.** Mỗi hiệu ứng có đúng một yếu tố chính mang thông tin gameplay; mọi thứ khác là phụ, tối hơn, mờ hơn,
@@ -86,7 +86,7 @@ hiệu chỉnh (mục 12.3).
 ### 2.1 Cấp quan trọng
 
 Mỗi hiệu ứng thuộc đúng một cấp, ghi trong brief (9.2). Cấp quyết độ sáng, độ đậm, độ đục, độ rõ của hình, chuyển động, kích
-thước, thời gian và ngân sách. Ô in đậm lấy từ trang 11 của tài liệu LMHT [1]; ô thường suy ra theo cùng logic; cột kích thước,
+thước, thời gian và ngân sách. Ô in đậm lấy từ trang 11 của tài liệu gốc [1]; ô thường suy ra theo cùng logic; cột kích thước,
 thời gian là *(đề xuất)*.
 
 | Cấp | Gồm | Độ đục | Độ đậm (saturation) | Dải sáng (value) | Hình | Chuyển động | Kích thước so với nhân vật | Thời gian (3.1) |
@@ -98,7 +98,7 @@ thời gian là *(đề xuất)*.
 | Major | thay đổi thế trận: khống chế diện rộng, triệu hồi, chiêu boss | **cao** | **cao** | **rộng** | **rõ** | **mạnh** | theo vùng tác dụng | ≤ 2 s |
 | Ultimate | tối thượng, kết liễu, đổi phase boss | **cao nhất** | **cao nhất** | **rộng nhất** | rõ | **ấn tượng** | **lớn**, đúng vùng | ≤ 3 s |
 
-- Ba tiêu chí của Riot khi xếp cấp [1]: người xem hiểu ngay hiệu ứng để làm gì (readable); hiệu ứng quan trọng kéo mắt, bớt
+- Ba tiêu chí của tài liệu gốc khi xếp cấp [1]: người xem hiểu ngay hiệu ứng để làm gì (readable); hiệu ứng quan trọng kéo mắt, bớt
   nhiễu lúc đánh nhau đông (emphasis); độ lớn khớp tầm quan trọng (scale). Đòn thường mà to như tối thượng thì người chơi
   rối và tối thượng mất sướng.
 - Tầm quan trọng tăng theo sát thương, độ mạnh khống chế, việc có né được không, và ảnh hưởng tới thế trận [2]. GD xếp cấp,
@@ -119,16 +119,16 @@ thời gian là *(đề xuất)*.
 | Chuyển động | mạnh | nhẹ |
 | Màu | một tông chủ đạo | được nhiều tông hơn, dải đậm rộng hơn (5.1) |
 
-- Ví dụ của Riot [1]: khiên nổ của Leona có yếu tố chính là **viền vòng tròn** (người chơi cần biết bán kính để né), yếu tố
-  phụ là tia điện mờ bên trong.
+- Ví dụ của tài liệu gốc [1]: chiêu khiên nổ của một tướng đỡ đòn có yếu tố chính là **viền vòng tròn** (người chơi cần biết
+  bán kính để né), yếu tố phụ là tia điện mờ bên trong.
 - Brief ghi yếu tố chính là gì (9.2). Tắt hết yếu tố phụ, hiệu ứng vẫn phải nói đủ gameplay.
 - Trong prefab, yếu tố phụ đặt tên có hậu tố `_Sec` (8.4) để tool giảm hoặc tắt ở tier máy thấp và lúc màn hình đông (2.7,
   6.4).
 
 ### 2.3 Dải sáng và dải đậm theo mảng
 
-Tài liệu LMHT cho biểu đồ dải sáng (value) và dải đậm (saturation) của từng mảng [1]. Số dưới đây đo trên hình biểu đồ (thang
-0–100 %), là tỉ lệ để hiểu, không phải số Riot công bố:
+Tài liệu gốc cho biểu đồ dải sáng (value) và dải đậm (saturation) của từng mảng [1]. Số dưới đây đo trên hình biểu đồ (thang
+0–100 %), là tỉ lệ để hiểu, không phải số studio đó công bố:
 
 | Mảng | Dải sáng | Dải đậm |
 |---|---|---|
@@ -156,23 +156,23 @@ Luật:
 
 ### 2.4 Vùng tác dụng và hitbox khớp gameplay **[VFX] [GD] [DEV]**
 
-1. Hiệu ứng vùng (AoE) phủ đúng bán kính gameplay: vụ nổ to bằng vùng sát thương, không nhỏ hơn một nửa như nấm của Teemo
-   bản cũ; có vòng chỉ vùng nhẹ khi cần [1].
+1. Hiệu ứng vùng (AoE) phủ đúng bán kính gameplay: vụ nổ to bằng vùng sát thương, không nhỏ hơn một nửa như cái bẫy của một
+   tướng ở bản cũ trong tài liệu gốc; có vòng chỉ vùng nhẹ khi cần [1].
 2. Hình hiệu ứng khớp hitbox: chiêu hình chữ nhật vẽ đúng chữ nhật, không rộng hơn thật (người chơi thấy trúng mà không bị
    tính) [1]. Đạn to bằng collider, không gấp đôi.
 3. Vòng, vùng trên mặt đất vẽ **nằm trên mặt đất** (3D: render mode Horizontal hoặc mesh phẳng; 2D top-down: layer mặt đất),
    để góc camera không làm lệch vị trí [1].
 4. Số đo lấy từ dữ liệu: bán kính, dài, rộng của chiêu nằm trong bảng dữ liệu của GD; prefab vùng scale theo số đó lúc chạy
    (7.8), không vẽ theo mắt.
-5. Riot giữ nguyên cỡ indicator qua mọi skin; skin không được rõ kém bản gốc [4][2]. Cùng luật cho mọi biến thể (skin, nâng
+5. Studio MOBA PC giữ nguyên cỡ indicator qua mọi skin; skin không được rõ kém bản gốc [4][2]. Cùng luật cho mọi biến thể (skin, nâng
    cấp, độ hiếm) của một chiêu: đổi màu và chi tiết phụ, không đổi yếu tố chính.
 
 ### 2.5 Màu phe **[GD] [VFX]**
 
 | Phe | Mặc định | Ghi chú |
 |---|---|---|
-| Mình (người chơi) | vàng / vàng kim | quy ước của chế độ mù màu LMHT: thanh máu của mình vàng [8] |
-| Đồng minh | xanh lơ → xanh dương → tím: `#39EAFA` → `#365DF5` → `#6E1CF4` | đo trên trang 26 của tài liệu LMHT [1] |
+| Mình (người chơi) | vàng / vàng kim | quy ước của chế độ mù màu trong tựa MOBA PC: thanh máu của mình vàng [8] |
+| Đồng minh | xanh lơ → xanh dương → tím: `#39EAFA` → `#365DF5` → `#6E1CF4` | đo trên trang 26 của tài liệu gốc [1] |
 | Địch | hồng đỏ → đỏ → đỏ cam: `#FA2B73` → `#FA2B35` → `#F9662F` | như trên |
 
 1. Phe đọc bằng màu **và** bằng hình: không bao giờ chỉ bằng màu [34]. Mặc định *(đề xuất)*: cảnh báo của địch có viền cứng,
@@ -180,7 +180,8 @@ Luật:
 2. Cam và xanh dương phân biệt được với cả ba dạng mù màu phổ biến; không dựa vào cặp đỏ / xanh lá [34]. Không dùng filter mù
    màu toàn màn hình [34].
 3. Dải màu của địch là dải riêng: hiệu ứng của người chơi không dùng tông đỏ cam đó cho yếu tố chính, để đạn và cảnh báo của
-   địch luôn nổi [14]. Brawl Stars, Clash Royale, Valorant giữ đồng minh xanh, địch đỏ [10][11][5].
+   địch luôn nổi [14]. Một tựa shooter đấu trường trên mobile, một tựa chiến thuật thời gian thực trên mobile và một tựa
+   tactical shooter đều giữ đồng minh xanh, địch đỏ [10][11][5].
 4. Hiệu ứng có thể khác theo người xem: địch thấy ít hơn, lặp lại thì nhẹ hơn lần đầu [13]; tiếng lặp giảm theo [3].
 5. Game chốt hex thật của ba phe trong brief (9.2); mọi hiệu ứng có phe lấy màu từ đó.
 
@@ -189,12 +190,12 @@ Luật:
 1. Cảnh báo bật cùng lúc quái bắt đầu lấy đà, kéo dài đúng startup của đòn trong bảng frame data, tắt ở frame active đầu tiên.
    Độ dài theo Game Animation 3.3 (đòn quái thường ≥ 500 ms, đòn mạnh 600–1000 ms).
 2. Cảnh báo cho thấy **vùng** và **thời gian**: vùng đúng hình hitbox (2.4), thời gian bằng phần lấp đầy chạy từ tâm ra hoặc
-   viền co lại (vòng của Sion trong LMHT đếm tới lúc choáng đủ tầm [1]).
+   viền co lại (trong tài liệu gốc, vòng tụ lực của một tướng đếm tới lúc choáng đủ tầm [1]).
 3. Cảnh báo là yếu tố chính của lúc đó: sáng hơn mọi hiệu ứng phụ quanh nó, cùng dải màu địch (2.5), không bị hiệu ứng của
    người chơi che (sorting, 7.3).
 4. Đòn khác nhau thì cảnh báo khác nhau ngay từ frame đầu (hình, không chỉ màu).
-5. Trên màn hình cảm ứng, chiêu cần ngắm cần vệt ngắm và cảnh báo rõ hơn trên PC: Wild Rift đổi nhiều chiêu chỉ-và-bấm thành
-   chiêu ngắm vì chạm khó chọn mục tiêu [7].
+5. Trên màn hình cảm ứng, chiêu cần ngắm cần vệt ngắm và cảnh báo rõ hơn trên PC: bản MOBA mobile của cùng studio đổi nhiều
+   chiêu chỉ-và-bấm thành chiêu ngắm vì chạm khó chọn mục tiêu [7].
 
 ### 2.7 Màn hình đông **[GD] [DEV] [VFX]**
 
@@ -207,7 +208,8 @@ Luật:
 4. Trúng liên tiếp cùng một mục tiêu: hiệu ứng lần sau nhỏ và nhẹ hơn lần đầu [13].
 5. Thanh trượt độ đục không giải quyết chồng lớp: nhiều lớp trong suốt vẫn phủ gần kín màn hình [14]. Giảm số lớp và diện
    tích, không chỉ giảm alpha.
-6. Game nhiều đạn (kiểu survivor): có tuỳ chọn tắt hiệu ứng chớp và số sát thương, như Vampire Survivors [14].
+6. Game nhiều đạn (kiểu survivor): có tuỳ chọn tắt hiệu ứng chớp và số sát thương, như một tựa survivor (bullet heaven) nổi
+   tiếng [14].
 
 ### 2.8 Chớp sáng, rung, màu: an toàn cho người xem **[VFX] [GD] [DEV]**
 
@@ -241,7 +243,7 @@ khi đó VFX bắt đầu thẳng bằng pha bùng.
 | Damage | 150–400 ms (bằng startup GD cho) | 100–200 ms | 200–600 ms | ≤ 1,5 s |
 | Major, Ultimate | 300–1000 ms (telegraph, cast) | 150–300 ms | 400–1000 ms | ≤ 3 s |
 
-Cả bảng là *(đề xuất)* (tài liệu LMHT không cho số). Tham chiếu *(đo)* trên ba game của team: tổng thời gian của hiệu ứng
+Cả bảng là *(đề xuất)* (tài liệu gốc không cho số). Tham chiếu *(đo)* trên ba game của team: tổng thời gian của hiệu ứng
 không lặp có trung vị 1–1,9 s, 10 % dài nhất 4–10 s; mẫu tiêu biểu: trúng đòn cận chiến 0,22 s, nổ cầu lửa 0,4 s, chết 0,65 s,
 xuất hiện 1,4 s (chuẩn bị 0,5 s). Pha bùng bắt đầu đúng frame va chạm (Game Animation 3.7), không trễ hơn, và tới đỉnh trong 0–2 frame (bảng trên).
 
@@ -253,7 +255,8 @@ Luật:
    độ đục ≤ 30 % *(đề xuất)*. Vùng còn tác dụng (đất cháy gây sát thương) thì còn đúng bằng thời gian gameplay và là yếu tố
    chính.
 4. Ngay ở đỉnh, hiệu ứng lớn vẫn hơi trong để hiệu ứng khác đọc được qua nó [1].
-5. Hiệu ứng nhiều giai đoạn (nổ thùng thuốc súng của Gangplank: lấy đà đổi màu đỏ → vàng, nổ chính, tan thành khói và mảnh [1])
+5. Hiệu ứng nhiều giai đoạn (nổ thùng thuốc súng của một tướng trong tài liệu gốc: lấy đà đổi màu đỏ → vàng, nổ chính, tan
+   thành khói và mảnh [1])
    thì mỗi giai đoạn đọc được riêng, đỉnh sáng nhất ở giai đoạn có tác dụng.
 
 ### 3.2 Nhịp động, không tuyến tính
@@ -323,9 +326,9 @@ giác. Game đã chọn preset thì VFX theo preset đó.
 2. Silhouette rõ: hình đơn giản nhưng đủ dải sáng để có tiêu điểm; nhiều chi tiết và tương phản thì không biết vật đang đi đâu
    [1].
 3. Hình theo chuyển động: hình kéo dài theo hướng bay, vệt, nhoè (3.2.3) [1].
-4. Khối trong suốt lớn thay bằng viền, lõi đục: Valorant đổi hình trụ trong suốt thành viền wireframe, vừa rẻ vừa rõ [5]; khối
-   có lõi đục và chỉ trong suốt ở rìa [18].
-5. Brawl Stars làm được nhiều bằng ít: vài hình vẽ gọn, xoay, scale, đổi màu, và tách vụ nổ thành phần trên không và phần mặt
+4. Khối trong suốt lớn thay bằng viền, lõi đục: một tựa tactical shooter đổi hình trụ trong suốt thành viền wireframe, vừa rẻ
+   vừa rõ [5]; khối có lõi đục và chỉ trong suốt ở rìa [18].
+5. Một tựa shooter đấu trường trên mobile làm được nhiều bằng ít: vài hình vẽ gọn, xoay, scale, đổi màu, và tách vụ nổ thành phần trên không và phần mặt
    đất [10].
 
 ### 4.2 Kích thước texture theo kích thước trên màn hình
@@ -415,7 +418,7 @@ Lifetime) không phải frame-by-frame, dùng được. Thư viện của module
 
 ### 5.1 Cấu trúc bảng màu của một hiệu ứng
 
-Đo trên 12 bảng màu mẫu của tài liệu LMHT (lấy mẫu pixel trên từng biểu đồ tròn) [1]:
+Đo trên 12 bảng màu mẫu của tài liệu gốc (lấy mẫu pixel trên từng biểu đồ tròn) [1]:
 
 | Phần | Tỉ lệ | Là gì |
 |---|---|---|
@@ -429,14 +432,14 @@ Không bảng nào có trắng tinh hay đen tinh; chỗ tối nhất vẫn có 
 ### 5.2 Màu bổ túc
 
 1. Ưu tiên màu kề nhau. Có hai màu bổ túc trong một hiệu ứng thì một màu phải là phụ: nhạt hơn, trong hơn [1].
-2. Hai màu bổ túc đều đậm, đều đục thì luôn tranh nhau làm tiêu điểm, kể cả khi khác độ sáng (khiên của Lulu bản cũ). Đúng:
-   Bard Q, tím nhạt độ đục thấp làm nền cho vàng sáng [1].
+2. Hai màu bổ túc đều đậm, đều đục thì luôn tranh nhau làm tiêu điểm, kể cả khi khác độ sáng (khiên của một tướng hỗ trợ ở
+   bản cũ). Đúng: một chiêu của tướng khác trong tài liệu gốc, tím nhạt độ đục thấp làm nền cho vàng sáng [1].
 
 ### 5.3 Bảng màu theo nguyên tố
 
-Điểm xuất phát, lấy từ tài liệu LMHT [1] (tỉ lệ trong ngoặc). Mỗi game chốt bảng màu nguyên tố của mình trong brief (9.2).
+Điểm xuất phát, lấy từ tài liệu gốc [1] (tỉ lệ trong ngoặc). Mỗi game chốt bảng màu nguyên tố của mình trong brief (9.2).
 
-| Nguyên tố (tên trong LMHT) | Tông chính | Tông thứ hai | Nhấn, tâm nóng |
+| Nguyên tố (tên tiếng Anh) | Tông chính | Tông thứ hai | Nhấn, tâm nóng |
 |---|---|---|---|
 | Hư không (Void) | `#6C0364` (50 %) | `#4919A8` (17 %) | `#30002A`, `#EA53E7`, đỏ `#D02F28` (5 %) |
 | Độc (Poison) | `#09C93E` (49 %) | `#0B5F23` (30 %) | tím `#3F114E`, `#C9E545` |
@@ -444,11 +447,11 @@ Không bảng nào có trắng tinh hay đen tinh; chỗ tối nhất vẫn có 
 | Băng (Frost) | `#6ED6E9` (55 %) | `#375DE7` (29 %) | `#1F03AB`, `#A3FCFD` |
 | Thuốc súng, lửa (Gun powder) | `#F5C83D` (54 %) | `#B9351C` (18 %) | `#5B3923`, `#E9F042`, `#F6F98D` |
 | Bí thuật (Arcane) | `#3E59AC` (43 %) | `#25F5F6` (28 %) | `#A92CF9`, `#2106A4`, `#A3FCFD` |
-| Ma, linh hồn (Shadow Isle) | `#5FFCD5` (54 %) | `#30A597` (21 %) | `#19D55E`, `#E1F5B9`, `#1F03AB` |
+| Ma, linh hồn (Spirit) | `#5FFCD5` (54 %) | `#30A597` (21 %) | `#19D55E`, `#E1F5B9`, `#1F03AB` |
 | Thiên nhiên (Nature) | `#78FF6D` (54 %) | `#F8FE59` (17 %) | `#EEBB44`, `#1DBB3D`, `#F2F8BD` |
 | Thiên thể, thánh (Celestial) | `#F6F65D` (55 %) | `#F9BD3D` (24 %) | `#D7396D`, `#F64CC6`, `#FBDADA` |
 | Gió (Wind) | `#9EB7B5` (53 %) | `#50C6BE` (24 %) | `#3780A1`, `#C1FDF8`, `#2A2B20` |
-| Công nghệ (Hextech) | `#7DFEFF` (48 %) | `#2D49DE` (22 %) | tím `#A71DDA`, `#FEE7FE`, `#DBC9FD`, `#E0FFFF` |
+| Công nghệ (Tech) | `#7DFEFF` (48 %) | `#2D49DE` (22 %) | tím `#A71DDA`, `#FEE7FE`, `#DBC9FD`, `#E0FFFF` |
 | Nước (Water) | `#30618E` (52 %) | `#2A5175` (24 %) | `#11273B`, `#5CADF3`, `#C5F7FF` |
 
 Bộ slide tiếng Việt về tài liệu này trong thư viện của team có bảng màu khác hẳn tài liệu gốc (`GameVFX_NguyenLy.md` mục 2.7):
@@ -457,7 +460,7 @@ dùng bảng trên.
 ### 5.4 VFX so với model
 
 Bảng màu VFX của một nhân vật sáng hơn và rộng hơn bảng màu model của chính nhân vật đó, cả về sáng lẫn đậm [1]. Đo trên hai ví
-dụ của Riot: model đậm 25–69 %, sáng 16–77 %; VFX đậm tới 91 %, sáng tới 98–100 %.
+dụ của tài liệu gốc: model đậm 25–69 %, sáng 16–77 %; VFX đậm tới 91 %, sáng tới 98–100 %.
 
 ### 5.5 Additive và alpha blend
 
@@ -473,8 +476,8 @@ dụ của Riot: model đậm 25–69 %, sáng 16–77 %; VFX đậm tới 91 %,
 
 ### 6.1 Máy tham chiếu, khung thời gian
 
-1. Ba tier máy. Tier Thấp tham chiếu cấu hình tối thiểu của Wild Rift: Android 8, RAM 3 GB, GPU Mali-G52 MP1 / Adreno 610 /
-   PowerVR GE8320; iOS: iPhone 6s [6]. Game ghi danh sách máy thử của từng tier trong brief.
+1. Ba tier máy. Tier Thấp tham chiếu cấu hình tối thiểu của bản MOBA mobile của studio MOBA PC: Android 8, RAM 3 GB, GPU
+   Mali-G52 MP1 / Adreno 610 / PowerVR GE8320; iOS: iPhone 6s [6]. Game ghi danh sách máy thử của từng tier trong brief.
 2. Chỉ dùng khoảng 65 % thời gian của một frame, phần còn lại để máy nguội: khoảng 22 ms ở 30 fps, 11 ms ở 60 fps [28].
 3. Phần của VFX *(đề xuất)*: ≤ 20 % thời gian GPU của frame ở cảnh nặng nhất, trên máy tier Thấp. Unity không cho số này; pilot
    đo và chỉnh (12.3).
@@ -534,7 +537,7 @@ thành nợ, sửa dần (10).
 | Vừa | bật | × 1 | soft particle chỉ khi pipeline đã có depth texture vì lý do khác |
 | Cao | bật | × 1 | distortion được, trong trần 6.2 |
 
-1. Honor of Kings cho người chơi chọn chất lượng hạt Thấp / Vừa / Cao; bản thấp là hiệu ứng kỹ năng đơn giản hoá [12].
+1. Một tựa MOBA mobile lớn ở thị trường châu Á cho người chơi chọn chất lượng hạt Thấp / Vừa / Cao; bản thấp là hiệu ứng kỹ năng đơn giản hoá [12].
 2. Game đọc tier máy lúc khởi động và áp cho mọi hiệu ứng khi spawn (7.8). Một game của team đã tính tier máy mà không nơi nào
    đọc *(đo)*.
 3. Tier máy không thay luật đọc được: yếu tố chính không bị tắt ở tier nào. Giảm hạt × 0,5 chỉ bớt số hạt, không được làm mất
@@ -830,7 +833,7 @@ Yếu tố phụ thêm `_Sec` ở cuối tên (`Sparks_Sec`). Nhiều con cùng 
 | 5 Tối ưu | kiểm trần, cài đặt 7.2, 7.3 | VFX + TA | gate 10 qua, hoặc nợ có lý do |
 | 6 Duyệt trên máy | máy tier Thấp, màn hình nhỏ nhất, cảnh đông nhất | lead + GD | checklist 9.3 phần Trên máy |
 
-Thứ tự khi có việc chen ngang như Riot: lỗi gameplay trước, độ dễ đọc sau, chủ đề cuối [4].
+Thứ tự khi có việc chen ngang như studio MOBA PC: lỗi gameplay trước, độ dễ đọc sau, chủ đề cuối [4].
 
 ### 9.2 Brief (mẫu)
 
@@ -883,7 +886,7 @@ Trên máy:
 
 ### 9.4 Góp ý khi duyệt
 
-1. Góp ý làm được, khách quan, có đồng thuận: ba tiêu chí Riot dùng để lọc phản hồi [4].
+1. Góp ý làm được, khách quan, có đồng thuận: ba tiêu chí studio MOBA PC dùng để lọc phản hồi [4].
 2. Chỉ vào mục của quy chuẩn ("lệch 2.3: khói sáng hơn lõi"), không nói chung chung ("chưa đẹp").
 3. Chụp màn hình trong game kèm ảnh đen trắng khi góp ý về sáng tối.
 
@@ -941,7 +944,7 @@ Một hiệu ứng xong khi:
 
 Chưa có gì được team chốt. Bản 0.1 lấy làm mặc định:
 
-- Sáu cấp và luật đọc được theo tài liệu LMHT (2.1–2.3), cấp do GD xếp.
+- Sáu cấp và luật đọc được theo tài liệu VFX của studio MOBA PC (2.1–2.3), cấp do GD xếp.
 - Màu phe: mình vàng, đồng minh xanh, địch đỏ, luôn kèm dấu hiệu hình (2.5).
 - Hiệu ứng thế giới game chạy giờ game, UI chạy giờ thật (3.4); hết giờ gõ tay, dùng stop action.
 - Tiền tố `FX_` và mã loại `FX_TX_`, `FX_MT_` theo cách các game của team đã bắt đầu dùng (8.2).

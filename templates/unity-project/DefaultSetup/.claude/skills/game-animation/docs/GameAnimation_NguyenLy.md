@@ -17,7 +17,7 @@ Viết tắt: **FbF** = frame-by-frame
 | 1987 | John Lasseter (Pixar), bài SIGGRAPH *Principles of Traditional Animation Applied to 3D Computer Animation* | Áp các nguyên lý vào 3D. Liệt kê 11 (không có solid drawing), coi tính cách là đích tới chứ không phải một nguyên lý [1] |
 | 2019, 2021 | Jonathan Cooper, *Game Anim: Video Game Animation Explained* | Đọc lại 12 nguyên lý cho game, thêm 5 nền tảng riêng của game animation. Bản 2 có thêm chương 2D và pixel art [2][3][4] |
 | 2001, 2009 | Richard Williams (đạo diễn animation của *Who Framed Roger Rabbit*), *The Animator's Survival Kit*, bản mở rộng 2009 | Gom cách làm của Ken Harris, Milt Kahl, Frank Thomas, Art Babbitt, Grim Natwick thành công thức: timing và spacing, key / extreme / breakdown, đi, chạy, lấy đà, accent, thoại, diễn. Mọi số tính ở 24 fps [44] |
-| 2025 | Jonathan Annand (Disney, EA, Iron Galaxy: *Killer Instinct*, *Rumbleverse*), *Animation Craft for 3D and 2D Animators* | Từng nguyên lý làm thế nào trong 3D và 2D; thêm nguyên lý 13 "trọng lượng và thăng bằng"; cách góp ý khách quan và checklist cảnh [45] |
+| 2025 | Jonathan Annand (animator lâu năm của phim hoạt hình và game), *Animation Craft for 3D and 2D Animators* | Từng nguyên lý làm thế nào trong 3D và 2D; thêm nguyên lý 13 "trọng lượng và thăng bằng"; cách góp ý khách quan và checklist cảnh [45] |
 | 2008 → nay | Steve Swink (*Game Feel*), Mick West (đo độ nhạy), Masahiro Sakurai (kênh *Creating Games*) | Cảm giác điều khiển, độ trễ, hitstop, lấy đà của người chơi [7][14][15][16] |
 
 ---
@@ -82,8 +82,9 @@ nguyên lý Annand thêm vào.
 - **Kiểm.** Người chơi: frame đầu tiên sau input đã thấy đổi, pose chính tới trước frame active. Quay màn hình tốc độ cao,
   đếm frame từ lúc bấm tới lúc màn hình đổi (cách đo của Mick West [14]). Quái: từ tín hiệu đọc được đầu tiên tới frame
   active phải ≥ ngân sách phản xạ (mục 4.2).
-- **Số.** Đòn thường của Street Fighter 6 có startup 4–10 frame ở 60 fps, khoảng 67–167 ms [13]. Trong phim ngắn *The
-  Adventures of André & Wally B.*, cú phóng đi chỉ 3–4 frame, sau một đoạn lấy đà đủ lâu để đọc [1].
+- **Số.** Đòn thường trong bản 2023 của một dòng game đối kháng 2D lâu đời có startup 4–10 frame ở 60 fps, khoảng
+  67–167 ms [13]. Trong phim ngắn *The Adventures of André & Wally B.*, cú phóng đi chỉ 3–4 frame, sau một đoạn lấy đà đủ
+  lâu để đọc [1].
 
 ### 2.3 Dàn dựng (staging)
 
@@ -107,11 +108,11 @@ nguyên lý Annand thêm vào.
 
 - **Là gì.** Làm thẳng: làm lần lượt từ đầu tới cuối, cho sự tự nhiên (hỗn loạn, hiệu ứng). Pose-to-pose: đặt pose chính
   trước rồi chèn giữa, để kiểm soát diễn xuất và timing [1].
-- **2D.** Pose-to-pose cho nhân vật; làm thẳng cho lửa, khói, smear. Dead Cells làm mỗi đòn cho đúng timing với ít frame
-  nhất rồi mới thêm hình chèn, nên đổi timing chỉ cần dời key [38].
+- **2D.** Pose-to-pose cho nhân vật; làm thẳng cho lửa, khói, smear. Một tựa roguelite hành động 2D làm mỗi đòn cho đúng
+  timing với ít frame nhất rồi mới thêm hình chèn, nên đổi timing chỉ cần dời key [38].
 - **3D.** Lasseter: key nguyên pose trên rig phức tạp cho inbetween khó đoán; ông làm từng lớp theo cây xương, ít pose cực,
-  không key mọi kênh cùng một frame [1]. Mocap là dữ liệu dày kiểu làm thẳng; đội Uncharted cắt bớt, có lúc chỉ giữ key
-  pose [5].
+  không key mọi kênh cùng một frame [1]. Mocap là dữ liệu dày kiểu làm thẳng; đội làm một dòng action-adventure điện ảnh
+  cắt bớt, có lúc chỉ giữ key pose [5].
 - **Trong game.** Thiết kế đổi liên tục. Cooper giữ clip ở mức pose-to-pose lâu nhất có thể và khuyên đừng tiếc phần đã
   làm [2].
 - **Williams, Annand.** Williams chọn cách thứ ba, kết hợp: thumbnail → key → extreme (chạm, lấy đà) → breakdown, rồi làm thẳng
@@ -143,7 +144,8 @@ nguyên lý Annand thêm vào.
   clip; pop khi hành động bị cancel.
 - **Kiểm.** Có frame trả điều khiển (cancel) trước cuối clip; cancel ở đúng frame đó sang né hoặc di chuyển mà blend không
   pop.
-- **Số.** Street Fighter 6, Ryu, recovery ở 60 fps: đấm nhẹ 7, đấm nặng 18, Shoryuken nhẹ 21 cộng 12 sau khi đáp [13].
+- **Số.** Bản 2023 của dòng game đối kháng 2D lâu đời ở 2.2, một nhân vật cơ bản, recovery ở 60 fps: đấm nhẹ 7, đấm nặng 18,
+  đòn đặc biệt đấm móc chống trên không (bản nhẹ) 21 cộng 12 sau khi đáp [13].
 
 ### 2.6 Chậm vào, chậm ra (slow in & slow out)
 
@@ -208,18 +210,18 @@ nguyên lý Annand thêm vào.
 - **Lỗi hay gặp.** Làm ở một fps, ship ở fps khác; bảng frame data và clip thật lệch nhau; blend ăn vào startup.
 - **Kiểm.** Đo startup / active / recovery trong engine (debug hitbox, chạy từng frame trên máy) ở fps ship, so với bảng thiết
   kế.
-- **Số.** 1 frame = 16,7 ms ở 60 fps, 33,3 ms ở 30 fps. Street Fighter 6 ở 60 fps: đấm nhẹ 4 / 3 / 7, đấm nặng 10 / 5 / 18
-  [13]. Active thường chỉ 1–4 frame trên tổng khoảng 30 [12].
+- **Số.** 1 frame = 16,7 ms ở 60 fps, 33,3 ms ở 30 fps. Dòng game đối kháng 2D ở 2.2 (bản 2023), 60 fps: đấm nhẹ 4 / 3 / 7,
+  đấm nặng 10 / 5 / 18 [13]. Active thường chỉ 1–4 frame trên tổng khoảng 30 [12].
 
 ### 2.10 Cường điệu (exaggeration)
 
 - **Là gì.** Đẩy cốt lõi của ý lên, không phải méo tuỳ tiện. Giữ cân bằng: một chi tiết cường điệu giữa cảnh tả thực sẽ lạc
   lõng [1].
-- **2D.** Hình cực, smear, pop scale. Dead Cells dùng VFX để nói chuyển động, va chạm, sức mạnh [38].
+- **2D.** Hình cực, smear, pop scale. Tựa roguelite hành động 2D ở 2.4 dùng VFX để nói chuyển động, va chạm, sức mạnh [38].
 - **3D và mocap.** Cooper: chuyển động thật đưa vào game thường trông chưa đủ thật; đẩy pose, giữ lâu hơn một chút, camera
-  càng xa càng phải cộng thêm [2]. Đội Uncharted (GDC 2008) key đè lên mocap để cường điệu được nhiều hơn, cuối cùng khoảng
-  40% mocap, 60% keyframe; bắt pose cực, bỏ khoảng dừng [5]. Sakurai: pose trông vô lý khi dừng hình lại đọc tốt khi chạy
-  (video *Too Much is Just Right*), và cường điệu để bù phần thông tin bị mất [7f][7g].
+  càng xa càng phải cộng thêm [2]. Đội action-adventure điện ảnh ở 2.4 (GDC 2008) key đè lên mocap để cường điệu được
+  nhiều hơn, cuối cùng khoảng 40% mocap, 60% keyframe; bắt pose cực, bỏ khoảng dừng [5]. Sakurai: pose trông vô lý khi
+  dừng hình lại đọc tốt khi chạy (video *Too Much is Just Right*), và cường điệu để bù phần thông tin bị mất [7f][7g].
 - **Trong game.** Tả thực của mocap đối đầu với đọc được ở cỡ màn hình điện thoại. Cooper: mức cường điệu phải thống nhất
   cả project, giữ thống nhất là việc của animation lead [2].
 - **Williams, Annand.** Live action vẽ lại đúng từng frame thì trôi, mất trọng lượng; cách sửa là đẩy nhẹ lên xuống và các pose
@@ -312,8 +314,9 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
 
 - **Startup**: đoạn lấy đà trước khi đòn trúng được. **Active**: đoạn hitbox có tác dụng, thường 1–4 frame. **Recovery**:
   đoạn theo đà tới khi người chơi điều khiển lại [12].
-- Cách đếm khác nhau giữa các cộng đồng: Street Fighter tính frame active đầu tiên vào startup [12][13]. Quy chuẩn chọn một
-  cách: Startup = số frame **trước** frame active đầu tiên, để tổng clip = startup + active + recovery.
+- Cách đếm khác nhau giữa các cộng đồng: frame data chính thức của dòng game đối kháng 2D ở 2.2 tính frame active đầu tiên
+  vào startup [12][13]. Quy chuẩn chọn một cách: Startup = số frame **trước** frame active đầu tiên, để tổng clip =
+  startup + active + recovery.
 - Đòn mạnh trả giá bằng recovery dài [7c][12][13]. Hitstop không tính vào startup, active hay recovery [12].
 
 ### 4.2 Telegraph
@@ -321,8 +324,8 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
 - Lấy đà của quái cố ý dài hơn của người chơi [2]; truyền bằng animation cộng sfx, giọng, VFX, rung máy [21].
 - Công thức thực hành: thời gian lấy đà = phản xạ của người chơi + thời gian kích hoạt kỹ năng đáp trả + đệm theo độ khó [20].
 - Phản xạ thị giác đơn giản đo được trung bình 218–239 ms (200–222 ms sau khi trừ trễ phần cứng) [19]. Game đối kháng cho
-  đòn "phản ứng được" khoảng 20–25 frame ở 60 fps (333–417 ms), dành cho người chơi giỏi [12]. Drive Impact của Street
-  Fighter 6 có startup 26 frame (433 ms) [13].
+  đòn "phản ứng được" khoảng 20–25 frame ở 60 fps (333–417 ms), dành cho người chơi giỏi [12]. Đòn hệ thống có giáp, dùng
+  để phá thủ, trong bản 2023 của dòng game đối kháng 2D ở 2.2 có startup 26 frame (433 ms) [13].
 - Mobile, người chơi phổ thông: khoảng 250 ms phản xạ + 50–200 ms trễ cảm ứng và màn hình + startup đòn né + đệm, thường ra
   400–600 ms trở lên (suy từ [18][19], cần playtest).
 - Williams: lấy đà vừa báo trước cho người xem vừa dồn lực, nên hầu như hành động nào cũng có. Lấy đà quá quen thì nhàm: bất
@@ -332,15 +335,15 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
 ### 4.3 Cancel và input buffer
 
 - Cancel: bỏ phần recovery để vào thẳng đòn khác [12]. Về phía animation, đó là frame trả điều khiển [2].
-- Input buffer: một cửa sổ nhận input bấm sớm và chạy nó ở frame sớm nhất có thể [12]. Celeste giữ lệnh nhảy và nhảy đúng
-  frame chạm đất [39]. Vì vậy clip phải có cửa sổ buffer và cancel đánh dấu rõ.
+- Input buffer: một cửa sổ nhận input bấm sớm và chạy nó ở frame sớm nhất có thể [12]. Một tựa platformer 2D indie giữ lệnh
+  nhảy và nhảy đúng frame chạm đất [39]. Vì vậy clip phải có cửa sổ buffer và cancel đánh dấu rõ.
 
 ### 4.4 Hitstop
 
-- Dừng hình ngắn cả bên đánh lẫn bên bị đánh lúc trúng, để bán lực va chạm [12]. Smash tăng hitstop theo sát thương [9].
-  Sakurai: dùng được cho mọi khoảnh khắc lớn chứ không chỉ cú đánh; dừng ngắn rồi chậm dần về tốc độ thường còn mạnh hơn
-  [7h].
-- Các kỹ thuật Sakurai nêu cho Smash Ultimate (theo bản tóm tắt [8]): bên bị đánh rung nhiều hơn; không dời hitbox; rung
+- Dừng hình ngắn cả bên đánh lẫn bên bị đánh lúc trúng, để bán lực va chạm [12]. Một dòng game đối kháng platform tăng
+  hitstop theo sát thương [9]. Sakurai: dùng được cho mọi khoảnh khắc lớn chứ không chỉ cú đánh; dừng ngắn rồi chậm dần về
+  tốc độ thường còn mạnh hơn [7h].
+- Tám kỹ thuật hitstop Sakurai nêu (theo bản tóm tắt [8]): bên bị đánh rung nhiều hơn; không dời hitbox; rung
   ngang khi ở đất, dọc khi trên không; rung tắt dần; kiểm soát lượng hitstop; nội suy vào pose bị đánh; bên đánh vẫn nhúc
   nhích rất nhẹ; rung theo khoảng cách camera [7i].
 - Quá nhiều hitstop làm chậm game có nhiều quái [11].
@@ -351,9 +354,9 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
 
 | Nguồn | Hitstop (frame ở 60 fps) |
 |---|---|
-| Smash Ultimate | floor(0,65 × sát thương + 6) × hệ số, tối đa 30: khoảng 6 ở 1%, 12 ở 10%, 19 ở 20% [9] |
-| Smash Melee | floor(sát thương ÷ 3 + 3): 6 ở 10%, 9 ở 20% [9] |
-| Beat 'em up của Capcom | Final Fight 6; Captain Commando 8; Knights of the Round 6–7; Warriors of Fate 4–5; The Punisher 6–8 bên đánh, 8–10 bên bị đánh [10] |
+| Dòng đối kháng platform, bản 2018 | floor(0,65 × sát thương + 6) × hệ số, tối đa 30: khoảng 6 ở 1%, 12 ở 10%, 19 ở 20% [9] |
+| Dòng đối kháng platform, bản 2001 | floor(sát thương ÷ 3 + 3): 6 ở 10%, 9 ở 20% [9] |
+| Năm tựa beat 'em up arcade 1989–1993 của một studio game đối kháng Nhật Bản | theo năm ra mắt: 6; 8; 6–7; 4–5; tựa cuối 6–8 bên đánh, 8–10 bên bị đánh [10] |
 
 Ở 30 fps: chia đôi, làm tròn lên.
 
@@ -377,8 +380,8 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
   ví dụ chân trái ở 0,0, chân phải ở 0,5 [24].
 - Transition Unity tạo bằng tay: Has Exit Time bật, Fixed Duration 0,25 s, Exit Time = 1 − 0,25 ÷ độ dài clip [22].
   Transition do input điều khiển mà bật Has Exit Time thì phản hồi bị trễ [23].
-- Inertialization (Gears of War 4, GDC 2018): thay vì trộn hai pose, chỉ tính clip mới và mang vận tốc của clip cũ sang [32];
-  Unreal khuyên blend kiểu này dưới 0,4 s [31]. Unity không có sẵn.
+- Inertialization (một tựa third-person shooter console, GDC 2018): thay vì trộn hai pose, chỉ tính clip mới và mang vận
+  tốc của clip cũ sang [32]; Unreal khuyên blend kiểu này dưới 0,4 s [31]. Unity không có sẵn.
 - Loop: Loop Pose của Unity chia phần lệch đầu–cuối ra cả clip; đèn loop match xanh khi đầu và cuối khớp [25].
 - Ví dụ lệch pha có đo: pack ExplosiveLLC để vòng Strafe lệch vòng Run 0,15–0,4 chu kỳ (so cùng một chân) trong cùng một
   blend tree, và chép một mốc chân cho cả 8 hướng chạy [40].
@@ -415,8 +418,9 @@ Cooper tóm 12 nguyên lý khi vào game [2]:
 
 ### 4.9 Motion matching
 
-- Simon Clavet, GDC 2016 (For Honor): liên tục chọn pose tốt nhất trong kho mocap sao cho khớp quỹ đạo sắp tới, có trọng số
-  cho độ nhạy; cần chống trượt chân [33]. Đòi hỏi kho mocap lớn nên ngoài tầm phần lớn game mobile.
+- Simon Clavet, GDC 2016 (một tựa hành động đấu kiếm góc nhìn thứ ba): liên tục chọn pose tốt nhất trong kho mocap sao
+  cho khớp quỹ đạo sắp tới, có trọng số cho độ nhạy; cần chống trượt chân [33]. Đòi hỏi kho mocap lớn nên ngoài tầm phần
+  lớn game mobile.
 
 ---
 
@@ -510,7 +514,8 @@ Manual Unity bản 6000.3 trừ khi ghi khác. "Cộng đồng" là nguồn khô
    https://www.gameanim.com/2020/04/04/the-five-fundamentals-of-video-game-animation/
 4. *Game Anim: Video Game Animation Explained*, bản 2 (CRC / Routledge, 2021), mục lục.
    https://www.routledge.com/Game-Anim-Video-Game-Animation-Explained/Cooper/p/book/9780367707651
-5. Cooper, J. "Uncharted Mocap" (ghi chép bài GDC 2008 của Yates và Simantov). https://www.gameanim.com/2008/04/19/uncharted-mocap/
+5. Cooper, J. Ghi chép bài GDC 2008 của Yates và Simantov về mocap trong một dòng action-adventure điện ảnh, blog
+   gameanim.com, 2008-04-19.
 6. Cooper, J. "Basics: Animation Blending", 2005. https://www.gameanim.com/2005/06/19/blending-the-future-of-non-linear-animation/
 7. Sakurai, M. *Masahiro Sakurai on Creating Games* (YouTube; tên video và mô tả):
    (b) Making Lead-ins Instant and Impactful https://www.youtube.com/watch?v=E8DKndKkHw8 ·
@@ -518,17 +523,19 @@ Manual Unity bản 6000.3 trừ khi ghi khác. "Cộng đồng" là nguồn khô
    (d) Squashing and Scaling https://www.youtube.com/watch?v=Sm0LAm4sJKc ·
    (e) The Perils of Interpolation https://www.youtube.com/watch?v=oFwamE6Hy04 ·
    (f) Exaggerate to Make Up for Information Loss https://www.youtube.com/watch?v=Ivwt37x-2EU ·
-   (g) Too Much is Just Right, qua tóm tắt của GoNintendo https://gonintendo.com/contents/11218-masahiro-sakurai-s-latest-video-details-over-exaggeration-in-animation ·
+   (g) Too Much is Just Right, qua bản tóm tắt của một trang tin game ·
    (h) Stop for Big Moments! https://www.youtube.com/watch?v=OdVkEOzdCPw ·
    (i) Eight Hit Stop Techniques https://www.youtube.com/watch?v=tycbMSjDDLg ·
-   (j) học đếm frame, qua tóm tắt của GoNintendo https://gonintendo.com/contents/16485-sakurai-s-latest-game-dev-video-discusses-on-having-the-skill-to-count-frames ·
+   (j) học đếm frame, qua bản tóm tắt của một trang tin game ·
    danh mục đủ: https://archive.org/details/masahiro-sakurai-creating-games
-8. Nintendo Wire, "This Week In Sakurai (12/5–12/11)" (tóm tắt). https://nintendowire.com/news/2022/12/12/this-week-in-sakurai-12-5-12-11-fine-tuning-hit-stop-and-cheating-the-system/
-9. SmashWiki, "Hitlag" (cộng đồng, số lấy từ dữ liệu game). https://www.ssbwiki.com/Hitlag
-10. Sicienski, S. "Hitstop in Capcom Beat 'Em Ups" (blog, có đo). https://shane-sicienski.com/blog/blog-post-title-one-55pmn
+8. Bản tóm tắt hằng tuần các video của Sakurai (tuần 5–11/12) trên một trang tin game, 2022-12-12, phần tinh chỉnh hitstop
+   (tóm tắt).
+9. Wiki cộng đồng của dòng game đối kháng platform ở 4.4, mục hitlag (cộng đồng, số lấy từ dữ liệu game).
+10. Sicienski, S. Bài đo hitstop trong các tựa beat 'em up arcade của một studio game đối kháng Nhật Bản (blog, có đo).
+    https://shane-sicienski.com/blog/blog-post-title-one-55pmn
 11. Cột Famitsu số 490 của Sakurai về hitstop (bản dịch, tóm tắt). https://sourcegaming.info/2015/11/11/thoughts-on-hitstop-sakurais-famitsu-column-vol-490-1/
 12. Infil, *The Fighting Game Glossary* (cộng đồng). https://glossary.infil.net/
-13. Capcom, frame data chính thức của Street Fighter 6 (Ryu). https://www.streetfighter.com/6/character/ryu/frame
+13. Frame data chính thức trên trang của nhà phát hành: bản 2023 của một dòng game đối kháng 2D lâu đời, một nhân vật cơ bản.
 14. West, M. "Measuring Responsiveness in Video Games", 2008. https://cowboyprogramming.com/2008/05/30/measuring-responsiveness-in-video-games/
 15. West, M. "Programming Responsiveness", 2008. https://cowboyprogramming.com/2008/05/27/programming-responsiveness/
 16. Swink, S. *Game Feel* (Morgan Kaufmann, 2008), chương 2. https://www.taylorfrancis.com/books/mono/10.1201/9781482267334/game-feel-steve-swink
@@ -546,15 +553,15 @@ Manual Unity bản 6000.3 trừ khi ghi khác. "Cộng đồng" là nguồn khô
 28. Unity Animation Rigging, Damped Transform. https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.1/manual/constraints/DampedTransform.html
 29. Unity Scripting API, Application.targetFrameRate. https://docs.unity3d.com/ScriptReference/Application-targetFrameRate.html
 30. Spine User Guide: https://esotericsoftware.com/spine-bones · https://esotericsoftware.com/spine-physics-constraints
-31. Unreal: https://dev.epicgames.com/documentation/unreal-engine/transition-rules-in-unreal-engine · https://dev.epicgames.com/documentation/en-us/unreal-engine/motion-matching-in-unreal-engine
+31. Tài liệu chính thức của Unreal Engine: Transition Rules; Motion Matching.
 32. Bollo, D. "Inertialization", GDC 2018. https://media.gdcvault.com/gdc2018/presentations/bollo_david_inertialization_high_performance.pdf
 33. Clavet, S. "Motion Matching and The Road to Next-Gen Animation", GDC 2016. https://gdcvault.com/play/1023280/Motion-Matching-and-The-Road
 34. Whitaker, H., Halas, J. *Timing for Animation* (1981). https://archive.org/details/timingforanimation
 35. Monmouth University, "Movement: Walk Cycle" (bảng timing theo *The Animator's Survival Kit* của Richard Williams). https://animation.monmouth.edu/instruct/animation/walk-cycle/ · Nguồn gốc: [44] tr. 109–110.
 36. Schlitter, R. (Slynyrd), Pixelblog 8 và 50 (blog). https://www.slynyrd.com/blog/2018/8/19/pixelblog-8-intro-to-animation · https://www.slynyrd.com/blog/2024/5/24/pixelblog-50-human-walk-cycle
 37. Mã nguồn Aseprite, sprite.cpp (thời lượng frame mặc định 100 ms). https://github.com/aseprite/aseprite/blob/main/src/doc/sprite.cpp
-38. Vasseur, T. "Using a 3D pipeline for 2D animation in Dead Cells", 2018. https://www.gamedeveloper.com/production/art-design-deep-dive-using-a-3d-pipeline-for-2d-animation-in-i-dead-cells-i-
-39. Thorson, M. "Celeste & Forgiveness". https://www.maddymakesgames.com/articles/celeste_and_forgiveness/index.html
+38. Vasseur, T. Bài phân tích việc dùng pipeline 3D cho animation 2D trong một tựa roguelite hành động 2D, Game Developer, 2018.
+39. Thorson, M. Bài viết về các cơ chế dễ dãi với input của người chơi trong một tựa platformer 2D indie (blog của tác giả).
 40. `GameAnimation_PackExplosiveLLC.md`: đọc và đo *RPG Character Mecanim Animation Pack FREE* 2.5.2 (Explosive, Asset
     Store id 65284) trên Unity 6000.3.16f1, 2026-09-28. Tài liệu gốc của pack: http://demo.explosive.ws/RPGCharacterMecanimAnimationPackReadMe.pdf ·
     http://demo.explosive.ws/RPGCharacterMecanimAnimationPackComponentAPIReference.pdf

@@ -13,7 +13,7 @@ push, không cần R2 credentials. Xem skill `publish-ai-features`. Chạy tay v
 | Nguồn | Dùng khi | Đích cài trong project |
 |---|---|---|
 | `templates/unity-project/DefaultSetup/` | item **thuộc bộ mặc định** (đa số) — script tự quét theo `KIND_MAP` | đúng path gốc, vd `.claude/skills/ui-kit` |
-| `templates/AIFeatures/<Category>/<item>` | item **ngoài** bộ mặc định (thử nghiệm, chuyên biệt, hoặc cố ý override) | suy ra từ category |
+| `templates/AIFeatures/<Category>/<item>` | item **ngoài** bộ mặc định (thử nghiệm, chuyên biệt, hoặc cố ý override). Hiện **trống**: 7 skill từng ở đây (auto-clear, blender-rig-animate, game-animation, game-vfx, refactor-ui, restart-unity, ui-motion) đã chuyển vào DefaultSetup ngày 2026-10-06 | suy ra từ category |
 | `ai-manifest.json` → `sources` | thứ **đã nằm sẵn chỗ khác trong repo**, publish tại chỗ | suy ra từ category |
 
 Trùng `<Category>/<name>` thì bản sau thắng theo thứ tự **DefaultSetup → AIFeatures → `sources`**.
@@ -74,7 +74,9 @@ không đổi, nên Feature Hub chỉ báo "Có bản mới" khi nội dung th�
 - `exclude` — bỏ item khỏi catalog. Nhận `"Category/name"` hoặc `"Category/*"`.
 - `overrides` — ghi đè `description` / `installedByDefault` cho từng item. `description` mặc định lấy
   từ frontmatter `description:` của `SKILL.md` / file `.md`; item không có frontmatter thì để trống.
-- `installedByDefault: true` → item nằm trong nhóm "Cài tất cả AI feature còn thiếu" chạy mặc định.
+- `installedByDefault` — chỉ là metadata: Feature Hub hiện **không** đọc field này cho AI item (nút "Cài N mục…"
+  cài mọi item còn thiếu đang hiển thị). Muốn một item có sẵn trong project mới thì đặt nó vào
+  `templates/unity-project/DefaultSetup/` (`defaultsetup.tgz`), không phải bật cờ này.
 
 ## Layout trên R2
 

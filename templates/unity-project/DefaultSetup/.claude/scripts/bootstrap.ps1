@@ -206,6 +206,8 @@ if ($artState -eq "template") {
     Write-Host "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
 }
 
+Write-Host "  - [ACTION] Open the project in Unity, then run /setup-project in Claude Code - it opens the" -ForegroundColor Yellow
+Write-Host "    Ezg > EzgKit window (identity, marketing sheet, ads & privacy, IAP list, ArtStyle, localization)." -ForegroundColor Yellow
 Write-Host "  - Queue work with /planning-task then /add-to-backlog, and run it with /run-backlog."
 Write-Host ""
 

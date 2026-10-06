@@ -80,9 +80,9 @@ Thư viện hiệu ứng dùng chung, lấy từ hiệu ứng đã ship của c�
 
 ## 0.1 — 2026-09-30
 
-Bản nháp đầu, chỉ có tài liệu (chưa có code, như Game Animation 0.1). Nguồn chính là tài liệu VFX của Liên Minh Huyền Thoại
-trong thư viện Visual Library của team, tài liệu công khai của Riot, Supercell, Tencent, Unity, Arm, W3C, Microsoft (39 nguồn), và
-khảo sát ba game mobile đã ship của team.
+Bản nháp đầu, chỉ có tài liệu (chưa có code, như Game Animation 0.1). Nguồn chính là hướng dẫn VFX công khai của một studio
+MOBA PC lớn (bản lưu trong thư viện Visual Library của team), tài liệu công khai của studio đó, của một studio mobile lớn, một
+publisher mobile lớn, của Unity, Arm, W3C, Microsoft (39 nguồn), và khảo sát ba game mobile đã ship của team.
 
 - `GameVFX_QuyChuan.md`: bảy nguyên tắc gốc; đọc được (sáu cấp quan trọng, yếu tố chính / phụ, dải sáng và đậm theo mảng, vùng
   và hitbox, màu phe, cảnh báo, màn hình đông, chớp sáng và rung); timing ba pha và số theo cấp, giờ game / giờ thật, mood dùng
@@ -90,7 +90,7 @@ khảo sát ba game mobile đã ship của team.
   hex, additive và bloom); ngân sách mobile theo cấp và theo tier máy, overdraw, culling, shader, material, pool; thiết lập
   Unity (prefab, ParticleSystem, renderer, sorting 2D, UI particle, âm thanh, pack mua sẵn, cửa gọi chung); đặt tên `FX_` và thư
   mục; quy trình, brief, checklist duyệt; gate V-1 … V-20 (đề xuất); định nghĩa xong; câu hỏi mở và kế hoạch pilot.
-- `GameVFX_NguyenLy.md`: tóm tắt tài liệu LMHT từng phần, số đo trên biểu đồ dải sáng / đậm và 12 bảng màu (lấy mẫu pixel), chỗ
-  lệch của bộ slide tiếng Việt trong thư viện; nguồn cho đọc được trên mobile, timing và va chạm, hiệu năng mobile, an toàn thị
-  giác, quy ước sản xuất; tóm tắt khảo sát; danh sách nguồn và bảng luật → nguồn.
+- `GameVFX_NguyenLy.md`: tóm tắt từng phần hướng dẫn VFX của studio MOBA PC, số đo trên biểu đồ dải sáng / đậm và 12 bảng
+  màu (lấy mẫu pixel), chỗ lệch của bộ slide tiếng Việt trong thư viện; nguồn cho đọc được trên mobile, timing và va chạm, hiệu
+  năng mobile, an toàn thị giác, quy ước sản xuất; tóm tắt khảo sát; danh sách nguồn và bảng luật → nguồn.
 - Khảo sát ba game và script quét dùng cho nó là tài liệu phát triển của repo module (`Docs/GameVFX/`), không đi kèm module.
