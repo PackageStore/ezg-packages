@@ -2,6 +2,23 @@
 
 Quy chuẩn: `GameVFX_QuyChuan.md`. Nền lý thuyết và nguồn: `GameVFX_NguyenLy.md`. Thư viện hiệu ứng: `GameVFX_ThuVien.md`.
 
+## 0.2.3 — 2026-10-06
+
+Motion của hạt cho hiệu ứng va chạm.
+
+- Quy chuẩn 0.2.3: mục mới 3.7 "Motion của hạt: hiệu ứng va chạm", viết chủ yếu cho impact (trúng đòn, nổ, va đập); loại khác
+  chỉ lấy từng cách làm khi hợp (bảng cách dựng: tia, mảnh vỡ bằng tốc độ đầu lớn + Limit Velocity; đầu tia
+  bằng Stretched Billboard; khối mềm bằng `Speed Modifier`; nở bùng, sóng lan bằng Size over Lifetime; nhịp chuẩn bị bằng hạt
+  tối; xoay ngẫu nhiên; chín luật). 3.2.1 trỏ sang 3.7.
+- Limit Velocity: 6.5.2 thêm ngoại lệ cho burst ngắn ở điểm va chạm (không cần ghi lý do); 6.5.3 ghi số đo chưa tách burst /
+  lặp, chưa nên tính hết vào nợ; bảng 7.2 tách Limit Velocity thành dòng riêng; gate V-9 trừ trường hợp này; checklist 9.3 thêm
+  một dòng motion.
+- Nguyên lý: lý do của 3.7 ở mục 4, thêm dòng 3.7 vào bảng luật và nguồn (mục 10).
+- Skill `game-vfx`: mục 1 thêm 3.7 vào danh sách mục cần đọc; mục 3 thêm: motion theo 3.7, đọc source shader trước khi đoán
+  property, đổi hướng lớn thì làm prefab mới, làm biến thể thì chép rồi chỉ đổi phần cần đổi;
+  mục mới 5 "Kiểm bằng mắt" (bảng khung theo thời gian ở góc camera game, nền tối và sáng, tắt `_Sec`, tách từng lớp khi màu
+  sai, đọc đủ mọi module khi xem prefab người khác đã sửa); mục mới 6 "Video tham khảo"; mục mới 7 "Bẫy đã gặp".
+
 ## 0.2.2 — 2026-10-01
 
 Thư viện không frame-by-frame: chuyển động của hình làm bằng hạt và shader.

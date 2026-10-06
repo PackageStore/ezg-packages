@@ -197,6 +197,12 @@ liệu gốc; dùng tài liệu gốc khi hai bên khác nhau:
 - Hitstop: một tựa đối kháng platform của một studio console Nhật Bản khoảng sát thương × 0,65 + 6 frame, trần 30 frame ở 60 fps
   (số khai thác từ game); một tựa beat 'em up arcade kinh điển 6 frame cho mọi đòn (cộng đồng đếm); Masahiro Sakurai: dừng cả
   hai bên, dài theo lực, có ở đòn kết liễu [20]. Số dùng trong team nằm ở Game Animation 3.4.
+- Motion của hạt cho hiệu ứng va chạm (quy chuẩn 3.7, thực hành của team, 2026-10; viết từ một vụ nổ va chạm nên phạm vi chính
+  là impact): tia và mảnh vỡ bắn ra có lực là tốc độ đầu lớn cộng hãm bằng Limit Velocity. `Dampen` cắt phần tốc độ vượt `Limit`
+  ở mỗi bước nên phần lớn quãng bay rơi vào vài frame đầu, đúng dáng ease-out của 3.2. `Speed Modifier` của Velocity over
+  Lifetime tính theo phần trăm đời hạt: hạt sống lâu hãm muộn, hạt nhanh và chậm cùng một dáng, cú bắn nhũn. Bản thử dựng bằng
+  `Speed Modifier` bị duyệt lại thành Limit Velocity. Procedural mode chỉ có lợi khi system ngoài màn hình [23], nên với burst
+  ngắn ở điểm va chạm cái giá đó gần như bằng không; cảnh báo cũ ở quy chuẩn 6.5.2 đã đẩy người làm tránh đúng công thức này.
 - Flipbook: 4 × 4 = 16 khung gần như là tối đa cho game stylized; lưới lũy thừa của 2; sheet 512 / 1024 / 2048, tránh 4K; lưới không
   vuông được (8 × 2 cho vệt ngang); nhiều khung thì mỗi khung nhỏ đi; tên kèm lưới; cắt sát khung; sửa màu rìa để khỏi viền tối
   [21][36].
@@ -396,6 +402,7 @@ O = chính thức (hãng engine, hãng GPU, studio), T = bài nói hội thảo,
 | 3.1–3.2 ba pha, nhịp | [1] [15] [16]; số đo mục 8 |
 | 3.3 khớp va chạm | [19]; Game Animation 3.4, 7.4, 7.5 |
 | 3.4 giờ game / giờ thật | số đo mục 8 |
+| 3.7 motion của hạt (va chạm) | thực hành của team (mục 4); [23] cho procedural mode |
 | 4 hình, texture | [1] [5] [10] [18] [21] [25] [26] [30] [36] |
 | 5 màu | [1] [10] |
 | 6 ngân sách | [6] [12] [18] [22] [23] [24] [25] [27] [28] [29] [30]; số đo mục 8 |

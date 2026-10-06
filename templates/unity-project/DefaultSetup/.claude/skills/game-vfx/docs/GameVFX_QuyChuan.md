@@ -1,6 +1,6 @@
 # Quy chuẩn VFX (2D, 3D, mobile)
 
-Phiên bản 0.2.2 (nháp) · 2026-10-01 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
+Phiên bản 0.2.3 (nháp) · 2026-10-06 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
 hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project);
 gate trong Unity vẫn làm sau. Nguồn chính là hướng dẫn VFX công khai
 (PDF, 37 trang, 6 phần) của một studio MOBA PC lớn cho tựa MOBA PC của họ, tài liệu công khai khác của studio đó, của một studio
@@ -262,6 +262,7 @@ Luật:
 ### 3.2 Nhịp động, không tuyến tính
 
 1. Chuyển động và kích thước đi theo đường ease-out: nhanh lúc đầu, chậm dần về cuối; tuyến tính làm khoảnh khắc nhạt [1].
+   Cách dựng bằng module của hạt cho hiệu ứng va chạm: 3.7.
 2. Mặc định *(đề xuất)*: kích thước đạt 80–100 % trong 20 % đầu đời hạt; độ đục giữ, rồi tắt dần trong 30–60 % cuối.
 3. Hạt bay nhanh có nhoè chuyển động (stretched billboard hoặc hình vẽ sẵn độ nhoè): hạt nhanh mà sắc nét tạo nhiễu và ảo giác
    rớt frame [1].
@@ -315,6 +316,45 @@ giác. Game đã chọn preset thì VFX theo preset đó.
    đó (sắp nổ).
 3. Có người dừng: chủ của trạng thái gọi dừng khi trạng thái hết, hiệu ứng chạy phần ra rồi tự trả pool (6.8). Hiệu ứng lặp
    không ai dừng là rò rỉ.
+
+### 3.7 Motion của hạt: hiệu ứng va chạm **[VFX]**
+
+Phạm vi: mục này viết **chủ yếu cho hiệu ứng va chạm (impact)**: trúng đòn, nổ, va đập, phần "trúng" của đạn và kỹ năng, chết
+dạng nổ. Đó là một burst ngắn ở một điểm, bùng rồi tan trong khoảng 1 s. Loại khác (đạn đang bay, vệt chém, vùng, buff, trạng
+thái, hiệu ứng lặp, môi trường) lấy được từng cách làm khi hợp (Size over Lifetime, so le lớp, xoay ngẫu nhiên), nhưng không
+mặc định áp cả mục. Ngoại lệ Limit Velocity của 6.5.2 chỉ dành cho burst va chạm.
+
+Dựng chuyển động bằng module của `ParticleSystem`. Animation bằng texture và shader (flipbook, ăn mòn, UV cuộn) ở 4.4 và 4.7.
+Số trong bảng *(đề xuất)* lấy từ một hiệu ứng nổ va chạm đã duyệt, rộng khoảng 2–3 đơn vị: hiệu ứng cỡ khác thì nhân tốc độ và
+`Limit` theo cùng tỉ lệ.
+
+| Cần | Làm bằng | Số tham chiếu *(đề xuất)* |
+|---|---|---|
+| Tia, mảnh vỡ, bụi bắn ra có lực | `Start Speed` lớn + **Limit Velocity over Lifetime** (`Limit` nhỏ, `Dampen`) | speed 9–20, Limit 1, Dampen 0,15, lifetime 0,3–0,5 s |
+| Đầu tia kéo dài theo tốc độ | Stretched Billboard: `Length Scale` là độ dài nền, `Speed Scale` nhỏ | Length Scale 2,8, Speed Scale 0,05 |
+| Khối mềm trôi chậm (khói, quả cầu) | Velocity over Lifetime, `Speed Modifier` theo đời hạt | 1 → 0,05 |
+| Nở bùng (loé, lõi) | Size over Lifetime: key đầu thấp, tiếp tuyến dốc, tới 1 sớm, rồi vẫn nở tiếp | 0,16–0,3 → 1 ở 20–28 % đời (tiếp tuyến 6–11) → 1,15–1,2 |
+| Sóng lan (vòng) | như trên, chậm hơn | 0,1 → 0,88 ở 50 % đời → 1 |
+| Nhịp chuẩn bị của hiệu ứng tự mang chuẩn bị (nổ, xuất hiện) | một hạt **tối**, alpha blend, bật ra rồi co lại ngay trước loé | sống 0,09 s; loé trễ 0,07 s |
+| Mỗi lần phát một khác | `Start Rotation` ngẫu nhiên 0–360°, quay nhẹ theo đời | 0,5–0,8 rad/s |
+
+1. **Tia và mảnh vỡ hãm bằng Limit Velocity, không bằng `Speed Modifier`.** `Dampen` cắt một phần tốc độ vượt `Limit` ở mỗi
+   bước mô phỏng: hạt bật ra rất nhanh rồi khựng gọn, hạt càng nhanh càng mất nhiều. `Speed Modifier` hãm theo phần trăm đời
+   hạt: hạt nhanh và chậm cùng một dáng hãm, hạt sống dài hãm muộn, cú bắn nhũn đi. `Limit` để lớn hơn 0 thì hạt còn trôi
+   chứ không đứng khựng.
+2. Quãng bay do `Start Speed` và `Dampen` quyết. Muốn tia bay xa hay gần thì chỉnh hai số đó, không kéo dài lifetime. Đối chiếu
+   quãng bay với vùng tác dụng và khung camera của game (2.4).
+3. `Dampen` áp theo bước mô phỏng nên nhịp hãm có thể đổi theo fps: xem ở cả 30 và 60 fps.
+4. Stretched Billboard đi cùng nhịp hãm: tia dài khi nhanh, co lại khi chậm, đọc ra cú giật (3.2.3). `Speed Scale` lớn thì lúc
+   đỉnh tốc tia thành vạch dài hết khung.
+5. Ít hạt to, sáng đọc mạnh hơn nhiều hạt nhỏ: hiệu ứng nổ đã duyệt hạ số tia từ 24 xuống 15 và đọc rõ lực hơn.
+6. So le các lớp bằng `Start Delay` theo vai: chuẩn bị (0) → tia, loé, vệt, lõi cùng frame bùng (khoảng 0,06–0,07 s) → khối,
+   khói trễ thêm khoảng 0,06 s. Mọi lớp cùng t = 0 thì chồng thành một mảng trắng (5.5.2).
+7. Không đứng yên giữa đời: sau pha nở, kích thước vẫn tăng nhẹ hoặc hạt quay chậm. Hạt đứng im đọc ra như dán lên màn hình.
+8. Hai lớp phải chạy trùng khít nhau (tia và quầng sáng của nó): tắt `Auto Random Seed`, cùng `Random Seed`, và trùng **mọi**
+   thông số mô phỏng (tốc độ, lifetime, burst, shape, Limit Velocity, Velocity over Lifetime, Size over Lifetime, gravity).
+   Lệch một số là hai lớp tách nhau.
+9. Limit Velocity làm mất procedural mode (6.5.2): chấp nhận được cho burst ngắn ở điểm va chạm, xem ngoại lệ ở 6.5.2.
 
 ---
 
@@ -551,8 +591,12 @@ thành nợ, sửa dần (10).
    simulation space World, gravity, emission theo quãng đường, external forces, limit velocity, rotation by speed, collision,
    trigger, sub emitter, noise, trails, curve quá 8 key, script sửa giá trị lúc chạy [23] (bài 2016; Inspector của Unity 6
    vẫn báo bằng biểu tượng cảnh báo ở Culling Mode, rê chuột xem lý do). Chỉ dùng các module đó khi hiệu ứng cần thật.
+   Ngoại lệ: Limit Velocity của burst ngắn ở điểm va chạm (không lặp, sống dưới 1 s) không cần ghi lý do. Procedural mode chỉ
+   có lợi khi system ở ngoài màn hình, mà burst đó luôn ở chỗ người chơi đang nhìn; Limit Velocity là cách chuẩn để tia, mảnh
+   vỡ bắn ra có lực (3.7). Vẫn tránh ở hiệu ứng lặp, sống lâu, môi trường.
 3. *(đo)* 19–30 % system đã ship của ba game mất procedural mode; lý do nhiều nhất là limit velocity (489–772 system), rồi World,
-   gravity, noise, sub emitter.
+   gravity, noise, sub emitter. Số này chưa tách burst với lặp: phần burst bật limit velocity nhiều khả năng đúng cách làm ở 3.7,
+   không phải nợ. Tách trước khi tính vào nợ.
 4. `Culling Mode` Automatic. Always Simulate chỉ cho UI hoặc hiệu ứng phải giữ nhịp tuyệt đối, ghi lý do. *(đo)* 16–32 % system
    để Always Simulate.
 5. System có renderer tắt, hoặc nằm trên object đã tắt trong prefab, vẫn tốn: system tắt renderer vẫn mô phỏng mỗi frame;
@@ -649,7 +693,8 @@ FX_Hero_Hit_Fireball              root: ParticleSystem điều khiển (không p
 | Culling Mode | Automatic | 6.5 |
 | Ring Buffer | tắt | |
 | Emission | burst cho pha bùng, rate cho lặp | |
-| Noise, Collision, Sub Emitters, Trails, External Forces, Limit Velocity | chỉ khi cần, ghi lý do trong brief | mất procedural (6.5) |
+| Noise, Collision, Sub Emitters, Trails, External Forces | chỉ khi cần, ghi lý do trong brief | mất procedural (6.5) |
+| Limit Velocity | tia, mảnh vỡ của burst ngắn (3.7): dùng được, không cần ghi lý do; hiệu ứng lặp, sống lâu: như dòng trên | mất procedural (6.5.2 ngoại lệ) |
 | Lights | không dùng | 6.6.5 |
 
 ### 7.3 Renderer, sorting
@@ -869,6 +914,8 @@ Timing:
 
 - [ ] Có chuẩn bị (hoặc animation lo), bùng, tan; đỉnh ở frame va chạm (3.1)
 - [ ] Ease-out, không tuyến tính; hạt nhanh có nhoè (3.2)
+- [ ] Hiệu ứng va chạm: tia, mảnh vỡ bắn mạnh rồi hãm bằng Limit Velocity; các lớp so le theo vai; không lớp nào đứng im giữa
+  đời (3.7)
 - [ ] Tắt đúng lúc; không lưu lâu (3.1.3)
 - [ ] Chạy đúng loại giờ; x2, x3, pause không cắt, không chạy lố (3.4)
 
@@ -907,7 +954,7 @@ Tool quét tĩnh sẽ kiểm các mục có "tĩnh"; phần "trên máy" kiểm 
 | V-6 | Material: số ≤ trần cấp; không material thiếu; không renderer không material | tĩnh | lỗi |
 | V-7 | Shader trong danh sách của game; không GrabPass / Opaque Texture ở hiệu ứng dùng cho tier Thấp | tĩnh | lỗi |
 | V-8 | Không Lights module, không Light component | tĩnh | lỗi |
-| V-9 | Module làm mất procedural (6.5.2) chỉ khi brief ghi lý do | tĩnh | cảnh báo |
+| V-9 | Module làm mất procedural (6.5.2) chỉ khi brief ghi lý do; trừ Limit Velocity ở burst ngắn (6.5.2 ngoại lệ, 3.7) | tĩnh | cảnh báo |
 | V-10 | Root có Stop Action Callback; hiệu ứng lặp có người dừng | tĩnh + chạy thử | lỗi |
 | V-11 | `Culling Mode` không Always Simulate (trừ UI) | tĩnh | cảnh báo |
 | V-12 | Prewarm tắt (trừ Ambient trong scene) | tĩnh | cảnh báo |

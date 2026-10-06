@@ -25,8 +25,8 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 2. Đọc từ đầu tới hết mục 0: phiên bản, cách hiểu các con số (mặc định, *(đề xuất)*, *(đo)*), bảng "Bạn là / Đọc trước",
    bảy nguyên tắc gốc.
 3. Grep `^#{2,3} ` trong file để lấy danh sách mục kèm số dòng. Chọn **mọi** mục dính tới việc, không chỉ mục trùng tên
-   việc: một hiệu ứng trúng đòn dính cấp (2.1), yếu tố chính / phụ (2.2), timing (3.1), giờ game (3.4), texture (4), màu
-   (5), trần theo cấp (6.2), prefab và ParticleSystem (7.1–7.3), tên (8.2), checklist (9.3). Đọc các mục đó bằng Read với
+   việc: một hiệu ứng trúng đòn dính cấp (2.1), yếu tố chính / phụ (2.2), timing (3.1), giờ game (3.4), motion của hạt
+   cho hiệu ứng va chạm (3.7), texture (4), màu (5), trần theo cấp (6.2), prefab và ParticleSystem (7.1–7.3), tên (8.2), checklist (9.3). Đọc các mục đó bằng Read với
    offset và limit.
 4. Gặp dẫn chéo ("theo 6.2", "mục 3.4") mà mục đó ảnh hưởng tới việc đang làm thì đọc luôn.
 5. Việc lớn (duyệt cả bộ hiệu ứng của một game, đưa module vào game, đặt ngân sách cả game) thì đọc hết file.
@@ -56,6 +56,13 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 - Code: mỗi hiệu ứng là một prefab có `FXEffect` trên root; phát bằng bật object hoặc `Play()`, pool thu lại khi `Finished`,
   không hẹn giờ tắt (quy chuẩn 6.8, 7.8; mẫu `ObjectPool` ở `GameVFX_ThuVien.md` mục 2). Game có sẵn đường spawn riêng thì
   nối vào đường đó, không viết đường thứ hai.
+- Hiệu ứng va chạm (trúng đòn, nổ, va đập): dựng motion theo 3.7 (tia, mảnh vỡ: tốc độ đầu lớn + Limit Velocity), không tự chế
+  bằng `Speed Modifier`. Loại khác (đạn bay, vùng, buff, lặp, môi trường) chỉ lấy từng cách làm của 3.7 khi hợp, không áp cả mục.
+- Shader của pack hay thư viện: đọc source shader trước khi đoán nghĩa một property. Tên property không nói nó tính thế nào.
+- Đổi hướng lớn (đổi shader, dựng lại cả hiệu ứng): làm prefab **mới** (`_v2`), không ghi đè tại chỗ, không xoá asset của bản
+  cũ cho tới khi user chốt bỏ. User có thể muốn lấy lại bản cũ.
+- Biến thể (đổi màu, đổi cỡ) hoặc làm tiếp trên bản user đã sửa tay: **chép** prefab và material rồi chỉ ghi đè đúng phần cần
+  đổi. Không dựng lại từ đầu: dựng lại là xoá mất chỉnh tay của user.
 - Áp đúng luật đã đọc, kèm số mục ("theo 6.2", "gate V-3") để user dò lại được. Số ghi *(đề xuất)* thì nói là đề xuất.
 - Việc dính câu hỏi còn mở (12.2): nêu các lựa chọn, để user chốt.
 - Muốn làm khác quy chuẩn: nói lệch ở mục nào và vì sao, để user quyết. Không lặng lẽ làm khác. Thấy quy chuẩn tự mâu thuẫn
@@ -83,8 +90,50 @@ node <skill>/scripts/tex_report.cjs <thư mục kết quả>
   cả sheet chỉ chọn hình tĩnh) ở game không dùng frame-by-frame (4.7). Báo là ứng viên kèm đường dẫn prefab, không phải kết
   luận.
 
-## 5. Trước khi trả lời xong
+## 5. Kiểm bằng mắt
+
+Script quét (mục 4) không thấy được hiệu ứng trông ra sao. Làm xong hay sửa xong một hiệu ứng thì render ra ảnh rồi xem.
+
+- Cách render trong Unity Editor: mở một scene trống **additive** (không đụng scene user đang mở), instantiate prefab,
+  `ParticleSystem.Simulate(t, true, true)` trên root cho từng mốc `t`, camera render vào RenderTexture, ghi PNG, đóng scene
+  không lưu.
+- Bảng khung theo thời gian: 5–12 mốc phủ đủ chuẩn bị, bùng, tan (3.1), camera đúng góc gameplay của game.
+- Hai nền: tối nhất và sáng nhất của game (5.5.1). Additive mất trên nền sáng.
+- Bản tắt yếu tố phụ `_Sec` (2.2, 6.4): vẫn phải đọc ra hiệu ứng.
+- Ảnh đen trắng của pha đỉnh và pha tan (2.3.7).
+- Màu hay độ sáng sai: **render từng lớp riêng** trước khi chỉnh số. Nhiều lớp additive chồng nhau làm lệch màu ở ảnh tổng,
+  nhìn ảnh tổng không biết lớp nào gây ra; tách ra thường thấy ngay.
+- Xem prefab user (hay người khác) đã sửa tay: in **mọi** module đang bật của từng system (hoặc so YAML với bản trước), không in
+  theo danh sách tự chọn. Thiếu một module là đọc sai ý người sửa.
+
+## 6. Video tham khảo
+
+- User đưa video ref: lấy khung bằng skill `watch` nếu có, hoặc ffmpeg. Hiệu ứng chỉ vài giây thì lấy dày, ghép thành một bảng:
+
+  ```bash
+  ffmpeg -i ref.mp4 -vf "fps=12,scale=300:-1,tile=6x7" sheet.png
+  ```
+
+  Vài khung rải đều (mặc định của các tool lấy khung) không đủ đọc motion.
+- Ghi nhịp đọc được thành timing (chuẩn bị, bùng, tan, mảnh vỡ, khói) và các lớp trước khi dựng. Video có ảnh tham khảo khác
+  màu, khác hình thì ghi rõ lấy gì từ video (nhịp, motion) và gì từ ảnh (màu, hình).
+
+## 7. Bẫy đã gặp
+
+- `Frame over Time` của Texture Sheet Animation trải 0–1 trên cả sheet, không phải số thứ tự khung. Lấy khung `i` của sheet `n`
+  khung bằng hằng số `(i + 0.5) / n`.
+- `Max Particle Size` cắt cụt hạt to theo tỉ lệ màn hình, không thu nhỏ. Hạt chính bị cắt thì giảm `Start Size` thật, đừng hạ
+  trần này cho nó.
+- `useAutoRandomSeed` và `randomSeed` nằm trên `ParticleSystem`, không trên `main`.
+- Module của `ParticleSystem` là struct: `var m = ps.main; m.startSize = …;`. Gán thẳng `ps.main.startSize = …` không biên
+  dịch.
+- Shader có Color Ramp tra theo độ sáng: kiểm xem độ sáng đó đã nhân alpha chưa (vd AllIn1Vfx: luminance × alpha rồi cộng
+  `_ColorRampLuminosity`). Hình alpha thấp thì không bao giờ chạm đầu sáng của ramp; nhiều lớp additive chồng nhau thì vượt
+  qua cả dải màu thành trắng.
+
+## 8. Trước khi trả lời xong
 
 - Soát phần khớp với việc trong checklist duyệt (9.3), gate (10) và Định nghĩa "xong" (11). Thiếu gì thì bổ sung vào câu
   trả lời.
+- Đã kiểm bằng mắt theo mục 5; mục nào chưa làm được (Unity không mở, không render được) thì nói rõ.
 - Cuối câu trả lời ghi một dòng: phiên bản quy chuẩn, các mục đã áp, file riêng của game đã đọc / sửa.
