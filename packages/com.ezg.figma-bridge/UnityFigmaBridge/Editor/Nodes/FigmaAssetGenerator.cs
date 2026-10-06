@@ -209,7 +209,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                 var renderImage = nodeGameObject.AddComponent<Image>();
                 renderImage.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(figmaNode.id,figmaImportProcessData.ServerRenderNodes));
                 renderImage.type = SlicedIfBordered(renderImage.sprite);
-                
+                if (SolidTint.TryGetEntryTint(figmaNode.id, figmaImportProcessData.ServerRenderNodes, out var tint)) renderImage.color = tint;
+
                 // This could be a button, so check for prototype functionality
                 PrototypeFlowManager.ApplyPrototypeFunctionalityToNode(figmaNode, nodeGameObject, figmaImportProcessData);
 

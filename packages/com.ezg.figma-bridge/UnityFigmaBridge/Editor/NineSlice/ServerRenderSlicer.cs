@@ -397,5 +397,16 @@ namespace UnityFigmaBridge.Editor.NineSlice
             importer.userData = userData;
             importer.SaveAndReimport();
         }
+
+        internal static void RestampMarker(string path, byte[] previousBytes, byte[] currentBytes)
+        {
+            if (previousBytes == null || currentBytes == null) return;
+            if (AssetImporter.GetAtPath(path) is not TextureImporter importer) return;
+            if (importer.userData != SlicedMarker + Md5(previousBytes)) return;
+            var next = SlicedMarker + Md5(currentBytes);
+            if (next == importer.userData) return;
+            importer.userData = next;
+            importer.SaveAndReimport();
+        }
     }
 }

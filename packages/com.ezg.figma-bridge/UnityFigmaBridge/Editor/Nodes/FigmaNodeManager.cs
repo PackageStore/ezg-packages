@@ -247,7 +247,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                 if (shapeSprite != null)
                 {
                     image.sprite = shapeSprite;
-                    image.color = Color.white;
+                    image.color = SolidTint.TryGetShapeTint(node, out var tint) ? tint : Color.white;
                     image.type = shapeSprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
                     image.pixelsPerUnitMultiplier = 1f;
                     image.preserveAspect = false;

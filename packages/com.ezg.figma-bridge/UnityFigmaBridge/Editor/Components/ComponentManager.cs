@@ -311,17 +311,39 @@ namespace UnityFigmaBridge.Editor.Components
         /// <summary>
         ///     An instance that restyles a server-rendered node has a render of its own, keyed by the
         ///     instance-side id (see <see cref="FigmaDataUtils.FindAllServerRenderNodesInFile"/>). Without
-        ///     one the node keeps the component's sprite.
+        ///     one the node keeps the component's sprite. The colour follows the render: an own render
+        ///     gets its tint or white, a kept render gets the instance's own tint.
         /// </summary>
         private static void ApplyInstanceRender(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
         {
             var renderNodes = figmaImportProcessData.ServerRenderNodes;
-            if (!renderNodes.Exists(entry => entry.SourceNode.id == node.id)) return;
+            var ownRender = renderNodes.Exists(entry => entry.SourceNode.id == node.id);
             var image = nodeObject.GetComponent<Image>();
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(node.id, renderNodes));
-            if (image == null || sprite == null) return;
-            image.sprite = sprite;
-            image.type = FigmaAssetGenerator.SlicedIfBordered(sprite);
+            if (ownRender)
+            {
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(node.id, renderNodes));
+                if (image == null || sprite == null) return;
+                image.sprite = sprite;
+                image.type = FigmaAssetGenerator.SlicedIfBordered(sprite);
+                image.color = SolidTint.TryGetEntryTint(node.id, renderNodes, out var ownTint) ? ownTint : UnityEngine.Color.white;
+                return;
+            }
+
+            if (image == null) return;
+            var componentSideId = ComponentSideNodeId(nodeObject);
+            if (componentSideId == null) return;
+            if (SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)
+                && SolidTint.TryGetRenderTint(node, out var instanceTint))
+                image.color = instanceTint;
+        }
+
+        private static string ComponentSideNodeId(GameObject nodeObject)
+        {
+            var source = PrefabUtility.GetCorrespondingObjectFromSource(nodeObject);
+            if (source == null) return null;
+            var marker = source.GetComponent<FigmaNodeObject>();
+            if (marker == null || string.IsNullOrEmpty(marker.NodeId)) return null;
+            return marker.NodeId;
         }
 
         /// <summary>

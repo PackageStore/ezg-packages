@@ -809,12 +809,13 @@ namespace UnityFigmaBridge.Editor
 
             // A cached render was sliced when it was downloaded and keeps that importer border
             var downloadedRenderIds = new HashSet<string>(renderDownloads.Where(item => item.Succeeded).Select(item => item.NodeId));
+            var processedRenderNodes = offline ? serverRenderNodes : serverRenderNodes.Where(n => downloadedRenderIds.Contains(n.SourceNode.id)).ToList();
+            FigmaImportTimer.Begin("Whiten tinted renders");
+            ServerRenderTint.Run(processedRenderNodes, serverRenderNodes);
             if (s_UnityFigmaBridgeSettings.SliceServerRenders)
             {
                 FigmaImportTimer.Begin("Slice server renders");
-                ServerRenderSlicer.Run(offline
-                    ? serverRenderNodes
-                    : serverRenderNodes.Where(n => downloadedRenderIds.Contains(n.SourceNode.id)).ToList(), serverRenderScale);
+                ServerRenderSlicer.Run(processedRenderNodes, serverRenderScale);
             }
             serverRenderCache?.Record(downloadedRenderIds);
 

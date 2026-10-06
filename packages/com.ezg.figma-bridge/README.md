@@ -11,7 +11,7 @@ Feature Hub (**Ezg > Feature Hub**, UPM Packages tab), or add it directly:
 "scopedRegistries": [
   { "name": "Easygoing code base", "url": "https://upm-registry-worker.developer-a1f.workers.dev", "scopes": ["com.ezg"] }
 ],
-"dependencies": { "com.ezg.figma-bridge": "0.8.0" }
+"dependencies": { "com.ezg.figma-bridge": "0.8.5" }
 ```
 
 Requires Unity 6000.3 or newer. Dependencies (`com.unity.ugui`, `com.unity.nuget.newtonsoft-json`)
@@ -72,6 +72,18 @@ These are on by default and shape the output:
   star is server-rendered once and imported as a sprite sized to its render bounds. A frame with
   children that carries one of those keeps a flat coloured Image and is listed in
   `FigmaImportContext.ShapeOnlyNodes` for a post-processor.
+- **Tint.** A layer that paints in one RGB imports as a white sprite and its colour goes in
+  `Image.color`, so recolouring it in Figma or by variant changes a colour override, not a sprite.
+  A server-rendered layer is **not** tinted when anything in it has a gradient, an image, pattern,
+  video or shader paint, more than one RGB across its paints, any visible effect, a mask, a
+  non-normal node or paint blend mode, or text with per-range styles; nor when it has no visible
+  paint at all, or the node is also exported or is a pattern source. A frame shape (a frame with
+  children whose own fills and stroke the bridge draws) is **not** tinted when the fills and stroke
+  it draws are not one SOLID RGB (a gradient, two colours), or when it has a visible inner shadow
+  that is not black or whose blend mode is not normal: a shape with a coloured inner shadow keeps
+  a baked sprite. For a frame shape, children, masks, node and paint blend modes, shader fills, an
+  `OUTSIDE` stroke and other effects (drop shadow included) are not read. A layer that is not
+  tinted keeps its coloured sprite.
 - **Pattern fills.** A Figma *pattern* paint (a node repeated across a shape) has no bitmap of
   its own; the bridge server-renders the source node once into `ServerRenderedImages/` and draws
   the fill as a tiled `Image` at design tile size. Costs one render request per distinct source.

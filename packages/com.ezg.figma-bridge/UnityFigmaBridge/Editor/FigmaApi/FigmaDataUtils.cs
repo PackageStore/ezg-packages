@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityFigmaBridge.Editor.Nodes;
 
 namespace UnityFigmaBridge.Editor.FigmaApi
 {
@@ -564,7 +565,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (!node.visible) return;
             if (GetNodeSubstitutionStatus(node, recursiveNodeDepth))
             {
-                var needsOwnRender = SubtreeContainsAny(node, restyledIds) || IsStretchedUnsliceable(node, nodeLookup);
+                var needsOwnRender = NeedsOwnRender(node, restyledIds, nodeLookup);
                 if (needsOwnRender && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
                     substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = node });
                 return;
@@ -596,6 +597,183 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             var isRectangleLike = node.type is NodeType.RECTANGLE or NodeType.FRAME or NodeType.COMPONENT or NodeType.INSTANCE;
             return hasBitmapFill || !isRectangleLike;
         }
+
+        /// <summary>
+        ///     Whether an instance sublayer drawn as one render needs a render of its own. The component's
+        ///     node is compared with the instance's, so a recolour through a variable mode (no override
+        ///     entry) is seen. A pair that both pass the render-tint predicate leaves RGB out of the
+        ///     compare and drops the override rule: Image.color covers the colour.
+        /// </summary>
+        private static bool NeedsOwnRender(Node node, HashSet<string> restyledIds, Dictionary<string, Node> nodeLookup)
+        {
+            if (IsStretchedUnsliceable(node, nodeLookup)) return true;
+            var overridden = SubtreeContainsAny(node, restyledIds);
+            if (!TryFindComponentNode(node, nodeLookup, out var componentNode)) return overridden;
+            var bothTint = BothRootsTint(node, componentNode);
+            return (overridden && !bothTint) || NodesRenderDifferently(node, componentNode, bothTint, true);
+        }
+
+        private static bool TryFindComponentNode(Node node, Dictionary<string, Node> nodeLookup, out Node componentNode)
+        {
+            componentNode = null;
+            var separator = node.id.LastIndexOf(';');
+            if (separator < 0) return false;
+            return nodeLookup.TryGetValue(node.id.Substring(separator + 1), out componentNode);
+        }
+
+        private static bool BothRootsTint(Node instanceNode, Node componentNode) =>
+            SolidTint.TryGetRenderTint(instanceNode, out _) && SolidTint.TryGetRenderTint(componentNode, out _);
+
+        private static bool NodesRenderDifferently(Node a, Node b, bool ignoreRgb, bool isRoot)
+        {
+            if (a.visible != b.visible) return true;
+            if (!a.visible) return false;
+            if (a.type != b.type || FloatsDiffer(a.opacity, b.opacity) || a.blendMode != b.blendMode || a.isMask != b.isMask) return true;
+            var aChildren = a.children ?? System.Array.Empty<Node>();
+            var bChildren = b.children ?? System.Array.Empty<Node>();
+            if (aChildren.Length != bChildren.Length) return true;
+            if (a.type == NodeType.TEXT && !string.Equals(a.characters, b.characters, StringComparison.Ordinal)) return true;
+            if (PaintsDiffer(a.fills, b.fills, ignoreRgb) || PaintsDiffer(a.strokes, b.strokes, ignoreRgb)) return true;
+            if (FloatsDiffer(a.strokeWeight, b.strokeWeight) || a.strokeAlign != b.strokeAlign || FloatsDiffer(a.cornerRadius, b.cornerRadius)) return true;
+            if (!FloatArraysEqual(a.rectangleCornerRadii, b.rectangleCornerRadii)) return true;
+            if (ArcDataDiffers(a.arcData, b.arcData) || EffectsDiffer(a.effects, b.effects)) return true;
+            if (!isRoot)
+            {
+                if ((a.size == null) != (b.size == null)) return true;
+                if (a.size != null && (Mathf.Abs(a.size.x - b.size.x) > 0.5f || Mathf.Abs(a.size.y - b.size.y) > 0.5f)) return true;
+            }
+            for (var i = 0; i < aChildren.Length; i++)
+                if (NodesRenderDifferently(aChildren[i], bChildren[i], ignoreRgb, false)) return true;
+            return false;
+        }
+
+        private static bool PaintsDiffer(Paint[] a, Paint[] b, bool ignoreRgb)
+        {
+            var aLength = a?.Length ?? 0;
+            if (aLength != (b?.Length ?? 0)) return true;
+            for (var i = 0; i < aLength; i++)
+            {
+                var first = a[i];
+                var second = b[i];
+                if (first == null || second == null)
+                {
+                    if (first != second) return true;
+                    continue;
+                }
+                if (first.visible != second.visible) return true;
+                if (!first.visible) continue;
+                if (first.type != second.type || FloatsDiffer(first.opacity, second.opacity) ||
+                    first.blendMode != second.blendMode || first.scaleMode != second.scaleMode) return true;
+
+                var firstColor = first.color;
+                var secondColor = second.color;
+                if (first.type == Paint.PaintType.SOLID)
+                {
+                    firstColor ??= new Color { r = 1, g = 1, b = 1, a = 1 };
+                    secondColor ??= new Color { r = 1, g = 1, b = 1, a = 1 };
+                }
+                if (ColorsDiffer(firstColor, secondColor, ignoreRgb)) return true;
+
+                var firstStops = first.gradientStops ?? System.Array.Empty<ColorStop>();
+                var secondStops = second.gradientStops ?? System.Array.Empty<ColorStop>();
+                if (firstStops.Length != secondStops.Length) return true;
+                for (var s = 0; s < firstStops.Length; s++)
+                {
+                    if (firstStops[s] == null || secondStops[s] == null)
+                    {
+                        if (firstStops[s] != secondStops[s]) return true;
+                        continue;
+                    }
+                    if (FloatsDiffer(firstStops[s].position, secondStops[s].position) ||
+                        ColorsDiffer(firstStops[s].color, secondStops[s].color, ignoreRgb)) return true;
+                }
+
+                var firstHandles = first.gradientHandlePositions ?? System.Array.Empty<Vector>();
+                var secondHandles = second.gradientHandlePositions ?? System.Array.Empty<Vector>();
+                if (firstHandles.Length != secondHandles.Length) return true;
+                for (var h = 0; h < firstHandles.Length; h++)
+                {
+                    if (firstHandles[h] == null || secondHandles[h] == null)
+                    {
+                        if (firstHandles[h] != secondHandles[h]) return true;
+                        continue;
+                    }
+                    if (FloatsDiffer(firstHandles[h].x, secondHandles[h].x) || FloatsDiffer(firstHandles[h].y, secondHandles[h].y)) return true;
+                }
+
+                if (MatricesDiffer(first.imageTransform, second.imageTransform)) return true;
+                if (FloatsDiffer(first.scalingFactor, second.scalingFactor) || FloatsDiffer(first.rotation, second.rotation)) return true;
+                if (!string.Equals(first.imageRef, second.imageRef, StringComparison.Ordinal) ||
+                    !string.Equals(first.gifRef, second.gifRef, StringComparison.Ordinal) ||
+                    !string.Equals(first.sourceNodeId, second.sourceNodeId, StringComparison.Ordinal) ||
+                    !string.Equals(first.tileType, second.tileType, StringComparison.Ordinal) ||
+                    !string.Equals(first.customEffectId, second.customEffectId, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+
+        private static bool EffectsDiffer(Effect[] a, Effect[] b)
+        {
+            var aLength = a?.Length ?? 0;
+            if (aLength != (b?.Length ?? 0)) return true;
+            for (var i = 0; i < aLength; i++)
+            {
+                var first = a[i];
+                var second = b[i];
+                if (first == null || second == null)
+                {
+                    if (first != second) return true;
+                    continue;
+                }
+                if (first.visible != second.visible) return true;
+                if (!first.visible) continue;
+                if (first.type != second.type || ColorsDiffer(first.color, second.color, false) ||
+                    FloatsDiffer(first.radius, second.radius) || FloatsDiffer(first.spread, second.spread) ||
+                    first.blendMode != second.blendMode) return true;
+                if ((first.offset == null) != (second.offset == null)) return true;
+                if (first.offset != null &&
+                    (FloatsDiffer(first.offset.x, second.offset.x) || FloatsDiffer(first.offset.y, second.offset.y))) return true;
+            }
+            return false;
+        }
+
+        private static bool ArcDataDiffers(ArcData a, ArcData b)
+        {
+            if (a == null || b == null) return a != b;
+            return FloatsDiffer(a.startingAngle, b.startingAngle) || FloatsDiffer(a.endingAngle, b.endingAngle) ||
+                   FloatsDiffer(a.innerRadius, b.innerRadius);
+        }
+
+        /// <summary>Paint.imageTransform: both null equal, one null differs, else shape then element-wise.</summary>
+        private static bool MatricesDiffer(float[,] a, float[,] b)
+        {
+            if (a == null || b == null) return a != b;
+            if (a.GetLength(0) != b.GetLength(0) || a.GetLength(1) != b.GetLength(1)) return true;
+            for (var row = 0; row < a.GetLength(0); row++)
+                for (var column = 0; column < a.GetLength(1); column++)
+                    if (FloatsDiffer(a[row, column], b[row, column])) return true;
+            return false;
+        }
+
+        private static bool ColorsDiffer(Color a, Color b, bool ignoreRgb)
+        {
+            if (a == null || b == null) return a != b;
+            if (ToByte(a.a) != ToByte(b.a)) return true;
+            return !ignoreRgb && (ToByte(a.r) != ToByte(b.r) || ToByte(a.g) != ToByte(b.g) || ToByte(a.b) != ToByte(b.b));
+        }
+
+        private static bool FloatArraysEqual(float[] a, float[] b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Length != b.Length) return false;
+            for (var i = 0; i < a.Length; i++)
+                if (FloatsDiffer(a[i], b[i])) return false;
+            return true;
+        }
+
+        private static bool FloatsDiffer(float a, float b) => Mathf.Abs(a - b) > 1e-4f;
+
+        private static int ToByte(float channel) => Mathf.RoundToInt(channel * 255f);
 
         private static bool SubtreeContainsAny(Node node, HashSet<string> ids)
         {

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.8.5] - 2026-10-06
+### Fixed
+- **Variable-mode variants keep their colour on server-rendered sublayers.** Figma resolves the
+  colour into the document JSON but lists no override on the instance, and `RestyledNodeIds` read
+  only `Node.overrides`, so no instance render was queued and every variant kept the master's
+  colour. Restyle is now detected by comparing the instance subtree with its component subtree.
+### Changed
+- **Solid single-colour layers import as a white sprite plus `Image.color`.** A server-rendered
+  layer is drawn white when every visible paint in it (fills and strokes, alpha may vary) is SOLID
+  of one RGB, with at least one such paint, no visible effect, no mask, only `NORMAL` or
+  `PASS_THROUGH` blend modes and no text with per-range styles. Only a substitution render tints:
+  a node that is also exported or is a pattern source keeps its coloured render. A frame shape
+  sprite (the bridge's own bake) is drawn white when the fills and stroke it draws are SOLID of one
+  RGB and every visible inner shadow is black with a `NORMAL` or `PASS_THROUGH` blend; its
+  children, masks, node and paint blend modes and other effects are not read. A shape with a
+  coloured inner shadow keeps a baked, coloured sprite. `Image.color` carries the RGB at alpha 1;
+  alpha stays in the sprite and node opacity stays on the CanvasGroup. Component variants and
+  instances that only change that colour share one sprite and carry one `m_Color` override.
+- **A render whitening pass runs on the server renders.** Every texel with alpha above 0 gets RGB
+  255; alpha is kept. It writes only when a texel differs, so a re-import is a no-op, and it works
+  offline on renders downloaded by 0.8.4. A render the slicer had already compacted keeps its
+  slicer marker, restamped to the new bytes.
+- **Instance restyle is detected by a subtree compare.** The instance subtree is compared with the
+  component subtree found by the id suffix after the last `;`, leaving RGB out when both sides
+  tint. The old `overrides` rule still queues an own render unless both roots tint, so changes the
+  compare cannot see (image transforms, stroke dashes) keep one. An instance that keeps the
+  component's render gets its own render tint in `Image.color`; an instance with its own render
+  gets that render's tint, or white when it does not tint. A component node missing from the file
+  keeps the old `overrides` rule alone.
+- **`ServerRenderCache.FormatVersion` is 3.** Renders cached by 0.8.4 are fetched again once
+  online (offline they are whitened). `Shapes/Shape-*.png` names change for every tintable shape,
+  because the file name is a content hash; the old files are orphans.
+
 ## [0.8.4] - 2026-10-06
 ### Fixed
 - **A "Use as mask" instance no longer deletes the layers it masks.** The siblings above a mask layer

@@ -76,7 +76,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             if (stroke != null && node.strokeAlign != Node.StrokeAlign.INSIDE)
                 Debug.LogWarning($"[FrameShapeSprite] '{node.name}' has a {node.strokeAlign} stroke: only the part inside its box is drawn.");
 
-            var pixels = Draw(node, width, height, radii, stroke, strokeWidth);
+            var white = SolidTint.TryGetShapeTint(node, out _);
+            var pixels = Draw(node, width, height, radii, stroke, strokeWidth, white);
 
             // One guard texel past the widest corner or stroke, for the anti-aliased edge
             var left = Mathf.CeilToInt(Mathf.Max(radii.x, radii.w, strokeWidth)) + 1;
@@ -153,7 +154,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         ///     Fills are composited bottom to top in straight alpha, the stroke over them, and the result
         ///     is clipped to the rounded box. Texture rows run bottom up; Figma space runs top down.
         /// </summary>
-        private static Color32[] Draw(Node node, int width, int height, Vector4 radii, Paint stroke, float strokeWidth)
+        private static Color32[] Draw(Node node, int width, int height, Vector4 radii, Paint stroke, float strokeWidth, bool white)
         {
             var pixels = new Color32[width * height];
             var size = new Vector2(width, height);
@@ -173,7 +174,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                 foreach (var fill in node.fills)
                 {
                     if (fill == null || !fill.visible || FigmaDataUtils.IsShaderPaint(fill)) continue;
-                    colour = Over(PaintColour(fill, normalised), colour);
+                    var fillColour = PaintColour(fill, normalised);
+                    // A white bake is tinted by Image.color
+                    if (white) fillColour = new Color(1f, 1f, 1f, fillColour.a);
+                    colour = Over(fillColour, colour);
                 }
 
                 foreach (var layer in innerShadows)
@@ -190,6 +194,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                         ? Coverage(figmaPoint - size * 0.5f, innerSize * 0.5f, innerRadii)
                         : 0f;
                     var strokeColour = PaintColour(stroke, normalised);
+                    if (white) strokeColour = new Color(1f, 1f, 1f, strokeColour.a);
                     // Share of the covered area that is stroke; the coverage itself is applied once, below
                     strokeColour.a *= coverage > 0f ? Mathf.Clamp01((coverage - inner) / coverage) : 0f;
                     colour = Over(strokeColour, colour);
