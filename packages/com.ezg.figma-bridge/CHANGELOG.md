@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.4] - 2026-10-06
+### Fixed
+- **A "Use as mask" instance no longer deletes the layers it masks.** The siblings above a mask layer
+  are built under it. A mask that was an INSTANCE was a component placeholder, and the placeholder is
+  destroyed when the component prefab replaces it, so every masked layer was lost with it (a popup
+  background image, its gradient and bottom bar disappeared). A mask instance is now built like a
+  vector mask: one server render that carries the `Mask`, with the masked layers under it. The render
+  keeps the mask's alpha, and the mask's own art is not drawn, as in Figma
+  (`FigmaDataUtils.IsRenderedMask`). Masks that are frames or groups are unchanged.
+
 ## [0.8.3] - 2026-10-06
 ### Fixed
 - **Bridge image fills no longer fail with 'Figma file disconnected'.** One images.get request

@@ -188,8 +188,10 @@ namespace UnityFigmaBridge.Editor.Nodes
             
             // For component instances, we want to check if there is an existing definition
             // If so, we wont create the full node, but mark it with a "component node marker" component
-            // At a later stage, we'll replace with an instantiated prefab and apply properties
-            if (figmaNode.type == NodeType.INSTANCE)
+            // At a later stage, we'll replace with an instantiated prefab and apply properties.
+            // A rendered mask instance stays its own render (FigmaDataUtils.IsRenderedMask).
+            if (figmaNode.type == NodeType.INSTANCE &&
+                !(matchingServerRenderEntry != null && FigmaDataUtils.IsRenderedMask(figmaNode)))
             {
                 if (!figmaImportProcessData.ComponentData.MissingComponentDefinitionsList.Contains(figmaNode.componentId))
                 {

@@ -460,6 +460,15 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             if (!figmaNode.visible || !InScope(figmaNode, scope)) return;
 
+            // A "Use as mask" instance is one render, like a vector mask: see IsRenderedMask
+            if (IsRenderedMask(figmaNode))
+            {
+                if ((isSelectedPage || withinComponentDefinition) &&
+                    !substitutionNodeList.Exists(entry => entry.SourceNode.id == figmaNode.id))
+                    substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = figmaNode });
+                return;
+            }
+
             // Instances reuse the prefab and renders of their component. Only the sublayers they
             // restyle, or stretch past what a sliced render can follow, need a render of their own.
             if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId))
@@ -511,6 +520,14 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     renderTopLevelExports, scope, nodeLookup);
             
         }
+
+        /// <summary>
+        ///     A "Use as mask" instance is built as one server render that carries the Mask, not as a
+        ///     prefab instance. The masked siblings are parented under the mask node, and an instance
+        ///     placeholder is destroyed when its prefab replaces it, taking those siblings with it.
+        ///     Figma never draws a mask layer either, only its alpha, which the render keeps.
+        /// </summary>
+        public static bool IsRenderedMask(Node node) => node.isMask && node.type == NodeType.INSTANCE;
 
         /// <summary>Pages always pass: a scope holds the nodes below them.</summary>
         private static bool InScope(Node node, FigmaImportScope scope) =>
