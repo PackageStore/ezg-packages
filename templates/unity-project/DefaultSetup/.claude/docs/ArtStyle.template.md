@@ -21,7 +21,7 @@ Skill cần một chỗ chứa mới → thêm mục/slot TRỐNG vào khung nà
 Nguồn chuẩn **duy nhất** về visual của game: palette, kit UI, bố cục, chữ, icon/hero art, motion, các
 hướng đã bị loại. Mọi skill/agent ra quyết định hình ảnh (`refactor-ui`, `create-ui` / `/new-ui`,
 `/ui-mockup` + `mockup-drafter`, `ui-visual-reviewer`, `gen-icon`, `merge-psd-ui`, `psd-to-feature`,
-`figma-to-unity`…) đọc file này **trước** khi quyết định — không suy style từ tên game hay tên file.
+`figma-to-unity`, `create-vfx`, `game-vfx`…) đọc file này **trước** khi quyết định — không suy style từ tên game hay tên file.
 
 **Thứ tự ưu tiên khi mâu thuẫn:** lời dev trong task → art của hoạ sĩ giao cho đúng màn đó (PSD/Figma)
 → file này → màn mẫu đã duyệt (§8) → suy luận của agent (chỉ cho chỗ file này chưa nói, và phải ghi lại).
@@ -130,6 +130,27 @@ khi bản dịch dài.
 - **Ảnh tham chiếu phải đính kèm khi sinh:** <path 2–3 icon chuẩn>
 - **Kỹ thuật:** <kích thước, nền tách, compression, 1 icon/ảnh…>
 
+### 6b. VFX
+
+Style hiệu ứng trong thế giới game (trúng đòn, nổ, đạn, vùng, buff…). Phần kỹ thuật (cấp, ngân sách mobile, pool,
+frame-by-frame hay không) là của quy chuẩn `game-vfx` + brief VFX của game; mục này chỉ giữ phần **nhìn**.
+Skill `create-vfx` đọc khối `vfx-style` bằng script, nên giữ đúng cú pháp từng dòng.
+
+- **Nhận diện:** <họ hình: flipbook phát sáng vẽ tay / hạt + shader / pixel…; có viền không, độ bão hoà, glow>
+- **Từ vựng hình:** <lõi, tia, vòng, vỏ, lưỡi liềm, hạt, khói… dùng gì, cái gì sáng nhất>
+- **Màu theo nguyên tố:** <nguyên tố → dải màu; nguyên tố mặc định khi không nói; tương phản với nền gameplay>
+- **Nhịp:** <đòn trúng đọc ngay khung đầu? đuôi hạt dài hay gọn? hiệu ứng lặp nhanh hay chậm>
+- **Cấm:** <hướng VFX đã bị loại — chi tiết + lý do ở §9>
+
+```vfx-style
+# default: <nguyên tố khi dev không nói, vd fire>
+# allow: <nguyên tố được dùng, cách nhau dấu phẩy; bỏ dòng = tất cả>
+# layers: <sorting layer dưới nhân vật>, <sorting layer trên nhân vật>          (bỏ dòng = FX_Ground, FX)
+# grounds: <#nền gameplay tối nhất>, <#nền gameplay sáng nhất>                  (nền duyệt hiệu ứng)
+# ramp <nguyên tố>: 0:#rrggbb 0.3:#rrggbb 0.6:#rrggbb 1:#ffffff | spark #rrggbb #rrggbb #rrggbb
+# ref <impact|muzzle|explode|cast|slash|projectile|aura>: <path sheet.png> <cột>x<hàng> @<cột>,<hàng>
+```
+
 ## 7. Motion
 
 <cảm giác chung: nảy nhẹ / mềm / nhanh gọn; easing chủ đạo; khoảnh khắc thưởng; những thứ cấm>.
@@ -190,7 +211,7 @@ Thêm dòng khi dev chê một lỗi mà checklist chưa bắt được.
 | 6 | Không có yếu tố nào trong "Từ khoá KHÔNG" và concept qua được luật concept §1? | §1 | block |
 | 7 | Không giống hướng nào ở §9 (đối chiếu cả ảnh `rejected/`)? | §9 | block |
 | 8 | Đặt cạnh ảnh §8 cùng họ: cùng một "gia đình" (kit, xử lý chữ, nhịp dọc, mật độ)? | §8 | block |
-| 9 | Art mới (hero/FX) đặt cạnh board kit + hero không lộ ra là một họ art khác? | §6 | block |
+| 9 | Art mới (hero/FX) đặt cạnh board kit + hero (FX: cạnh `ref` §6b) không lộ ra là một họ art khác? | §6, §6b | block |
 | 10 | Mọi trạng thái của màn thể hiện theo §4c? | §4c | minor |
 | 11 | Motion nằm trong khoảng §7? | §7 | minor |
 
@@ -200,7 +221,9 @@ Agent gặp file chưa điền thì **không** tự chế style từ tên game. 
 `Status: draft` và ghi trong report cuối là dev cần duyệt file này:
 1. Gom nguồn thật: art hoạ sĩ trong project (PSD/PNG ở `Visuals/`, GUI pack đang dùng), màn đã ship,
    GDD/TechSpec có nhắc màu/theme. Dựng contact sheet và **xem**.
-2. Điền §1–§6 từ nguồn đó: đo hex bằng Pillow trên sprite thật, font + cỡ đọc từ text template prefab.
+2. Điền §1–§6b từ nguồn đó: đo hex bằng Pillow trên sprite thật, font + cỡ đọc từ text template prefab.
+   VFX (§6b): xem các sheet/prefab FX đang ship, khai `ref` cho vài khung tiêu biểu, `grounds` đo trên nền gameplay;
+   game chưa có FX nào thì để khối `vfx-style` trống và hỏi dev hướng VFX khi lần đầu cần.
 3. Khai `art-style-boards` cho kit chính, chạy `art-style-board.py`.
    Màn của hoạ sĩ đang ship (art giao tận tay, chưa bị chê) → chụp vào `screens/approved/` + §8: đó là mốc
    đầu tiên. Không có thì §8 để trống — đừng lấy màn agent tự làm làm mốc.

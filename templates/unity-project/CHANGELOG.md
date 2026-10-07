@@ -4,6 +4,24 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-07
+
+**Added**
+- `DefaultSetup/.claude/skills/create-vfx/` — skill tạo VFX: flipbook phát sáng vẽ 100% bằng code (Pillow, 19 recipe ×
+  9 nguyên tố + dải màu riêng của game), QA tự động, rồi dựng prefab Unity từ spec JSON theo khuôn của quy chuẩn
+  `game-vfx` (root điều khiển → `containers` → lớp `<vai>_ab[_n][_sec]`, tên `fx_<nhóm>_<tên>`, texture
+  `FX_TX_<Tên>_<cột>x<hàng>` ASTC 4×4, material chung `_mat_ab`, `FXEffect` + stop action Callback khi project có module
+  GameVFX, không thì Disable cho pool). Kit Unity (`VfxPrefabBuilder` + asmdef `Ezg.VfxKit.Editor`) được skill cài vào
+  `<sourceRoot>/Editor/VfxKit/` khi dùng lần đầu; có `Describe`, `RenderFrames` trên nền tối / sáng của game,
+  `EnsureSortingLayers`. Cổng: game không frame-by-frame (brief 4.7) thì skill dừng.
+- `ArtStyle.template.md` §6b VFX — slot trống cho style hiệu ứng của game + khối ```` ```vfx-style ```` (`default`,
+  `allow`, `layers`, `grounds`, `ramp <nguyên tố>`, `ref <kind>`) mà `create-vfx` đọc bằng script; dòng §11 #9 chấm FX
+  cạnh `ref`.
+- `project-profile.json` / `project_profile.py`: key `vfxRoot` (mặc định `Assets/_Project/Visual/ArtAsset/Shared/VFX/Generated`).
+
+**Changed**
+- `game-vfx` SKILL.md: một dòng trỏ sang `create-vfx` khi cần flipbook mới ở game có frame-by-frame.
+
 ## 2026-10-06
 
 Project mới sinh ra không còn dấu vết của các game cũ mà template được ghép từ đó, có sẵn mọi skill AI

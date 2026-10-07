@@ -69,6 +69,8 @@ DEFAULTS = {
     "gameplayRoot": "Assets/_Project/Features",
     # where ui-kit-sync.py reads the screen template prefabs
     "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
+    # where create-vfx writes generated VFX (<root>/<fx_name>/ + <root>/_Shared/)
+    "vfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/VFX/Generated",
 
     # --- review surfaces ----------------------------------------------------
     # Filename globs that make a diff "sensitive" and auto-spawn the
@@ -167,6 +169,10 @@ class Profile:
     def ui_templates_root(self) -> str:
         return self.get("uiTemplatesRoot")
 
+    @property
+    def vfx_root(self) -> str:
+        return self.get("vfxRoot")
+
     # -- review surfaces ----------------------------------------------------
     @property
     def sensitive_globs(self) -> list:
@@ -257,6 +263,7 @@ if __name__ == "__main__":
             "featuresRoot": p.features_root,
             "gameplayRoot": p.gameplay_root,
             "uiTemplatesRoot": p.ui_templates_root,
+            "vfxRoot": p.vfx_root,
             "sensitiveGlobs": p.sensitive_globs,
             "backend": p.backend,
         }, indent=2))

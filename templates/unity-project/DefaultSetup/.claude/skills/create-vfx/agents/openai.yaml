@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create VFX"
+  short_description: "Make game VFX prefabs from code-painted flipbooks (Pillow), on the game-vfx template"
+  default_prompt: "Use $create-vfx to create a VFX prefab (impact / muzzle / explode / cast / slash / projectile / aura / zone) in this project's VFX style."

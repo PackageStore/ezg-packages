@@ -59,6 +59,8 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 - Xem thư viện trước khi làm mới: danh mục ở `GameVFX_ThuVien.md` mục 3 (nhóm, cấp, dùng cho 2D / 3D, ảnh). Có hiệu ứng
   gần đúng thì dùng thẳng, hoặc chép prefab sang folder VFX của game rồi sửa (tên theo 8.2, material mới nếu đổi màu). Không
   sửa prefab, material, texture trong folder module.
+- Cần flipbook phát sáng mới (trúng đòn, nổ, cast, vùng…) ở game có dùng frame-by-frame: skill `create-vfx` vẽ sheet bằng
+  code và dựng prefab theo khuôn 7.1 / tên 8.2, 8.4; luật vẫn theo quy chuẩn này.
 - Project chỉ có gói lõi (có `Runtime/FXEffect.cs` nhưng không có `Library/World`, `Library/UI`): prefab của thư viện nằm ở
   repo phát triển module, không có trên Feature Hub vì chứa file của pack mua. Nói với user, không tự tìm nguồn khác.
 - Game không dùng frame-by-frame (brief của game, 9.2; hỏi user nếu chưa ghi): không làm Texture Sheet Animation chạy khung,

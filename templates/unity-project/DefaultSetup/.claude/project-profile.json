@@ -29,6 +29,7 @@
   "featuresRoot": "Assets/_Project/Features",
   "gameplayRoot": "Assets/_Project/Features",
   "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
+  "vfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/VFX/Generated",
 
   "$comment_localize": [
     "Where /add-localize reads its per-project values. `sheet` is the team's",
