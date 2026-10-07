@@ -15,6 +15,19 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 
 `<skill>` dưới đây là folder chứa file này.
 
+## Chọn đường (đọc trước tiên)
+
+| Việc | Đường | Đọc |
+|---|---|---|
+| **Tạo / làm VFX mới** ("tạo vfx …", "làm hiệu ứng nổ / hit / buff …") | **mục 4 — bộ tạo flipbook vẽ bằng code. Mặc định, đi thẳng vào đây.** | mục 1 bản rút gọn (bước 1–2 + đúng các mục quy chuẩn ở bảng "Đọc" của mục 4), mục 2, mục 4 |
+| Tạo VFX bằng hạt / texture có sẵn / shader ăn mòn | mục 3 (`vfx_new.mjs`), chỉ khi user yêu cầu rõ cách này, hoặc không recipe nào khớp và user chưa muốn viết recipe mới | mục 1, 2, 3 |
+| Dùng / thay bằng hiệu ứng của thư viện module | mục 3 (thư viện), khi user giao đích danh và project có thư viện | mục 1, 3 |
+| Hỏi luật, duyệt hay tối ưu một VFX có sẵn | mục 1 đầy đủ, mục 3, 6 | mục 1, 2, 3, 6 |
+| Quét nợ VFX cả project | mục 5 | mục 1, 5 |
+
+Với việc tạo mới, không dừng ở thư viện hay khung dựng tay rồi đề xuất "tự dựng vài FX hạt": bộ tạo ra hình đẹp ngay,
+đúng khuôn prefab, đã kiểm QA. Request không khớp recipe nào: viết recipe mới (recipes.md §4) trước khi nghĩ tới dựng tay.
+
 ## 1. Tìm và đọc
 
 1. Glob `**/GameVFX/Docs/GameVFX_QuyChuan.md` trong project: có thì đọc bản đó (đúng bản module của project). Không
@@ -29,7 +42,8 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
    cho hiệu ứng va chạm (3.7), texture (4), màu (5), trần theo cấp (6.2), prefab và ParticleSystem (7.1–7.3), tên (8.2), checklist (9.3). Đọc các mục đó bằng Read với
    offset và limit.
 4. Gặp dẫn chéo ("theo 6.2", "mục 3.4") mà mục đó ảnh hưởng tới việc đang làm thì đọc luôn.
-5. Việc lớn (duyệt cả bộ hiệu ứng của một game, đưa module vào game, đặt ngân sách cả game) thì đọc hết file.
+5. Việc lớn (duyệt cả bộ hiệu ứng của một game, đưa module vào game, đặt ngân sách cả game) thì đọc hết file. Việc tạo
+   một hiệu ứng bằng bộ tạo (mục 4) thì chỉ đọc đúng các mục ở bảng "Đọc" của mục 4, không đọc lan.
 6. Cần lý do của một luật: `GameVFX_NguyenLy.md`. Hiệu ứng có sẵn, `FXEffect`, pool, UIParticle: `GameVFX_ThuVien.md`
    (ảnh xem trước của từng hiệu ứng ở `Previews~/<key>.jpg` cạnh file, Read xem được). Cả hai cùng thư mục với quy chuẩn.
 
@@ -45,8 +59,9 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 ## 3. Làm
 
 - Hiệu ứng mới: chốt cấp trước (2.1, GD xếp), rồi mới tới timing, trần, hình, màu. Ghi cấp đã chọn vào câu trả lời.
-- Prefab hiệu ứng mới **luôn tạo bằng tool**, không dựng cây tay (khuôn 7.1, tên 8.2, 8.4): flipbook vẽ bằng code thì bộ tạo
-  ở mục 4 (prefab dựng xong từ spec); còn lại (hạt, texture có sẵn, shader) thì script tạo khung rồi dựng tiếp trong Unity:
+- Prefab hiệu ứng mới **luôn tạo bằng tool**, không dựng cây tay (khuôn 7.1, tên 8.2, 8.4). Mặc định là bộ tạo ở mục 4
+  (prefab dựng xong từ spec; xem "Chọn đường"). Chỉ khi đi đường dựng tay (hạt, texture có sẵn, shader; xem "Chọn đường") thì script tạo khung
+  rồi dựng tiếp trong Unity:
 
   ```bash
   node <skill>/scripts/vfx_new.mjs <đường dẫn>/fx_<nhóm>_<tên>.prefab --layers impact_add,glow_ab_sec,ring_add [--dry-run]
@@ -58,19 +73,19 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
   Chạy `--dry-run` trước để xem cây và material sẽ dùng. Xong thì chỉnh tiếp trong Unity (texture, timing, motion 3.7) và
   kiểm bằng mắt (mục 6). Vai lớp chỉ lấy trong bảng 8.4; cần vai mới thì sửa bảng 8.4 và `ROLES` trong script, không đặt tên
   ngoài bảng.
-- Xem thư viện trước khi làm mới: danh mục ở `GameVFX_ThuVien.md` mục 3 (nhóm, cấp, dùng cho 2D / 3D, ảnh). Có hiệu ứng
-  gần đúng thì dùng thẳng, hoặc chép prefab sang folder VFX của game rồi sửa (tên theo 8.2, material mới nếu đổi màu). Không
+- Thư viện module (khi project có, hoặc user giao việc dùng thư viện): danh mục ở `GameVFX_ThuVien.md` mục 3 (nhóm, cấp,
+  dùng cho 2D / 3D, ảnh). Có hiệu ứng gần đúng thì dùng thẳng, hoặc chép prefab sang folder VFX của game rồi sửa (tên theo 8.2, material mới nếu đổi màu). Không
   sửa prefab, material, texture trong folder module.
-- Cần flipbook phát sáng mới (trúng đòn, nổ, cast, vùng…) ở game có dùng frame-by-frame: skill `create-vfx` vẽ sheet bằng
-  code và dựng prefab theo khuôn 7.1 / tên 8.2, 8.4; luật vẫn theo quy chuẩn này.
+- Skill `create-vfx` (nếu có trong project) dùng cùng bộ vẽ với mục 4, bản riêng của nó. Trong skill này việc tạo flipbook
+  đi mục 4, không chuyển sang `create-vfx`.
 - Prefab của thư viện chỉ có khi project chứa `Library/World`, `Library/UI` của module (repo phát triển module; Feature Hub
   chỉ phát gói lõi `FXEffect` + shader vì thư viện chứa file của pack mua). Project không có thì **không dừng việc, không hỏi
   nguồn**: danh mục `GameVFX_ThuVien.md` chỉ để tham khảo dáng, cấp, timing; làm hiệu ứng bằng bộ tạo ở mục 4 (flipbook vẽ
   bằng code) hoặc tự dựng hạt theo khung `vfx_new.mjs`. Chỉ nhắc một dòng trong báo cáo rằng thư viện không có trong project;
   không tự tìm nguồn khác. Việc user giao đích danh "dùng / thay bằng hiệu ứng của thư viện" thì mới hỏi đường dẫn repo module.
-- Chọn cách dựng hình: hạt + texture tĩnh, flipbook (Texture Sheet Animation chạy khung, 4.4; sinh bằng mục 4), hoặc một
-  hình ăn mòn bằng shader (4.7: Erosion, UV Scroll, Mask, Ramp). Cả ba đều hợp lệ, trộn được trong một hiệu ứng. Game đã chốt
-  hướng trong brief (9.2) thì theo brief.
+- Cách dựng hình: mặc định flipbook vẽ bằng code (4.4, mục 4). Hạt + texture tĩnh và hình ăn mòn bằng shader (4.7: Erosion,
+  UV Scroll, Mask, Ramp) cũng hợp lệ, trộn được với flipbook, nhưng chỉ dùng khi user chọn (xem "Chọn đường"). Game đã chốt hướng trong
+  brief (9.2) thì theo brief.
 - Hai kiểu trộn lớp (8.4): `_ab` là lớp **nền** (alpha blend, `_mat_ab`, đọc được trên nền sáng lẫn tối); `_add` là lớp cộng
   sáng phủ **lên trên** (`_mat_add`), chỉ thêm khi lớp ab chưa đủ sáng. Không có hiệu ứng chỉ toàn lớp add.
 - Code: mỗi hiệu ứng là một prefab tự báo xong: có module GameVFX thì `FXEffect` trên root (Stop Action Callback), pool thu
@@ -91,7 +106,7 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 
 ## 4. Tạo flipbook vẽ bằng code
 
-Sinh hiệu ứng mới khi thư viện không có cái hợp: flipbook vẽ 100% bằng code (Pillow, không model ảnh, không tốn tiền) — lõi
+Đường mặc định cho mọi việc tạo VFX mới (xem "Chọn đường"): flipbook vẽ 100% bằng code (Pillow, không model ảnh, không tốn tiền) — lõi
 trắng nóng, glow nướng vào alpha, tia kim, vòng mảnh, hạt sáng — rồi dựng prefab Unity từ spec JSON theo khuôn 7.1, 8.2, 8.4.
 Style riêng của game nằm ở `.claude/docs/ArtStyle.md` §6b của project (nếu có); dải màu trong `vfx_recipes.py` chỉ là điểm
 xuất phát.

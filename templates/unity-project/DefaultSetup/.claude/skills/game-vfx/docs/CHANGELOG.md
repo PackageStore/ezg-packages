@@ -33,6 +33,9 @@ Gộp bộ tạo flipbook vẽ bằng code vào skill `game-vfx`; flipbook hợp
   - Bỏ eval `08-khong-frame-by-frame`.
   - Project không có thư viện prefab của module (chỉ gói lõi): không dừng hỏi nguồn, làm bằng bộ tạo mục 4 hoặc khung
     `vfx_new.mjs`; chỉ hỏi repo module khi user giao đích danh việc dùng hiệu ứng thư viện.
+  - Mục mới "Chọn đường" ở đầu SKILL.md: tạo VFX mới đi thẳng bộ tạo flipbook (mục 4), chỉ đọc đúng các mục quy chuẩn nó cần; dựng
+    tay (hạt, shader 4.7) và thư viện chỉ khi user yêu cầu. Trước đó mục 3 dẫn agent qua thư viện và khung dựng tay trước,
+    nên hay ra hiệu ứng kém hơn bộ tạo dù bộ vẽ giống hệt `create-vfx`.
 - Thư viện: ghi chú 16 hiệu ứng đã đổi khỏi frame-by-frame thành lịch sử 0.2.2; các hiệu ứng giữ nguyên.
 - **Ghi chú:** skill `create-vfx` (nếu project còn) không đổi: vẫn có cổng frame-by-frame, kit `Ezg.VfxKit`, spec `*.vfx.json`.
   Hai bản painter chạy độc lập; sửa recipe ở `game-vfx` không sang `create-vfx`.
