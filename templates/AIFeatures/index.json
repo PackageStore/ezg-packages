@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 49
+      "count": 50
     },
     {
       "id": "Templates",
@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "f1c0d23217a443a1d6f8807b81cd64c7f4d0e5181be379d9f69261275e7929ce",
-      "size": 1752
+      "sha256": "702d2f972fab83664492c3c42ceb9d95111de4c539fee8e326266ab11e73e0c1",
+      "size": 1796
     },
     {
       "id": "Config/settings.json",
@@ -793,8 +793,8 @@
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "6ebd4bb0c6b96d0357f8326930983aaf07cfaa19a42fe1117d566dcad0a19c42",
-      "size": 6068
+      "sha256": "29122434efe743f7ad7f48f6aa1d5855f52e2a89cd341dff486e24f1ca29c296",
+      "size": 6619
     },
     {
       "id": "Docs/design-pipeline",
@@ -1034,8 +1034,8 @@
       "source": "defaultsetup",
       "fileName": "art-style.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip",
-      "sha256": "f2b66c91c4a4b6f8f97498916249a913247bd0b5e6a4bfb043cac91a331f1f7f",
-      "size": 1609
+      "sha256": "2896547e686d4de7e3aeaf0f1c2067b976d7e3dfc4f122d2b73d79b59013050a",
+      "size": 1627
     },
     {
       "id": "Rules/code-style",
@@ -1556,8 +1556,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "4caea531852cbf31fde29bbc91c24e9bd6eb755e79941bf3017b1df8cc43341b",
-      "size": 4081
+      "sha256": "befded4510062f8ebfa5cc8e0d12a9bd9cfc47844542ce25596f9029bcb98f8b",
+      "size": 4295
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -2207,6 +2207,32 @@
       "size": 1944
     },
     {
+      "id": "Skills/create-sfx",
+      "name": "create-sfx",
+      "category": "Skills",
+      "description": "Tạo sound effect (SFX) cho game bằng cách tổng hợp 100% bằng code (numpy + scipy, không AI audio, không tốn tiền, không cần mạng). Gồm âm UI (click, select, popup mở/đóng, whoosh, tick, coin, error, unlock, reward, level up, fanfare) và âm gameplay (bắn/projectile, cast/charge, trúng đòn, chém, nổ, sét, băng vỡ, lửa phụt, hồi máu, triệu hồi, aura loop). Có 26 recipe × 10 nguyên tố (neutral, fire, gold, frost, arcane, toxic, holy, shadow, electric, rose), nhiều biến thể ngẫu nhiên cho âm phát liên tục, master về đúng độ to (LUFS) theo chuẩn mobile hoặc theo âm có sẵn của game khai ở ArtStyle.md §6c. QA tự động: độ to, cụt đuôi, click, onset trễ, mất tiếng trên loa điện thoại, chồng âm khi cảnh đông. Kèm ảnh review waveform + spectrogram đặt cạnh âm gốc và file nghe A/B. Xuất WAV + .meta đúng chuẩn import (Vorbis, Decompress On Load, giữ GUID khi làm lại) vào `<sfxRoot>/<Name>/`, gắn thẳng vào field `SoundConfig` (OpenPopup, ClosePopup, ButtonSelect, PurchaseItem…) hoặc vào list `SoundPlayController` của com.ezg.audio trên prefab (pool biến thể + cooldown chống chồng, play on enable). Dùng khi user nói \"tạo sfx …\", \"tạo sound / âm thanh / tiếng …\", \"làm sound cho skill / đạn / quái X\", \"âm bắn / âm trúng / âm nổ / âm chém / âm sét\", \"sound UI / click / mở popup / nhận thưởng / level up\", \"thay tiếng bấm nút\", \"create sfx\", \"make a sound effect\". KHÔNG dùng cho nhạc nền (music), giọng nói / voice, hay âm cần thu thật (ambience thật, foley thật).",
+      "installPath": ".claude/skills/create-sfx",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/create-sfx/SKILL.md",
+        ".claude/skills/create-sfx/agents/openai.yaml",
+        ".claude/skills/create-sfx/reference/recipes.md",
+        ".claude/skills/create-sfx/reference/style-guide.md",
+        ".claude/skills/create-sfx/reference/synth-api.md",
+        ".claude/skills/create-sfx/reference/unity-integration.md",
+        ".claude/skills/create-sfx/scripts/make_sfx.py",
+        ".claude/skills/create-sfx/scripts/sfx_recipes.py",
+        ".claude/skills/create-sfx/scripts/sfxsynth.py"
+      ],
+      "fileCount": 9,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "create-sfx.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-sfx.zip",
+      "sha256": "e25e0280ef628538e002794548d7ad659cd8f2ea16c2070c288ec412590d142c",
+      "size": 48156
+    },
+    {
       "id": "Skills/create-ui",
       "name": "create-ui",
       "category": "Skills",
@@ -2253,8 +2279,8 @@
       "source": "defaultsetup",
       "fileName": "create-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip",
-      "sha256": "9a24092d8e1de7b15a8dc8fc081450f3faf831fcfa0cc1ab43ac2d6ecc2de5a3",
-      "size": 77645
+      "sha256": "cc2d673a4aa18fd8d0512d83332a2fe5fecc5a3da79222aecef5fbd4639c39f5",
+      "size": 77709
     },
     {
       "id": "Skills/csv-config",
