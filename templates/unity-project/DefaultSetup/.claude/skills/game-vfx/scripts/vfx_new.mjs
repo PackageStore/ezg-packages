@@ -176,6 +176,10 @@ const PREFAB_META = (guid) =>
   `  assetBundleVariant: \n`;
 
 // ------------------------------------------------------------------ YAML mau
+function readTemplate(name) {
+  return fs.readFileSync(path.join(TEMPLATE_DIR, name), "utf8").replace(/\r\n/g, "\n");
+}
+
 function parseTemplate(text) {
   const parts = text.split(/^(--- !u!\d+ &-?\d+.*)$/m);
   const head = parts[0];
@@ -294,8 +298,9 @@ function main() {
     }
   }
 
-  // Dung YAML
-  const tpl = parseTemplate(fs.readFileSync(path.join(TEMPLATE_DIR, "vfx_template.prefab"), "utf8"));
+  // Dung YAML. Mau co the bi git doi sang CRLF luc checkout (core.autocrlf tren Windows): chuan hoa ve LF truoc, khong thi
+  // cac regex va cay cha-con / material (khop "\n") truot va ra prefab hong.
+  const tpl = parseTemplate(readTemplate("vfx_template.prefab"));
   const newId = makeIdFactory();
   const rootNode = cloneNode(tpl.nodes.fx_template, prefabName, newId);
   const contNode = cloneNode(tpl.nodes.containers, "containers", newId);
@@ -317,8 +322,7 @@ function main() {
 
   for (const w of wanted) if (mats[w].create) {
     fs.mkdirSync(path.dirname(mats[w].path), { recursive: true });
-    const matText = fs.readFileSync(path.join(TEMPLATE_DIR, `${w}.mat`), "utf8")
-      .replace(/^(\s*m_Name:).*$/m, `$1 ${w}`);
+    const matText = readTemplate(`${w}.mat`).replace(/^(\s*m_Name:).*$/m, `$1 ${w}`);
     fs.writeFileSync(mats[w].path, matText);
     fs.writeFileSync(`${mats[w].path}.meta`, MAT_META(mats[w].guid));
   }
