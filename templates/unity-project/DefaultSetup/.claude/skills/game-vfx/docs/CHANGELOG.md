@@ -31,6 +31,8 @@ Gộp bộ tạo flipbook vẽ bằng code vào skill `game-vfx`; flipbook hợp
     luật cấm frame-by-frame, thêm chọn cách dựng hình và hai kiểu trộn; mục 5 (quét) đọc `sheetAnim` theo trần 6.2 và brief.
     Các mục sau đánh số lại (Kiểm bằng mắt là mục 6).
   - Bỏ eval `08-khong-frame-by-frame`.
+  - Project không có thư viện prefab của module (chỉ gói lõi): không dừng hỏi nguồn, làm bằng bộ tạo mục 4 hoặc khung
+    `vfx_new.mjs`; chỉ hỏi repo module khi user giao đích danh việc dùng hiệu ứng thư viện.
 - Thư viện: ghi chú 16 hiệu ứng đã đổi khỏi frame-by-frame thành lịch sử 0.2.2; các hiệu ứng giữ nguyên.
 - **Ghi chú:** skill `create-vfx` (nếu project còn) không đổi: vẫn có cổng frame-by-frame, kit `Ezg.VfxKit`, spec `*.vfx.json`.
   Hai bản painter chạy độc lập; sửa recipe ở `game-vfx` không sang `create-vfx`.

@@ -63,8 +63,11 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
   sửa prefab, material, texture trong folder module.
 - Cần flipbook phát sáng mới (trúng đòn, nổ, cast, vùng…) ở game có dùng frame-by-frame: skill `create-vfx` vẽ sheet bằng
   code và dựng prefab theo khuôn 7.1 / tên 8.2, 8.4; luật vẫn theo quy chuẩn này.
-- Project chỉ có gói lõi (có `Runtime/FXEffect.cs` nhưng không có `Library/World`, `Library/UI`): prefab của thư viện nằm ở
-  repo phát triển module, không có trên Feature Hub vì chứa file của pack mua. Nói với user, không tự tìm nguồn khác.
+- Prefab của thư viện chỉ có khi project chứa `Library/World`, `Library/UI` của module (repo phát triển module; Feature Hub
+  chỉ phát gói lõi `FXEffect` + shader vì thư viện chứa file của pack mua). Project không có thì **không dừng việc, không hỏi
+  nguồn**: danh mục `GameVFX_ThuVien.md` chỉ để tham khảo dáng, cấp, timing; làm hiệu ứng bằng bộ tạo ở mục 4 (flipbook vẽ
+  bằng code) hoặc tự dựng hạt theo khung `vfx_new.mjs`. Chỉ nhắc một dòng trong báo cáo rằng thư viện không có trong project;
+  không tự tìm nguồn khác. Việc user giao đích danh "dùng / thay bằng hiệu ứng của thư viện" thì mới hỏi đường dẫn repo module.
 - Chọn cách dựng hình: hạt + texture tĩnh, flipbook (Texture Sheet Animation chạy khung, 4.4; sinh bằng mục 4), hoặc một
   hình ăn mòn bằng shader (4.7: Erosion, UV Scroll, Mask, Ramp). Cả ba đều hợp lệ, trộn được trong một hiệu ứng. Game đã chốt
   hướng trong brief (9.2) thì theo brief.
