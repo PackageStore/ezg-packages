@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create SFX"
+  short_description: "Synthesize game sound effects in code (UI + gameplay sounds) and wire them into Unity"
+  default_prompt: "Use $create-sfx to create a sound effect (UI click / popup / reward / level up, or a gameplay fire / shot / hit sound) and wire it into SoundConfig or a prefab's SoundPlayController."

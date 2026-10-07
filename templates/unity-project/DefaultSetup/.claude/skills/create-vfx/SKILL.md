@@ -84,6 +84,7 @@ menu `Tools/VFX/Rebuild All Specs`. Không có Unity MCP → dừng ở bước 
 2. `$M compare --names <Base> --kinds <kind> --out Temp/CreateVfx/<Base>/<Base>.compare.png`: FX đã duyệt của game (`ref` ở
    §6b) cạnh FX mới — **cổng style**. Chưa có `ref` nào thì cổng style là dev duyệt ảnh: nói rõ trong báo cáo.
 3. Tùy chọn: video `$M grid ...` (cần ffmpeg), scene showcase `VfxPrefabBuilder.BuildShowcase(...)`.
+   Âm đi kèm hiệu ứng: skill `create-sfx` (`--prefab <prefab FX> --play-on-enable` sau khi thêm `SoundPlayController`).
 4. Soát checklist 9.3 của quy chuẩn phần khớp việc (cấp, timing, trần, tên, sorting, stop action, pool).
 
 **5. Thay hiệu ứng cũ** (khi dev bảo làm lại / thay một FX đang dùng):

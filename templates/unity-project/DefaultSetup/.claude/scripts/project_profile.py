@@ -71,6 +71,11 @@ DEFAULTS = {
     "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
     # where create-vfx writes generated VFX (<root>/<fx_name>/ + <root>/_Shared/)
     "vfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/VFX/Generated",
+    # where create-sfx writes generated sounds (<root>/<Name>/), the SoundConfig asset its --config wires, and the
+    # List<SoundPlayCustomModel> field per --event on the game's own sound component (empty = SoundPlayController's)
+    "sfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated",
+    "soundConfigAsset": "Assets/_Project/Features/_Shared/Resources/SoundConfig.asset",
+    "sfxEventFields": {},
 
     # --- review surfaces ----------------------------------------------------
     # Filename globs that make a diff "sensitive" and auto-spawn the
@@ -173,6 +178,18 @@ class Profile:
     def vfx_root(self) -> str:
         return self.get("vfxRoot")
 
+    @property
+    def sfx_root(self) -> str:
+        return self.get("sfxRoot")
+
+    @property
+    def sound_config_asset(self) -> str:
+        return self.get("soundConfigAsset")
+
+    @property
+    def sfx_event_fields(self) -> dict:
+        return dict(self.get("sfxEventFields") or {})
+
     # -- review surfaces ----------------------------------------------------
     @property
     def sensitive_globs(self) -> list:
@@ -264,6 +281,9 @@ if __name__ == "__main__":
             "gameplayRoot": p.gameplay_root,
             "uiTemplatesRoot": p.ui_templates_root,
             "vfxRoot": p.vfx_root,
+            "sfxRoot": p.sfx_root,
+            "soundConfigAsset": p.sound_config_asset,
+            "sfxEventFields": p.sfx_event_fields,
             "sensitiveGlobs": p.sensitive_globs,
             "backend": p.backend,
         }, indent=2))

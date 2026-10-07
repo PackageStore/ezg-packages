@@ -21,7 +21,7 @@ Skill cần một chỗ chứa mới → thêm mục/slot TRỐNG vào khung nà
 Nguồn chuẩn **duy nhất** về visual của game: palette, kit UI, bố cục, chữ, icon/hero art, motion, các
 hướng đã bị loại. Mọi skill/agent ra quyết định hình ảnh (`refactor-ui`, `create-ui` / `/new-ui`,
 `/ui-mockup` + `mockup-drafter`, `ui-visual-reviewer`, `gen-icon`, `merge-psd-ui`, `psd-to-feature`,
-`figma-to-unity`, `create-vfx`, `game-vfx`…) đọc file này **trước** khi quyết định — không suy style từ tên game hay tên file.
+`figma-to-unity`, `create-vfx`, `game-vfx`, `create-sfx`…) đọc file này **trước** khi quyết định — không suy style từ tên game hay tên file.
 
 **Thứ tự ưu tiên khi mâu thuẫn:** lời dev trong task → art của hoạ sĩ giao cho đúng màn đó (PSD/Figma)
 → file này → màn mẫu đã duyệt (§8) → suy luận của agent (chỉ cho chỗ file này chưa nói, và phải ghi lại).
@@ -151,6 +151,29 @@ Skill `create-vfx` đọc khối `vfx-style` bằng script, nên giữ đúng c�
 # ref <impact|muzzle|explode|cast|slash|projectile|aura>: <path sheet.png> <cột>x<hàng> @<cột>,<hàng>
 ```
 
+### 6c. SFX
+
+Âm thanh đi cùng hình: UI (click, popup, thưởng) và gameplay (bắn, trúng, nổ, phép…). Chuẩn kỹ thuật (độ to mặc
+định, loa điện thoại, QA) là của skill `create-sfx`; mục này chỉ giữ **bản sắc âm** của game. Skill `create-sfx` đọc
+khối `sfx-style` bằng script, nên giữ đúng cú pháp từng dòng.
+
+- **Nhận diện:** <cartoon / arcade / thực tế; sáng hay ấm; nhiều tint nguyên tố hay khô>
+- **Âm gốc để so:** <âm game đang ship làm mốc — khai ở dòng `ref` bên dưới>
+- **Cấm:** <hướng âm đã bị loại — chi tiết + lý do ở §9>
+
+```sfx-style
+# default: <nguyên tố cho âm gameplay khi dev không nói, vd fire; âm UI giữ mặc định của recipe>
+# allow: <nguyên tố được dùng, cách nhau dấu phẩy; bỏ dòng = tất cả>
+# bundle: <asset bundle cho clip mới | none>                                      (bỏ dòng = theo âm đang có)
+# offset <all|ui_short|ui_jingle|shot|hit|explode|cast|loop>: <±dB so với chuẩn của create-sfx>
+# ref <ui_short|ui_jingle|shot|hit|explode|cast|loop>: <path clip>[, <path clip>…]
+```
+
+**Âm đã duyệt** — dev nghe và khen. Chép `command` từ `<base>.sfx.json` để làm lại y hệt.
+
+| Ngày | Âm (base) | Gắn ở | command |
+|---|---|---|---|
+
 ## 7. Motion
 
 <cảm giác chung: nảy nhẹ / mềm / nhanh gọn; easing chủ đạo; khoảnh khắc thưởng; những thứ cấm>.
@@ -221,9 +244,11 @@ Agent gặp file chưa điền thì **không** tự chế style từ tên game. 
 `Status: draft` và ghi trong report cuối là dev cần duyệt file này:
 1. Gom nguồn thật: art hoạ sĩ trong project (PSD/PNG ở `Visuals/`, GUI pack đang dùng), màn đã ship,
    GDD/TechSpec có nhắc màu/theme. Dựng contact sheet và **xem**.
-2. Điền §1–§6b từ nguồn đó: đo hex bằng Pillow trên sprite thật, font + cỡ đọc từ text template prefab.
+2. Điền §1–§6c từ nguồn đó: đo hex bằng Pillow trên sprite thật, font + cỡ đọc từ text template prefab.
    VFX (§6b): xem các sheet/prefab FX đang ship, khai `ref` cho vài khung tiêu biểu, `grounds` đo trên nền gameplay;
    game chưa có FX nào thì để khối `vfx-style` trống và hỏi dev hướng VFX khi lần đầu cần.
+   SFX (§6c): `make_sfx.py analyze` các âm game đang ship, khai `ref` 1–3 clip mỗi loại (+ `offset` nếu cả game to/nhỏ
+   lệch chuẩn); game chưa có âm nào thì để khối `sfx-style` trống — `create-sfx` dùng chuẩn mặc định của nó.
 3. Khai `art-style-boards` cho kit chính, chạy `art-style-board.py`.
    Màn của hoạ sĩ đang ship (art giao tận tay, chưa bị chê) → chụp vào `screens/approved/` + §8: đó là mốc
    đầu tiên. Không có thì §8 để trống — đừng lấy màn agent tự làm làm mốc.

@@ -3,7 +3,7 @@
 Nguồn chuẩn duy nhất về visual của game (palette token, kit UI, bố cục, chữ, icon/hero art, motion, màn
 mẫu, hướng đã bị loại) là **`.claude/docs/ArtStyle.md`**. Áp cho mọi task — kể cả task ad-hoc không đi
 qua skill — hễ có chọn màu, chọn/vẽ sprite, bố cục màn, sinh icon/art AI, recolor, viết spec/mockup UI,
-hay chấm visual.
+hay chấm visual — và khi sinh SFX (§6c).
 
 1. **Đọc trước khi quyết.** Mở ArtStyle.md + `Read` các board ở `.claude/docs/ArtStyle/*.png` mà nó khai.
    Không suy style từ tên game, tên file hay "màn gần nhất".

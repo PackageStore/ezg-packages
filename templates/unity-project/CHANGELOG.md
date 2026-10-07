@@ -7,6 +7,19 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 ## 2026-10-07
 
 **Added**
+- `DefaultSetup/.claude/skills/create-sfx/` — skill tạo SFX tổng hợp 100% bằng code (numpy + scipy, 26 recipe ×
+  10 nguyên tố): âm UI (click, popup, coin, reward, level up…) và gameplay (bắn, trúng, nổ, sét, băng vỡ, phép, aura
+  loop). Master về LUFS theo chuẩn mobile (+ `offset` của game), QA tự động (độ to, cụt đuôi, click, onset trễ, mất
+  tiếng trên loa điện thoại, chồng âm khi cảnh đông), ảnh review waveform + spectrogram cạnh âm gốc của game + file
+  nghe A/B. Xuất WAV + `.meta` (Vorbis, Decompress On Load, giữ GUID khi làm lại) vào `<sfxRoot>/<Name>/`, gắn thẳng
+  vào field `SoundConfig` (`--config OpenPopup`…) hoặc vào list `SoundPlayController` của `com.ezg.audio` trên prefab
+  (`--prefab`, pool biến thể + cooldown theo `--event fire|shot|hit`, `--play-on-enable`). Không sửa C#.
+- `ArtStyle.template.md` §6c SFX — slot trống cho bản sắc âm của game + khối ```` ```sfx-style ```` (`default`,
+  `allow`, `bundle`, `offset <kind>`, `ref <kind>`) mà `create-sfx` đọc bằng script, bảng "Âm đã duyệt"; bước SFX
+  trong § Bootstrap.
+- `project-profile.json` / `project_profile.py`: key `sfxRoot` (mặc định
+  `Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated`), `soundConfigAsset`, `sfxEventFields` (list theo event
+  trên component âm riêng của game; trống = `SoundPlayController._soundCustomList`).
 - `DefaultSetup/.claude/skills/create-vfx/` — skill tạo VFX: flipbook phát sáng vẽ 100% bằng code (Pillow, 19 recipe ×
   9 nguyên tố + dải màu riêng của game), QA tự động, rồi dựng prefab Unity từ spec JSON theo khuôn của quy chuẩn
   `game-vfx` (root điều khiển → `containers` → lớp `<vai>_ab[_n][_sec]`, tên `fx_<nhóm>_<tên>`, texture
@@ -21,6 +34,7 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 **Changed**
 - `game-vfx` SKILL.md: một dòng trỏ sang `create-vfx` khi cần flipbook mới ở game có frame-by-frame.
+- `create-vfx` SKILL.md: một dòng trỏ sang `create-sfx` cho âm đi kèm hiệu ứng; rule `art-style` áp cả khi sinh SFX.
 
 ## 2026-10-06
 

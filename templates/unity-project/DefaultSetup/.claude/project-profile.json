@@ -30,6 +30,9 @@
   "gameplayRoot": "Assets/_Project/Features",
   "uiTemplatesRoot": "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates",
   "vfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/VFX/Generated",
+  "sfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated",
+  "soundConfigAsset": "Assets/_Project/Features/_Shared/Resources/SoundConfig.asset",
+  "sfxEventFields": {},
 
   "$comment_localize": [
     "Where /add-localize reads its per-project values. `sheet` is the team's",
