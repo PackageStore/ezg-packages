@@ -2632,16 +2632,20 @@
         ".claude/skills/game-vfx/evals/README.md",
         ".claude/skills/game-vfx/evals/_shared/scaffold.sh",
         ".claude/skills/game-vfx/scripts/report.cjs",
+        ".claude/skills/game-vfx/scripts/templates/_mat_ab.mat",
+        ".claude/skills/game-vfx/scripts/templates/_mat_add.mat",
+        ".claude/skills/game-vfx/scripts/templates/vfx_template.prefab",
         ".claude/skills/game-vfx/scripts/tex_report.cjs",
+        ".claude/skills/game-vfx/scripts/vfx_new.mjs",
         ".claude/skills/game-vfx/scripts/vfx_scan.mjs"
       ],
-      "fileCount": 94,
+      "fileCount": 98,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "13c535e0aef1084d075742cbfefc25a67e348a46c459ec60880622876c7baad5",
-      "size": 1553683
+      "sha256": "2158f74f4b45bc4f0c814c265a09e1e03d1eba0f1c74949259c64b6de2f6e857",
+      "size": 1576449
     },
     {
       "id": "Skills/item-preview",
