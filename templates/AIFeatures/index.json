@@ -2253,8 +2253,8 @@
       "source": "defaultsetup",
       "fileName": "create-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip",
-      "sha256": "57a2553fd21ae62e2e9e39aa8c2a41a7318b7a4931344b15ef9c39203031ba53",
-      "size": 77877
+      "sha256": "9a24092d8e1de7b15a8dc8fc081450f3faf831fcfa0cc1ab43ac2d6ecc2de5a3",
+      "size": 77645
     },
     {
       "id": "Skills/csv-config",
