@@ -20,9 +20,9 @@ Mỗi hiệu ứng trong thư viện:
   tới file không tồn tại (6.5.5).
 - `Max Particles` đặt theo số hạt cần thật × 1,2; system chỉ burst ở giây 0 được rút Duration còn 0,1 s để object về pool sớm.
 - Material dùng một shader chung `EZG/VFX/Particle`; material trùng nhau được gộp.
-- Không frame-by-frame (quy chuẩn 4.7): 16 hiệu ứng từng có sheet chạy khung đã đổi: giữ một khung đầy hình nhất, cho
-  hạt tan bằng Erosion của shader chung (theo noise; hướng tâm cho đĩa và vòng). Sheet còn lại chỉ để mỗi hạt lấy ngẫu nhiên
-  một hình tĩnh.
+- Lịch sử (bản 0.2.2, khi quy chuẩn còn cấm frame-by-frame; từ quy chuẩn 0.2.5 flipbook lại hợp lệ, 4.4): 16 hiệu ứng từng có
+  sheet chạy khung đã đổi sang kỹ thuật 4.7: giữ một khung đầy hình nhất, cho hạt tan bằng Erosion của shader chung (theo
+  noise; hướng tâm cho đĩa và vòng). Sheet còn lại chỉ để mỗi hạt lấy ngẫu nhiên một hình tĩnh. Bản này giữ nguyên.
 - Texture: mipmap bật cho texture mà hiệu ứng 3D dùng, tắt cho texture chỉ hiệu ứng 2D và UI dùng (4.5); override Android / iOS
   ASTC 6 × 6 (world) hoặc 4 × 4 (UI), cạnh tối đa theo trần của cấp (6.2, sheet flipbook được gấp đôi). Nguồn lớn hơn 2048 đã đổi thành PNG ≤ 2048; mesh trong `.blend` đã tách ra `.asset` (không cần Blender).
 
@@ -191,7 +191,7 @@ tự làm của các game trong team, "pack" = Epic Toon FX. Nợ: phần vượ
   thì tự thêm system với sprite của mình.
 - Tier đang gán theo tên và cách game gốc dùng; GD chốt lại khi đưa vào game (2.1).
 - Shader chung là unlit, không soft particle, không distortion: hiệu ứng gốc dùng shader riêng đã thành hạt thường.
-- Bản đổi khỏi frame-by-frame chỉ giữ một khung: hình vẽ tay đổi nhiều qua các khung mất nét (lửa 2D vẽ tay, lõi thiên thạch,
+- Bản đổi khỏi frame-by-frame (lịch sử 0.2.2) chỉ giữ một khung: hình vẽ tay đổi nhiều qua các khung mất nét (lửa 2D vẽ tay, lõi thiên thạch,
   lửa UI), cần vẽ lại cho shader (quy chuẩn 4.7.5). Vòng cuối của `FX_UI_Done_Item` mỏng dần nhưng không mờ đi như bản gốc. Mỗi hiệu ứng đã đổi thêm một texture dùng chung (noise hoặc hướng tâm),
   nên vài hiệu ứng vượt trần số texture. Các hiệu ứng đã đổi: `FX_Hit_Punch_Heavy`, `FX_Hit_Explosion_Fire`, `FX_Hit_Explosion_Grenade`, `FX_Slash_Mini_Blue`, `FX_Proj_Fireball_Loop`, `FX_Proj_Meteor_Loop`, `FX_AoE_Fire_Loop`, `FX_AoE_Heal_Loop`, `FX_Status_Burn_Loop`, `FX_Env_Lightning_Strike`, `FX_Status_Burn_2D_Loop`, `FX_Status_Freeze_2D_Loop`, `FX_UI_Done_Item`, `FX_UI_Break_Box`, `FX_UI_Use_Item`, `FX_UI_Fire_Loop`.
 - Ảnh render ở Gamma (5 / 6 game của team). Project Linear (vd project module này): additive sáng hơn, dải màu khác; duyệt lại

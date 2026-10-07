@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Tao prefab VFX khung dung khuon cua quy chuan (7.1, 8.2, 8.4):
 //
-//   fx_<ten>              root: ParticleSystem khong phat hat, renderer tat, Stop Action = Callback
+//   fx_<ten>              root: ParticleSystem khong phat hat, renderer tat, Stop Action = Callback (co FXEffect)
+//                         hoac Disable (khong co: hieu ung tu tat, pool thu hoi OnDisable) - quy chuan 7.1
 //   └─ containers         nhom: ParticleSystem khong phat hat, renderer tat, Stop Action = None
 //      ├─ impact_add      lop: ParticleSystem + renderer bat, thiet lap theo 7.2
 //      └─ glow_ab_sec     ...
@@ -20,6 +21,9 @@
 //     <folder chua folder prefab>/Materials.
 //   - Da co file cung ten thi dung, khong ghi de.
 //
+//   - Stop Action cua root: project co FXEffect.cs (Assets/, Packages/, Library/PackageCache/) -> Callback (3),
+//     khong co -> Disable (1). Script KHONG gan FXEffect; hieu ung loop do noi goi dung (quy chuan 7.1).
+//
 // Mau YAML (templates/vfx_template.prefab, templates/_mat_*.mat) do Unity 6000.3 sinh ra. Doi thiet lap mac dinh cua
 // lop thi dung lai mau trong Unity (root fx_template -> containers -> impact_add) roi chep de vao templates/.
 
@@ -35,6 +39,9 @@ export const ROLES = [
 ];
 const BLEND_MATERIAL = { add: "_mat_add", ab: "_mat_ab" };
 const DEFAULT_LAYERS = ["impact_add"];
+const FX_EFFECT_FILE = "FXEffect.cs";
+const STOP_CALLBACK = 3;
+const STOP_DISABLE = 1;
 
 const ROLE_RE = `(?:${ROLES.join("|")})`;
 const LAYER_RE = new RegExp(`^${ROLE_RE}(?:_${ROLE_RE})*_(add|ab)(?:_[0-9]+)?(?:_sec)?$`);
@@ -200,6 +207,32 @@ function parseTemplate(text) {
   return { head, nodes };
 }
 
+// Project co module GameVFX (FXEffect.cs) khong: quyet dinh Stop Action cua root (quy chuan 7.1).
+function hasFxEffect(root) {
+  const stack = ["Assets", "Packages", path.join("Library", "PackageCache")]
+    .map((d) => path.join(root, d))
+    .filter((d) => fs.existsSync(d));
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) stack.push(path.join(dir, e.name));
+      else if (e.name === FX_EFFECT_FILE) return true;
+    }
+  }
+  return false;
+}
+
+// Doi Stop Action cua ParticleSystem trong node root (mau de Callback).
+function setStopAction(node, value) {
+  for (const d of node.docs) d.text = d.text.replace(/^(\s*stopAction:) \d+$/m, `$1 ${value}`);
+}
+
 function makeIdFactory() {
   const used = new Set();
   return () => {
@@ -309,13 +342,15 @@ function main() {
     setMaterial(n, mats[BLEND_MATERIAL[blendOf(l)]].guid);
     return n;
   });
+  const fxEffect = hasFxEffect(root);
+  setStopAction(rootNode, fxEffect ? STOP_CALLBACK : STOP_DISABLE);
   setHierarchy(rootNode, 0, [contNode.tf]);
   setHierarchy(contNode, rootNode.tf, layerNodes.map((n) => n.tf));
   for (const n of layerNodes) setHierarchy(n, contNode.tf, []);
   const yaml = tpl.head + [rootNode, contNode, ...layerNodes].flatMap((n) => n.docs.map((d) => d.text)).join("");
 
   console.log(`${args.dryRun ? "[dry-run] " : ""}Prefab: ${path.relative(root, target)}`);
-  console.log(`  ${prefabName}  (root, Stop Action Callback)\n  └─ containers`);
+  console.log(`  ${prefabName}  (root, Stop Action ${fxEffect ? "Callback - co FXEffect" : "Disable - khong co FXEffect, pool thu hoi OnDisable"})\n  └─ containers`);
   layers.forEach((l, i) => console.log(`     ${i === layers.length - 1 ? "└" : "├"}─ ${l}  -> ${BLEND_MATERIAL[blendOf(l)]}`));
   console.log("Material:\n  " + plan.join("\n  "));
   if (args.dryRun) return 0;

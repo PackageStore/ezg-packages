@@ -2,6 +2,39 @@
 
 Quy chuẩn: `GameVFX_QuyChuan.md`. Nền lý thuyết và nguồn: `GameVFX_NguyenLy.md`. Thư viện hiệu ứng: `GameVFX_ThuVien.md`.
 
+## 0.2.5 — 2026-10-07
+
+Gộp bộ tạo flipbook vẽ bằng code vào skill `game-vfx`; flipbook hợp lệ trở lại.
+
+- Quy chuẩn 0.2.5: bỏ luật "game không dùng frame-by-frame". 4.4 không còn dòng "bỏ mục này"; flipbook là một trong ba cách
+  dựng hình (hạt + texture tĩnh, flipbook, hình ăn mòn bằng shader), trộn được. 4.7 đổi thành kỹ thuật tuỳ chọn ("Hình ăn mòn
+  bằng shader"), luật 5 cho giữ flipbook khi hình đổi nhiều qua các khung. Brief 9.2 bỏ mục "có dùng frame-by-frame hay không".
+- Stop action (7.1 luật 1, cây 7.1, bảng 7.2, 6.8.3, V-10): root Callback khi project có module GameVFX (`FXEffect`), không có
+  thì Disable (pool thu lại ở `OnDisable`); không bao giờ None. Hiệu ứng lặp: nơi gọi dừng.
+- 8.4: `ab` là lớp **nền** (glow vẽ sẵn vào alpha, đọc được trên nền tối lẫn sáng); `add` là lớp cộng sáng đặt lên trên, tuỳ
+  chọn, chỉ khi ab chưa đủ sáng. 8.2: script tạo khung và bộ tạo flipbook cùng nhận `add`, `ab`.
+- Skill `game-vfx`:
+  - Mục mới 4 "Tạo flipbook vẽ bằng code": painter Python (`scripts/fxpaint.py`, `vfx_recipes.py`, `make_vfx.py`: 19 recipe ×
+    9 nguyên tố, QA `CLIPPED` / `SLOW_START` / `POP_AT_END` / `JUMP` / `LOOP_SEAM` / `WASTED_SPACE`, render / contact / compare /
+    grid), tài liệu `reference/` (painter-api, recipes, style-guide, unity-integration). Đọc ArtStyle.md §6b và `vfxRoot` của
+    `.claude/project-profile.json` của project.
+  - Kit Unity riêng: `unity/GameVfxPrefabBuilder.cs`, `GameVfxShowcaseLoop.cs`, asmdef `Ezg.GameVfx.Editor` (namespace
+    `Ezg.GameVfx`), cài vào `<sourceRoot>/Editor/GameVfxKit/`; menu `Tools/GameVFX/…`; spec `*.gamevfx.json`; ảnh duyệt
+    `Temp/GameVfx/`.
+  - Kiểu trộn theo từng lớp: khoá `blend` (`ab` mặc định / `add`) ở lớp, extras (`_sparks`, `_motes`), trail, stream của recipe
+    và ở spec; builder gán `_mat_ab` / `_mat_add` (tìm theo tên như `vfx_new.mjs`, chưa có thì tạo Mobile/Particles; spec có thể
+    chỉ rõ `material` / `materialAdd`), đặt tên lớp `<vai>_<ab|add>`; lớp add không chỉ rõ order thì order 11 (trên lớp ab).
+    19 recipe giữ nguyên dáng (toàn ab).
+  - `vfx_new.mjs`: Stop Action của root theo việc project có `FXEffect.cs` (Assets/, Packages/, Library/PackageCache/):
+    Callback hoặc Disable.
+  - Mô tả skill viết lại, gồm trigger tạo VFX ("tạo vfx …", "make an explosion VFX"): `game-vfx` là lối vào chính. Mục 3 bỏ
+    luật cấm frame-by-frame, thêm chọn cách dựng hình và hai kiểu trộn; mục 5 (quét) đọc `sheetAnim` theo trần 6.2 và brief.
+    Các mục sau đánh số lại (Kiểm bằng mắt là mục 6).
+  - Bỏ eval `08-khong-frame-by-frame`.
+- Thư viện: ghi chú 16 hiệu ứng đã đổi khỏi frame-by-frame thành lịch sử 0.2.2; các hiệu ứng giữ nguyên.
+- **Ghi chú:** skill `create-vfx` (nếu project còn) không đổi: vẫn có cổng frame-by-frame, kit `Ezg.VfxKit`, spec `*.vfx.json`.
+  Hai bản painter chạy độc lập; sửa recipe ở `game-vfx` không sang `create-vfx`.
+
 ## 0.2.4 — 2026-10-07
 
 Khuôn prefab và script tạo khung.

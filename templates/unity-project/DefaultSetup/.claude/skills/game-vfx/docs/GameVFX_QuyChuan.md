@@ -1,7 +1,8 @@
 # Quy chuẩn VFX (2D, 3D, mobile)
 
-Phiên bản 0.2.4 (nháp) · 2026-10-07 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
-hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project);
+Phiên bản 0.2.5 (nháp) · 2026-10-07 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
+hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project,
+tạo flipbook vẽ bằng code và dựng prefab);
 gate trong Unity vẫn làm sau. Nguồn chính là hướng dẫn VFX công khai
 (PDF, 37 trang, 6 phần) của một studio MOBA PC lớn cho tựa MOBA PC của họ, tài liệu công khai khác của studio đó, của một studio
 mobile lớn, một publisher mobile lớn, của Unity, Arm, W3C, Microsoft, và số đo trên sáu game mobile đã ship của team (ba game 2D
@@ -291,7 +292,7 @@ Luật:
 
 1. Thời gian sống của object hiệu ứng (lúc trả về pool) đo cùng loại giờ với hạt của nó. Không trộn: đếm bằng
    `WaitForSeconds` (giờ game) mà hạt chạy giờ thật thì ở x2, x3 hiệu ứng bị cắt giữa chừng, lúc pause hạt vẫn chạy.
-2. Tốt nhất không đếm giờ tay: hiệu ứng tự báo xong bằng stop action (7.2), pool nhận lại lúc đó.
+2. Tốt nhất không đếm giờ tay: hiệu ứng tự báo xong bằng stop action (7.1, 7.2), pool nhận lại lúc đó.
 3. Ba game của team có đúng lỗi này *(đo)*: công cụ dựng hiệu ứng của template đặt `useUnscaledTime = true` cho mọi system,
    nên 69–73 % system của hiệu ứng gameplay chạy giờ thật, trong khi thời gian tắt đếm bằng `WaitForSeconds`; game đổi tốc độ
    x1–x3 và pause bằng `Time.timeScale`.
@@ -390,7 +391,9 @@ Số trong bảng *(đề xuất)* lấy từ một hiệu ứng nổ va chạm 
 
 ### 4.4 Flipbook
 
-Game không dùng frame-by-frame (ghi trong brief, 9.2): bỏ mục này, làm theo 4.7.
+Flipbook (Texture Sheet Animation chạy khung) là một trong ba cách dựng hình, cùng hạt + texture tĩnh và hình ăn mòn bằng
+shader (4.7); trộn được trong một hiệu ứng. Skill `game-vfx` có bộ tạo flipbook vẽ bằng code (recipe, QA, dựng prefab theo
+7.1, 8.4): xem `SKILL.md` mục 4.
 
 1. Lưới lũy thừa của 2 (2 × 2, 4 × 4, 8 × 2 cho vệt chém ngang); 16 khung (4 × 4) gần như là tối đa cho game stylized; sheet
    512, 1024, tối đa 2048, không 4K [21].
@@ -399,7 +402,7 @@ Game không dùng frame-by-frame (ghi trong brief, 9.2): bỏ mục này, làm t
 4. Nhịp 2D frame-by-frame: 12 hình mỗi giây (on twos) là gốc, đoạn nhanh 24 (Game Animation 3.1). Hiệu ứng flipbook ngắn: đủ số
    khung cho đúng thời gian ở 3.1, không kéo dài ra để dùng hết khung.
 5. Chế độ Sprites của Texture Sheet Animation (danh sách sprite trong atlas) được dùng, khi sprite nằm trong một atlas VFX
-   chung (6.7). Ba game của team dùng chế độ này ở 57–60 % system; trung vị 1 sprite (dùng để gán sprite atlas cho hạt), 10 %
+   chung (6.7) hoặc là sheet riêng của hiệu ứng đã cắt sẵn theo khung (bộ tạo của skill). Ba game của team dùng chế độ này ở 57–60 % system; trung vị 1 sprite (dùng để gán sprite atlas cho hạt), 10 %
    nhiều nhất 15–32 khung *(đo)*.
 
 ### 4.5 Import **[TA]**
@@ -425,11 +428,12 @@ Game không dùng frame-by-frame (ghi trong brief, 9.2): bỏ mục này, làm t
 2. Pivot của hiệu ứng đặt ở điểm chạm đất (hoặc điểm va chạm) để sort theo trục Y đúng với nhân vật (7.4).
 3. Hiệu ứng mặt đất (vùng, vết, bóng) ở layer dưới nhân vật; hiệu ứng trúng đòn, trên đầu ở layer trên nhân vật (7.3).
 
-### 4.7 Không frame-by-frame: hạt và shader **[VFX] [TA]**
+### 4.7 Hình ăn mòn bằng shader: hạt và shader **[VFX] [TA]**
 
-Game chọn không dùng frame-by-frame (ghi trong brief, 9.2) thì chuyển động của hình làm bằng shader và module của hạt, không
-chạy khung. Sheet chỉ để mỗi hạt lấy ngẫu nhiên một hình tĩnh (Frame over Time hằng số hoặc random giữa hai hằng số, chế độ
-Lifetime) không phải frame-by-frame, dùng được. Thư viện của module không có frame-by-frame từ bản 0.2.2.
+Kỹ thuật tuỳ chọn, dùng cạnh flipbook (4.4): chuyển động của hình làm bằng shader và module của hạt thay vì chạy khung. Hợp
+khi cần tiết kiệm texture (một hình thay cả sheet), khi hình phải đổi tông theo nguyên tố / phe bằng ramp, hoặc khi game chốt
+hướng này trong brief (9.2). Sheet chỉ để mỗi hạt lấy ngẫu nhiên một hình tĩnh (Frame over Time hằng số hoặc random giữa hai
+hằng số, chế độ Lifetime) dùng chung được với kỹ thuật này. Thư viện của module dựng theo kỹ thuật này từ bản 0.2.2.
 
 | Cần | Làm bằng | Shader chung `EZG/VFX/Particle` (6.6.8) |
 |---|---|---|
@@ -446,8 +450,8 @@ Lifetime) không phải frame-by-frame, dùng được. Thư viện của module
    lần cho cả game.
 4. Mỗi hạt lệch noise một khác (custom vertex stream StableRandom.x đặt ngay sau UV), không thì mọi hạt của một system tan y hệt
    nhau. Hạt trên UI qua UIParticle chưa dùng stream này: mỗi system UI ít hạt thì không lộ.
-5. Hình vẽ tay đổi nhiều qua các khung (lửa 2D vẽ tay, vật biến hình) mất nét khi chỉ giữ một khung rồi ăn mòn. Game không
-   frame-by-frame thì vẽ hình cho shader ngay từ đầu (một hình đầy, rìa rõ, texture xám), không cắt một khung từ sheet cũ.
+5. Hình vẽ tay đổi nhiều qua các khung (lửa 2D vẽ tay, vật biến hình) mất nét khi chỉ giữ một khung rồi ăn mòn: giữ flipbook
+   (4.4), hoặc vẽ hình cho shader ngay từ đầu (một hình đầy, rìa rõ, texture xám), không cắt một khung từ sheet cũ.
 6. Noise trôi và UV cuộn chạy theo `_Time` (giờ game): lúc pause, phần cuộn đứng, kể cả ở hiệu ứng UI chạy giờ thật (3.4).
 7. Duyệt như mọi hiệu ứng (9.3), thêm: ảnh đen trắng của pha tan (2.3.7) vẫn đọc được, viền mòn không thành răng cưa ở cỡ thật
    trên máy.
@@ -642,8 +646,8 @@ thành nợ, sửa dần (10).
 2. Nạp và làm ấm pool lúc load màn, theo danh sách hiệu ứng của màn (nhân vật, kỹ năng, quái có trong màn). Ba game của team
    nạp bằng `Resources.Load` đồng bộ ở lần dùng đầu (có cache), không có danh sách nạp trước cho hiệu ứng: lần đầu nạp ngay
    trong frame trúng đòn *(đo)*, giật lần đầu.
-3. Trả về pool lúc hiệu ứng tự báo xong (stop action Callback trên root, 7.2), không theo số giây gõ tay: nghe
-   `FXEffect.Finished` (7.8). *(đo)* Stop action là None ở 99,7–100 % system của ba game; thời gian tắt gõ tay, có chỗ 5 s cho một
+3. Trả về pool lúc hiệu ứng tự báo xong (stop action của root, 7.1, 7.2), không theo số giây gõ tay: có module GameVFX thì
+   nghe `FXEffect.Finished` (7.8); không có thì root Stop Action Disable, pool thu lại ở `OnDisable`. *(đo)* Stop action là None ở 99,7–100 % system của ba game; thời gian tắt gõ tay, có chỗ 5 s cho một
    cú trúng 0,22 s, 3 s cho hiệu ứng chết 0,65 s. *(đo, 3D)* 98,6–100 %.
 4. Trần số bản cùng lúc theo 2.7.2. Hiệu ứng gắn vào nhân vật (buff, trạng thái) trả về pool khi nhân vật chết hoặc về pool.
 
@@ -654,7 +658,7 @@ thành nợ, sửa dần (10).
 ### 7.1 Cấu trúc prefab
 
 ```
-fx_hero_hit_fireball         root: ParticleSystem điều khiển (không phát hạt, renderer tắt), Stop Action = Callback
+fx_hero_hit_fireball         root: ParticleSystem điều khiển (không phát hạt, renderer tắt), Stop Action = Callback / Disable
 └─ containers                nhóm: ParticleSystem không phát hạt, renderer tắt, Stop Action = None
    ├─ impact_add             yếu tố chính
    ├─ flash_add_sec          loé ngắn ở pha bùng (loé là yếu tố phụ, 2.3.4)
@@ -663,11 +667,14 @@ fx_hero_hit_fireball         root: ParticleSystem điều khiển (không phát 
    └─ decal_ab               dấu trên mặt đất (nếu có)
 ```
 
-Khuôn lấy từ prefab đã ship của team (2026-10). Hiệu ứng mới tạo khung bằng script `vfx_new.mjs` của skill `game-vfx`: đúng
-cây, tên, thiết lập 7.2, material theo kiểu trộn (8.2).
+Khuôn lấy từ prefab đã ship của team (2026-10). Hiệu ứng mới tạo khung bằng skill `game-vfx`: script `vfx_new.mjs` (khung để
+dựng tay) hoặc bộ tạo flipbook (`GameVfxPrefabBuilder`, prefab dựng xong từ spec). Cả hai ra đúng cây, tên, thiết lập 7.2,
+material theo kiểu trộn (8.2).
 
 1. Root là một `ParticleSystem` điều khiển: không emission, renderer tắt (Render Mode None), `Duration` = độ dài của cả
-   hiệu ứng, `Looping` theo hiệu ứng. `Play` / `Stop` trên root chạy cả cây; root báo xong bằng Stop Action Callback.
+   hiệu ứng, `Looping` theo hiệu ứng. `Play` / `Stop` trên root chạy cả cây. Root báo xong bằng stop action: project có module
+   GameVFX (`FXEffect`) → **Callback**, `FXEffect` bắt và báo `Finished`; không có → **Disable**, hiệu ứng tự tắt object và pool
+   thu lại ở `OnDisable`. Hiệu ứng lặp không tự xong: nơi gọi dừng (V-10).
    (Luật 6.5.5 không áp cho root điều khiển: nó không phát hạt nên không mô phỏng gì.)
 2. Root có đúng một con là `containers`: `ParticleSystem` không phát hạt, renderer tắt, Stop Action None. Mọi lớp phát hạt là
    con trực tiếp của `containers`, không lồng sâu hơn. Luật 6.5.5 cũng không áp cho `containers`.
@@ -696,7 +703,7 @@ cây, tên, thiết lập 7.2, material theo kiểu trộn (8.2).
 | Play On Awake | bật | pool bật object là phát |
 | Max Particles | số hạt cần thật × 1,2, trong trần 6.2 | *(đo)* 63–98 % system đã ship để nguyên 1000; *(đo, 3D)* 90–92 % |
 | Auto Random Seed | bật | |
-| Stop Action | root: Callback; `containers` và các lớp: None | 7.1 |
+| Stop Action | root: Callback (có `FXEffect`) hoặc Disable (không có); `containers` và các lớp: None | 7.1 |
 | Culling Mode | Automatic | 6.5 |
 | Ring Buffer | tắt | |
 | Emission | burst cho pha bùng, rate cho lặp | |
@@ -815,9 +822,9 @@ Bản 0.2 có phần của từng hiệu ứng, `FXEffect` trên root (`Runtime/
 | Sprite atlas | `FX_AT_<Nhóm>` | `FX_AT_Hit` |
 
 Kiểu trộn (tên lớp, tên material): `add` (additive), `ab` (alpha blend), `pm` (premultiplied), `mul` (multiply). Script tạo
-khung hiện nhận `add`, `ab`.
+khung và bộ tạo flipbook hiện nhận `add`, `ab`.
 
-Material dùng chung: script tạo khung tìm `_mat_add` / `_mat_ab` trong `Assets/` (không phân biệt hoa thường). Trùng tên thì
+Material dùng chung: script tạo khung và bộ tạo flipbook tìm `_mat_add` / `_mat_ab` trong `Assets/` (không phân biệt hoa thường). Trùng tên thì
 lấy bản được prefab VFX tham chiếu nhiều nhất. Chưa có thì tạo mới, shader `Mobile/Particles/Additive` / `Mobile/Particles/Alpha
 Blended` (chỉ đúng ở Built-in; project URP thay shader), ở folder `Materials` cạnh folder `Prefabs` chứa prefab (không có folder
 `Prefabs` thì `<folder chứa folder prefab>/Materials`).
@@ -871,6 +878,9 @@ Root và `containers` theo 7.1. Mỗi lớp (con của `containers`) đặt tên
 
 - **Vai** lấy từ bảng dưới; ghép được nhiều vai (`fire_impact_ab`, `lightning_halfsphere_add`, `ring_shockwave_add`).
 - **Kiểu trộn** `_add` / `_ab` bắt buộc: lớp gán `_mat_add` hay `_mat_ab` (8.2), người đọc biết ngay lớp cộng sáng hay phủ.
+  `ab` là lớp **nền**: alpha blend, glow vẽ sẵn vào alpha, đọc được trên nền tối lẫn sáng (5.5.1). `add` là lớp cộng sáng
+  đặt **lên trên** lớp ab (sorting order cao hơn), tuỳ chọn: chỉ thêm khi lớp ab chưa đủ sáng trên nền tối nhất của game, và
+  kiểm lại trên nền sáng nhất (additive mất ở đó). Hiệu ứng không chỉ toàn lớp add.
 - **Số** `_2`, `_3` khi nhiều lớp trùng vai và kiểu trộn (`ring_add_2`).
 - **`_sec`** ở cuối cho yếu tố phụ (`glow_ab_sec`, `ring_add_2_sec`): `FXEffect` và tool tìm yếu tố phụ theo đuôi tên.
 
@@ -924,7 +934,7 @@ Thứ tự khi có việc chen ngang như studio MOBA PC: lỗi gameplay trướ
 
 Phần của cả game, ghi một lần trong file riêng của game (7.8, 12.2): preset mood, hex ba phe (2.5), bảng màu nguyên tố và độ hiếm
 (5.3), dải sáng / đậm đo được của môi trường và nhân vật (2.3.6), sorting layer và order (7.3), shader được dùng (6.6), thư viện UI
-particle (7.5), có dùng frame-by-frame hay không (4.4, 4.7), máy thử từng tier (6.1), quy ước key cũ nếu có (8.1).
+particle (7.5), máy thử từng tier (6.1), quy ước key cũ nếu có (8.1).
 
 ### 9.3 Checklist duyệt
 
@@ -983,7 +993,7 @@ Tool quét tĩnh sẽ kiểm các mục có "tĩnh"; phần "trên máy" kiểm 
 | V-7 | Shader trong danh sách của game; không GrabPass / Opaque Texture ở hiệu ứng dùng cho tier Thấp | tĩnh | lỗi |
 | V-8 | Không Lights module, không Light component | tĩnh | lỗi |
 | V-9 | Module làm mất procedural (6.5.2) chỉ khi brief ghi lý do; trừ Limit Velocity ở burst ngắn (6.5.2 ngoại lệ, 3.7) | tĩnh | cảnh báo |
-| V-10 | Root có Stop Action Callback; hiệu ứng lặp có người dừng | tĩnh + chạy thử | lỗi |
+| V-10 | Root có Stop Action Callback (có `FXEffect`) hoặc Disable (không có module), không None; hiệu ứng lặp có người dừng | tĩnh + chạy thử | lỗi |
 | V-11 | `Culling Mode` không Always Simulate (trừ UI) | tĩnh | cảnh báo |
 | V-12 | Prewarm tắt (trừ Ambient trong scene) | tĩnh | cảnh báo |
 | V-13 | Hiệu ứng thế giới game giờ game, hiệu ứng UI giờ thật (3.4) | tĩnh | lỗi |

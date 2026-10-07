@@ -30,7 +30,7 @@ graders:
   - type: llm
     name: stop_action_6.8
     criteria: >-
-      Câu trả lời thay hẹn giờ 5 s bằng Stop Action Callback trên root (hoặc FXEffect.Finished) rồi mới trả pool.
+      Câu trả lời thay hẹn giờ 5 s bằng stop action của root (Callback + FXEffect.Finished, hoặc Disable + pool thu ở OnDisable) rồi mới trả pool.
   - type: llm
     name: gio_game_3.4
     criteria: >-

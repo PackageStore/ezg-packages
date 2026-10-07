@@ -1,7 +1,7 @@
 # Evals của skill game-vfx
 
-8 câu thử: 6 câu làm, duyệt, dùng thư viện (trúng đòn của đòn thường, hiệu ứng của thư viện với pool, hạt trên UI, duyệt một
-hiệu ứng nặng, pack VFX mua sẵn, nổ ở game không dùng frame-by-frame) và 2 câu không được bật skill (nảy của nút UI, clip
+7 câu thử: 5 câu làm, duyệt, dùng thư viện (trúng đòn của đòn thường, hiệu ứng của thư viện với pool, hạt trên UI, duyệt một
+hiệu ứng nặng, pack VFX mua sẵn) và 2 câu không được bật skill (nảy của nút UI, clip
 animation nhân vật). Scaffold chép các file đang track của repo module (bỏ `.claude/` và mọi folder `Skill~`, bỏ file đã xoá
 mà chưa commit), nên câu thử đọc quy chuẩn của module như trong một project thật và không đọc được đáp án.
 

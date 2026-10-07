@@ -47,6 +47,6 @@ graders:
   - type: llm
     name: particle_7.2
     criteria: >-
-      Câu trả lời nêu ít nhất ba trong các thiết lập: root là ParticleSystem điều khiển với Stop Action Callback; Max
+      Câu trả lời nêu ít nhất ba trong các thiết lập: root là ParticleSystem điều khiển với Stop Action Callback (có FXEffect) hoặc Disable (không có); Max
       Particles theo số hạt cần thật (không để 1000); Looping và Prewarm tắt; chạy giờ game (useUnscaledTime tắt);
       Culling Mode Automatic; Scaling Mode Hierarchy.
