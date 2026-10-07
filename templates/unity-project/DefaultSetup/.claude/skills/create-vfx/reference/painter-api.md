@@ -35,7 +35,7 @@ parts are derived from the ramp). `palette(name)` turns an entry into LUTs for p
 | `ring(cx, cy, R, w, layer, I, squash=1, mod=None, rot=0, sx=1)` | Glowing ring. `squash` < 1 = ground ellipse; `sx` < 1 = vertical ring; `mod(theta)` = per-angle multiplier (break-up, draw-in mask) |
 | `disc(cx, cy, R, layer, I, edge, core, bumps, squash, power, rim, rimw)` | Filled body brightening toward the centre. `bumps(theta)` reshapes the silhouette; `rim` adds an edge band (shell); fall `core` and raise `power` over time to hollow it |
 | `crescent(cx, cy, R, a0, a1, w, layer, I, squash=1, peak=0.5)` | Arc stroke from `a0` to `a1` (CCW), sharp ends; `peak` = where it is thickest (0.5 moon, 0.65–0.8 slash with a heavy head) |
-| `petal(cx, cy, ang, length, width, layer, I, hot=0.5)` | Teardrop flame petal from the root along `ang`; `hot` = tip brightness relative to the root. (Before 2026-10-05 it added large *negative* light along its axis, which carved dark spokes/streaks into whatever lay under it; fixed, so sheets regenerated since then lose those dark lines) |
+| `petal(cx, cy, ang, length, width, layer, I, hot=0.5)` | Teardrop flame petal from the root along `ang`; `hot` = tip brightness relative to the root. |
 | `beam(x0, y0, x1, y1, width, layer, I, fade=1)` | Soft constant-width column fading toward (x1, y1) (light pillar) |
 | `polyline(pts, width, layer, I)` | Thin glowing zigzag or polygon (runes, hexagram, lightning) |
 | `specks(seed, count, cx, cy, r_in, r_out, size, layer, I, squash=1, twinkle=None)` | Sparkly dust with fixed per-seed positions; growing `r_out` makes it drift outward |

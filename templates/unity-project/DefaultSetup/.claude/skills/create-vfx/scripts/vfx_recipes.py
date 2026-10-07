@@ -6,8 +6,7 @@ Unity defaults its prefab needs (kind, grid, life, world size, offsets, extra pa
 Every recipe paints with fxpaint on a single light layer "fx" mapped through the element ramp,
 so any recipe x any element works (explode_burst + frost, slash_arc + toxic, ...).
 
-The first 8 recipes are the original approved pack (impact, muzzle, explode, cast x2 each); the rest extend
-the set. Add new ones following ../reference/recipes.md.
+Add new recipes following ../reference/recipes.md.
 
 Sorting: `sorting_layer="ground"` puts a layer on the game's ground VFX layer (below characters); anything else
 uses the main VFX layer. make_vfx resolves both names from ArtStyle.md §6b (defaults FX_Ground / FX).
@@ -1139,52 +1138,52 @@ def _stream(name, fn, rate, life, speed, size, radius=0.5, arc_speed=0.0, orbita
 RECIPES = {
     "impact_star": dict(fn=impact_star, group="hit", role="impact", seed=21, kind="impact", frames=12, cols=4, px=256, life=0.34, size=4.2,
                         random_rotation=True, extras=[_sparks(7, (0.16, 0.3), (9, 16), (0.14, 0.22))],
-                        desc="Hit spark: needle star, ring, crescents, shards (approved: Impact_Fire)"),
+                        desc="Hit spark: needle star, ring, crescents, shards"),
     "impact_shatter": dict(fn=impact_shatter, group="hit", role="impact", seed=22, kind="impact", frames=12, cols=4, px=256, life=0.36, size=4.2,
                            random_rotation=True, extras=[_sparks(7, (0.16, 0.3), (9, 16), (0.14, 0.22))],
-                           desc="Crisp hit: lens streak, double ring, diamond shards (approved: Impact_Frost)"),
+                           desc="Crisp hit: lens streak, double ring, diamond shards"),
     "muzzle_flower": dict(fn=muzzle_flower, group="muzzle", role="fire", seed=31, kind="muzzle", frames=8, cols=4, px=256, life=0.16, size=4.0,
                           offset=[0.31, 0.0], align_local=True,
                           extras=[_sparks(5, (0.08, 0.18), (12, 20), (0.12, 0.18), arc=40, radius=0.05)],
-                          desc="Gun flash pointing +X: 5 flame petals, needles, shock ring (approved: Muzzle_Fire)"),
+                          desc="Gun flash pointing +X: 5 flame petals, needles, shock ring"),
     "muzzle_beam": dict(fn=muzzle_beam, group="muzzle", role="flash", seed=32, kind="muzzle", frames=8, cols=4, px=256, life=0.18, size=4.0,
                         offset=[0.31, 0.0], align_local=True,
                         extras=[_sparks(5, (0.08, 0.18), (12, 20), (0.12, 0.18), arc=40, radius=0.05)],
-                        desc="Energy discharge pointing +X: orb, beam needle, ring cone (approved: Muzzle_Arcane)"),
+                        desc="Energy discharge pointing +X: orb, beam needle, ring cone"),
     "explode_burst": dict(fn=explode_burst, group="hit", role="fire", seed=11, kind="explode", frames=16, cols=4, px=320, life=0.72, size=8.5,
                           random_rotation=True,
                           extras=[_sparks(12, (0.3, 0.55), (10, 20), (0.18, 0.28)),
                                   _motes("drift", (0.6, 1.0), (0.2, 0.34), count=10, speed=(1, 3.5), radius=1.5,
                                          delay=0.08, gravity=-0.15, drag=1.5, noise=0.6)],
-                          desc="Fireball: flash, scalloped ball, rays, hollow shell, soot rim (approved: Explode_Fire)"),
+                          desc="Fireball: flash, scalloped ball, rays, hollow shell, soot rim"),
     "explode_nova": dict(fn=explode_nova, group="hit", role="shockwave", seed=12, kind="explode", frames=16, cols=4, px=320, life=0.72, size=8.5,
                          random_rotation=True,
                          extras=[_sparks(12, (0.3, 0.55), (10, 20), (0.18, 0.28)),
                                  _motes("drift", (0.6, 1.0), (0.2, 0.34), count=10, speed=(1, 3.5), radius=1.5,
                                         delay=0.08, gravity=-0.15, drag=1.5, noise=0.6)],
-                         desc="Energy nova: spiky shell, crystal needles, outer ring (approved: Explode_Frost)"),
+                         desc="Energy nova: spiky shell, crystal needles, outer ring"),
     "cast_sigil": dict(fn=cast_sigil, group="cast", role="ring", seed=41, kind="cast", frames=20, cols=5, px=320, life=1.1, size=7.5,
                        offset=[0.0, -SIGIL_Y / 2],
                        extras=[_motes("rise", (0.6, 0.9), (0.15, 0.28), rate=22, radius=2.7, scaleY=0.42,
                                       delay=0.22, duration=0.6, rise=(1.6, 2.8))],
-                       desc="Ground magic circle + pillar + rim flames (approved: Cast_Fire); pivot = feet"),
+                       desc="Ground magic circle + pillar + rim flames; pivot = feet"),
     "cast_charge": dict(fn=cast_charge, group="cast", role="glow", seed=42, kind="cast", frames=16, cols=4, px=320, life=0.9, size=6.5,
                         extras=[_motes("rise", (0.6, 0.9), (0.15, 0.28), rate=22, radius=1.4, delay=0.18,
                                        duration=0.5, rise=(1.6, 2.8)),
                                 _sparks(12, (0.25, 0.45), (8, 14), (0.16, 0.24), delay=0.54)],
-                        desc="Charge & release: spiral motes into orb, gyroscope rings, star burst (approved: Cast_Arcane)"),
+                        desc="Charge & release: spiral motes into orb, gyroscope rings, star burst"),
     "slash_arc": dict(fn=slash_arc, group="slash", role="trail", seed=51, kind="slash", frames=10, cols=5, px=320, life=0.26, size=5.0,
                       offset=[0.0, 0.0], align_local=True,
                       extras=[_sparks(6, (0.12, 0.25), (8, 14), (0.12, 0.2), arc=120, radius=1.4)],
-                      desc="Melee swipe facing +X: sweeping crescent, peeling sparkles (new)"),
+                      desc="Melee swipe facing +X: sweeping crescent, peeling sparkles"),
     "orb_loop": dict(fn=orb_loop, group="proj", role="glow", seed=61, kind="projectile", frames=8, cols=4, px=256, life=0.4, size=2.2, loop=True,
                      extras=[_motes("trail", (0.25, 0.45), (0.14, 0.24), rate=14, radius=0.15)],
-                     desc="Looping projectile body + world-space trail motes (new)"),
+                     desc="Looping projectile body + world-space trail motes"),
     "aura_loop": dict(fn=aura_loop, group="aura", role="ring", seed=71, kind="aura", frames=12, cols=4, px=320, life=1.2, size=5.0, loop=True,
                       offset=[0.0, -SIGIL_Y / 2], sorting_layer="ground",
                       extras=[_motes("rise", (0.7, 1.1), (0.12, 0.22), rate=8, radius=1.8, scaleY=0.42,
                                      rise=(1.0, 1.8))],
-                      desc="Looping ground aura / buff zone in 3/4 view (new); pivot = feet"),
+                      desc="Looping ground aura / buff zone in 3/4 view; pivot = feet"),
     "aura_ascend": dict(fn=aura_ascend, group="buff", role="ring", seed=72, kind="aura", frames=16, cols=4, px=320, life=1.2, size=5.0, loop=True,
                         offset=[0.0, -SIGIL_Y / 2], sorting_layer="ground", intro=0.3,
                         extras=[_motes("rise", (0.8, 1.2), (0.12, 0.22), rate=9, radius=1.8, scaleY=0.42,
@@ -1192,7 +1191,7 @@ RECIPES = {
                                 _motes("rise", (0.45, 0.7), (0.1, 0.16), rate=6, radius=1.6, scaleY=0.42,
                                        rise=(3.0, 4.2), stretch=True)],
                         desc="Looping growth buff (EXP / level gain) in 3/4 view: ground ring, climbing up-chevrons, "
-                             "rising diamond crystals that twinkle (new); pivot = feet"),
+                             "rising diamond crystals that twinkle; pivot = feet"),
     "meteor_strike": dict(fn=meteor_impact, group="skill", role="impact", seed=81, kind="explode", frames=20, cols=5, px=320, life=0.9, size=10.5,
                           delay=METEOR_FALL,
                           layers=[_meteor_head_layer(),
@@ -1208,7 +1207,7 @@ RECIPES = {
                                   _motes("rise", (0.6, 0.9), (0.15, 0.26), rate=18, radius=2.4, scaleY=GROUND_SQ,
                                          delay=METEOR_FALL + 0.15, duration=0.7, rise=(1.2, 2.4))],
                           desc="Meteor falls (stretched comet + ember trail, ground mark) -> 3/4 ground impact "
-                               "-> molten crater (new); pivot = impact point"),
+                               "-> molten crater; pivot = impact point"),
     # Spinning ultimate zone around the hero. Size 10 puts the boundary ring at radius 4.25 u (squash 0.62); nest
     # the prefab under the zone's hitbox root so it scales with it. The zone root follows the hero.
     "blade_storm": dict(fn=blade_storm, group="aoe", role="trail", seed=101, kind="aura", frames=6, cols=3, px=320, life=0.3, size=10.0,
@@ -1219,36 +1218,36 @@ RECIPES = {
                         # start burst only: the sheet already carries the specks, so no mote layer (one draw call less)
                         extras=[_sparks(16, (0.25, 0.45), (12, 22), (0.2, 0.3), radius=0.6, drag=3.5)],
                         desc="Spinning blade-storm zone (loop): top-down whirl squashed to 3/4 and turned by the "
-                             "particle (smooth at any speed) + daggers flung out in a sweeping spiral (new)"),
+                             "particle (smooth at any speed) + daggers flung out in a sweeping spiral"),
     # ---- power-up pack
     "aura_heal": dict(fn=aura_heal, group="heal", role="ring", seed=73, kind="aura", frames=16, cols=4, px=320, life=1.2, size=5.0, loop=True,
                       offset=[0.0, -SIGIL_Y / 2], sorting_layer="ground", intro=0.35,
                       extras=[_motes("rise", (0.7, 1.1), (0.1, 0.18), rate=7, radius=1.8, scaleY=0.42,
                                      rise=(1.0, 1.8))],
                       desc="Looping healing zone in 3/4 view: edge ring = heal radius (0.8), inward pulse, rising "
-                           "plus-crosses (new); pivot = zone centre / feet"),
+                           "plus-crosses; pivot = zone centre / feet"),
     "time_ripple": dict(fn=time_ripple, group="skill", role="wave", seed=74, kind="explode", frames=20, cols=5, px=320, life=0.9, size=12.0,
                         extras=[_motes("drift", (0.6, 1.0), (0.18, 0.3), count=12, speed=(1.5, 4.0), radius=1.4,
                                        delay=0.05, drag=1.5, noise=0.4)],
                         desc="Time-slow pulse: flash, clock face whose hands whirl backwards and brake, three rings "
-                             "rolling out, sand specks (new); pivot = centre"),
+                             "rolling out, sand specks; pivot = centre"),
     "shield_bubble": dict(fn=shield_bubble, group="shield", role="glow", seed=75, kind="aura", frames=16, cols=4, px=320, life=1.0, size=6.8,
                           loop=True, intro=0.25,
                           extras=[_motes("rise", (0.6, 1.0), (0.1, 0.16), rate=5, radius=2.2, rise=(0.6, 1.2))],
                           desc="Looping energy shield bubble around the hero: hex facets lit by a sweeping band, "
-                               "crisp rim, crawling lightning arcs, specular crescent (new); pivot = body centre, front"),
+                               "crisp rim, crawling lightning arcs, specular crescent; pivot = body centre, front"),
     "divine_aura": dict(fn=divine_aura, group="buff", role="glow", seed=76, kind="aura", frames=16, cols=4, px=320, life=1.2, size=7.0,
                         loop=True, sorting_layer="ground", intro=0.3,
                         extras=[_motes("rise", (0.5, 0.8), (0.1, 0.16), rate=6, radius=1.4, scaleY=0.42,
                                        rise=(2.6, 3.6), stretch=True)],
                         desc="Looping invincibility aura BEHIND the hero: turning god-ray sunburst, halo above the "
-                             "head, ground ring at the feet, rising sparkles (new); pivot = body centre"),
+                             "head, ground ring at the feet, rising sparkles; pivot = body centre"),
     "ground_slam": dict(fn=ground_slam, group="hit", role="shockwave", seed=77, kind="explode", frames=20, cols=5, px=320, life=0.6, size=9.75,
                         extras=[_sparks(10, (0.25, 0.45), (8, 16), (0.16, 0.24), drag=3.0),
                                 _motes("drift", (0.5, 0.8), (0.16, 0.26), count=8, speed=(1, 3), radius=1.5,
                                        delay=0.05, drag=1.5, noise=0.5)],
                         desc="Stomp: ground cracks, ROUND shock ring to the push radius (0.82 = 4 u at size 9.75), "
-                             "inner 3/4 wave, light shards (new); pivot = stomp centre"),
+                             "inner 3/4 wave, light shards; pivot = stomp centre"),
 }
 
 SPRITES = {"Spark": spark_sprite, "Mote": mote_sprite}
