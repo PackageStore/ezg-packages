@@ -2707,8 +2707,8 @@
       "source": "defaultsetup",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "b0ae16ab8174865eff259e69e52bc83b20dfbbfb8bf7e52e7d7d7edc3b33426b",
-      "size": 1654193
+      "sha256": "81eb07fc4c3d08b6d7cb95548bff7c404dcbd25f413304ac04b630fc77658e12",
+      "size": 1654770
     },
     {
       "id": "Skills/item-preview",
