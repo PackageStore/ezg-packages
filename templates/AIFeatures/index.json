@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 48
+      "count": 49
     },
     {
       "id": "Templates",
@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "e2e3d216b498890aeb076c6815cf8f5c9908ef2cf4cf36c810d68be2cd1620f3",
-      "size": 1735
+      "sha256": "f1c0d23217a443a1d6f8807b81cd64c7f4d0e5181be379d9f69261275e7929ce",
+      "size": 1752
     },
     {
       "id": "Config/settings.json",
@@ -793,8 +793,8 @@
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "7e9e7408e1f270105c61b5774674533d41fa655108db058707c39259b21b608d",
-      "size": 5256
+      "sha256": "6ebd4bb0c6b96d0357f8326930983aaf07cfaa19a42fe1117d566dcad0a19c42",
+      "size": 6068
     },
     {
       "id": "Docs/design-pipeline",
@@ -1556,8 +1556,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "51a611c1fb08633d220bb19f74ec310bad050d2b4e06f7a8b8efc79a06dfa04b",
-      "size": 4006
+      "sha256": "4caea531852cbf31fde29bbc91c24e9bd6eb755e79941bf3017b1df8cc43341b",
+      "size": 4081
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -2228,6 +2228,35 @@
       "size": 21916
     },
     {
+      "id": "Skills/create-vfx",
+      "name": "create-vfx",
+      "category": "Skills",
+      "description": "Tạo VFX prefab cho game bằng flipbook vẽ 100% bằng code (Pillow, không AI ảnh, không tốn tiền) — lõi trắng nóng, glow bão hoà nướng vào alpha, tia kim, vòng mảnh, hạt sáng — rồi dựng prefab Unity tự động từ spec JSON theo khuôn của quy chuẩn game-vfx (root điều khiển → containers → lớp <vai>_ab[_sec], tên fx_<nhóm>_<tên>, texture FX_TX_<Tên>_<cột>x<hàng>, material chung _mat_ab, FXEffect khi project có module GameVFX, pool-friendly). 19 recipe (impact ×2, muzzle ×2, explode ×2, cast ×2, slash, đạn orb loop, aura loop, buff EXP, heal zone, shield, aura bất tử, time-slow, ground slam, meteor nhiều sheet, blade storm vùng xoay + dao bay) × 9 nguyên tố + dải màu riêng của game khai ở ArtStyle.md §6b, QA tự động, render thật trong Unity, so style với FX đã duyệt. Dùng khi user nói \"tạo vfx …\", \"làm vfx/fx …\", \"tạo hiệu ứng …\", \"vfx nổ / explode\", \"vfx trúng đòn / hit / impact\", \"vfx bắn / muzzle\", \"vfx niệm phép / cast\", \"vfx chém / slash\", \"vfx đạn / projectile / orb\", \"vfx aura / buff / vùng / hồi máu / khiên\", \"vfx thiên thạch / meteor\", \"vfx lốc kiếm / blade storm / dậm đất\", \"create vfx\", \"make an explosion / hit / muzzle flash effect\". KHÔNG dùng khi game chọn không frame-by-frame (brief game-vfx 4.7 → làm bằng hạt + shader theo skill game-vfx), cho hạt trên UI canvas, tween/rung/loé màn hình (UI Motion) hay animation nhân vật (Game Animation).",
+      "installPath": ".claude/skills/create-vfx",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/create-vfx/SKILL.md",
+        ".claude/skills/create-vfx/agents/openai.yaml",
+        ".claude/skills/create-vfx/reference/painter-api.md",
+        ".claude/skills/create-vfx/reference/recipes.md",
+        ".claude/skills/create-vfx/reference/style-guide.md",
+        ".claude/skills/create-vfx/reference/unity-integration.md",
+        ".claude/skills/create-vfx/scripts/fxpaint.py",
+        ".claude/skills/create-vfx/scripts/make_vfx.py",
+        ".claude/skills/create-vfx/scripts/vfx_recipes.py",
+        ".claude/skills/create-vfx/unity/Ezg.VfxKit.Editor.asmdef",
+        ".claude/skills/create-vfx/unity/VfxPrefabBuilder.cs",
+        ".claude/skills/create-vfx/unity/VfxShowcaseLoop.cs"
+      ],
+      "fileCount": 12,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "create-vfx.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip",
+      "sha256": "57a2553fd21ae62e2e9e39aa8c2a41a7318b7a4931344b15ef9c39203031ba53",
+      "size": 77877
+    },
+    {
       "id": "Skills/csv-config",
       "name": "csv-config",
       "category": "Skills",
@@ -2644,8 +2673,8 @@
       "source": "defaultsetup",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "2119a8341e4532ab7a14d5ba791ca26846edc38d326d15dbc9da4884d73df104",
-      "size": 1576572
+      "sha256": "cf3240d7d37f3eb67e5521c8106af5798afefad1680c903cdf10217dbac2b3e8",
+      "size": 1576659
     },
     {
       "id": "Skills/item-preview",
