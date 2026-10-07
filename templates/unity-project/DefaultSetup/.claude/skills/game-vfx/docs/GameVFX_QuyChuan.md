@@ -1,6 +1,6 @@
 # Quy chuẩn VFX (2D, 3D, mobile)
 
-Phiên bản 0.2.3 (nháp) · 2026-10-06 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
+Phiên bản 0.2.4 (nháp) · 2026-10-07 · Module có thư viện hiệu ứng dùng chung đã chuẩn hoá theo tài liệu này (`GameVFX_ThuVien.md`:
 hiệu ứng world và UI canvas, shader chung, component `FXEffect`) và skill Claude `game-vfx` (đọc, áp quy chuẩn, quét project);
 gate trong Unity vẫn làm sau. Nguồn chính là hướng dẫn VFX công khai
 (PDF, 37 trang, 6 phần) của một studio MOBA PC lớn cho tựa MOBA PC của họ, tài liệu công khai khác của studio đó, của một studio
@@ -122,7 +122,7 @@ thời gian là *(đề xuất)*.
 - Ví dụ của tài liệu gốc [1]: chiêu khiên nổ của một tướng đỡ đòn có yếu tố chính là **viền vòng tròn** (người chơi cần biết
   bán kính để né), yếu tố phụ là tia điện mờ bên trong.
 - Brief ghi yếu tố chính là gì (9.2). Tắt hết yếu tố phụ, hiệu ứng vẫn phải nói đủ gameplay.
-- Trong prefab, yếu tố phụ đặt tên có hậu tố `_Sec` (8.4) để tool giảm hoặc tắt ở tier máy thấp và lúc màn hình đông (2.7,
+- Trong prefab, yếu tố phụ đặt tên có hậu tố `_sec` (8.4) để tool giảm hoặc tắt ở tier máy thấp và lúc màn hình đông (2.7,
   6.4).
 
 ### 2.3 Dải sáng và dải đậm theo mảng
@@ -203,7 +203,7 @@ Luật:
    giảm trước.
 2. Mỗi key VFX có trần số bản cùng lúc (mặc định *(đề xuất)*: Basic 6, Damage 3, Major và Ultimate 1–2); vượt thì bỏ bản cũ
    nhất hoặc không phát bản mới, do pool lo (6.8, 7.8).
-3. Trên một số hiệu ứng cùng lúc (mặc định *(đề xuất)* 20 hiệu ứng hoặc 300 hạt trên màn hình), tắt yếu tố phụ `_Sec` của hiệu
+3. Trên một số hiệu ứng cùng lúc (mặc định *(đề xuất)* 20 hiệu ứng hoặc 300 hạt trên màn hình), tắt yếu tố phụ `_sec` của hiệu
    ứng mới.
 4. Trúng liên tiếp cùng một mục tiêu: hiệu ứng lần sau nhỏ và nhẹ hơn lần đầu [13].
 5. Thanh trượt độ đục không giải quyết chồng lớp: nhiều lớp trong suốt vẫn phủ gần kín màn hình [14]. Giảm số lớp và diện
@@ -571,7 +571,7 @@ thành nợ, sửa dần (10).
 
 ### 6.4 Theo tier máy
 
-| Tier | Yếu tố phụ `_Sec` | Hạt (`emission.rateOverTimeMultiplier`, burst) | Tính năng |
+| Tier | Yếu tố phụ `_sec` | Hạt (`emission.rateOverTimeMultiplier`, burst) | Tính năng |
 |---|---|---|---|
 | Thấp | tắt | × 0,5 | không distortion, không soft particle, không bloom trên VFX |
 | Vừa | bật | × 1 | soft particle chỉ khi pipeline đã có depth texture vì lý do khác |
@@ -654,25 +654,32 @@ thành nợ, sửa dần (10).
 ### 7.1 Cấu trúc prefab
 
 ```
-FX_Hero_Hit_Fireball              root: ParticleSystem điều khiển (không phát hạt, renderer tắt), Stop Action = Callback
-├─ Core                           yếu tố chính
-├─ Flash_Sec                      loé ngắn ở pha bùng (loé là yếu tố phụ, 2.3.4)
-├─ Sparks_Sec                     yếu tố phụ: tắt ở tier Thấp, lúc đông
-├─ Smoke_Sec
-└─ Decal                          dấu trên mặt đất (nếu có)
+fx_hero_hit_fireball         root: ParticleSystem điều khiển (không phát hạt, renderer tắt), Stop Action = Callback
+└─ containers                nhóm: ParticleSystem không phát hạt, renderer tắt, Stop Action = None
+   ├─ impact_add             yếu tố chính
+   ├─ flash_add_sec          loé ngắn ở pha bùng (loé là yếu tố phụ, 2.3.4)
+   ├─ spark_add_sec          yếu tố phụ: tắt ở tier Thấp, lúc đông
+   ├─ smoke_ab_sec
+   └─ decal_ab               dấu trên mặt đất (nếu có)
 ```
 
-1. Root là một `ParticleSystem` điều khiển: không emission, renderer tắt (hoặc không có renderer), `Duration` = độ dài của cả
+Khuôn lấy từ prefab đã ship của team (2026-10). Hiệu ứng mới tạo khung bằng script `vfx_new.mjs` của skill `game-vfx`: đúng
+cây, tên, thiết lập 7.2, material theo kiểu trộn (8.2).
+
+1. Root là một `ParticleSystem` điều khiển: không emission, renderer tắt (Render Mode None), `Duration` = độ dài của cả
    hiệu ứng, `Looping` theo hiệu ứng. `Play` / `Stop` trên root chạy cả cây; root báo xong bằng Stop Action Callback.
    (Luật 6.5.5 không áp cho root điều khiển: nó không phát hạt nên không mô phỏng gì.)
-2. Root ở vị trí điểm chạm (trúng đòn) hoặc điểm chạm đất (vùng, xuất hiện), scale (1, 1, 1), không xoay trừ khi hiệu ứng có
+2. Root có đúng một con là `containers`: `ParticleSystem` không phát hạt, renderer tắt, Stop Action None. Mọi lớp phát hạt là
+   con trực tiếp của `containers`, không lồng sâu hơn. Luật 6.5.5 cũng không áp cho `containers`.
+3. Root ở vị trí điểm chạm (trúng đòn) hoặc điểm chạm đất (vùng, xuất hiện), scale (1, 1, 1), không xoay trừ khi hiệu ứng có
    hướng (hướng +X cho 2D nhìn ngang, +Z cho 3D).
-3. Con đặt tên theo vai (8.4), yếu tố phụ có `_Sec`.
-4. Hiệu ứng có hướng (chém, tia) dựng theo một hướng chuẩn; code xoay root theo đòn.
-5. Không collider, không logic gameplay trong prefab hiệu ứng: hitbox là của gameplay (Game Animation 7.4). Prefab gộp cả hình
+4. Lớp đặt tên theo 8.4: vai + kiểu trộn, yếu tố phụ có `_sec`.
+5. Hiệu ứng có hướng (chém, tia) dựng theo một hướng chuẩn; code xoay root theo đòn.
+6. Không collider, không logic gameplay trong prefab hiệu ứng: hitbox là của gameplay (Game Animation 7.4). Prefab gộp cả hình
    lẫn collider thì đổi hình là đụng gameplay. Ba game của team gộp hai thứ này *(đo)*; project cũ giữ, hiệu ứng mới tách.
-6. Root có component `FXEffect` của module (7.8): phát, dừng, báo xong theo stop action, tắt `_Sec` ở tier Thấp. Mọi hiệu ứng
-   trong thư viện đã có cấu trúc này.
+7. Project có module GameVFX: root gắn component `FXEffect` (7.8): phát, dừng, báo xong theo stop action, tắt lớp phụ ở tier
+   Thấp. Script tạo khung không gắn `FXEffect`. Thư viện của module còn theo khuôn cũ (tên PascalCase, không có `containers`):
+   nợ, `GameVFX_ThuVien.md` 4.
 
 ### 7.2 Thiết lập ParticleSystem
 
@@ -689,7 +696,7 @@ FX_Hero_Hit_Fireball              root: ParticleSystem điều khiển (không p
 | Play On Awake | bật | pool bật object là phát |
 | Max Particles | số hạt cần thật × 1,2, trong trần 6.2 | *(đo)* 63–98 % system đã ship để nguyên 1000; *(đo, 3D)* 90–92 % |
 | Auto Random Seed | bật | |
-| Stop Action | root: Callback; con: None | 7.1 |
+| Stop Action | root: Callback; `containers` và các lớp: None | 7.1 |
 | Culling Mode | Automatic | 6.5 |
 | Ring Buffer | tắt | |
 | Emission | burst cho pha bùng, rate cho lặp | |
@@ -774,7 +781,7 @@ Bản 0.2 có phần của từng hiệu ứng, `FXEffect` trên root (`Runtime/
 | `fx.Finished` | báo khi hạt cuối cùng tắt (stop action Callback, không đếm giờ); pool thu lại ở đây |
 | `fx.whenFinished` | `Disable` (mặc định, hợp pool), `Destroy`, `None` |
 | `fx.autoStopAfter` | hiệu ứng lặp tự dừng sau số giây |
-| `FXEffect.LowQuality` | tier Thấp: tắt con `_Sec` (6.4) |
+| `FXEffect.LowQuality` | tier Thấp: tắt con có đuôi `_Sec` (6.4). Bản hiện tại chưa nhận đuôi `_sec` của khuôn 8.4: nợ, CHANGELOG 0.2.4 |
 | `FXEffect.DefaultSortingLayer` | layer VFX của game (7.3), áp cho mọi renderer của hiệu ứng lúc bật |
 
 Đường spawn sẵn có của game gọi `Play` / nghe `Finished` thay cho hẹn giờ tắt; cách dùng với `ObjectPool`: `GameVFX_ThuVien.md` 2.
@@ -785,9 +792,11 @@ Bản 0.2 có phần của từng hiệu ứng, `FXEffect` trên root (`Runtime/
 
 ### 8.1 Luật chung
 
-- ASCII, tiếng Anh, PascalCase từng đoạn, nối bằng `_` (như Game Animation 4.1).
-- Tiền tố `FX_` cho mọi asset VFX, rồi mã loại: nối tiếp cách các game của team đã bắt đầu làm (mỗi game có 55–67 prefab `FX_`,
-  9–21 texture `FX_TX_`, một game có material `FX_MT_` *(đo)*).
+- ASCII, tiếng Anh, nối bằng `_`.
+- Prefab, tên con trong prefab, material: **snake_case chữ thường** (`fx_hit_slash_01`, `impact_add`, `_mat_add`), theo khuôn
+  prefab đã ship của team (7.1).
+- Texture, mesh, shader, atlas: PascalCase từng đoạn (như Game Animation 4.1), tiền tố `FX_` rồi mã loại, nối tiếp cách các game
+  của team đã bắt đầu làm (mỗi game có 9–21 texture `FX_TX_` *(đo)*).
 - Tên đã vào code, dữ liệu, event thì không đổi. Game có quy ước tìm hiệu ứng theo đường dẫn, theo ID (ví dụ
   `Ability/<id>/ability_<id>_id_<n>`) thì giữ quy ước đó và ghi vào file riêng của game; hiệu ứng mới của game đó vẫn đặt tên
   con, material, texture theo 8.2.
@@ -796,38 +805,45 @@ Bản 0.2 có phần của từng hiệu ứng, `FXEffect` trên root (`Runtime/
 
 | Loại | Mẫu | Ví dụ |
 |---|---|---|
-| Prefab hiệu ứng dùng chung | `FX_<Nhóm>_<Tên>[_<Biến thể>]` | `FX_Hit_Slash_01`, `FX_Buff_Heal_Loop` |
-| Prefab của một đối tượng | `FX_<Subject>_<Nhóm>_<Tên>[_<Biến thể>]` | `FX_Hero_Cast_Fireball`, `FX_Goblin_Death_Burst` |
-| Material | `FX_MT_<Tên>_<Blend>` | `FX_MT_Spark_Add`, `FX_MT_Smoke_AB` |
+| Prefab hiệu ứng dùng chung | `fx_<nhóm>_<tên>[_<biến thể>]` | `fx_hit_slash_01`, `fx_buff_heal_loop` |
+| Prefab của một đối tượng | `fx_<subject>_<nhóm>_<tên>[_<biến thể>]` | `fx_hero_cast_fireball`, `fx_goblin_death_burst` |
+| Material dùng chung theo kiểu trộn | `_mat_add`, `_mat_ab` | lớp `_add` gán `_mat_add`, lớp `_ab` gán `_mat_ab` (8.4) |
+| Material riêng | `mat_<tên>_<kiểu trộn>` | `mat_spark_add`, `mat_smoke_ab` |
 | Texture | `FX_TX_<Tên>[_<Cột>x<Hàng>][_<Biến thể>]` | `FX_TX_Smoke_4x4`, `FX_TX_Glow_Soft` |
 | Mesh | `FX_SM_<Tên>` | `FX_SM_SlashArc` |
 | Shader | file `FX_SH_<Tên>`; menu `<Studio>/VFX/<Tên>` | `FX_SH_Dissolve` |
 | Sprite atlas | `FX_AT_<Nhóm>` | `FX_AT_Hit` |
 
-Blend: `Add` (additive), `AB` (alpha blend), `PM` (premultiplied), `Mul` (multiply).
+Kiểu trộn (tên lớp, tên material): `add` (additive), `ab` (alpha blend), `pm` (premultiplied), `mul` (multiply). Script tạo
+khung hiện nhận `add`, `ab`.
 
-Nhóm, danh sách cố định (cần nhóm mới thì sửa bảng này trước):
+Material dùng chung: script tạo khung tìm `_mat_add` / `_mat_ab` trong `Assets/` (không phân biệt hoa thường). Trùng tên thì
+lấy bản được prefab VFX tham chiếu nhiều nhất. Chưa có thì tạo mới, shader `Mobile/Particles/Additive` / `Mobile/Particles/Alpha
+Blended` (chỉ đúng ở Built-in; project URP thay shader), ở folder `Materials` cạnh folder `Prefabs` chứa prefab (không có folder
+`Prefabs` thì `<folder chứa folder prefab>/Materials`).
+
+Nhóm, danh sách cố định, viết thường trong tên prefab (cần nhóm mới thì sửa bảng này trước):
 
 | Nhóm | Gồm |
 |---|---|
-| `Hit` | trúng đòn, va chạm |
-| `Proj` | đạn, tên, cầu bay (cả vệt của nó) |
-| `Muzzle` | đầu nòng, lúc bắn |
-| `Slash` | vệt vũ khí, vệt chém |
-| `Cast` | lấy đà, niệm chiêu |
-| `Skill` | thân kỹ năng (khi không tách được Cast / Proj / Hit) |
-| `AoE` | vùng tác dụng |
-| `Warn` | cảnh báo, telegraph |
-| `Buff`, `Debuff`, `Heal`, `Shield` | trạng thái có lợi, bất lợi, hồi máu, khiên |
-| `Status` | choáng, đóng băng, độc, cháy… |
-| `Aura` | hào quang lặp quanh nhân vật |
-| `Spawn`, `Death` | xuất hiện, chết |
-| `Pickup` | nhặt đồ, rơi đồ |
-| `Env` | môi trường |
-| `UI` | hiệu ứng trên UI |
+| `hit` | trúng đòn, va chạm |
+| `proj` | đạn, tên, cầu bay (cả vệt của nó) |
+| `muzzle` | đầu nòng, lúc bắn |
+| `slash` | vệt vũ khí, vệt chém |
+| `cast` | lấy đà, niệm chiêu |
+| `skill` | thân kỹ năng (khi không tách được cast / proj / hit) |
+| `aoe` | vùng tác dụng |
+| `warn` | cảnh báo, telegraph |
+| `buff`, `debuff`, `heal`, `shield` | trạng thái có lợi, bất lợi, hồi máu, khiên |
+| `status` | choáng, đóng băng, độc, cháy… |
+| `aura` | hào quang lặp quanh nhân vật |
+| `spawn`, `death` | xuất hiện, chết |
+| `pickup` | nhặt đồ, rơi đồ |
+| `env` | môi trường |
+| `ui` | hiệu ứng trên UI |
 
-Hậu tố: `_Start`, `_Loop`, `_End` cho hiệu ứng lặp nhiều phần; biến thể `_01`, `_02` hoặc chữ (`_Fire`, `_Rare`); phe `_Ally`,
-`_Enemy` khi có biến thể theo phe; cỡ `_S`, `_M`, `_L` khi có nhiều cỡ.
+Hậu tố: `_start`, `_loop`, `_end` cho hiệu ứng lặp nhiều phần; biến thể `_01`, `_02` hoặc chữ (`_fire`, `_rare`); phe `_ally`,
+`_enemy` khi có biến thể theo phe; cỡ `_s`, `_m`, `_l` khi có nhiều cỡ.
 
 ### 8.3 Thư mục
 
@@ -836,8 +852,8 @@ Hậu tố: `_Start`, `_Loop`, `_End` cho hiệu ứng lặp nhiều phần; bi�
 ```
 Assets/_Project/Art/VFX/
   Shared/      Textures/  Materials/  Meshes/  Shaders/  Atlases/     dùng chung (4, 6.6, 6.7)
-  Combat/      <Nhóm>/FX_Hit_Slash_01.prefab
-  Characters/  <Subject>/FX_Hero_Cast_Fireball.prefab                 VFX riêng của một nhân vật
+  Combat/      <nhóm>/fx_hit_slash_01.prefab
+  Characters/  <subject>/fx_hero_cast_fireball.prefab                 VFX riêng của một nhân vật
   Env/  UI/
 ArtSource/VFX/                                     ngang hàng Assets, Unity không import
   <Tên>/   file .psd nhiều layer, .blend, project After Effects / EmberGen / tool sinh flipbook, video tham khảo
@@ -850,18 +866,30 @@ ArtSource/VFX/                                     ngang hàng Assets, Unity kh�
 
 ### 8.4 Tên con trong prefab
 
-| Vai | Tên |
-|---|---|
-| Yếu tố chính | `Core` |
-| Loé | `Flash`, `Glow` |
-| Tia, mảnh | `Sparks`, `Debris` |
-| Khói, bụi | `Smoke`, `Dust` |
-| Vòng, sóng | `Ring`, `Wave` |
-| Dấu trên đất | `Decal` |
-| Vệt | `Trail` |
+Root và `containers` theo 7.1. Mỗi lớp (con của `containers`) đặt tên chữ thường theo mẫu
+`<vai>(_<vai>)*_<add|ab>(_<số>)?(_sec)?`:
 
-Yếu tố phụ thêm `_Sec` ở cuối tên (`Sparks_Sec`). Nhiều con cùng vai thì `_01`, `_02` đứng trước `_Sec` (`Sparks_01_Sec`):
-`FXEffect` và tool tìm yếu tố phụ theo đuôi tên.
+- **Vai** lấy từ bảng dưới; ghép được nhiều vai (`fire_impact_ab`, `lightning_halfsphere_add`, `ring_shockwave_add`).
+- **Kiểu trộn** `_add` / `_ab` bắt buộc: lớp gán `_mat_add` hay `_mat_ab` (8.2), người đọc biết ngay lớp cộng sáng hay phủ.
+- **Số** `_2`, `_3` khi nhiều lớp trùng vai và kiểu trộn (`ring_add_2`).
+- **`_sec`** ở cuối cho yếu tố phụ (`glow_ab_sec`, `ring_add_2_sec`): `FXEffect` và tool tìm yếu tố phụ theo đuôi tên.
+
+Vai, danh sách cố định (cần vai mới thì sửa bảng này trước, rồi sửa `ROLES` trong `scripts/vfx_new.mjs` của skill `game-vfx`):
+
+| Vai | Dùng cho |
+|---|---|
+| `impact` | yếu tố chính của cú va chạm |
+| `glow`, `flash` | loé |
+| `ring`, `shockwave`, `wave` | vòng, sóng |
+| `fire`, `smoke`, `dust` | lửa, khói, bụi |
+| `spark`, `debris` | tia, mảnh |
+| `trail` | vệt |
+| `lightning` | tia điện |
+| `halfsphere` | bán cầu (mesh) |
+| `decal` | dấu trên mặt đất |
+
+⚠️ `FXEffect` bản hiện tại tìm đuôi `_Sec` (S hoa). Tới khi module sửa để nhận `_sec` (không phân biệt hoa thường), tier Thấp
+chưa tắt được lớp phụ của khuôn này (CHANGELOG 0.2.4).
 
 ---
 
@@ -884,7 +912,7 @@ Thứ tự khi có việc chen ngang như studio MOBA PC: lỗi gameplay trướ
 
 | Mục | Ví dụ |
 |---|---|
-| Key | `FX_Hero_Cast_Fireball`, `FX_Hero_Proj_Fireball`, `FX_Hero_Hit_Fireball` |
+| Key | `fx_hero_cast_fireball`, `fx_hero_proj_fireball`, `fx_hero_hit_fireball` |
 | Cấp | Damage |
 | Yếu tố chính | quả cầu lửa khi bay; vòng nổ khi trúng (bán kính 2 m) |
 | Vùng, hitbox | hình tròn bán kính theo dữ liệu kỹ năng |
@@ -892,7 +920,7 @@ Thứ tự khi có việc chen ngang như studio MOBA PC: lỗi gameplay trướ
 | Màu | bảng Lửa của game; phe mình |
 | Tiếng, rung | `vfx.hit.fireball`, rung 2 |
 | Ngân sách | theo cấp Damage (6.2) |
-| Tier Thấp | tắt `Sparks_Sec`, `Smoke_Sec` |
+| Tier Thấp | tắt `spark_add_sec`, `smoke_ab_sec` |
 
 Phần của cả game, ghi một lần trong file riêng của game (7.8, 12.2): preset mood, hex ba phe (2.5), bảng màu nguyên tố và độ hiếm
 (5.3), dải sáng / đậm đo được của môi trường và nhân vật (2.3.6), sorting layer và order (7.3), shader được dùng (6.6), thư viện UI
@@ -980,7 +1008,7 @@ Một hiệu ứng xong khi:
 - [ ] Gate 10 không lỗi; cảnh báo còn lại có lý do trong brief
 - [ ] Tên, thư mục đúng 8; không file thử, bản sao trong folder được build
 - [ ] Gọi được bằng key qua cửa chung (7.8); preload có trong danh sách của màn
-- [ ] Có bản tier Thấp (yếu tố phụ đánh dấu `_Sec`) và đã xem trên máy tier Thấp
+- [ ] Có bản tier Thấp (yếu tố phụ đánh dấu `_sec`) và đã xem trên máy tier Thấp
 - [ ] Âm thanh, rung, hitstop khớp frame (3.3)
 
 ---
@@ -994,7 +1022,7 @@ Chưa có gì được team chốt. Bản 0.1 lấy làm mặc định:
 - Sáu cấp và luật đọc được theo tài liệu VFX của studio MOBA PC (2.1–2.3), cấp do GD xếp.
 - Màu phe: mình vàng, đồng minh xanh, địch đỏ, luôn kèm dấu hiệu hình (2.5).
 - Hiệu ứng thế giới game chạy giờ game, UI chạy giờ thật (3.4); hết giờ gõ tay, dùng stop action.
-- Tiền tố `FX_` và mã loại `FX_TX_`, `FX_MT_` theo cách các game của team đã bắt đầu dùng (8.2).
+- Prefab tiền tố `fx_` (snake_case), texture, mesh, shader, atlas mã loại `FX_TX_`, `FX_SM_`, `FX_SH_`, `FX_AT_` (8.1, 8.2).
 - Trần theo cấp (6.2) là *(đề xuất)*, hiệu chỉnh ở pilot.
 - Bản 0.2: shader chung `EZG/VFX/Particle` và UIParticle là mặc định của thư viện (6.6.8, 7.5.1), chưa phải quyết định của team
   cho mọi game (12.2).
@@ -1020,7 +1048,7 @@ Chưa có gì được team chốt. Bản 0.1 lấy làm mặc định:
    qua lớp nối với đường spawn sẵn có. Bản 0.2 có phần của từng hiệu ứng (`FXEffect`); cửa chung chưa có.
 3. Pilot trên một game đã ship của team: sửa lỗi giờ game / giờ thật (3.4), đo overdraw và thời gian GPU của VFX trên máy tier
    Thấp ở cảnh nặng nhất, rồi chỉnh trần 6.2 và 6.1.3. Đo luôn hiệu ứng của thư viện trên máy, trả nợ trần của nó
-   (`GameVFX_ThuVien.md` 4), đánh dấu `_Sec`.
+   (`GameVFX_ThuVien.md` 4), đánh dấu `_sec`.
 4. Skill Claude đi kèm module (như `ui-motion`, `game-animation`): đọc quy chuẩn, duyệt hiệu ứng theo checklist, chạy tool quét.
    Bản 0.2.1 có skill `game-vfx` (`Skill~/game-vfx` của module; bản cài trên Feature Hub, tab AI Feature).
 

@@ -267,7 +267,11 @@ liệu gốc; dùng tài liệu gốc khi hai bên khác nhau:
 - **Tên**: không có tiền tố VFX chung cho ngành. Tài liệu chính thức của Unreal Engine hiện dùng `FXS_` (system), `FXE_`
   (emitter), cùng `M_`, `MI_`, `T_`, `SM_`, theo mẫu `[Loại]_[Tên]_[Mô tả]_[Biến thể]` [35]; cộng đồng dùng `FX_`, `CH_`, `EN_`
   cùng `T_`, flipbook kèm lưới `_2x4`; tiền tố có ích khi profiler chỉ in tên texture, không in đường dẫn [36]. Quy chuẩn 8 chọn
-  `FX_` + mã loại vì các game của team đã bắt đầu dùng `FX_TX_`, `FX_MT_`.
+  `FX_` + mã loại cho texture, mesh, shader, atlas vì các game của team đã bắt đầu dùng `FX_TX_`.
+- **Khuôn prefab** (quy chuẩn 7.1, 8.4, từ 0.2.4): lấy từ prefab hiệu ứng găng đã ship của team (2026-10): root điều khiển →
+  một node `containers` → các lớp tên snake_case. Hậu tố kiểu trộn `_add` / `_ab` nằm ngay trong tên lớp nên người đọc cây prefab
+  biết lớp nào cộng sáng, lớp nào phủ mà không mở material, và script tạo khung gán đúng material dùng chung (`_mat_add`,
+  `_mat_ab`) theo tên. Vai lấy từ một danh sách cố định để tool và người đọc hiểu cùng một nghĩa.
 - **Quy trình của studio MOBA PC** [4]: chọn tướng → bản gốc có vòng phản hồi → các skin → thử → máy chủ thử nghiệm công khai →
   gom phản hồi → lên bản chính, rồi chỉnh theo bản vá. Phản hồi được lọc theo ba tiêu chí: làm được, khách quan, có đồng thuận.
 - **Tài liệu học** studio MOBA PC gợi ý [38]: sách *Elemental Magic* của Joseph Gilland, diễn đàn và Discord Real-Time VFX, kênh
@@ -407,5 +411,5 @@ O = chính thức (hãng engine, hãng GPU, studio), T = bài nói hội thảo,
 | 5 màu | [1] [10] |
 | 6 ngân sách | [6] [12] [18] [22] [23] [24] [25] [27] [28] [29] [30]; số đo mục 8 |
 | 7 Unity | [22] [23] [24] [27]; số đo mục 8 |
-| 8 tên | [35] [36]; số đo mục 8 |
+| 7.1, 8 khuôn prefab, tên | [35] [36]; số đo mục 8; prefab đã ship của team (mục 7) |
 | 9 quy trình | [4] [9] [18] |

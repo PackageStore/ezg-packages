@@ -45,6 +45,17 @@ quy chuẩn) nằm trong file của chính game đó: xem mục 2. Không dùng 
 ## 3. Làm
 
 - Hiệu ứng mới: chốt cấp trước (2.1, GD xếp), rồi mới tới timing, trần, hình, màu. Ghi cấp đã chọn vào câu trả lời.
+- Prefab hiệu ứng mới **luôn tạo khung bằng script**, không dựng cây tay (khuôn 7.1, tên 8.2, 8.4):
+
+  ```bash
+  node <skill>/scripts/vfx_new.mjs <đường dẫn>/fx_<nhóm>_<tên>.prefab --layers impact_add,glow_ab_sec,ring_add [--dry-run]
+  ```
+
+  Ra cây root (Callback) → `containers` → các lớp, thiết lập theo 7.2, lớp `_add` gán `_mat_add`, lớp `_ab` gán `_mat_ab` (tìm
+  trong project; chưa có thì tạo). Không truyền `--layers` thì một lớp `impact_add`. Tên sai luật thì script từ chối và nói lý
+  do; đã có file cùng tên thì không ghi đè. Chạy `--dry-run` trước để xem cây và material sẽ dùng. Xong thì chỉnh tiếp trong
+  Unity (texture, timing, motion 3.7) và kiểm bằng mắt (mục 5). Vai lớp chỉ lấy trong bảng 8.4; cần vai mới thì sửa bảng 8.4
+  và `ROLES` trong script, không đặt tên ngoài bảng.
 - Xem thư viện trước khi làm mới: danh mục ở `GameVFX_ThuVien.md` mục 3 (nhóm, cấp, dùng cho 2D / 3D, ảnh). Có hiệu ứng
   gần đúng thì dùng thẳng, hoặc chép prefab sang folder VFX của game rồi sửa (tên theo 8.2, material mới nếu đổi màu). Không
   sửa prefab, material, texture trong folder module.

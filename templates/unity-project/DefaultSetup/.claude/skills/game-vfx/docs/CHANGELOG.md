@@ -2,6 +2,27 @@
 
 Quy chuẩn: `GameVFX_QuyChuan.md`. Nền lý thuyết và nguồn: `GameVFX_NguyenLy.md`. Thư viện hiệu ứng: `GameVFX_ThuVien.md`.
 
+## 0.2.4 — 2026-10-07
+
+Khuôn prefab và script tạo khung.
+
+- Quy chuẩn 0.2.4, khuôn prefab mới lấy từ prefab hiệu ứng găng đã ship của team: root điều khiển (Stop Action Callback) → một
+  node `containers` (không phát hạt, renderer tắt, Stop Action None) → các lớp (7.1, bảng 7.2).
+- Tên (8.1, 8.2, 8.4): prefab, tên con, material đổi sang snake_case chữ thường (`fx_<nhóm>_<tên>`, `impact_add`,
+  `_mat_add`). Lớp theo mẫu `<vai>(_<vai>)*_<add|ab>(_<số>)?(_sec)?`: vai trong bảng cố định ở 8.4, kiểu trộn bắt buộc,
+  yếu tố phụ đuôi `_sec` (trước là `_Sec`; sửa theo ở 2.2, 2.7, 6.4, 9.2, 11). Material dùng chung theo kiểu trộn `_mat_add`,
+  `_mat_ab`; material riêng `mat_<tên>_<kiểu trộn>`. Nhóm và hậu tố prefab viết thường. Texture, mesh, shader, atlas giữ
+  `FX_TX_`, `FX_SM_`, `FX_SH_`, `FX_AT_`.
+- Skill `game-vfx`: script `scripts/vfx_new.mjs` (Node 18+, không cần mở Unity) tạo prefab khung đúng khuôn từ mẫu YAML do Unity
+  6000.3 sinh (`scripts/templates/`). Kiểm tên prefab, tên lớp, trùng lớp; không ghi đè; tìm `_mat_add` / `_mat_ab` trong
+  `Assets/` (trùng tên thì lấy bản được prefab VFX dùng nhiều nhất), chưa có thì tạo (shader `Mobile/Particles`). `SKILL.md` mục
+  3: prefab mới luôn tạo khung bằng script.
+- **Nợ:**
+  - `FXEffect.LowQuality` còn tìm đuôi `_Sec`: phải sửa để nhận `_sec` (không phân biệt hoa thường) trước khi dùng tier Thấp
+    với hiệu ứng theo khuôn mới.
+  - 67 hiệu ứng của thư viện còn theo khuôn và tên cũ (`GameVFX_ThuVien.md` 4).
+  - Material tạo mới dùng `Mobile/Particles`: chỉ đúng ở Built-in, project URP phải thay shader.
+
 ## 0.2.3 — 2026-10-06
 
 Motion của hạt cho hiệu ứng va chạm.

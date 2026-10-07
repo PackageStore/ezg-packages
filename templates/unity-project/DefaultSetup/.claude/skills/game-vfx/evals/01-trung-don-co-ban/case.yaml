@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: 01-trung-don-co-ban
-description: "Trúng đòn của đòn thường. Luật rải ở cấp (2.1), timing (3.1), trần (6.2), ParticleSystem (7.2), tên (8.2)."
+description: "Trúng đòn của đòn thường. Luật rải ở cấp (2.1), timing (3.1), trần (6.2), ParticleSystem (7.2), tên (8.2), khuôn prefab (7.1, 8.4)."
 tags: [hit, 3d]
 context:
   scaffold_script: scaffold.sh
@@ -35,8 +35,15 @@ graders:
   - type: llm
     name: ten_8.2
     criteria: >-
-      Câu trả lời đề xuất tên có tiền tố FX_ và nhóm Hit, PascalCase nối bằng dấu gạch dưới, ví dụ FX_Hit_Slash_01 hoặc
-      FX_<Subject>_Hit_<Tên>. Trượt nếu tên kiểu hit_effect, VFX_Hit_Sword, hoặc không có nhóm Hit.
+      Câu trả lời đề xuất tên prefab snake_case chữ thường, tiền tố fx_ và nhóm hit, ví dụ fx_hit_slash_01 hoặc
+      fx_<subject>_hit_<tên>. Trượt nếu tên theo kiểu PascalCase cũ (FX_Hit_Slash_01), kiểu hit_effect, vfx_hit_sword, hoặc
+      không có nhóm hit.
+  - type: llm
+    name: khuon_7.1
+    criteria: >-
+      Câu trả lời nêu khuôn prefab root → containers → các lớp, hoặc bảo tạo khung bằng script vfx_new.mjs của skill. Tên lớp
+      có kiểu trộn _add / _ab (ví dụ impact_add), yếu tố phụ đuôi _sec. Trượt nếu đề xuất cây con kiểu cũ (Core, Sparks_Sec)
+      hoặc không nói gì về cấu trúc prefab.
   - type: llm
     name: particle_7.2
     criteria: >-

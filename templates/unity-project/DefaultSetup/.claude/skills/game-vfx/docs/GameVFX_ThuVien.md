@@ -180,6 +180,12 @@ tự làm của các game trong team, "pack" = Epic Toon FX. Nợ: phần vượ
 - Chưa đánh dấu yếu tố phụ `_Sec` (quy chuẩn 2.2): tier Thấp chưa có gì để tắt. `FXEffect.LowQuality` mới tắt `_Sec`, chưa
   giảm hạt × 0,5 như 6.4. Tên con trong prefab còn theo game gốc, chưa
   theo quy chuẩn 8.4.
+- Từ quy chuẩn 0.2.4 khuôn prefab là root → `containers` → lớp snake_case có kiểu trộn và đuôi `_sec` (7.1, 8.4); prefab, material
+  đặt tên snake_case (8.2). Cả 67 hiệu ứng của thư viện còn theo khuôn cũ (key `FX_<Nhóm>_<Tên>`, con PascalCase, không có
+  `containers`): đổi khi dựng lại thư viện. Đổi key là đổi tên đã vào code, dữ liệu của game đang dùng (quy chuẩn 8.1): giữ key
+  cũ cho game đã dùng.
+- `FXEffect.LowQuality` tìm đuôi `_Sec` (S hoa); khuôn mới dùng `_sec`. Sửa `FXEffect` để nhận đuôi `_sec`, không phân biệt hoa
+  thường, trước khi dùng tier Thấp với hiệu ứng làm theo khuôn mới.
 - Một số system đã bỏ vì hỏng sẵn ở game gốc: sprite không còn trong repo của game (hạt vẽ ô trắng), hoặc game gán sprite lúc
   chạy (icon của item đang merge, đang dùng). Các hiệu ứng UI merge, dùng item, hoàn thành không còn lớp hạt đó; game cần bay icon
   thì tự thêm system với sprite của mình.
