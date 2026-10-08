@@ -24,7 +24,7 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 13
+      "count": 14
     },
     {
       "id": "Rules",
@@ -36,7 +36,7 @@
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 49
+      "count": 50
     },
     {
       "id": "Skills",
@@ -170,7 +170,7 @@
       "id": "Agents/ui-visual-reviewer",
       "name": "ui-visual-reviewer",
       "category": "Agents",
-      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
+      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow — phase checkpoints A/B/C plus the Phase D designer pass (overlay art/FX/motion on a frozen layout) — or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
       "installPath": ".claude/agents/ui-visual-reviewer.md",
       "isDirectory": false,
       "files": [
@@ -181,8 +181,8 @@
       "source": "defaultsetup",
       "fileName": "ui-visual-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
-      "sha256": "bccb66bb0e8a143c420591a9585edf19b470f516bd01888dea13fc2607cc0927",
-      "size": 6293
+      "sha256": "391df6a0a0ab983f247828ca584fb8bdeb98cc90cd9beab15711626e835ef7ba",
+      "size": 7829
     },
     {
       "id": "Commands/add-localize",
@@ -415,8 +415,8 @@
       "source": "defaultsetup",
       "fileName": "new-feature.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-feature.zip",
-      "sha256": "a5a0882896f79cf94615efc5ff076dbf0f6520e030b3167f0c655f9240038a13",
-      "size": 2971
+      "sha256": "bd297cec2423f1e0ad1a9939d0c37f3767863e9028bb359b813f16332e715d5e",
+      "size": 3058
     },
     {
       "id": "Commands/new-package",
@@ -433,8 +433,8 @@
       "source": "defaultsetup",
       "fileName": "new-package.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-package.zip",
-      "sha256": "10664a681f11e1a5787d746ea4197b87a435e5a3e33c6e4e9e31ce61e95aa4eb",
-      "size": 1515
+      "sha256": "666a68193955ffe178634d1d712c86774b26dbb2625fc093e5075160dd8273a7",
+      "size": 1555
     },
     {
       "id": "Commands/new-ui",
@@ -451,8 +451,8 @@
       "source": "defaultsetup",
       "fileName": "new-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-ui.zip",
-      "sha256": "45e12a8d36042a971d376383192f6af0a5a8ec04b32a4ad592bcbedc670a6056",
-      "size": 1561
+      "sha256": "4a265376fe332e50f5c1e81fe6bd5ac2aafd4303213c031214c75a5efcbe7d27",
+      "size": 1832
     },
     {
       "id": "Commands/package-module",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "029c920a2c7842fd04cb1a1dd5ebdab503b01110b04090ad796466fe8f140a44",
-      "size": 14272
+      "sha256": "d8a624acb51a0ae72d013df18ac3175b6d23cb145ffec8a65fe524a0c0d6640c",
+      "size": 14330
     },
     {
       "id": "Config/project-profile.json",
@@ -793,8 +793,8 @@
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "29122434efe743f7ad7f48f6aa1d5855f52e2a89cd341dff486e24f1ca29c296",
-      "size": 6619
+      "sha256": "afed3b9fc89a13594b5ec12fdd2477091f708487467278e8c780cb844a3bbfa1",
+      "size": 6644
     },
     {
       "id": "Docs/design-pipeline",
@@ -890,8 +890,8 @@
       "source": "defaultsetup",
       "fileName": "new-package-guide.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-package-guide.zip",
-      "sha256": "a1d89dd1f6b88337241d10230a36b08176b457bab3cbf56e4b9ef37427dfa4e3",
-      "size": 4978
+      "sha256": "74f48c197a800bc03678f5984d091e1924c331ded98b98f300efc8f4f0e5f77b",
+      "size": 5014
     },
     {
       "id": "Docs/new-ui-guide",
@@ -908,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "new-ui-guide.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
-      "sha256": "1512ab9842d221129bc5ed74c63cf04aef62c2c0d2b12ed736ea7ea7c138b824",
-      "size": 18208
+      "sha256": "5a8869264f905fefa6da2e2545b67417e10606fea926e40232909a46b34657bf",
+      "size": 18993
     },
     {
       "id": "Docs/planning-task-flow",
@@ -966,6 +966,24 @@
       "size": 16877
     },
     {
+      "id": "Docs/ui-designer-pass",
+      "name": "ui-designer-pass",
+      "category": "Docs",
+      "description": "Phase D of every /new-ui build — the designer pass. Lays art, FX and motion OVER the frozen Phase C layout (never moves it), proven by ui-layout-lock.py (layout lock + file scope + deterministic revert) and reviewed by ui-visual-reviewer phase D. Never blocks a build. Loaded by create-ui SKILL.md and new-ui-guide.md.",
+      "installPath": ".claude/docs/ui-designer-pass.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/ui-designer-pass.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-designer-pass.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-designer-pass.zip",
+      "sha256": "d1febfbbba0b33672bd291fa4557ea7adf20d944f1feb5b4adb01bf4f6c9ee66",
+      "size": 9074
+    },
+    {
       "id": "Docs/ui-mcp-playbook",
       "name": "ui-mcp-playbook",
       "category": "Docs",
@@ -980,8 +998,8 @@
       "source": "defaultsetup",
       "fileName": "ui-mcp-playbook.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-mcp-playbook.zip",
-      "sha256": "b6103f6823f1472cc96d5819d3023da498573324c6a04966edebb15ae7a08ad0",
-      "size": 10240
+      "sha256": "766d0a8a1cacb88c9ae67526240a053441571ba806cb2854bb67332a67689da0",
+      "size": 10470
     },
     {
       "id": "Docs/ui-spec-schema.json",
@@ -1898,16 +1916,17 @@
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
         ".claude/scripts/tests/test_ui_kit_sync.py",
+        ".claude/scripts/tests/test_ui_layout_lock.py",
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 9,
+      "fileCount": 10,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "6f16939ecd1830fbad556cef5d4276bd098c0bd43d7d02322a549553ec1b63c4",
-      "size": 39357
+      "sha256": "e54b4da52f024ed982f25da99ed0062cdf0d8025ad4b9f8b0fad45ed4bd1fc7f",
+      "size": 49112
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -1962,6 +1981,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip",
       "sha256": "f4e7136db2e3b2acd869474c02771ef6f164571f24f3cd9644486c64cd442f35",
       "size": 14084
+    },
+    {
+      "id": "Scripts/ui-layout-lock.py",
+      "name": "ui-layout-lock.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/ui-layout-lock.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/ui-layout-lock.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "ui-layout-lock.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-layout-lock.py.zip",
+      "sha256": "8fcc1bd1d0592d7fd598695b60a77bdf7dc1bf3944c9c6adc96142239342d775",
+      "size": 19360
     },
     {
       "id": "Scripts/ui-review-approve-handler.py",
@@ -2325,8 +2362,8 @@
       "source": "defaultsetup",
       "fileName": "create-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-ui.zip",
-      "sha256": "7d97c8c8729241687a373e5981f90433ba265e6fd80d42ca94c310de6ceec95c",
-      "size": 21916
+      "sha256": "54cbb60db877274de8128099a7b38bd984a524cb0593cde8be9e6d444267ebec",
+      "size": 22767
     },
     {
       "id": "Skills/create-vfx",
@@ -3096,8 +3133,8 @@
       "source": "defaultsetup",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "e54969f6cc1bd0fabb582c78c4594025ede344fba50c91423b8151e0247c5ddf",
-      "size": 13709
+      "sha256": "822ce209ac409f30327d35caaaabf3d86a5d0727449d57db4dde02903c171e62",
+      "size": 13780
     },
     {
       "id": "Skills/restart-unity",
@@ -3152,8 +3189,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "49cd712cbab5fa05a38f28071bff9734fb5f8f6b068c69697660e70ed2715d5f",
-      "size": 38451
+      "sha256": "f520890c57af539d497672c234c88a6e0debd4faff7724f24cca211fe6f50a5b",
+      "size": 39530
     },
     {
       "id": "Skills/setup-package-push",
@@ -3470,8 +3507,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_WF.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_WF.zip",
-      "sha256": "ed06707dc2ce82ccde71a1db7f2f253341ea02c24f9abf725736ab62823dcfc9",
-      "size": 3021
+      "sha256": "119e4a324d16f9f5afd4861daba8fa0d2a96cd8aebc1b5908128968803b3c40b",
+      "size": 3129
     },
     {
       "id": "Templates/_TEMPLATE_XS",
