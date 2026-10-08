@@ -90,6 +90,11 @@ DEFAULTS = {
         "*Auth*", "*Login*", "*Token*", "*Session*", "*Account*",
         "*.env*", "*.config", "*Secrets*", "*Credential*",
     ],
+    # Repo-relative paths exempt from the preflight PlayerPrefs rule: stores that
+    # are device-local BY DESIGN (never cloud-synced), so PlayerPrefs is the
+    # spec, not a violation. Empty by default — every entry must be justified in
+    # the project's design docs. Exact paths, no globs.
+    "playerPrefsAllowedFiles": [],
 
     # --- backend shape ------------------------------------------------------
     # Drives the backend-write rules. "kind" is free-form; the rules key off
@@ -214,6 +219,10 @@ class Profile:
     def sensitive_globs(self) -> list:
         return list(self.get("sensitiveGlobs"))
 
+    @property
+    def player_prefs_allowed_files(self) -> list:
+        return list(self.get("playerPrefsAllowedFiles") or [])
+
     # -- backend ------------------------------------------------------------
     @property
     def backend(self) -> dict:
@@ -323,6 +332,7 @@ if __name__ == "__main__":
             "soundConfigAsset": p.sound_config_asset,
             "sfxEventFields": p.sfx_event_fields,
             "sensitiveGlobs": p.sensitive_globs,
+            "playerPrefsAllowedFiles": p.player_prefs_allowed_files,
             "backend": p.backend,
             "bugHub": p.bug_hub,
         }, indent=2))

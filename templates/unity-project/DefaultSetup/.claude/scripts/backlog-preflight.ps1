@@ -303,6 +303,17 @@ $sensitiveFilePatternsFallback = @(
 $sensitiveFilePatterns = Get-ProfileJson "sensitiveGlobs"
 if (-not $sensitiveFilePatterns) { $sensitiveFilePatterns = $sensitiveFilePatternsFallback }
 
+# Device-local-by-design stores the PlayerPrefs rule must not flag — same
+# profile key as PLAYER_PREFS_ALLOWED_FILES in the Python twin. Fallback mirrors
+# project_profile.DEFAULTS["playerPrefsAllowedFiles"] (empty).
+$playerPrefsAllowedFiles = @(Get-ProfileJson "playerPrefsAllowedFiles" | ForEach-Object { $_ -replace '\\', '/' })
+
+function Test-PlayerPrefsAllowed {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    return $playerPrefsAllowedFiles -contains ($Path -replace '\\', '/')
+}
+
 # Backend write rule, same source as the Python twin.
 $backendCfg = Get-ProfileJson "backend"
 # Fallbacks mirror project_profile.DEFAULTS["backend"]: the base template ships
@@ -417,7 +428,7 @@ foreach ($rawLine in ($diff -split "`n")) {
                 Add-Finding $findings "ui-manager" "critical" "contextual" $currentFile $lineNumber $trimmed "Use UIManager for top-level UI feature show/hide. Child component toggles may be acceptable with task-specific justification."
             }
 
-            if ($trimmed -match '\bPlayerPrefs\b') {
+            if ($trimmed -match '\bPlayerPrefs\b' -and -not (Test-PlayerPrefsAllowed $currentFile)) {
                 Add-Finding $findings "data-persistence" "critical" "definite" $currentFile $lineNumber $trimmed "Use DataPlayer through PlayerDataManager instead of PlayerPrefs/direct local persistence."
             }
 

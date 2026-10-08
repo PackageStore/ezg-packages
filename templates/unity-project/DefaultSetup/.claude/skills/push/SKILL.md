@@ -14,7 +14,7 @@ Automate the staging, committing, and pushing of changes with an AI-generated me
 > The `.ps1` and `.sh` scripts are kept behaviorally identical. Use the variant matching the current platform.
 
 ## 1. PREPARE & ANALYZE
-- Optional: If the user provides additional text or symbols (e.g., `+ /push`, `/push ~`, `/push [UI]`), capture any intended `<prefix>` (such as symbols `*`, `+`, `~`, `!`, `#`, or bracketed text) and/or `<suffix>`. Look for these anywhere in the prompt.
+- **Mandatory check — do this first, before anything else:** compare the user's raw prompt against the bare string `/push`. If there is ANY extra character anywhere in the prompt — before, after, or around `/push` (e.g. `* /push`, `+ /push`, `/push ~`, `/push [UI]`), even a single symbol — that extra text is a `<prefix>` and/or `<suffix>` and it is **NOT optional**: it MUST end up in the final commit message. Never silently drop it because it's "just one symbol" or looks like stray formatting (a leading `*`/`-` looks like a markdown bullet but is NOT one here — the whole line is the prompt, not a list).
 - Run the **prepare** script for the current OS:
   - Windows: `powershell -ExecutionPolicy Bypass -File .claude/scripts/git_prepare.ps1`
   - macOS / Linux: `bash .claude/scripts/git_prepare.sh`
@@ -28,6 +28,7 @@ Automate the staging, committing, and pushing of changes with an AI-generated me
 - Assemble the message by prepending the `<prefix>` and appending the `<suffix>` if provided: `<prefix> [Generated Message] <suffix>`.
 
 ## 2. FINALIZE
+- **Verify before running:** re-read the user's original prompt one more time. If it had any `<prefix>`/`<suffix>`, confirm the assembled `[Final Message]` literally contains that exact text — not paraphrased, not dropped.
 - Run the **push** script for the current OS with the final message as the argument:
   - Windows: `powershell -ExecutionPolicy Bypass -File .claude/scripts/git_push.ps1 "[Final Message]"`
   - macOS / Linux: `bash .claude/scripts/git_push.sh "[Final Message]"`

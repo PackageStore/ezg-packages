@@ -289,7 +289,7 @@ function Get-BacklogStatus {
     $result = @{ TodoCount = 0; InProgressCount = 0 }
     if (-not (Test-Path -LiteralPath $BacklogIndex)) { return $result }
 
-    $content = Get-Content -LiteralPath $BacklogIndex -Raw
+    $content = Get-Content -LiteralPath $BacklogIndex -Raw -Encoding UTF8
 
     if ($content -match '(?ms)^## TODO\s*\r?\n(.*?)(?=^## )') {
         $section = $matches[1]
@@ -312,7 +312,7 @@ function Get-NextBacklogTaskProfile {
     $result = @{ Tier = ""; Title = ""; State = "" }
     if (-not (Test-Path -LiteralPath $BacklogIndex)) { return $result }
 
-    $content = Get-Content -LiteralPath $BacklogIndex -Raw
+    $content = Get-Content -LiteralPath $BacklogIndex -Raw -Encoding UTF8
     $sections = @(
         @{ Name = "IN PROGRESS"; State = "in-progress" },
         @{ Name = "TODO"; State = "todo" }
@@ -468,7 +468,7 @@ function Get-ClaudeFailureClass {
 function Get-NotifyTaskInfo {
     $result = @{ Title = "Unknown Task"; Url = ""; Tier = ""; RelPath = "" }
     if (-not (Test-Path -LiteralPath $BacklogIndex)) { return $result }
-    $content = Get-Content -LiteralPath $BacklogIndex -Raw
+    $content = Get-Content -LiteralPath $BacklogIndex -Raw -Encoding UTF8
     foreach ($name in @("IN PROGRESS", "TODO")) {
         $escaped = [regex]::Escape($name)
         if ($content -notmatch "(?ms)^## $escaped\s*\r?\n(.*?)(?=^## )") { continue }
@@ -1627,7 +1627,11 @@ if ($code -ne 0) {
     $escapedHeaderEffort = $headerEffort.Replace("'", "''")
     $escapedHeaderApproval = $headerApproval.Replace("'", "''")
     $escapedHeaderSandbox = $headerSandbox.Replace("'", "''")
-    $escapedWindowTitle = $WindowTitle.Replace("'", "''")
+    # PowerShell treats U+2018..U+201B as single quotes: a title holding one closes the
+    # '...' literal early, run.ps1 fails to parse and the task window dies at once.
+    # Fold them to ASCII ' before doubling. Regex escape \uXXXX, not the literal chars:
+    # keep this file ASCII, PS 5.1 reads a BOM-less script as ANSI.
+    $escapedWindowTitle = ($WindowTitle -replace "[\u2018-\u201B]", "'").Replace("'", "''")
     $scriptToRun = $scriptTemplate.Replace('__LOG_PATH__', $escapedLogPath)
     $scriptToRun = $scriptToRun.Replace('__FLAG_FILE__', $escapedFlagFile)
     $scriptToRun = $scriptToRun.Replace('__OUTPUT_MODE__', $escapedOutputMode)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ui-kit-sync — extract the UI-kit contract from the template prefabs.
 
-Reads `<uiTemplatesRoot>/*.prefab` (the profile key; Unity YAML, parsed with
+Reads `<uiTemplatesRoot>/**/*.prefab` (the profile key; Unity YAML, parsed with
 regexes — same zero-dependency approach as backlog-preflight.py; PyYAML can't
 read Unity's `!u!` tags) and writes to .claude/ui-kit/:
 
@@ -17,9 +17,16 @@ read Unity's `!u!` tags) and writes to .claude/ui-kit/:
                     including sliced sprites and layout-driven roots.
 
 Prefab Variants (root = PrefabInstance with m_TransformParent {fileID: 0})
-are resolved recursively against their base prefab (searched under
-Assets/Resources/Prefabs/**), then root-targeted m_SizeDelta / text overrides
-are applied on top.
+are resolved recursively against their base prefab (searched around the template
+tree first, then repo-wide — a base may sit outside it), then root-targeted
+m_SizeDelta / text overrides are applied on top.
+
+The scan is recursive: template libraries are organised into category folders
+(Button_Template/, Popup_Template/, …), and a flat glob would describe only the
+handful of prefabs sitting at the root. Each template is keyed by a name derived
+from its filename — see template_keys() for how collisions and characters that
+are illegal in a CSS class are handled — and every record carries the `path` it
+came from, so a name still resolves back to one prefab.
 
 The CSS contract intentionally remains a portable wireframe for mockup HTML.
 The gallery is higher fidelity: it resolves sprite/font GUIDs, reads sprite
@@ -142,7 +149,7 @@ def vec4_values(value):
 def source_hash():
     """Hash template prefabs and their meta GUIDs without unrelated Resources churn."""
     digest = hashlib.sha256()
-    for path in sorted(TEMPLATES_DIR.glob("*.prefab")):
+    for path in sorted(TEMPLATES_DIR.rglob("*.prefab")):
         digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -151,6 +158,50 @@ def source_hash():
             digest.update(meta.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+CSS_UNSAFE_RE = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+def css_safe(name):
+    """A template name doubles as a CSS class suffix (`.tpl-<Name>`, emitted by
+    ui-spec-render.py) and as the identifier a ui-spec references, so anything
+    outside [A-Za-z0-9_-] would produce a selector that silently never matches.
+    Real libraries ship such names ('… Variant', 'txt&icon'). Underscores are
+    legal in a class, so a leading one is kept — the name stays as close to the
+    filename as CSS allows."""
+    return CSS_UNSAFE_RE.sub("_", name) or "template"
+
+
+def template_keys(paths):
+    """path → unique, CSS-safe template name, for a recursive scan.
+
+    Two category folders can hold the same filename (a real library shipped
+    two different SliderTemplate.prefab), and keying by bare stem would let one
+    overwrite the other with no warning. A colliding stem is therefore qualified
+    with its folder, and a final pass guarantees uniqueness — no prefab scanned
+    can ever be dropped from the kit by a name clash.
+
+    Deterministic for a sorted input: the same tree always yields the same names.
+    """
+    by_stem = {}
+    for path in paths:
+        by_stem.setdefault(path.stem, []).append(path)
+
+    keys, taken = {}, set()
+    for path in paths:
+        parent = path.parent.relative_to(TEMPLATES_DIR)
+        if len(by_stem[path.stem]) == 1 or parent == Path("."):
+            candidate = css_safe(path.stem)
+        else:
+            candidate = css_safe("_".join(parent.parts + (path.stem,)))
+        base, suffix = candidate, 2
+        while candidate in taken:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        taken.add(candidate)
+        keys[path] = candidate
+    return keys
 
 
 def num(s):
@@ -918,29 +969,44 @@ def main():
         return 1
     guid_paths = guid_path_map()
     asset_paths = asset_guid_path_map()
+    # A variant's base (or a nested instance) may live outside the template tree
+    # — a real library had one under Visual/ArtAsset/UI/Prefab — and an unresolved
+    # base drops the whole template. asset_paths already covers the repo, so
+    # widen rather than lose it; setdefault keeps the template tree authoritative.
+    for guid, path in asset_paths.items():
+        if path.suffix == ".prefab":
+            guid_paths.setdefault(guid, path)
     path_guids = {str(path): guid for guid, path in asset_paths.items()}
     usage = load_usage()
     kit, skipped, cache, visual_cache, sprite_cache = {}, [], {}, {}, {}
-    for prefab in sorted(TEMPLATES_DIR.glob("*.prefab")):
+    prefabs = sorted(TEMPLATES_DIR.rglob("*.prefab"))
+    names = template_keys(prefabs)
+    for prefab in prefabs:
+        name = names[prefab]
         try:
             rec = resolve(prefab, guid_paths, cache)
         except Exception as e:  # one broken prefab must not sink the whole kit
-            skipped.append(f"{prefab.stem}: {e}")
+            skipped.append(f"{name}: {e}")
             continue
         if rec is None:
-            skipped.append(f"{prefab.stem}: no RectTransform root (not a UI prefab)")
+            skipped.append(f"{name}: no RectTransform root (not a UI prefab)")
             continue
         public_rec = {k: v for k, v in rec.items() if not k.startswith("_")}
-        if prefab.stem in usage:
-            public_rec["usage"] = usage[prefab.stem]
+        # A recursive scan makes name→prefab ambiguous otherwise: the name alone
+        # no longer says which folder (or which of two same-named files) it is.
+        public_rec["path"] = prefab.relative_to(ROOT).as_posix()
+        if name != prefab.stem:
+            public_rec["prefab"] = prefab.stem
+        if name in usage:
+            public_rec["usage"] = usage[name]
         try:
             visual = resolve_visual(
                 prefab, guid_paths, path_guids, asset_paths, visual_cache)
             public_rec["visual"] = finalize_visual(visual, asset_paths, sprite_cache)
         except Exception as error:
             public_rec["visual"] = None
-            skipped.append(f"{prefab.stem} visual: {error}")
-        kit[prefab.stem] = public_rec
+            skipped.append(f"{name} visual: {error}")
+        kit[name] = public_rec
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     # A note whose template no longer exists (renamed, deleted, or a typo) would
@@ -949,6 +1015,7 @@ def main():
     payload = {
         "_meta": {
             "source": TEMPLATES_REL,
+            "scan": "recursive",
             "designResolution": [DESIGN_W, DESIGN_H],
             "fidelity": "v0-wireframe",
             "previewFidelity": "v1-prefab-assets",

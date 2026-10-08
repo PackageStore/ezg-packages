@@ -246,6 +246,17 @@ def is_source_file(path):
 # Keep backlog-preflight.ps1 reading the same profile key.
 SENSITIVE_FILE_PATTERNS = profile().sensitive_globs
 
+# Device-local-by-design stores the PlayerPrefs rule must not flag
+# (`playerPrefsAllowedFiles` in the profile — exact repo-relative paths).
+# Keep backlog-preflight.ps1 reading the same profile key.
+# .get() thay vì property: project cập nhật lẻ file này qua Feature Hub mà còn giữ
+# project_profile.py cũ (chưa có property) thì vẫn chạy, không AttributeError.
+PLAYER_PREFS_ALLOWED_FILES = {p.replace("\\", "/") for p in (profile().get("playerPrefsAllowedFiles") or [])}
+
+
+def is_player_prefs_allowed(path):
+    return bool(path) and path.replace("\\", "/") in PLAYER_PREFS_ALLOWED_FILES
+
 # Resolved once: the scan loop runs these per changed line.
 _BACKEND_WRITE_BANNED = profile().backend_direct_write_banned
 _BACKEND_WRITE_PATTERN = profile().backend_direct_write_pattern
@@ -387,7 +398,7 @@ def main():
                     add_finding(findings, "ui-manager", "critical", "contextual", current_file, line_number, trimmed,
                                 "Use UIManager for top-level UI feature show/hide. Child component toggles may be acceptable with task-specific justification.")
 
-                if search(r"\bPlayerPrefs\b", trimmed):
+                if search(r"\bPlayerPrefs\b", trimmed) and not is_player_prefs_allowed(current_file):
                     add_finding(findings, "data-persistence", "critical", "definite", current_file, line_number, trimmed,
                                 "Use DataPlayer through PlayerDataManager instead of PlayerPrefs/direct local persistence.")
 

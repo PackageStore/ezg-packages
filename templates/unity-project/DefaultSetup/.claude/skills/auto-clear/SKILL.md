@@ -26,8 +26,9 @@ bị gõ nhầm. Dưới đây `<script>` là dòng "Script" đúng OS trong b�
 |---|---|
 | (trống) | Push rồi bật cờ — theo mục 1–4 |
 | prefix và/hoặc `Tag:` (vd `# UI:`, `* Play:`, `Bal:`) | Như (trống); prefix (`+`/`*`/`#`) + tag chuyển nguyên văn cho `/push-in-session` (mục 3.6 bên đó). Tag không nằm trong bảng tag của push-in-session → dừng hỏi, không tự chế |
-| `off` | `<script> off` — gỡ cờ, báo lại. **Không** push |
-| `status` | `<script> status` |
+| `--then "<prompt>"` (kết hợp được với prefix/tag, vd `/auto-clear # Play: --then "/fix-bug --watch"`) | Như (trống), nhưng bật cờ kèm `--then` (mục 3): sau `/clear` hook chờ rồi gõ tiếp `<prompt>` + Enter vào **cùng pane**. Prompt phải một dòng, không ký tự điều khiển, ≤ 200 ký tự — sai thì script trả `INVALID_THEN …`, cờ **không** bật → báo dev, không tự sửa prompt |
+| `off` | `<script> off` — gỡ cờ (cả prompt `--then` đang chờ), báo lại. **Không** push |
+| `status` | `<script> status` — in thêm dòng `THEN <prompt>` khi cờ có prompt chờ |
 | `probe` | `<script> probe` — dò pane/console, **không** gõ gì (kiểm tra cài đặt) |
 | `install` | `<script> install` — đăng ký Stop hook vào `~/.claude/settings.json`. Sửa settings user-level nên **hỏi dev trước** nếu dev chưa yêu cầu rõ |
 | `uninstall` | `<script> uninstall` — gỡ hook |
@@ -85,11 +86,16 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-
 EOF
 ```
 
+Có `--then "<prompt>"` trong argument → thêm vào lệnh arm, cùng `--stdin` (thứ tự tự do), bọc prompt bằng
+**nháy đơn** để shell không bung `$`/backtick (`'` trong prompt → `'\''`):
+`<script> arm --stdin --then '<prompt>' <<'EOF' …`. Script validate prompt **trước** khi lưu report hay bật cờ.
+
 ## 4. Đọc output
 
 | Output | Làm gì |
 |---|---|
-| `ARMED ...` | Câu trả lời cuối = report + đúng 1 dòng: "Session sẽ tự /clear sau khi mình dừng — report lưu ở `~/.claude/auto-clear/last-report.md`." **Không** nói "đã clear" — clear xảy ra sau khi lượt kết thúc. |
+| `ARMED ...` | Câu trả lời cuối = report + đúng 1 dòng: "Session sẽ tự /clear sau khi mình dừng — report lưu ở `~/.claude/auto-clear/last-report.md`." (có `then=<prompt>` → thêm "rồi tự chạy `<prompt>`"). **Không** nói "đã clear" — clear xảy ra sau khi lượt kết thúc. |
+| `INVALID_THEN ...` | Prompt `--then` không hợp lệ, cờ **không** bật (push đã xong) → báo dev lý do nguyên văn, nhắc tự gõ `/clear`. |
 | `NOT_INSTALLED ...` | Hook chưa đăng ký trên máy này (hoặc trỏ tới script đã bị xoá/dời) → hỏi dev có cho chạy `install` không. Đồng ý → `install` rồi `arm` lại (**không** push lại); không → nhắc dev tự gõ `/clear`. |
 | `UNSUPPORTED ...` | Không chạy trong iTerm2 (macOS) / không tìm thấy process `claude` → nhắc dev tự gõ `/clear` (push đã xong). |
 
@@ -111,7 +117,8 @@ bản cũ (hook trỏ thẳng vào repo, vd `.agents/scripts/auto-clear.sh` củ
 chạy `install` một lần để chuyển sang bản copy.
 
 Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch` / `pane-not-found` /
-`attach-failed`.
+`attach-failed`; có `--then` thì thêm một dòng `hook-then ... prompt=<prompt> -> ok` (hoặc `skip: …` khi
+`/clear` không gõ được — prompt không bao giờ gõ một mình).
 
 ## Giới hạn
 
@@ -120,3 +127,7 @@ Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch`
 - Windows: **thử nghiệm**, chưa chạy trên máy thật. Claude chạy trong WSL không được hỗ trợ.
 - Dev gõ phím đúng lúc hook chờ (~1 giây) → chữ có thể lẫn với `/clear`. Đổi độ trễ bằng env
   `AUTO_CLEAR_DELAY`.
+- `--then`: prompt một dòng, không ký tự điều khiển, ≤ 200 ký tự; chỉ gõ vào đúng pane/process đã arm
+  (so tty / attach lại theo pid như `/clear`). Chờ giữa `/clear` và prompt = env `AUTO_CLEAR_THEN_DELAY`
+  (mặc định 3 giây); `AUTO_CLEAR_DRY` áp cho cả hai lần gõ. Hook có `timeout` 30 giây — đừng đặt
+  `AUTO_CLEAR_DELAY` + `AUTO_CLEAR_THEN_DELAY` quá ~20 giây, hook bị kill giữa chừng thì prompt không được gõ.

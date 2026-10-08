@@ -7,11 +7,15 @@
 # WriteConsoleInput on that console's input buffer. Every Windows Terminal pane owns its own
 # (pseudo)console, so the right pane is hit even while another pane has focus.
 #
-#   arm [--stdin]   arm the current Claude process; --stdin saves the final report read from stdin
+#   arm [--stdin] [--then "<prompt>"]
+#                   arm the current Claude process; --stdin saves the final report read from stdin;
+#                   --then: after "/clear", wait AUTO_CLEAR_THEN_DELAY seconds and type <prompt> + Enter
+#                   (one line, no control characters, <= 200 characters - otherwise the flag is NOT armed)
 #   off             disarm the current Claude process
-#   status          is the current Claude process armed
+#   status          is the current Claude process armed (plus the pending --then prompt, if any)
 #   probe           attach to the Claude console and open its input buffer, WITHOUT typing anything
 #   hook            Stop hook: armed -> disarm -> wait AUTO_CLEAR_DELAY seconds -> type "/clear" + Enter
+#                   (+ the --then prompt when the flag carries one, after AUTO_CLEAR_THEN_DELAY seconds)
 #   inject <pid>    type "/clear" + Enter into the console of process <pid> (internal / testing)
 #   install         copy this script to ~/.claude/auto-clear/auto-clear.ps1 and register the Stop hook
 #                   (async) on that copy in ~/.claude/settings.json - idempotent, with backup
@@ -34,6 +38,8 @@ $ReportDir = Join-Path $StateDir 'reports'
 $Settings = Join-Path $ClaudeDir 'settings.json'
 $LogFile = Join-Path $StateDir 'auto-clear.log'
 $Delay = if ($env:AUTO_CLEAR_DELAY) { [double]$env:AUTO_CLEAR_DELAY } else { 1.0 }
+$ThenDelay = if ($env:AUTO_CLEAR_THEN_DELAY) { [double]$env:AUTO_CLEAR_THEN_DELAY } else { 3.0 }
+$ThenMax = 200
 $ScriptPath = $PSCommandPath
 $HookScript = Join-Path $StateDir 'auto-clear.ps1'
 
@@ -200,9 +206,40 @@ function Test-SamePath([string]$A, [string]$B) {
     return (($A -replace '\\', '/') -eq ($B -replace '\\', '/'))
 }
 
-function Send-Clear([int]$ClaudePid, [bool]$DryRun) {
+function Send-Text([int]$ClaudePid, [string]$Text, [bool]$DryRun) {
     if (-not ('AutoClear.ConsoleInject' -as [type])) { Add-Type -TypeDefinition $InjectSource }
-    return [AutoClear.ConsoleInject]::Send($ClaudePid, '/clear', $DryRun)
+    return [AutoClear.ConsoleInject]::Send($ClaudePid, $Text, $DryRun)
+}
+
+function Send-Clear([int]$ClaudePid, [bool]$DryRun) {
+    return (Send-Text $ClaudePid '/clear' $DryRun)
+}
+
+# The --then prompt is stored base64 on one line so newlines / "=" cannot break the key=value flag format.
+function ConvertTo-B64([string]$Text) {
+    return [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Text))
+}
+
+function ConvertFrom-B64([string]$Text) {
+    try { return [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Text)) } catch { return '' }
+}
+
+# Valid prompt: non-empty, one line, no control characters, <= ThenMax characters (code points, like
+# `wc -m` in the bash twin). Returns the rejection reason, or $null when valid.
+function Get-ThenError([string]$Prompt) {
+    if ([string]::IsNullOrEmpty($Prompt)) { return 'INVALID_THEN: empty prompt' }
+    if ($Prompt -match "[`r`n]") { return 'INVALID_THEN: prompt must be a single line' }
+    if ($Prompt -match '[\x00-\x1F\x7F]') { return 'INVALID_THEN: prompt contains control characters' }
+    $count = @($Prompt.ToCharArray() | Where-Object { -not [char]::IsLowSurrogate($_) }).Count
+    if ($count -gt $ThenMax) { return ('INVALID_THEN: prompt is ' + $count + ' characters long (max ' + $ThenMax + ')') }
+    return $null
+}
+
+function Get-FlagValue([string]$Flag, [string]$Key) {
+    foreach ($line in [System.IO.File]::ReadAllLines($Flag)) {
+        if ($line.StartsWith($Key + '=')) { return $line.Substring($Key.Length + 1) }
+    }
+    return $null
 }
 
 function Require-ClaudePid {
@@ -216,6 +253,23 @@ function Require-ClaudePid {
 }
 
 function Invoke-Arm([object[]]$Options) {
+    $useStdin = $false
+    $thenPrompt = $null
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        $opt = [string]$Options[$i]
+        if ($opt -eq '--stdin') { $useStdin = $true }
+        elseif ($opt -eq '--then') {
+            if ($i + 1 -ge $Options.Count) { Write-Output 'INVALID_THEN: --then is missing its prompt'; exit 1 }
+            $i++
+            $thenPrompt = [string]$Options[$i]
+        }
+        else { Write-Output 'usage: auto-clear.ps1 arm [--stdin] [--then "<prompt>"]'; exit 1 }
+    }
+    # Validate before any side effect: a bad prompt saves no report and arms nothing.
+    if ($null -ne $thenPrompt) {
+        $thenError = Get-ThenError $thenPrompt
+        if ($thenError) { Write-Output $thenError; exit 1 }
+    }
     if (-not (Test-HookInstalled)) {
         Write-Output ('NOT_INSTALLED: Stop hook not registered (or its script no longer exists) - run: powershell -ExecutionPolicy Bypass -File "' + $ScriptPath + '" install')
         exit 3
@@ -226,7 +280,7 @@ function Invoke-Arm([object[]]$Options) {
         Copy-Item $ScriptPath $HookScript -Force
     }
     New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
-    if ($Options -contains '--stdin') {
+    if ($useStdin) {
         # Raw UTF-8 stdin: [Console]::In would decode with the OEM code page and mangle Vietnamese text.
         $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding $false))
         $text = $reader.ReadToEnd()
@@ -238,9 +292,17 @@ function Invoke-Arm([object[]]$Options) {
         }
     }
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    Write-Utf8 (Get-FlagPath $claudePid) ("pid=$claudePid`nwt_session=$($env:WT_SESSION)`narmed_at=$stamp`n")
-    Write-Log ('arm pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION)
-    Write-Output ('ARMED pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION)
+    $flagText = "pid=$claudePid`nwt_session=$($env:WT_SESSION)`narmed_at=$stamp`n"
+    if ($null -ne $thenPrompt) {
+        Write-Utf8 (Get-FlagPath $claudePid) ($flagText + 'then_b64=' + (ConvertTo-B64 $thenPrompt) + "`n")
+        Write-Log ('arm pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION + ' then=' + $thenPrompt)
+        Write-Output ('ARMED pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION + ' then=' + $thenPrompt)
+    }
+    else {
+        Write-Utf8 (Get-FlagPath $claudePid) $flagText
+        Write-Log ('arm pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION)
+        Write-Output ('ARMED pid=' + $claudePid + ' wt_session=' + $env:WT_SESSION)
+    }
 }
 
 function Invoke-Off {
@@ -266,6 +328,8 @@ function Invoke-Status {
     if (Test-Path $flag) {
         Write-Output ('ARMED pid=' + $claudePid)
         Write-Output ([System.IO.File]::ReadAllText($flag))
+        $thenB64 = Get-FlagValue $flag 'then_b64'
+        if ($thenB64) { Write-Output ('THEN ' + (ConvertFrom-B64 $thenB64)) }
     }
     else {
         Write-Output ('NOT_ARMED pid=' + $claudePid)
@@ -285,10 +349,21 @@ function Invoke-Hook {
     if (-not $claudePid) { return }
     $flag = Get-FlagPath $claudePid
     if (-not (Test-Path $flag)) { return }
+    $thenB64 = Get-FlagValue $flag 'then_b64'
     Remove-Item $flag -Force
+    $dryRun = [bool]$env:AUTO_CLEAR_DRY
     Start-Sleep -Milliseconds ([int]($Delay * 1000))
-    $result = Send-Clear $claudePid ([bool]$env:AUTO_CLEAR_DRY)
+    $result = Send-Clear $claudePid $dryRun
     Write-Log ('hook pid=' + $claudePid + ' -> ' + $result)
+    if (-not $thenB64) { return }
+    $thenPrompt = ConvertFrom-B64 $thenB64
+    # The flag may have been hand-edited between arm and hook - re-validate before typing.
+    if (Get-ThenError $thenPrompt) { Write-Log ('hook-then pid=' + $claudePid + ' skip: invalid prompt in flag'); return }
+    if (-not ([string]$result).StartsWith('ok')) { Write-Log ('hook-then pid=' + $claudePid + ' skip: /clear was not typed (' + $result + ')'); return }
+    # Let /clear finish so the prompt lands in a clean session; Send-Text re-attaches to the same pid's console.
+    Start-Sleep -Milliseconds ([int]($ThenDelay * 1000))
+    $result = Send-Text $claudePid $thenPrompt $dryRun
+    Write-Log ('hook-then pid=' + $claudePid + ' prompt=' + $thenPrompt + ' -> ' + $result)
 }
 
 function Get-FilteredStopGroups($Data) {
@@ -361,7 +436,7 @@ switch ($Sub) {
     'install' { Invoke-Install }
     'uninstall' { Invoke-Uninstall }
     default {
-        Write-Output 'usage: auto-clear.ps1 {arm [--stdin]|off|status|probe|hook|inject <pid>|install|uninstall}'
+        Write-Output 'usage: auto-clear.ps1 {arm [--stdin] [--then "<prompt>"]|off|status|probe|hook|inject <pid>|install|uninstall}'
         exit 1
     }
 }

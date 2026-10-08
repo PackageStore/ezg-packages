@@ -75,13 +75,17 @@ did not hold.
 ## `ui-kit-usage.json` — rules a prefab cannot state about itself
 
 The extractor reads a prefab's own geometry. It cannot read how templates
-compose with **each other**: nothing inside `TabBottomTemplate.prefab` says a
-tab toggle must live inside it, so a drafter reading `ui-kit.json` alone built
-a hand-made tab row in the content area and passed every gate.
+compose with **each other**: nothing inside a tab-toggle prefab says it must
+live in a bar that owns the `UI_TabExtensions`, so a drafter reading
+`ui-kit.json` alone built a hand-made tab row in the content area and passed
+every gate.
 
-Those rules live in `ui-kit-usage.json` as one note per template name (the
-prefab file stem). `ui-kit-sync.py` copies each note into that template's
-`usage` field, where the drafter reads it as part of the contract.
+Those rules live in `ui-kit-usage.json` as one note per template **name as keyed
+in `ui-kit.json`** — normally the prefab file stem, but the scan is recursive, so
+a stem that collides across folders or carries a character illegal in a CSS class
+gets renamed (the record's `prefab` and `path` fields show the original).
+`ui-kit-sync.py` copies each note into that template's `usage` field, where the
+drafter reads it as part of the contract.
 
 ```json
 {

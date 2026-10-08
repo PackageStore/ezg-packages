@@ -65,6 +65,13 @@
     "*.env*", "*.config", "*Secrets*", "*Credential*"
   ],
 
+  "$comment_playerPrefsAllowedFiles": [
+    "Exempt from the preflight PlayerPrefs rule: stores that are device-local",
+    "BY DESIGN (never cloud-synced), so PlayerPrefs is the spec, not a violation.",
+    "Exact repo-relative paths, no globs. Justify every entry in the design docs."
+  ],
+  "playerPrefsAllowedFiles": [],
+
   "$comment_backend": [
     "No backend in the base template, so the direct-client-write rule is off.",
     "Turn it on when a server lands: set kind, directWriteBanned true, and a",
