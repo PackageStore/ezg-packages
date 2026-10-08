@@ -119,6 +119,24 @@ namespace Ezg.Feature.IAP
         private readonly Dictionary<string, OrderOutcome> m_FinalizedTransactions = new Dictionary<string, OrderOutcome>();
         private readonly Dictionary<Order, OrderOutcome> m_FinalizedOrders = new Dictionary<Order, OrderOutcome>();
 
+        // 0.3.4 — iOS StoreKit 2: giữ ConfirmPurchase của đơn VỪA cấp quà tới khi Firebase ghi in_app_purchase (tạo khi cần).
+        private StoreKit2ConfirmGate<PendingOrder> m_FirebaseConfirmGate;
+
+        /// <summary>
+        /// Thời gian tối đa giữ ConfirmPurchase chờ Firebase ghi giao dịch StoreKit 2 (quà đã cấp trước đó). Đo bằng
+        /// realtimeSinceStartup nên thời gian app ở background cũng tính — quay lại sau lâu hơn thì confirm ở frame đầu tiên.
+        /// </summary>
+        private const float k_FirebaseLogTimeoutSeconds = 7f;
+
+        /// <summary>Khung plugin native tra lịch sử StoreKit 2 — giao dịch vừa mua chỉ hiện sau ~1 s.</summary>
+        private const int k_FirebaseLogSearchMaxMs = 5000;
+
+        /// <summary>Phần dự trữ cho callback native về sau khi plugin hết khung tra.</summary>
+        private const float k_FirebaseLogCallbackMarginSeconds = 1f;
+
+        /// <summary>Firebase chưa configure (đơn treo được giao lại lúc vừa mở app) → thử lại sau khoảng này, nhân đôi mỗi lần.</summary>
+        private const float k_FirebaseNotReadyRetrySeconds = 0.5f;
+
         /// <summary>
         /// Apple đang chờ người chơi xác nhận Restore (mật khẩu / 2FA) — không đặt hạn chặt. Quá mốc này mà bấm Restore lần
         /// nữa thì bắt đầu lượt mới (callback của lượt cũ về muộn sẽ bị bỏ qua).
@@ -241,6 +259,22 @@ namespace Ezg.Feature.IAP
             }
         }
 
+        private void Update()
+        {
+            // 0.3.4: đơn iOS StoreKit 2 đang chờ Firebase ghi → đọc kết quả / hạn chờ, xong thì confirm.
+            if (m_FirebaseConfirmGate != null && m_FirebaseConfirmGate.Count > 0)
+            {
+                m_FirebaseConfirmGate.Tick(Time.realtimeSinceStartup);
+            }
+        }
+
+        private void OnDisable()
+        {
+            // 0.3.4: object bị tắt / huỷ thì Update không chạy nữa → confirm ngay các đơn còn chờ Firebase. App iOS bị kill
+            // lúc đang suspend thì không có OnDisable: đơn chưa confirm được store giao lại ở phiên sau, ledger chặn cấp lần hai.
+            m_FirebaseConfirmGate?.ConfirmAll();
+        }
+
         #endregion
 
         #region Public
@@ -262,6 +296,14 @@ namespace Ezg.Feature.IAP
         {
             isTestIAP = isTest;
         }
+
+        /// <summary>
+        /// iOS StoreKit 2: ghi <c>in_app_purchase</c> lên Firebase Analytics cho mỗi đơn vừa cấp quà (mặc định bật). Firebase
+        /// chỉ TỰ thu giao dịch StoreKit 1, còn Unity IAP 5 mua bằng StoreKit 2 trên iOS ≥ 15. Chỉ chạy khi host truyền
+        /// <see cref="IIapOrderLedger"/> vào <see cref="Configure"/>. Tắt khi game đã tự gọi
+        /// <c>FirebaseAnalytics.LogAppleTransactionAsync</c> (Firebase Unity ≥ 13.12.0), kẻo ghi trùng. Không ảnh hưởng Android.
+        /// </summary>
+        public bool LogStoreKit2PurchasesToFirebase { get; set; } = true;
 
         public void Init()
         {
@@ -360,6 +402,17 @@ namespace Ezg.Feature.IAP
                     FailBeforeStore(IsInitialized()
                         ? PurchaseFailureReason.ProductUnavailable
                         : PurchaseFailureReason.PurchasingUnavailable, unSuccess);
+                    return;
+                }
+
+                // 0.3.4: đơn iOS StoreKit 2 của CHÍNH product này vừa cấp quà và còn chờ Firebase ghi trước khi confirm (thường
+                // ~1 s). Mua lại lúc này StoreKit trả về đúng giao dịch chưa finish đó (không thu tiền, không có đơn mới) → lượt
+                // mua sẽ treo. Xử lý như nhánh "đơn khác đang chạy" ở trên: chỉ báo unSuccess, KHÔNG đụng cờ / callback (có thể
+                // đang thuộc một lượt mua khác chưa xong), người chơi bấm lại sau giây lát.
+                if (IsProductAwaitingFirebaseConfirm(productID))
+                {
+                    Debug.Log("[IAP] Đơn trước của '" + productID + "' đang hoàn tất, chưa mua lại được.");
+                    unSuccess?.Invoke();
                     return;
                 }
 
@@ -965,6 +1018,85 @@ namespace Ezg.Feature.IAP
         }
 
         /// <summary>
+        /// Đơn này có cần ghi lên Firebase qua plugin StoreKit 2 không: iOS device, Apple store, bật
+        /// <see cref="LogStoreKit2PurchasesToFirebase"/>, host có <see cref="IIapOrderLedger"/>, app có FirebaseAnalytics, và
+        /// máy đang mua bằng StoreKit 2.
+        /// </summary>
+        private bool ShouldLogStoreKit2ToFirebase(string transactionId)
+        {
+            // Không có ledger thì KHÔNG hoãn confirm: Unity IAP chỉ ghi TransactionLog (chặn giao lại đơn đã confirm ở phiên
+            // sau) lúc ConfirmPurchase — hoãn confirm mà app bị kill giữa chừng thì phiên sau đơn về lại dạng PendingOrder và
+            // chỉ ledger mới chặn được cấp quà lần hai.
+            if (!LogStoreKit2PurchasesToFirebase || !m_IsAppleStoreSelected || _ledger == null ||
+                string.IsNullOrEmpty(transactionId) || !FirebaseStoreKit2Bridge.IsAvailable)
+            {
+                return false;
+            }
+
+    #if EZG_IAP_STOREKIT_SELECTOR
+            // iOS < 15 (hoặc game ép StoreKit 1): Firebase đã TỰ thu in_app_purchase qua StoreKit 1 → ghi nữa là trùng.
+            if (global::Purchasing.Utilities.StoreKitSelector.UseStoreKit1())
+            {
+                return false;
+            }
+    #endif
+
+            return true;
+        }
+
+        /// <summary>
+        /// iOS StoreKit 2: hoãn ConfirmPurchase của đơn VỪA cấp quà tới khi Firebase ghi xong giao dịch (thường ~1 s, tối đa
+        /// <see cref="k_FirebaseLogTimeoutSeconds"/> giây — gate chỉ được Tick trong Update nên app đang pause thì confirm ở
+        /// frame đầu tiên khi quay lại). Không bao giờ ném ra ngoài.
+        /// </summary>
+        /// <returns>true = gate chịu trách nhiệm confirm (Update / OnDisable); false = caller confirm ngay.</returns>
+        private bool TryDeferConfirmForFirebase(PendingOrder order, string transactionId)
+        {
+            try
+            {
+                if (!ShouldLogStoreKit2ToFirebase(transactionId) || !isActiveAndEnabled)
+                {
+                    return false;
+                }
+
+                if (m_FirebaseConfirmGate == null)
+                {
+                    m_FirebaseConfirmGate = new StoreKit2ConfirmGate<PendingOrder>(new FirebaseStoreKit2Native(),
+                        ConfirmOrderAfterFirebase, Debug.Log, Debug.LogWarning, Debug.LogError,
+                        k_FirebaseLogTimeoutSeconds, k_FirebaseLogSearchMaxMs, k_FirebaseLogCallbackMarginSeconds,
+                        k_FirebaseNotReadyRetrySeconds);
+                }
+
+                return m_FirebaseConfirmGate.TryDefer(order, transactionId, Time.realtimeSinceStartup);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[IAP][FirebaseSK2] Không hoãn được confirm, confirm ngay: " + e);
+
+                // Gate đã nhận đơn trước khi lỗi → nó sẽ confirm; chưa nhận → caller confirm.
+                return m_FirebaseConfirmGate != null && m_FirebaseConfirmGate.IsAwaiting(transactionId);
+            }
+        }
+
+        /// <summary>Gate còn giữ confirm của một đơn thuộc product này.</summary>
+        private bool IsProductAwaitingFirebaseConfirm(string productID)
+        {
+            return m_FirebaseConfirmGate != null && m_FirebaseConfirmGate.Count > 0 &&
+                   m_FirebaseConfirmGate.IsAwaitingAny(order => GetFirstProductInOrder(order)?.definition.id == productID);
+        }
+
+        private void ConfirmOrderAfterFirebase(PendingOrder order)
+        {
+            if (m_StoreController == null)
+            {
+                Debug.LogError("[IAP][FirebaseSK2] StoreController null, order sẽ được store giao lại để confirm.");
+                return;
+            }
+
+            m_StoreController.ConfirmPurchase(order);
+        }
+
+        /// <summary>
         /// Validate receipt của order (thay cho logic trong ProcessPurchase ở v4).
         /// Trả về true nếu hợp lệ; false nếu receipt giả mạo / bị huỷ / hoàn tiền / không khớp product đang mua.
         /// Ném exception cho lỗi tạm thời (để caller giữ order ở trạng thái pending → retry).
@@ -1421,9 +1553,35 @@ namespace Ezg.Feature.IAP
             if (!string.IsNullOrEmpty(transactionId) &&
                 m_FinalizedTransactions.TryGetValue(transactionId, out var earlierOutcome))
             {
+                m_FinalizedOrders[order] = earlierOutcome;
+
+                // 0.3.4: đơn đang chờ Firebase ghi (iOS StoreKit 2, vd fetch lúc app quay lại sau bảng mua của Apple) →
+                // confirm sẽ chạy khi chờ xong. Confirm thêm ở đây = 2 lệnh confirm cho một giao dịch (Unity trả FailedOrder
+                // "Duplicate order") và finish sớm làm Firebase không tra được giao dịch nữa.
+                if (m_FirebaseConfirmGate != null && m_FirebaseConfirmGate.IsAwaiting(transactionId))
+                {
+                    Debug.Log("[IAP] Order đang chờ Firebase ghi, confirm sau: " + transactionId);
+
+                    // Lượt Buy() đang chờ của CHÍNH product này nhận về giao dịch cũ (vd host gọi Buy ngay trong callback
+                    // mua thành công, trước khi gate nhận đơn) → không có đơn mới, báo thất bại để lượt mua không treo.
+                    if (callbackPay != null && productId == product.definition.id)
+                    {
+                        callbackPay = null;
+                        try
+                        {
+                            _purchasing.OnPurchaseFailed?.Invoke(PurchaseFailureReason.ExistingPurchasePending.ToString());
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e);
+                        }
+                    }
+
+                    return;
+                }
+
                 // Store giao lại đơn đã chốt dứt khoát trong phiên (confirm lần trước chưa xong) → chỉ confirm lại.
                 Debug.Log("[IAP] Order đã xử lý trong phiên này, chỉ confirm lại: " + transactionId);
-                m_FinalizedOrders[order] = earlierOutcome;
                 m_StoreController.ConfirmPurchase(order);
                 return;
             }
@@ -1467,6 +1625,7 @@ namespace Ezg.Feature.IAP
             // Khi đã quyết định finalize: ConfirmPurchase PHẢI chạy đúng 1 lần — kể cả khi grant/analytics
             // ném exception SAU khi đã grant — để transaction không bị re-deliver lần sau → double-grant.
             var granted = false;
+            var ledgerMarked = false; // 0.3.4: chỉ hoãn confirm khi ledger ĐÃ ghi giao dịch này (xem TryDeferConfirmForFirebase)
             var rejected = false;
             try
             {
@@ -1481,7 +1640,10 @@ namespace Ezg.Feature.IAP
                     granted = GrantRewards(product);
 
                     if (granted && _ledger != null && !string.IsNullOrEmpty(transactionId))
+                    {
                         _ledger.MarkGranted(transactionId, product.definition.id);
+                        ledgerMarked = true;
+                    }
 
                     if (granted)
                         SendPurchaseAnalytics(product, order.Info);
@@ -1512,7 +1674,15 @@ namespace Ezg.Feature.IAP
 
                 // v5: ConfirmPurchase finalize transaction (tương đương return Complete ở v4).
                 // BẮT BUỘC trên iOS — bỏ bước này là nguyên nhân purchase iOS không hoàn tất ở legacy bridge.
-                m_StoreController.ConfirmPurchase(order);
+                // 0.3.4: đơn VỪA cấp quà trên iOS StoreKit 2 (host có ledger) → confirm SAU khi Firebase ghi in_app_purchase
+                // (quà đã tới tay người chơi; confirm lùi ~1 s, tối đa k_FirebaseLogTimeoutSeconds). Mọi trường hợp khác
+                // confirm ngay như cũ.
+                // Ledger chưa ghi được giao dịch (MarkGranted ném lỗi) thì confirm ngay: confirm là lúc Unity IAP ghi
+                // TransactionLog — lớp chặn cấp quà lần hai duy nhất còn lại nếu app bị kill rồi store giao lại đơn.
+                if (!granted || !ledgerMarked || !TryDeferConfirmForFirebase(order, transactionId))
+                {
+                    m_StoreController.ConfirmPurchase(order);
+                }
             }
         }
 

@@ -245,6 +245,9 @@ namespace Ezg.Feature.IAP
                 DefaultPriceTextProvider = () => string.Empty, // TODO: chuỗi giá mặc định khi store chưa sẵn sàng
             };
 
+            // TODO: truyền IIapOrderLedger (sổ giao dịch lưu bền, khoá theo transactionId) làm tham số thứ 5 của Configure:
+            //       chặn cấp quà 2 lần khi store giao lại đơn, và BẮT BUỘC để module ghi in_app_purchase của iOS StoreKit 2
+            //       lên Firebase (com.ezg.iap 0.3.4). Không có ledger → confirm ngay, Firebase iOS hụt doanh thu IAP.
             InAppManager.Instance.Configure(new InAppPurchase(), _host, _host, config);
             _configured = true;
         }

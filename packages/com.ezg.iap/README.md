@@ -21,6 +21,9 @@ interfaces (the *seam*) and injected at startup — the package references **no 
 | `Runtime/IapSecurityConfig.cs` | Dữ liệu inject: tangle bytes, AppsFlyer public key, provider giá mặc định |
 | `Runtime/IapPurchaseInfo.cs` | DTO truyền dữ liệu một giao dịch ra game (đã parse khỏi receipt) |
 | `Runtime/AppsFlyerListener.cs` | `IAppsFlyerConversionData` → forward conversion data qua `IIapReporter` |
+| `Runtime/StoreKit2ConfirmGate.cs` | (0.3.4) Giữ `ConfirmPurchase` của đơn iOS StoreKit 2 vừa cấp quà tới khi Firebase ghi xong, confirm đúng 1 lần |
+| `Runtime/FirebaseStoreKit2Bridge.cs` | (0.3.4) P/Invoke tới plugin Swift, kết quả native đọc theo frame |
+| `Plugins/iOS/EzgIapFirebaseStoreKit2.swift` | (0.3.4) Tra giao dịch StoreKit 2 theo `Transaction.id` → `Analytics.logTransaction` (Firebase iOS ≥ 10.17.0) |
 | `Editor/IapProjectSetupGenerator.cs` | Menu **Assets > Create > Ezg > IAP > Project Setup** sinh 4 file tích hợp cho project mới |
 
 The game-specific integration (impl of `IPurchasing` / `IIapProfile` / `IIapReporter` + bootstrap wiring) lives
@@ -38,8 +41,8 @@ Registry (auto-resolved):
 
 These are referenced by the asmdef but are **not** package dependencies — install them in the consuming project:
 
-- **`com.unity.purchasing`** (Unity IAP) — assemblies `UnityEngine.Purchasing`, `.Stores`, `.Security`,
-  `.SecurityStub`, `.SecurityCore`.
+- **`com.unity.purchasing`** (Unity IAP) — assemblies `Unity.Purchasing`, `.Stores`, `.Security`,
+  `.SecurityStub`, `.SecurityCore`, `.Utilities`.
 - **`com.unity.services.core`** — assemblies `Unity.Services.Core`, `Unity.Services.Core.Environments`.
 - **AppsFlyer SDK** — imported manually (not a UPM package); provides the `AppsFlyer` assembly. `AppsFlyerListener`
   routes conversion/attribution data back to the game via `IIapReporter`, and implements the Purchase Connector
@@ -48,6 +51,9 @@ These are referenced by the asmdef but are **not** package dependencies — inst
   `InAppManager.ValidateAndSend` / `validateAndSendInAppPurchase` path (and its `AppsFlyerPublicKey` config) is
   kept for reference but is no longer called — do not re-enable it alongside the Purchase Connector or IAP revenue
   is double-counted. A project that does not use AppsFlyer must abstract that path behind `IIapReporter`.
+- **Firebase Analytics (optional, iOS)** — not referenced by any assembly. When the iOS app links the FirebaseAnalytics pod
+  (10.17.0 or newer; Firebase Unity SDK 13.3.0 ships 12.2.0), StoreKit 2 purchases are logged to Firebase as `in_app_purchase`
+  (see *iOS StoreKit 2 → Firebase* below). Without Firebase the plugin compiles to a no-op.
 
 ---
 
@@ -79,3 +85,15 @@ and the default-price fallback into `IapSecurityConfig`.
   grant); it is granted on the next purchase fetch once the catalog is there. Orders already settled in the session are not
   granted or reported twice.
 - `k_Environment = "production"` (Unity Services environment) is currently fixed in `InAppManager`.
+- **iOS StoreKit 2 → Firebase (0.3.4):** Firebase only auto-collects `in_app_purchase` for StoreKit 1, and Unity IAP 5 buys through
+  StoreKit 2 on iOS 15+. For every order it grants, the module hands the transaction to Firebase through the bundled Swift plugin
+  (`Analytics.logTransaction`) and confirms the order afterwards — usually ~1 s later, at most 7 s wall clock (an app paused longer
+  confirms on its first frame back; if iOS kills the suspended app the order is re-delivered and the ledger blocks a second
+  grant); the reward is granted first.
+  While that confirm is waiting, `Buy()` of the same product returns at once through `unSuccess` (like a tap while another
+  purchase is running). **Requires an `IIapOrderLedger`** passed to `Configure` (without one the order is confirmed immediately and not
+  logged, because only the ledger protects a re-delivered order from a second grant while its confirm is deferred).
+  Opt out with `InAppManager.Instance.LogStoreKit2PurchasesToFirebase = false` (do this if the game already calls
+  `FirebaseAnalytics.LogAppleTransactionAsync`, or purchases are logged twice). FirebaseAnalytics iOS older than 10.17.0: add
+  `EZG_IAP_DISABLE_FIREBASE_SK2` to the UnityFramework Swift Active Compilation Conditions from a `PostProcessBuild` script. Firebase may still auto-capture a few
+  percent of StoreKit 2 purchases through its StoreKit 1 fallback, so dedupe `in_app_purchase` on `ga_dedupe_id` in BigQuery.

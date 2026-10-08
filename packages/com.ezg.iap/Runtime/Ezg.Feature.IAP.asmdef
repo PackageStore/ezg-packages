@@ -8,6 +8,7 @@
         "Unity.Purchasing.Security",
         "Unity.Purchasing.SecurityStub",
         "Unity.Purchasing.SecurityCore",
+        "Unity.Purchasing.Utilities",
         "Unity.Services.Core",
         "Unity.Services.Core.Environments",
         "AppsFlyer"
@@ -19,6 +20,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.purchasing",
+            "expression": "5.1.0",
+            "define": "EZG_IAP_STOREKIT_SELECTOR"
+        }
+    ],
     "noEngineReferences": false
 }

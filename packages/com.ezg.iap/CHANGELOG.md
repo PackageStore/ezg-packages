@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.3.4] - 2026-10-08
+
+Drop-in update from 0.3.3: no public API was removed or changed. Adds one opt-out property
+(`InAppManager.LogStoreKit2PurchasesToFirebase`, default `true`). Android behaviour is unchanged.
+
+### Fixed
+- **iOS purchases missing from Firebase / GA4 revenue.** Unity IAP 5 buys through StoreKit 2 on iOS 15+, and Firebase Analytics
+  only collects `in_app_purchase` automatically for StoreKit 1. The module now logs every purchase it grants through the native
+  `Analytics.logTransaction` API (FirebaseAnalytics iOS 10.17.0+; Firebase Unity SDK 13.3.0 already ships 12.2.0), so no Firebase
+  Unity SDK upgrade is needed. A bundled Swift plugin (`Plugins/iOS/EzgIapFirebaseStoreKit2.swift`) looks the transaction up by
+  `Transaction.id` (= `order.Info.TransactionID`) and hands it to Firebase, which logs a verified `in_app_purchase` with price,
+  currency and product id, exactly like its automatic StoreKit 1 event.
+  - `ConfirmPurchase` of a newly granted iOS StoreKit 2 order now runs after Firebase has logged it: confirming finishes the
+    transaction and a finished consumable can no longer be found. The reward is granted first, so the player never waits; the
+    confirm runs on the first frame after Firebase replies (typically about 1 s — a freshly bought transaction only becomes visible
+    in the StoreKit history after a short delay) or once 7 s have passed (wall clock: an app that comes back from the background
+    after longer confirms on its first frame, and that order may not be logged). If the `InAppManager` object is disabled or
+    destroyed while waiting, the pending confirms run in `OnDisable`. If iOS kills the suspended app while waiting, the store
+    re-delivers the order on the next launch and `IIapOrderLedger` prevents a second grant (that order is then not logged).
+  - **Requires an `IIapOrderLedger`.** Unity IAP records a confirmed transaction in its own transaction log only at
+    `ConfirmPurchase`; deferring the confirm without a ledger would let a re-delivered order be granted twice after a crash.
+    Hosts that call `Configure` without a ledger — or an order whose `MarkGranted` threw — keep the 0.3.3 behaviour (immediate
+    confirm, no Firebase logging). The generated
+    `IapBootstrap` template now carries a TODO for it.
+  - Logged once per granted order: re-delivered orders, orders already granted in an earlier session, rejected orders and
+    StoreKit 1 devices (iOS < 15, or `StoreKitSelector.forceStoreKit1`) are not logged. Android is not affected.
+  - A store re-delivery of the same transaction while its confirm is waiting is not confirmed a second time.
+  - `Buy()` of a product whose previous order is still waiting returns at once through `unSuccess`, exactly like a tap while
+    another purchase is running (no `OnPurchaseFailed`, the running purchase's state is left alone). StoreKit would otherwise hand
+    back the same unfinished transaction — no charge, no new order — and the purchase would hang. The window is typically about
+    1 s after the previous purchase and at most 7 s. If the store still hands that waiting transaction back to a pending `Buy()` of
+    the same product (e.g. `Buy()` called synchronously from the success callback), `IPurchasing.OnPurchaseFailed` is raised with
+    the new reason `ExistingPurchasePending` — games that map failure reasons may want a friendlier message for it.
+  - When Firebase is not configured yet (an order re-delivered right at app start), the lookup is retried after 0.5 s, 1 s, 2 s,
+    plus a last attempt that still leaves 0.5 s of lookup before the cap.
+  - Apps without FirebaseAnalytics build and behave as before (the plugin compiles to a no-op; only the first purchase of a session
+    is confirmed one frame later, until the plugin reports that Firebase is missing). Apps on FirebaseAnalytics iOS older
+    than 10.17.0 must add `EZG_IAP_DISABLE_FIREBASE_SK2` to the UnityFramework target's Swift Active Compilation Conditions from a
+    `PostProcessBuild` script (Unity regenerates the Xcode project on every build). Removing the `.swift` file is not an option:
+    IL2CPP links the plugin symbol directly.
+  - Set `LogStoreKit2PurchasesToFirebase = false` if the game already calls `FirebaseAnalytics.LogAppleTransactionAsync`
+    (Firebase Unity SDK 13.12.0+), otherwise purchases are logged twice.
+  - Known limitation (Firebase, not this module): Firebase's StoreKit 1 fallback observer still captures a small share of StoreKit 2
+    purchases automatically, so a few percent of `in_app_purchase` events may appear twice with the same `ga_dedupe_id`
+    (firebase-ios-sdk#16686). Deduplicate on `ga_dedupe_id` in BigQuery.
+
+### Changed
+- The runtime asmdef now references `Unity.Purchasing.Utilities` (for `StoreKitSelector`, guarded by a version define for
+  `com.unity.purchasing` 5.1.0+).
+
 ## [0.3.3] - 2026-10-05
 
 Drop-in update from 0.3.2: no public API was removed or changed. Existing `IPurchasing` / `IIapProfile` / `IIapReporter` /
