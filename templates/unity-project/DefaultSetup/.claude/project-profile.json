@@ -88,9 +88,10 @@
     "Mã project trên server BugHub (Bug Logger dùng chung). /fix-bug đọc key này để kéo đúng",
     "bug của project; rỗng thì skill dừng và trỏ sang /bughub-setup. Không phân biệt hoa thường.",
     "",
-    "watch = cửa sổ /fix-bug --watch chạy riêng trên nhánh bot, mở bằng",
-    "`python3 .claude/scripts/bughub-watch.py start` trong một pane riêng:",
-    "  branch       nhánh bot commit + push (rỗng = commit lên nhánh đang mở như cũ)",
+    "watch = cửa sổ /fix-bug --watch (gõ thẳng trong một pane, hoặc mở bằng",
+    "`python3 .claude/scripts/bughub-watch.py start`). Loop không bao giờ tự dừng.",
+    "  branch       rỗng = chạy watch ở nhánh nào thì sửa + push lên nhánh đó (merge origin/<nhánh>",
+    "               trước mỗi bug); có giá trị = nhánh bot riêng — 4 key dưới chỉ dùng khi đó.",
     "  baseBranch   nhánh chính, merge vào nhánh bot trước MỖI bug (rỗng = defaultBaseBranch)",
     "  mergeToBase  true = sau khi push nhánh bot thì đẩy luôn fix lên nhánh chính (fast-forward,",
     "               không force; chỉ khi compile-check đã chạy thật). false = dev tự merge.",
@@ -101,7 +102,7 @@
   "bugHub": {
     "projectCode": "",
     "watch": {
-      "branch": "AutoFixBug",
+      "branch": "",
       "baseBranch": "",
       "mergeToBase": false,
       "worktree": false,

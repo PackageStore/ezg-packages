@@ -1,4 +1,4 @@
-"""End-to-end tests for bughub-watch.py (nhánh riêng của cửa sổ /fix-bug --watch).
+"""End-to-end tests for bughub-watch.py (đồng bộ nhánh cho cửa sổ /fix-bug --watch).
 
 Mỗi test dựng một bare repo làm `origin` + một clone `dev` mang bản copy của script và
 project_profile.py (script đọc profile nằm cạnh nó), rồi chạy CLI thật qua subprocess — không
@@ -74,6 +74,11 @@ class WatchTestCase(unittest.TestCase):
         git(self.other, "commit", "-qm", f"other {name}")
         git(self.other, "push", "-q")
 
+    def commit_local(self, name, content):
+        (self.dev / name).write_text(content)
+        git(self.dev, "add", name)
+        git(self.dev, "commit", "-qm", f"local {name}")
+
     def commit_fix(self, cwd, name, content):
         (cwd / name).write_text(content)
         git(cwd, "add", name)
@@ -85,28 +90,35 @@ class ConfigTests(WatchTestCase):
     def test_config_reports_branch_state(self):
         code, out = self.run_watch(self.dev, "config")
         self.assertEqual(code, 0)
-        self.assertEqual(out["branch"], "AutoFixBug")
+        self.assertEqual((out["mode"], out["branch"], out["targetBranch"]), ("bot", "AutoFixBug", "AutoFixBug"))
         self.assertFalse(out["onWatchBranch"])
 
-    def test_empty_branch_is_not_configured(self):
+    def test_empty_branch_follows_current_branch(self):
         self.write_profile({})
-        code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (2, "NOT_CONFIGURED"))
+        code, out = self.run_watch(self.dev, "config")
+        self.assertEqual((code, out["mode"], out["targetBranch"]), (0, "follow", "develop"))
+        self.assertTrue(out["onWatchBranch"])
 
     def test_branch_equal_to_base_is_rejected(self):
         self.write_profile({"branch": "develop", "baseBranch": "develop"})
         code, out = self.run_watch(self.dev, "config")
         self.assertEqual((code, out["result"]), (2, "BAD_CONFIG"))
 
-    def test_sync_off_the_watch_branch_stops(self):
+    def test_sync_off_the_watch_branch_waits(self):
         code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (3, "WRONG_BRANCH"))
+        self.assertEqual((code, out["result"], out["reason"]), (3, "WAIT", "WRONG_BRANCH"))
+
+    def test_pause_needs_no_repo_and_validates_args(self):
+        code, out = self.run_watch(self.tmp, "pause", "--seconds", "0", "--attempt", "4")
+        self.assertEqual((code, out["result"], out["slept"]), (0, "RESUME", 0))
+        code, out = self.run_watch(self.tmp, "pause", "--attempt")
+        self.assertEqual((code, out["result"]), (2, "BAD_ARGS"))
 
 
 class CurrentCheckoutTests(WatchTestCase):
     def test_switch_needs_confirmation(self):
         code, out = self.run_watch(self.dev, "start", "--no-launch")
-        self.assertEqual((code, out["result"]), (3, "NOT_CONFIRMED"))
+        self.assertEqual((code, out["result"]), (2, "NOT_CONFIRMED"))
         self.assertEqual(git(self.dev, "branch", "--show-current"), "develop")
 
     def test_start_creates_branch_from_base_and_sync_merges_base(self):
@@ -120,23 +132,23 @@ class CurrentCheckoutTests(WatchTestCase):
         self.assertIn("origin/develop", out["merged"])
         self.assertTrue((self.dev / "b.txt").exists())
 
-    def test_dirty_tree_blocks_sync(self):
+    def test_dirty_tree_is_reported_not_blocking(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
         (self.dev / "a.txt").write_text("changed\n")
         code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (3, "DIRTY"))
-        self.assertIn("a.txt", out["files"])
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertIn("a.txt", out["dirty"])
 
-    def test_conflict_is_aborted_cleanly(self):
+    def test_base_conflict_is_skipped_and_aborted_cleanly(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
         self.commit_fix(self.dev, "a.txt", "bot\n")
         self.push_from_other("a.txt", "dev\n")
         head = git(self.dev, "rev-parse", "HEAD")
         code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (4, "MERGE_CONFLICT"))
-        self.assertEqual(out["files"], ["a.txt"])
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertEqual([(s["ref"], s["files"]) for s in out["skipped"]], [("origin/develop", ["a.txt"])])
         self.assertEqual(git(self.dev, "rev-parse", "HEAD"), head)
-        self.assertEqual(git(self.dev, "status", "--porcelain"), "")
+        self.assertEqual(git(self.dev, "status", "--porcelain", "--untracked-files=no"), "")
 
     def test_publish_disabled_by_default(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
@@ -198,6 +210,98 @@ class WorktreeTests(WatchTestCase):
         last = json.loads(proc.stdout.splitlines()[-1])
         self.assertEqual(Path(last["cwd"]).resolve(), (self.tmp / "dev-AutoFixBug").resolve())
         self.assertEqual(last["args"], "--permission-mode bypassPermissions /fix-bug --watch")
+
+
+class FollowBranchTests(WatchTestCase):
+    """branch rỗng: chạy watch ở nhánh nào thì sửa + push lên nhánh đó."""
+    WATCH = {}
+
+    def test_start_keeps_checkout_on_current_branch(self):
+        code, out = self.run_watch(self.dev, "start", "--no-launch")
+        self.assertEqual((code, out["result"], out["mode"], out["branch"]), (0, "READY", "follow", "develop"))
+        self.assertEqual(Path(out["workdir"]), self.dev.resolve())
+        self.assertEqual(git(self.dev, "branch", "--show-current"), "develop")
+
+    def test_sync_fast_forwards_own_remote_around_unrelated_wip(self):
+        (self.dev / "a.txt").write_text("wip\n")
+        self.push_from_other("b.txt", "b\n")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"], out["merged"]), (0, "OK", ["origin/develop"]))
+        self.assertEqual(out["dirty"], ["a.txt"])
+        self.assertTrue((self.dev / "b.txt").exists())
+        self.assertEqual((self.dev / "a.txt").read_text(), "wip\n")
+
+    def test_follows_branch_switch(self):
+        git(self.dev, "checkout", "-q", "-b", "feature")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["branch"]), (0, "feature"))
+
+    def test_wip_on_incoming_file_waits(self):
+        self.push_from_other("a.txt", "dev\n")
+        (self.dev / "a.txt").write_text("wip\n")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"], out["reason"]), (3, "WAIT", "LOCAL_CHANGES"))
+        self.assertEqual((self.dev / "a.txt").read_text(), "wip\n")
+
+    def test_diverged_with_wip_waits_without_merging(self):
+        self.commit_local("c.txt", "c\n")
+        self.push_from_other("b.txt", "b\n")
+        (self.dev / "a.txt").write_text("wip\n")
+        head = git(self.dev, "rev-parse", "HEAD")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["reason"]), (3, "DIVERGED_DIRTY"))
+        self.assertEqual(git(self.dev, "rev-parse", "HEAD"), head)
+
+    def test_diverged_conflict_waits_and_aborts_cleanly(self):
+        self.commit_local("a.txt", "mine\n")
+        self.push_from_other("a.txt", "theirs\n")
+        head = git(self.dev, "rev-parse", "HEAD")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["reason"], out["files"]), (3, "MERGE_CONFLICT", ["a.txt"]))
+        self.assertEqual(git(self.dev, "rev-parse", "HEAD"), head)
+        self.assertEqual(git(self.dev, "status", "--porcelain", "--untracked-files=no"), "")
+
+    def test_detached_head_waits(self):
+        git(self.dev, "checkout", "-q", "--detach")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["reason"]), (3, "DETACHED"))
+
+    def test_push_merges_remote_that_moved_then_pushes(self):
+        self.commit_local("c.txt", "c\n")
+        self.push_from_other("b.txt", "b\n")
+        code, out = self.run_watch(self.dev, "push")
+        self.assertEqual((code, out["result"], out["merged"]), (0, "PUSHED", ["origin/develop"]))
+        self.assertEqual(git(self.origin, "rev-parse", "develop"), git(self.dev, "rev-parse", "HEAD"))
+        code, out = self.run_watch(self.dev, "push")
+        self.assertEqual((code, out["result"]), (0, "UP_TO_DATE"))
+
+    def test_push_sets_upstream_for_new_branch(self):
+        git(self.dev, "checkout", "-q", "-b", "feature")
+        self.commit_local("c.txt", "c\n")
+        code, out = self.run_watch(self.dev, "push")
+        self.assertEqual((code, out["result"]), (0, "PUSHED"))
+        self.assertEqual(git(self.dev, "rev-parse", "--abbrev-ref", "feature@{upstream}"), "origin/feature")
+
+    def test_shelve_stashes_only_the_bug_files(self):
+        (self.dev / "a.txt").write_text("bot half fix\n")
+        (self.dev / "new.cs").write_text("class X {}\n")
+        (self.dev / "wip.txt").write_text("dev untracked\n")
+        code, out = self.run_watch(self.dev, "shelve", "--bug", "7", "--reason", "compile lỗi", "--", "a.txt", "new.cs", "gone.txt")
+        self.assertEqual((code, out["result"], sorted(out["files"])), (0, "SHELVED", ["a.txt", "new.cs"]))
+        self.assertEqual((self.dev / "a.txt").read_text(), "a\n")
+        self.assertFalse((self.dev / "new.cs").exists())
+        self.assertTrue((self.dev / "wip.txt").exists())
+        self.assertIn("bughub #7 released: compile lỗi", git(self.dev, "stash", "list"))
+        code, out = self.run_watch(self.dev, "shelve", "--bug", "7", "--", "a.txt")
+        self.assertEqual((code, out["result"]), (0, "NOTHING"))
+
+    def test_shelve_rejects_paths_outside_repo(self):
+        code, out = self.run_watch(self.dev, "shelve", "--bug", "7", "--", "../x.txt")
+        self.assertEqual((code, out["result"]), (2, "BAD_ARGS"))
+
+    def test_publish_is_disabled(self):
+        code, out = self.run_watch(self.dev, "publish")
+        self.assertEqual((code, out["result"]), (0, "DISABLED"))
 
 
 if __name__ == "__main__":

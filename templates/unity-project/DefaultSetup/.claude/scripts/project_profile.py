@@ -113,8 +113,9 @@ DEFAULTS = {
     # --- BugHub -------------------------------------------------------------
     # Mã project trên server BugHub (/fix-bug, /bughub-setup). Rỗng có chủ đích:
     # /fix-bug thấy rỗng thì dừng và trỏ sang /bughub-setup thay vì đoán mã.
-    # watch: nhánh riêng cho cửa sổ /fix-bug --watch (scripts/bughub-watch.py).
-    #   branch rỗng = watch commit lên nhánh đang mở (hành vi cũ); baseBranch rỗng =
+    # watch: cửa sổ /fix-bug --watch (scripts/bughub-watch.py).
+    #   branch rỗng = chạy watch ở nhánh nào thì sửa + push lên nhánh đó; có giá trị =
+    #   nhánh bot riêng, các key còn lại chỉ dùng khi đó. baseBranch rỗng =
     #   defaultBaseBranch; mergeToBase = đẩy fix lên nhánh chính sau khi push nhánh
     #   bot; worktree = chạy trong git worktree riêng (worktreePath rỗng = thư mục
     #   anh em `<repo>-<branch>`) thay vì chuyển nhánh của checkout này.

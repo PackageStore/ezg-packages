@@ -207,10 +207,10 @@ Scenes shipped: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `
 - `main` — production
 - `develop` — nhánh tích hợp **theo quy ước, không được sinh sẵn**: project mới chỉ có nhánh mặc định của `git init`. Base branch của agent = nhánh đang mở lúc chạy loop; giá trị fallback là `defaultBaseBranch` trong `.claude/project-profile.json` (mặc định `main`).
 - `agent/dev-<base>` — automated work branch, **chỉ dùng ở mode `worktree`**; cắt từ nhánh đang đứng lúc chạy loop, merge nhánh đó vào mỗi lần chạy, push (nếu có remote), **không** tạo PR. Ở mode `current` (mặc định) agent commit thẳng lên nhánh đang mở, không tạo nhánh nào.
-- `AutoFixBug` — nhánh bot của cửa sổ `/fix-bug --watch` (tên + nhánh chính + có merge ngược hay không + có
-  dùng worktree riêng hay không đều nằm ở `bugHub.watch` trong `.claude/project-profile.json`). Trước mỗi bug
-  merge nhánh chính mới nhất vào, sửa xong push lên chính nó; mặc định **không** tự merge vào nhánh chính —
-  dev merge tay. Mở cửa sổ: `python3 .claude/scripts/bughub-watch.py start` trong một pane riêng.
+- Cửa sổ `/fix-bug --watch` **không có nhánh riêng**: chạy watch ở nhánh nào thì sửa bug + push lên đúng
+  nhánh đó (trước mỗi bug merge `origin/<nhánh>` vào), loop không bao giờ tự dừng. Mở bằng `/fix-bug --watch`
+  trong một pane riêng hoặc `python3 .claude/scripts/bughub-watch.py start`. Muốn quay lại nhánh bot riêng
+  (vd `AutoFixBug`, kèm worktree / merge ngược) thì khai `bugHub.watch.branch` trong `.claude/project-profile.json`.
 - `IOS/AutoBuild` / `Android/AutoBuild` — nhánh build CI của module [`ezg-autobuild`](.claude/skills/auto-build-setup/SKILL.md) (tên mặc định; project đổi được lúc cài). Chỉ chứa scaffold `AutoBuild/` + `.gitlab-ci.yml` shim, cài/upgrade bằng `/auto-build-setup`. Chiều đồng bộ **một hướng**: nhánh Release → nhánh build (CI tự merge mỗi lần build) — **đừng bao giờ merge/push nhánh build ngược về Release**.
 
 ## Autonomous Backlog System

@@ -44,7 +44,9 @@ Chỉ nhánh (trống) / prefix-tag mới push; các sub-command còn lại ch�
 - Dưới `/goal`: chỉ push + bật cờ khi điều kiện goal **đã đạt trọn vẹn**. Bật sớm mà goal chặn dừng thì
   `/clear` bị gõ vào lúc đang làm tiếp.
 - Task còn dở / bị block / compile hoặc test fail (`COMPILE_BLOCKED`…) → **không** push, **không** bật
-  cờ; báo dev như bình thường (dev cần đọc lỗi trước khi mất context).
+  cờ; báo dev như bình thường (dev cần đọc lỗi trước khi mất context). Ngoại lệ: `/fix-bug --watch` với bug
+  `released` — skill đó đã cất phần sửa dở vào stash và ghi lỗi vào report, nên vẫn push (ra `NO_CHANGES`) +
+  bật cờ `--then "/fix-bug --watch"` để loop chạy tiếp (fix-bug mục 5).
 - Prompt đã yêu cầu `/push-in-session` riêng và lượt này đã push xong → không push lần hai; chạy lại
   chỉ ra `NO_CHANGES` nếu từ đó tới giờ không sửa thêm file nào.
 - Đang trong `/run-backlog` → **không** dùng skill này: loop tự commit (STEP 9) và tự mở session mới

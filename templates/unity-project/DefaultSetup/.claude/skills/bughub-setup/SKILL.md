@@ -361,11 +361,11 @@ bash .claude/skills/auto-clear/scripts/auto-clear.sh status
 
 Không tự chạy `install` — nó sửa `~/.claude/settings.json` của dev.
 
-Nhánh bot của cửa sổ watch: `python3 .claude/scripts/bughub-watch.py config` → `branch` rỗng thì watch
-commit thẳng lên nhánh đang mở. Không phải lỗi, không thành dòng trong bảng — chỉ thêm vào danh sách việc dev:
-"muốn watch chạy riêng trên nhánh bot thì khai `bugHub.watch` (branch / baseBranch / mergeToBase /
-worktree) trong `.claude/project-profile.json`, rồi mở cửa sổ bằng `python3 .claude/scripts/bughub-watch.py start`".
-Không tự chọn nhánh hay worktree thay dev.
+Nhánh của cửa sổ watch: `python3 .claude/scripts/bughub-watch.py config` → `mode: "follow"` (`branch` rỗng,
+mặc định) thì chạy watch ở nhánh nào sửa + push lên nhánh đó. Không phải lỗi, không thành dòng trong bảng — chỉ
+thêm vào danh sách việc dev: "mở pane riêng ở nhánh muốn nhận fix rồi gõ `/fix-bug --watch`; muốn bot chạy trên
+nhánh riêng thì khai `bugHub.watch` (branch / baseBranch / mergeToBase / worktree) trong
+`.claude/project-profile.json`". Không tự chọn nhánh hay worktree thay dev.
 
 ## Bước 9 — Report
 
