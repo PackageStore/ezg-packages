@@ -1,6 +1,6 @@
 ---
 name: run-backlog
-description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.
+description: Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs. Under the loop runner a blocked/failed iteration is self-healed: the next iteration resumes the task in recovery mode (1f), and a task that still cannot finish is parked so the loop goes on.
 ---
 
 # Run Backlog — Autonomous Task Agent
@@ -92,7 +92,7 @@ You read the index + **exactly one** task file — never scan all tasks.
 
 Pipeline orchestration:
 ```
-[1]   PICK     → backlog-ops pick: resolve the task from the index (todo | in-progress resume | empty → pause)
+[1]   PICK     → backlog-ops pick: resolve the task (ship-pending | in-progress → resume | todo | empty → pause | busy → stop, change nothing)
 [2]   BRANCH   → worktree mode only: create/reuse the worktree branch + merge base in. current mode: SKIP
 [3]   START    → backlog-ops start: todo → in-progress + BACKLOG.md bullet move
 [4]   CONTEXT  → read CLAUDE.md + .claude/rules/* + task file + relevant code
@@ -100,12 +100,65 @@ Pipeline orchestration:
 [6]   REVIEW   → deterministic preflight, then spawn code-reviewer + (performance-reviewer IF perf-sensitive) + (security-auditor IF sensitive) in parallel; auto-fix max 2 rounds
 [7]   VERIFY   → spawn qa-verifier (M/L); auto-fix max 2 rounds if failed; final preflight
 [7.5] SMOKE    → runtime smoke gate (M/L, orchestrator-side, Unity MCP): play mode + console assert + screenshot; auto-skips if Editor absent
-[8]   DONE     → backlog-ops done: in-progress → done + bullet removal, write summary with all gate verdicts
-[9]   SHIP     → backlog-ops lint, then push-in-session style: reset index → stage ONLY this task's files → `<prefix> Tag: <subject>` → commit + push to $WORK_BRANCH (DO NOT create a PR)
+[8]   DONE     → backlog-ops done: in-progress → done + bullet removal (task is now ship-pending), write summary with all gate verdicts
+[9]   SHIP     → backlog-ops lint, then push-in-session style: reset index → stage ONLY this task's files → `<prefix> Tag: <subject>` → record the staged tree (checkpoint --step commit) → commit + push to $WORK_BRANCH (DO NOT create a PR), then backlog-ops shipped
 [10]  REPORT   → summarize for user, including manual verification steps
 ```
 
-> **Deterministic bookkeeping:** every backlog state transition (pick / start / done / demote / index edits) runs through `python3 .claude/scripts/backlog-ops.py` — NEVER hand-edit `BACKLOG.md` or `git mv` a task file yourself for a transition. Hand-edited bookkeeping corrupts the index (leaked tool-call markup, dual-state task files, forbidden DONE bullets); the script self-lints after every mutation.
+> **Self-heal (loop runner default).** A block token is no longer the end of the task. The
+> controller answers any iteration that ends without finishing its task — a block token,
+> `manual intervention required`, a crash, a watchdog kill, a silent end — with a
+> **recovery iteration** on the same task: fresh context, a brief of what failed
+> (`AGENT_RECOVERY_BRIEF`), the strongest model, and a fresh fix budget for every gate
+> (section 1f). After `-MaxRecoveries` (default 3) it **parks** the task — partial work
+> saved to `refs/backlog/parked/<NNN>` and taken out of the tree, task moved to the tail
+> of TODO — and carries on with the next task. Usage/session limits are slept out until
+> their reset. So: print the token honestly, leave the work resumable (staged + a block
+> report in the task file), and let the controller decide. `-NoSelfHeal` restores
+> stop-on-first-block. One block still stops the loop either way: a STEP 9e push failure
+> (a diverged branch is a human's call — see 9e).
+
+> **Deterministic bookkeeping:** every backlog state transition (pick / start / resume / checkpoint / done / shipped / demote / index edits) runs through `python3 .claude/scripts/backlog-ops.py` — NEVER hand-edit `BACKLOG.md`, `$BACKLOG_ROOT/runs/*.json`, or `git mv` a task file yourself for a transition. Hand-edited bookkeeping corrupts the index (leaked tool-call markup, dual-state task files, forbidden DONE bullets); the script self-lints after every mutation.
+
+## Concurrency & resume contract — one consumer per clone, no blind resume
+
+The queue is shared by every loop controller and every hand-run `/run-backlog` on this
+clone, so `backlog-ops.py` fences it (all state under `$BACKLOG_ROOT/runs/`):
+
+| Guard | What it stops | Held by |
+|---|---|---|
+| **Loop lease** (`runs/loop.json`) | a second loop controller; a hand-run `/run-backlog` while a loop runs | the loop controller process — its iterations carry `BACKLOG_LOOP_TOKEN` |
+| **Task claim** (`runs/<NNN>.json`) | two sessions working one task (loop + hand-run, a killed controller's still-running window, two hand-runs) | the agent CLI process that ran `start` / `resume` (found by walking up the process tree) |
+| **Ship fence** (claim `phase: done`) | a task marked DONE whose commit never happened being swept into the NEXT task's `git add -A` | same claim, closed by `shipped` |
+
+A claim dies with the session that owns it — usage limit, crash, watchdog kill, closed
+window, reboot — so a dead run is resumable at once, and a LIVE one can never be
+resumed by someone else. Processes are identified by pid + start time (a recycled PID
+never looks alive); liveness that cannot be read counts as live.
+
+**Exit code 4 = busy** from `pick` / `start` / `resume` / `defer` / `checkpoint` / `done` /
+`demote` / `shipped`: another session owns the queue or the task. **Change NOTHING** — no
+edit, no transition, no demote, no `git` write — and end the iteration with exactly:
+`<sentinel> — manual intervention required: <reason> — <hint>` (`sentinel` is `LOOP_BUSY`
+or `TASK_BUSY` from the JSON; the `manual intervention required` phrase is what stops a loop
+runner that predates these tokens). **Exit code 5 = `RESUME_CONFLICT`** (the partial work
+lives in another checkout/branch): same shape, same stop. `start` / `resume` exiting 1 with
+`cannot identify the agent session` means a claim could not be given an owner: print that
+message (it ends in `manual intervention required`) and stop. The operator override is
+`backlog-ops.py lock status` / `lock break --yes [--task NNN]`, never yours to run.
+
+**Checkpoints** — journal each finished step so a resumed run knows how far the dead one got
+(advisory: a resumed run re-runs every gate anyway). Call exactly these, in order, and
+only for the task you own:
+
+| When | Command |
+|---|---|
+| end of STEP 5 (implementation complete, before 5a) | `backlog-ops.py checkpoint <NNN> --step implemented` |
+| end of STEP 5b | `… --step compile --result <pass\|skipped>` |
+| STEP 6 passed (preflight + reviewers) | `… --step preflight --result pass` then `… --step review --result <pass\|warn>` |
+| STEP 7 passed | `… --step qa --result <pass\|warn\|skipped>` |
+| STEP 7.5 finished | `… --step smoke --result <pass\|warn\|skipped>` |
+| STEP 9e, after the scoped stage and right before `git commit` (task already `done`) | `… --step commit --tree "$(git write-tree)"` — the ship fence's record of the commit (no trailer) |
 
 ---
 
@@ -118,7 +171,9 @@ python3 .claude/scripts/backlog-ops.py pick
 # → JSON: {state, resume, nnn, tier, priority, title, path} — or {"state":"empty"} (exit code 2)
 ```
 
-- `state: "in-progress"` (`resume: true`) → **resume** that task. Read the file at `path`. (The todo→in-progress transition already happened in a previous run — skip STEP 3.)
+- **exit code 4** (`state: "busy"`) → another session owns the queue or this task. Follow the busy rule of the *Concurrency & resume contract*: change nothing, print `<sentinel> — <reason>: <hint>` (`LOOP_BUSY` / `TASK_BUSY`) and stop.
+- `state: "ship-pending"` → a previous run marked task `nnn` DONE but died before its commit. Run **STEP 1c** first, then run `pick` again and continue with whatever it returns.
+- `state: "in-progress"` (`resume: true`) → **resume** that task: run **STEP 1d** (it takes over the dead run's claim and tells you what it left). Read the file at `path`. (The todo→in-progress transition already happened in a previous run — skip STEP 3.)
 - `state: "todo"` → the first TODO entry. Note `path`, `nnn`, `tier`, `priority`.
 - `state: "empty"` (exit code 2 = the PAUSED signal) → backlog is empty. Run the **self-pause flow**:
   1. Write the string `PAUSED` into `$BACKLOG_ROOT/state` (loop state lives next to the
@@ -129,6 +184,13 @@ python3 .claude/scripts/backlog-ops.py pick
 - exit code 3 (`backlog not initialised`) → this checkout has no backlog yet. Run
   `python3 .claude/scripts/backlog-ops.py init`, then re-run `pick`. Do NOT hand-create
   `BACKLOG.md` — the lint invariants are strict.
+
+Every `pick` result also carries `repo_state` — leftovers of a git command killed with the
+previous run. Clear them before any git write: `index_lock` with `git_running: false` →
+delete that file (with `git_running: true` another git command is live — wait, never
+delete); `merge_in_progress` / `rebase_in_progress` / `cherry_pick_in_progress` → abort it
+(`git merge --abort` / `git rebase --abort` / `git cherry-pick --abort`) only when it was left
+by this pipeline (STEP 2b merge); otherwise stop with `manual intervention required`.
 
 Then read **exactly one** identified task file (at `path`). DO NOT read other task files.
 
@@ -146,6 +208,142 @@ Extract from the task file:
 - **Related files** (files to read first)
 - **Completion criteria** (exit conditions)
 - **Required verification steps after loop stops (manual)** — will be copied verbatim into the DONE summary for the user.
+
+### 1c. Ship recovery (`state: "ship-pending"`)
+
+The task is already in `$BACKLOG_ROOT/done/` with its summary, but `shipped` was never
+recorded — the run died somewhere in STEP 8–9. Its code is either still uncommitted, or
+committed but not pushed, or fully shipped with only the record missing.
+
+1. `python3 .claude/scripts/backlog-ops.py resume <NNN>` — takes over the dead run's claim
+   (exit 4/5 → busy rule).
+2. Decide from `task_commits` — the commits since the task started whose tree matches the
+   tree STEP 9e recorded right before its commit (`checkpoint --step commit --tree`; the
+   message itself carries no trailer). Never from `partial_work`: after a commit it only
+   holds dirt that arrived later (Unity auto-dirt, the dev's edits), and committing that
+   would be wrong.
+   - `task_commits` empty → the code was never committed: run **STEP 9** for this task now,
+     exactly as written (9a reset → 9b list → 9c scoped stage → 9d message for THIS task,
+     from its done-file title → 9e tree checkpoint + commit + push). This run has no
+     transcript of the implementation, so 9b's list comes from `partial_work`, cross-checked
+     against the done file's summary — leave out what is plainly auto-dirt and name it in
+     STEP 10. Do not start any other task first — its `git add -A` would otherwise swallow
+     this code.
+   - `task_commits` non-empty → already committed. `unpushed_commits` > 0 (HAS_REMOTE=1) →
+     `git push` only; otherwise nothing to do in git. **Do not commit again.**
+3. `python3 .claude/scripts/backlog-ops.py shipped <NNN> --commit <sha from task_commits, or the one just made> --push <pushed|no-remote|failed> --note recovered`
+4. **A push that fails here is the same stop as in 9e**: record `shipped … --push failed`
+   (step 3), then output the 9e `manual intervention required — push of <WORK_BRANCH> to
+   origin failed; …` line and stop — do NOT go on to `pick`, or the next task stacks one
+   more unpushed commit onto the diverged branch.
+5. Otherwise mention the recovery in STEP 10, then go back to STEP 1 and `pick` again.
+
+### 1d. Resume protocol (`state: "in-progress"`)
+
+Never resume blind — the previous attempt usually left real work behind.
+
+1. `python3 .claude/scripts/backlog-ops.py resume <NNN>` — exit 4 (`TASK_BUSY`: its owner
+   is alive) or exit 5 (`RESUME_CONFLICT`: it started in another checkout/branch) → print
+   the token and stop without touching anything.
+2. Read the JSON:
+   - `partial_work` — files changed since the task started (staged, unstaged, untracked):
+     this attempt's inheritance. `note: unverified (no baseline)` (`legacy: true`, the task
+     predates claims) means pre-existing dirt cannot be told apart — judge each file by content.
+   - `preexisting_dirty_unchanged` — dirt that was already there at `start` and is untouched:
+     NOT this task's work. Never edit or revert it; name it in the DONE summary if STEP 9's
+     `git add -A` will carry it.
+   - `commits_since_start` — commits that landed after `start` (a STEP 2b merge, the dev's
+     own commits). Read them before assuming the base is unchanged.
+   - `checkpoints` / `last_checkpoint` + `guidance` — how far the dead attempt got.
+3. Inspect the partial work BEFORE writing anything: `git diff -- <paths>`,
+   `git diff --cached -- <paths>`, and read each untracked file. Then follow `guidance`:
+   - nothing survived → a fresh start from STEP 4;
+   - no `implemented` checkpoint → **continue** the implementation from the partial diff
+     against the task's completion criteria — keep what is correct, finish what is missing;
+     never revert it or re-implement from scratch;
+   - `implemented` or later → the implementation was complete: re-check it against the
+     completion criteria, then continue at STEP 5a.
+4. **Every gate from STEP 5b on runs again** — a dead attempt's verdicts are not trusted
+   (the diff may have changed after them). Checkpoints are re-recorded as you go.
+5. The DONE summary records `**Attempts:** <attempt> (resumed from <last checkpoint or "start">)`.
+6. A dead attempt may have left the Editor busy: before any Unity work, poll `unity_editor_state`
+   and stop play mode if it is still playing (a run that died mid-smoke leaves it on).
+
+### 1e. Multi-iteration tasks — checkpointed exit (`TASK_CHECKPOINTED`)
+
+The loop controller kills an iteration at its hard cap (180 min). The iteration prompt carries
+`AGENT_ITERATION_DEADLINE` (epoch seconds, ~20 min before that kill, leaving time to wrap up;
+absent on a hand run = no deadline). Some tasks need more than one iteration **by design** —
+a full validation runbook, a multi-round defect-fix loop, any spec that says "unfinished ⇒
+`checkpoint` + resume next run". For those, ending with saved progress is the normal outcome,
+**not** a block: print `TASK_CHECKPOINTED` and the loop starts the next iteration, which
+resumes the task through 1d.
+
+- **Watch the clock.** At every natural break (between phases, sessions, fix rounds) compare
+  `date +%s` with `AGENT_ITERATION_DEADLINE`. Never start a step that cannot finish before it —
+  wrap up instead. Overrunning means a watchdog kill mid-step: the work survives, but the next
+  iteration has to recover it blind (1f) instead of resuming from your notes.
+- **Checkpoint only when ALL hold:** (a) the task spec allows multi-run, or the remaining work
+  plainly cannot fit in one iteration; (b) this iteration made real progress (a phase finished,
+  defects fixed, sessions run); (c) nothing is left undecided — choices are made here under the
+  *Autonomous decision policy* (Notes), never deferred to a human. A broken environment or no
+  progress in this iteration → print the matching block token (or `manual intervention
+  required`); the controller answers it with a recovery iteration (1f).
+- **A job longer than one iteration is a checkpoint, not a question.** "This needs ~5 h of bot
+  sessions — run it?" is never a reason to stop: start it, checkpoint at the deadline, and
+  let the next iteration resume it.
+- **Wrap-up before printing it:**
+  1. Leave the Editor idle (not playing), the dev save restored, any test-only state reverted.
+  2. Compile clean (STEP 5b procedure). A checkpoint never leaves the tree broken for the next attempt.
+  3. Keep the work **uncommitted** and staged (`git add -A`). The next attempt reads it from
+     `partial_work`. Never `done`, never commit, never `demote`.
+  4. Append `## Resume notes — attempt <N> (<date>)` to the task file: what was done, what is
+     still open (severity), the exact next-step order, and any environment traps you hit.
+  5. Do **not** record `checkpoint --step implemented` unless the implementation is truly
+     complete — resume would skip straight to the gates.
+- **Final line of the report** (STEP 10 shape, minus commit/push):
+  `TASK_CHECKPOINTED — <why one iteration is not enough> — next: <first resume step>`.
+  The report must contain **no** block token and **not** the phrase `manual intervention required`,
+  because the controller checks block tokens first and would stop.
+- The controller caps consecutive checkpointed iterations of one task (`--max-checkpoints`,
+  default 6). Past the cap it parks the task (`CHECKPOINT_LIMIT`) and moves on; with
+  `-NoSelfHeal` it stops for a human look.
+
+### 1f. Recovery iteration (prompt carries `AGENT_RECOVERY_BRIEF`)
+
+The previous iteration on this task ended without finishing it, and the controller sent you
+back in instead of stopping. The prompt names the brief (`AGENT_RECOVERY_BRIEF=<path>`) and
+the attempt (`AGENT_RECOVERY_ATTEMPT=<n>/<max>`).
+
+1. **Read the brief first.** It names what happened (`<TOKEN>` / `WATCHDOG_KILL` /
+   `ITERATION_FAILED` / `SILENT_END` / `MANUAL_INTERVENTION`) and carries the failed
+   iteration's final report (or its last messages when it died). Then `pick` as usual — it
+   returns the same task — and take it over through **1d** (`resume`), or STEP 3 if it never
+   started. Read the task file's `## Block report` / `## Resume notes` sections too.
+2. **Diagnose before you edit.** Name the root cause in one sentence, from evidence, before
+   touching code. Repeating the previous attempt's fix is the one thing guaranteed to fail.
+
+   | What happened | Do |
+   |---|---|
+   | `COMPILE_BLOCKED` | Re-run 5b and read every error in full. Errors outside the task's files (another session mid-edit, pre-existing breakage): wait ~2 min in the foreground and re-check once; still broken → make the minimal fix that restores a green build and name it in the DONE summary. |
+   | `PREFLIGHT_BLOCKED` | Each `definite` finding is a hard rule — restructure the code so the rule holds (a coroutine becomes UniTask, `DateTime.Now` becomes `TimeManager`, a secret moves out of source…). Never edit the preflight rules. |
+   | `REVIEW_BLOCKED` / `VERIFY_BLOCKED` | Take the remaining findings from the brief and fix their cause, not the symptom. A finding you believe is wrong (contradicts the spec, targets code outside the diff, already fixed) is settled only by re-spawning that reviewer with your counter-evidence and getting its verdict — never by your own say-so. A criterion that truly cannot be met in code (needs an asset the task does not own, a decision) goes through the decision policy below. |
+   | `RUNTIME_BLOCKED` | Reproduce in play mode, read the stack head, fix, re-run 7.5. |
+   | `NO_CHANGES` | Decide which case it is (STEP 6a, exit 2): already satisfied → close it that way; skipped/lost implementation → implement it now. |
+   | `MANUAL_INTERVENTION` (a question or a decision) | Apply the *Autonomous decision policy* (Notes) and continue. |
+   | `WATCHDOG_KILL` / `SILENT_END` / `ITERATION_FAILED` | The run hung or ended its turn early. Same task, smaller steps: no background waits, foreground polls only, checkpoint (1e) before `AGENT_ITERATION_DEADLINE`. If a single step (a bake, a bot session, a bundle build) cannot fit, run it in slices across checkpoints. |
+   | `BASE_MERGE_CONFLICT` (worktree) | Resolve the conflicts on the agent branch (keep both sides' intent; the base wins on files the task does not touch), commit the merge, continue. |
+3. **Every gate gets a fresh budget** in this iteration (2 fix rounds each) and runs again in
+   full — the dead attempt's verdicts are not trusted.
+4. **Never weaken a gate to get past it.** No deleting or loosening completion criteria,
+   tests, preflight rules or reviewer definitions; no skipping a mandatory reviewer; no
+   `--no-verify`; no `#pragma warning disable` to silence a finding. A recovery that
+   "passes" this way is worse than a parked task.
+5. **Still blocked after your fix rounds?** Write the block report (Notes), then print the
+   block token exactly as STEP 5b–7.5 define. The controller either sends a further recovery
+   or parks the task; you never `demote` or park it yourself.
+6. DONE summary: add `**Self-heal:** recovered on attempt <n> after <what happened> — root
+   cause: <one line>`.
 
 ### 1b. Requires gate (only when the task declares `**Requires:**`)
 
@@ -272,7 +470,9 @@ python3 .claude/scripts/backlog-ops.py start <NNN>
 ```
 
 - The JSON result echoes the new `path` plus a `lint` block. If `lint.ok = false`, the errors are pre-existing index damage (hand-edit or merge residue) — fix them before writing any code.
+- `start` also writes the task claim (owner = this session) and a baseline of the files that were already dirty, which is what lets a later `resume` tell your work from pre-existing dirt. Exit 4 (another session started it first, or a loop owns the queue) → busy rule: change nothing, print the token, stop.
 - DO NOT hand-edit `BACKLOG.md` or `git mv` the task file yourself for this transition.
+- **`parked_work` in the result** → an earlier loop run gave up on this task and saved its partial work at `refs/backlog/parked/<NNN>` (the task file ends with `## Parked` notes saying why). Read its `hint`: inspect the diff, restore only what still fits the current code (`git checkout refs/backlog/parked/<NNN> -- <path>`), and avoid the approach the park reason says failed. `shipped` deletes the ref.
 - (Resume case: if `pick` returned `state: "in-progress"`, the transition already happened in a previous run — skip this step.)
 
 Do this **before** writing any code.
@@ -372,7 +572,7 @@ Write code to fulfill the task. Rules:
 
 ### 5a — Stage changes
 
-When implementation is done, **stage** all changes:
+When implementation is done, record it — `python3 .claude/scripts/backlog-ops.py checkpoint <NNN> --step implemented` — then **stage** all changes:
 ```bash
 git add -A
 ```
@@ -466,6 +666,8 @@ Note `compile-check: skipped (all 3 methods unavailable)` in the DONE summary Qu
 
 ---
 
+> Checkpoint: `backlog-ops.py checkpoint <NNN> --step compile --result <pass|skipped>` once 5b has an outcome.
+
 ## STEP 6 — Quality Gate: Code Review + Security Review (parallel when sensitive)
 
 **Purpose:** Before committing, have an independent reviewer check the diff against the task spec + audit security if the task touches a sensitive surface.
@@ -483,9 +685,19 @@ Why it is one call, and why the diff is a path: each Bash call re-reads the enti
 
 Exit codes: `0` ok · `2` no staged changes · `3` `preflight.summary.has_blocking_definite = true` · `1` internal error (payload has `error`).
 
-On exit `2`:
-- Output: `NO_CHANGES — implementation produced no diff. Task may already be complete or implementation skipped.`
-- Stop. DO NOT commit. The user needs to manually review if the task setup was incorrect.
+On exit `2` (no staged diff) — find out which case it is before giving up:
+1. **Already satisfied?** The work may already be in `HEAD` (an earlier task or commit did it).
+   Spawn `qa-verifier` (any tier) with the task spec and the note "NO DIFF — verify every
+   completion criterion against the CURRENT code at HEAD". `pass`/`warn` → close it as
+   already satisfied: STEP 8 (`done`, summary `**Fix Summary:** Already satisfied at
+   <HEAD short sha> — no change needed` + the qa verdict and criteria evidence), skip the
+   STEP 9 commit, then `python3 .claude/scripts/backlog-ops.py shipped <NNN> --commit
+   "$(git rev-parse --short HEAD)" --push skipped --note already-satisfied`, and report
+   normally in STEP 10.
+2. **Not satisfied** (`fail`) → the implementation was skipped or lost: go back to STEP 5 and
+   implement it now (once).
+3. Still no diff after that → write the block report, then output `NO_CHANGES — implementation
+   produced no diff. Task may already be complete or implementation skipped.` DO NOT commit.
 
 Flags: `--stage` runs `git add -A` first (use it for each preflight-fix round instead of a separate `git add`); `--label <name>` names the diff file (`review-before` / `review-after` for §6-fix); `--no-preflight` captures the diff only.
 
@@ -711,6 +923,8 @@ Once all reviewers return, parse the JSON.
 
 ---
 
+> Checkpoint once STEP 6 passes: `… --step preflight --result pass` then `… --step review --result <pass|warn>`.
+
 ## STEP 7 — Quality Gate: Verify
 
 **Purpose:** Confirm that the code has resolved EVERY item in the "Completion criteria", not just passed convention checks.
@@ -779,6 +993,8 @@ py .claude/scripts/backlog-snapshot.py --stage --label final --pretty
 
 ---
 
+> Checkpoint once STEP 7 passes (or is skipped for the tier): `… --step qa --result <pass|warn|skipped>`.
+
 ## STEP 7.5 — Quality Gate: Runtime smoke (M / L only, orchestrator-side)
 
 **Purpose:** every gate so far only READS the diff — none observes the game running. This gate boots the game in the Editor and fails on runtime errors (NRE storms, exceptions, broken economy/save flows that no diff reader can catch). It automates the first slice of what "Required verification steps" otherwise defers entirely to the user.
@@ -792,7 +1008,7 @@ Run it for **M / L** after qa-verifier passes (STEP 7) and the final preflight (
 - The staged diff has no runtime surface (docs/`.md`, CSV comments only, editor-only `#if UNITY_EDITOR` code) → record `runtime-smoke: skipped (no runtime surface)`.
 - **The Editor was live at gate entry but stops responding, or the game never boots, part-way through** → run the *mid-gate stall recovery* below. This is a **skip, not a block** — see that section for the exact reason strings.
 
-> **The gate never strands the task.** Every exit from STEP 7.5 is exactly one of: `pass` · `warn` · a `skipped (…)` reason · `RUNTIME_BLOCKED` (code failed 2 fix rounds). "The Editor went quiet / the game never booted" is infrastructure, NOT a code failure — it can never end the iteration without one of those outcomes. Ending the turn describing a stall in prose, without reaching STEP 8, is a **silent failure**: the task stays in `backlog/in-progress/`, the loop runner reports `SILENT_FAIL`, and the whole run stops. If you are ever unsure which outcome applies, choose a `skipped (…)` reason and continue to STEP 8.
+> **The gate never strands the task.** Every exit from STEP 7.5 is exactly one of: `pass` · `warn` · a `skipped (…)` reason · `RUNTIME_BLOCKED` (code failed 2 fix rounds). "The Editor went quiet / the game never booted" is infrastructure, NOT a code failure — it can never end the iteration without one of those outcomes. Ending the turn describing a stall in prose, without reaching STEP 8, is a **silent failure**: the task stays in `backlog/in-progress/`, and the loop runner has to spend a recovery iteration (`SILENT_END`, 1f) re-entering a task you could have finished. If you are ever unsure which outcome applies, choose a `skipped (…)` reason and continue to STEP 8.
 
 **Procedure:**
 1. **Compile settled first** — poll `mcp__unity__unity_editor_state` until the Editor is NOT compiling. NEVER enter play mode with a compile pending: a mid-play domain reload wipes statics and produces a false NRE storm.
@@ -829,6 +1045,8 @@ DO NOT commit. Stop.
 
 ---
 
+> Checkpoint once STEP 7.5 has an outcome (XS/S included: `--result skipped`): `… --step smoke --result <pass|warn|skipped>`.
+
 ## STEP 8 — Mark DONE
 
 Make **two** updates. Neither is part of the STEP 9 commit — the backlog lives in
@@ -843,6 +1061,10 @@ steps; do not shorten it on the assumption they can read the file later.
    ```
 
    DO NOT hand-edit `BACKLOG.md` or move the task file yourself, and never `git mv` it — it is not tracked. The script does NOT write the completion summary — that is step 2 below.
+
+   From here until STEP 9 records `shipped`, the task is **ship-pending**: if this run dies
+   now, the next `pick` returns it first (STEP 1c) so its code can never be swept into the
+   next task's commit.
 
 2. **Edit the moved file** (`$BACKLOG_ROOT/done/<NNN-TIER-slug>.md`): replace the long task body with a short completion summary — this is content work, so YOU write it. Keep the heading `### [PRIORITY] Title`. Add:
    ```
@@ -859,6 +1081,8 @@ steps; do not shorten it on the assumption they can read the file later.
    - Runtime smoke: <pass|warn|skipped (XS/S tier)|skipped (worktree mode)|skipped (Unity MCP not connected / Editor not open)|skipped (no runtime surface)|skipped (Editor became unresponsive mid-gate)|skipped (game did not boot within budget)> (rounds used: 1|2) [screenshot: .claude/tmp/backlog/runtime-smoke-<NNN>.png|stall frame: .claude/tmp/backlog/stall-<NNN>.png|n/a]
 
    **Mode:** <current|worktree>
+
+   **Attempts:** <N> (resumed from <last checkpoint | start>) — omit when N = 1
 
    **Manual verify steps (USER MUST RUN before merging $WORK_BRANCH → base branch):**
    <copy exact `manual_verify_steps` from qa-verifier output>
@@ -885,6 +1109,11 @@ too and have no Skill tool. **Never fall back to `git add -A` + a free-form mess
 that is exactly the behavior this step replaced — not even when a dependency is missing
 (9.0 covers that). The backlog moves are NOT part of the commit either way — they
 happened inside `.git/` and git cannot see them.
+
+**Ship fence without a trailer.** Between `done` (STEP 8) and `shipped` (end of 9e) the task
+is ship-pending. 9e records the staged tree right before `git commit`, so a run that dies
+after the commit but before `shipped` is recognised by STEP 1c as already committed — by
+content, never by a message trailer — instead of being committed a second time.
 
 ### 9.0 — Probe the dependencies (one call)
 
@@ -1012,6 +1241,15 @@ MISSING; when the file exists, its tables win. Keep the two in lockstep.
 
 ### 9e — Commit + push (push-in-session §4)
 
+First record the tree this commit will carry (the ship fence, see the top of STEP 9). Run it
+after 9c — the index must hold exactly what is about to be committed:
+
+```bash
+python3 .claude/scripts/backlog-ops.py checkpoint <NNN> --step commit --tree "$(git write-tree)"
+```
+
+Then commit + push:
+
 ```bash
 if [ "$HAS_REMOTE" = "1" ]; then
   bash .claude/scripts/git_push.sh "<final message>"   # Windows: powershell -ExecutionPolicy Bypass -File .claude/scripts/git_push.ps1 "<final message>"
@@ -1041,8 +1279,15 @@ where they are working — that is intended, it is the branch they chose. In **w
 mode** it is `agent/dev-<base>`, which the user merges themselves.
 
 **Push rejected / failed** → per push-in-session §4: no `--force`, no rebase, no pull.
-The commit stays local and the task is already DONE. Print git's error verbatim, then
-output exactly
+The commit stays local and the task is already DONE. First close the run with the sha
+you just made — the dev will pull/rebase by hand, which rewrites that commit's tree, so
+the ship fence must not be left to find it later:
+
+```bash
+python3 .claude/scripts/backlog-ops.py shipped <NNN> --commit "$(git rev-parse --short HEAD)" --push failed --note push-rejected
+```
+
+Then print git's error verbatim and output exactly
 `manual intervention required — push of <WORK_BRANCH> to origin failed; commit <short-sha> is local only. Pull/rebase by hand, push, then re-run.`
 and stop — the loop runner greps that phrase, so later tasks do not pile more unpushed
 commits onto a diverged branch.
@@ -1051,6 +1296,12 @@ When `HAS_REMOTE=0` the push is the ONLY step that is dropped: the commit is alr
 made and the task is already DONE, so the loop continues to the next task normally.
 Report it in STEP 10 rather than treating it as a failure — a project generated from
 the base template runs its first several tasks before anyone creates a remote.
+
+Then close the task's run — this lifts the ship fence (STEP 1c) and archives the claim:
+
+```bash
+python3 .claude/scripts/backlog-ops.py shipped <NNN> --commit "$(git rev-parse --short HEAD)" --push <pushed|no-remote|failed>
+```
 
 **DO NOT create a PR.** This is a house convention.
 
@@ -1109,19 +1360,31 @@ gameplay verification. In current mode drop that line (STEP 5b already compiled)
 - **Preflight is a deterministic guard, not a replacement for reviewers.** Only auto-fix findings with `confidence=definite`; findings with `confidence=contextual` must go into the reviewer/qa prompt.
 - **Delta diff is only used for fix rounds.** The initial review and final QA/preflight must still have the full staged context to avoid missing side effects.
 - **Spawn reviewers in parallel** when more than one of code-reviewer / performance-reviewer / security-auditor is needed — one tool-use block, multiple Agent calls. DO NOT run sequentially (waste of time).
-- **Hard stop conditions** (never bypass — print the token EXACTLY as written when blocked; the loop runner watches for these strings):
+- **Never end the turn to wait.** The loop runs `claude -p`: the end of your turn is the end of the iteration — a background job's completion (Bash `run_in_background`, `Monitor`, a background Agent) cannot reliably wake it again, and the task is stranded in `in-progress/` (seen in practice: an iteration that ended with "Waiting for the Editor recompile to finish." → silent end). Every wait — recompile, asset import, bundle build, play-mode boot, reviewer — happens in the foreground: Bash `sleep ≤10` between `unity_editor_state` / file polls (chain several calls for long waits), Agent calls with `run_in_background: false`. The turn ends only with the STEP 10 report or a stop token. The controller answers a silent end with a recovery iteration (`SILENT_END`, 1f); with `-NoSelfHeal` it resumes once (`SILENT_RETRY`) and then stops (`SILENT_FAIL`).
+- **Autonomous decision policy.** Inside a loop iteration nobody is there to answer, so a decision is never a reason to stop or to end with a question:
+  1. Take the option the task spec / `**Context docs:**` / TechSpec recommends; else the one most consistent with the existing code and data; else the most conservative, reversible one.
+  2. Forbidden-to-invent groups (economy/reward numbers, save migration, backend/IAP/security, core UX flow): invent nothing new — reuse the value the spec/TechSpec gives, or keep the currently shipped value / the closest existing analogue; keep save changes additive with a `SetupDefaultData()` fallback; never weaken a security check.
+  3. Record every such choice under `## Autonomous decisions` in the task file, in the DONE summary, and in STEP 10, each with a `[DECISION-REVIEW]` manual verify step so the dev can overrule it afterwards.
+  4. Work that is too long for one iteration is a checkpoint (1e), not a question.
+  Only a genuinely external blocker (missing credentials, a service that is down, hardware) ends the iteration with a block — and even then the controller retries or parks; it does not wait for a human.
+- **Block report — before printing ANY block token** (`*_BLOCKED`, `NO_CHANGES`, `manual intervention required`): append `## Block report — <TOKEN> — <date>` to the task file with the remaining findings (file:line + issue), what each fix round tried, and your best root-cause guess. Leave the work staged; never `demote`. The next (recovery) iteration starts from that report.
+- **Stop tokens** (never bypass — print the token EXACTLY as written when blocked; the loop runner watches for these strings). They end the *iteration*, not the loop: under self-heal the controller follows each with a recovery iteration or a park (busy tokens wait, `EDITOR_REQUIRED` starts the Editor); only `-NoSelfHeal` turns them into loop stops:
   - Empty backlog — not a sentinel token: STEP 1's self-pause flow writes `PAUSED` to `$BACKLOG_ROOT/state` and the loop runner independently detects the empty index (it counts TODO/IN PROGRESS bullets itself).
-  - `EDITOR_REQUIRED` — every remaining TODO task declares `**Requires:** unity-editor` and no Editor is live for this project after STEP 1b's retry-with-wait probe (a single unreachable/busy probe no longer triggers this — it retries ~20 s first); also writes `EDITOR_REQUIRED` to `$BACKLOG_ROOT/state`. The loop runner greps this token and stops. (`DEFERRED` is NOT a stop — it ends the iteration normally and the next run picks the next task.)
+  - `TASK_CHECKPOINTED` is **not** a stop. It is the continuation token of a multi-iteration task (1e): the task stays in progress and the loop resumes it next iteration. Never print it with a block token, and never use it to dodge one.
+  - `EDITOR_REQUIRED` — every remaining TODO task declares `**Requires:** unity-editor` and no Editor is live for this project after STEP 1b's retry-with-wait probe (a single unreachable/busy probe no longer triggers this — it retries ~20 s first); also writes `EDITOR_REQUIRED` to `$BACKLOG_ROOT/state`. The loop runner greps this token: under self-heal it (re)starts this project's Editor (current mode, at most twice per run) and resumes; in worktree mode, or once those restarts fail, it stops. (`DEFERRED` is NOT a stop — it ends the iteration normally and the next run picks the next task.)
   - ~~`BASE_UNKNOWN`~~ — retired. Starting from an agent branch / detached `HEAD` is allowed; STEP 2a falls back to the recorded config then the repo default. Never emit this token.
   - `BASE_MERGE_CONFLICT` — merging the base branch into the work branch conflicts (STEP 2b, worktree mode only).
+  - `LOOP_BUSY` — `backlog-ops.py` exit 4 with that sentinel: another loop holds this clone's lease (or a pre-lease loop is running) and you are not one of its iterations. Nothing was changed; the operator stops that loop.
+  - `TASK_BUSY` — exit 4 with that sentinel: a live session owns the task (another hand-run, or the task window of a killed controller). Nothing was changed.
+  - `RESUME_CONFLICT` — `resume` exit 5: the task's partial work lives in another checkout/branch (it started in the other `--mode`). Resume it from there, or `demote` it there.
   - `NO_CHANGES` — implementer did not produce a diff.
   - `COMPILE_BLOCKED` — Unity compile errors remain after 2 fix rounds in STEP 5b. Impossible in worktree mode (the gate is skipped, never run).
   - `PREFLIGHT_BLOCKED` — deterministic definite critical findings remain after the preflight-fix limit.
   - `REVIEW_BLOCKED` after Round 2 in STEP 6.
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
   - `RUNTIME_BLOCKED` after Round 2 in STEP 7.5 — **only when the diff's code failed at runtime**. Unity tooling dying mid-gate (unanswered modal / unresponsive bridge / game never boots) is NOT this token: it degrades to `runtime-smoke: skipped (…)` and the task still reaches STEP 8.
-- **No `--ship-anyway` mode.** If the user wants to force-ship a blocked task, they manually resolve the block and re-run the skill.
-- **Push failure is a stop, not a retry.** STEP 9e prints `manual intervention required — push of <WORK_BRANCH> to origin failed; …` — never `--force`, never auto-rebase (push-in-session §4).
+- **No `--ship-anyway` mode.** Self-heal fixes the cause or parks the task; it never ships past a failed gate. A parked task is retried with a fresh budget on the next loop launch (its partial work comes back as `parked_work`).
+- **Push failure is a stop, not a retry.** STEP 9e prints `manual intervention required — push of <WORK_BRANCH> to origin failed; …` — never `--force`, never auto-rebase (push-in-session §4). The loop controller stops on that line even with self-heal on — no recovery iteration is spent on a diverged branch.
 - **No PR creation.** The pipeline only pushes to the work branch; in worktree mode the user merges it manually after manual verification.
 - **No deploy step.** Mobile game builds are done via Unity Editor, no CLI deploy exists.
 - **No `npm run lint` equivalent.** Unity projects lack a CLI compilation check. Rely on the 3 quality gates + manual verification.

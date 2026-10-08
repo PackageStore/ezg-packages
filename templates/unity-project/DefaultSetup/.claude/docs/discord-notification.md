@@ -66,6 +66,7 @@ Tải/tạo file script này với quyền thực thi (`chmod +x`). Script này 
 ### B. Notification Router (`.claude/scripts/notify.sh`)
 Script này nhận các tham số để định dạng tin nhắn đẹp mắt trên Discord (sử dụng Embed màu sắc):
 * `--event`: Tên sự kiện dừng vòng lặp (Ví dụ: `BACKLOG_EMPTY`, `COMPILE_BLOCKED`, `PREFLIGHT_BLOCKED`, `REVIEW_BLOCKED`, `VERIFY_BLOCKED`).
+  Từ khi có self-heal, phần lớn block KHÔNG còn dừng loop, nên còn có các sự kiện "loop vẫn chạy": `TASK_RECOVERING` (iteration khôi phục sắp chạy), `TASK_PARKED` (hết budget khôi phục, task bị park), `PARKED_ONLY` (chỉ còn task đã park — loop dừng), `LIMIT_WAIT` (ngủ chờ usage limit reset), `BUSY_WAIT` (chờ session khác đang giữ task), `EDITOR_RECOVERY` (đã mở/restart Unity), `API_RETRY` (retry lỗi API tạm thời / 403 quota), `SILENT_RETRY`, `TASK_CHECKPOINTED` / `CHECKPOINT_LIMIT` (task nhiều iteration), `GATE_RECEIPT_MISSING` + `AUDIT_DONE` (review hậu kiểm). Danh sách đầy đủ + màu/biểu tượng: `case` trong `notify.sh` / `notify.ps1`.
 * `--task`: Tên task đang thực thi.
 * `--url`: Link clickable của task spec (dạng `file:///absolute/path/to/task.md`).
 * `--details`: Log lỗi chi tiết hoặc mô tả lỗi.

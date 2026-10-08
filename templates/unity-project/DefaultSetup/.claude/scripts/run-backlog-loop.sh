@@ -6,11 +6,19 @@
 # exactly one /run-backlog task, then waits (via a flag file) for that window to
 # finish before spawning the next. Each task window is titled
 # "<projectName> - <task name>" so a stack of them stays readable. A failed task keeps its window open so you can
-# read the error. Stops when the backlog is empty, a blocker sentinel is printed,
-# the CLI exits non-zero, an inactivity/time watchdog fires, a deterministic
-# outcome/receipt check fails (task still in in-progress/ despite a "clean" exit,
-# or a DONE S/M/L task shows no reviewer Agent spawns in the log), or
-# MaxIterations is reached.
+# read the error.
+#
+# SELF-HEAL (default): an iteration that ends without finishing its task — a
+# blocker sentinel, "manual intervention required", a crash, a watchdog kill, a
+# silent end — does NOT stop the loop. The next iteration resumes the same task in
+# RECOVERY mode (run-backlog SKILL.md 1f: fresh context, a brief of what failed,
+# --recovery-model, a fresh fix budget). After --max-recoveries the task is PARKED
+# (partial work saved to refs/backlog/parked/<NNN> and taken out of the tree, task
+# moved to the tail of TODO) and the loop carries on. A usage/session limit is slept
+# out until its reset; a DONE task missing reviewer receipts gets a post-hoc audit
+# iteration. The loop stops only when the backlog is empty, nothing but parked tasks
+# remain, credentials are bad, a limit wait would exceed --max-usage-wait-minutes,
+# or MaxIterations is reached. --no-self-heal restores stop-on-first-block.
 #
 # The run-backlog skill commits each done task to the work branch, and pushes it when
 # the repo has an `origin` remote (a project freshly generated from the base template
@@ -36,9 +44,25 @@
 #                            (quality-first default: every tier runs on opus to match the
 #                             opus reviewers; sonnet is no longer used anywhere. Escalating
 #                             L to fable is opt-in per run: --l-model fable.
-#                             There is NO auto-escalation: if an M task hits REVIEW_BLOCKED
-#                             the loop stops — fix and rerun.)
+#                             A recovery iteration escalates to --recovery-model.)
 #   --max-iterations <n>     Max task iterations (default: 100).
+#   --max-checkpoints <n>    Max CONSECUTIVE iterations of one task that end with
+#                            TASK_CHECKPOINTED (multi-iteration task, resumed by the next
+#                            iteration) before the task is parked — or, with
+#                            --no-self-heal, the loop stops with CHECKPOINT_LIMIT (default: 6).
+#   --max-recoveries <n>     Recovery iterations per task before it is parked (default: 3).
+#   --no-self-heal           Stop on the first block / failure (the pre-self-heal behaviour).
+#   --recovery-model <id>    Model for recovery + audit iterations when --auto-model-by-tier
+#   --recovery-effort <lvl>  is on (default: opus / xhigh).
+#   --max-usage-wait-minutes <n>  Longest consecutive wait for a usage/session limit reset
+#                            or an API outage before stopping (default: 600).
+#   --max-quota-retries <n>  Retries of the org-quota 403 ("organization has disabled Claude
+#                            subscription access", oauth_not_allowed_for_organization) before
+#                            stopping, backoff 30s doubling (default: 5).
+#   --busy-wait-minutes <n>  How long to wait for another live session that owns the task
+#                            (TASK_BUSY) before stopping (default: 180).
+#   --max-editor-recoveries <n>  EDITOR_REQUIRED (current mode): Unity Editor (re)starts via
+#                            restart-unity.sh per loop run (default: 2).
 #   --thinking-tokens <n>    Legacy/global MAX_THINKING_TOKENS override (default: 10000; 0 = off).
 #   --xs-thinking-tokens <n> Override XS thinking budget (default: 3000; 0 = off).
 #   --s-thinking-tokens <n>  Override S thinking budget (default: 6000; 0 = off).
@@ -172,11 +196,58 @@ M_EFFORT="high"
 L_MODEL="opus"
 L_EFFORT="xhigh"
 MAX_ITERATIONS=100
-# Consecutive transient API blips (transport break / 529) tolerated before giving
-# up. Fatal classes (auth, exhausted usage) ignore this and stop at once - see
-# claude_failure_class().
-MAX_TRANSIENT_API_RETRIES=3
+# Consecutive transient API blips (transport break / 529) tolerated before the loop
+# waits the outage out (backoff 30s doubling, capped at 15 min). Auth failures stop
+# at once; an exhausted usage/session limit is slept out - see claude_failure_kind().
+MAX_TRANSIENT_API_RETRIES=6
 TRANSIENT_API_RETRIES=0
+# The org-quota 403 ("Your organization has disabled Claude subscription access",
+# oauth_not_allowed_for_organization) is NOT bad credentials: the org's shared quota
+# ran dry and access flaps back within a minute or two — every one seen in
+# logs/backlog-loop/ cleared on a 30-60s retry. Retried with its own consecutive
+# budget (backoff 30s doubling); still refused after that = really disabled -> stop.
+MAX_QUOTA_RETRIES=5
+QUOTA_RETRIES=0
+# Self-heal (see the header). bash 3.2 (stock macOS) has no associative arrays, so
+# the per-task maps are newline-separated "key<TAB>value" strings (kv_get / kv_set).
+SELF_HEAL=1
+MAX_RECOVERIES=3
+RECOVERY_MODEL="opus"
+RECOVERY_EFFORT="xhigh"
+MAX_USAGE_WAIT_MINUTES=600
+BUSY_WAIT_MINUTES=180
+MAX_EDITOR_RECOVERIES=2
+RECOVERY_COUNTS=""        # task file -> recovery iterations started
+PARKED_TASKS=""           # task file -> why it was parked
+PENDING_RECOVERY_TASK=""  # the recovery the NEXT iteration runs
+PENDING_RECOVERY_NNN=""
+PENDING_RECOVERY_EVENT=""
+PENDING_RECOVERY_BRIEF=""
+PENDING_RECOVERY_ATTEMPT=0
+PENDING_AUDIT_TASK=""     # a post-hoc gate audit the NEXT iteration runs
+PENDING_AUDIT_NNN=""
+PENDING_AUDIT_MISSING=""
+PENDING_AUDIT_COMMIT=""
+EDITOR_RECOVERIES=0
+USAGE_WAITED_SEC=0        # consecutive time spent waiting out limits
+RECOVERED_TASKS=0
+# Per-iteration watchdog: no log growth for TASK_INACTIVITY_TIMEOUT_SEC, or a total
+# run past TASK_HARD_TIMEOUT_SEC, kills the task window. The iteration is told its
+# deadline (AGENT_ITERATION_DEADLINE = start + hard cap - margin) so a long task can
+# checkpoint cleanly (TASK_CHECKPOINTED) before the kill instead of dying mid-step.
+TASK_INACTIVITY_TIMEOUT_SEC=900
+TASK_HARD_TIMEOUT_SEC=10800
+CHECKPOINT_MARGIN_SEC=1200
+# Consecutive TASK_CHECKPOINTED iterations of the SAME task tolerated before the
+# loop stops for a human look (a task that never converges must not loop forever).
+MAX_CHECKPOINTS=6
+CHECKPOINT_STREAK=0
+CHECKPOINT_TASK=""
+# A clean exit with no sentinel while the task is still in progress (the model ended
+# its turn mid-task, e.g. "waiting for the recompile") gets ONE automatic resume per
+# task — the run journal makes the retry pick up the partial work. A second silent
+# end of the same task stops the loop (SILENT_FAIL).
+SILENT_RETRY_TASK=""
 # Loop-wide token/cost running totals, advanced by collect_iteration_report() after
 # every iteration that produced a parsable log — completed and blocked alike, since
 # both burned tokens.
@@ -213,6 +284,15 @@ while [ $# -gt 0 ]; do
     --l-model)          L_MODEL="${2:-}"; shift 2 ;;
     --l-effort)         L_EFFORT="${2:-}"; shift 2 ;;
     --max-iterations)   MAX_ITERATIONS="${2:-}"; shift 2 ;;
+    --max-checkpoints)  MAX_CHECKPOINTS="${2:-}"; shift 2 ;;
+    --max-recoveries)   MAX_RECOVERIES="${2:-}"; shift 2 ;;
+    --no-self-heal)     SELF_HEAL=0; shift ;;
+    --recovery-model)   RECOVERY_MODEL="${2:-}"; shift 2 ;;
+    --recovery-effort)  RECOVERY_EFFORT="${2:-}"; shift 2 ;;
+    --max-usage-wait-minutes) MAX_USAGE_WAIT_MINUTES="${2:-}"; shift 2 ;;
+    --max-quota-retries) MAX_QUOTA_RETRIES="${2:-}"; shift 2 ;;
+    --busy-wait-minutes) BUSY_WAIT_MINUTES="${2:-}"; shift 2 ;;
+    --max-editor-recoveries) MAX_EDITOR_RECOVERIES="${2:-}"; shift 2 ;;
     --thinking-tokens)
       THINKING_TOKENS="${2:-}"
       XS_THINKING_TOKENS="$THINKING_TOKENS"
@@ -297,6 +377,9 @@ else
   fi
 fi
 export AGENT_WORKDIR="$WORK_DIR"
+# backlog-ops.py prints task titles (often Vietnamese): keep every Python this loop
+# starts in UTF-8 mode so a non-UTF-8 locale can never crash it mid-transition.
+export PYTHONUTF8=1
 echo "Mode:        $MODE (work branch: $AGENT_BRANCH)"
 echo "Backlog:     $BACKLOG_ROOT"
 
@@ -314,8 +397,59 @@ notify() {
   bash "$NOTIFY" "$@" >/dev/null 2>&1 || true
 }
 
+# --- loop lease: ONE consumer of this clone's backlog ----------------------------
+# Every loop controller and every hand-run /run-backlog on this clone read the SAME
+# queue (.git/backlog is shared by all worktrees), and `pick` hands every caller the
+# IN PROGRESS head — so a second loop used to silently "resume" the task this one was
+# still working on (two agents, one Editor, one git index). backlog-ops.py keys the
+# lease to this process (pid + start time, so a crash or kill -9 frees it on its
+# own) and refuses while another loop, a pre-lease loop, or a live task session
+# (e.g. the window of a killed controller) is still at work. Each iteration proves
+# it belongs to this loop with BACKLOG_LOOP_TOKEN; a hand-run /run-backlog without
+# it gets LOOP_BUSY instead of a task.
+OPS="$SCRIPT_DIR/backlog-ops.py"
+command -v python3 >/dev/null 2>&1 || {
+  echo "ERROR: python3 is required — backlog-ops.py holds the loop lease and every task transition." >&2
+  exit 1
+}
+json_field() {  # json_field '<json>' <key> -> value ("" when absent / unparsable)
+  python3 -c 'import json,sys
+try: v = json.loads(sys.argv[1]).get(sys.argv[2])
+except Exception: v = None
+print("" if v is None else v)' "$1" "$2" 2>/dev/null
+}
+LEASE_JSON="$(cd "$WORK_DIR" && python3 "$OPS" lock acquire --pid $$ --mode "$MODE" \
+  --work-dir "$WORK_DIR" --branch "$AGENT_BRANCH" --log-dir "$LOG_DIR_ABS")"
+LEASE_RC=$?
+case "$LEASE_RC" in
+  0) ;;
+  3) echo "ERROR: backlog not initialised — run: python3 $OPS init" >&2; exit 1 ;;
+  4)
+    echo "LOOP_BUSY — another consumer of this backlog is still running; refusing to start:" >&2
+    printf '%s\n' "$LEASE_JSON" >&2
+    echo "Stop it (or let it finish). Status: python3 $OPS lock status" >&2
+    notify --event "LOOP_BUSY" --task "N/A" \
+      --details "Loop not started: $(json_field "$LEASE_JSON" reason) — $(json_field "$LEASE_JSON" hint)"
+    exit 1 ;;
+  *)
+    echo "ERROR: could not take the loop lease (exit $LEASE_RC):" >&2
+    printf '%s\n' "$LEASE_JSON" >&2
+    exit 1 ;;
+esac
+BACKLOG_LOOP_TOKEN="$(json_field "$LEASE_JSON" token)"
+[ -n "$BACKLOG_LOOP_TOKEN" ] || { echo "ERROR: lease acquired without a token: $LEASE_JSON" >&2; exit 1; }
+export BACKLOG_LOOP_TOKEN
+release_lease() {
+  python3 "$OPS" lock release --token "$BACKLOG_LOOP_TOKEN" >/dev/null 2>&1 || true
+}
+trap release_lease EXIT
+# A task window that is still running keeps its own claim (its claude process owns
+# it), so stopping the controller never lets a new loop start on top of that task.
+trap 'echo; echo "Interrupted — loop lease released. A task window still running finishes its task and keeps its claim until then."; exit 130' INT TERM HUP
+echo "Lease:       held (pid $$) — a second loop or a hand-run /run-backlog on this clone gets LOOP_BUSY"
+
 # --- per-task prompt ------------------------------------------------------------
-read -r -d '' PROMPT <<'EOF'
+read -r -d '' PROMPT <<EOF
 Execute exactly one iteration of this project's run-backlog workflow.
 
 Required contract:
@@ -323,17 +457,19 @@ Required contract:
 2. Follow that skill exactly for one iteration only.
 3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, performance-reviewer (when perf-sensitive), security-auditor (when sensitive), and qa-verifier subagents per the skill spec using the Agent tool.
-5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block — end the iteration normally. Starting on an agent branch is allowed — never print BASE_UNKNOWN.)
-6. Commit to the work branch (env AGENT_BRANCH) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message `<prefix> Tag: <subject>`, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
+5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, LOOP_BUSY, TASK_BUSY, RESUME_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block — end the iteration normally. Starting on an agent branch is allowed — never print BASE_UNKNOWN.) A task that legitimately needs more than one iteration ends with TASK_CHECKPOINTED instead (skill section 1e) — that is NOT a block, the next iteration resumes it; never print it together with a block token.
+6. Commit to the work branch (env AGENT_BRANCH) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message \`<prefix> Tag: <subject>\`, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
 
 Environment for this iteration (STEP 2 of the skill reads these):
 - AGENT_MODE=$MODE
 - AGENT_BRANCH=$AGENT_BRANCH
 - AGENT_BASE_BRANCH=$LOOP_BASE_BRANCH
 - AGENT_BACKLOG_ROOT=$BACKLOG_ROOT
-7. Do not ask for confirmation. Work autonomously inside this repository.
+- AGENT_ITERATION_DEADLINE=__ITER_DEADLINE__ (epoch seconds; this iteration is killed ${CHECKPOINT_MARGIN_SEC}s after it — wrap up and checkpoint before it, see skill section 1e)
+7. Do not ask for confirmation. Work autonomously inside this repository. Never end the iteration to ask a question or wait for a decision: apply the skill's "Autonomous decision policy" (Notes for orchestrator), record the choice, and keep going.
 8. Use English for all output, progress messages, reports, and commit messages.
-
+9. Never end your turn to wait for anything (a background Bash job, Monitor, an Editor recompile/import, a bundle build, a subagent). This is a non-interactive session: the end of your turn ends the iteration and strands the task in progress. Wait in the foreground instead (Bash 'sleep <=10' between 'unity_editor_state' / file polls, Agent calls with run_in_background false). Your turn ends only with the STEP 10 report or a stop token.
+__RECOVERY__
 Start now.
 EOF
 
@@ -346,8 +482,23 @@ is_blocked() {
   [ -f "$log" ] || return 1
   result_line="$(grep '"type":"result"' "$log" | tail -n1)"
   [ -n "$result_line" ] || return 1
-  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|EDITOR_REQUIRED|NO_CHANGES|BASE_UNKNOWN|BASE_MERGE_CONFLICT|manual intervention required'
+  printf '%s' "$result_line" | grep -Eq 'COMPILE_BLOCKED|PREFLIGHT_BLOCKED|REVIEW_BLOCKED|VERIFY_BLOCKED|RUNTIME_BLOCKED|EDITOR_REQUIRED|NO_CHANGES|BASE_UNKNOWN|BASE_MERGE_CONFLICT|LOOP_BUSY|TASK_BUSY|RESUME_CONFLICT' \
+    || printf '%s' "$result_line" | grep -iq 'manual intervention required'   # any case, as Test-Blocked's -match
 }
+
+# Returns 0 when the FINAL result event ends a multi-iteration task with saved
+# progress (run-backlog SKILL.md 1e). Checked only AFTER is_blocked, so a block
+# token in the same report always wins. Keep in lockstep with Test-Checkpointed
+# in run-backlog-loop-core.ps1.
+is_checkpointed() {
+  local log="$1" result_line
+  [ -f "$log" ] || return 1
+  result_line="$(grep '"type":"result"' "$log" | tail -n1)"
+  [ -n "$result_line" ] || return 1
+  printf '%s' "$result_line" | grep -q 'TASK_CHECKPOINTED'
+}
+
+QUOTA_403_PATTERN='organization has disabled|oauth_not_allowed_for_organization|oauth_org_not_allowed'
 
 # Classify a non-zero claude iteration: transient (retry) vs fatal (stop now).
 # Grounded in the failure classes actually seen in logs/backlog-loop/:
@@ -356,31 +507,329 @@ is_blocked() {
 #   result="API Error: Overloaded"                                529             -> retry
 #   result="Failed to authenticate. API Error: 401 ..."                           -> STOP
 #   result="You're out of extra usage - resets <time>"                            -> STOP
+#   result="Your organization has disabled Claude subscription access ..." (403
+#          oauth_not_allowed_for_organization) org quota ran dry -> retry (own budget)
 #
 # Retrying an exhausted quota burns what is left against a wall, and retrying bad
 # credentials cannot fix them, so the fatal classes are matched FIRST (they can
 # still carry an api_error terminal_reason). Prints the class reason on stdout and
 # returns 0 only when the failure is transient. Keep in lockstep with
 # Get-ClaudeFailureClass in run-backlog-loop-core.ps1.
+# Pattern matches are case-insensitive, like PowerShell's -match in the .ps1 twin
+# ("Session limit reached" and "session limit" are the same wall).
 claude_failure_class() {
   local log="$1" result_line
   [ -f "$log" ] || { printf 'unclassified non-zero exit'; return 1; }
   result_line="$(grep '"type":"result"' "$log" | tail -n1)"
   [ -n "$result_line" ] || { printf 'unclassified non-zero exit'; return 1; }
 
-  if printf '%s' "$result_line" | grep -Eq "out of extra usage|usage limit|credit balance|Insufficient credit"; then
+  if printf '%s' "$result_line" | grep -Eiq "out of extra usage|usage limit|session limit|credit balance|Insufficient credit"; then
     printf 'usage/credit exhausted - retrying would burn quota against a wall'; return 1
   fi
-  if printf '%s' "$result_line" | grep -Eq 'Invalid authentication credentials|Failed to authenticate'; then
+  if printf '%s' "$result_line" | grep -Eiq "$QUOTA_403_PATTERN"; then
+    printf 'org quota exhausted - organization has disabled Claude subscription access (403)'; return 1
+  fi
+  if printf '%s' "$result_line" | grep -Eiq 'Invalid authentication credentials|Failed to authenticate'; then
     printf 'authentication failure - a retry cannot fix credentials'; return 1
   fi
   if printf '%s' "$result_line" | grep -Eq '"terminal_reason":"api_error"'; then
     printf 'API/transport error'; return 0
   fi
-  if printf '%s' "$result_line" | grep -Eq 'Overloaded|overloaded_error'; then
+  if printf '%s' "$result_line" | grep -Eiq 'Overloaded|overloaded_error'; then
     printf 'API overloaded (529)'; return 0
   fi
   printf 'unclassified non-zero exit'; return 1
+}
+
+# usage | quota | auth | transient | unknown — the same classes as claude_failure_class,
+# as a word (that function runs in a $(...) subshell, so it cannot set a variable).
+claude_failure_kind() {
+  local log="$1" result_line
+  result_line="$( [ -f "$log" ] && grep '"type":"result"' "$log" | tail -n1 )"
+  if [ -z "$result_line" ]; then printf 'unknown'; return; fi
+  if printf '%s' "$result_line" | grep -Eiq "out of extra usage|usage limit|session limit|credit balance|Insufficient credit"; then printf 'usage'; return; fi
+  if printf '%s' "$result_line" | grep -Eiq "$QUOTA_403_PATTERN"; then printf 'quota'; return; fi
+  if printf '%s' "$result_line" | grep -Eiq 'Invalid authentication credentials|Failed to authenticate'; then printf 'auth'; return; fi
+  if printf '%s' "$result_line" | grep -Eiq '"terminal_reason":"api_error"|Overloaded|overloaded_error'; then printf 'transient'; return; fi
+  printf 'unknown'
+}
+
+# --- self-heal helpers (keep in lockstep with the self-heal section of
+# run-backlog-loop-core.ps1) ------------------------------------------------------
+kv_get() {  # kv_get "<map>" <key> -> value ("" when absent)
+  printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1 == k { v = $2 } END { print v }'
+}
+kv_set() {  # kv_set "<map>" <key> <value> -> new map
+  printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1 != "" && $1 != k'
+  printf '%s\t%s\n' "$2" "$3"
+}
+
+# Final result text of an iteration log ("" when the run never got that far).
+last_result_text() {
+  [ -f "$1" ] || return 0
+  python3 - "$1" <<'PY' 2>/dev/null
+import json, re, sys
+text = ""
+with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:
+    for line in fh:
+        if re.match(r'\s*\{\s*"type"\s*:\s*"result"', line):
+            try:
+                text = str(json.loads(line).get("result") or "")
+            except ValueError:
+                pass
+print(text)
+PY
+}
+
+# The orchestrator's last few text messages — what it was doing when it died
+# without a result event.
+last_assistant_text() {
+  [ -f "$1" ] || return 0
+  python3 - "$1" <<'PY' 2>/dev/null
+import json, re, sys
+texts = []
+with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:
+    for line in fh:
+        if not re.match(r'\s*\{\s*"type"\s*:\s*"assistant"', line) or not re.search(r'"type"\s*:\s*"text"', line):
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if obj.get("parent_tool_use_id"):
+            continue
+        for c in (obj.get("message") or {}).get("content") or []:
+            if c.get("type") == "text" and c.get("text"):
+                texts.append(c["text"])
+print("\n---\n".join(texts[-3:]))
+PY
+}
+
+# Seconds until the exhausted limit resets: the CLI's own rate_limit_event (exact),
+# else "resets 7:40pm" / "resets Oct 9, 3am" in the result text (local clock), else -1.
+# Includes 2 min of slack.
+limit_reset_delay() {
+  python3 - "$1" <<'PY' 2>/dev/null || echo -1
+import json, re, sys, time
+from datetime import datetime, timedelta
+log = sys.argv[1]
+best, result = 0, ""
+try:
+    with open(log, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if '"type":"rate_limit_event"' in line:
+                try:
+                    info = json.loads(line).get("rate_limit_info") or {}
+                except ValueError:
+                    continue
+                if info.get("status") != "allowed" and info.get("resetsAt"):
+                    best = max(best, int(info["resetsAt"]))
+            elif re.match(r'\s*\{\s*"type"\s*:\s*"result"', line):
+                try:
+                    result = str(json.loads(line).get("result") or "")
+                except ValueError:
+                    pass
+except OSError:
+    pass
+if best > time.time():
+    print(int(best - time.time()) + 120)
+    sys.exit(0)
+m = re.search(r"(?i)resets\s+(?:at\s+)?(?:(?P<mon>[a-z]{3,9})\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?,?\s+(?:at\s+)?)?"
+              r"(?P<h>\d{1,2})(?::(?P<min>\d{2}))?\s*(?P<ap>am|pm)", result)
+if not m:
+    print(-1)
+    sys.exit(0)
+hour = int(m.group("h")) % 12 + (12 if m.group("ap").lower() == "pm" else 0)
+minute = int(m.group("min") or 0)
+now = datetime.now()
+target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+if m.group("mon"):
+    try:
+        month = datetime.strptime(m.group("mon")[:3].title(), "%b").month
+        target = target.replace(month=month, day=int(m.group("day")))
+        if target < now - timedelta(days=1):
+            target = target.replace(year=target.year + 1)
+    except ValueError:
+        pass
+elif target <= now:
+    target += timedelta(days=1)
+print(int((target - now).total_seconds()) + 120)
+PY
+}
+
+# Sleep out a usage/session limit (or a long API outage). Returns 1 when the wait
+# would push the consecutive total past --max-usage-wait-minutes (caller stops).
+wait_for_limit_reset() {  # <log> <fixed-delay-sec or 0> <why>
+  local log="$1" delay="$2" why="$3" until_at
+  [ "$delay" -gt 0 ] 2>/dev/null || delay="$(limit_reset_delay "$log")"
+  [ "${delay:--1}" -gt 0 ] 2>/dev/null || delay=1800
+  [ $((USAGE_WAITED_SEC + delay)) -le $((MAX_USAGE_WAIT_MINUTES * 60)) ] || return 1
+  USAGE_WAITED_SEC=$((USAGE_WAITED_SEC + delay))
+  until_at="$(date -r $(( $(date +%s) + delay )) +%H:%M 2>/dev/null || date -d "@$(( $(date +%s) + delay ))" +%H:%M 2>/dev/null)"
+  local msg="$why — sleeping $(( (delay + 59) / 60 )) min until ${until_at:-later}, then resuming the same task. The loop has NOT stopped."
+  echo "  ⏸ $msg"
+  notify --event "LIMIT_WAIT" --task "${TASK_TITLE_NOTIF:-N/A}" --details "$msg"
+  sleep "$delay"
+  return 0
+}
+
+# Write the recovery brief for <task> and print its path.
+write_recovery_brief() {  # <task-file> <nnn> <event> <details> <log> <attempt>
+  local task="$1" nnn="$2" event="$3" details="$4" log="$5" attempt="$6" brief why report source
+  brief="$LOG_DIR_ABS/recovery-$(date +%Y%m%d-%H%M%S)-$nnn-$attempt.md"
+  case "$event" in
+    WATCHDOG_KILL)    why="The controller killed the iteration: its log stopped growing for $((TASK_INACTIVITY_TIMEOUT_SEC / 60)) min, or it ran past the $((TASK_HARD_TIMEOUT_SEC / 60)) min cap. Something hung (a background wait, a modal dialog, a long job). Work in short foreground steps and checkpoint (skill 1e) before AGENT_ITERATION_DEADLINE." ;;
+    ITERATION_FAILED) why="The agent CLI exited non-zero without a usable result (crash, closed window, unclassified error)." ;;
+    SILENT_END)       why="The iteration ended its turn without a STEP 10 report or a stop token while the task was still in progress — usually it ended the turn to wait for something in the background. Never do that: every wait is a foreground poll." ;;
+    CHECKPOINT_LIMIT) why="The task checkpointed too many consecutive iterations without finishing." ;;
+    *)                why="The iteration ended with the stop token $event." ;;
+  esac
+  report="$(last_result_text "$log")"
+  source="final report (result event)"
+  if [ -z "$report" ]; then
+    report="$(last_assistant_text "$log")"
+    source="last orchestrator messages (the iteration produced no final report)"
+  fi
+  report="$(printf '%s' "$report" | tail -c 12000)"
+  {
+    printf '# Recovery brief - task %s, attempt %s of %s\n\n' "$nnn" "$attempt" "$MAX_RECOVERIES"
+    printf -- '- Task file: %s (in %s)\n' "$task" "$BACKLOG_ROOT"
+    printf -- '- What happened: **%s** - %s\n' "$event" "$why"
+    printf -- '- Details: %s\n' "$details"
+    printf -- '- Failed iteration log (stream-json, large - grep it, do not read it whole): %s\n\n' "$log"
+    printf '## Previous iteration - %s\n\n%s\n' "$source" "$report"
+  } > "$brief"
+  printf '%s' "$brief"
+}
+
+# Park a task: partial work saved to refs/backlog/parked/<NNN> and taken out of the
+# tree, task moved to the tail of TODO. Returns 1 when backlog-ops refused.
+park_task() {  # <nnn> <task-file> <reason> [--keep-work]
+  local nnn="$1" task="$2" reason="$3" keep="${4:-}" out rc
+  out="$(cd "$WORK_DIR" && python3 "$OPS" park "$nnn" --reason "$reason" $keep 2>&1)"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "  ⚠️ Park of task $nnn FAILED (exit $rc): $out" >&2
+    return 1
+  fi
+  PARKED_TASKS="$(kv_set "$PARKED_TASKS" "$task" "$reason")"
+  echo "  ⚠️ PARKED task $nnn ($task): $reason — partial work saved under refs/backlog/parked/$nnn (if any). Moving on to the next task."
+  return 0
+}
+
+# Decide what a failed iteration turns into: SELF_HEAL_OUTCOME = recover | parked | stop
+# (STOP_REASON set on stop). Sends the matching notification.
+self_heal() {  # <task-file> <nnn> <event> <details> <log> [park-now] [--keep-work]
+  local task="$1" nnn="$2" event="$3" details="$4" log="$5" park_now="${6:-}" keep="${7:-}" used attempt msg evt
+  collect_iteration_report "$log"
+  if [ -z "$task" ] || [ -z "$nnn" ]; then
+    SELF_HEAL_OUTCOME="stop"
+    STOP_REASON="$event on an unidentified task — cannot self-heal (see $log)"
+  else
+    used="$(kv_get "$RECOVERY_COUNTS" "$task")"; used="${used:-0}"
+    if [ -z "$park_now" ] && [ "$used" -lt "$MAX_RECOVERIES" ]; then
+      attempt=$((used + 1))
+      RECOVERY_COUNTS="$(kv_set "$RECOVERY_COUNTS" "$task" "$attempt")"
+      PENDING_RECOVERY_TASK="$task"; PENDING_RECOVERY_NNN="$nnn"; PENDING_RECOVERY_EVENT="$event"
+      PENDING_RECOVERY_ATTEMPT="$attempt"
+      PENDING_RECOVERY_BRIEF="$(write_recovery_brief "$task" "$nnn" "$event" "$details" "$log" "$attempt")"
+      SELF_HEAL_OUTCOME="recover"
+      echo "  ⚠️ SELF-HEAL: $event on task $nnn — recovery iteration $attempt/$MAX_RECOVERIES next (brief: $PENDING_RECOVERY_BRIEF)."
+    else
+      PENDING_RECOVERY_TASK=""
+      local reason="$event"
+      [ -z "$park_now" ] && reason="$event after $used recovery iteration(s)"
+      if park_task "$nnn" "$task" "$reason" "$keep"; then
+        SELF_HEAL_OUTCOME="parked"
+      else
+        SELF_HEAL_OUTCOME="stop"
+        STOP_REASON="Task $nnn could not be parked after $event — the loop cannot move past it safely (see $log)"
+      fi
+    fi
+  fi
+  case "$SELF_HEAL_OUTCOME" in
+    recover) evt="TASK_RECOVERING"; msg="$event — $details
+Recovery iteration $PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERIES starts next. The loop has NOT stopped." ;;
+    parked)  evt="TASK_PARKED"; msg="$event — $details
+Self-heal budget spent: task parked (partial work saved under refs/backlog/parked/$nnn, task at the tail of TODO). The loop continues with the next task." ;;
+    *)       evt="$event"; msg="$STOP_REASON"; echo "  ⚠️ $STOP_REASON" >&2 ;;
+  esac
+  notify --event "$evt" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+    --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+    --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+    --details "$msg" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+}
+
+# EDITOR_REQUIRED (current mode): start this project's Editor, or restart a hung one.
+editor_recovery() {
+  EDITOR_RECOVERIES=$((EDITOR_RECOVERIES + 1))
+  [ "$EDITOR_RECOVERIES" -le "$MAX_EDITOR_RECOVERIES" ] || return 1
+  # The /restart-unity skill ships its script under skills/; a copy next to this
+  # file (older layout) is the fallback. Only the skill's script takes --project.
+  local restart="$SCRIPT_DIR/../skills/restart-unity/scripts/restart-unity.sh"
+  local restart_args=(--project "$REPO_ROOT")
+  if [ ! -f "$restart" ]; then
+    restart="$SCRIPT_DIR/restart-unity.sh"
+    restart_args=()
+  fi
+  [ -f "$restart" ] || return 1
+  if [ "$EDITOR_RECOVERIES" -eq 1 ] && pgrep -if -- "-projectpath $REPO_ROOT" >/dev/null 2>&1; then
+    echo "  EDITOR_REQUIRED: this project's Editor is running but did not answer — giving it 5 min (import / compile / boot)."
+  else
+    echo "  EDITOR_REQUIRED: (re)starting this project's Editor via restart-unity.sh, then waiting 5 min for it to boot."
+    bash "$restart" ${restart_args[@]+"${restart_args[@]}"} >/dev/null 2>&1 || true
+  fi
+  sleep 300
+  [ -f "$BACKLOG_ROOT/state" ] && rm -f "$BACKLOG_ROOT/state"
+  return 0
+}
+
+# TODO bullets not parked in this run.
+unparked_todo_count() {
+  local n=0 f
+  [ -f "$BACKLOG_INDEX" ] || { echo 0; return; }
+  for f in $(awk '/^## /{s=($0 ~ /^## TODO/)} s' "$BACKLOG_INDEX" | sed -nE 's/.*\]\(backlog\/todo\/([^)]+)\).*/\1/p'); do
+    [ -n "$(kv_get "$PARKED_TASKS" "$f")" ] || n=$((n + 1))
+  done
+  echo "$n"
+}
+
+# The appendix that turns the run-backlog prompt into a recovery prompt.
+recovery_appendix() {
+  cat <<EOT
+
+RECOVERY MODE - self-heal attempt $PENDING_RECOVERY_ATTEMPT of $MAX_RECOVERIES for task $PENDING_RECOVERY_NNN ($PENDING_RECOVERY_TASK).
+The previous iteration on this task did not finish: $PENDING_RECOVERY_EVENT. The loop did NOT stop; this iteration must fix the cause and carry the task through to DONE.
+- AGENT_RECOVERY_BRIEF=$PENDING_RECOVERY_BRIEF
+- AGENT_RECOVERY_ATTEMPT=$PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERIES
+Read the brief FIRST, then follow run-backlog SKILL.md section 1f (Recovery iteration). Every gate gets a fresh fix budget in this iteration. Never weaken a gate to get past it.
+EOT
+}
+
+# Post-hoc gate audit prompt: the task is DONE and committed, but the log shows no
+# spawn of a reviewer its tier requires.
+audit_prompt() {
+  local types="" r
+  for r in $PENDING_AUDIT_MISSING; do types="${types:+$types, }subagent_type \"$r\""; done
+  cat <<EOT
+Post-hoc quality gate for backlog task $PENDING_AUDIT_NNN. Do NOT run /run-backlog, and do NOT pick, start, resume or touch any other backlog task.
+
+Task $PENDING_AUDIT_NNN reached DONE and was committed as $PENDING_AUDIT_COMMIT, but the iteration that did it never spawned the mandatory reviewer(s): $PENDING_AUDIT_MISSING. Run them now:
+1. Read .claude/skills/run-backlog/SKILL.md (STEP 6d/6e for code-reviewer, STEP 7 for qa-verifier - the prompt shapes), CLAUDE.md, and the task's done file: $BACKLOG_ROOT/done/$PENDING_AUDIT_TASK
+2. Write the commit's diff to a file: git show --format= $PENDING_AUDIT_COMMIT > .claude/tmp/backlog/audit-$PENDING_AUDIT_NNN.diff
+3. Spawn exactly the missing reviewer(s) with the Agent tool ($types), in parallel, in the foreground. Pass the task spec from the done file and the diff path.
+4. pass / warn -> nothing to change. block / fail -> fix the findings (max 2 rounds, re-spawning the reviewer as in STEP 6e / 7b), compile-check per STEP 5b, then commit ONLY the files you fixed, in the skill's STEP 9 style (git reset -q; git add -- <paths>; message "<prefix> <Tag>: <subject>" with prefix and tag chosen per push-in-session sections 3.1-3.2, no Co-Authored-By or other trailer) and push when an origin remote exists.
+5. Append "## Post-hoc review" with each verdict (and the fix commit, if any) to the done file.
+6. End with exactly one line: AUDIT_DONE - <reviewer: verdict, ...> - <fix commit sha or "no changes">. Never print a block token; if a finding cannot be fixed, say so in that line and in the done file.
+
+Environment:
+- AGENT_MODE=$MODE
+- AGENT_BRANCH=$AGENT_BRANCH
+- AGENT_BACKLOG_ROOT=$BACKLOG_ROOT
+Do not ask for confirmation. Use English. Never end your turn to wait for anything in the background.
+
+Start now.
+EOT
 }
 
 # --- deterministic outcome + gate receipts (never trust the model's prose) -------
@@ -512,6 +961,7 @@ else
 fi
 echo "  Window mode:     $([ "$INLINE" -eq 1 ] && echo 'inline (this window)' || echo 'new window per task')"
 echo "  Max iterations:  $MAX_ITERATIONS"
+echo "  Checkpoints:     max $MAX_CHECKPOINTS consecutive TASK_CHECKPOINTED per task; deadline = start + ${TASK_HARD_TIMEOUT_SEC}s - ${CHECKPOINT_MARGIN_SEC}s"
 echo "  Base branch:     $LOOP_BASE_BRANCH (captured at loop start)"
 echo "  Log dir:         $LOG_DIR_ABS"
 echo
@@ -752,7 +1202,17 @@ write_runner() {
 #!/usr/bin/env bash
 cd $(printf '%q' "$WORK_DIR") || exit 9
 printf '\033]0;%s\007' $(printf '%q' "$(format_window_title "${TASK_TITLE_NOTIF:-}")")
+# Terminal.app spawns this window, not the controller: nothing is inherited, so
+# every variable the skill reads is written here explicitly.
 export AGENT_BASE_BRANCH=$(printf '%q' "$LOOP_BASE_BRANCH")
+export AGENT_BRANCH=$(printf '%q' "$AGENT_BRANCH")
+export AGENT_MODE=$(printf '%q' "$MODE")
+export AGENT_BACKLOG_ROOT=$(printf '%q' "$BACKLOG_ROOT")
+export AGENT_WORKDIR=$(printf '%q' "$WORK_DIR")
+export BACKLOG_LOOP_TOKEN=$(printf '%q' "$BACKLOG_LOOP_TOKEN")
+export PYTHONUTF8=1
+export AGENT_RECOVERY_BRIEF=$(printf '%q' "${ITER_RECOVERY_BRIEF:-}")
+[ -n "\$AGENT_RECOVERY_BRIEF" ] || unset AGENT_RECOVERY_BRIEF
 export MAX_THINKING_TOKENS=$(printf '%q' "${SELECTED_THINKING_TOKENS:-}")
 if [ -z "\$MAX_THINKING_TOKENS" ] || [ "\$MAX_THINKING_TOKENS" = "0" ]; then
   unset MAX_THINKING_TOKENS
@@ -776,6 +1236,11 @@ RUNNER
 }
 
 STOP_REASON=""
+if [ "$SELF_HEAL" -eq 1 ]; then
+  echo "Self-heal:   ON — up to $MAX_RECOVERIES recovery iteration(s) per task, then park it and go on; limits wait up to $MAX_USAGE_WAIT_MINUTES min"
+else
+  echo "Self-heal:   OFF (--no-self-heal) — the first block stops the loop"
+fi
 i=0
 while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   i=$((i + 1))
@@ -790,15 +1255,87 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   DONE_BEFORE=$(find "$BACKLOG_ROOT/done" -name "*.md" 2>/dev/null | wc -l | xargs)
   TOTAL_BEFORE=$((TODO + IP + DONE_BEFORE))
 
-  if [ "$TODO" -eq 0 ] && [ "$IP" -eq 0 ]; then
-    STOP_REASON="Backlog empty (no TODO, no IN PROGRESS)"
-    # No iteration log to analyze here, but the loop-so-far total is exactly what
-    # closes the run out ("everything done — this is what it cost").
-    notify --event "BACKLOG_EMPTY" --task "N/A" \
-      --details "All backlog tasks have been processed." \
-      --cumulative "$(format_loop_cumulative)" \
-      --progress "$DONE_BEFORE/$DONE_BEFORE"
-    break
+  IS_AUDIT=0
+  [ -n "$PENDING_AUDIT_TASK" ] && IS_AUDIT=1
+  PICKED_TASK=""
+  TASK_NNN=""
+  if [ "$IS_AUDIT" -eq 1 ]; then
+    PICKED_TASK="$PENDING_AUDIT_TASK"
+    TASK_NNN="$PENDING_AUDIT_NNN"
+    echo "  Post-hoc gate audit of task $TASK_NNN (commit $PENDING_AUDIT_COMMIT): spawning $PENDING_AUDIT_MISSING."
+  else
+    # Deterministic pre-check, no model spawned: pick exactly as this loop's
+    # iteration will (lease token, --probe = on its behalf). A task owned by a live
+    # session (another /run-backlog, or the window of a killed controller): self-heal
+    # waits for that session; --no-self-heal stops here.
+    PICK_JSON="$(cd "$WORK_DIR" && python3 "$OPS" pick --probe 2>&1)"
+    PICK_RC=$?
+    if [ "$PICK_RC" -eq 4 ] && [ "$SELF_HEAL" -eq 1 ]; then
+      busy_msg="$(json_field "$PICK_JSON" sentinel) — $(json_field "$PICK_JSON" reason) (task $(json_field "$PICK_JSON" nnn)): waiting up to $BUSY_WAIT_MINUTES min for that session to finish."
+      echo "  ⏸ $busy_msg"
+      notify --event "BUSY_WAIT" --task "N/A" --details "$busy_msg" --progress "$DONE_BEFORE/$TOTAL_BEFORE"
+      busy_waited=0
+      while [ "$PICK_RC" -eq 4 ] && [ "$busy_waited" -lt $((BUSY_WAIT_MINUTES * 60)) ]; do
+        sleep 60
+        busy_waited=$((busy_waited + 60))
+        PICK_JSON="$(cd "$WORK_DIR" && python3 "$OPS" pick --probe 2>&1)"
+        PICK_RC=$?
+      done
+    fi
+    # Any other pick failure (a git lock, a mutex held by a dying call): one retry.
+    if [ "$PICK_RC" -ne 0 ] && [ "$PICK_RC" -ne 2 ] && [ "$PICK_RC" -ne 4 ] && [ "$SELF_HEAL" -eq 1 ]; then
+      echo "  backlog-ops.py pick failed (exit $PICK_RC) — retrying once in 20s" >&2
+      sleep 20
+      PICK_JSON="$(cd "$WORK_DIR" && python3 "$OPS" pick --probe 2>&1)"
+      PICK_RC=$?
+    fi
+    PICK_STATE="$(json_field "$PICK_JSON" state)"
+    if [ "$PICK_RC" -eq 4 ]; then
+      STOP_REASON="$(json_field "$PICK_JSON" sentinel) — $(json_field "$PICK_JSON" reason) (task $(json_field "$PICK_JSON" nnn)): $(json_field "$PICK_JSON" hint)"
+      echo "  $STOP_REASON" >&2
+      printf '%s\n' "$PICK_JSON" >&2
+      notify --event "$(json_field "$PICK_JSON" sentinel)" --task "N/A" --details "$STOP_REASON" \
+        --progress "$DONE_BEFORE/$TOTAL_BEFORE"
+      break
+    fi
+    if [ "$PICK_RC" -ne 0 ] && [ "$PICK_RC" -ne 2 ]; then
+      STOP_REASON="backlog-ops.py pick failed (exit $PICK_RC): $PICK_JSON"
+      break
+    fi
+    [ "$PICK_STATE" = "ship-pending" ] && echo "  Ship-pending: task $(json_field "$PICK_JSON" nnn) is DONE but its commit was never recorded — this iteration ships it first."
+
+    if [ "$PICK_RC" -eq 2 ]; then
+      STOP_REASON="Backlog empty (no TODO, no IN PROGRESS)"
+      # No iteration log to analyze here, but the loop-so-far total is exactly what
+      # closes the run out ("everything done — this is what it cost").
+      notify --event "BACKLOG_EMPTY" --task "N/A" \
+        --details "All backlog tasks have been processed." \
+        --cumulative "$(format_loop_cumulative)" \
+        --progress "$DONE_BEFORE/$DONE_BEFORE"
+      break
+    fi
+
+    pick_path="$(json_field "$PICK_JSON" path)"
+    [ -n "$pick_path" ] && PICKED_TASK="$(basename "$pick_path")"
+    TASK_NNN="$(json_field "$PICK_JSON" nnn)"
+
+    # A task parked earlier in this run is skipped while anything else is left.
+    if [ -n "$PICKED_TASK" ] && [ -n "$(kv_get "$PARKED_TASKS" "$PICKED_TASK")" ]; then
+      if [ "$PICK_STATE" = "todo" ] && [ "$(unparked_todo_count)" -gt 0 ]; then
+        if (cd "$WORK_DIR" && python3 "$OPS" defer "$TASK_NNN" >/dev/null 2>&1); then
+          echo "  Skipping parked task $TASK_NNN (moved behind the rest of TODO)."
+          i=$((i - 1))
+          continue
+        fi
+        STOP_REASON="Could not skip parked task $TASK_NNN (backlog-ops defer failed)"
+      else
+        STOP_REASON="Only parked tasks remain: $(printf '%s' "$PARKED_TASKS" | awk -F'\t' 'NF { printf "%s%s [%s]", sep, $1, $2; sep = "; " }'). Each task file in $BACKLOG_ROOT/todo ends with its park reason; partial work is under refs/backlog/parked/<NNN>. Relaunch the loop to give them a fresh budget."
+      fi
+      echo "  $STOP_REASON"
+      notify --event "PARKED_ONLY" --task "N/A" --details "$STOP_REASON" \
+        --cumulative "$(format_loop_cumulative)" --progress "$DONE_BEFORE/$TOTAL_BEFORE"
+      break
+    fi
   fi
 
   # "Current" task's 1-based position among all tasks (todo + in-progress + done).
@@ -829,12 +1366,31 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     TASK_TIER_NOTIF=""
     TASK_BASE_NOTIF=""
   fi
+  # The task this iteration works on is what pick (or the audit) named.
+  [ -n "$PICKED_TASK" ] && TASK_BASE_NOTIF="$PICKED_TASK"
+  [ "$IS_AUDIT" -eq 1 ] && TASK_TITLE_NOTIF="$TASK_NNN (post-hoc audit)"
+
+  IS_RECOVERY=0
+  if [ "$IS_AUDIT" -eq 0 ] && [ -n "$PENDING_RECOVERY_TASK" ]; then
+    if [ "$PENDING_RECOVERY_TASK" = "$PICKED_TASK" ]; then
+      IS_RECOVERY=1
+    else
+      echo "  Dropping the pending recovery of $PENDING_RECOVERY_TASK: pick returned $PICKED_TASK."
+      PENDING_RECOVERY_TASK=""
+    fi
+  fi
 
   if [ "$AUTO_MODEL_BY_TIER" -eq 1 ]; then
     next_task_profile
   else
     TASK_TIER=""; TASK_STATE=""
     SELECTED_MODEL="$MODEL"; SELECTED_EFFORT="$EFFORT"; SELECTED_THINKING_TOKENS="$THINKING_TOKENS"
+  fi
+  # A recovery (or an audit) gets the strongest model: whatever beat the tier's
+  # default model once is not beaten by the same model with the same budget.
+  if [ "$AUTO_MODEL_BY_TIER" -eq 1 ] && { [ "$IS_RECOVERY" -eq 1 ] || [ "$IS_AUDIT" -eq 1 ]; }; then
+    SELECTED_MODEL="$RECOVERY_MODEL"; SELECTED_EFFORT="$RECOVERY_EFFORT"; SELECTED_THINKING_TOKENS="$L_THINKING_TOKENS"
+    echo "  Escalated: model=$SELECTED_MODEL effort=$SELECTED_EFFORT thinking=$SELECTED_THINKING_TOKENS"
   fi
   build_cli_args
 
@@ -850,10 +1406,23 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   prompt_file="$base.prompt"
   runner_file="$base.run.sh"
   pid_file="$base.pid"
-  printf '%s\n' "$PROMPT" > "$prompt_file"
-  rm -f "$flag_file"
-
   ITER_START=$(date +%s)
+  ITER_RECOVERY_BRIEF=""
+  if [ "$IS_AUDIT" -eq 1 ]; then
+    ITER_PROMPT="$(audit_prompt)"
+  else
+    ITER_PROMPT="${PROMPT//__ITER_DEADLINE__/$((ITER_START + TASK_HARD_TIMEOUT_SEC - CHECKPOINT_MARGIN_SEC))}"
+    if [ "$IS_RECOVERY" -eq 1 ]; then
+      ITER_RECOVERY_BRIEF="$PENDING_RECOVERY_BRIEF"
+      echo "  RECOVERY iteration $PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERIES for task $TASK_NNN after $PENDING_RECOVERY_EVENT."
+      recovery_text="$(recovery_appendix)"
+      ITER_PROMPT=${ITER_PROMPT//__RECOVERY__/$recovery_text}
+    else
+      ITER_PROMPT=${ITER_PROMPT//__RECOVERY__/}
+    fi
+  fi
+  printf '%s\n' "$ITER_PROMPT" > "$prompt_file"
+  rm -f "$flag_file"
 
   if [ "$INLINE" -eq 1 ]; then
     # Same-window execution: no window to name, so retitle THIS one per task and
@@ -864,10 +1433,15 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     else
       unset MAX_THINKING_TOKENS
     fi
-    if [ "$HAS_RENDER" -eq 1 ]; then
-      printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file" | python3 "$RENDER" --provider claude --effort "${SELECTED_EFFORT:-default}"
+    if [ -n "$ITER_RECOVERY_BRIEF" ]; then
+      export AGENT_RECOVERY_BRIEF="$ITER_RECOVERY_BRIEF"
     else
-      printf '%s\n' "$PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file"
+      unset AGENT_RECOVERY_BRIEF
+    fi
+    if [ "$HAS_RENDER" -eq 1 ]; then
+      printf '%s\n' "$ITER_PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file" | python3 "$RENDER" --provider claude --effort "${SELECTED_EFFORT:-default}"
+    else
+      printf '%s\n' "$ITER_PROMPT" | claude "${CLI_ARGS[@]}" 2>&1 | tee "$log_file"
     fi
     exit_code="${PIPESTATUS[1]}"
   else
@@ -902,14 +1476,14 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
         inactive_seconds=$((inactive_seconds + check_interval))
       fi
 
-      # 900s (15 min) of absolute inactivity, or 10800s (180 min / 3h) max execution time.
-      if [ "$inactive_seconds" -ge 900 ] || [ "$elapsed" -ge 10800 ]; then
-        if [ "$inactive_seconds" -ge 900 ]; then
-          STOP_REASON="Task hung or stopped due to token exhaustion/inactivity (no log updates for 15m)"
+      # TASK_INACTIVITY_TIMEOUT_SEC (15 min) of absolute inactivity, or TASK_HARD_TIMEOUT_SEC (180 min) max execution time.
+      if [ "$inactive_seconds" -ge "$TASK_INACTIVITY_TIMEOUT_SEC" ] || [ "$elapsed" -ge "$TASK_HARD_TIMEOUT_SEC" ]; then
+        if [ "$inactive_seconds" -ge "$TASK_INACTIVITY_TIMEOUT_SEC" ]; then
+          WATCHDOG_REASON="Task hung or stopped due to token exhaustion/inactivity (no log updates for $((TASK_INACTIVITY_TIMEOUT_SEC / 60))m)"
         else
-          STOP_REASON="Task timed out (exceeded 180m limit)"
+          WATCHDOG_REASON="Task timed out (exceeded $((TASK_HARD_TIMEOUT_SEC / 60))m limit)"
         fi
-        echo "  ⚠️ $STOP_REASON. Killing task window so it stops consuming tokens." >&2
+        echo "  ⚠️ $WATCHDOG_REASON. Killing task window so it stops consuming tokens." >&2
         echo "124" > "$flag_file"   # claim the result first so the runner's EXIT trap won't clobber it
         if [ -f "$pid_file" ]; then
           runner_pid="$(tr -dc '0-9' < "$pid_file")"
@@ -937,21 +1511,99 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   ITER_ELAPSED=$(( $(date +%s) - ITER_START ))
   ITER_DURATION=$(printf '%02d:%02d:%02d' $((ITER_ELAPSED/3600)) $(((ITER_ELAPSED%3600)/60)) $((ITER_ELAPSED%60)))
 
+  # The recovery is consumed by this iteration; a limit/transient retry below hands
+  # it back so the retry is still a recovery.
+  CONSUMED_RECOVERY_TASK=""
+  if [ "$IS_RECOVERY" -eq 1 ]; then
+    CONSUMED_RECOVERY_TASK="$PENDING_RECOVERY_TASK"
+    PENDING_RECOVERY_TASK=""
+  fi
+
   if [ "$exit_code" -ne 0 ]; then
     fail_reason="$(claude_failure_class "$log_file")" && fail_transient=1 || fail_transient=0
+    fail_kind="$(claude_failure_kind "$log_file")"
+
+    # An exhausted usage/session limit is slept out until its reset, then the same
+    # task resumes — retrying now would only burn quota against a wall.
+    if [ "$fail_kind" = "usage" ] && [ "$SELF_HEAL" -eq 1 ]; then
+      if wait_for_limit_reset "$log_file" 0 "Usage/session limit reached"; then
+        PENDING_RECOVERY_TASK="$CONSUMED_RECOVERY_TASK"
+        continue
+      fi
+      STOP_REASON="claude stopped: usage/credit exhausted and the reset is beyond the ${MAX_USAGE_WAIT_MINUTES} min wait budget (exit $exit_code, iteration $i, see $log_file)"
+      collect_iteration_report "$log_file"
+      notify --event "CLI_ERROR" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+        --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+        --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+        --details "$STOP_REASON" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+      break
+    fi
+
+    # Org quota ran dry (403): retry the same task with its own budget, then stop —
+    # self-heal must not burn recoveries/parks on a task that never got to run.
+    if [ "$fail_kind" = "quota" ]; then
+      if [ "$QUOTA_RETRIES" -lt "$MAX_QUOTA_RETRIES" ]; then
+        QUOTA_RETRIES=$((QUOTA_RETRIES + 1))
+        backoff=$((30 * (1 << (QUOTA_RETRIES - 1))))
+        [ "$backoff" -gt 900 ] && backoff=900
+        retry_msg="Org quota 403 on iteration $i ($fail_reason). Retry $QUOTA_RETRIES/$MAX_QUOTA_RETRIES in ${backoff}s."
+        echo "  $retry_msg"
+        notify --event "API_RETRY" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+          --details "$retry_msg" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+        sleep "$backoff"
+        PENDING_RECOVERY_TASK="$CONSUMED_RECOVERY_TASK"
+        continue
+      fi
+      STOP_REASON="claude stopped after $QUOTA_RETRIES retries: $fail_reason (exit $exit_code, iteration $i, see $log_file)"
+      collect_iteration_report "$log_file"
+      notify --event "CLI_ERROR" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+        --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+        --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+        --details "$STOP_REASON" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+      break
+    fi
 
     if [ "$fail_transient" -eq 1 ] && [ "$TRANSIENT_API_RETRIES" -lt "$MAX_TRANSIENT_API_RETRIES" ]; then
       TRANSIENT_API_RETRIES=$((TRANSIENT_API_RETRIES + 1))
-      # 30s, 60s, 120s - a dropped stream usually clears on the first retry; the
-      # backoff matters for an overload, which needs the far side to drain.
+      # 30s, 60s, 120s ... capped at 15 min - a dropped stream usually clears on the
+      # first retry; the backoff matters for an overload, which needs the far side to drain.
       backoff=$((30 * (1 << (TRANSIENT_API_RETRIES - 1))))
+      [ "$backoff" -gt 900 ] && backoff=900
       retry_msg="Transient API failure on iteration $i ($fail_reason). Retry $TRANSIENT_API_RETRIES/$MAX_TRANSIENT_API_RETRIES in ${backoff}s."
-      log "$retry_msg"
+      echo "  $retry_msg"
       notify --event "API_RETRY" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
         --details "$retry_msg" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
       sleep "$backoff"
       # The next iteration re-picks the same task (still in backlog/in-progress/),
       # so the retry resumes it rather than skipping it.
+      PENDING_RECOVERY_TASK="$CONSUMED_RECOVERY_TASK"
+      continue
+    fi
+
+    # A long outage: wait it out in 30-min steps (bounded by --max-usage-wait-minutes).
+    if [ "$fail_transient" -eq 1 ] && [ "$SELF_HEAL" -eq 1 ] && \
+       wait_for_limit_reset "$log_file" 1800 "API still failing after $MAX_TRANSIENT_API_RETRIES retries"; then
+      TRANSIENT_API_RETRIES=0
+      PENDING_RECOVERY_TASK="$CONSUMED_RECOVERY_TASK"
+      continue
+    fi
+
+    if [ "$SELF_HEAL" -eq 1 ] && [ "$IS_AUDIT" -eq 1 ]; then
+      echo "  Post-hoc audit of task $TASK_NNN ended with exit $exit_code — continuing without it (see $log_file)."
+      PENDING_AUDIT_TASK=""
+      continue
+    fi
+
+    # Crash, closed window, watchdog kill: the task's claim died with the process,
+    # so a recovery iteration can resume it. Only bad credentials stop the loop.
+    if [ "$SELF_HEAL" -eq 1 ] && [ "$fail_kind" != "auth" ]; then
+      if [ "$exit_code" -eq 124 ]; then fail_event="WATCHDOG_KILL"; else fail_event="ITERATION_FAILED"; fi
+      fail_details="exit code $exit_code"
+      [ "$fail_reason" != "unclassified non-zero exit" ] && fail_details="$fail_details - $fail_reason"
+      [ "$exit_code" -eq 124 ] && [ -n "${WATCHDOG_REASON:-}" ] && fail_details="$fail_details - $WATCHDOG_REASON"
+      TRANSIENT_API_RETRIES=0
+      self_heal "$PICKED_TASK" "$TASK_NNN" "$fail_event" "$fail_details" "$log_file"
+      [ "$SELF_HEAL_OUTCOME" = "stop" ] && break
       continue
     fi
 
@@ -971,9 +1623,26 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     break
   fi
 
-  # Reaching here means the iteration ran to completion, so the streak resets:
+  # Reaching here means the iteration ran to completion, so the streaks reset:
   # MAX_TRANSIENT_API_RETRIES counts CONSECUTIVE blips, not lifetime ones.
   TRANSIENT_API_RETRIES=0
+  QUOTA_RETRIES=0
+  USAGE_WAITED_SEC=0
+
+  # Post-hoc audit iteration: its outcome is reported, never gated on — the task is
+  # already DONE and committed.
+  if [ "$IS_AUDIT" -eq 1 ]; then
+    audit_line="$(last_result_text "$log_file" | grep -o 'AUDIT_DONE.*' | head -n 1)"
+    [ -n "$audit_line" ] || audit_line="audit ended without an AUDIT_DONE line — see $log_file"
+    echo "  Post-hoc audit of task $TASK_NNN: $audit_line"
+    collect_iteration_report "$log_file"
+    notify --event "AUDIT_DONE" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+      --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+      --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+      --details "$audit_line" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+    PENDING_AUDIT_TASK=""
+    continue
+  fi
 
   if is_blocked "$log_file"; then
     STOP_REASON="Blocker sentinel detected on iteration $i (see $log_file)"
@@ -985,7 +1654,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     result_line="$(grep '"type":"result"' "$log_file" | tail -n1)"
     block_event=""
     block_details=""
-    for tok in EDITOR_REQUIRED COMPILE_BLOCKED PREFLIGHT_BLOCKED REVIEW_BLOCKED RUNTIME_BLOCKED VERIFY_BLOCKED NO_CHANGES BASE_MERGE_CONFLICT BASE_UNKNOWN; do
+    for tok in LOOP_BUSY TASK_BUSY RESUME_CONFLICT EDITOR_REQUIRED COMPILE_BLOCKED PREFLIGHT_BLOCKED REVIEW_BLOCKED RUNTIME_BLOCKED VERIFY_BLOCKED NO_CHANGES BASE_MERGE_CONFLICT BASE_UNKNOWN; do
       if printf '%s' "$result_line" | grep -q "$tok"; then
         block_event="$tok"
         block_details="$(printf '%s' "$result_line" | grep -o "${tok}[^\"]*" | head -n 1)"
@@ -993,9 +1662,63 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       fi
     done
     if [ -z "$block_event" ]; then
-      block_event="VERIFY_BLOCKED"
+      # "manual intervention required" without a named token: a decision it would
+      # not take, an environment fault.
+      block_event="MANUAL_INTERVENTION"
       block_details="$(printf '%s' "$result_line" | grep -io "manual intervention[^\"]*" | head -n 1)"
       [ -z "$block_details" ] && block_details="Automation paused. Manual intervention required."
+    fi
+
+    if [ "$SELF_HEAL" -eq 1 ]; then
+      STOP_REASON=""
+      case "$block_event" in
+        LOOP_BUSY|TASK_BUSY)
+          # Nothing was changed; the next pick waits for the owning session.
+          echo "  $block_event inside the iteration — the next pick waits for the owning session."
+          continue ;;
+        EDITOR_REQUIRED)
+          if [ "$MODE" != "worktree" ] && editor_recovery; then
+            notify --event "EDITOR_RECOVERY" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+              --details "Every remaining task needs a live Unity Editor; the loop (re)started this project's Editor and resumes." \
+              --progress "$TASK_PROGRESS_NOTIF"
+            continue
+          fi
+          if [ "$MODE" = "worktree" ]; then
+            STOP_REASON="EDITOR_REQUIRED — every remaining task needs a live Unity Editor, which worktree mode can never provide. Relaunch with --mode current."
+          else
+            STOP_REASON="EDITOR_REQUIRED — every remaining task needs a live Unity Editor and $MAX_EDITOR_RECOVERIES Editor (re)start(s) did not bring one up (see $log_file)"
+          fi
+          collect_iteration_report "$log_file"
+          notify --event "EDITOR_REQUIRED" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+            --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+            --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+            --details "$STOP_REASON" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+          break ;;
+        RESUME_CONFLICT)
+          # The partial work lives in another checkout/branch: nothing to fix from
+          # here, so park at once and leave that work where it is.
+          self_heal "$PICKED_TASK" "$TASK_NNN" "$block_event" "$block_details" "$log_file" park-now --keep-work ;;
+        MANUAL_INTERVENTION)
+          if printf '%s' "$block_details" | grep -qi 'push of .* failed'; then
+            # STEP 9e push failure: the task is committed, local only. A diverged branch
+            # is never pulled / rebased / forced by an agent (push-in-session section 4),
+            # and every later task would stack one more unpushed commit onto it — so this
+            # one still stops the loop, self-heal or not.
+            STOP_REASON="Push failed on iteration $i — $block_details (see $log_file)"
+            echo "  ⚠️ $STOP_REASON" >&2
+            collect_iteration_report "$log_file"
+            notify --event "MANUAL_INTERVENTION" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+              --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+              --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+              --details "$STOP_REASON" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+            break
+          fi
+          self_heal "$PICKED_TASK" "$TASK_NNN" "$block_event" "$block_details" "$log_file" ;;
+        *)
+          self_heal "$PICKED_TASK" "$TASK_NNN" "$block_event" "$block_details" "$log_file" ;;
+      esac
+      [ "$SELF_HEAL_OUTCOME" = "stop" ] && break
+      continue
     fi
 
     collect_iteration_report "$log_file"
@@ -1007,13 +1730,71 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     break
   fi
 
-  # Deterministic outcome check: exit 0 + no sentinel, but the picked task is
-  # still in backlog/in-progress/ → the model stopped without printing its
-  # blocker token. Stop instead of re-running the same task forever.
-  if task_still_in_progress "$TASK_BASE_NOTIF"; then
-    STOP_REASON="Silent failure on iteration $i: clean exit + no blocker sentinel, but $TASK_BASE_NOTIF is still in backlog/in-progress/ (see $log_file)"
-    echo "  ⚠️ $STOP_REASON" >&2
+  # Multi-iteration task (run-backlog SKILL.md 1e): the iteration saved its
+  # progress and left the task in backlog/in-progress/ on purpose. Continue — the
+  # next iteration's pick returns the same task and resumes it. Only consecutive
+  # checkpoints of the SAME task count toward MAX_CHECKPOINTS.
+  if is_checkpointed "$log_file" && task_still_in_progress "$TASK_BASE_NOTIF"; then
+    if [ "$CHECKPOINT_TASK" = "$TASK_BASE_NOTIF" ]; then
+      CHECKPOINT_STREAK=$((CHECKPOINT_STREAK + 1))
+    else
+      CHECKPOINT_TASK="$TASK_BASE_NOTIF"
+      CHECKPOINT_STREAK=1
+    fi
+    result_line="$(grep '"type":"result"' "$log_file" | tail -n1)"
+    ckpt_details="$(printf '%s' "$result_line" | grep -o 'TASK_CHECKPOINTED[^"]*' | head -n 1 | sed 's/\\n.*//')"
     collect_iteration_report "$log_file"
+    if [ "$CHECKPOINT_STREAK" -ge "$MAX_CHECKPOINTS" ] && [ "$SELF_HEAL" -eq 1 ]; then
+      CHECKPOINT_TASK=""
+      CHECKPOINT_STREAK=0
+      self_heal "$PICKED_TASK" "$TASK_NNN" "CHECKPOINT_LIMIT" "$TASK_BASE_NOTIF checkpointed $MAX_CHECKPOINTS consecutive iterations without finishing" "$log_file" park-now
+      [ "$SELF_HEAL_OUTCOME" = "stop" ] && break
+      continue
+    fi
+    if [ "$CHECKPOINT_STREAK" -ge "$MAX_CHECKPOINTS" ]; then
+      STOP_REASON="CHECKPOINT_LIMIT — $TASK_BASE_NOTIF ended $CHECKPOINT_STREAK consecutive iterations with TASK_CHECKPOINTED (cap $MAX_CHECKPOINTS). Read its resume notes, then relaunch (see $log_file)"
+      echo "  ⚠️ $STOP_REASON" >&2
+      notify --event "CHECKPOINT_LIMIT" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+        --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+        --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+        --details "$STOP_REASON" \
+        --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+      break
+    fi
+    echo "  Checkpointed ($CHECKPOINT_STREAK/$MAX_CHECKPOINTS): ${ckpt_details:-TASK_CHECKPOINTED} — resuming next iteration."
+    notify --event "TASK_CHECKPOINTED" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+      --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+      --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+      --details "${ckpt_details:-TASK_CHECKPOINTED} (checkpoint $CHECKPOINT_STREAK/$MAX_CHECKPOINTS)" \
+      --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+    continue
+  fi
+  CHECKPOINT_TASK=""
+  CHECKPOINT_STREAK=0
+
+  # Deterministic outcome check: exit 0 + no sentinel, but the picked task is
+  # still in backlog/in-progress/ → the model ended its turn without finishing
+  # (usually to "wait" for something). Self-heal sends a recovery iteration.
+  if task_still_in_progress "$TASK_BASE_NOTIF" && [ "$SELF_HEAL" -eq 1 ]; then
+    self_heal "$PICKED_TASK" "$TASK_NNN" "SILENT_END" "clean exit, no stop token, task still in backlog/in-progress/" "$log_file"
+    [ "$SELF_HEAL_OUTCOME" = "stop" ] && break
+    continue
+  fi
+  if task_still_in_progress "$TASK_BASE_NOTIF"; then
+    collect_iteration_report "$log_file"
+    if [ "$SILENT_RETRY_TASK" != "$TASK_BASE_NOTIF" ]; then
+      SILENT_RETRY_TASK="$TASK_BASE_NOTIF"
+      retry_reason="Silent end on iteration $i: clean exit + no blocker sentinel, $TASK_BASE_NOTIF still in backlog/in-progress/ — resuming it once (see $log_file)"
+      echo "  ⚠️ $retry_reason" >&2
+      notify --event "SILENT_RETRY" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+        --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+        --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+        --details "$retry_reason" \
+        --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+      continue
+    fi
+    STOP_REASON="Silent failure on iteration $i: clean exit + no blocker sentinel, but $TASK_BASE_NOTIF is still in backlog/in-progress/ after one automatic resume (see $log_file)"
+    echo "  ⚠️ $STOP_REASON" >&2
     notify --event "SILENT_FAIL" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
       --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
       --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
@@ -1027,6 +1808,36 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   # be only the model's own claim).
   if [ -n "$TASK_TIER_NOTIF" ] && task_reached_done "$TASK_BASE_NOTIF"; then
     missing_receipts="$(missing_gate_receipts "$log_file" "$TASK_TIER_NOTIF")"
+    # A task closed as "already satisfied" (no diff -> no commit) has nothing for a
+    # code reviewer to read; its qa-verifier receipt still counts.
+    # The commit message carries no trailer (push-in-session style): backlog-ops finds
+    # the task's commit from its run record (shipped sha / recorded commit tree). Only
+    # source "no-commit" (closed as already satisfied) excuses the code reviewer — an
+    # unknown lookup keeps the requirement.
+    task_commit=""
+    commit_source=""
+    if [ -n "$TASK_NNN" ]; then
+      commit_json="$(cd "$WORK_DIR" && python3 "$OPS" task-commit "$TASK_NNN" 2>/dev/null)"
+      task_commit="$(json_field "$commit_json" commit)"
+      commit_source="$(json_field "$commit_json" source)"
+    fi
+    if [ "$commit_source" = "no-commit" ]; then
+      missing_receipts="$(printf '%s' "$missing_receipts" | tr ' ' '\n' | grep -v '^code-reviewer$' | tr '\n' ' ' | sed 's/ *$//')"
+    fi
+    if [ -n "$missing_receipts" ] && [ "$SELF_HEAL" -eq 1 ] && [ -n "$task_commit" ]; then
+      PENDING_AUDIT_TASK="$TASK_BASE_NOTIF"
+      PENDING_AUDIT_NNN="$TASK_NNN"
+      PENDING_AUDIT_MISSING="$missing_receipts"
+      PENDING_AUDIT_COMMIT="$task_commit"
+      audit_msg="$TASK_BASE_NOTIF (tier $TASK_TIER_NOTIF) reached DONE as $task_commit but the log has no Agent spawn for: $missing_receipts. A post-hoc audit iteration runs them next; the loop has NOT stopped."
+      echo "  ⚠️ Gate receipt missing — $audit_msg"
+      collect_iteration_report "$log_file"
+      notify --event "GATE_RECEIPT_MISSING" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
+        --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
+        --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
+        --details "$audit_msg" --progress "$TASK_PROGRESS_NOTIF" --duration "$ITER_DURATION"
+      continue
+    fi
     if [ -n "$missing_receipts" ]; then
       STOP_REASON="Gate receipt missing on iteration $i: $TASK_BASE_NOTIF (tier $TASK_TIER_NOTIF) reached DONE but the log has no Agent spawn for: $missing_receipts (see $log_file)"
       echo "  ⚠️ $STOP_REASON" >&2
@@ -1041,6 +1852,13 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
   fi
 
   # Task passed all gates this iteration — notify success.
+  healed_note=""
+  if [ -n "$CONSUMED_RECOVERY_TASK" ]; then
+    RECOVERED_TASKS=$((RECOVERED_TASKS + 1))
+    healed_note="
+Finished by self-heal recovery iteration $PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERIES (after $PENDING_RECOVERY_EVENT)."
+    echo "  ✅ Self-heal worked: task $TASK_NNN finished in recovery iteration $PENDING_RECOVERY_ATTEMPT."
+  fi
   read -r TODO_NEW IP_NEW <<<"$(backlog_counts)"
   DONE_NEW=$(find "$BACKLOG_ROOT/done" -name "*.md" 2>/dev/null | wc -l | xargs)
   TOTAL_NEW=$((TODO_NEW + IP_NEW + DONE_NEW))
@@ -1050,7 +1868,7 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
     --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
     --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
     --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
-Committed to $AGENT_BRANCH (pushed if the repo has a remote). Ready for manual verify + merge into the base branch." \
+Committed to $AGENT_BRANCH (pushed if the repo has a remote). Ready for manual verify + merge into the base branch.$healed_note" \
     --progress "$DONE_NEW/$TOTAL_NEW" --duration "$ITER_DURATION"
 done
 
@@ -1064,4 +1882,8 @@ echo
 echo "=========================================="
 echo "  Loop stopped: $STOP_REASON"
 echo "  Iterations run: $i"
+if [ "$SELF_HEAL" -eq 1 ]; then
+  echo "  Self-heal: $(printf '%s' "$RECOVERY_COUNTS" | grep -c . ) task(s) needed recovery, $RECOVERED_TASKS finished through it, $(printf '%s' "$PARKED_TASKS" | grep -c . ) parked"
+  printf '%s\n' "$PARKED_TASKS" | awk -F'\t' 'NF { printf "    parked: %s - %s (partial work: refs/backlog/parked/<NNN>; reason appended to the task file)\n", $1, $2 }'
+fi
 echo "=========================================="

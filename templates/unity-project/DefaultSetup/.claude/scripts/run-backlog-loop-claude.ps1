@@ -12,6 +12,9 @@
 #   ... -NoAutoModelByTier -Model opus
 #   # disable per-tier thinking:
 #   ... -NoAutoThinkingByTier -ThinkingTokens 10000
+#   # self-heal is ON by default (blocked/failed task -> recovery iteration, then
+#   # park + continue); stop on the first block instead:
+#   ... -NoSelfHeal
 
 [CmdletBinding()]
 param(
@@ -49,7 +52,18 @@ param(
     # Flat reasoning effort override (used when -NoAutoModelByTier is set).
     # Empty = leave the CLI default untouched.
     [AllowEmptyString()]
-    [string]$Effort = ""
+    [string]$Effort = "",
+    # Per-task watchdog passthrough (core defaults: 15 min inactivity, 3 h hard cap).
+    # Raise the hard cap for tasks that run long unattended Editor sessions
+    # (e.g. a long data-collection or validation run). 0 = keep the core default.
+    [int]$TaskInactivityTimeoutSec = 0,
+    [int]$TaskHardTimeoutSec = 0,
+    # Self-heal passthrough (core defaults: ON, 3 recovery iterations per task,
+    # then park it and go on; usage limits are waited out up to 600 min).
+    # -NoSelfHeal = stop on the first block, as before. 0 = keep the core default.
+    [switch]$NoSelfHeal,
+    [int]$MaxRecoveries = 0,
+    [int]$MaxUsageWaitMinutes = 0
 )
 
 $coreArgs = @{
@@ -86,6 +100,11 @@ if ($NoSkipPermissions) {
 }
 
 $coreArgs.Mode = $Mode
+if ($TaskInactivityTimeoutSec -gt 0) { $coreArgs.TaskInactivityTimeoutSec = $TaskInactivityTimeoutSec }
+if ($TaskHardTimeoutSec -gt 0) { $coreArgs.TaskHardTimeoutSec = $TaskHardTimeoutSec }
+if ($NoSelfHeal) { $coreArgs.NoSelfHeal = $true }
+if ($MaxRecoveries -gt 0) { $coreArgs.MaxRecoveries = $MaxRecoveries }
+if ($MaxUsageWaitMinutes -gt 0) { $coreArgs.MaxUsageWaitMinutes = $MaxUsageWaitMinutes }
 
 & "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
 exit $LASTEXITCODE

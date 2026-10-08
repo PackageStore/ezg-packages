@@ -22,6 +22,7 @@ defaults are the answer.
 | Iterations | runner default (100) | `--max-iterations <n>` |
 | Window | new Terminal window per task | `--inline` |
 | Permissions | `--dangerously-skip-permissions` (runner default) | `--no-skip-permissions` |
+| Self-heal | on — a blocked / crashed / hung iteration gets a recovery iteration, then the task is parked after 3 | `--no-self-heal` (bash) / `-NoSelfHeal` (PowerShell) |
 
 **Read overrides off the user's own words** — they are custom only when explicitly asked for:
 
@@ -29,8 +30,11 @@ defaults are the answer.
 - "chạy N task" / "chỉ 1 task" / "one task" → `--max-iterations N`
 - "chạy trong cửa sổ này" / "đừng mở cửa sổ mới" / "inline" → `--inline`
 - names a model/effort ("chạy fable", "effort xhigh") → `--model` / `--effort` (drops `--auto-model-by-tier`)
+- "dừng khi gặp lỗi" / "đừng tự sửa" / "stop on first block" → `--no-self-heal`
 
 Anything the user did not mention keeps its default. Pass through any raw flag they typed verbatim.
+
+The **only** reason not to launch: STEP 0.5 finds the backlog busy — report it; do not ask, do not launch.
 
 ### Mode trade-off (reference — decide from the rules above, don't ask)
 
@@ -45,7 +49,25 @@ Worktree mode ships code that was never compiled, so when the user picks it, its
 lead with `/compile-check` after merging. Flag: `--mode worktree` (bash) / `-Mode Worktree`
 (PowerShell).
 
-## STEP 0.5 — Detect OS
+## STEP 0.5 — Refuse to start a second consumer
+
+One backlog, one consumer: every loop and every hand-run `/run-backlog` on this clone reads the same `.git/backlog` queue, and two of them would work the same task in one checkout (one git index, one Unity Editor). The controller enforces this itself with a lease, but it would only say so inside a freshly opened window — check first:
+
+```bash
+python3 .claude/scripts/backlog-ops.py lock status      # Windows: py .claude/scripts/backlog-ops.py lock status
+```
+
+- exit **0** (`state: "free"`) → launch (STEP 0.6).
+- exit **4** (`state: "busy"`) → **do not launch.** Report what holds the queue and stop:
+  - `lease` — another loop controller (`holder.pid`, `mode`, `work_dir`, `acquired_at`);
+  - `claims[]` with `status: "live"` — a session working task `nnn` right now (another hand-run `/run-backlog`, or the still-running task window of a controller that was stopped);
+  - `legacy_loop_processes[]` — a loop started by an older copy of the scripts (no lease).
+  Tell the user to let it finish or stop it. `backlog-ops.py lock break --yes [--task NNN]` exists only for a holder they know is dead but that cannot be proven dead (e.g. another host) — never run it yourself.
+- `ship_pending` non-empty is **not** busy: a previous run finished a task but died before its commit; the loop's first iteration commits it before anything else.
+
+A task whose run died mid-way (usage limit, crash, watchdog) is resumed, not restarted: the next iteration takes over its claim and continues from the partial diff + the checkpoint journal (run-backlog STEP 1d). The runner does this itself (it sleeps out a usage limit and sends a recovery iteration after a crash or watchdog kill), so a relaunch is only needed after a real stop — and it gives parked tasks a fresh budget.
+
+## STEP 0.6 — Detect OS
 
 Route on the environment platform:
 - **macOS / Linux (`darwin`, `linux`)** → use `.claude/scripts/run-backlog-loop.sh` (STEP 1A).
@@ -65,9 +87,9 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
    ```
 
    Append only the overrides STEP 0 resolved, e.g. `--mode worktree`, `--max-iterations 5`,
-   `--inline`, or `--model <id> --effort <level>` (which replaces `--auto-model-by-tier`).
-4. The runner pauses on its own when the backlog is empty (`PAUSED` sentinel) or stops on a blocker (`COMPILE_BLOCKED` / `PREFLIGHT_BLOCKED` / `REVIEW_BLOCKED` / `VERIFY_BLOCKED`). Logs land in `logs/backlog-loop/`.
-5. Notify the user that the loop is running, in which mode, which model map is in effect, and where the logs are.
+   `--inline`, `--no-self-heal`, or `--model <id> --effort <level>` (which replaces `--auto-model-by-tier`).
+4. The runner self-heals by default: a blocker (`COMPILE_BLOCKED` / `PREFLIGHT_BLOCKED` / `REVIEW_BLOCKED` / `VERIFY_BLOCKED` / `RUNTIME_BLOCKED` / `NO_CHANGES` / "manual intervention required"), a crash, a watchdog kill or a silent end is followed by a recovery iteration on the same task (run-backlog §1f); after `--max-recoveries` (3) the task is parked (`refs/backlog/parked/<NNN>`, tail of TODO) and the loop moves on. Usage limits are slept out until their reset; transient API errors and an org-quota 403 are retried with backoff. It stops only when the backlog is empty (`PAUSED`), only parked tasks remain, credentials are bad, a limit wait exceeds its budget, or a push fails (a diverged branch is the dev's call). `--no-self-heal` / `-NoSelfHeal` restores stop-on-first-block. Logs (and the `recovery-*.md` briefs) land in `logs/backlog-loop/`.
+5. Notify the user that the loop is running, in which mode, which model map is in effect, where the logs are, and that it holds this clone's lease (a hand-run `/run-backlog` gets `LOOP_BUSY` until it stops).
 
 > Double-clicking `.claude/scripts/run-backlog-loop.command` in Finder also starts the loop with sensible defaults.
 >
@@ -85,8 +107,8 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
    Start-Process powershell -ArgumentList "-NoExit", "-Command", "& { Set-Location '<WorkspacePath>'; & '<WorkspacePath>\.claude\scripts\run-backlog-loop.ps1' -Mode Current -AutoModelByTier }"
    ```
    Append only the overrides STEP 0 resolved (`-Mode Worktree`, `-MaxIterations <n>`,
-   `-Model <id>`, `-NoSkipPermissions`). Use `run-backlog-loop.bat` **only** when the user
+   `-Model <id>`, `-NoSkipPermissions`, `-NoSelfHeal`). Use `run-backlog-loop.bat` **only** when the user
    explicitly asks to pick provider/mode interactively.
 3. The new window runs independently — do NOT wait for it to finish.
 4. Each per-task console window is titled **`<projectName> - <task name>`** (same wording as the `.sh` path), so a stack of task windows stays readable.
-5. Notify the user that the loop is running in the background, in which mode and with which model map.
+5. Notify the user that the loop is running in the background, in which mode and with which model map, and that it holds this clone's lease (a hand-run `/run-backlog` gets `LOOP_BUSY` until it stops). Self-heal behaves exactly as in STEP 1A item 4.

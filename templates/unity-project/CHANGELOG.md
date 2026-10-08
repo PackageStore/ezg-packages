@@ -4,6 +4,37 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-09
+
+**Added**
+- Backlog loop **self-heal** (`run-backlog-loop.sh` + `run-backlog-loop-core.ps1`, mặc định bật): iteration kết thúc
+  mà task chưa xong (block token, `manual intervention required`, crash, watchdog kill, silent end) không còn dừng
+  loop — iteration sau chạy **recovery mode** trên đúng task đó (brief lỗi `logs/backlog-loop/recovery-*.md`, model
+  `--recovery-model` opus/xhigh, budget fix mới cho mọi cổng); quá `--max-recoveries` (3) thì **park** task
+  (`backlog-ops.py park`: partial work cất ở `refs/backlog/parked/<NNN>` rồi gỡ khỏi tree, task xuống cuối TODO) và
+  chạy task khác. Usage/session limit → ngủ tới giờ reset (`--max-usage-wait-minutes` 600); lỗi API tạm thời → 6 lần
+  retry (30s nhân đôi, trần 15 phút) rồi chờ từng nấc 30 phút; 403 hết quota org → `--max-quota-retries` 5;
+  `TASK_BUSY` → chờ session kia; `EDITOR_REQUIRED` → mở/restart Unity qua skill `restart-unity`; DONE thiếu receipt
+  reviewer → iteration audit hậu kiểm. `--no-self-heal` / `-NoSelfHeal` = hành vi cũ.
+- **Một consumer / clone + resume có journal** (`backlog-ops.py lock|resume|checkpoint|shipped|park|task-commit`,
+  state ở `$BACKLOG_ROOT/runs/`): loop lease, task claim theo process agent, run chết giữa chừng được `resume` từ
+  `partial_work` + checkpoint thay vì làm lại mù; task DONE mà chưa commit là ship-pending và được ship trước.
+- Task nhiều iteration: `TASK_CHECKPOINTED` + `AGENT_ITERATION_DEADLINE` trong prompt (`--max-checkpoints` 6).
+- run-backlog SKILL §1c–1f (ship recovery, resume, checkpointed exit, recovery iteration), *Autonomous decision
+  policy*, block report; `execute-backlog-tasks` kiểm `lock status` trước khi bật loop.
+- Test: `tests/test_backlog_concurrency.py`, `tests/test_backlog_park.py`.
+
+**Changed**
+- Ship fence **không dùng trailer**: commit STEP 9 giữ đúng style push-in-session (không `Co-Authored-By`, không
+  trailer); STEP 9e ghi tree đã stage (`checkpoint <NNN> --step commit --tree "$(git write-tree)"`) ngay trước
+  `git commit`, nên run chết giữa commit và `shipped` vẫn được nhận ra là đã commit (theo nội dung) — không commit lần
+  hai. Controller tìm commit của task qua `backlog-ops.py task-commit`.
+- Push thất bại ở STEP 9e vẫn **dừng loop** kể cả khi bật self-heal (nhánh lệch là việc của dev).
+
+**Fixed**
+- Bash loop phân loại lỗi CLI không phân biệt hoa thường như bản PowerShell ("Session limit reached" trước bị coi là
+  crash thay vì chờ reset; "Manual intervention required" viết hoa trước không được tính là block).
+
 ## 2026-10-07
 
 **Added**

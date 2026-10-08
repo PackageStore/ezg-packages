@@ -93,6 +93,66 @@ switch ($Event) {
         $description = "The agent CLI hit a transport break or an overloaded API. The loop is retrying the same task and has NOT stopped."
         $color = $COLOR_WARNING
     }
+    "SILENT_RETRY" {
+        $title = "⚠️ Silent End - Resuming Once"
+        $description = "The iteration exited cleanly without a stop token while its task was still in progress. The loop has NOT stopped: the next iteration resumes the task once."
+        $color = $COLOR_WARNING
+    }
+    "TASK_CHECKPOINTED" {
+        $title = "⏸️ Task Checkpointed - Resuming"
+        $description = "A multi-iteration task saved its progress at the iteration deadline. The loop has NOT stopped: the next iteration resumes the same task."
+        $color = $COLOR_SUCCESS
+    }
+    "CHECKPOINT_LIMIT" {
+        $title = "🟠 Checkpoint Limit Reached"
+        $description = "A multi-iteration task checkpointed too many consecutive iterations without finishing. The loop stopped for a human look."
+        $color = $COLOR_WARNING
+    }
+    "TASK_RECOVERING" {
+        $title = "🛠️ Self-Heal - Recovering Task"
+        $description = "The iteration ended without finishing its task (block, crash, hang or silent end). The loop has NOT stopped: the next iteration resumes the task in recovery mode with a brief of what failed."
+        $color = $COLOR_WARNING
+    }
+    "TASK_PARKED" {
+        $title = "🅿️ Self-Heal - Task Parked"
+        $description = "The task could not be finished within its recovery budget. Its partial work was saved under refs/backlog/parked/<NNN>, the task moved to the tail of TODO, and the loop continues with the next task."
+        $color = $COLOR_WARNING
+    }
+    "PARKED_ONLY" {
+        $title = "🟠 Only Parked Tasks Remain"
+        $description = "Every remaining task was parked during this run. The loop stopped; relaunch it to give the parked tasks a fresh budget."
+        $color = $COLOR_WARNING
+    }
+    "LIMIT_WAIT" {
+        $title = "⏳ Waiting Out a Usage Limit"
+        $description = "The usage/session limit (or an API outage) was hit. The loop sleeps until the reset and then resumes the same task. It has NOT stopped."
+        $color = $COLOR_WARNING
+    }
+    "BUSY_WAIT" {
+        $title = "⏳ Waiting for Another Session"
+        $description = "Another live session owns the task. The loop waits for it to finish before continuing."
+        $color = $COLOR_WARNING
+    }
+    "EDITOR_RECOVERY" {
+        $title = "🛠️ Self-Heal - Unity Editor (Re)started"
+        $description = "Every remaining task needs a live Unity Editor and none answered. The loop (re)started this project's Editor and resumes."
+        $color = $COLOR_WARNING
+    }
+    "GATE_RECEIPT_MISSING" {
+        $title = "🟠 Reviewer Receipt Missing"
+        $description = "A task reached DONE without a mandatory reviewer spawn in its log. With self-heal, a post-hoc audit iteration runs the missing reviewer(s) next."
+        $color = $COLOR_WARNING
+    }
+    "AUDIT_DONE" {
+        $title = "🔎 Post-hoc Review Finished"
+        $description = "The missing reviewer(s) ran on the task's commit; any fix landed as a follow-up commit."
+        $color = $COLOR_SUCCESS
+    }
+    "MANUAL_INTERVENTION" {
+        $title = "🔴 Manual Intervention Requested"
+        $description = "The iteration asked for a human without a named block token."
+        $color = $COLOR_ERROR
+    }
     default {
         $title = "⚠️ Automation Event: $Event"
         $description = "An automation stop condition or event occurred."

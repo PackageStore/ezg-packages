@@ -102,6 +102,54 @@ case "$EVENT_TYPE" in
     TITLE="⚠️ Transient API Error - Retrying"
     DESCRIPTION="The claude CLI hit a transport break or an overloaded API. The loop is retrying the same task and has NOT stopped."
     COLOR=$COLOR_WARNING ;;
+  SILENT_RETRY)
+    TITLE="⚠️ Silent End - Resuming Once"
+    DESCRIPTION="The iteration exited cleanly without a stop token while its task was still in progress. The loop has NOT stopped: the next iteration resumes the task once."
+    COLOR=$COLOR_WARNING ;;
+  TASK_CHECKPOINTED)
+    TITLE="⏸️ Task Checkpointed - Resuming"
+    DESCRIPTION="A multi-iteration task saved its progress at the iteration deadline. The loop has NOT stopped: the next iteration resumes the same task."
+    COLOR=$COLOR_SUCCESS ;;
+  CHECKPOINT_LIMIT)
+    TITLE="🟠 Checkpoint Limit Reached"
+    DESCRIPTION="A multi-iteration task checkpointed too many consecutive iterations without finishing. The loop stopped for a human look."
+    COLOR=$COLOR_WARNING ;;
+  TASK_RECOVERING)
+    TITLE="🛠️ Self-Heal - Recovering Task"
+    DESCRIPTION="The iteration ended without finishing its task (block, crash, hang or silent end). The loop has NOT stopped: the next iteration resumes the task in recovery mode with a brief of what failed."
+    COLOR=$COLOR_WARNING ;;
+  TASK_PARKED)
+    TITLE="🅿️ Self-Heal - Task Parked"
+    DESCRIPTION="The task could not be finished within its recovery budget. Its partial work was saved under refs/backlog/parked/<NNN>, the task moved to the tail of TODO, and the loop continues with the next task."
+    COLOR=$COLOR_WARNING ;;
+  PARKED_ONLY)
+    TITLE="🟠 Only Parked Tasks Remain"
+    DESCRIPTION="Every remaining task was parked during this run. The loop stopped; relaunch it to give the parked tasks a fresh budget."
+    COLOR=$COLOR_WARNING ;;
+  LIMIT_WAIT)
+    TITLE="⏳ Waiting Out a Usage Limit"
+    DESCRIPTION="The usage/session limit (or an API outage) was hit. The loop sleeps until the reset and then resumes the same task. It has NOT stopped."
+    COLOR=$COLOR_WARNING ;;
+  BUSY_WAIT)
+    TITLE="⏳ Waiting for Another Session"
+    DESCRIPTION="Another live session owns the task. The loop waits for it to finish before continuing."
+    COLOR=$COLOR_WARNING ;;
+  EDITOR_RECOVERY)
+    TITLE="🛠️ Self-Heal - Unity Editor (Re)started"
+    DESCRIPTION="Every remaining task needs a live Unity Editor and none answered. The loop (re)started this project's Editor and resumes."
+    COLOR=$COLOR_WARNING ;;
+  GATE_RECEIPT_MISSING)
+    TITLE="🟠 Reviewer Receipt Missing"
+    DESCRIPTION="A task reached DONE without a mandatory reviewer spawn in its log. With self-heal, a post-hoc audit iteration runs the missing reviewer(s) next."
+    COLOR=$COLOR_WARNING ;;
+  AUDIT_DONE)
+    TITLE="🔎 Post-hoc Review Finished"
+    DESCRIPTION="The missing reviewer(s) ran on the task's commit; any fix landed as a follow-up commit."
+    COLOR=$COLOR_SUCCESS ;;
+  MANUAL_INTERVENTION)
+    TITLE="🔴 Manual Intervention Requested"
+    DESCRIPTION="The iteration asked for a human without a named block token."
+    COLOR=$COLOR_ERROR ;;
   *)
     TITLE="⚠️ Automation Event: $EVENT_TYPE"
     DESCRIPTION="An automation stop condition or event occurred."

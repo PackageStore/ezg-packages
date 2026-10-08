@@ -22,7 +22,12 @@ param(
     # -Model. Parity with the macOS launcher (run-backlog-loop.command passes --auto-model-by-tier).
     # Every tier maps to opus today, so what this actually buys is the per-tier effort profile;
     # -Model stays as the fallback for an iteration whose tier cannot be read.
-    [switch]$AutoModelByTier
+    [switch]$AutoModelByTier,
+    # Self-heal passthrough (core default: ON - a blocked/failed task gets a recovery
+    # iteration, then is parked so the loop goes on). -NoSelfHeal = stop on the first
+    # block. 0 = keep the core default.
+    [switch]$NoSelfHeal,
+    [int]$MaxRecoveries = 0
 )
 
 $coreArgs = @{
@@ -41,6 +46,9 @@ $coreArgs.Mode = $Mode
 if ($AutoModelByTier) {
     $coreArgs.AutoModelByTier = $true
 }
+
+if ($NoSelfHeal) { $coreArgs.NoSelfHeal = $true }
+if ($MaxRecoveries -gt 0) { $coreArgs.MaxRecoveries = $MaxRecoveries }
 
 & "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
 exit $LASTEXITCODE

@@ -663,7 +663,9 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
       <div class="card">
         <h3><span class="n">1</span>PICK <span class="chip script">backlog-ops.py pick</span></h3>
         <ul>
-          <li>Lấy task <b>đầu</b> hàng TODO — không chọn lọc, không ưu tiên. Task <code>in-progress</code> dở dang → resume, nhảy thẳng bước 4.</li>
+          <li>Lấy task <b>đầu</b> hàng TODO — không chọn lọc, không ưu tiên. Thứ tự ưu tiên: task <b>ship-pending</b> (đã DONE nhưng run chết trước khi commit → commit nó trước, để task sau không <code>git add -A</code> cuốn mất) → task <code>in-progress</code> dở dang → TODO.</li>
+          <li><b>Resume không mù:</b> <code>backlog-ops.py resume NNN</code> nhận lại claim của run đã chết (hết quota, crash, watchdog) và in <code>partial_work</code> — file đổi từ lúc <code>start</code>, tách khỏi dirt có sẵn — cùng checkpoint journal. Agent đọc diff dở rồi làm <b>tiếp</b>, không làm lại từ đầu; mọi cổng chạy lại.</li>
+          <li><b>Một consumer / clone:</b> loop giữ lease (iteration mang <code>BACKLOG_LOOP_TOKEN</code>); task mang claim của process agent đang làm. <code>/run-backlog</code> chạy tay khi loop sống → <b>LOOP_BUSY</b>; session khác đụng task đang có chủ → <b>TASK_BUSY</b> — exit 4, không đổi gì.</li>
           <li>Exit 2 = hàng rỗng → ghi <b>PAUSED</b>, loop dừng. Exit 3 = chưa <code>init</code> → init rồi pick lại.</li>
           <li>Task có <code>**Requires:** unity-editor</code> → probe Editor, retry ~4 lần/20s (một lần im lặng có thể chỉ là domain-reload). Editor chết: còn task headless khác → <code>defer</code> task này xuống cuối hàng và <b>loop chạy tiếp</b>; mọi task đều cần Editor → <b>EDITOR_REQUIRED</b>, dừng.</li>
         </ul>
@@ -673,7 +675,7 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
         <h3><span class="n">2–4</span>CHUẨN BỊ — branch · start · context</h3>
         <ul>
           <li><b>Branch:</b> mode <code>current</code> (mặc định) <b>bỏ qua hẳn</b> — không checkout, không merge, commit thẳng nhánh dev đang mở (checkout giữa chừng bắt Unity reimport cả project). Mode <code>worktree</code>: merge <code>origin/&lt;base&gt;</code> vào <code>agent/dev-&lt;base&gt;</code>; xung đột → <b>BASE_MERGE_CONFLICT</b>, không tự resolve.</li>
-          <li><b>Start:</b> <code>backlog-ops.py start NNN</code> — todo → in-progress trong một lệnh.</li>
+          <li><b>Start:</b> <code>backlog-ops.py start NNN</code> — todo → in-progress trong một lệnh, kèm claim (chủ = session này) + baseline file dirty sẵn có. Mỗi bước xong ghi <code>checkpoint</code> (implemented · compile · preflight · review · qa · smoke).</li>
           <li><b>Context:</b> probe CodeGraph <b>một lần</b> quyết định cách tra code cho cả task; đọc rules + SKILL.md liên quan; task batch đọc <b>Context docs</b> — số liệu lấy nguyên văn từ TechSpec.</li>
         </ul>
       </div>
@@ -724,9 +726,10 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
         <h3><span class="n">8–10</span>DONE → SHIP → REPORT <span class="chip script">backlog-ops.py done · lint</span></h3>
         <ul>
           <li><b>DONE:</b> script chuyển in-progress → done; orchestrator viết summary: fix summary, verdict từng cổng, mode, manual_verify_steps <b>y nguyên</b>.</li>
-          <li><b>SHIP:</b> commit + <code>git push</code> thẳng nhánh làm việc. <b>Không tạo PR</b>. Backlog nằm trong <code>.git/</code> nên không dính commit.</li>
+          <li><b>SHIP:</b> style <code>/push-in-session</code> (chỉ file của task, <code>&lt;prefix&gt; Tag: &lt;subject&gt;</code>, <b>không trailer</b>) → ngay trước <code>git commit</code> ghi tree đã stage (<code>checkpoint NNN --step commit --tree</code>) → commit + <code>git push</code> thẳng nhánh làm việc, rồi <code>backlog-ops.py shipped NNN --commit &lt;sha&gt;</code> đóng claim. Run chết giữa commit và <code>shipped</code> → lần sau nhận ra commit qua tree, không commit lại. <b>Không tạo PR</b>. Backlog nằm trong <code>.git/</code> nên không dính commit.</li>
           <li><b>REPORT:</b> bản giao <b>duy nhất</b> cho dev (DONE summary không theo commit): file đã đổi, commit, verdict + số round mỗi cổng, và <b>MANUAL VERIFY REMINDER</b> đánh số — worktree mode thì bước 1 luôn là <code>/compile-check</code>.</li>
-          <li>Xong → cửa sổ đóng → loop lấy task kế tiếp với context mới. Task blocked giữa chừng → <code>demote</code> về đầu TODO.</li>
+          <li>Xong → cửa sổ đóng → loop lấy task kế tiếp với context mới.</li>
+          <li><b>Self-heal (mặc định):</b> iteration kết thúc mà task chưa xong (block token, <code>manual intervention required</code>, crash, watchdog kill, silent end) → iteration sau <b>khôi phục</b> đúng task đó (brief lỗi + model mạnh nhất + budget fix mới, cấm nới cổng); hết 3 lượt → <b>park</b> (partial work cất vào <code>refs/backlog/parked/NNN</code>, task xuống cuối TODO) rồi chạy task khác. Usage limit → ngủ tới giờ reset; lỗi API tạm thời / 403 quota → retry có backoff. Task cần nhiều iteration → <code>TASK_CHECKPOINTED</code>, iteration sau làm tiếp. <code>--no-self-heal</code> = dừng ở block đầu tiên.</li>
         </ul>
       </div>
     </div>
@@ -762,21 +765,26 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
       </table>
     </div>
 
-    <h3 style="margin-bottom:10px; font-size:1.05rem;">Hard-stop tokens — loop runner grep đúng các chuỗi này</h3>
+    <h3 style="margin-bottom:10px; font-size:1.05rem;">Stop / block tokens — loop runner grep đúng các chuỗi này (self-heal mặc định bật: block token → iteration khôi phục, không dừng loop)</h3>
     <div class="tblwrap scrollx">
       <table>
         <thead><tr><th>Token</th><th>Từ đâu</th><th>Dev làm gì</th></tr></thead>
         <tbody>
           <tr><td class="tok">PAUSED</td><td>PICK — backlog rỗng</td><td><code>/add-to-backlog</code> nạp thêm rồi chạy lại</td></tr>
-          <tr><td class="tok">EDITOR_REQUIRED</td><td>PICK — mọi task còn lại cần Editor</td><td>Mở Editor, xoá <code>$BACKLOG_ROOT/state</code>, chạy lại</td></tr>
+          <tr><td class="tok">EDITOR_REQUIRED</td><td>PICK — mọi task còn lại cần Editor</td><td>Self-heal tự mở/restart Editor (skill <code>restart-unity</code>, tối đa 2 lần). Vẫn không lên → mở Editor, xoá <code>$BACKLOG_ROOT/state</code>, chạy lại</td></tr>
+          <tr><td class="tok soft">TASK_CHECKPOINTED</td><td>Task cần nhiều iteration (1e) — đã lưu tiến độ + resume notes</td><td>Không cần làm gì — iteration sau làm tiếp; quá 6 lần liên tiếp → park (<code>CHECKPOINT_LIMIT</code>)</td></tr>
           <tr><td class="tok soft">DEFERRED</td><td>PICK — 1 task bị dời, còn task khác</td><td>Không cần làm gì — loop tự chạy tiếp</td></tr>
+          <tr><td class="tok">LOOP_BUSY</td><td>PICK / khởi động loop — loop khác đang giữ lease (hoặc loop bản script cũ đang chạy)</td><td>Chờ loop kia xong hoặc dừng nó; <code>backlog-ops.py lock status</code> xem ai giữ</td></tr>
+          <tr><td class="tok">TASK_BUSY</td><td>PICK / START / RESUME — task có chủ còn sống (session tay, hoặc cửa sổ task của controller đã bị dừng)</td><td>Loop tự chờ session đó (tối đa 180 phút); <code>lock break --yes --task NNN</code> chỉ khi chắc chắn nó đã chết</td></tr>
+          <tr><td class="tok">RESUME_CONFLICT</td><td>RESUME — phần việc dở nằm ở checkout/nhánh khác (đổi mode giữa chừng)</td><td>Self-heal park task ngay (giữ nguyên work ở chỗ cũ); chạy lại đúng mode đã bắt đầu task để làm tiếp</td></tr>
           <tr><td class="tok">BASE_MERGE_CONFLICT</td><td>CHUẨN BỊ (worktree)</td><td>Tự resolve merge rồi chạy lại</td></tr>
           <tr><td class="tok">NO_CHANGES</td><td>REVIEW — implement không ra diff</td><td>Kiểm tra lại task spec</td></tr>
-          <tr><td class="tok">COMPILE_BLOCKED</td><td>CỔNG COMPILE</td><td rowspan="5" style="vertical-align:middle;">Sửa &amp; <code>/run-backlog</code> lại, hoặc <code>demote NNN</code> để bỏ qua task. Không có <code>--ship-anyway</code>.</td></tr>
+          <tr><td class="tok">COMPILE_BLOCKED</td><td>CỔNG COMPILE</td><td rowspan="5" style="vertical-align:middle;">Self-heal: iteration khôi phục (tối đa 3) rồi park task, loop chạy tiếp. Task bị park được chạy lại với budget mới ở lần bật loop sau. Không có <code>--ship-anyway</code>; <code>--no-self-heal</code> thì sửa tay &amp; chạy lại, hoặc <code>demote NNN</code>.</td></tr>
           <tr><td class="tok">PREFLIGHT_BLOCKED</td><td>CỔNG REVIEW (rule tất định)</td></tr>
           <tr><td class="tok">REVIEW_BLOCKED</td><td>CỔNG REVIEW (LLM reviewer)</td></tr>
           <tr><td class="tok">VERIFY_BLOCKED</td><td>CỔNG VERIFY</td></tr>
           <tr><td class="tok">RUNTIME_BLOCKED</td><td>CỔNG SMOKE</td></tr>
+          <tr><td class="tok">push … failed</td><td>SHIP — push bị từ chối / lỗi (<code>manual intervention required</code>)</td><td>Loop <b>dừng</b> kể cả khi bật self-heal — nhánh lệch là việc của dev: pull/rebase tay, push, rồi chạy lại</td></tr>
         </tbody>
       </table>
     </div>
@@ -792,6 +800,7 @@ powershell -ExecutionPolicy Bypass -File .claude/scripts/run-backlog-loop.ps1 -M
 <span class="c"># Bookkeeping / debug</span>
 python3 .claude/scripts/backlog-ops.py lint          <span class="c"># check index ↔ thư mục</span>
 python3 .claude/scripts/backlog-preflight.py -Pretty <span class="c"># chạy preflight tay trên staged diff</span>
+python3 .claude/scripts/backlog-ops.py lock status  <span class="c"># ai đang giữ lease / claim task</span>
 python3 -m unittest discover -s .claude/scripts/tests <span class="c"># regression test trước khi sửa 2 script trên</span></pre>
 
     <p style="font-size:.84rem; color:var(--ink-soft);">
