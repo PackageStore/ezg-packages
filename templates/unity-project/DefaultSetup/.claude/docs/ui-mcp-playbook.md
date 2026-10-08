@@ -324,7 +324,8 @@ UI built blind via property writes is wrong more often than right. After each me
    wrong, report what is off instead of looping.
 
 This per-element loop is the fine-grained mechanic. At the coarser level, `new-ui-guide.md` §3 groups
-the whole build into **3 phase checkpoints (A skeleton / B elements / C wiring)** — each phase
+the whole build into **3 phase checkpoints (A skeleton / B elements / C wiring)**, followed for root
+screens by **Phase D, the designer pass** ([`ui-designer-pass.md`](ui-designer-pass.md)) — each phase
 ends by either showing the user (interactive) or spawning an independent
 [`ui-visual-reviewer`](.claude/agents/ui-visual-reviewer.md) subagent (autonomous `/run-backlog`
 runs). The reason: a self-graded "looks fine, moving on" after a 40-50-call build chain is the
@@ -336,14 +337,19 @@ pulled live from an existing similar prefab).
 **Spawning `ui-visual-reviewer` (autonomous mode):**
 ```
 Agent({
-  description: "UI visual checkpoint — Phase <A|B|C>",
+  description: "UI visual checkpoint — Phase <A|B|C|D>",
   subagent_type: "ui-visual-reviewer",
   prompt: `
     port: <unity instance port>
-    phase: "<A|B|C>"
+    phase: "<A|B|C|D>"
     targetPath: "<hierarchy path of the prefab instance root>"
     groundTruth: <reference image path/description, or the Step 0 numeric spec-sheet>
     Task intent: <FeatureName, Popup/Full-screen, Feature/Package branch>
+    # Phase D only (ui-designer-pass.md D6.5):
+    before: <Phase C captures: <captures>/before-<W>x<H>.png at every size below>
+    lockReport: <ui-layout-lock.py diff report path>
+    builderClaims: <design brief + artstyle_gate.md paths + `ui-layout-lock.py scope` output>
+    Aspects / states to capture: <1080x1920, 1080x2400, 1536x2048 · default, main CTA, …>
   `
 })
 ```

@@ -315,7 +315,7 @@ Every package needs a UI prefab, but **the build is not described here** — inv
 
 > `/new-ui [PackageName]`
 
-Because the name ends with `Pack`, `/new-ui` auto-routes to its **Package branch**, which is the single source of truth for the prefab build — base template `PackageTemplate.prefab`, Popup layout, `_purchase` / `_packIndex` / `_cooldownTime` wiring, `ClickBackgroundToExit`, `FeatureType`, and Variant verification. See [new-ui-guide.md](new-ui-guide.md) §0b, §1, §4 (Package branch) + §5, with tool-call recipes in [ui-mcp-playbook.md](ui-mcp-playbook.md) §4.
+Because the name ends with `Pack`, `/new-ui` auto-routes to its **Package branch**, which is the single source of truth for the prefab build — base template `PackageTemplate.prefab`, Popup layout, `_purchase` / `_packIndex` / `_cooldownTime` wiring, `ClickBackgroundToExit`, `FeatureType`, and Variant verification. See [new-ui-guide.md](new-ui-guide.md) §0b, §1, §4 (Package branch) + §5 (including the Phase D designer pass — [ui-designer-pass.md](ui-designer-pass.md)), with tool-call recipes in [ui-mcp-playbook.md](ui-mcp-playbook.md) §4.
 
 Only package-specific fact to carry across: the controller to bind is `[PackageName]Controller.cs` from §5.E above.
 

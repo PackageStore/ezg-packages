@@ -80,7 +80,7 @@ sub-folders. Service lives in `Controller/`; Model/Collection **and** EventName 
 - Data tables → add all rows; otherwise header + 1 example row.
 
 ## 7. UI PREFAB — if the feature needs a screen
-Delegate to `/new-ui [FeatureName]` (or the `create-ui` skill). It creates a prefab variant of `screen_template`, attaches the controller, and registers `GameEnums.Features`. Skip for pure data/service features.
+Delegate to `/new-ui [FeatureName]` (or the `create-ui` skill). It creates a prefab variant of `screen_template`, attaches the controller, and registers `GameEnums.Features` — and does not stop at Phase C: the **designer pass (Phase D)** lays art, FX and motion over the finished layout ([`ui-designer-pass.md`](../docs/ui-designer-pass.md)). Skip for pure data/service features.
 
 ## 8. COMPILE CHECK
 If any `.cs` file was created/edited, run `/compile-check` before reporting done (see `.claude/rules/compile-validation.md`).

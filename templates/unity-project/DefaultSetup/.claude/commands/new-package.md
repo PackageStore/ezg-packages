@@ -28,7 +28,7 @@ This workflow is a thin entry point — the executable detail lives in **[`.clau
 | 6 | Registration in `DataManager` + `PlayerDataManager` + IAP product |
 | 7 | CSV data file (`pack_id`, `duration`, `comeback_after`, price, rewards…) — read `.claude/skills/csv-config/SKILL.md` first |
 | 8–9 | Common usings · purchase type options (soft currency / ads / real IAP) |
-| 10 | UI prefab — delegate to `/new-ui`, variant of `PackageTemplate` |
+| 10 | UI prefab — delegate to `/new-ui`, variant of `PackageTemplate` (includes the Phase D designer pass — [`ui-designer-pass.md`](../docs/ui-designer-pass.md)) |
 | 10b | Cheat support (`Cheat_*` methods on the controller — see `.claude/skills/feature-cheat/SKILL.md`) |
 | 11 | Final checklist |
 

@@ -76,7 +76,9 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
      mọi chỗ gọi từ ngoài.
    - **CREATE** — chưa có: scaffold theo `/new-ui` (skill `create-ui`: variant từ
      `Popup_Template/screen_template`, đăng ký `GameEnums.Features` với số chưa dùng, không đánh số
-     lại) rồi chạy designer pass §2–§7 lên trên. Cần cả feature (data + logic) → scaffold theo
+     lại) rồi chạy designer pass §2–§7 lên trên. **Bỏ Phase D của create-ui**
+     (`.claude/docs/ui-designer-pass.md`): §2–§7 ở đây là bản đầy đủ hơn và được đổi layout, chạy cả
+     hai là làm hai lần. Cần cả feature (data + logic) → scaffold theo
      `/new-feature` trước, phần UI vẫn đi qua skill này.
 
 ## 2. Hiểu tính năng → design brief (trước khi đụng Unity)

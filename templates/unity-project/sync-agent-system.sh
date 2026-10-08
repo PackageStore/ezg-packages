@@ -190,6 +190,26 @@ KEEP_NOTE=(
 )
 
 # ---------------------------------------------------------------------------
+# TEMPLATE_AHEAD — template-only work living INSIDE files the COPY lists overwrite.
+#
+# "<path under .claude>|<marker>": when the template's copy carries the marker and upstream's does
+# not, copy_one keeps the template's file and says so — port the change upstream (or merge by hand)
+# before syncing that file. Without this, one sync silently deletes the wiring.
+# TEMPLATE_ONLY_TESTS survive the `scripts/tests` directory copy (it is replaced wholesale).
+# ---------------------------------------------------------------------------
+TEMPLATE_AHEAD=(
+  "docs/new-ui-guide.md|ui-designer-pass.md"          # Phase D designer pass (2026-10-09)
+  "docs/ui-mcp-playbook.md|ui-designer-pass.md"
+  "docs/new-package-guide.md|ui-designer-pass.md"
+  "agents/ui-visual-reviewer.md|Phase D (designer pass"
+  "skills/run-backlog|ui-designer-pass.md"
+  "backlog-templates|polish=off"
+)
+TEMPLATE_ONLY_TESTS=(
+  test_ui_layout_lock.py                              # tests scripts/ui-layout-lock.py (template-only)
+)
+
+# ---------------------------------------------------------------------------
 # NEVER — must not reach a template, called out so the intent is auditable.
 # ---------------------------------------------------------------------------
 # The template carries the same EZG-base API skills under different names.
@@ -232,15 +252,41 @@ copied=0
 # sync-to-agents.sh's header into "the .claude/ link views point back to
 # .claude/". Rewrite only what you just wrote.
 COPIED_PATHS=()
+template_ahead() {  # template_ahead <src-abs> <dst-abs> -> prints the marker when the template is ahead
+  local src="$1" dst="$2" rel entry path marker
+  rel="${dst#$DST/}"
+  for entry in "${TEMPLATE_AHEAD[@]}"; do
+    path="${entry%%|*}"; marker="${entry#*|}"
+    [ "$rel" = "$path" ] || continue
+    if grep -rqF -- "$marker" "$dst" 2>/dev/null && ! grep -rqF -- "$marker" "$src" 2>/dev/null; then
+      printf '%s' "$marker"
+      return 0
+    fi
+  done
+  return 1
+}
+
 copy_one() {  # copy_one <src-abs> <dst-abs>
-  local src="$1" dst="$2"
+  local src="$1" dst="$2" marker keep_dir t
   [ -e "$src" ] || { say "  MISSING upstream: ${src#$SRC/}"; return 1; }
+  if marker="$(template_ahead "$src" "$dst")"; then
+    say "  KEEP  ${dst#$DST/}  (template ahead of upstream: '$marker' — port it upstream or merge by hand)"
+    return 0
+  fi
+  if [ "${dst#$DST/}" = "scripts/tests" ] && [ -d "$dst" ]; then
+    keep_dir="$(mktemp -d)"
+    for t in "${TEMPLATE_ONLY_TESTS[@]}"; do [ -f "$dst/$t" ] && cp -p "$dst/$t" "$keep_dir/"; done
+  fi
   run mkdir -p "$(dirname "$dst")"
   if [ -d "$src" ]; then
     run rm -rf "$dst"
     run cp -R "$src" "$dst"
   else
     run cp -p "$src" "$dst"
+  fi
+  if [ -n "${keep_dir:-}" ]; then
+    for t in "$keep_dir"/*; do [ -e "$t" ] && run cp -p "$t" "$dst/" && say "  keep  scripts/tests/$(basename "$t")  (template-only test)"; done
+    rm -rf "$keep_dir"
   fi
   COPIED_PATHS+=("$dst")
   copied=$((copied + 1))

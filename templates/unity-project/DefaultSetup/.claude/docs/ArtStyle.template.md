@@ -19,7 +19,7 @@ Skill cần một chỗ chứa mới → thêm mục/slot TRỐNG vào khung nà
 ## 0. File này là gì
 
 Nguồn chuẩn **duy nhất** về visual của game: palette, kit UI, bố cục, chữ, icon/hero art, motion, các
-hướng đã bị loại. Mọi skill/agent ra quyết định hình ảnh (`refactor-ui`, `create-ui` / `/new-ui`,
+hướng đã bị loại. Mọi skill/agent ra quyết định hình ảnh (`refactor-ui`, `create-ui` / `/new-ui` (kể cả designer pass — Phase D),
 `/ui-mockup` + `mockup-drafter`, `ui-visual-reviewer`, `gen-icon`, `merge-psd-ui`, `psd-to-feature`,
 `figma-to-unity`, `create-vfx`, `game-vfx`, `create-sfx`…) đọc file này **trước** khi quyết định — không suy style từ tên game hay tên file.
 

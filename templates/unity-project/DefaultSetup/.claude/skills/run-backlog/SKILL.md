@@ -547,6 +547,8 @@ If STEP 1 found a `**Backed by workflow:**` line, the scaffold is specified dete
 
 The workflow's own CHECKLIST is part of the acceptance criteria — make sure every item is satisfied before staging. Quality gates (STEP 6/7) still run in full per `$TASK_TIER`.
 
+**`/new-ui` (and the `/new-package` / `/new-feature` UI step) does not end at Phase C.** Root screens get the **designer pass — Phase D** ([`.claude/docs/ui-designer-pass.md`](../../docs/ui-designer-pass.md)): art, FX and motion laid over the frozen layout, `ui-layout-lock.py diff` + `ui-visual-reviewer` phase D. Its skips (` | polish=off` in `$WF_ARGS`, dev-only screens) and its revert-to-Phase-C fallback are defined there — Phase D never ends the run with a block. That doc or `.claude/scripts/ui-layout-lock.py` missing, or `ui-layout-lock.py begin` answering `skip` → skip it as `designer-pass: skipped (not installed: <file>)` and list the missing item in STEP 10, like a missing commit-style dependency. Its session (backups, lock snapshots) lives in `.claude/tmp/ui-designer/<screen>-<hash>/`; call `ui-layout-lock.py begin --prefab <prefab> --task <NNN>` with this task's number, so a resumed/recovery iteration picks the same session up again (`begin` answers `resume` / `already-done` / `already-reverted` — never retake the lock-before snapshot, never run Phase D twice) while a later task on the same screen starts fresh. A STEP 5b / preflight / 6 / 7 / 7.5 block caused only by Phase D output that the gate's fix rounds cannot clear → revert Phase D and re-run that gate instead of emitting the block token (the **Phase D exception** line at each gate). Record its outcome line (`designer-pass: done|skipped|reverted …`) in the DONE summary, and its outputs (art + `.meta`, motion code, `ArtStyle.md`, the pending screen PNG, `<S>.ui-layout-lock.json`) in the STEP 9b file list.
+
 If `$WF_CMD = none`, skip this section and implement free-form below.
 
 ---
@@ -608,6 +610,7 @@ For any tier that runs and finds errors, enter the fix loop before trying the ne
 4. If errors remain after 2 rounds → output exactly:
    `COMPILE_BLOCKED — Unity compilation errors remain after 2 fix rounds. Manual intervention required. Run /run-backlog again after fixing, or run python3 .claude/scripts/backlog-ops.py demote <NNN> to abandon (returns the task to the head of TODO).`
    DO NOT proceed. Stop.
+   **Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 
 ---
 
@@ -716,6 +719,7 @@ Decision:
   - Print a clear report containing all remaining definite critical findings.
   - Output exactly: `PREFLIGHT_BLOCKED — deterministic critical findings require manual intervention before LLM review.`
   - DO NOT commit. DO NOT proceed. Stop.
+  - **Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 - Findings with `confidence=contextual` DO NOT automatically block reviewers. Paste the raw preflight JSON into the reviewer prompt to let the reviewer/qa-verifier decide based on context.
 
 The final `--stage` snapshot of the fix loop already re-captured the diff, so there is nothing to re-capture here — carry its `files[]` / `diff_path` forward into §6c.
@@ -920,6 +924,7 @@ Once all reviewers return, parse the JSON.
     - Current `git status` and staged diff size
   - Output exactly: `REVIEW_BLOCKED — manual intervention required. Run /run-backlog again after fixing, or run python3 .claude/scripts/backlog-ops.py demote <NNN> to abandon (returns the task to the head of TODO).`
   - DO NOT commit. DO NOT proceed. Stop.
+  - **Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 
 ---
 
@@ -974,6 +979,7 @@ Prompt body:
   - After Round 2 if still `fail`: print a clear report and exit with:
     `VERIFY_BLOCKED — manual intervention required. Run /run-backlog again after fixing, or run python3 .claude/scripts/backlog-ops.py demote <NNN> to abandon (returns the task to the head of TODO).`
   - DO NOT commit.
+  - **Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 
 ### 7c. Capture manual verify steps
 
@@ -990,6 +996,8 @@ py .claude/scripts/backlog-snapshot.py --stage --label final --pretty
 - Exit `0` (`summary.has_blocking_definite = false`) → proceed to STEP 7.5 (runtime smoke).
 - Exit `3` (`summary.has_blocking_definite = true`) → fix definite critical findings, re-run the same command (`--stage` re-stages for you), and re-run qa-verifier if the fix might affect completion criteria. If it cannot be resolved cleanly after 2 rounds, stop with:
   `PREFLIGHT_BLOCKED — deterministic critical findings require manual intervention before DONE.`
+
+**Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 
 ---
 
@@ -1042,6 +1050,7 @@ A **modal dialog blocks Unity's main thread**, and the MCP bridge needs that thr
 **On FAIL — auto-fix loop (max 2 rounds, same shape as STEP 6/7):** read the console evidence, exit play mode, fix the code, `git add -A`, re-run preflight if `.cs` changed, then re-run this gate from step 1. **"FAIL" means the console showed an exception/error from the diff — not a stall** (a stall routes to mid-gate stall recovery above). After Round 2 still failing → print the console evidence (error text + stack head) and output exactly:
 `RUNTIME_BLOCKED — runtime smoke failed after 2 fix rounds. Manual intervention required. Run /run-backlog again after fixing, or run python3 .claude/scripts/backlog-ops.py demote <NNN> to abandon (returns the task to the head of TODO).`
 DO NOT commit. Stop.
+**Phase D exception:** when everything still failing comes only from the designer pass's own output (its motion / idle-FX code, overlay nodes, art — not Phase C or the task's logic), do not emit the token yet: `python3 .claude/scripts/ui-layout-lock.py revert --prefab <screen prefab>`, refresh Unity, regenerate the §5 evidence on the Phase C screen, re-run this gate, and record `designer-pass: reverted (<gate>: <reason>)` ([ui-designer-pass.md](../../docs/ui-designer-pass.md) D6–D7). The revert refuses when Phase D's files were edited after it finished (`--discard-later-edits` only if every such edit was itself a Phase D fix attempt); refused (or the revert exits 2: stale / no session) → the token stands.
 
 ---
 

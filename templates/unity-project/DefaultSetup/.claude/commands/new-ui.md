@@ -8,7 +8,7 @@ When the user runs `/new-ui [FeatureName]` (or requests a new UI prefab):
 
 This workflow is a thin entry point — the executable detail lives in the **`create-ui` skill** (`.claude/skills/create-ui/SKILL.md` + its `references/prefab-templates.md` and `references/mcp-playbook.md`). Invoke that skill and follow its playbook. Do NOT improvise Unity MCP commands the playbook already covers.
 
-**STEP 0 — ground truth:** args may carry ` | groundTruth=<value>` after the FeatureName (mockup pipeline — `.claude/commands/ui-mockup.md`). An approved `TechSpec/Mockups/<F>/<S>.png` (+ sibling `.ui-spec.json`) is the frozen visual contract the build must match — read it first and follow the create-ui skill's "Ground truth" section (including `ui-visual-reviewer` phase checkpoints). `clone:<Prefab>` → copy that prefab's layout. `PENDING-*` → STOP: the mockup is not approved; run `/ui-mockup` first.
+**STEP 0 — ground truth:** args may carry ` | groundTruth=<value>` after the FeatureName (mockup pipeline — `.claude/commands/ui-mockup.md`). An approved `TechSpec/Mockups/<F>/<S>.png` (+ sibling `.ui-spec.json`) is the frozen visual contract the build must match — read it first and follow the create-ui skill's "Ground truth" section (including `ui-visual-reviewer` phase checkpoints). `clone:<Prefab>` → copy that prefab's layout. `PENDING-*` → STOP: the mockup is not approved; run `/ui-mockup` first. An optional trailing ` | polish=off` skips the designer pass (Phase D, step 6b below) — for dev-only or throwaway screens; default is on.
 
 ## Summary of what `create-ui` does
 
@@ -21,6 +21,7 @@ This workflow is a thin entry point — the executable detail lives in the **`cr
 4. **Register the screen**: add a `GameEnums.Features` entry; prefab name `screen_<snake_case>` must match the enum via `ToSnakeCase` so `UIManager.Instance.Show()` can load it from any `Resources/`.
 5. **Screenshot + self-correct** (`unity_screenshot_game`) after each meaningful chunk — never declare UI done without looking at it.
 6. **Wire serialized references** (close buttons, `MainUI`, tab toggles); review `FeatureType`, `ClickBackgroundToExit`, `_closeButtons`, `_backgroundAlpha`, time-scale flags.
-7. If any `.cs` file was created/edited (the controller), run `/compile-check`.
+6b. **Designer pass (Phase D)** — root screens, once Phase C (wiring) is accepted: lay art, FX and motion **over** the frozen layout (never move it), prove it with `ui-layout-lock.py` (`diff` + `scope`), get `ui-visual-reviewer` phase D `pass` (interactive: the dev's OK) — or `revert` to Phase C and record why. Procedure + skips: [`.claude/docs/ui-designer-pass.md`](../docs/ui-designer-pass.md).
+7. If any `.cs` file was created/edited (the controller, Phase D motion code), run `/compile-check`.
 
 > Use `UIManager.Instance.Show(GameEnums.Features.[FeatureName], data).Forget()` to open the screen. Never `gameObject.SetActive` on a feature screen.

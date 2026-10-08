@@ -26,7 +26,9 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
        `FeatureName | groundTruth=PENDING-APPROVAL:<...>.html`    draft exists, human not yet approved
        `FeatureName | groundTruth=PENDING-MOCKUP`                 no draft yet (drafter failed/skipped)
        `FeatureName | groundTruth=clone:<ExistingPrefab>`         clones an existing layout, no mockup
-     backlog-ops promote warns (mockup_warnings) while the value is still PENDING-*. -->
+     backlog-ops promote warns (mockup_warnings) while the value is still PENDING-*.
+     Optional trailing ` | polish=off` skips the designer pass (Phase D — .claude/docs/ui-designer-pass.md)
+     for a dev-only / throwaway screen; leave it out for anything a player sees (default = on). -->
 
 **Context docs:** `TechSpec/<Name>-Implementation.md`, `TechSpec/<Name>-TechSpec.md`
 <!-- OPTIONAL — design docs holding the concrete values (Manager Type, CSV columns, economy numbers,

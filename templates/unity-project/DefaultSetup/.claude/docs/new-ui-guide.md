@@ -138,20 +138,21 @@ No built-in cooldown view — if the controller has `_cooldownTime`, instantiate
 
 ## 3. Assemble the UI — 3 checkpoint phases
 
-Use the five-move MCP loop + property cheatsheet in playbook §1–§3. Split the build into 3 phases; each ends in a **checkpoint** you do not skip past. This is what actually catches drift — writing "verify" in prose does not, once the tool-call chain runs 40–50 calls deep for a full screen.
+Use the five-move MCP loop + property cheatsheet in playbook §1–§3. Split the build into 3 phases; each ends in a **checkpoint** you do not skip past. Root screens then get a fourth, **Phase D — designer pass**, after the Phase C gate (§5 step 3b). This is what actually catches drift — writing "verify" in prose does not, once the tool-call chain runs 40–50 calls deep for a full screen.
 
 | Phase | Scope |
 |-------|--------|
 | **A — skeleton** | §3a only (layout mode + empty content containers). No buttons/text/images yet. |
 | **B — elements** | §3b–§3e — every button/text/image/list from the catalog, positioned from the §0c spec-sheet numbers (layout-group-first, §3e). |
 | **C — wiring** | Step 4 (script binding + reference wiring) + Step 5 save. Checkpoint after Step 4 / final gate in §5. |
+| **D — designer pass** | Root screens only, after the Phase C `pass`: art, FX and motion laid **over** the frozen Phase C layout — never moving it — proven by `ui-layout-lock.py`. Procedure, skips (`polish=off`, dev-only screens…) and the revert fallback: [`ui-designer-pass.md`](ui-designer-pass.md). Runs inside §5 (step 3b), before the evidence report. |
 
 ### Checkpoint mode
 
 | Mode | After each phase |
 |------|------------------|
 | **Interactive** (user in session) | Screenshot (`unity_screenshot_game`), show it, ask "matches what you want — continue?" — do **not** self-decide "looks fine" and continue unprompted. |
-| **Autonomous** (`/run-backlog`) | Spawn [`ui-visual-reviewer`](../agents/ui-visual-reviewer.md) (fresh context — it takes its own screenshot) with `phase`, `targetPath`, and Step 0 `groundTruth`. `block` → fix findings, re-stage, re-spawn — max **2 rounds** per phase. Independent check, not builder self-grading. |
+| **Autonomous** (`/run-backlog`) | Spawn [`ui-visual-reviewer`](../agents/ui-visual-reviewer.md) (fresh context — it takes its own screenshot) with `phase`, `targetPath`, and Step 0 `groundTruth`. `block` → fix findings, re-stage, re-spawn — max **2 rounds** per phase. Independent check, not builder self-grading. Phase D adds `before`, `lockReport` and the aspect/state list ([`ui-designer-pass.md`](ui-designer-pass.md) D6) and, unlike A–C, ends in a revert to Phase C instead of a block when it cannot pass. |
 
 ### 3a. Layout mode
 
@@ -321,8 +322,9 @@ Chi tiết đầy đủ (guid, size, code pattern, recipe `unity_execute_code` �
 1. Save the prefab. Screenshot-verify (`unity_screenshot_game`, or `unity_play_mode` for true open-animation state) — playbook §5. Don't rely on hierarchy inspection alone.
 2. Run playbook §8 runnable checks (`unity_gameobject_info`, `unity_component_get_properties`, `unity_search_missing_references`); if any `.cs` changed, recompile and read errors before done.
 3. **Phase C checkpoint** — same "Checkpoint mode" as Phases A/B: show user and wait (interactive), or spawn `ui-visual-reviewer` with `phase: "C"` and get `pass` (autonomous). Do not mark complete on your own say-so.
+3b. **Designer pass (Phase D)** — root screens: follow [`ui-designer-pass.md`](ui-designer-pass.md) end to end (backup + layout lock → brief → art → overlay + motion → lock diff, captures, ArtStyle gate, `ui-visual-reviewer` `phase: "D"` → record). Skipped or reverted → say which and why in the report/DONE summary; the build continues with Phase C either way. Phase D starts with `python3 .claude/scripts/ui-layout-lock.py begin --prefab <prefab>`, which also reports pieces this project lacks (partial Feature Hub update); that script or `.claude/docs/ui-designer-pass.md` missing, or `begin` answering `skip` → skip Phase D and record `designer-pass: skipped (not installed: <file>)` — install the missing items (Docs/ui-designer-pass, Scripts/ui-layout-lock.py, Agents/ui-visual-reviewer) from the Hub.
 4. Reopen the prefab — hierarchy, references, and bindings must survive; no missing-script or missing-reference warnings on instantiate.
-5. **v1 only — evidence report:** save the final clean 1080×1920 screenshot as sibling `<Screen>.unity.png`, then create and validate `<Screen>.ui-build-report.json`:
+5. **v1 only — evidence report:** save the final clean 1080×1920 screenshot — after Phase D when it ran — as sibling `<Screen>.unity.png`, then create and validate `<Screen>.ui-build-report.json` (`--visual` = the last reviewer verdict: phase D when it ran, else phase C). When Phase D ran, keep its `<Screen>.ui-layout-lock.json` (D6.1) beside the report:
 
 ```bash
 python3 .claude/scripts/ui-visual-diff.py \
@@ -358,5 +360,6 @@ Legacy tasks without `specVersion: 1` do not require this report.
 | **Layout groups** | Every row/column/grid of ≥2 siblings is driven by a layout group with spec-sheet spacing/padding (§3e) — no hand-spaced sibling chains. |
 | **ArtStyle** | Every row of the `ArtStyle.md` §11 checklist passes with evidence (palette tokens, kit, locked family §4b, type table, state language §4c, rejected directions §9, family match against §8 approved images) (§0a). An approved mockup / artist PSD that disagrees wins — record it at §0d. |
 | **Pinned view** | Every checkpoint screenshot was taken at the pinned 1080×1920 Game view (playbook §0). |
+| **Designer pass** | Root screen: Phase D ran — `ui-layout-lock.py diff` and `scope` `ok: true` after the last fix round and `ui-visual-reviewer` phase D `pass` (interactive: the dev's OK) — or the report/DONE summary states `designer-pass: skipped (<reason from ui-designer-pass.md D0>)` / `reverted (<reason>)`. Nothing Phase C built moved, resized, re-texted or re-tinted. |
 | **v1 evidence** | `.ui-build-report.json` validates against current spec/kit hashes and `.ui-visual-diff.json`; `.unity.png` is clean 1080×1920; structural, visual, localization all `pass`; missing references = 0. |
 | **Package branch** | Prefab is still a **Variant** of `PackageTemplate.prefab` (Variant Parent populated); `Popup/content/PurchaseTemplate/PurchaseTemplateController` wired into `_purchase` (not stale/null); IAP product id resolves against `pack_id` in `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv` (not the legacy `Assets/Csv/Collection/Packages/…`). |

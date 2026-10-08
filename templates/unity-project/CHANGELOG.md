@@ -7,6 +7,28 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 ## 2026-10-09
 
 **Added**
+- **Designer pass — Phase D của `/new-ui`** (`.claude/docs/ui-designer-pass.md`): sau khi Phase C qua reviewer, mọi
+  màn root (dù tới từ `/new-ui`, `/run-backlog` STEP 5.0, `/new-feature` §7 hay nhánh UI của `/new-package`) được
+  phủ art, FX và motion **lên đúng layout đã đóng băng** — thêm node `fx_` (không chiếm layout, không ăn touch), lấp
+  ô art tĩnh còn trống, đủ 4 lớp motion (vào / idle trên focal / feedback / ra) theo task hoặc ArtStyle §7. Không
+  được dời, đổi cỡ, đổi cha, đổi thứ tự, đổi chữ/màu/sprite của node có sẵn. Bỏ qua khi `| polish=off`, màn
+  dev-only, block con, chạy trong `/refactor-ui`, hoặc project chưa cài đủ file; không qua được sau 2 vòng thì
+  **revert về Phase C** và ghi lý do — Phase D không bao giờ làm build bị block. Màn xong vào ArtStyle §8 "Chờ duyệt".
+- `scripts/ui-layout-lock.py`: `begin` (mở/tiếp tục session Phase D ở `.claude/tmp/ui-designer/<màn>/` — backup prefab,
+  controller, Visuals, ArtStyle + git baseline; báo `skip` khi project thiếu mảnh), `snippet` (C# chỉ-đọc chạy qua
+  `unity_execute_code`: chụp mọi node + mọi serialized property + rect hiển thị thật ở 1080×1920 / 1080×2400 /
+  1536×2048 trong preview scene), `diff` (luật overlay-only: không dời/đổi cỡ/đổi pivot/đổi thứ tự/đổi chữ/tint node có
+  sẵn; overlay không treo dưới root, node layout của template, ScrollRect hay layout group; lấp art chỉ ô trống đang
+  hiện, không phải nút/mask), `scope` (chặn sửa sprite/material/font/template/prefab khác), `revert` (trả đúng Phase C,
+  kiểm byte prefab, chạy đúng cả khi backlog đã `git add -A`; sau `finish` chỉ chạm file của Phase D và từ chối nếu
+  chúng bị sửa tiếp), `finish`. Session đi theo HEAD qua các commit không chạm màn đó; commit chạm file của màn làm
+  session `stale` (không check/revert nữa) — task sau không bao giờ revert nhầm trạng thái của task trước; session cũ
+  được lưu trữ, không xoá; `finish`/`revert` gọi lần hai không làm gì thêm; `--task <NNN>` tách session theo task để Phase D không bao giờ
+  chạy hai lần trên một màn trong cùng task. `tests/test_ui_layout_lock.py` (83 test, gồm test session trên git repo tạm). Đã chạy
+  thật trên Unity 6000.3 với `screen_settings` + `screen_shop`: chụp lặp lại cho kết quả giống hệt, load/save không
+  đổi gì thì pass, 12 kiểu đột biến đều bị bắt đúng luật.
+- `ui-visual-reviewer` có `phase: "D"`: lock report phải `ok`, layout so với ảnh Phase C không xê dịch, art/FX chấm
+  theo ArtStyle §11 (fill phẳng của wireframe không phải art direction), motion đọc code.
 - Backlog loop **self-heal** (`run-backlog-loop.sh` + `run-backlog-loop-core.ps1`, mặc định bật): iteration kết thúc
   mà task chưa xong (block token, `manual intervention required`, crash, watchdog kill, silent end) không còn dừng
   loop — iteration sau chạy **recovery mode** trên đúng task đó (brief lỗi `logs/backlog-loop/recovery-*.md`, model
@@ -25,6 +47,14 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 - Test: `tests/test_backlog_concurrency.py`, `tests/test_backlog_park.py`.
 
 **Changed**
+- `run-backlog`: dòng **Phase D exception** ở STEP 5b / preflight / 6 / 7 / 7.5 — lỗi chỉ do output của Phase D thì
+  revert Phase D rồi chạy lại cổng đó thay vì dừng bằng block token.
+- `sync-agent-system.sh`: `TEMPLATE_AHEAD` + `TEMPLATE_ONLY_TESTS` — sync từ upstream không còn âm thầm xoá phần
+  template đang đi trước (Phase D) và test chỉ có ở template.
+- `create-ui` SKILL, `new-ui-guide` (§3 bảng phase, §5 bước 3b, hard checklist "Designer pass"), `commands/new-ui`
+  (bước 6b, cờ `polish=off`), `new-feature` §7, `new-package` + `new-package-guide`, `ui-mcp-playbook` (template spawn
+  reviewer phase D), `run-backlog` STEP 5.0, `_TEMPLATE_WF.md`, `refactor-ui` (CREATE bỏ Phase D vì đã có designer
+  pass riêng), `ArtStyle.template.md`, `CLAUDE.md`: nối Phase D vào mọi đường dựng UI.
 - Ship fence **không dùng trailer**: commit STEP 9 giữ đúng style push-in-session (không `Co-Authored-By`, không
   trailer); STEP 9e ghi tree đã stage (`checkpoint <NNN> --step commit --tree "$(git write-tree)"`) ngay trước
   `git commit`, nên run chết giữa commit và `shipped` vẫn được nhận ra là đã commit (theo nội dung) — không commit lần
