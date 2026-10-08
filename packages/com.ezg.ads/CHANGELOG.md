@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-10-08
+
+### Fixed
+- **Interstitial placement never reached MAX.** `ShowInterstitial(..., source)` stored the placement for internal tracking but called `MaxSdk.ShowInterstitial(id)` without it, so MAX revenue reports and `AdInfo.Placement` were empty for every interstitial — and any tracker forwarding `AdRevenueInfo.Placement` (e.g. AppsFlyer ad revenue) sent a blank placement too. It is now passed as `MaxSdk.ShowInterstitial(id, source)`, matching rewarded.
+- **Revenue `Source` leaked across formats.** Rewarded and interstitial shared one placement field, and banner revenue read it as well, so banner impressions were attributed to whichever fullscreen placement ran last. Each format now carries its own placement; banner revenue reports `Source = null` (banners take no placement), the same value it already had before the first fullscreen ad of a session.
+
 ## [0.3.0] - 2026-09-10
 
 ### Fixed

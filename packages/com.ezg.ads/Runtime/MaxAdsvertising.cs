@@ -34,7 +34,12 @@ namespace Ezg.Package.AdsManager
 
         private Action closeInter;
         private Action failInter;
-        private string _adPlacement;
+
+        /// <summary>
+        /// Placement của lượt interstitial gần nhất. Tách riêng khỏi rewarded vì revenue callback của
+        /// format này không được mượn placement của format kia (trước 0.3.1 dùng chung một field).
+        /// </summary>
+        private string _interstitialPlacement;
 
         private string sourceRewardAds;
 
@@ -277,7 +282,6 @@ namespace Ezg.Package.AdsManager
             finishVideo = onFinish;
             closeVideo = onClose;
             failVideo = onFail;
-            _adPlacement = source;
             IsShowReward = true;
 
     #if MEDIATION_MAX
@@ -368,13 +372,15 @@ namespace Ezg.Package.AdsManager
     #else
             closeInter = onClose;
             failInter = onFail;
-            _adPlacement = source;
+            _interstitialPlacement = source;
     #endif
 
             if (IsInterstitialReady())
             {
     #if MEDIATION_MAX
-                MaxSdk.ShowInterstitial(MediationConstant.Max.InterstitialStringId);
+                // Truyền placement cho MAX giống rewarded — thiếu nó thì báo cáo doanh thu của MAX và
+                // adInfo.Placement (AppsFlyer ad revenue) để trống placement cho mọi interstitial.
+                MaxSdk.ShowInterstitial(MediationConstant.Max.InterstitialStringId, source);
     #endif
             }
             else
@@ -532,8 +538,11 @@ namespace Ezg.Package.AdsManager
         /// <param name="adUnitId">Ad unit ID.</param>
         /// <param name="adInfo">Thông tin impression từ MAX SDK.</param>
         /// <param name="format">Format quảng cáo.</param>
+        /// <param name="source">Placement game đã truyền khi show CHÍNH format này; null nếu format không
+        /// nhận placement (banner) — không mượn placement của lượt fullscreen gần nhất.</param>
         /// <returns>Struct <see cref="AdRevenueInfo"/> đã được điền đầy đủ dữ liệu.</returns>
-        private AdRevenueInfo BuildRevenueInfo(string adUnitId, MaxSdkBase.AdInfo adInfo, AdFormat format)
+        private AdRevenueInfo BuildRevenueInfo(string adUnitId, MaxSdkBase.AdInfo adInfo, AdFormat format,
+            string source)
         {
             return new AdRevenueInfo
             {
@@ -544,7 +553,7 @@ namespace Ezg.Package.AdsManager
                 AdUnitIdentifier = adInfo.AdUnitIdentifier,
                 AdFormatLabel = adInfo.AdFormat,
                 Placement = adInfo.Placement,
-                Source = _adPlacement,
+                Source = source,
                 CountryCode = MaxSdk.GetSdkConfiguration().CountryCode,
                 Revenue = adInfo.Revenue,
                 Currency = "USD",
@@ -559,14 +568,15 @@ namespace Ezg.Package.AdsManager
         private void OnAdRevenuePaidEventInterstitial(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
     #if MEDIATION_MAX
-            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, adInfo, AdFormat.Interstitial));
+            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, adInfo, AdFormat.Interstitial,
+                _interstitialPlacement));
     #endif
         }
 
         private void OnAdRevenuePaidEventBanner(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
     #if MEDIATION_MAX
-            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, adInfo, AdFormat.Banner));
+            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, adInfo, AdFormat.Banner, null));
     #endif
         }
 
@@ -628,7 +638,8 @@ namespace Ezg.Package.AdsManager
         private void OnRewardedAdRevenuePaidEvent(string adUnitId, MaxSdkBase.AdInfo impressionData)
         {
             // Ad revenue paid. Use this callback to track user revenue.
-            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, impressionData, AdFormat.Rewarded));
+            _tracker.OnAdRevenuePaid(BuildRevenueInfo(adUnitId, impressionData, AdFormat.Rewarded,
+                sourceRewardAds));
         }
 
         // ------------------------------------------- Interstitial ADS ----------------------------------------------------
