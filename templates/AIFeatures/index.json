@@ -36,13 +36,13 @@
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 46
+      "count": 49
     },
     {
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 50
+      "count": 52
     },
     {
       "id": "Templates",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "6e8980345b60fe01044c8349dbccc59d8b79317cdfb81ca4521d3e4702c847ac",
-      "size": 11992
+      "sha256": "47a6927a088633bab1be4e93132480d5427d0abc36d3903307b2ded35a4682d0",
+      "size": 12165
     },
     {
       "id": "Config/project-profile.json",
@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "702d2f972fab83664492c3c42ceb9d95111de4c539fee8e326266ab11e73e0c1",
-      "size": 1796
+      "sha256": "0ae82d4674e7c00b2383f9f967db0e55047ef4359c7c66142c17c171ffe67958",
+      "size": 2377
     },
     {
       "id": "Config/settings.json",
@@ -1344,6 +1344,60 @@
       "size": 3469
     },
     {
+      "id": "Scripts/bughub-wait.ps1",
+      "name": "bughub-wait.ps1",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/bughub-wait.ps1",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/bughub-wait.ps1"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bughub-wait.ps1.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.ps1.zip",
+      "sha256": "4e1d3252c3416964071bfc0046f3d4cf69db2e009a3ed1c1a199bebe13c3d1b2",
+      "size": 2561
+    },
+    {
+      "id": "Scripts/bughub-wait.sh",
+      "name": "bughub-wait.sh",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/bughub-wait.sh",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/bughub-wait.sh"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bughub-wait.sh.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip",
+      "sha256": "9ebad66a71efa77b748fe4c7dc8783e2c16f565a937f92bc4ab66ca70681e5a0",
+      "size": 2391
+    },
+    {
+      "id": "Scripts/bughub-watch.py",
+      "name": "bughub-watch.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/bughub-watch.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/bughub-watch.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bughub-watch.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
+      "sha256": "a2b40de1c2ee5cafe033de2530548c90c077c026e9eff25dd6df67c05a2ab5e9",
+      "size": 6337
+    },
+    {
       "id": "Scripts/codegraph-doctor.sh",
       "name": "codegraph-doctor.sh",
       "category": "Scripts",
@@ -1556,8 +1610,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "befded4510062f8ebfa5cc8e0d12a9bd9cfc47844542ce25596f9029bcb98f8b",
-      "size": 4295
+      "sha256": "0ae732e481def628e30ff471559b0637418009adb36c8164eff11c4bacaf5712",
+      "size": 4880
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1839,18 +1893,19 @@
       "files": [
         ".claude/scripts/tests/test_backlog_ops.py",
         ".claude/scripts/tests/test_backlog_preflight.py",
+        ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
         ".claude/scripts/tests/test_ui_kit_sync.py",
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 6,
+      "fileCount": 7,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "351bc77d43f036d3c8b973a95276aea9e4d5a108e0561fde4fa39e6efbdc7c7b",
-      "size": 23922
+      "sha256": "b87d7d57fe0bd5e9dd8e8010ff0209b4e1f305850c4922b7121f448e50a5935a",
+      "size": 26720
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2171,6 +2226,24 @@
       "size": 119348
     },
     {
+      "id": "Skills/bughub-setup",
+      "name": "bughub-setup",
+      "category": "Skills",
+      "description": "Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert`, (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"cài bug logger cho project\", \"đăng ký project lên BugHub\", \"gắn project vào BugHub\". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.",
+      "installPath": ".claude/skills/bughub-setup",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/bughub-setup/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "bughub-setup.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
+      "sha256": "f891b0635024cdcfd144e25be1ac199e8ec35e98087e5be0d39ab0553fde9031",
+      "size": 9802
+    },
+    {
       "id": "Skills/compile-check",
       "name": "compile-check",
       "category": "Skills",
@@ -2185,8 +2258,8 @@
       "source": "defaultsetup",
       "fileName": "compile-check.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/compile-check.zip",
-      "sha256": "2278c3420fc5db0fee097964c2875bc57274638c95f55ae15f158e8ebd8a5e1d",
-      "size": 1488
+      "sha256": "17bd7d3ad3644e668a33dbab5b9ae86d45e60c6fc1a10e6b0d7c2a73910188c7",
+      "size": 1618
     },
     {
       "id": "Skills/core-systems",
@@ -2524,6 +2597,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip",
       "sha256": "1f23e6f5c8649e66cbc0d96e80c7818e001f23080f6b31c828f267cb108ea869",
       "size": 35048
+    },
+    {
+      "id": "Skills/fix-bug",
+      "name": "fix-bug",
+      "category": "Skills",
+      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Nhận bug, tìm nguyên nhân, sửa, /compile-check, /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge nhánh chính vào nhánh bot → sửa → push nhánh bot → clear → chờ tiếp, trong cửa sổ riêng mở bằng `python3 .claude/scripts/bughub-watch.py start` (nhánh/worktree theo `bugHub.watch` trong project-profile.json). Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "installPath": ".claude/skills/fix-bug",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/fix-bug/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "fix-bug.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
+      "sha256": "117e22cd6a3e155f756d24a276e920f5615fc5a732977047aa1648c890cabb5d",
+      "size": 10611
     },
     {
       "id": "Skills/game-animation",
