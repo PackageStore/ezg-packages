@@ -398,6 +398,10 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
 # --------------------------------------------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
+    # Windows: stdio bị pipe (Bash tool, subprocess) mặc định là cp1252 strict → in tiếng Việt là crash, mất JSON.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     command = argv[0] if argv and not argv[0].startswith("-") else "start"
     rest = argv[1:] if argv and not argv[0].startswith("-") else argv
     cwd = Path.cwd()

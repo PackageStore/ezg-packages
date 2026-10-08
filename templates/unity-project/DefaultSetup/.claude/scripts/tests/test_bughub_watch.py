@@ -63,7 +63,7 @@ class WatchTestCase(unittest.TestCase):
     def run_watch(self, cwd, *args):
         env = dict(os.environ, PATH=os.environ["PATH"])
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), *args],
-                              cwd=cwd, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
+                              cwd=cwd, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
         lines = [line for line in proc.stdout.splitlines() if line.strip()]
         return proc.returncode, json.loads(lines[-1]) if lines else {}
 
@@ -194,7 +194,7 @@ class WorktreeTests(WatchTestCase):
         env = dict(os.environ, PATH=f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"),
                                "start", "--", "--permission-mode", "bypassPermissions"],
-                              cwd=self.dev, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
+                              cwd=self.dev, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
         last = json.loads(proc.stdout.splitlines()[-1])
         self.assertEqual(Path(last["cwd"]).resolve(), (self.tmp / "dev-AutoFixBug").resolve())
         self.assertEqual(last["args"], "--permission-mode bypassPermissions /fix-bug --watch")
