@@ -1394,8 +1394,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "a2b40de1c2ee5cafe033de2530548c90c077c026e9eff25dd6df67c05a2ab5e9",
-      "size": 6337
+      "sha256": "b64f0deda908ba331a2e259b6c0a0eba63254c17d010c1f99b66a9aed0bfbeee",
+      "size": 6454
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1904,8 +1904,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "b87d7d57fe0bd5e9dd8e8010ff0209b4e1f305850c4922b7121f448e50a5935a",
-      "size": 26720
+      "sha256": "3e2204cf88c8ee11115535abef6fb4212714a3b6e62a64dfe2f39bec6a32fd81",
+      "size": 26733
     },
     {
       "id": "Scripts/ui_spec_common.py",
