@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "0ae82d4674e7c00b2383f9f967db0e55047ef4359c7c66142c17c171ffe67958",
-      "size": 2377
+      "sha256": "d22c580af5a8b1a8bef853e6a47d0628f6f5758f30804de593352d05a207c2d3",
+      "size": 2516
     },
     {
       "id": "Config/settings.json",
@@ -1250,8 +1250,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-preflight.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip",
-      "sha256": "532d5a34b21258ec3a57664c4f19422975a384ffc72b1147621e5ac811a6516f",
-      "size": 8152
+      "sha256": "adf59bd925eaa3b907e6f182496471f2d4d6949216d7296f28cff74bcdb404bf",
+      "size": 8310
     },
     {
       "id": "Scripts/backlog-preflight.py",
@@ -1268,8 +1268,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-preflight.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip",
-      "sha256": "f787ff0896d98df54d7e437f56f9508d5b86af498edb2899fae198e518d43d4b",
-      "size": 8612
+      "sha256": "e546b43af4b05269593dd2b4f886615708d0bbaef5e3b060033a7351a263a01e",
+      "size": 8906
     },
     {
       "id": "Scripts/backlog-snapshot.py",
@@ -1610,8 +1610,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "0ae732e481def628e30ff471559b0637418009adb36c8164eff11c4bacaf5712",
-      "size": 4880
+      "sha256": "0f38dc3609ef495357f348391dbccc49b0b820be37b6a4438052466ad24f7605",
+      "size": 5064
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1682,8 +1682,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "5cad116080181486227d795061e62b1edd58895009b369af0c874cbba0f3f2a7",
-      "size": 24997
+      "sha256": "2e5f1c396b3e5398c83e74f7b12a61cfb6f09e05153f571aab3ba839629d1bfa",
+      "size": 25222
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1958,8 +1958,8 @@
       "source": "defaultsetup",
       "fileName": "ui-kit-sync.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip",
-      "sha256": "229b76a1e46a2cc7542d4c3ab33fa77c19e81061e7af182b93cf94e288c59708",
-      "size": 12824
+      "sha256": "f4e7136db2e3b2acd869474c02771ef6f164571f24f3cd9644486c64cd442f35",
+      "size": 14084
     },
     {
       "id": "Scripts/ui-review-approve-handler.py",
@@ -2142,8 +2142,8 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "1890c78cf1bd573cb4bc1488e9f0c3dc2cbc5050ce52ddd46a3afe38f209bc35",
-      "size": 13314
+      "sha256": "c2ae5312440de1b2db2015bda605b580d1ad6459cecef0359f59d41ca0ee2c0c",
+      "size": 16031
     },
     {
       "id": "Skills/backend-communication",
@@ -3058,8 +3058,8 @@
       "source": "defaultsetup",
       "fileName": "push.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip",
-      "sha256": "d8628fd91f4917fb6510bea955efa8fc7b2905819f57335d9b071dc1f91dba7e",
-      "size": 1394
+      "sha256": "a54a32d85253022073f005aca5046cb7c41fcaebd01dc42803e88fb02acbbf5b",
+      "size": 1650
     },
     {
       "id": "Skills/push-in-session",
@@ -3240,8 +3240,8 @@
       "source": "defaultsetup",
       "fileName": "ui-kit.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-kit.zip",
-      "sha256": "0961bbed7b73b8cd71d42d79aa4bdb8dcd82b858714987302d24fb01c74760dd",
-      "size": 2775
+      "sha256": "e806c60d8017a756c23e6d740c4b675ae23f29b447f1b0a8aec52cfb685619b0",
+      "size": 2900
     },
     {
       "id": "Skills/ui-manager",
