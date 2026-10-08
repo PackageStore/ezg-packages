@@ -104,6 +104,25 @@ DEFAULTS = {
         "directWritePattern": "",
         "directWriteAdvice": "",
     },
+
+    # --- BugHub -------------------------------------------------------------
+    # Mã project trên server BugHub (/fix-bug, /bughub-setup). Rỗng có chủ đích:
+    # /fix-bug thấy rỗng thì dừng và trỏ sang /bughub-setup thay vì đoán mã.
+    # watch: nhánh riêng cho cửa sổ /fix-bug --watch (scripts/bughub-watch.py).
+    #   branch rỗng = watch commit lên nhánh đang mở (hành vi cũ); baseBranch rỗng =
+    #   defaultBaseBranch; mergeToBase = đẩy fix lên nhánh chính sau khi push nhánh
+    #   bot; worktree = chạy trong git worktree riêng (worktreePath rỗng = thư mục
+    #   anh em `<repo>-<branch>`) thay vì chuyển nhánh của checkout này.
+    "bugHub": {
+        "projectCode": "",
+        "watch": {
+            "branch": "",
+            "baseBranch": "",
+            "mergeToBase": False,
+            "worktree": False,
+            "worktreePath": "",
+        },
+    },
 }
 
 _PROFILE_FILENAME = "project-profile.json"
@@ -127,9 +146,9 @@ def _repo_root() -> Path:
 class Profile:
     """Read-only view over the merged profile.
 
-    Merge is shallow per top-level key, except `backend`, which merges per
-    sub-key. That way a project overriding only `backend.kind` keeps the
-    default write-pattern instead of silently losing the rule.
+    Merge is shallow per top-level key, except `backend` and `bugHub`, which
+    merge per sub-key. That way a project overriding only `backend.kind` keeps
+    the default write-pattern instead of silently losing the rule.
     """
 
     def __init__(self, data: dict, source: Path | None = None):
@@ -214,6 +233,24 @@ class Profile:
     def backend_direct_write_advice(self) -> str:
         return self.backend.get("directWriteAdvice") or ""
 
+    # -- BugHub -------------------------------------------------------------
+    @property
+    def bug_hub(self) -> dict:
+        merged = dict(DEFAULTS["bugHub"])
+        merged.update(self._data.get("bugHub") or {})
+        merged["watch"] = self.bug_hub_watch
+        return merged
+
+    @property
+    def bug_hub_watch(self) -> dict:
+        merged = dict(DEFAULTS["bugHub"]["watch"])
+        merged.update((self._data.get("bugHub") or {}).get("watch") or {})
+        return merged
+
+    @property
+    def bug_hub_project_code(self) -> str:
+        return self.bug_hub.get("projectCode") or ""
+
 
 _cached: Profile | None = None
 
@@ -262,7 +299,8 @@ if __name__ == "__main__":
     p = profile()
     if len(sys.argv) > 1:
         # `project_profile.py sourceRoot` — for shell callers.
-        value = p.get(sys.argv[1])
+        # Key merge theo sub-key thì in bản đã merge, để thiếu sub-key vẫn ra default.
+        value = p.bug_hub if sys.argv[1] == "bugHub" else p.get(sys.argv[1])
         if isinstance(value, (dict, list)):
             print(json.dumps(value))
         elif value is None:
@@ -286,4 +324,5 @@ if __name__ == "__main__":
             "sfxEventFields": p.sfx_event_fields,
             "sensitiveGlobs": p.sensitive_globs,
             "backend": p.backend,
+            "bugHub": p.bug_hub,
         }, indent=2))

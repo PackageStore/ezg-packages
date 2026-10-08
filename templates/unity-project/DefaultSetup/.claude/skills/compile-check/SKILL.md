@@ -17,8 +17,9 @@ Solution file: the `solutionFile` key of `.claude/project-profile.json` — read
 ```
 unity_list_instances
 ```
-- **Exactly one instance** → use it.
-- **Multiple instances** → call `unity_select_instance` for this project's instance, capture its `port`, and pass `port` to every subsequent Unity call.
+- Only instances whose `projectPath` is this checkout (`git rev-parse --show-toplevel`) count — an Editor on another folder (the main checkout while you work in a `git worktree`, another project on a reused port) compiles different files, so treat it as not open.
+- **Exactly one matching instance** → use it.
+- **Multiple matching instances** → call `unity_select_instance` for this project's instance, capture its `port`, and pass `port` to every subsequent Unity call.
 - **No instance open** → STOP. Report to the user: `Unity Editor is not open for this project — cannot compile-validate via MCP. Please open Unity and run /compile-check again.` Do not fall back silently.
 
 ### 2 — Force a recompile
