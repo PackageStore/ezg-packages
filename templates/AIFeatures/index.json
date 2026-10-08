@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "376b6b4a5d450a286c7f05fc913adfb73f226cb7733657df8e344ced784d45a5",
-      "size": 14267
+      "sha256": "029c920a2c7842fd04cb1a1dd5ebdab503b01110b04090ad796466fe8f140a44",
+      "size": 14272
     },
     {
       "id": "Config/project-profile.json",
@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "d22c580af5a8b1a8bef853e6a47d0628f6f5758f30804de593352d05a207c2d3",
-      "size": 2516
+      "sha256": "4175b700073b31be0ebc580eaffebb569e31879ed8fa0b66c606ac3e09a25eca",
+      "size": 2584
     },
     {
       "id": "Config/settings.json",
@@ -1394,8 +1394,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "b64f0deda908ba331a2e259b6c0a0eba63254c17d010c1f99b66a9aed0bfbeee",
-      "size": 6454
+      "sha256": "b0bfe0ac3fb9653c1fe9c292039821c3831dda361e5f501fccd207f94bd58b7b",
+      "size": 9688
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1610,8 +1610,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "0f38dc3609ef495357f348391dbccc49b0b820be37b6a4438052466ad24f7605",
-      "size": 5064
+      "sha256": "ae6f03d0bae71078e1d9dd82b3942b72efc3d375243d8204fe68c3b8fe82021a",
+      "size": 5108
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1906,8 +1906,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "d3920262042195ac9ea8b1b079b822f2a928291d00a814059a4355051b2664e6",
-      "size": 38434
+      "sha256": "6f16939ecd1830fbad556cef5d4276bd098c0bd43d7d02322a549553ec1b63c4",
+      "size": 39357
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2144,8 +2144,8 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "c2ae5312440de1b2db2015bda605b580d1ad6459cecef0359f59d41ca0ee2c0c",
-      "size": 16031
+      "sha256": "81f825aa7703dbcbe87ff79ce4f7c3c2a0358379bb8929c76df0fa1a95a0a816",
+      "size": 16123
     },
     {
       "id": "Skills/backend-communication",
@@ -2242,8 +2242,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "f891b0635024cdcfd144e25be1ac199e8ec35e98087e5be0d39ab0553fde9031",
-      "size": 9802
+      "sha256": "3698f6858b9f69de362f8426680a170e1f53721551ff124f030e34ca16323912",
+      "size": 9831
     },
     {
       "id": "Skills/compile-check",
@@ -2604,7 +2604,7 @@
       "id": "Skills/fix-bug",
       "name": "fix-bug",
       "category": "Skills",
-      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Nhận bug, tìm nguyên nhân, sửa, /compile-check, /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge nhánh chính vào nhánh bot → sửa → push nhánh bot → clear → chờ tiếp, trong cửa sổ riêng mở bằng `python3 .claude/scripts/bughub-watch.py start` (nhánh/worktree theo `bugHub.watch` trong project-profile.json). Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Nhận bug, tìm nguyên nhân, sửa, /compile-check, /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào → sửa → push → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause rồi thử lại); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
       "installPath": ".claude/skills/fix-bug",
       "isDirectory": true,
       "files": [
@@ -2615,8 +2615,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "117e22cd6a3e155f756d24a276e920f5615fc5a732977047aa1648c890cabb5d",
-      "size": 10611
+      "sha256": "ccc1afdc1140cb260d739ed3735ab6b25a2073c2178e3546b359607963cc8c35",
+      "size": 12063
     },
     {
       "id": "Skills/game-animation",
