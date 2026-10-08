@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "47a6927a088633bab1be4e93132480d5427d0abc36d3903307b2ded35a4682d0",
-      "size": 12165
+      "sha256": "376b6b4a5d450a286c7f05fc913adfb73f226cb7733657df8e344ced784d45a5",
+      "size": 14267
     },
     {
       "id": "Config/project-profile.json",
@@ -854,8 +854,8 @@
       "source": "defaultsetup",
       "fileName": "discord-notification.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip",
-      "sha256": "1a62a7bdc65ca0a91f3c81617208ea19c57326b4a3e5157c0e94a0bcd96d7b30",
-      "size": 3585
+      "sha256": "c1bcc6b9e7d6279a23fa6299f5959f2adf67be276be6171a3da958a58d27e053",
+      "size": 3961
     },
     {
       "id": "Docs/GETTING-STARTED",
@@ -962,8 +962,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-flow.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip",
-      "sha256": "62af99df143b3871a678dcc269fde2ae0aa13603b006b893da69aadf423d9890",
-      "size": 15472
+      "sha256": "570f4d01f4646308dcb4acbf5bdd108a0677d6aad1db53f857b4c9392daa4963",
+      "size": 16877
     },
     {
       "id": "Docs/ui-mcp-playbook",
@@ -1232,8 +1232,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-ops.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-ops.py.zip",
-      "sha256": "8bf88b4d463c586bf72e00bf1c113c12f4691220fe1fc14993c3e4d13f5e3df0",
-      "size": 12925
+      "sha256": "8e2603d38c9ba6b5ac4059ac0fc415f1558f140f085339cf79d84c8965bc592e",
+      "size": 34699
     },
     {
       "id": "Scripts/backlog-preflight.ps1",
@@ -1574,8 +1574,8 @@
       "source": "defaultsetup",
       "fileName": "notify.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.ps1.zip",
-      "sha256": "fe4cad068c9120e3ec8a69e0e3db5076b561fedd08a3d3610ea88aca223ce923",
-      "size": 4123
+      "sha256": "de4e51b997468db397c5307534a1a58f8d8918b4a3002e4c3393b81d044d9d31",
+      "size": 5037
     },
     {
       "id": "Scripts/notify.sh",
@@ -1592,8 +1592,8 @@
       "source": "defaultsetup",
       "fileName": "notify.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.sh.zip",
-      "sha256": "adf8ccaab896aa6afd980fdbc3c890aff5cc2163d03be8548a4e7c36f638a893",
-      "size": 2868
+      "sha256": "2d0580fc24685cd0fe3b20c16b7766186038512fa05e9a4484022fa86e7d9139",
+      "size": 3789
     },
     {
       "id": "Scripts/project_profile.py",
@@ -1646,8 +1646,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-claude.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.ps1.zip",
-      "sha256": "03ca7a5b3b005584818807d2bd8a6919d93019025ef7c33019ecc0ab8632a0a5",
-      "size": 1377
+      "sha256": "abdaefc95ae2f01a2861604dca6ca88ff3cbdad9397e8b95a71453e6e403461f",
+      "size": 1773
     },
     {
       "id": "Scripts/run-backlog-loop-codex.ps1",
@@ -1682,8 +1682,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "2e5f1c396b3e5398c83e74f7b12a61cfb6f09e05153f571aab3ba839629d1bfa",
-      "size": 25222
+      "sha256": "91eeea62f40cf826edacfd6928b02f396526a07d5976fa2c9117f4814fcbecf1",
+      "size": 38293
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1754,8 +1754,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.ps1.zip",
-      "sha256": "5c27a453f78e12a4197e8e5ac8f7b5111ae8879ca22980c97ea20632b354638a",
-      "size": 980
+      "sha256": "f3e1ada228d96642960449c901c55ec82828c08908aed71208e7553942198385",
+      "size": 1129
     },
     {
       "id": "Scripts/run-backlog-loop.sh",
@@ -1772,8 +1772,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "e20eeedcec2cbc00b30584450ae8b5a52b6a063a19de843873b4cb19aa2fef67",
-      "size": 17182
+      "sha256": "80eff78ce13c61dcaa11af846b78b4b6167813cf640ce6d4e2e6a01600674f90",
+      "size": 30065
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -1891,7 +1891,9 @@
       "installPath": ".claude/scripts/tests",
       "isDirectory": true,
       "files": [
+        ".claude/scripts/tests/test_backlog_concurrency.py",
         ".claude/scripts/tests/test_backlog_ops.py",
+        ".claude/scripts/tests/test_backlog_park.py",
         ".claude/scripts/tests/test_backlog_preflight.py",
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
@@ -1899,13 +1901,13 @@
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 7,
+      "fileCount": 9,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "3e2204cf88c8ee11115535abef6fb4212714a3b6e62a64dfe2f39bec6a32fd81",
-      "size": 26733
+      "sha256": "d3920262042195ac9ea8b1b079b822f2a928291d00a814059a4355051b2664e6",
+      "size": 38434
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2424,8 +2426,8 @@
       "source": "defaultsetup",
       "fileName": "execute-backlog-tasks.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip",
-      "sha256": "174b1cd73ddf0796876439f911f24dbf0aee7b59dada7714edee087a9a7774df",
-      "size": 2900
+      "sha256": "86b5218e5722191f8ad7683af3da307fa50c225a8b33ad5d4f8aa0ad37a92fb6",
+      "size": 4213
     },
     {
       "id": "Skills/feature-cheat",
@@ -3139,7 +3141,7 @@
       "id": "Skills/run-backlog",
       "name": "run-backlog",
       "category": "Skills",
-      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs.",
+      "description": "Autonomous backlog agent for this Unity project — pick the first task in TODO, implement it, run quality gates (code-reviewer + performance-reviewer when perf-sensitive + security-auditor when sensitive, in parallel + qa-verifier) with auto-fix max 2 rounds per gate, mark it DONE, and commit + push to the work branch in the project's push-in-session style — only this task's files, `<prefix> Tag: <subject>` message (current mode: the branch already checked out; worktree mode: agent/dev-<base>). DO NOT create PRs. Under the loop runner a blocked/failed iteration is self-healed: the next iteration resumes the task in recovery mode (1f), and a task that still cannot finish is parked so the loop goes on.",
       "installPath": ".claude/skills/run-backlog",
       "isDirectory": true,
       "files": [
@@ -3150,8 +3152,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "7f9489ad073770e8a131acb503e51bfcf83cd68ba2f6137626587ec6aae20ae7",
-      "size": 29670
+      "sha256": "49cd712cbab5fa05a38f28071bff9734fb5f8f6b068c69697660e70ed2715d5f",
+      "size": 38451
     },
     {
       "id": "Skills/setup-package-push",
