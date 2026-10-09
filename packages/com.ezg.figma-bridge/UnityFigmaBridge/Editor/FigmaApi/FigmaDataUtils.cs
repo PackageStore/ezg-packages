@@ -368,7 +368,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <returns>List of figmaNode IDs to replace</returns>
         public static List<ServerRenderNodeData> FindAllServerRenderNodesInFile(FigmaFile file,
             List<string> missingComponentIds, List<string> downloadPageIdList, bool renderTopLevelExports = true,
-            FigmaImportScope scope = null)
+            FigmaImportScope scope = null, string screensPageName = null)
         {
             var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
             var nodeLookup = BuildNodeLookupDictionary(file);
@@ -376,8 +376,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             foreach (var page in file.document.children)
             {
                 var isSelectedPage=downloadPageIdList.Contains(page.id);
+                var onScreensPage = IsScreensPage(page, screensPageName);
                 AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false,
-                    renderTopLevelExports, scope, nodeLookup);
+                    renderTopLevelExports, scope, nodeLookup, onScreensPage);
             }
 
             AddPatternSourceNodes(file, renderSubstitutionNodeList, downloadPageIdList, scope);
@@ -457,7 +458,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         private static void AddRenderSubstitutionsForFigmaNode(Node figmaNode,
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, List<string> missingComponentIds,
             bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports, FigmaImportScope scope,
-            Dictionary<string, Node> nodeLookup)
+            Dictionary<string, Node> nodeLookup, bool onScreensPage)
         {
             if (!figmaNode.visible || !InScope(figmaNode, scope)) return;
 
@@ -483,7 +484,10 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // Tắt được qua Settings.ServerRenderTopLevelExports: frame màn hình có Export setting
             // → Figma render nguyên màn (nặng, dễ HTTP 504). Screen vẫn dựng thành prefab (GenerateNodesMarkedForExport);
             // khi tắt thì không return sớm nên các node vector bên trong frame vẫn được quét như frame thường.
-            if (renderTopLevelExports &&
+            // A screen (a top-level frame or component on the screens page) is always built as a prefab,
+            // never one render, whatever its export settings.
+            var isScreenRoot = onScreensPage && recursiveNodeDepth == 1 && IsScreenNodeType(figmaNode);
+            if (renderTopLevelExports && !isScreenRoot &&
                 (isSelectedPage || withinComponentDefinition) && recursiveNodeDepth==1 && figmaNode.exportSettings!=null && figmaNode.exportSettings.Length > 0)
             {
                 Debug.Log($"Found figmaNode with export! Node {figmaNode.name}");
@@ -496,7 +500,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             }
 
             
-            if ((isSelectedPage || withinComponentDefinition) && GetNodeSubstitutionStatus(figmaNode,recursiveNodeDepth))
+            if (!isScreenRoot && (isSelectedPage || withinComponentDefinition) && GetNodeSubstitutionStatus(figmaNode,recursiveNodeDepth))
             {
                 substitutionNodeList.Add( new ServerRenderNodeData
                 {
@@ -518,7 +522,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             
             foreach (var childNode in figmaNode.children)
                 AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition,
-                    renderTopLevelExports, scope, nodeLookup);
+                    renderTopLevelExports, scope, nodeLookup, onScreensPage);
             
         }
 
@@ -1053,12 +1057,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             return new[] { screensPageName, componentsPageName }.Where(name => !pageNames.Contains(name)).ToList();
         }
 
+        /// <summary>A node that can be a screen root: a top-level frame or component on the screens page.</summary>
+        internal static bool IsScreenNodeType(Node node) =>
+            node.type is NodeType.FRAME or NodeType.COMPONENT;
+
         /// <summary>
-        /// A frame directly on a page or in a section. Only on the screens page is it a screen
+        /// A frame or component directly on a page or in a section. Only on the screens page is it a screen
         /// </summary>
         private static bool IsScreenNode(Node node, Node parentNode)
         {
-            if (node.type != NodeType.FRAME) return false;
+            if (!IsScreenNodeType(node)) return false;
             if (parentNode == null) return false;
             if (parentNode is { type: NodeType.CANVAS or NodeType.SECTION }) return true;
             return false;

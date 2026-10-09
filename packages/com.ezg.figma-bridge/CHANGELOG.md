@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.6] - 2026-10-09
+### Fixed
+- **A component on the screens page is a screen.** A top-level COMPONENT on the screens page
+  (`ScreensPageName`) is listed in the screen list and saved as a screen prefab, like a FRAME. It
+  still gets its component prefab, because other screens can instance it; the screen prefab is
+  saved from a copy of the built hierarchy, so both prefabs hold the same content. Its art is named
+  under `Screens/<screen>/`, not `Components/`.
+- **A screen is never flattened to one image.** A screen root (a top-level frame or component on
+  the screens page) with an export setting is no longer sent as an `Export` render when
+  `ServerRenderTopLevelExports` is on, and is never a substitution render, so it always imports as
+  a prefab hierarchy. Top-level exports on other pages behave as before.
+
 ## [0.8.5] - 2026-10-06
 ### Fixed
 - **Variable-mode variants keep their colour on server-rendered sublayers.** Figma resolves the

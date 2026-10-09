@@ -275,17 +275,20 @@ namespace UnityFigmaBridge.Editor.Nodes
             {
                 // If the parent is either a canvas or section, treat as a flowScreen and create a prefab. Only do this if it's on a generated page
                 case NodeType.FRAME:
-                    // A screen that only holds a selected component is built as its container, not saved
-                    if (includedPageObject && figmaImportProcessData.ScreenNodeIds.Contains(figmaNode.id) &&
-                        (scope == null || scope.IsRoot(figmaNode.id)))
-                    {
-                        var screenNameCount = figmaImportProcessData.ScreenPrefabNameCounter.TryGetValue(figmaNode.name, out var nameCount) ? nameCount : 0;
-                        if (FigmaPaths.GetPathForScreenPrefab(figmaNode, screenNameCount) != null)
-                            SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, nodeRectTransform, figmaImportProcessData);
-                    }
+                    if (IsImportedScreen(figmaNode, includedPageObject, figmaImportProcessData))
+                        SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, nodeRectTransform, figmaImportProcessData);
                     break;
                 // For the originally defined components, save as a prefab to be used for later instantiation
                 case NodeType.COMPONENT:
+                    // A component on the screens page is a screen too. Its instances still need the
+                    // component prefab, so the screen prefab is saved from a copy made before that.
+                    if (IsImportedScreen(figmaNode, includedPageObject, figmaImportProcessData))
+                    {
+                        var screenCopy = Object.Instantiate(nodeGameObject, nodeGameObject.transform.parent);
+                        screenCopy.name = nodeGameObject.name;
+                        SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, (RectTransform)screenCopy.transform, figmaImportProcessData);
+                        Object.DestroyImmediate(screenCopy);
+                    }
                     ComponentManager.GenerateComponentAssetFromNode(figmaNode, parentFigmaNode, nodeGameObject, figmaImportProcessData);
                     break;
                 case NodeType.SECTION:
@@ -299,6 +302,20 @@ namespace UnityFigmaBridge.Editor.Nodes
             return nodeGameObject;
         }
 
+
+        /// <summary>
+        ///     A screen of an imported page that this import saves. A screen that only holds a selected
+        ///     component is built as its container, and one reached only through an instance is a
+        ///     component, not a screen.
+        /// </summary>
+        private static bool IsImportedScreen(Node figmaNode, bool includedPageObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            if (!includedPageObject || !figmaImportProcessData.ScreenNodeIds.Contains(figmaNode.id)) return false;
+            var scope = figmaImportProcessData.ImportScope;
+            if (scope != null && (!scope.IsRoot(figmaNode.id) || scope.IsDependency(figmaNode.id))) return false;
+            var screenNameCount = figmaImportProcessData.ScreenPrefabNameCounter.TryGetValue(figmaNode.name, out var nameCount) ? nameCount : 0;
+            return FigmaPaths.GetPathForScreenPrefab(figmaNode, screenNameCount) != null;
+        }
 
         /// <summary>A server render with a border keeps its corners at any instance size.</summary>
         public static Image.Type SlicedIfBordered(Sprite sprite)

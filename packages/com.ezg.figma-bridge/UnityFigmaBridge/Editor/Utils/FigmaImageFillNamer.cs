@@ -267,15 +267,19 @@ namespace UnityFigmaBridge.Editor.Utils
             var nodePath = path;
             if (node.type != NodeType.CANVAS)
             {
-                if (node.type == NodeType.FRAME && screen == null && component == null && onScreensPage)
+                // A component directly on the screens page is a screen, like a frame there
+                var screenCandidate = node.type == NodeType.FRAME || (node.type == NodeType.COMPONENT && path.Count == 0);
+                var isScreenRoot = false;
+                if (screenCandidate && screen == null && component == null && onScreensPage)
                 {
                     // Keep walking an unlisted frame: a component nested inside it still owns its own
                     // art, and that component may well be instanced by a screen that IS imported.
                     screen = FigmaPaths.IsListedScreen(node) ? node.name : null;
                     screenImported = screen != null && pageImported && FigmaPaths.GetPathForScreenPrefab(node, 0) != null;
+                    isScreenRoot = screen != null;
                 }
                 if ((node.type == NodeType.COMPONENT || node.type == NodeType.COMPONENT_SET) &&
-                    component == null)
+                    component == null && !isScreenRoot)
                     component = node.name;
 
                 nodePath = new List<string>(path) { node.name };

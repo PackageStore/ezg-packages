@@ -665,7 +665,7 @@ namespace UnityFigmaBridge.Editor
             // Some of the nodes, we'll want to identify to use Figma server side rendering (eg vector shapes, SVGs)
             // First up create a list of nodes we'll substitute with rendered images
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(figmaFile,externalComponentList,downloadPageIdList,
-                s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports, importScope);
+                s_UnityFigmaBridgeSettings.ServerRenderTopLevelExports, importScope, s_UnityFigmaBridgeSettings.ScreensPageName);
             FigmaImageFillNamer.BuildServerRenders(figmaFile,
                 s_UnityFigmaBridgeSettings.NameServerRendersByNodePath
                     ? serverRenderNodes.Where(n => n.RenderType != ServerRenderType.Export).Select(n => n.SourceNode.id)
