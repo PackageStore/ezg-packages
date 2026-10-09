@@ -27,11 +27,13 @@ bị gõ nhầm. Dưới đây `<script>` là dòng "Script" đúng OS trong b�
 | (trống) | Push rồi bật cờ — theo mục 1–4 |
 | prefix và/hoặc `Tag:` (vd `# UI:`, `* Play:`, `Bal:`) | Như (trống); prefix (`+`/`*`/`#`) + tag chuyển nguyên văn cho `/push-in-session` (mục 3.6 bên đó). Tag không nằm trong bảng tag của push-in-session → dừng hỏi, không tự chế |
 | `--then "<prompt>"` (kết hợp được với prefix/tag, vd `/auto-clear # Play: --then "/fix-bug --watch"`) | Như (trống), nhưng bật cờ kèm `--then` (mục 3): sau `/clear` hook chờ rồi gõ tiếp `<prompt>` + Enter vào **cùng pane**. Prompt phải một dòng, không ký tự điều khiển, ≤ 200 ký tự — sai thì script trả `INVALID_THEN …`, cờ **không** bật → báo dev, không tự sửa prompt |
-| `off` | `<script> off` — gỡ cờ (cả prompt `--then` đang chờ), báo lại. **Không** push |
-| `status` | `<script> status` — in thêm dòng `THEN <prompt>` khi cờ có prompt chờ |
+| `off` | `<script> off` — gỡ cờ (cả prompt `--then` đang chờ) **và** cờ thử lại lỗi API (`retry-arm`), báo lại. **Không** push |
+| `status` | `<script> status` — in thêm dòng `THEN <prompt>` khi cờ có prompt chờ, `FAILHOOK` + `RETRY_ARMED count=k/5` |
 | `probe` | `<script> probe` — dò pane/console, **không** gõ gì (kiểm tra cài đặt) |
-| `install` | `<script> install` — đăng ký Stop hook vào `~/.claude/settings.json`. Sửa settings user-level nên **hỏi dev trước** nếu dev chưa yêu cầu rõ |
-| `uninstall` | `<script> uninstall` — gỡ hook |
+| `retry-arm [--prompt "<prompt>"]` | **Thử lại lỗi API** (mục 5) cho pane hiện tại — skill chạy lâu không người trông (vd `/fix-bug`) gọi. **Không** push. Chỉ macOS; Windows trả `UNSUPPORTED` |
+| `retry-off` | Gỡ cờ thử lại lỗi API của pane hiện tại. **Không** push |
+| `install` | `<script> install` — đăng ký Stop + StopFailure hook vào `~/.claude/settings.json`. Sửa settings user-level nên **hỏi dev trước** nếu dev chưa yêu cầu rõ |
+| `uninstall` | `<script> uninstall` — gỡ cả hai hook |
 
 Chỉ nhánh (trống) / prefix-tag mới push; các sub-command còn lại chỉ chạy script.
 
@@ -101,6 +103,23 @@ Có `--then "<prompt>"` trong argument → thêm vào lệnh arm, cùng `--stdin
 | `NOT_INSTALLED ...` | Hook chưa đăng ký trên máy này (hoặc trỏ tới script đã bị xoá/dời) → hỏi dev có cho chạy `install` không. Đồng ý → `install` rồi `arm` lại (**không** push lại); không → nhắc dev tự gõ `/clear`. |
 | `UNSUPPORTED ...` | Không chạy trong iTerm2 (macOS) / không tìm thấy process `claude` → nhắc dev tự gõ `/clear` (push đã xong). |
 
+## 5. Thử lại khi lượt trả lời chết vì lỗi API (macOS)
+
+Lỗi API của Claude (`Your organization has disabled Claude subscription access`, rate limit, overloaded,
+5xx, mất phiên…) giết lượt trả lời — model không còn chạy nên **skill không tự thử lại được**. Claude Code
+bắn hook `StopFailure` (kèm `error`: `oauth_org_not_allowed`, `authentication_failed`, `rate_limit`,
+`overloaded`, `server_error`…) thay cho `Stop`, và `install` đăng ký hook đó.
+
+- `<script> retry-arm [--prompt "<prompt>"]` bật cờ `~/.claude/auto-clear/<uuid>.retry` (pid + tty + prompt,
+  `count=0`). Prompt mặc định: "Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang dở." — luật
+  prompt như `--then`. Gọi lại là bật lại từ `count=0`.
+- Mỗi `StopFailure`: đúng pane + đúng process `claude` đã arm → `count+1`, chờ `AUTO_CLEAR_RETRY_DELAY`
+  (mặc định **30 giây**) rồi gõ prompt + Enter. Quá `AUTO_CLEAR_RETRY_MAX` (mặc định **5**) lần liên tiếp →
+  thôi gõ, log `failhook give-up` — dev xử lý tay (vd đăng nhập lại / chờ org bật lại quyền).
+- Lượt kết thúc bình thường (`Stop`) đưa `count` về 0. Cờ sống qua `/clear`; gỡ bằng `retry-off` hoặc `off`.
+- Kết quả `retry-arm`: `RETRY_ARMED …` · `NOT_INSTALLED` (máy cài bản cũ chỉ có Stop hook → `install` lại, hỏi
+  dev nếu chưa yêu cầu rõ) · `UNSUPPORTED` (không phải iTerm2 / Windows) — không chặn việc của skill gọi nó.
+
 ## Cài trên máy mới
 
 1. `<script> install` — idempotent, backup `~/.claude/settings.json.bak-auto-clear`, giữ nguyên mọi hook
@@ -120,7 +139,8 @@ chạy `install` một lần để chuyển sang bản copy.
 
 Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch` / `pane-not-found` /
 `attach-failed`; có `--then` thì thêm một dòng `hook-then ... prompt=<prompt> -> ok` (hoặc `skip: …` khi
-`/clear` không gõ được — prompt không bao giờ gõ một mình).
+`/clear` không gõ được — prompt không bao giờ gõ một mình). Thử lại lỗi API: `failhook … error=<mã> lần k/5`,
+`failhook give-up`, `retry-reset`.
 
 ## Giới hạn
 

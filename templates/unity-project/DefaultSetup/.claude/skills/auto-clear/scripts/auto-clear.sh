@@ -13,9 +13,16 @@
 #   hook            Stop hook: có cờ → gỡ cờ → chờ AUTO_CLEAR_DELAY giây → gõ "/clear" + Enter
 #                   (+ prompt --then nếu cờ có, sau AUTO_CLEAR_THEN_DELAY giây)
 #   inject <uuid> [tty]   gõ "/clear" + Enter vào pane <uuid> (nội bộ / test)
-#   install         copy script sang ~/.claude/auto-clear/auto-clear.sh rồi đăng ký Stop hook (async)
-#                   trỏ vào bản copy đó trong ~/.claude/settings.json — idempotent, có backup
-#   uninstall       gỡ Stop hook khỏi ~/.claude/settings.json + xoá bản copy
+#   retry-arm [--prompt "<prompt>"]
+#                   bật THỬ LẠI LỖI API cho pane hiện tại: lượt trả lời chết vì lỗi API của Claude (mất
+#                   quyền org, rate limit, overloaded, 5xx…) → StopFailure hook chờ AUTO_CLEAR_RETRY_DELAY
+#                   giây rồi gõ <prompt> + Enter, tối đa AUTO_CLEAR_RETRY_MAX lần liên tiếp; một lượt kết
+#                   thúc bình thường (Stop hook) đưa bộ đếm về 0. Cờ sống tới khi retry-off / off
+#   retry-off       gỡ cờ thử lại lỗi API của pane hiện tại
+#   failhook        StopFailure hook (nội bộ) — xem retry-arm
+#   install         copy script sang ~/.claude/auto-clear/auto-clear.sh rồi đăng ký Stop + StopFailure
+#                   hook (async) trỏ vào bản copy đó trong ~/.claude/settings.json — idempotent, có backup
+#   uninstall       gỡ cả hai hook khỏi ~/.claude/settings.json + xoá bản copy
 #
 # Hook là của MÁY (settings user-level), không của repo: một hook phục vụ mọi project cài skill này.
 # Vì vậy nó chạy bản copy ở ~/.claude/auto-clear/ chứ không trỏ vào repo — xoá/dời repo không làm hook
@@ -32,6 +39,9 @@ LOG="${STATE_DIR}/auto-clear.log"
 DELAY="${AUTO_CLEAR_DELAY:-1}"
 THEN_DELAY="${AUTO_CLEAR_THEN_DELAY:-3}"
 THEN_MAX=200
+RETRY_DELAY="${AUTO_CLEAR_RETRY_DELAY:-30}"
+RETRY_MAX="${AUTO_CLEAR_RETRY_MAX:-5}"
+RETRY_PROMPT_DEFAULT="Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang dở."
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 HOOK_SCRIPT="${STATE_DIR}/auto-clear.sh"
 
@@ -40,6 +50,8 @@ log() { mkdir -p "$STATE_DIR"; printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG
 pane_uuid() { printf '%s' "${ITERM_SESSION_ID:-}" | sed 's/^[^:]*://'; }
 
 flag_path() { printf '%s/%s.flag' "$STATE_DIR" "$1"; }
+
+retry_path() { printf '%s/%s.retry' "$STATE_DIR" "$1"; }
 
 # PID của process Claude Code tổ tiên gần nhất: comm "claude" (bản native) hoặc node chạy claude (npm).
 # Shell của Bash tool và của hook đều KHÔNG có tty riêng ("??") nên phải leo lên tới claude.
@@ -76,6 +88,18 @@ hook_installed() {
   local target
   target=$(hook_target)
   [ -n "$target" ] && [ -f "$target" ]
+}
+
+# StopFailure hook đã đăng ký (bản install cũ chỉ có Stop hook → phải chạy lại install).
+failhook_installed() {
+  hook_installed && grep -q 'auto-clear\.sh.* failhook' "$SETTINGS" 2>/dev/null
+}
+
+# Hook chạy bản copy → đồng bộ với bản của skill đang bật cờ để hook luôn khớp phiên bản vừa arm.
+sync_hook_copy() {
+  if [ "$(hook_target)" = "$HOOK_SCRIPT" ] && ! cmp -s "$SCRIPT_PATH" "$HOOK_SCRIPT"; then
+    cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
+  fi
 }
 
 # Prompt --then trong cờ: base64 một dòng để xuống dòng/dấu "=" không phá format key=value.
@@ -146,10 +170,7 @@ cmd_arm() {
   [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID (không chạy trong iTerm2) — gõ /clear tay"; return 2; }
   hook_installed || { echo "NOT_INSTALLED: Stop hook chưa đăng ký (hoặc trỏ tới script không còn tồn tại) — chạy: bash $SCRIPT_PATH install"; return 3; }
   pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
-  # Hook chạy bản copy → đồng bộ với bản của skill đang arm để hook luôn khớp phiên bản vừa bật cờ.
-  if [ "$(hook_target)" = "$HOOK_SCRIPT" ] && ! cmp -s "$SCRIPT_PATH" "$HOOK_SCRIPT"; then
-    cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
-  fi
+  sync_hook_copy
   tty=$(tty_of "$pid")
   mkdir -p "$STATE_DIR/reports"
   if [ -n "$use_stdin" ]; then
@@ -177,6 +198,12 @@ cmd_off() {
   local uuid
   uuid=$(pane_uuid)
   [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
+  # `off` = dev dừng loop → gỡ luôn cờ thử lại lỗi API, không thì lỗi API sau này gõ prompt loop vào pane.
+  if [ -f "$(retry_path "$uuid")" ]; then
+    rm -f "$(retry_path "$uuid")"
+    log "retry-off pane=$uuid (off)"
+    echo "RETRY_DISARMED pane=$uuid"
+  fi
   if [ -f "$(flag_path "$uuid")" ]; then
     rm -f "$(flag_path "$uuid")"
     log "off pane=$uuid"
@@ -184,6 +211,91 @@ cmd_off() {
   else
     echo "NOT_ARMED pane=$uuid"
   fi
+}
+
+cmd_retry_arm() {
+  local uuid pid tty prompt="$RETRY_PROMPT_DEFAULT"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --prompt)
+        [ $# -ge 2 ] || { echo "INVALID_THEN: --prompt thiếu nội dung"; return 1; }
+        prompt="$2"; shift ;;
+      *) echo "usage: auto-clear.sh retry-arm [--prompt \"<prompt>\"]"; return 1 ;;
+    esac
+    shift
+  done
+  validate_then "$prompt" || return 1
+  uuid=$(pane_uuid)
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID (không chạy trong iTerm2) — lỗi API phải gõ tiếp tay"; return 2; }
+  failhook_installed || { echo "NOT_INSTALLED: StopFailure hook chưa đăng ký — chạy: bash $SCRIPT_PATH install"; return 3; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  sync_hook_copy
+  tty=$(tty_of "$pid")
+  mkdir -p "$STATE_DIR"
+  printf 'pid=%s\ntty=%s\ncount=0\nprompt_b64=%s\narmed_at=%s\n' \
+    "$pid" "$tty" "$(b64_encode "$prompt")" "$(date '+%F %T')" > "$(retry_path "$uuid")"
+  log "retry-arm pane=$uuid pid=$pid tty=$tty prompt=$prompt"
+  echo "RETRY_ARMED pane=$uuid pid=$pid tty=${tty:-?} delay=${RETRY_DELAY}s max=$RETRY_MAX"
+}
+
+cmd_retry_off() {
+  local uuid
+  uuid=$(pane_uuid)
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
+  if [ -f "$(retry_path "$uuid")" ]; then
+    rm -f "$(retry_path "$uuid")"
+    log "retry-off pane=$uuid"
+    echo "RETRY_DISARMED pane=$uuid"
+  else
+    echo "RETRY_NOT_ARMED pane=$uuid"
+  fi
+}
+
+# Đặt count trong cờ retry (giữ nguyên các dòng khác).
+retry_set_count() {
+  local file="$1" count="$2" tmp
+  tmp="$file.tmp.$$"
+  { grep -v '^count=' "$file"; printf 'count=%s\n' "$count"; } > "$tmp" && mv "$tmp" "$file"
+}
+
+# StopFailure hook: lượt trả lời chết vì lỗi API. Có cờ retry của pane + đúng process claude đã arm →
+# chờ RETRY_DELAY giây rồi gõ prompt; quá RETRY_MAX lần liên tiếp thì thôi (cờ giữ nguyên, log give-up).
+cmd_failhook() {
+  local input uuid file armed_pid armed_tty cur_pid count prompt error result mode
+  input=""
+  [ -t 0 ] || input=$(cat 2>/dev/null)
+  error=$(printf '%s' "$input" | sed -n 's/.*"error"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+  uuid=$(pane_uuid)
+  [ -n "$uuid" ] || return 0
+  file=$(retry_path "$uuid")
+  [ -f "$file" ] || return 0
+  armed_pid=$(sed -n 's/^pid=//p' "$file")
+  armed_tty=$(sed -n 's/^tty=//p' "$file")
+  count=$(sed -n 's/^count=//p' "$file")
+  prompt=$(b64_decode "$(sed -n 's/^prompt_b64=//p' "$file")")
+  cur_pid=$(claude_pid || true)
+  if [ -n "$armed_pid" ] && [ "$cur_pid" != "$armed_pid" ]; then
+    log "failhook skip pane=$uuid: claude pid $cur_pid != armed $armed_pid"
+    return 0
+  fi
+  count=$(( ${count:-0} + 1 ))
+  if [ "$count" -gt "$RETRY_MAX" ]; then
+    log "failhook give-up pane=$uuid error=${error:-?}: đã thử lại $RETRY_MAX lần"
+    return 0
+  fi
+  retry_set_count "$file" "$count"
+  if ! validate_then "$prompt" >/dev/null; then
+    log "failhook skip pane=$uuid: prompt trong cờ không hợp lệ"
+    return 0
+  fi
+  log "failhook pane=$uuid error=${error:-?} lần $count/$RETRY_MAX — chờ ${RETRY_DELAY}s"
+  mode="${AUTO_CLEAR_DRY:+dry}"
+  sleep "$RETRY_DELAY"
+  # Dev đã gỡ cờ (retry-off / off) trong lúc chờ → không gõ.
+  [ -f "$file" ] || { log "failhook skip pane=$uuid: cờ retry đã bị gỡ trong lúc chờ"; return 0; }
+  result=$(iterm_send "$uuid" "$armed_tty" "$mode" "$prompt" 2>&1)
+  log "failhook pane=$uuid tty=$armed_tty lần $count -> $result"
+  return 0
 }
 
 cmd_status() {
@@ -196,6 +308,12 @@ cmd_status() {
     echo "HOOK broken: script $(hook_target) không còn tồn tại — chạy lại install"
   else
     echo "HOOK not-installed"
+  fi
+  if failhook_installed; then echo "FAILHOOK installed"; else echo "FAILHOOK not-installed"; fi
+  if [ -f "$(retry_path "$uuid")" ]; then
+    echo "RETRY_ARMED pane=$uuid $(sed -n 's/^count=/count=/p' "$(retry_path "$uuid")")/$RETRY_MAX"
+  else
+    echo "RETRY_NOT_ARMED pane=$uuid"
   fi
   if [ -f "$(flag_path "$uuid")" ]; then
     echo "ARMED pane=$uuid"
@@ -223,6 +341,11 @@ cmd_hook() {
   [ -t 0 ] || cat > /dev/null 2>&1
   uuid=$(pane_uuid)
   [ -n "$uuid" ] || return 0
+  # Lượt kết thúc bình thường (lỗi API không bắn Stop, chỉ bắn StopFailure) → chuỗi lỗi API đã dứt.
+  if [ -f "$(retry_path "$uuid")" ] && ! grep -qx 'count=0' "$(retry_path "$uuid")"; then
+    retry_set_count "$(retry_path "$uuid")" 0
+    log "retry-reset pane=$uuid"
+  fi
   flag=$(flag_path "$uuid")
   [ -f "$flag" ] || return 0
   armed_pid=$(sed -n 's/^pid=//p' "$flag")
@@ -272,19 +395,22 @@ if os.path.exists(path):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     shutil.copy2(path, path + ".bak-auto-clear")
-command = f"f='{script}'; [ -f \"$f\" ] && bash \"$f\" hook || true"
-stop = data.setdefault("hooks", {}).setdefault("Stop", [])
-# Idempotent: bỏ entry auto-clear cũ (nếu có), giữ nguyên mọi hook khác.
-for group in stop:
-    group["hooks"] = [h for h in group.get("hooks", []) if "auto-clear" not in h.get("command", "")]
-stop[:] = [g for g in stop if g.get("hooks")]
-stop.append({"hooks": [{"type": "command", "command": command, "async": True, "timeout": 30}]})
+hooks = data.setdefault("hooks", {})
+# StopFailure: hook chờ AUTO_CLEAR_RETRY_DELAY (30s) rồi mới gõ → timeout phải dư.
+for event, sub, timeout in (("Stop", "hook", 30), ("StopFailure", "failhook", 120)):
+    command = f"f='{script}'; [ -f \"$f\" ] && bash \"$f\" {sub} || true"
+    groups = hooks.setdefault(event, [])
+    # Idempotent: bỏ entry auto-clear cũ (nếu có), giữ nguyên mọi hook khác.
+    for group in groups:
+        group["hooks"] = [h for h in group.get("hooks", []) if "auto-clear" not in h.get("command", "")]
+    groups[:] = [g for g in groups if g.get("hooks")]
+    groups.append({"hooks": [{"type": "command", "command": command, "async": True, "timeout": timeout}]})
 tmp = path + ".tmp"
 with open(tmp, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 os.replace(tmp, path)
-print(f"INSTALLED Stop hook -> {path} (backup: {path}.bak-auto-clear)")
+print(f"INSTALLED Stop + StopFailure hook -> {path} (backup: {path}.bak-auto-clear)")
 PY
 }
 
@@ -296,16 +422,17 @@ import json, os, sys
 path = sys.argv[1]
 with open(path, encoding="utf-8") as f:
     data = json.load(f)
-stop = data.get("hooks", {}).get("Stop", [])
-for group in stop:
-    group["hooks"] = [h for h in group.get("hooks", []) if "auto-clear" not in h.get("command", "")]
-stop[:] = [g for g in stop if g.get("hooks")]
+for event in ("Stop", "StopFailure"):
+    groups = data.get("hooks", {}).get(event, [])
+    for group in groups:
+        group["hooks"] = [h for h in group.get("hooks", []) if "auto-clear" not in h.get("command", "")]
+    groups[:] = [g for g in groups if g.get("hooks")]
 tmp = path + ".tmp"
 with open(tmp, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 os.replace(tmp, path)
-print(f"UNINSTALLED Stop hook <- {path}")
+print(f"UNINSTALLED Stop + StopFailure hook <- {path}")
 PY
 }
 
@@ -315,8 +442,11 @@ case "${1:-status}" in
   status)    cmd_status ;;
   probe)     cmd_probe ;;
   hook)      cmd_hook ;;
+  retry-arm) shift; cmd_retry_arm "$@" ;;
+  retry-off) cmd_retry_off ;;
+  failhook)  cmd_failhook ;;
   inject)    shift; cmd_inject "$@" ;;
   install)   cmd_install ;;
   uninstall) cmd_uninstall ;;
-  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|hook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
+  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|hook|retry-arm [--prompt \"<prompt>\"]|retry-off|failhook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
 esac

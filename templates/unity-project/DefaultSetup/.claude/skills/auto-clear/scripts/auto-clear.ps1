@@ -435,6 +435,10 @@ switch ($Sub) {
     }
     'install' { Invoke-Install }
     'uninstall' { Invoke-Uninstall }
+    # API-error retry (StopFailure hook) is macOS-only for now - see auto-clear.sh retry-arm.
+    'retry-arm' { Write-Output 'UNSUPPORTED: API-error retry (StopFailure hook) is not implemented on Windows yet - resume by hand'; exit 2 }
+    'retry-off' { Write-Output 'RETRY_NOT_ARMED'; exit 0 }
+    'failhook' { exit 0 }
     default {
         Write-Output 'usage: auto-clear.ps1 {arm [--stdin] [--then "<prompt>"]|off|status|probe|hook|inject <pid>|install|uninstall}'
         exit 1
