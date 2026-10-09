@@ -2268,7 +2268,7 @@
       "id": "Skills/bughub-setup",
       "name": "bughub-setup",
       "category": "Skills",
-      "description": "Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert`, (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"cài bug logger cho project\", \"đăng ký project lên BugHub\", \"gắn project vào BugHub\". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.",
+      "description": "Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert` (kèm gán thành viên `members` khi dev nêu \"A làm lead, B QA…\"), (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"cài bug logger cho project\", \"đăng ký project lên BugHub\", \"gắn project vào BugHub\". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.",
       "installPath": ".claude/skills/bughub-setup",
       "isDirectory": true,
       "files": [
@@ -2279,8 +2279,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "3698f6858b9f69de362f8426680a170e1f53721551ff124f030e34ca16323912",
-      "size": 9831
+      "sha256": "747e481105ccc382184ab10f06733582da22704ace3e17a62659ee70ba833ca7",
+      "size": 10403
     },
     {
       "id": "Skills/compile-check",
