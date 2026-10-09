@@ -2652,8 +2652,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "b4df22df6544db134b2e4e29a506a5fc2b5999179bf55bb90ed2cff89c22a738",
-      "size": 15213
+      "sha256": "7b45e6e5529b359f96843bc2c23bb5de3cd17c3df8fd8bc30ee05a5abe46b5e4",
+      "size": 15302
     },
     {
       "id": "Skills/game-animation",
