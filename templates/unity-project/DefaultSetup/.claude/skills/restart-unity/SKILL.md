@@ -1,6 +1,6 @@
 ---
 name: restart-unity
-description: Ép restart Unity Editor của project hiện tại NGAY LẬP TỨC — kill -9 Editor (kèm AssetImportWorker / build -batchmode đang giữ project), gỡ lockfile, rồi mở lại đúng bản Editor đó với project này. KHÔNG hỏi confirm, KHÔNG save scene/prefab, KHÔNG kiểm tra gì trước — thay đổi chưa save trong Editor sẽ mất, đó là chủ đích. Dùng khi user gõ "/restart-unity", nói "restart unity", "khởi động lại Unity", "reset editor", "Unity treo / đơ / kẹt compile, mở lại đi", "Unity MCP mất kết nối, restart editor". `--no-launch` để chỉ kill, `--dry-run` để xem trước. KHÔNG phải compile check (/compile-check) và không phải build.
+description: Ép restart Unity Editor của project hiện tại NGAY LẬP TỨC — kill -9 Editor (kèm AssetImportWorker / build -batchmode đang giữ project), gỡ lockfile, rồi mở lại đúng bản Editor đó với project này. KHÔNG hỏi confirm, KHÔNG save scene/prefab, KHÔNG kiểm tra gì trước — thay đổi chưa save trong Editor sẽ mất, đó là chủ đích. Dùng khi user gõ "/restart-unity", nói "restart unity", "khởi động lại Unity", "reset editor", "Unity treo / đơ / kẹt compile, mở lại đi", "Unity MCP mất kết nối, restart editor". `--no-launch` để chỉ kill, `--dry-run` để xem trước; agent dùng `--open-only` (mở nếu chưa có, không kill) và `--status`. KHÔNG phải compile check (/compile-check) và không phải build.
 ---
 
 # Restart Unity
@@ -34,13 +34,17 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/restart-unity/scripts/re
 |---|---|---|---|
 | (trống) | — | — | kill + mở lại |
 | `no-launch` / `kill` | `--no-launch` | `-NoLaunch` | chỉ kill, không mở lại |
+| `open-only` / `open` | `--open-only` | `-OpenOnly` | **không kill**: Editor GUI đã mở thì thôi, chưa có thì mở (kèm `-ignoreCompilerErrors` để không kẹt dialog Safe Mode). Dùng cho agent — `bughub-watch.py editor open` |
+| `status` | `--status` | `-Status` | chỉ in trạng thái, không đụng gì |
 | `dry-run` | `--dry-run` | `-DryRun` | in PID sẽ kill + Editor sẽ mở, không đụng gì |
 | `<path>` | `--project <path>` | `-Project <path>` | project khác cwd |
 
 Script làm:
 1. Dò project root (thư mục có `ProjectSettings/ProjectVersion.txt`, từ cwd đi lên).
 2. Tìm mọi process Unity có `-projectPath` = project đó (Editor GUI + `AssetImportWorker*` + build
-   `-batchmode` đang giữ lock) → `kill -9` (Windows: `taskkill /F /T`), chờ chết hẳn (≤10s).
+   `-batchmode` đang giữ lock; **không** tính Unity Hub dù Hub cũng mang `-projectPath`) → `kill -9`
+   (Windows: `taskkill /F /T`), chờ chết hẳn (≤10s). `--open-only` bỏ qua bước này: có GUI → `ALREADY_RUNNING`,
+   chỉ có process batchmode → `ERROR BUSY …`.
 3. Gỡ `Temp/UnityLockfile`; dời `Temp/__Backupscenes` sang `Logs/restart-unity/__Backupscenes-<ts>`
    để Editor mới không dừng ở hộp thoại khôi phục scene (vẫn giữ bản backup nếu cần lục lại).
 4. Mở lại **đúng binary Editor vừa chạy** (macOS `open -n -a <Unity.app> --args -projectPath …`).
@@ -54,6 +58,8 @@ Dòng cuối stdout là status:
 |---|---|
 | `RESTARTED pid=<n>` | Editor mới đã lên process (đang load project — chưa chắc đã vào xong) |
 | `KILLED` | `--no-launch`: đã kill, không mở lại |
+| `OPENED pid=<n>` / `ALREADY_RUNNING pid=<n>` | `--open-only`: vừa mở / đã mở sẵn (không đụng tới) |
+| `RUNNING gui=<pid\|none> pids=[…]` / `NOT_RUNNING` | `--status` |
 | `DRY_RUN kill=[…] launch=…` | chỉ xem trước |
 | `ERROR <lý do>` | báo nguyên văn cho user, **không** tự chạy lại vòng hai |
 

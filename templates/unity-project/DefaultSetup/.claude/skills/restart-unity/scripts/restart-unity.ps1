@@ -1,18 +1,24 @@
 ﻿# restart-unity.ps1 — ép restart Unity Editor của project hiện tại NGAY, không hỏi, không save (Windows).
 #
-#   powershell -ExecutionPolicy Bypass -File .claude/skills/restart-unity/scripts/restart-unity.ps1 [-DryRun] [-NoLaunch] [-Project <path>]
+#   powershell -ExecutionPolicy Bypass -File .claude/skills/restart-unity/scripts/restart-unity.ps1 [-DryRun] [-NoLaunch | -OpenOnly | -Status] [-Project <path>]
 #
 #   -DryRun    chỉ in kế hoạch (PID sẽ kill, editor sẽ mở), không đụng gì
 #   -NoLaunch  kill xong thì thôi, không mở lại
+#   -OpenOnly  KHÔNG kill: Editor GUI đã mở thì thôi (ALREADY_RUNNING), chưa có thì mở (OPENED) kèm
+#              -ignoreCompilerErrors để không kẹt dialog Safe Mode. Dùng cho agent (/fix-bug --watch).
+#   -Status    chỉ in trạng thái: RUNNING gui=<pid|none> pids=[…] | NOT_RUNNING
 #   -Project   project root (mặc định: dò ngược từ cwd tới thư mục có ProjectSettings\ProjectVersion.txt)
 #
 # Luồng giống restart-unity.sh: tìm Unity.exe có -projectPath khớp → taskkill /F /T → gỡ
 # Temp\UnityLockfile + dời Temp\__Backupscenes sang Logs\ → mở lại đúng Unity.exe vừa chạy (không có
 # process thì lấy version trong ProjectVersion.txt → thư mục cài Unity Hub).
-# Dòng cuối stdout luôn là một status: RESTARTED pid=<n> | KILLED | DRY_RUN | ERROR <lý do>.
+# Dòng cuối stdout luôn là một status: RESTARTED pid=<n> | KILLED | OPENED pid=<n> | ALREADY_RUNNING pid=<n>
+# | RUNNING … | NOT_RUNNING | DRY_RUN | ERROR <lý do>.
 param(
     [switch]$DryRun,
     [switch]$NoLaunch,
+    [switch]$OpenOnly,
+    [switch]$Status,
     [string]$Project = ""
 )
 
@@ -20,6 +26,8 @@ param(
 $ErrorActionPreference = "Continue"
 
 function Fail([string]$msg) { Write-Output "ERROR $msg"; exit 1 }
+
+if (([int]$NoLaunch.IsPresent + [int]$OpenOnly.IsPresent + [int]$Status.IsPresent) -gt 1) { Write-Output "ERROR -NoLaunch / -OpenOnly / -Status loại trừ nhau"; exit 2 }
 
 #region Project root
 function Find-ProjectRoot([string]$dir) {
@@ -72,6 +80,18 @@ if ($running.Count -gt 0) {
 } else {
     Write-Output "editor đang chạy: không có"
 }
+
+if ($Status) {
+    if ($running.Count -gt 0) {
+        Write-Output ("RUNNING gui=" + $(if ($gui) { $gui.ProcessId } else { "none" }) + " pids=[$($running.ProcessId -join ' ')]")
+    } else { Write-Output "NOT_RUNNING" }
+    exit 0
+}
+if ($OpenOnly) {
+    if ($gui) { Write-Output "ALREADY_RUNNING pid=$($gui.ProcessId)"; exit 0 }
+    # Không có GUI mà vẫn có process giữ project (build -batchmode, import worker mồ côi) → không mở chồng.
+    if ($running.Count -gt 0) { Fail "BUSY project đang bị process khác giữ (build -batchmode?): [$($running.ProcessId -join ' ')]" }
+}
 #endregion
 
 #region Resolve Unity.exe để mở lại
@@ -104,7 +124,7 @@ Write-Output ("editor sẽ mở: " + $(if ($NoLaunch) { "(không mở, -NoLaunch
 #endregion
 
 if ($DryRun) {
-    Write-Output ("DRY_RUN kill=[" + ($running.ProcessId -join ' ') + "] launch=" + $(if ($NoLaunch) { "no" } else { "yes" }))
+    Write-Output ("DRY_RUN kill=[" + $(if ($OpenOnly) { "" } else { $running.ProcessId -join ' ' }) + "] launch=" + $(if ($NoLaunch) { "no" } else { "yes" }))
     exit 0
 }
 
@@ -141,7 +161,9 @@ if ($NoLaunch) { Write-Output "KILLED"; exit 0 }
 
 #region Mở lại
 try {
-    Start-Process -FilePath $editorExe -ArgumentList @("-projectPath", "`"$Project`"") -ErrorAction Stop | Out-Null
+    $launchArgs = @("-projectPath", "`"$Project`"")
+    if ($OpenOnly) { $launchArgs += "-ignoreCompilerErrors" }
+    Start-Process -FilePath $editorExe -ArgumentList $launchArgs -ErrorAction Stop | Out-Null
 } catch { Fail "Start-Process $editorExe thất bại: $($_.Exception.Message)" }
 
 $newProc = $null
@@ -152,5 +174,5 @@ while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 200
 }
 if (-not $newProc) { Fail "đã gọi mở Editor nhưng không thấy process mới sau 10s" }
-Write-Output "RESTARTED pid=$($newProc.ProcessId)"
+Write-Output ("$(if ($OpenOnly) { 'OPENED' } else { 'RESTARTED' }) pid=$($newProc.ProcessId)")
 #endregion

@@ -36,11 +36,22 @@ Lệnh:
         thúc lượt, lượt sau thử lại bước vừa lỗi.
   config
         In config đã gộp + nhánh hiện tại (skill đọc ở preflight).
+  editor status | open [--timeout S] | close [--wait S]
+        Unity Editor của thư mục này cho bug — compile-check là bắt buộc nên bot không sửa khi chưa có Editor.
+        `status`: {running, pid, owned}. `open`: Editor chưa mở thì mở (restart-unity --open-only) và ghi
+        nhận "bot mở" (owned); rồi chờ tới khi plugin Unity MCP của đúng process đó đăng ký vào registry
+        (Editor đã load + compile xong) → `READY`. `close`: chỉ tắt Editor do bot mở — skill đã kiểm hết bug
+        `retry`, không có thay đổi chưa save, rồi xin Editor tự thoát qua MCP; lệnh này chờ process thoát,
+        quá `--wait` giây thì kill (`CLOSED` / `KILLED`); Editor không do bot mở → `NOT_OWNED`, không đụng.
+  notice check|mark --reason KEY -- N... | notice clear
+        Chống gửi lặp `bughub_note` khi loop pause vì Editor chưa dùng được: `check` trả các bug CHƯA được
+        nhắn với lý do KEY, `mark` ghi nhận đã nhắn, `clear` (Editor dùng được lại) xoá để lần lỗi sau nhắn tiếp.
 
 Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log cho người đọc ra stderr.
 Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`) · 2 config / tham số sai / `start` không chuẩn bị
 được thư mục · 3 `WAIT` (tạm thời — pause rồi thử lại; `reason`: DETACHED, WRONG_BRANCH, BUSY, FETCH_FAILED,
-MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED) · 4 merge conflict khi `publish`
+MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED, EDITOR_BUSY,
+EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 merge conflict khi `publish`
 (đã `merge --abort`) · 5 push khi `publish` bị từ chối.
 """
 
@@ -53,6 +64,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -71,6 +83,13 @@ PUSH_ATTEMPTS = 3
 PAUSE_STEPS = (60, 300, 900, 1800)
 # Không bao giờ để git đứng chờ nhập mật khẩu trong loop không người trông.
 GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+# Chờ Editor sẵn sàng trong MỘT lệnh: vừa timeout tối đa 10 phút của Bash tool; lâu hơn thì WAIT → pause → thử lại.
+EDITOR_READY_TIMEOUT = 540
+EDITOR_CLOSE_WAIT = 60
+EDITOR_POLL_SECONDS = 5
+# Entry registry của Unity MCP cũ hơn mức này là của Editor đã chết (= registryStalenessTimeoutMs mặc định của MCP).
+REGISTRY_FRESH_SECONDS = 300
+RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart-unity" / "scripts"
 
 
 class Stop(Exception):
@@ -439,6 +458,221 @@ def do_pause(argv: list[str]) -> dict:
 
 
 # --------------------------------------------------------------------------------------------------
+# editor / notice
+# --------------------------------------------------------------------------------------------------
+
+def state_file(cwd: Path, name: str) -> Path:
+    """File trạng thái của watch trong git dir của worktree này (không bao giờ bị commit, sống qua /clear)."""
+    return Path(out("rev-parse", "--absolute-git-dir", cwd=cwd)) / "bughub-watch" / name
+
+
+def read_json(path: Path) -> dict | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def restart_unity(flag: str, root: Path) -> str:
+    """Chạy restart-unity (sh / ps1) với đúng một cờ, trả dòng status cuối của nó."""
+    if os.name == "nt":
+        ps_flag = {"--status": "-Status", "--open-only": "-OpenOnly", "--no-launch": "-NoLaunch"}[flag]
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+               str(RESTART_UNITY_DIR / "restart-unity.ps1"), ps_flag, "-Project", str(root)]
+    else:
+        cmd = ["bash", str(RESTART_UNITY_DIR / "restart-unity.sh"), flag, "--project", str(root)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as err:
+        return f"ERROR không chạy được restart-unity: {err}"
+    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    return lines[-1] if lines else f"ERROR restart-unity không in gì (exit {proc.returncode}): {proc.stderr.strip()[:200]}"
+
+
+def pid_alive(pid: int) -> bool:
+    if os.name == "nt":
+        proc = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+        return str(pid) in proc.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def editor_status(root: Path) -> dict:
+    """Editor GUI của project này + có phải bot mở không. Marker của Editor đã tắt / bị thay thì xoá."""
+    line = restart_unity("--status", root)
+    match = re.fullmatch(r"RUNNING gui=(\S+) pids=\[([^\]]*)\]", line)
+    if line == "NOT_RUNNING":
+        gui, pids = None, []
+    elif match:
+        gui = int(match.group(1)) if match.group(1).isdigit() else None
+        pids = [int(x) for x in match.group(2).split() if x.isdigit()]
+    else:
+        raise wait("EDITOR_STATUS_FAILED", f"không đọc được trạng thái Unity Editor: {line}")
+    marker_path = state_file(root, "editor.json")
+    marker = read_json(marker_path)
+    owned = bool(marker and gui and marker.get("pid") == gui)
+    if marker and not owned:
+        marker_path.unlink(missing_ok=True)
+    return {"running": bool(pids), "pid": gui, "pids": pids, "owned": owned}
+
+
+def registry_path() -> Path:
+    """Registry instance của plugin Unity MCP (cùng đường dẫn MCP server đọc)."""
+    override = os.environ.get("UNITY_INSTANCE_REGISTRY")
+    if override:
+        return Path(override)
+    base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") if os.name == "nt" \
+        else Path.home() / ".local" / "share"
+    return base / "UnityMCP" / "instances.json"
+
+
+def parse_utc(value: object) -> datetime | None:
+    """'2026-10-09T02:38:06.8293400Z' (C# ghi 7 chữ số thập phân — fromisoformat không nhận)."""
+    match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?(?:Z|\+00:00)?", str(value or ""))
+    if not match:
+        return None
+    stamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    return stamp.replace(microsecond=int((match.group(2) or "0")[:6].ljust(6, "0")))
+
+
+def same_path(a: object, b: Path) -> bool:
+    return bool(a) and os.path.normcase(os.path.realpath(str(a))) == os.path.normcase(os.path.realpath(str(b)))
+
+
+def registry_entry(root: Path, pid: int) -> dict | None:
+    """Entry còn sống của đúng process Editor này — có nghĩa plugin MCP đã chạy (Editor load + compile xong)."""
+    try:
+        data = json.loads(registry_path().read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    now = datetime.now(timezone.utc)
+    for entry in data if isinstance(data, list) else []:
+        if not isinstance(entry, dict) or entry.get("processId") != pid or not same_path(entry.get("projectPath"), root):
+            continue
+        seen = parse_utc(entry.get("lastSeen") or entry.get("registeredAt"))
+        if seen and (now - seen).total_seconds() <= REGISTRY_FRESH_SECONDS:
+            return entry
+    return None
+
+
+def editor_open(root: Path, timeout: int) -> dict:
+    status = editor_status(root)
+    pid, opened = status["pid"], False
+    if not pid:
+        line = restart_unity("--open-only", root)
+        match = re.fullmatch(r"(OPENED|ALREADY_RUNNING) pid=(\d+)", line)
+        if not match:
+            detail = line.removeprefix("ERROR").strip()
+            reason = "EDITOR_NOT_INSTALLED" if "VERSION_NOT_INSTALLED" in line else \
+                "EDITOR_BUSY" if detail.startswith("BUSY") else "EDITOR_LAUNCH_FAILED"
+            raise wait(reason, f"không mở được Unity Editor: {detail}")
+        pid, opened = int(match.group(2)), match.group(1) == "OPENED"
+        if opened:
+            write_json(state_file(root, "editor.json"),
+                       {"pid": pid, "projectPath": str(root), "openedAt": datetime.now(timezone.utc).isoformat()})
+            print(f"bughub-watch: đã mở Unity Editor pid {pid} — chờ load xong (tối đa {timeout}s)", file=sys.stderr)
+    owned = opened or status["owned"]
+    started, last_log = time.monotonic(), time.monotonic()
+    while True:
+        entry = registry_entry(root, pid)
+        if entry:
+            return {"result": "READY", "pid": pid, "opened": opened, "owned": owned, "port": entry.get("port"),
+                    "waited": int(time.monotonic() - started)}
+        if not pid_alive(pid):
+            if owned:
+                state_file(root, "editor.json").unlink(missing_ok=True)
+            raise wait("EDITOR_EXITED", f"Unity Editor pid {pid} đã thoát trước khi sẵn sàng (crash, hỏi license, hoặc bị tắt tay)",
+                       pid=pid)
+        if time.monotonic() - started >= timeout:
+            raise wait("EDITOR_NOT_READY",
+                       f"Unity Editor pid {pid} chưa sẵn sàng sau {timeout // 60} phút — đang import/compile lâu, kẹt một dialog "
+                       "(license, nâng version…) cần người bấm, hoặc project thiếu plugin Unity MCP", pid=pid, owned=owned)
+        if time.monotonic() - last_log >= 60:
+            print(f"bughub-watch: Editor pid {pid} vẫn đang load ({int(time.monotonic() - started)}s)…", file=sys.stderr)
+            last_log = time.monotonic()
+        time.sleep(EDITOR_POLL_SECONDS)
+
+
+def editor_close(root: Path, wait_s: int) -> dict:
+    marker = read_json(state_file(root, "editor.json"))
+    status = editor_status(root)
+    if not status["owned"]:
+        if marker and not status["running"]:
+            # Editor bot mở đã tự thoát (lệnh thoát qua MCP chạy xong trước khi gọi close) — marker đã được dọn.
+            return {"result": "CLOSED", "pid": marker.get("pid")}
+        return {"result": "NOT_OWNED", "running": status["running"], "pid": status["pid"],
+                "message": "Editor không do bot mở (hoặc đã tắt) — để nguyên"}
+    pid = status["pid"]
+    deadline = time.monotonic() + max(0, wait_s)
+    while pid_alive(pid) and time.monotonic() < deadline:
+        time.sleep(2)
+    graceful = not pid_alive(pid)
+    if not graceful or restart_unity("--status", root) != "NOT_RUNNING":
+        # Editor không tự thoát (hoặc còn import worker mồ côi) → kill cả cụm của project.
+        line = restart_unity("--no-launch", root)
+        if line != "KILLED":
+            raise wait("EDITOR_KILL_FAILED", f"không tắt được Unity Editor pid {pid}: {line}", pid=pid)
+    state_file(root, "editor.json").unlink(missing_ok=True)
+    return {"result": "CLOSED" if graceful else "KILLED", "pid": pid}
+
+
+def int_option(argv: list[str], name: str, default: int) -> int:
+    if not argv:
+        return default
+    if len(argv) != 2 or argv[0] != name or not re.fullmatch(r"[0-9]+", argv[1]):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {' '.join(argv)} (chỉ nhận {name} <giây>)")
+    return int(argv[1])
+
+
+def do_editor(cwd: Path, argv: list[str]) -> dict:
+    sub, rest = (argv[0], argv[1:]) if argv else ("", [])
+    root = repo_root(cwd)
+    if sub == "status" and not rest:
+        return {"result": "OK", **editor_status(root)}
+    if sub == "open":
+        return editor_open(root, int_option(rest, "--timeout", EDITOR_READY_TIMEOUT))
+    if sub == "close":
+        return editor_close(root, int_option(rest, "--wait", EDITOR_CLOSE_WAIT))
+    raise Stop(EXIT_CONFIG, "BAD_ARGS", "editor status | open [--timeout S] | close [--wait S]")
+
+
+def do_notice(cwd: Path, argv: list[str]) -> dict:
+    path = state_file(repo_root(cwd), "notices.json")
+    sub = argv[0] if argv else ""
+    if sub == "clear" and len(argv) == 1:
+        path.unlink(missing_ok=True)
+        return {"result": "OK", "cleared": True}
+    if sub not in ("check", "mark") or "--" not in argv:
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "notice check|mark --reason KEY -- N... | notice clear")
+    head, numbers = argv[1:argv.index("--")], argv[argv.index("--") + 1:]
+    if len(head) != 2 or head[0] != "--reason" or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", head[1]):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--reason phải là mã IN_HOA (vd EDITOR_NOT_READY)")
+    if not numbers or any(not re.fullmatch(r"[1-9][0-9]*", n) for n in numbers):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "sau -- là số bug nguyên dương")
+    reason, bugs = head[1], [int(n) for n in numbers]
+    state = read_json(path) or {}
+    posted = [int(n) for n in state.get("posted", []) if isinstance(n, int)] if state.get("reason") == reason else []
+    if sub == "check":
+        return {"result": "OK", "reason": reason, "post": [n for n in bugs if n not in posted]}
+    write_json(path, {"reason": reason, "posted": sorted(set(posted + bugs))})
+    return {"result": "OK", "reason": reason, "marked": bugs}
+
+
+# --------------------------------------------------------------------------------------------------
 # start
 # --------------------------------------------------------------------------------------------------
 
@@ -588,8 +822,13 @@ def main(argv: list[str]) -> int:
                 result = do_publish(cfg, repo_root(cwd))
             elif command == "start":
                 result = do_start(cfg, cwd, rest)
+            elif command == "editor":
+                result = do_editor(cwd, rest)
+            elif command == "notice":
+                result = do_notice(cwd, rest)
             else:
-                raise Stop(EXIT_CONFIG, "BAD_ARGS", f"lệnh lạ: {command} (start | sync | push | shelve | publish | pause | config)")
+                raise Stop(EXIT_CONFIG, "BAD_ARGS",
+                           f"lệnh lạ: {command} (start | sync | push | shelve | publish | pause | config | editor | notice)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))
