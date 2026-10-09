@@ -20,7 +20,7 @@ server từ chối `claim` (kể cả `force`), `bughub_next` bỏ qua. Skill **
 | `bughub_get(project, number)` | `fix-bug N` | `number`, `title`, `status` + `report` (§3.4: `report.actual`, `report.app`…) + `comments[]` (`isBot`) + `threadUrl` + `files` (URL) + `log` (64 KiB cuối) + ảnh chụp (image content) + `warnings[]` (tuỳ chọn) |
 | `bughub_claim(project, number, force?, note?)` | `fix-bug N` | `retry` → `fixing`. Người khác đang nhận → lỗi `busy`; bug `new` → `invalid_transition` |
 | `bughub_next(project)` | `fix-bug`, `--watch` | claim atomic bug `retry` cũ nhất (không bao giờ `new`), trả như `bughub_get` + `claimed: {from, to}`; hết bug → `{"bug":null,"project":…}` |
-| `bughub_resolve(project, number, commit, branch?, summary)` | sau push | `fixing` → `fixed`. Server kiểm commit có trên GitLab (`commit_not_found` nếu chưa push) |
+| `bughub_resolve(project, number, commit, branch?, cause, fix, qa_steps[], files[]?, note?)` | sau push | `fixing` → `fixed`. Server kiểm commit có trên GitLab (`commit_not_found` nếu chưa push) |
 | `bughub_needs_info(project, number, question)` | thiếu dữ kiện | `fixing` → `needs-info`, câu hỏi hiện trong thread cho QA |
 | `bughub_block(project, number, reason, need[])` | cần người làm tay | `fixing` → `blocked`; `need` = tên người / vai trò lấy từ `bughub_people` |
 | `bughub_release(project, number, reason)` | lối thoát lỗi | `fixing` → `new` (bỏ nhận — chờ người giao lại) |
@@ -127,9 +127,9 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
      `AutoBuild/**`, script build trong Editor), `Packages/manifest.json`, `ProjectSettings/**`, `*.asmdef`.
    - Ở `--watch` (không có người ngồi cạnh): thêm mọi file khớp
      `python3 .claude/scripts/project_profile.py sensitiveGlobs` (IAP, receipt, auth, token, save…).
-     Chế độ một lần thì được sửa, nhưng summary lúc resolve và report cuối phải ghi rõ "đụng file nhạy
+     Chế độ một lần thì được sửa, nhưng `note` lúc resolve và report cuối phải ghi rõ "đụng file nhạy
      cảm: <file> — dev review trước khi merge".
-9. **Chữ gửi lên BugHub viết tiếng Việt.** `summary`, `question`, `reason` của mọi tool `bughub_*` hiện
+9. **Chữ gửi lên BugHub viết tiếng Việt.** Trường fix của `bughub_resolve`, `question`, `reason` của mọi tool `bughub_*` hiện
    nguyên văn trong thread Discord + comment GitLab cho QA đọc → tiếng Việt, ngắn, đi thẳng vào ý (không
    mở bài, không lặp lại title, không xin lỗi). Tên class / method / file / màn giữ nguyên như trong code.
    Commit message vẫn tiếng Anh (luật 3). `message` của `bughub_note` cũng vậy, và không ghi đường dẫn máy dev / PID.
@@ -283,24 +283,25 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
    |---|---|
    | `0` · `PUBLISHED` | Fix đã vào `<baseBranch>` (fast-forward, có thể kèm merge commit khi nhánh chính vừa chạy tiếp). Lấy `<sha>` = `head` của JSON |
    | `0` · `DISABLED` | Như `mergeToBase: false` |
-   | `2` / `3` / `4` / `5` (`WAIT`, `BASE_CHECKED_OUT`, `MERGE_CONFLICT`, `PUSH_FAILED`…) | Fix **đã push** trên `<branch>` — không release; resolve với nhánh `<branch>`, ghi vào summary "Chưa đưa lên `<baseBranch>`: <message rút gọn>", nêu trong report. Loop chạy tiếp |
+   | `2` / `3` / `4` / `5` (`WAIT`, `BASE_CHECKED_OUT`, `MERGE_CONFLICT`, `PUSH_FAILED`…) | Fix **đã push** trên `<branch>` — không release; resolve với nhánh `<branch>`, ghi vào `note` "Chưa đưa lên `<baseBranch>`: <message rút gọn>", nêu trong report. Loop chạy tiếp |
 
 4. **Resolve:** `<sha>` = `git rev-parse HEAD` (hoặc `head` của `PUBLISHED`), `<branch>` =
    `<baseBranch>` khi `PUBLISHED`, còn lại `git rev-parse --abbrev-ref HEAD`, rồi
-   `bughub_resolve(<code>, N, commit: <sha>, branch: <branch>, summary: …)`. **Summary tiếng Việt, 4
-   dòng, mỗi dòng một ý** (luật 9; cộng tối đa một dòng `Lưu ý`) — server đã tự in commit + nhánh, đừng lặp lại:
+   `bughub_resolve(<code>, N, commit: <sha>, branch: <branch>, cause, fix, qa_steps, files, note?)`. Mỗi
+   trường thành một khối riêng trong thẻ Discord (server tự in nhãn đậm, gạch đầu dòng, commit + nhánh — đừng
+   lặp lại). Tiếng Việt, ngắn, mỗi trường một ý (luật 9):
+   - `cause`: 1 câu — lỗi nằm ở đâu, vì sao xảy ra.
+   - `fix`: 1 câu.
+   - `qa_steps`: mảng thao tác cụ thể để thấy đã hết lỗi, mỗi phần tử một bước (1–8 bước).
+   - `files`: mảng tên file đã sửa (chỉ tên file, không đường dẫn).
+   - `note`: **chỉ** khi có chuyện dev/QA cần biết (chưa đưa lên nhánh chính vì …; đụng file nhạy cảm …).
+
+   Ví dụ (minh hoạ khuôn, không phải bug thật):
    ```
-   Nguyên nhân: <1 câu — lỗi nằm ở đâu, vì sao xảy ra>
-   Cách sửa: <1 câu>
-   QA kiểm: <thao tác cụ thể để thấy đã hết lỗi>
-   File: <tên file, ngăn bằng dấu phẩy>
-   ```
-   Chỉ thêm dòng `Lưu ý: …` khi có chuyện dev/QA cần biết (chưa đưa lên nhánh chính vì …; đụng file nhạy cảm …). Ví dụ (minh hoạ khuôn, không phải bug thật):
-   ```
-   Nguyên nhân: nút Nhận đăng ký sự kiện hai lần khi popup mở lại nên thưởng bị cộng đôi.
-   Cách sửa: huỷ đăng ký trong OnHide, chặn bấm lặp khi đang xử lý.
-   QA kiểm: mở popup thưởng, đóng rồi mở lại, bấm Nhận — chỉ cộng một lần.
-   File: ScreenDailyRewardController.cs
+   cause:    "Nút Nhận đăng ký sự kiện hai lần khi popup mở lại nên thưởng bị cộng đôi."
+   fix:      "Huỷ đăng ký trong OnHide, chặn bấm lặp khi đang xử lý."
+   qa_steps: ["Mở popup thưởng, đóng rồi mở lại", "Bấm Nhận — chỉ cộng thưởng một lần"]
+   files:    ["ScreenDailyRewardController.cs"]
    ```
    - `commit_not_found` → chờ ~10 giây, gọi lại **một** lần. Vẫn lỗi → `bughub_release(<code>, N,
      "resolve lỗi: commit_not_found <sha>")`, dừng, báo dev kiểm `origin` có đúng project GitLab mà
