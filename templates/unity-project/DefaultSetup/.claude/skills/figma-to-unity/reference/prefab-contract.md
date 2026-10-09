@@ -11,6 +11,7 @@ lines move with every release.
 | Figma node type | Unity output | Source |
 |---|---|---|
 | FRAME (parent is CANVAS or SECTION) | Screen prefab at `FigmaPaths.FigmaScreenPrefabFolder` | `FigmaAssetGenerator.BuildFigmaNode`, `FigmaDataUtils.IsScreenNode` |
+| COMPONENT (parent is the screens CANVAS or a SECTION there, bridge 0.8.6+) | Screen prefab at `FigmaPaths.FigmaScreenPrefabFolder` and a component prefab at `<ComponentPrefabFolder>/<SafeName>.prefab` | `FigmaAssetGenerator.BuildFigmaNode`, `FigmaDataUtils.IsScreenNode` |
 | COMPONENT (standalone) | Component prefab at `<ComponentPrefabFolder>/<SafeName>.prefab` | `ComponentManager.GenerateComponentAssetFromNode` |
 | COMPONENT (child of COMPONENT_SET) | Variant prefab at `<ComponentPrefabFolder>/<SetName>/<NormalisedVariant>.prefab` | `ComponentManager.GenerateComponentAssetFromNode`, `FigmaPaths.GetPathForComponentPrefab` |
 | COMPONENT_SET | Folder `<ComponentPrefabFolder>/<SetName>/` containing variant prefabs + `axis-intent.json` | `FigmaPaths.GetPathForComponentPrefab`, `ComponentAxisIntent.WriteAxisIntent` |

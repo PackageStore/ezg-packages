@@ -129,10 +129,18 @@ missing for a moment. A force reimport of the page prefab afterwards is clean.
 ## Pages and the selection
 
 Every Figma file needs a `Screens` page and a `Components` page (`ScreensPageName`,
-`ComponentsPageName`; the import warns when one is missing). Only frames on `Screens`
-are screens. A frame on any other page only holds components. The window lists
-screen rows for `Screens` and component rows (sets and standalone components, at
-any depth) for every other page.
+`ComponentsPageName`; the import warns when one is missing). Only frames and
+components directly on `Screens` (or in a section there) are screens. A frame on
+any other page only holds components. The window lists screen rows for `Screens`
+and component rows (sets and standalone components, at any depth) for every other
+page.
+
+A component on `Screens` (bridge 0.8.6+) gets both a screen prefab and a component
+prefab, since other screens may instance it; both hold the same content, and its
+art lands under `Screens/<screen>/`. A screen is never flattened to one image: its
+export settings and `ServerRenderTopLevelExports` do not apply to it (bridge 0.8.6+).
+Before 0.8.6 a screen frame with an export setting imported only as
+`Assets/<frame name>.png`.
 
 With `ImportSelectionOnly` (on by default, bridge 0.6.3+), an import builds the
 ticked screens and components plus every component they reach through instances
@@ -147,7 +155,7 @@ is the Figma frame name (e.g. `<FrameName>`), `PrefabName` is the output prefab
 filename (e.g. `Screen_<FrameName>`), blank keeps the frame name.
 
 When `OnlyImportListedScreens` is true, only frames with a matching row are
-imported. A top-level FRAME with no matching row is skipped:
+imported. A screen with no matching row is skipped:
 `FigmaPaths.GetPathForScreenPrefab` returns `null`.
 
 No code change needed. It is a data change on the settings asset.
