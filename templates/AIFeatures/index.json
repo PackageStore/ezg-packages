@@ -2181,8 +2181,8 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "81f825aa7703dbcbe87ff79ce4f7c3c2a0358379bb8929c76df0fa1a95a0a816",
-      "size": 16123
+      "sha256": "32524dadf2b88c9ac64dad916f38ec7f7e9517f741dc6e721e06ef887ed5309c",
+      "size": 18457
     },
     {
       "id": "Skills/backend-communication",
@@ -2641,7 +2641,7 @@
       "id": "Skills/fix-bug",
       "name": "fix-bug",
       "category": "Skills",
-      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause rồi thử lại); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause rồi thử lại); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd \"organization has disabled Claude subscription access\") tự thử lại mỗi 30 giây, tối đa 5 lần; chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
       "installPath": ".claude/skills/fix-bug",
       "isDirectory": true,
       "files": [
@@ -2652,8 +2652,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "7b45e6e5529b359f96843bc2c23bb5de3cd17c3df8fd8bc30ee05a5abe46b5e4",
-      "size": 15302
+      "sha256": "fe6c3908f0a2716b6589a2ea971e2c4a37a3e7cbddebffaf6463b5030cfce1c4",
+      "size": 16220
     },
     {
       "id": "Skills/game-animation",
