@@ -1,6 +1,6 @@
 ---
 name: bughub-setup
-description: Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert`, (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói "/bughub-setup", "setup bughub", "cài bughub", "cài bug logger cho project", "đăng ký project lên BugHub", "gắn project vào BugHub". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.
+description: Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert` (kèm gán thành viên `members` khi dev nêu "A làm lead, B QA…"), (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói "/bughub-setup", "setup bughub", "cài bughub", "cài bug logger cho project", "đăng ký project lên BugHub", "gắn project vào BugHub". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.
 ---
 
 # BugHub Setup — cài BugHub cho project hiện tại
@@ -97,11 +97,24 @@ Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo serv
      bật Developer Mode). Validate `^[0-9]{17,20}$`; sai → hỏi lại một lần.
    - `feedbackChannelId` — hỏi dev, tuỳ chọn (Enter để bỏ qua = feedback vào kênh report mặc định).
      Có giá trị thì validate như trên.
-   - Gọi `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`.
+   - Gọi `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`
+     (kèm `members` nếu dev đã nêu thành viên — mục 5).
    - **In nguyên bảng kết quả từng bước** server trả về (`ok | created | fixed | error: <lý do>`) — không
      tóm tắt, không bỏ dòng. Mọi dòng `ok/created/fixed` → kết quả `created`.
 4. Sau 2/3: `GET /form` (lệnh ở 3b) phải ra `200` với `intakeEnabled` true (trừ khi dev vừa chọn để intake
    tắt). Không → ghi lại trong report.
+5. **Thành viên** — chỉ khi dev đã nêu trong lệnh/chat ("A làm lead, B QA, C dev"); không nêu thì bỏ qua,
+   **không hỏi**. Truyền `members: [{who, roles}]` vào cùng lần `bughub_admin_project_upsert` của mục 2/3
+   (project đã có và doctor `ok` → gọi riêng `bughub_admin_project_upsert(code, members)`). `who` = đúng chữ
+   dev gõ (tên, email, phần trước `@`, Discord id); `roles` ⊂ `lead | dev | qa | art | gd`, thay vai trò của
+   người đó **trong project này** (`[]` = gỡ khỏi project), người không nêu giữ nguyên. Server tra danh bạ
+   và kiểm quyền **trước** khi ghi gì:
+   - `unknown_person` → `bughub_admin_people_list(query: <who>)` tìm gần đúng, đưa dev chọn; không có ai →
+     `cần dev làm: owner BugHub thêm <who> vào danh bạ (bughub_admin_people_sync)`.
+   - `ambiguous_person` → in `candidates` (tên + email), hỏi dev chọn rồi gọi lại với email người đó.
+   - `inactive_person` → `cần dev làm: bật lại <tên> (bughub_admin_person_upsert active: true)`.
+   In bảng `members[]` kết quả (`added | changed | removed | unchanged | error`). Kết quả bước: `updated` nếu
+   có người thay đổi.
 
 **Dòng `error` trong bảng upsert** — server chỉ bật intake khi bước 1–4 không lỗi, nên đây là việc tay:
 
@@ -111,6 +124,7 @@ Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo serv
 | 2–3 (label / webhook) | thường cùng nguyên nhân quyền Maintainer ở trên |
 | 4 (Discord) | cấp cho bot trên forum: View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Attach Files, Manage Threads; kiểm đúng ID forum; forum còn chỗ cho tag status (tối đa 20 tag) |
 | `not_admin` (tool result `isError`) | tài khoản vừa bị gỡ quyền admin → làm như 3b |
+| `forbidden` `people.assign-lead` | chỉ owner/admin gán hoặc gỡ vai trò `lead` — nhờ admin BugHub |
 
 ### 3b. Không phải admin
 
