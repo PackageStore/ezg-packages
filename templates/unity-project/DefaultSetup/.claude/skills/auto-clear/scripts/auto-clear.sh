@@ -13,11 +13,12 @@
 #   hook            Stop hook: có cờ → gỡ cờ → chờ AUTO_CLEAR_DELAY giây → gõ "/clear" + Enter
 #                   (+ prompt --then nếu cờ có, sau AUTO_CLEAR_THEN_DELAY giây)
 #   inject <uuid> [tty]   gõ "/clear" + Enter vào pane <uuid> (nội bộ / test)
-#   retry-arm [--prompt "<prompt>"]
+#   retry-arm [--prompt "<prompt>"] [--max N]
 #                   bật THỬ LẠI LỖI API cho pane hiện tại: lượt trả lời chết vì lỗi API của Claude (mất
 #                   quyền org, rate limit, overloaded, 5xx…) → StopFailure hook chờ AUTO_CLEAR_RETRY_DELAY
-#                   giây rồi gõ <prompt> + Enter, tối đa AUTO_CLEAR_RETRY_MAX lần liên tiếp; một lượt kết
-#                   thúc bình thường (Stop hook) đưa bộ đếm về 0. Cờ sống tới khi retry-off / off
+#                   giây rồi gõ <prompt> + Enter, tối đa N lần liên tiếp (mặc định AUTO_CLEAR_RETRY_MAX;
+#                   0 = không giới hạn); một lượt kết thúc bình thường (Stop hook) đưa bộ đếm về 0. Cờ
+#                   sống tới khi retry-off / off
 #   retry-off       gỡ cờ thử lại lỗi API của pane hiện tại
 #   failhook        StopFailure hook (nội bộ) — xem retry-arm
 #   install         copy script sang ~/.claude/auto-clear/auto-clear.sh rồi đăng ký Stop + StopFailure
@@ -105,6 +106,16 @@ sync_hook_copy() {
 # Prompt --then trong cờ: base64 một dòng để xuống dòng/dấu "=" không phá format key=value.
 b64_encode() { printf '%s' "$1" | base64 | tr -d '\n'; }
 b64_decode() { printf '%s' "$1" | base64 --decode 2>/dev/null; }
+
+# Số lần thử lại tối đa ghi trong cờ retry (cờ bản cũ không có → AUTO_CLEAR_RETRY_MAX). 0 = không giới hạn.
+retry_max_of() {
+  local max
+  max=$(sed -n 's/^max=//p' "$1")
+  case "$max" in ''|*[!0-9]*) max="$RETRY_MAX" ;; esac
+  printf '%s' "$max"
+}
+
+max_label() { if [ "$1" -eq 0 ]; then printf '∞'; else printf '%s' "$1"; fi; }
 
 # Prompt hợp lệ: không rỗng, một dòng, không ký tự điều khiển, ≤ THEN_MAX ký tự. Sai → in lý do, return 1.
 validate_then() {
@@ -214,13 +225,16 @@ cmd_off() {
 }
 
 cmd_retry_arm() {
-  local uuid pid tty prompt="$RETRY_PROMPT_DEFAULT"
+  local uuid pid tty prompt="$RETRY_PROMPT_DEFAULT" max="$RETRY_MAX"
   while [ $# -gt 0 ]; do
     case "$1" in
       --prompt)
         [ $# -ge 2 ] || { echo "INVALID_THEN: --prompt thiếu nội dung"; return 1; }
         prompt="$2"; shift ;;
-      *) echo "usage: auto-clear.sh retry-arm [--prompt \"<prompt>\"]"; return 1 ;;
+      --max)
+        case "${2:-}" in ''|*[!0-9]*) echo "INVALID_MAX: --max cần số nguyên ≥ 0 (0 = không giới hạn)"; return 1 ;; esac
+        max="$2"; shift ;;
+      *) echo "usage: auto-clear.sh retry-arm [--prompt \"<prompt>\"] [--max N]"; return 1 ;;
     esac
     shift
   done
@@ -232,10 +246,10 @@ cmd_retry_arm() {
   sync_hook_copy
   tty=$(tty_of "$pid")
   mkdir -p "$STATE_DIR"
-  printf 'pid=%s\ntty=%s\ncount=0\nprompt_b64=%s\narmed_at=%s\n' \
-    "$pid" "$tty" "$(b64_encode "$prompt")" "$(date '+%F %T')" > "$(retry_path "$uuid")"
-  log "retry-arm pane=$uuid pid=$pid tty=$tty prompt=$prompt"
-  echo "RETRY_ARMED pane=$uuid pid=$pid tty=${tty:-?} delay=${RETRY_DELAY}s max=$RETRY_MAX"
+  printf 'pid=%s\ntty=%s\ncount=0\nmax=%s\nprompt_b64=%s\narmed_at=%s\n' \
+    "$pid" "$tty" "$max" "$(b64_encode "$prompt")" "$(date '+%F %T')" > "$(retry_path "$uuid")"
+  log "retry-arm pane=$uuid pid=$pid tty=$tty max=$(max_label "$max") prompt=$prompt"
+  echo "RETRY_ARMED pane=$uuid pid=$pid tty=${tty:-?} delay=${RETRY_DELAY}s max=$(max_label "$max")"
 }
 
 cmd_retry_off() {
@@ -259,9 +273,10 @@ retry_set_count() {
 }
 
 # StopFailure hook: lượt trả lời chết vì lỗi API. Có cờ retry của pane + đúng process claude đã arm →
-# chờ RETRY_DELAY giây rồi gõ prompt; quá RETRY_MAX lần liên tiếp thì thôi (cờ giữ nguyên, log give-up).
+# chờ RETRY_DELAY giây rồi gõ prompt; quá `max` của cờ (0 = không giới hạn) lần liên tiếp thì thôi (cờ giữ
+# nguyên, log give-up).
 cmd_failhook() {
-  local input uuid file armed_pid armed_tty cur_pid count prompt error result mode
+  local input uuid file armed_pid armed_tty cur_pid count max prompt error result mode
   input=""
   [ -t 0 ] || input=$(cat 2>/dev/null)
   error=$(printf '%s' "$input" | sed -n 's/.*"error"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
@@ -278,9 +293,10 @@ cmd_failhook() {
     log "failhook skip pane=$uuid: claude pid $cur_pid != armed $armed_pid"
     return 0
   fi
+  max=$(retry_max_of "$file")
   count=$(( ${count:-0} + 1 ))
-  if [ "$count" -gt "$RETRY_MAX" ]; then
-    log "failhook give-up pane=$uuid error=${error:-?}: đã thử lại $RETRY_MAX lần"
+  if [ "$max" -gt 0 ] && [ "$count" -gt "$max" ]; then
+    log "failhook give-up pane=$uuid error=${error:-?}: đã thử lại $max lần"
     return 0
   fi
   retry_set_count "$file" "$count"
@@ -288,7 +304,7 @@ cmd_failhook() {
     log "failhook skip pane=$uuid: prompt trong cờ không hợp lệ"
     return 0
   fi
-  log "failhook pane=$uuid error=${error:-?} lần $count/$RETRY_MAX — chờ ${RETRY_DELAY}s"
+  log "failhook pane=$uuid error=${error:-?} lần $count/$(max_label "$max") — chờ ${RETRY_DELAY}s"
   mode="${AUTO_CLEAR_DRY:+dry}"
   sleep "$RETRY_DELAY"
   # Dev đã gỡ cờ (retry-off / off) trong lúc chờ → không gõ.
@@ -311,7 +327,7 @@ cmd_status() {
   fi
   if failhook_installed; then echo "FAILHOOK installed"; else echo "FAILHOOK not-installed"; fi
   if [ -f "$(retry_path "$uuid")" ]; then
-    echo "RETRY_ARMED pane=$uuid $(sed -n 's/^count=/count=/p' "$(retry_path "$uuid")")/$RETRY_MAX"
+    echo "RETRY_ARMED pane=$uuid $(sed -n 's/^count=/count=/p' "$(retry_path "$uuid")")/$(max_label "$(retry_max_of "$(retry_path "$uuid")")")"
   else
     echo "RETRY_NOT_ARMED pane=$uuid"
   fi
@@ -448,5 +464,5 @@ case "${1:-status}" in
   inject)    shift; cmd_inject "$@" ;;
   install)   cmd_install ;;
   uninstall) cmd_uninstall ;;
-  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|hook|retry-arm [--prompt \"<prompt>\"]|retry-off|failhook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
+  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|hook|retry-arm [--prompt \"<prompt>\"] [--max N]|retry-off|failhook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
 esac

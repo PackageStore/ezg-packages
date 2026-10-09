@@ -11,17 +11,30 @@ Hai chế độ, chọn bằng `bugHub.watch.branch` trong `.claude/project-prof
   nhánh bot; chỉ đưa lên nhánh chính khi bật `bugHub.watch.mergeToBase`. Chạy ngay trong checkout này hay
   trong một `git worktree` riêng do `bugHub.watch.worktree` quyết định.
 
+Merge nhánh chính vào nhánh bot mà conflict thì KHÔNG abort: script tự lấy bản nhánh chính cho file không gộp tay
+được (binary, asset Unity serialize, `.meta`, một bên xoá file), để merge dở với các file text còn marker (kiểu
+diff3) và trả `CONFLICT` — skill gộp cả hai bên, chỗ buộc phải chọn thì lấy nhánh chính, rồi gọi `resolve`.
+
 Loop watch KHÔNG BAO GIỜ dừng vì script này: trạng thái tạm thời (mất mạng, conflict, đang merge/rebase
-dở, sai nhánh, git bị khoá…) trả `WAIT` + `reason`, skill chạy `pause` rồi thử lại.
+dở, sai nhánh, git bị khoá…) trả `WAIT` + `reason`, skill chạy `pause` (30 giây) rồi thử lại, không giới hạn số lần.
 
 Lệnh:
   start [--yes] [--no-launch] [-- <tham số claude>]
         Chuẩn bị thư mục (nhánh bot: tạo worktree / chuyển nhánh; theo nhánh: giữ nguyên checkout), chạy
-        `sync`, rồi mở `claude "/fix-bug --watch"` ngay trong cửa sổ terminal này. `--yes`: không hỏi lại
-        khi phải chuyển nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển
-        nguyên cho claude (vd `-- --permission-mode bypassPermissions`).
+        `sync`, rồi mở `claude "/fix-bug --watch"` ngay trong cửa sổ terminal này và GIÁM SÁT nó: claude
+        thoát với mã ≠ 0 (crash, bị kill) → chờ `BUGHUB_PAUSE_SECONDS` rồi mở lại, mãi mãi; thoát mã 0
+        (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại → dừng. `--yes`: không hỏi lại khi phải
+        chuyển nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển nguyên cho
+        claude (vd `-- --permission-mode bypassPermissions`).
   sync  TRƯỚC khi nhận mỗi bug: fetch + merge `origin/<nhánh>` (và nhánh chính ở chế độ nhánh bot).
-        `OK` kèm `dirty` = file đã track đang sửa dở (bot không được đụng) | `WAIT`.
+        `OK` kèm `dirty` = file đã track đang sửa dở (bot không được đụng), `takenBase` = file merge
+        nhánh chính đã tự lấy bản nhánh chính | `CONFLICT` (merge nhánh chính đang dở, `files` chờ gộp
+        tay) | `WAIT`.
+  resolve [--prefer-base -- <file>...]
+        (nhánh bot) Chốt merge nhánh chính đang dở sau khi skill gộp tay: `--prefer-base` cho file skill
+        không gộp được (phần không đụng nhau giữ cả hai bên, khối đụng nhau lấy nhánh chính — `git
+        merge-file --theirs`); file còn lại phải hết marker → `git add` + commit merge → `MERGED`. Còn
+        marker → `CONFLICT` kèm `files`. Không có merge dở → `NOTHING`.
   push  Sau khi commit mà `git_push` lỗi: merge `origin/<nhánh>` nếu remote vừa chạy tiếp rồi push lại
         (tối đa 3 lần, không bao giờ force).
   shelve --bug N --reason "<lý do>" -- <file>...
@@ -30,10 +43,11 @@ Lệnh:
   publish
         (nhánh bot) Gọi sau khi fix đã commit + push: mergeToBase=false (hoặc chế độ theo nhánh) →
         `DISABLED`; true → đưa HEAD lên nhánh chính (fast-forward, merge nhánh chính vào trước nếu nó đã
-        chạy tiếp; không bao giờ force).
+        chạy tiếp — conflict thì `CONFLICT` như `sync`; không bao giờ force).
   pause [--attempt K] [--seconds S]
-        Ngủ theo backoff (lần 1: 1', 2: 5', 3: 15', từ 4: 30') rồi in `RESUME` — skill chạy nền rồi kết
-        thúc lượt, lượt sau thử lại bước vừa lỗi.
+        Ngủ `--seconds` (mặc định env `BUGHUB_PAUSE_SECONDS`, 30 giây — mọi lần như nhau, không backoff,
+        không giới hạn số lần; `--attempt` chỉ để ghi log) rồi in `RESUME` — skill chạy nền rồi kết thúc
+        lượt, lượt sau thử lại bước vừa lỗi.
   config
         In config đã gộp + nhánh hiện tại (skill đọc ở preflight).
   editor status | open [--timeout S] | close [--wait S]
@@ -51,8 +65,9 @@ Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log ch
 Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`) · 2 config / tham số sai / `start` không chuẩn bị
 được thư mục · 3 `WAIT` (tạm thời — pause rồi thử lại; `reason`: DETACHED, WRONG_BRANCH, BUSY, FETCH_FAILED,
 MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED, EDITOR_BUSY,
-EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 merge conflict khi `publish`
-(đã `merge --abort`) · 5 push khi `publish` bị từ chối.
+EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 thay đổi dở chặn merge
+nhánh chính khi `publish` (`LOCAL_CHANGES`, merge chưa bắt đầu) · 5 push khi `publish` bị từ chối · 6 `CONFLICT` (merge
+nhánh chính vào nhánh bot đang dở, chờ skill gộp tay rồi `resolve`).
 """
 
 from __future__ import annotations
@@ -61,8 +76,10 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,13 +91,18 @@ EXIT_CONFIG = 2
 EXIT_WAIT = 3
 EXIT_CONFLICT = 4
 EXIT_NETWORK = 5
+EXIT_MERGE = 6
 
 WATCH_PROMPT = "/fix-bug --watch"
 # Giây chờ giữa các lần fetch lại trong MỘT lệnh. Ngắn có chủ đích: mất mạng lâu hơn thì trả WAIT để
 # loop pause theo backoff (lệnh chạy foreground trong Bash tool, timeout mặc định 2 phút).
 FETCH_RETRY_DELAYS = (5, 20)
 PUSH_ATTEMPTS = 3
-PAUSE_STEPS = (60, 300, 900, 1800)
+# Mọi lần pause / mở lại claude đều nghỉ đúng chừng này (env BUGHUB_PAUSE_SECONDS) — không backoff, không giới hạn.
+PAUSE_SECONDS = 30
+MERGE_STATE = "merge.json"
+# Đầu dòng marker conflict (merge.conflictStyle=diff3). "=======" một mình không tính — Markdown dùng làm gạch chân.
+CONFLICT_MARKERS = (b"<<<<<<<", b"|||||||", b">>>>>>>")
 # Không bao giờ để git đứng chờ nhập mật khẩu trong loop không người trông.
 GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
 # Chờ Editor sẵn sàng trong MỘT lệnh: vừa timeout tối đa 10 phút của Bash tool; lâu hơn thì WAIT → pause → thử lại.
@@ -214,12 +236,151 @@ def try_merge(ref: str, cwd: Path, ff_only: bool = False) -> dict | None:
             "kind": "conflict" if conflicted else "blocked"}
 
 
-def merge(ref: str, cwd: Path) -> None:
-    """Merge `ref` vào HEAD; không tự xong được → abort, raise MERGE_CONFLICT (dùng cho publish)."""
-    failed = try_merge(ref, cwd)
-    if failed:
-        raise Stop(EXIT_CONFLICT, "MERGE_CONFLICT", f"merge {ref} không tự xong được — dev resolve tay. {failed['detail']}",
-                   ref=ref, files=failed["files"])
+# --------------------------------------------------------------------------------------------------
+# merge nhánh chính vào nhánh bot — conflict: gộp, buộc phải chọn thì lấy nhánh chính
+# --------------------------------------------------------------------------------------------------
+
+def unmerged(cwd: Path) -> dict[str, dict[int, str]]:
+    """Path đang conflict → {stage: blob} (1 = gốc chung, 2 = nhánh bot / HEAD, 3 = nhánh chính đang merge vào)."""
+    items: dict[str, dict[int, str]] = {}
+    for entry in git("ls-files", "-u", "-z", cwd=cwd).stdout.split("\0"):
+        if entry:
+            meta, path = entry.split("\t", 1)
+            _mode, sha, stage = meta.split()
+            items.setdefault(path, {})[int(stage)] = sha
+    return items
+
+
+def blob(sha: str, cwd: Path) -> bytes:
+    proc = subprocess.run(["git", "cat-file", "blob", sha], cwd=cwd, capture_output=True, env=GIT_ENV)
+    if proc.returncode != 0:
+        raise wait("GIT_FAILED", f"git cat-file blob {sha}: {proc.stderr.decode('utf-8', 'replace').strip()}")
+    return proc.stdout
+
+
+def hand_mergeable(path: str, stages: dict[int, str], cwd: Path) -> bool:
+    """File text hai bên cùng sửa — gộp tay được. Binary, asset Unity serialize (YAML fileID) và `.meta` thì không:
+    trộn khối của hai bên dễ ra tham chiếu treo / GUID lệch, nên lấy nguyên bản nhánh chính."""
+    if 2 not in stages or 3 not in stages or path.endswith(".meta"):
+        return False
+    for stage in (2, 3):
+        head = blob(stages[stage], cwd)[:8000]
+        if b"\0" in head or (head.startswith(b"%YAML") and b"tag:unity3d.com" in head[:200]):
+            return False
+    return True
+
+
+def take_base(path: str, stages: dict[int, str], cwd: Path) -> bool:
+    """Giải conflict bằng bản nhánh chính: có bản (stage 3) → lấy; nhánh chính đã xoá → xoá; chỉ nhánh bot có
+    (nhánh chính chưa từng có path này) → giữ. Trả True khi bản nhánh chính đè lên thay đổi của bot."""
+    if 3 in stages:
+        git("checkout", "--theirs", "--", path, cwd=cwd)
+        git("add", "-A", "--", path, cwd=cwd)
+        return True
+    if 1 in stages:
+        git("rm", "-q", "-f", "--", path, cwd=cwd)
+        return True
+    git("checkout", "--ours", "--", path, cwd=cwd)
+    git("add", "-A", "--", path, cwd=cwd)
+    return False
+
+
+def prefer_base(path: str, stages: dict[int, str], cwd: Path) -> None:
+    """Gộp lại file từ 3 bản: phần không đụng nhau giữ của cả hai bên, khối đụng nhau lấy nhánh chính."""
+    if not hand_mergeable(path, stages, cwd):
+        take_base(path, stages, cwd)
+        return
+    with tempfile.TemporaryDirectory(prefix="bughub-merge-") as tmp:
+        files = []
+        for stage, name in ((2, "bot"), (1, "common"), (3, "base")):
+            file = Path(tmp) / name
+            file.write_bytes(blob(stages[stage], cwd) if stage in stages else b"")
+            files.append(str(file))
+        proc = subprocess.run(["git", "merge-file", "-p", "--theirs", *files], cwd=cwd, capture_output=True, env=GIT_ENV)
+    if proc.returncode != 0:
+        print(f"bughub-watch: merge-file {path} lỗi — lấy nguyên bản nhánh chính", file=sys.stderr)
+        take_base(path, stages, cwd)
+        return
+    (cwd / path).write_bytes(proc.stdout)
+    git("add", "-A", "--", path, cwd=cwd)
+
+
+def has_markers(path: Path) -> bool:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return False  # skill xoá file → `git add -A` ghi nhận xoá
+    return any(line.startswith(CONFLICT_MARKERS) for line in data.splitlines())
+
+
+def bot_merge(cwd: Path) -> dict | None:
+    """Merge nhánh chính do script mở và còn dở (MERGE_HEAD khớp state). State cũ (merge đã xong / dev abort) → xoá."""
+    path = state_file(cwd, MERGE_STATE)
+    state = read_json(path)
+    if not state:
+        return None
+    if git_path_exists("MERGE_HEAD", cwd) and out("rev-parse", "MERGE_HEAD", cwd=cwd) == state.get("theirs"):
+        return state
+    path.unlink(missing_ok=True)
+    return None
+
+
+def commit_merge(state: dict, cwd: Path) -> dict:
+    git("commit", "--no-edit", "-q", cwd=cwd)
+    state_file(cwd, MERGE_STATE).unlink(missing_ok=True)
+    return {"ref": state["ref"], "op": state.get("op"), "head": out("rev-parse", "HEAD", cwd=cwd),
+            "resolved": state.get("resolved", []), "preferBase": state.get("preferBase", []),
+            "takenBase": state.get("takenBase", [])}
+
+
+def conflict(state: dict, files: list[str]) -> Stop:
+    return Stop(EXIT_MERGE, "CONFLICT",
+                f"merge {state['ref']} vào nhánh bot còn conflict ở {len(files)} file — gộp tay (fix-bug mục 3.6) rồi chạy `resolve`",
+                ref=state["ref"], op=state.get("op"), files=files, takenBase=state.get("takenBase", []))
+
+
+def resume_bot_merge(cwd: Path) -> dict | None:
+    """Merge nhánh chính của bot còn dở từ lượt trước: còn file conflict → CONFLICT; hết rồi → commit nốt."""
+    state = bot_merge(cwd)
+    if not state:
+        return None
+    left = sorted(unmerged(cwd))
+    if left:
+        raise conflict(state, left)
+    return commit_merge(state, cwd)
+
+
+def merge_base(ref: str, cwd: Path, op: str) -> dict:
+    """Merge nhánh chính `ref` vào nhánh bot. Xong (kể cả khi đã tự lấy bản nhánh chính cho file không gộp tay được)
+    → {"ref", "takenBase", …}. Thay đổi dở chặn merge (merge chưa bắt đầu) → {"blocked": {...}}. Còn file text
+    conflict → để merge dở, ghi state, raise CONFLICT."""
+    proc = git("-c", "merge.conflictStyle=diff3", "merge", "--no-edit", ref, cwd=cwd, check=False)
+    if proc.returncode == 0:
+        return {"ref": ref, "takenBase": []}
+    detail = proc.stderr.strip() or proc.stdout.strip()
+    if not git_path_exists("MERGE_HEAD", cwd):
+        # "would be overwritten by merge" liệt kê file chặn ở các dòng thụt bằng tab.
+        blocking = [line.strip() for line in detail.splitlines() if line.startswith("\t")]
+        return {"blocked": {"ref": ref, "detail": detail, "files": blocking[:20], "kind": "blocked"}}
+    taken = [path for path, stages in unmerged(cwd).items()
+             if not hand_mergeable(path, stages, cwd) and take_base(path, stages, cwd)]
+    state = {"ref": ref, "theirs": out("rev-parse", "MERGE_HEAD", cwd=cwd), "op": op, "takenBase": sorted(taken),
+             "resolved": [], "preferBase": [], "startedAt": datetime.now(timezone.utc).isoformat()}
+    left = sorted(unmerged(cwd))
+    if not left:
+        return commit_merge(state, cwd)
+    write_json(state_file(cwd, MERGE_STATE), state)
+    print(f"bughub-watch: merge {ref} conflict ở {len(left)} file text — chờ gộp tay", file=sys.stderr)
+    raise conflict(state, left)
+
+
+def merge_base_or_stop(ref: str, cwd: Path, op: str) -> dict:
+    outcome = merge_base(ref, cwd, op)
+    if "blocked" in outcome:
+        blocked = outcome["blocked"]
+        raise Stop(EXIT_CONFLICT, "LOCAL_CHANGES", f"thay đổi chưa commit chặn merge {ref} — {blocked['detail']}",
+                   ref=ref, files=blocked["files"])
+    return outcome
 
 
 # --------------------------------------------------------------------------------------------------
@@ -278,8 +439,9 @@ def base_ref(cfg: dict, cwd: Path, remote: bool) -> str:
 # sync / push / shelve / publish
 # --------------------------------------------------------------------------------------------------
 
-def check_ready(cfg: dict, cwd: Path) -> str:
-    """Nhánh bot sẽ commit lên; trạng thái chưa làm được (detached, sai nhánh, đang merge dở) → WAIT."""
+def check_ready(cfg: dict, cwd: Path, allow_bot_merge: bool = False) -> str:
+    """Nhánh bot sẽ commit lên; trạng thái chưa làm được (detached, sai nhánh, đang merge dở) → WAIT.
+    `allow_bot_merge`: merge nhánh chính do chính script mở còn dở không tính là bận (sync / publish làm tiếp)."""
     branch = current_branch(cwd)
     if not branch:
         raise wait("DETACHED", "HEAD đang detached — chờ checkout về một nhánh")
@@ -288,7 +450,7 @@ def check_ready(cfg: dict, cwd: Path) -> str:
                    f"đang ở '{branch}', không phải nhánh bot '{cfg['branch']}' — mở cửa sổ bằng `python3 .claude/scripts/bughub-watch.py start`",
                    branch=branch)
     busy = operation_in_progress(cwd)
-    if busy:
+    if busy and not (allow_bot_merge and busy == "merge" and bot_merge(cwd)):
         raise wait("BUSY", f"đang có {busy} dở trong {cwd} — chờ dev xử lý xong", branch=branch)
     return branch
 
@@ -312,9 +474,13 @@ def integrate_own(branch: str, cwd: Path) -> str | None:
 
 
 def do_sync(cfg: dict, cwd: Path) -> dict:
-    branch = check_ready(cfg, cwd)
+    branch = check_ready(cfg, cwd, allow_bot_merge=True)
+    merged, skipped, taken = [], [], []
+    resumed = resume_bot_merge(cwd)
+    if resumed:
+        merged.append(resumed["ref"])
+        taken += resumed["takenBase"]
     remote = has_origin(cwd)
-    merged, skipped = [], []
     if remote:
         fetch(cwd)
         own = integrate_own(branch, cwd)
@@ -323,18 +489,19 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
     if cfg["mode"] == "bot":
         base = base_ref(cfg, cwd, remote)
         if not is_ancestor(base, "HEAD", cwd):
-            failed = try_merge(base, cwd)
-            if failed:
-                # Nhánh bot vẫn push được — sửa trên code cũ hơn nhánh chính, không chặn loop.
-                print(f"bughub-watch: bỏ qua merge {base} — {failed['detail']}", file=sys.stderr)
-                skipped.append(failed)
+            outcome = merge_base(base, cwd, "sync")
+            if "blocked" in outcome:
+                # Thay đổi dở chặn merge — nhánh bot vẫn push được, sửa trên code cũ hơn nhánh chính, không chặn loop.
+                print(f"bughub-watch: bỏ qua merge {base} — {outcome['blocked']['detail']}", file=sys.stderr)
+                skipped.append(outcome["blocked"])
             else:
                 merged.append(base)
+                taken += outcome["takenBase"]
     ahead = 0
     if remote and ref_exists(f"refs/remotes/origin/{branch}", cwd):
         ahead = int(out("rev-list", "--count", f"origin/{branch}..HEAD", cwd=cwd))
     return {"result": "OK", "mode": cfg["mode"], "branch": branch, "merged": merged, "skipped": skipped,
-            "dirty": dirty_tracked(cwd)[:50], "ahead": ahead, "head": out("rev-parse", "HEAD", cwd=cwd), "remote": remote}
+            "takenBase": taken, "dirty": dirty_tracked(cwd)[:50], "ahead": ahead, "head": out("rev-parse", "HEAD", cwd=cwd), "remote": remote}
 
 
 def do_push(cfg: dict, cwd: Path) -> dict:
@@ -403,12 +570,46 @@ def do_shelve(cwd: Path, argv: list[str]) -> dict:
             "files": changed, "message": f"đã cất vào git stash \"{message}\" — lấy lại: git stash apply <stash>"}
 
 
+def do_resolve(cwd: Path, argv: list[str]) -> dict:
+    prefer: list[str] = []
+    if argv:
+        if argv[:2] != ["--prefer-base", "--"] or len(argv) < 3:
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", "resolve [--prefer-base -- <file>...]")
+        prefer = [name.removeprefix("./") for name in argv[2:]]
+    state = bot_merge(cwd)
+    if not state:
+        return {"result": "NOTHING", "message": "không có merge nhánh chính nào của bot đang dở"}
+    pending = unmerged(cwd)
+    unknown = [name for name in prefer if name not in pending]
+    if unknown:
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"không phải file đang conflict: {', '.join(unknown)}", files=sorted(pending))
+    for name in prefer:
+        prefer_base(name, pending.pop(name), cwd)
+    state["preferBase"] = sorted(set(state.get("preferBase", []) + prefer))
+    left, resolved = [], []
+    for path, stages in pending.items():
+        if not hand_mergeable(path, stages, cwd):
+            if take_base(path, stages, cwd):
+                state["takenBase"] = sorted(set(state.get("takenBase", []) + [path]))
+        elif has_markers(cwd / path):
+            left.append(path)
+        else:
+            git("add", "-A", "--", path, cwd=cwd)
+            resolved.append(path)
+    state["resolved"] = sorted(set(state.get("resolved", []) + resolved))
+    if left:
+        write_json(state_file(cwd, MERGE_STATE), state)
+        raise conflict(state, sorted(left))
+    return {"result": "MERGED", **commit_merge(state, cwd)}
+
+
 def do_publish(cfg: dict, cwd: Path) -> dict:
     if cfg["mode"] != "bot" or not cfg["mergeToBase"]:
         return {"result": "DISABLED", "branch": cfg["branch"] or current_branch(cwd),
                 "message": "fix đã nằm trên nhánh đích" if cfg["mode"] != "bot" else
                            "mergeToBase=false — fix chỉ nằm trên nhánh bot, dev tự merge"}
-    check_ready(cfg, cwd)
+    check_ready(cfg, cwd, allow_bot_merge=True)
+    resume_bot_merge(cwd)
     base = cfg["baseBranch"]
     if not has_origin(cwd):
         holder = checked_out_at(base, cwd)
@@ -418,7 +619,7 @@ def do_publish(cfg: dict, cwd: Path) -> dict:
         if not ref_exists(f"refs/heads/{base}", cwd):
             raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"không thấy nhánh chính '{base}'")
         if not is_ancestor(base, "HEAD", cwd):
-            merge(base, cwd)
+            merge_base_or_stop(base, cwd, "publish")
         old = out("rev-parse", base, cwd=cwd)
         git("update-ref", f"refs/heads/{base}", "HEAD", old, cwd=cwd)
         return {"result": "PUBLISHED", "base": base, "head": out("rev-parse", "HEAD", cwd=cwd), "remote": False}
@@ -429,7 +630,10 @@ def do_publish(cfg: dict, cwd: Path) -> dict:
         if not ref_exists(f"refs/remotes/{remote_base}", cwd):
             raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"origin không có nhánh '{base}'")
         if not is_ancestor(remote_base, "HEAD", cwd):
-            merge(remote_base, cwd)
+            merge_base_or_stop(remote_base, cwd, "publish")
+        own = f"origin/{cfg['branch']}"
+        if not (ref_exists(f"refs/remotes/{own}", cwd) and is_ancestor("HEAD", own, cwd)):
+            # Merge nhánh chính (lần này hoặc lần `resolve` trước) chỉ mới nằm local — nhánh bot phải lên trước.
             push = git("push", "--quiet", "origin", f"HEAD:refs/heads/{cfg['branch']}", cwd=cwd, check=False)
             if push.returncode != 0:
                 raise Stop(EXIT_NETWORK, "PUSH_FAILED", f"push nhánh bot lỗi: {push.stderr.strip()}")
@@ -442,13 +646,20 @@ def do_publish(cfg: dict, cwd: Path) -> dict:
     raise AssertionError("unreachable")
 
 
+def pause_seconds() -> int:
+    try:
+        return max(0, int(os.environ.get("BUGHUB_PAUSE_SECONDS", PAUSE_SECONDS)))
+    except ValueError:
+        return PAUSE_SECONDS
+
+
 def do_pause(argv: list[str]) -> dict:
     opts = dict(zip(argv[::2], argv[1::2]))
     if len(argv) % 2 or any(key not in ("--attempt", "--seconds") for key in opts):
         raise Stop(EXIT_CONFIG, "BAD_ARGS", "pause [--attempt K] [--seconds S]")
     try:
         attempt = max(1, int(opts.get("--attempt", "1")))
-        seconds = int(opts["--seconds"]) if "--seconds" in opts else PAUSE_STEPS[min(attempt, len(PAUSE_STEPS)) - 1]
+        seconds = int(opts["--seconds"]) if "--seconds" in opts else pause_seconds()
     except ValueError:
         raise Stop(EXIT_CONFIG, "BAD_ARGS", "--attempt / --seconds phải là số nguyên") from None
     seconds = max(0, seconds)
@@ -765,10 +976,11 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     try:
         synced = do_sync(cfg, workdir)
     except Stop as stop:
-        if stop.code != EXIT_WAIT:
+        if stop.code not in (EXIT_WAIT, EXIT_MERGE):
             raise
         # Loop tự pause + sync lại trước mỗi bug — chưa đồng bộ được lúc mở cửa sổ không phải lý do để không mở.
-        print(f"bughub-watch: chưa sync được ({stop.payload['reason']}) — loop sẽ thử lại: {stop.payload['message']}", file=sys.stderr)
+        reason = stop.payload.get("reason") or stop.payload["result"]
+        print(f"bughub-watch: chưa sync được ({reason}) — loop sẽ thử lại: {stop.payload['message']}", file=sys.stderr)
         synced = {**stop.payload, "branch": stop.payload.get("branch") or current_branch(workdir)}
     branch = synced.get("branch") or cfg["branch"]
     result = {**synced, "result": "READY", "mode": cfg["mode"], "workdir": str(workdir), "mergeToBase": cfg["mergeToBase"]}
@@ -782,11 +994,33 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     sys.stdout.flush()
     set_title(f"BugHub watch · {cfg['projectCode']} · {branch}")
     os.chdir(workdir)
-    cmd = ["claude", *extra, WATCH_PROMPT]
-    if os.name == "nt":
-        sys.exit(subprocess.call(cmd))
-    os.execvp(cmd[0], cmd)
-    raise AssertionError("unreachable")
+    sys.exit(supervise(["claude", *extra, WATCH_PROMPT]))
+
+
+def supervise(cmd: list[str]) -> int:
+    """Chạy claude và mở lại mỗi khi nó chết (mã ≠ 0: crash, bị kill) — loop watch không chết theo process.
+    Thoát mã 0 (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại = dev dừng → trả mã đó."""
+    interrupted: list[bool] = []
+
+    def on_sigint(_sig, _frame):
+        interrupted.append(True)
+
+    while True:
+        # Handler Python không truyền sang process con qua exec (SIG_IGN thì có) → claude vẫn nhận Ctrl+C bình
+        # thường, còn script không bị KeyboardInterrupt giết process con giữa chừng.
+        previous = signal.signal(signal.SIGINT, on_sigint)
+        try:
+            code = subprocess.call(cmd)
+        finally:
+            signal.signal(signal.SIGINT, previous)
+        if code == 0 or interrupted:
+            return code
+        delay = pause_seconds()
+        print(f"bughub-watch: claude thoát (exit {code}) — mở lại sau {delay}s, Ctrl+C để dừng hẳn", file=sys.stderr)
+        try:
+            time.sleep(delay)
+        except KeyboardInterrupt:
+            return code
 
 
 # --------------------------------------------------------------------------------------------------
@@ -818,6 +1052,8 @@ def main(argv: list[str]) -> int:
                 result = do_push(cfg, repo_root(cwd))
             elif command == "shelve":
                 result = do_shelve(cwd, rest)
+            elif command == "resolve":
+                result = do_resolve(repo_root(cwd), rest)
             elif command == "publish":
                 result = do_publish(cfg, repo_root(cwd))
             elif command == "start":
@@ -828,7 +1064,7 @@ def main(argv: list[str]) -> int:
                 result = do_notice(cwd, rest)
             else:
                 raise Stop(EXIT_CONFIG, "BAD_ARGS",
-                           f"lệnh lạ: {command} (start | sync | push | shelve | publish | pause | config | editor | notice)")
+                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))

@@ -114,6 +114,13 @@ class ConfigTests(WatchTestCase):
         code, out = self.run_watch(self.tmp, "pause", "--attempt")
         self.assertEqual((code, out["result"]), (2, "BAD_ARGS"))
 
+    def test_pause_default_is_fixed_not_backoff(self):
+        os.environ["BUGHUB_PAUSE_SECONDS"] = "0"
+        self.addCleanup(os.environ.pop, "BUGHUB_PAUSE_SECONDS", None)
+        for attempt in ("1", "9"):
+            code, out = self.run_watch(self.tmp, "pause", "--attempt", attempt)
+            self.assertEqual((code, out["slept"]), (0, 0))
+
 
 class CurrentCheckoutTests(WatchTestCase):
     def test_switch_needs_confirmation(self):
@@ -139,16 +146,16 @@ class CurrentCheckoutTests(WatchTestCase):
         self.assertEqual((code, out["result"]), (0, "OK"))
         self.assertIn("a.txt", out["dirty"])
 
-    def test_base_conflict_is_skipped_and_aborted_cleanly(self):
+    def test_local_changes_blocking_base_merge_are_skipped(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
-        self.commit_fix(self.dev, "a.txt", "bot\n")
         self.push_from_other("a.txt", "dev\n")
+        (self.dev / "a.txt").write_text("wip\n")
         head = git(self.dev, "rev-parse", "HEAD")
         code, out = self.run_watch(self.dev, "sync")
         self.assertEqual((code, out["result"]), (0, "OK"))
         self.assertEqual([(s["ref"], s["files"]) for s in out["skipped"]], [("origin/develop", ["a.txt"])])
         self.assertEqual(git(self.dev, "rev-parse", "HEAD"), head)
-        self.assertEqual(git(self.dev, "status", "--porcelain", "--untracked-files=no"), "")
+        self.assertEqual((self.dev / "a.txt").read_text(), "wip\n")
 
     def test_publish_disabled_by_default(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
@@ -176,6 +183,139 @@ class CurrentCheckoutTests(WatchTestCase):
         self.assertEqual(git(self.origin, "rev-parse", "AutoFixBug"), develop)
         files = git(self.origin, "ls-tree", "--name-only", "develop").splitlines()
         self.assertTrue({"c.txt", "d.txt", "o.txt"} <= set(files))
+
+
+class BaseMergeConflictTests(WatchTestCase):
+    """Merge nhánh chính vào nhánh bot mà conflict: gộp cả hai bên, buộc phải chọn thì lấy nhánh chính."""
+
+    def setUp(self):
+        super().setUp()
+        self.run_watch(self.dev, "start", "--no-launch", "--yes")
+
+    def push_bytes_from_other(self, name, data):
+        git(self.other, "pull", "-q")
+        (self.other / name).write_bytes(data)
+        git(self.other, "add", name)
+        git(self.other, "commit", "-qm", f"other {name}")
+        git(self.other, "push", "-q")
+
+    def parents(self):
+        return git(self.dev, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]
+
+    def test_text_conflict_waits_for_hand_merge_then_resolve_commits(self):
+        self.commit_fix(self.dev, "a.txt", "bot\n")
+        self.push_from_other("a.txt", "dev\n")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"], out["files"], out["op"]), (6, "CONFLICT", ["a.txt"], "sync"))
+        text = (self.dev / "a.txt").read_text()
+        self.assertIn("|||||||", text)  # diff3: skill thấy cả gốc chung
+
+        code, out = self.run_watch(self.dev, "resolve")
+        self.assertEqual((code, out["result"], out["files"]), (6, "CONFLICT", ["a.txt"]))
+
+        (self.dev / "a.txt").write_text("bot\ndev\n")
+        code, out = self.run_watch(self.dev, "resolve")
+        self.assertEqual((code, out["result"], out["resolved"]), (0, "MERGED", ["a.txt"]))
+        self.assertEqual(len(self.parents()), 2)
+        self.assertEqual(git(self.dev, "status", "--porcelain", "--untracked-files=no"), "")
+
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertEqual(self.run_watch(self.dev, "resolve")[1]["result"], "NOTHING")
+
+    def test_interrupted_merge_resumes_and_blocks_push(self):
+        self.commit_fix(self.dev, "a.txt", "bot\n")
+        self.push_from_other("a.txt", "dev\n")
+        self.run_watch(self.dev, "sync")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"], out["files"]), (6, "CONFLICT", ["a.txt"]))
+        code, out = self.run_watch(self.dev, "push")
+        self.assertEqual((code, out["reason"]), (3, "BUSY"))
+        # Gộp xong mà lượt chết trước khi `resolve` → sync sau tự chốt.
+        (self.dev / "a.txt").write_text("bot\ndev\n")
+        git(self.dev, "add", "a.txt")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertIn("origin/develop", out["merged"])
+        self.assertEqual(len(self.parents()), 2)
+
+    def test_prefer_base_keeps_both_sides_and_takes_base_on_clash(self):
+        lines = [f"l{i}" for i in range(1, 13)]
+        self.commit_fix(self.dev, "f.txt", "\n".join(lines) + "\n")
+        git(self.dev, "push", "-q", "origin", "HEAD:develop")
+        bot = list(lines)
+        bot[1], bot[5] = "bot2", "bot6"
+        self.commit_fix(self.dev, "f.txt", "\n".join(bot) + "\n")
+        base = list(lines)
+        base[5], base[10] = "base6", "base11"
+        self.push_from_other("f.txt", "\n".join(base) + "\n")
+
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["files"]), (6, ["f.txt"]))
+        code, out = self.run_watch(self.dev, "resolve", "--prefer-base", "--", "f.txt")
+        self.assertEqual((code, out["result"], out["preferBase"]), (0, "MERGED", ["f.txt"]))
+        merged = (self.dev / "f.txt").read_text().splitlines()
+        self.assertEqual((merged[1], merged[5], merged[10]), ("bot2", "base6", "base11"))
+
+    def test_prefer_base_rejects_files_not_in_conflict(self):
+        self.commit_fix(self.dev, "a.txt", "bot\n")
+        self.push_from_other("a.txt", "dev\n")
+        self.run_watch(self.dev, "sync")
+        code, out = self.run_watch(self.dev, "resolve", "--prefer-base", "--", "nope.txt")
+        self.assertEqual((code, out["result"], out["files"]), (2, "BAD_ARGS", ["a.txt"]))
+
+    def test_binary_unity_asset_and_meta_take_base_without_hand_merge(self):
+        yaml = "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!1 &1\nGameObject:\n  m_Name: {}\n"
+        for name, bot, base in (("x.prefab", yaml.format("bot"), yaml.format("base")),
+                                ("a.txt.meta", "guid: bot\n", "guid: base\n")):
+            self.commit_fix(self.dev, name, bot)
+            self.push_from_other(name, base)
+        (self.dev / "img.png").write_bytes(b"\x89PNG\0bot")
+        git(self.dev, "add", "img.png")
+        git(self.dev, "commit", "-qm", "bot png")
+        self.push_bytes_from_other("img.png", b"\x89PNG\0base")
+
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertEqual(sorted(out["takenBase"]), ["a.txt.meta", "img.png", "x.prefab"])
+        self.assertIn("base", (self.dev / "x.prefab").read_text())
+        self.assertEqual((self.dev / "a.txt.meta").read_text(), "guid: base\n")
+        self.assertEqual((self.dev / "img.png").read_bytes(), b"\x89PNG\0base")
+        self.assertEqual(len(self.parents()), 2)
+
+    def test_modify_delete_follows_base(self):
+        for name in ("d.txt", "e.txt"):
+            self.commit_fix(self.dev, name, f"{name}\n")
+        git(self.dev, "push", "-q", "origin", "HEAD:develop")
+        self.commit_fix(self.dev, "d.txt", "bot edits d\n")
+        git(self.dev, "rm", "-q", "e.txt")
+        git(self.dev, "commit", "-qm", "bot deletes e")
+        git(self.other, "pull", "-q")
+        git(self.other, "rm", "-q", "d.txt")
+        (self.other / "e.txt").write_text("base edits e\n")
+        git(self.other, "add", "-A")
+        git(self.other, "commit", "-qm", "base deletes d, edits e")
+        git(self.other, "push", "-q")
+
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["result"]), (0, "OK"))
+        self.assertEqual(sorted(out["takenBase"]), ["d.txt", "e.txt"])
+        self.assertFalse((self.dev / "d.txt").exists())
+        self.assertEqual((self.dev / "e.txt").read_text(), "base edits e\n")
+
+    def test_publish_conflict_resolves_then_publishes(self):
+        self.write_profile({**self.WATCH, "mergeToBase": True})
+        self.commit_fix(self.dev, "a.txt", "bot\n")
+        self.push_from_other("a.txt", "dev\n")
+        code, out = self.run_watch(self.dev, "publish")
+        self.assertEqual((code, out["result"], out["op"]), (6, "CONFLICT", "publish"))
+        (self.dev / "a.txt").write_text("bot\ndev\n")
+        self.assertEqual(self.run_watch(self.dev, "resolve")[1]["result"], "MERGED")
+        code, out = self.run_watch(self.dev, "publish")
+        self.assertEqual((code, out["result"]), (0, "PUBLISHED"))
+        head = git(self.dev, "rev-parse", "HEAD")
+        self.assertEqual(git(self.origin, "rev-parse", "develop"), head)
+        self.assertEqual(git(self.origin, "rev-parse", "AutoFixBug"), head)
 
 
 class WorktreeTests(WatchTestCase):
@@ -210,6 +350,24 @@ class WorktreeTests(WatchTestCase):
         last = json.loads(proc.stdout.splitlines()[-1])
         self.assertEqual(Path(last["cwd"]).resolve(), (self.tmp / "dev-AutoFixBug").resolve())
         self.assertEqual(last["args"], "--permission-mode bypassPermissions /fix-bug --watch")
+
+    def test_launch_reopens_claude_after_crash_until_clean_exit(self):
+        if os.name == "nt":
+            self.skipTest("fake claude là shell script")
+        fake_bin = self.tmp / "bin"
+        fake_bin.mkdir()
+        runs = self.tmp / "runs"
+        claude = fake_bin / "claude"
+        # Lần 1, 2 crash (exit 1 / bị kill), lần 3 thoát bình thường.
+        claude.write_text(f'#!/bin/sh\necho x >> "{runs}"\nn=$(wc -l < "{runs}")\n'
+                          '[ "$n" -eq 1 ] && exit 1\n[ "$n" -eq 2 ] && kill -9 $$\nexit 0\n')
+        claude.chmod(0o755)
+        env = dict(os.environ, PATH=f"{fake_bin}{os.pathsep}{os.environ['PATH']}", BUGHUB_PAUSE_SECONDS="0")
+        proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), "start"],
+                              cwd=self.dev, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(len(runs.read_text().splitlines()), 3)
+        self.assertIn("mở lại sau 0s", proc.stderr)
 
 
 class FollowBranchTests(WatchTestCase):
