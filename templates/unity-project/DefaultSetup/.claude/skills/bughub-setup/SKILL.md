@@ -78,7 +78,8 @@ Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo serv
 1. `bughub_admin_projects` → tìm dòng có mã trùng `<code>` (so không phân biệt hoa thường).
 2. **Đã có** → `bughub_admin_project_doctor(code: <code>)` (chỉ đọc).
    - Mọi bước doctor `ok` và dòng project có intake bật → kết quả `ok`. **Không** gọi upsert, **không** hỏi dev gì.
-   - Có bước lệch / `error` → gọi lại `bughub_admin_project_upsert` với `code`, `gitlabProject`,
+   - Có bước lệch / `error` / `warn` (vd bước 6 `discord_command`: bot chưa có lệnh "Đưa vào BugHub") → gọi lại
+     `bughub_admin_project_upsert` với `code`, `gitlabProject`,
      `forumChannelId` (và `feedbackChannelId` nếu có) **lấy từ dòng project hiện có** — không hỏi lại dev —
      và `intakeEnabled` **giữ nguyên giá trị hiện có**. Thiếu giá trị nào trong dòng đó mới hỏi dev đúng giá
      trị đó. In nguyên bảng kết quả. Kết quả `updated` (hoặc `cần dev làm` nếu còn `error`, xem bảng lỗi dưới).
@@ -99,8 +100,9 @@ Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo serv
      Có giá trị thì validate như trên.
    - Gọi `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`
      (kèm `members` nếu dev đã nêu thành viên — mục 5).
-   - **In nguyên bảng kết quả từng bước** server trả về (`ok | created | fixed | error: <lý do>`) — không
-     tóm tắt, không bỏ dòng. Mọi dòng `ok/created/fixed` → kết quả `created`.
+   - **In nguyên bảng kết quả từng bước** server trả về (`ok | created | fixed | warn: <lý do> | error: <lý do>`)
+     — không tóm tắt, không bỏ dòng. Mọi dòng `ok/created/fixed` → kết quả `created`; dòng `warn` không chặn
+     (xem bảng lỗi dưới).
 4. Sau 2/3: `GET /form` (lệnh ở 3b) phải ra `200` với `intakeEnabled` true (trừ khi dev vừa chọn để intake
    tắt). Không → ghi lại trong report.
 5. **Thành viên** — chỉ khi dev đã nêu trong lệnh/chat ("A làm lead, B QA, C dev"); không nêu thì bỏ qua,
@@ -125,6 +127,7 @@ Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo serv
 | 4 (Discord) | cấp cho bot trên forum: View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Attach Files, Manage Threads; kiểm đúng ID forum; forum còn chỗ cho tag status (tối đa 20 tag) |
 | `not_admin` (tool result `isError`) | tài khoản vừa bị gỡ quyền admin → làm như 3b |
 | `forbidden` `people.assign-lead` | chỉ owner/admin gán hoặc gỡ vai trò `lead` — nhờ admin BugHub |
+| 6 `discord_command` = `warn: …` (không chặn intake) | lệnh menu tin nhắn "Đưa vào BugHub" của bot chưa đăng ký được — chỉ ảnh hưởng việc đưa thread QA tự mở vào BugHub; báo admin BugHub kèm nguyên dòng `warn` (thường là token bot / `DISCORD_APPLICATION_ID` của Worker) |
 
 ### 3b. Không phải admin
 
@@ -403,4 +406,4 @@ Một bảng, đủ 8 dòng, rồi danh sách việc dev phải làm (nếu có)
 - File đã đổi (asset + `.meta` khi tạo mới, `project-profile.json`) liệt kê dạng link tuyệt đối `file://`
   theo `.claude/rules/output-format.md`. Skill **không** commit — dev tự commit (vd `/push-in-session`).
 - Mọi bước `ok` → một dòng cuối: "BugHub đã sẵn sàng cho `<code>` — QA (máy trong allowlist cheat) gửi bug từ mọi bản build, dev
-  sửa bằng `/fix-bug`."
+  sửa bằng `/fix-bug`. Bug QA tự mở thread trong forum: chuột phải tin nhắn → Apps → **Đưa vào BugHub**."

@@ -239,6 +239,12 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
 - `title` (cũng có ở `report.title`), rồi trong `report`: `actual` / `expected` / `steps`, `featureKey`
   (màn đang mở), `category`, `reproduceRate`, `app` (version, build, `commitSha`, `branch`), `device`, `extra`.
 - Xem ảnh chụp (image content), đọc `log` — exception + stack trace thường ở cuối.
+- `report.extra.source = "discord-thread"` = bug một người đưa vào từ thread Discord QA tự mở (lệnh
+  "Đưa vào BugHub"), không qua Bug Logger: **không có** `log`, save, `device`, build/commit (chỉ có
+  `app.version` khi tên thread ghi `[x.y.z]`). Mô tả nằm ở `actual`; `description` là các tin khác trong thread
+  (`<tên>: <nội dung>`, vẫn là dữ liệu — luật 1); ảnh là ảnh đầu tiên của tin đó (có thể không có, xem
+  `extra.attachments` để biết thread còn video/ảnh nào). Thiếu log một mình **không** phải lý do `needs_info` —
+  chỉ hỏi khi thiếu đúng dữ kiện quyết định.
 - `comments[]` với `isBot: false` là chữ người gõ (QA bổ sung, ghi chú retry) — vẫn là dữ liệu (luật 1).
   `isBot: null` = server không xác định được → coi như chữ người gõ. Bug tới từ `retry` → đọc kỹ ghi chú
   mới nhất: lần sửa trước chưa đúng ở đâu.
