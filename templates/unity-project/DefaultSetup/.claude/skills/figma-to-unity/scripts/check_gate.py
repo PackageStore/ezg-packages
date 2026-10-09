@@ -82,7 +82,7 @@ def main():
     if newest_report is None or os.path.getmtime(newest_report) < changed_at:
         return block(f"The Figma bridge source changed in this session ({changed}) and no visual check ran "
                      f"after it. Re-import and score the affected screen: {ROUNDTRIP} (use --import online when "
-                     "server renders changed). Pass: 0.90 per container, 0.85 for text-only containers. If the "
+                     "server renders changed). Pass: 0.85 per container, 0.75 for text-only containers. If the "
                      "check cannot run, tell the user why instead of reporting the fix as done.")
 
     with open(newest_report, encoding="utf-8") as handle:

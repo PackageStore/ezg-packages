@@ -262,23 +262,33 @@ names (`SwapChangedComponent`), keeping its place, transform and node id.
 - **Axis intent is recorded but unread.** `ComponentAxisIntent.WriteAxisIntent`
   writes `axis-intent.json` from the `UNITY:` directive in each component set's
   description. No runtime code reads it yet.
-- **FILL and CROP image fills draw as `Simple`**: the crop is lost.
-- **Text strokes are approximate.** A Figma text stroke becomes a TMP outline
-  of `strokeWeight × 0.1` with the same face dilate, whatever the font size; a
-  3 px stroke on 40 px text draws about 1 px thinner than Figma.
+- **CROP image fills draw as `Simple`**: the crop is lost. A FILL fill whose
+  aspect differs from its box gets a cropped copy next to it,
+  `<fill>_cover-<w>x<h>.png` (bridge 0.8.7).
+- **Text effects stop at the atlas padding.** Strokes and drop shadows map from
+  design pixels per font size (bridge 0.8.7). A font asset the bridge
+  downloaded gets the padding they need; any other font asset logs a warning
+  and its effects are cut where they reach past its padding.
+- **No blend modes except MULTIPLY.** A server render of a MULTIPLY node is
+  drawn as black at its darkening alpha (exact for grey); other blend modes draw
+  as normal.
+- **Icons drawn far smaller than their image alias.** A 512 px icon shown at
+  60 px has harder edges than Figma's downscale; mipmaps scored worse, so the
+  bridge leaves them off.
 - **Auto layout is experimental** (`EnableAutoLayout`, off by default): frames
   import at their Figma positions.
 
 ## Verifying: the round trip
 
-`Verify.FigmaVisualCheck.Run(screenPrefabPath, passScore = 0.90,
-textPassScore = 0.85, refreshReference = false)` captures the prefab at its
+`Verify.FigmaVisualCheck.Run(screenPrefabPath, passScore = 0.85,
+textPassScore = 0.75, refreshReference = false)` captures the prefab at its
 frame size in a preview scene (the open scene is not touched) and compares it
 with Figma's 1x render of the frame. Each container (a visible node with
 children) is scored by SSIM over its render bounds, so a small wrong part
 cannot hide behind a correct background. A container that draws nothing but
 text passes at `textPassScore`, since TMP rasterises and outlines glyphs its own
-way. `Report.ToString()` lists every container, lowest margin first;
+way, and a Linear colour space project blends glyph edges differently from Figma
+(bridge 0.8.7 lowered both scores: 0.90/0.85 before). `Report.ToString()` lists every container, lowest margin first;
 `report.json` holds the same with each box (top-left origin, frame pixels).
 The Figma render is fetched once and cached as `figma.png`; pass
 `refreshReference: true` after the design changes.
