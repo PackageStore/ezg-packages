@@ -1412,8 +1412,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "b0bfe0ac3fb9653c1fe9c292039821c3831dda361e5f501fccd207f94bd58b7b",
-      "size": 9688
+      "sha256": "3ce3d233b62425ef50615b0a645e58d30f986f8207f6428e50bb861878d94e8d",
+      "size": 13610
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -2641,7 +2641,7 @@
       "id": "Skills/fix-bug",
       "name": "fix-bug",
       "category": "Skills",
-      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Nhận bug, tìm nguyên nhân, sửa, /compile-check, /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào → sửa → push → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause rồi thử lại); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause rồi thử lại); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
       "installPath": ".claude/skills/fix-bug",
       "isDirectory": true,
       "files": [
@@ -2652,8 +2652,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "ccc1afdc1140cb260d739ed3735ab6b25a2073c2178e3546b359607963cc8c35",
-      "size": 12063
+      "sha256": "b4df22df6544db134b2e4e29a506a5fc2b5999179bf55bb90ed2cff89c22a738",
+      "size": 15213
     },
     {
       "id": "Skills/game-animation",
@@ -3140,7 +3140,7 @@
       "id": "Skills/restart-unity",
       "name": "restart-unity",
       "category": "Skills",
-      "description": "Ép restart Unity Editor của project hiện tại NGAY LẬP TỨC — kill -9 Editor (kèm AssetImportWorker / build -batchmode đang giữ project), gỡ lockfile, rồi mở lại đúng bản Editor đó với project này. KHÔNG hỏi confirm, KHÔNG save scene/prefab, KHÔNG kiểm tra gì trước — thay đổi chưa save trong Editor sẽ mất, đó là chủ đích. Dùng khi user gõ \"/restart-unity\", nói \"restart unity\", \"khởi động lại Unity\", \"reset editor\", \"Unity treo / đơ / kẹt compile, mở lại đi\", \"Unity MCP mất kết nối, restart editor\". `--no-launch` để chỉ kill, `--dry-run` để xem trước. KHÔNG phải compile check (/compile-check) và không phải build.",
+      "description": "Ép restart Unity Editor của project hiện tại NGAY LẬP TỨC — kill -9 Editor (kèm AssetImportWorker / build -batchmode đang giữ project), gỡ lockfile, rồi mở lại đúng bản Editor đó với project này. KHÔNG hỏi confirm, KHÔNG save scene/prefab, KHÔNG kiểm tra gì trước — thay đổi chưa save trong Editor sẽ mất, đó là chủ đích. Dùng khi user gõ \"/restart-unity\", nói \"restart unity\", \"khởi động lại Unity\", \"reset editor\", \"Unity treo / đơ / kẹt compile, mở lại đi\", \"Unity MCP mất kết nối, restart editor\". `--no-launch` để chỉ kill, `--dry-run` để xem trước; agent dùng `--open-only` (mở nếu chưa có, không kill) và `--status`. KHÔNG phải compile check (/compile-check) và không phải build.",
       "installPath": ".claude/skills/restart-unity",
       "isDirectory": true,
       "files": [
@@ -3153,8 +3153,8 @@
       "source": "defaultsetup",
       "fileName": "restart-unity.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/restart-unity.zip",
-      "sha256": "960116e820c19b441eccc45faeff73ce897ae4861ad88b17025b95545f856444",
-      "size": 8158
+      "sha256": "eb118d0b58cbc27ebd78327db95d6a33e0cd887fe68f9ab7758c5b4a6ed3c9e5",
+      "size": 9486
     },
     {
       "id": "Skills/rewards-service",
