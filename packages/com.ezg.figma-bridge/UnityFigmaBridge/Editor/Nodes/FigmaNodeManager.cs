@@ -16,11 +16,6 @@ namespace UnityFigmaBridge.Editor.Nodes
     public static class FigmaNodeManager
     {
         /// <summary>
-        /// Figma text stroke weight (px) to TMP normalised outline units.
-        /// </summary>
-        private const float FigmaStrokeWeightToTmpOutline = 0.1f;
-
-        /// <summary>
         /// In FixedRectAutoSize mode TMP may shrink a label down to this fraction of the design
         /// size before it falls back to an ellipsis.
         /// </summary>
@@ -121,19 +116,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                     // We only use TextMeshPro's italic functionality for now
                     if (node.style.italic) text.fontStyle |= FontStyles.Italic;
 
-                    // We use material variants for TextMeshPro to apply text effects
-                    var hasShadowEffect = false;
-                    Effect shadowEffect=null;
-                    foreach (var effect in node.effects)
-                    {
-                        if (effect.visible && effect.type == Effect.EffectType.DROP_SHADOW)
-                        {
-                            shadowEffect = effect;
-                            hasShadowEffect = true;
-                        }
-                    }
-                    var textStroke = node.strokeWeight > 0f ? TopVisiblePaint(node.strokes) : null;
-
                     // Auto width never wraps in Figma
                     text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT
                         ? TextWrappingModes.NoWrap
@@ -179,29 +161,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                             contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
                     }
 
-                    // If no material variation, ignore
-                    if (!hasShadowEffect && textStroke == null) return;
-
-                    var shadowColor = hasShadowEffect
-                        ? FigmaDataUtils.ToUnityColor(shadowEffect.color) : UnityEngine.Color.white;
-                    var outlineColor = textStroke != null
-                        ? FigmaDataUtils.GetUnityFillColor(textStroke) : UnityEngine.Color.white;
-                    var outlineWidth = 0f;
-                    if (textStroke != null)
-                    {
-                        // A Figma stroke weight of x reads as x/10 in TMP's normalised outline
-                        // units, whatever the font size. Deriving it from font size instead made
-                        // one design stroke render at a different weight on every text size.
-                        outlineWidth = node.strokeWeight * FigmaStrokeWeightToTmpOutline;
-                        // _OutlineWidth and _FaceDilate are both 0..1 in the TMP SDF shader
-                        outlineWidth = Mathf.Clamp01(outlineWidth);
-                    }
-                    var effectMaterialPreset = FontManager.GetEffectMaterialPreset(matchingFontMapping,
-                        hasShadowEffect, shadowColor, textStroke != null, outlineColor, outlineWidth);
-                    text.fontMaterial = effectMaterialPreset;
-
-
-
+                    // Stroke and drop shadow are drawn by a material preset
+                    var textEffect = TextEffect.FromNode(node);
+                    if (!textEffect.Any) return;
+                    text.fontMaterial = FontManager.GetEffectMaterialPreset(matchingFontMapping, textEffect);
                     break;
                 case NodeType.SLICE:
                     break;
@@ -262,7 +225,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             Sprite sprite = null;
             var isPattern = false;
             if (firstFill != null && firstFill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(firstFill.imageRef))
-                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForImageFill(firstFill.imageRef));
+                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    ImageFillCover.SpritePathFor(FigmaPaths.GetPathForImageFill(firstFill.imageRef), firstFill, node));
             else if (firstFill != null && firstFill.type == Paint.PaintType.PATTERN)
             {
                 sprite = LoadPatternSourceSprite(firstFill, figmaImportProcessData);

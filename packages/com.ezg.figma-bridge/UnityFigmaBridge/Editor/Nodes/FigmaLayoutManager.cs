@@ -169,6 +169,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             layoutGroup.padding = new RectOffset(Mathf.RoundToInt(node.paddingLeft), Mathf.RoundToInt(node.paddingRight),
                 Mathf.RoundToInt(node.paddingTop), Mathf.RoundToInt(node.paddingBottom));
             layoutGroup.spacing = node.itemSpacing;
+            // The generator draws the children in reverse for "first on top"; this keeps them placed in Figma's order
+            layoutGroup.reverseArrangement = node.itemReverseZIndex;
         }
     }
 }

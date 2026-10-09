@@ -19,6 +19,9 @@ namespace UnityFigmaBridge.Editor.Fonts
         public TMP_FontAsset FontAsset;
         public readonly HashSet<uint> RequiredCharacters = new HashSet<uint>();
         public List<FontMaterialVariation> FontmaterialVariations = new List<FontMaterialVariation>();
+
+        /// <summary>Largest <see cref="TextEffect.Reach"/> per pixel of font size among the texts using this font.</summary>
+        public float EffectReachPerEm;
     }
 
 
@@ -27,15 +30,10 @@ namespace UnityFigmaBridge.Editor.Fonts
     /// </summary>
     public class FontMaterialVariation
     {
-        public bool OutlineEnabled;
-        public Color OutlineColor;
-        public float OutlineThickness;
-
-        public bool ShadowEnabled;
-        public Color ShadowColor;
+        /// <summary>Preset name: every value the material holds, in design units.</summary>
+        public string Name;
 
         public Material MaterialPreset;
-
     }
 
 
@@ -61,12 +59,6 @@ namespace UnityFigmaBridge.Editor.Fonts
     /// </summary>
     public static class FontManager
     {
-        /// <summary>
-        /// Rounding outline width to a step no eye can separate keeps one material preset per
-        /// design intent instead of one per floating point difference.
-        /// </summary>
-        private const float OutlineWidthStep = 0.05f;
-
         private static readonly Dictionary<int, string> s_WeightStyleNames = new Dictionary<int, string>
         {
             { 100, "Thin" }, { 200, "ExtraLight" }, { 300, "Light" }, { 400, "Regular" },
@@ -105,6 +97,10 @@ namespace UnityFigmaBridge.Editor.Fonts
                 }
 
                 fontMapEntry.RequiredCharacters.UnionWith(TextMeshProFontUtils.ToCodePoints(textNode.characters));
+
+                var effect = TextEffect.FromNode(textNode);
+                if (effect.Any && effect.FontSize > 0f)
+                    fontMapEntry.EffectReachPerEm = Mathf.Max(fontMapEntry.EffectReachPerEm, effect.Reach / effect.FontSize);
             }
 
             if (fontOverride != null)
@@ -117,8 +113,12 @@ namespace UnityFigmaBridge.Editor.Fonts
                 };
                 overrideEntry.RequiredCharacters.UnionWith(TextMeshProFontUtils.BaseCharacterSet);
                 foreach (var entry in fontMap.FontMapEntries)
+                {
                     overrideEntry.RequiredCharacters.UnionWith(entry.RequiredCharacters);
+                    overrideEntry.EffectReachPerEm = Mathf.Max(overrideEntry.EffectReachPerEm, entry.EffectReachPerEm);
+                }
                 fontMap.OverrideEntry = overrideEntry;
+                EnsureEffectPadding(overrideEntry);
                 BakeRequiredCharacters(overrideEntry);
                 AssetDatabase.SaveAssets();
                 Debug.Log($"[FontManager] FontOverride '{fontOverride.name}' replaces " +
@@ -132,7 +132,9 @@ namespace UnityFigmaBridge.Editor.Fonts
             foreach (var fontMapEntry in fontMap.FontMapEntries)
             {
                 fontMapEntry.FontAsset = await ResolveFontAsset(fontMapEntry, allProjectFontAssets, enableGoogleFontsDownload);
-                if (fontMapEntry.FontAsset != null) BakeRequiredCharacters(fontMapEntry);
+                if (fontMapEntry.FontAsset == null) continue;
+                EnsureEffectPadding(fontMapEntry);
+                BakeRequiredCharacters(fontMapEntry);
             }
 
             AssetDatabase.SaveAssets();
@@ -297,79 +299,126 @@ namespace UnityFigmaBridge.Editor.Fonts
             return closestMatch;
         }
 
-        public static Material GetEffectMaterialPreset(FigmaFontMapEntry fontMapEntry, bool shadow, Color shadowColor,
-            bool outline, Color outlineColor, float outlineThickness)
+        /// <summary>
+        ///     A material preset that draws a Figma stroke and drop shadow at their design size. TMP's
+        ///     distance-field units scale with the font size and the atlas, measured on its SDF shaders:
+        ///     face dilate moves the glyph edge by G·k pixels per unit, outline width spreads G·k on each
+        ///     side of that edge, and underlay offset and dilate move by G·k, where G is the gradient
+        ///     scale (atlas padding + 1) and k is
+        ///     font size / sampling point size. Ratio scaling is off, so those values reach the shader
+        ///     as written; <see cref="EnsureEffectPadding"/> keeps them inside the atlas padding.
+        /// </summary>
+        public static Material GetEffectMaterialPreset(FigmaFontMapEntry fontMapEntry, TextEffect effect)
         {
-            // Every value below is written into the material as 8 bit colour or a rounded width, so
-            // quantise before matching. Comparing the raw Figma values instead mints a separate
-            // preset for differences no shader can express.
-            shadowColor = shadow ? Quantise(shadowColor) : Color.clear;
-            outlineColor = outline ? Quantise(outlineColor) : Color.clear;
-            outlineThickness = outline ? QuantiseOutlineWidth(outlineThickness) : 0f;
+            var fontAsset = fontMapEntry.FontAsset;
+            // Every colour is written as 8 bit and every size is named to 1/100 px, so quantise first:
+            // raw Figma floats would mint a preset per difference no shader can show
+            effect.OutlineColor = Quantise(effect.OutlineColor);
+            effect.ShadowColor = Quantise(effect.ShadowColor);
+            var materialName = MaterialPresetName(fontAsset, effect);
 
             foreach (var materialPreset in fontMapEntry.FontmaterialVariations)
-            {
-                if (materialPreset.ShadowEnabled != shadow) continue;
-                if (materialPreset.OutlineEnabled != outline) continue;
-                if (shadow && materialPreset.ShadowColor != shadowColor) continue;
-                if (outline && materialPreset.OutlineColor != outlineColor) continue;
-                if (outline && !Mathf.Approximately(materialPreset.OutlineThickness, outlineThickness)) continue;
+                if (materialPreset.Name == materialName) return materialPreset.MaterialPreset;
 
-                return materialPreset.MaterialPreset;
+            // The source font asset's material already carries TextMeshPro's own shader, and we keep
+            // it - this package must not ship a copy of one
+            var newMaterialPreset = new Material(fontAsset.material) { name = materialName };
+
+            var gradientScale = newMaterialPreset.HasProperty("_GradientScale")
+                ? newMaterialPreset.GetFloat("_GradientScale") : fontAsset.atlasPadding + 1;
+            var pixelsPerUnit = gradientScale * effect.FontSize / fontAsset.faceInfo.pointSize;
+
+            newMaterialPreset.EnableKeyword("RATIOS_OFF");
+            TrySetFloat(newMaterialPreset, "_ScaleRatioA", 1f);
+            TrySetFloat(newMaterialPreset, "_ScaleRatioB", 1f);
+            TrySetFloat(newMaterialPreset, "_ScaleRatioC", 1f);
+
+            var faceDilate = 0f;
+            TrySetKeyword(newMaterialPreset, "OUTLINE_ON", effect.Outline);
+            if (effect.Outline)
+            {
+                var outlineWidth = effect.StrokeWidth / (2f * pixelsPerUnit);
+                faceDilate = effect.StrokeAlign switch
+                {
+                    Node.StrokeAlign.OUTSIDE => outlineWidth,
+                    Node.StrokeAlign.INSIDE => -outlineWidth,
+                    _ => 0f
+                };
+                TrySetFloat(newMaterialPreset, "_OutlineWidth", outlineWidth);
+                TrySetColor(newMaterialPreset, "_OutlineColor", effect.OutlineColor);
             }
+            TrySetFloat(newMaterialPreset, "_FaceDilate", faceDilate);
 
-            // No match, create new preset. The source font asset's material already carries
-            // TextMeshPro's own shader, and we keep it - this package must not ship a copy of one.
-            var newMaterialPreset = new Material(fontMapEntry.FontAsset.material);
-
-            // Named after the effect rather than a running index, so re-importing the same document
-            // overwrites the same files instead of leaving a renumbered trail behind.
-            var materialName = MaterialPresetName(fontMapEntry, shadow, shadowColor, outline, outlineColor, outlineThickness);
-            newMaterialPreset.name = materialName;
-
-            TrySetKeyword(newMaterialPreset, "UNDERLAY_ON", shadow);
-
-            if (shadow)
+            TrySetKeyword(newMaterialPreset, "UNDERLAY_ON", effect.Shadow);
+            if (effect.Shadow)
             {
-                TrySetFloat(newMaterialPreset, "_UnderlayOffsetX", 0);
-                TrySetFloat(newMaterialPreset, "_UnderlayOffsetY", -0.6f);
-                TrySetColor(newMaterialPreset, "_UnderlayColor", shadowColor);
-            }
-
-            TrySetKeyword(newMaterialPreset, "OUTLINE_ON", outline);
-
-            if (outline)
-            {
-                TrySetFloat(newMaterialPreset, "_OutlineWidth", outlineThickness);
-                TrySetColor(newMaterialPreset, "_OutlineColor", outlineColor);
-
-                // A Figma stroke sits outside the glyph, while TMP centres its outline on the glyph
-                // edge and so eats into it. Dilating the face by the full outline width restores
-                // the glyph weight the design shows - half of it left the letters too thin.
-                TrySetFloat(newMaterialPreset, "_FaceDilate", outlineThickness);
+                // Figma shadows the stroked shape; the underlay starts from the dilated face
+                TrySetFloat(newMaterialPreset, "_UnderlayOffsetX", effect.ShadowOffset.x / pixelsPerUnit);
+                TrySetFloat(newMaterialPreset, "_UnderlayOffsetY", -effect.ShadowOffset.y / pixelsPerUnit);
+                TrySetFloat(newMaterialPreset, "_UnderlayDilate",
+                    (effect.StrokeOuterEdge + effect.ShadowSpread) / pixelsPerUnit - faceDilate);
+                TrySetFloat(newMaterialPreset, "_UnderlaySoftness", effect.ShadowRadius / (2f * pixelsPerUnit));
+                TrySetColor(newMaterialPreset, "_UnderlayColor", effect.ShadowColor);
             }
 
             AssetDatabase.CreateAsset(newMaterialPreset, $"{FigmaPaths.FigmaFontMaterialPresetsFolder}/{materialName}.mat");
 
             fontMapEntry.FontmaterialVariations.Add(new FontMaterialVariation
             {
-                ShadowEnabled=shadow,
-                ShadowColor = shadowColor,
-                OutlineEnabled = outline,
-                OutlineColor = outlineColor,
-                OutlineThickness = outlineThickness,
+                Name = materialName,
                 MaterialPreset = newMaterialPreset
             });
             return newMaterialPreset;
         }
 
-        private static string MaterialPresetName(FigmaFontMapEntry fontMapEntry, bool shadow, Color shadowColor,
-            bool outline, Color outlineColor, float outlineThickness)
+        /// <summary>
+        ///     Named after the effect in design pixels rather than a running index, so re-importing the
+        ///     same document overwrites the same files instead of leaving a renumbered trail behind.
+        /// </summary>
+        private static string MaterialPresetName(TMP_FontAsset fontAsset, TextEffect effect)
         {
-            var materialName = fontMapEntry.FontAsset.name;
-            if (outline) materialName += $"_o{Mathf.RoundToInt(outlineThickness * 100f):D2}-{ToHex(outlineColor)}";
-            if (shadow) materialName += $"_s{ToHex(shadowColor)}";
-            return materialName;
+            var materialName = fontAsset.name;
+            if (effect.Outline)
+                materialName += $"_o{Px(effect.StrokeWidth)}{effect.StrokeAlign.ToString()[0]}-{ToHex(effect.OutlineColor)}";
+            if (effect.Shadow)
+                materialName += $"_s{ToHex(effect.ShadowColor)}-{Px(effect.ShadowOffset.x)}x{Px(effect.ShadowOffset.y)}" +
+                                $"r{Px(effect.ShadowRadius)}s{Px(effect.ShadowSpread)}";
+            return materialName + $"@{Px(effect.FontSize)}";
+        }
+
+        private static string Px(float value) =>
+            (Mathf.Round(value * 100f) / 100f).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+        /// <summary>
+        ///     A distance field only holds distances up to its atlas padding. An effect reaching further
+        ///     reads past the glyph's cell, so the outline is cut and the shadow picks up the neighbouring
+        ///     glyph. A dynamic font asset the bridge made gets the padding its texts need (its atlas is
+        ///     rebuilt); any other font asset is left as it is, with a warning.
+        /// </summary>
+        private static void EnsureEffectPadding(FigmaFontMapEntry fontMapEntry)
+        {
+            var fontAsset = fontMapEntry.FontAsset;
+            if (fontAsset == null || fontMapEntry.EffectReachPerEm <= 0f) return;
+            var required = Mathf.CeilToInt(fontMapEntry.EffectReachPerEm * fontAsset.faceInfo.pointSize) + 1;
+            if (fontAsset.atlasPadding >= required) return;
+
+            var path = AssetDatabase.GetAssetPath(fontAsset);
+            var madeByBridge = path.StartsWith(FigmaPaths.FigmaFontsFolder + "/", System.StringComparison.Ordinal);
+            if (!madeByBridge || fontAsset.atlasPopulationMode != AtlasPopulationMode.Dynamic)
+            {
+                Debug.LogWarning($"[FontManager] '{fontAsset.name}' has atlas padding {fontAsset.atlasPadding}, but its " +
+                                 $"text strokes and shadows reach {required - 1} texels: they will be cut. Rebuild the " +
+                                 $"font asset with padding {required} or more.");
+                return;
+            }
+
+            var serializedFont = new SerializedObject(fontAsset);
+            serializedFont.FindProperty("m_AtlasPadding").intValue = required;
+            serializedFont.ApplyModifiedPropertiesWithoutUndo();
+            fontAsset.ClearFontAssetData(true);
+            fontAsset.material.SetFloat("_GradientScale", required + 1);
+            EditorUtility.SetDirty(fontAsset);
+            Debug.Log($"[FontManager] '{fontAsset.name}': atlas padding raised to {required} for its text strokes and shadows");
         }
 
         private static string ToHex(Color color)
@@ -380,11 +429,6 @@ namespace UnityFigmaBridge.Editor.Fonts
         private static Color Quantise(Color color)
         {
             return (Color)(Color32)color;
-        }
-
-        private static float QuantiseOutlineWidth(float outlineThickness)
-        {
-            return Mathf.Round(Mathf.Clamp01(outlineThickness) / OutlineWidthStep) * OutlineWidthStep;
         }
 
         // A font asset may carry any TMP shader, and Bitmap variants lack the SDF properties and

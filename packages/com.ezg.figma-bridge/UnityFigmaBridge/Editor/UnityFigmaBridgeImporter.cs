@@ -812,12 +812,16 @@ namespace UnityFigmaBridge.Editor
             var processedRenderNodes = offline ? serverRenderNodes : serverRenderNodes.Where(n => downloadedRenderIds.Contains(n.SourceNode.id)).ToList();
             FigmaImportTimer.Begin("Whiten tinted renders");
             ServerRenderTint.Run(processedRenderNodes, serverRenderNodes);
+            ServerRenderMultiply.Run(processedRenderNodes, serverRenderNodes);
             if (s_UnityFigmaBridgeSettings.SliceServerRenders)
             {
                 FigmaImportTimer.Begin("Slice server renders");
                 ServerRenderSlicer.Run(processedRenderNodes, serverRenderScale);
             }
             serverRenderCache?.Record(downloadedRenderIds);
+
+            FigmaImportTimer.Begin("Crop FILL image fills");
+            ImageFillCover.Run(figmaFile, foundImageFills);
 
             FigmaImportTimer.Begin("Fonts");
             // Generate font mapping data

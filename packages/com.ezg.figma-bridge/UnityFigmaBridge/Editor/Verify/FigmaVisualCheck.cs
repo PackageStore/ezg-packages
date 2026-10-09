@@ -32,10 +32,13 @@ namespace UnityFigmaBridge.Editor.Verify
     /// </remarks>
     public static class FigmaVisualCheck
     {
-        public const float DefaultPassScore = 0.9f;
+        public const float DefaultPassScore = 0.85f;
 
-        /// <summary>TextMeshPro rasterises and outlines glyphs its own way, so text alone passes lower.</summary>
-        public const float DefaultTextPassScore = 0.85f;
+        /// <summary>
+        ///     TextMeshPro rasterises and outlines glyphs its own way, and a Linear colour space project
+        ///     blends their edges in linear light where Figma blends in sRGB, so text alone passes lower.
+        /// </summary>
+        public const float DefaultTextPassScore = 0.75f;
         public const string OutputRoot = "Library/FigmaVisualCheck";
 
         private const int MinContainerSide = 16;

@@ -436,9 +436,14 @@ namespace UnityFigmaBridge.Editor.Components
                 foreach (var rectTransform in instanceRoot.GetComponentsInChildren<RectTransform>(true))
                     rectTransform.ForceUpdateRectTransforms();
 
-                // Script edits become overrides only once recorded
+                // Script edits become overrides only once recorded. A GameObject's own name and active
+                // state are not on any component: left out, SetPropertyModifications below resets them
+                // to the prefab's (an instance came back named after the component's root, hidden
+                // layers came back visible)
                 foreach (var component in instanceRoot.GetComponentsInChildren<UnityEngine.Component>(true))
                     if (component != null) PrefabUtility.RecordPrefabInstancePropertyModifications(component);
+                foreach (var transform in instanceRoot.GetComponentsInChildren<Transform>(true))
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(transform.gameObject);
 
                 var modifications = PrefabUtility.GetPropertyModifications(instanceRoot);
                 if (modifications == null) continue;

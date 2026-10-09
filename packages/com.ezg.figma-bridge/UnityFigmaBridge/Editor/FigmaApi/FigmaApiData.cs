@@ -375,7 +375,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// The distance between children of the frame. This property is only applicable for auto-layout frames.
         /// </summary>
         public float itemSpacing = 0;
-        
+
+        /// <summary>
+        /// When true the first child draws on top ("first on top" canvas stacking in an auto-layout frame)
+        /// </summary>
+        public bool itemReverseZIndex;
+
         /// <summary>
         /// An array of layout grids attached to this node (see layout grids section for more details).
         /// GROUP nodes do not have this attribute

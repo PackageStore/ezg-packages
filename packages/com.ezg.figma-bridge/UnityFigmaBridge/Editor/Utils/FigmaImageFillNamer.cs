@@ -46,7 +46,9 @@ namespace UnityFigmaBridge.Editor.Utils
 
         private static readonly Dictionary<string, string> s_NameByImageRef = new();
         private static readonly Dictionary<string, string> s_NameByRenderNodeId = new();
-        private static readonly HashSet<string> s_Taken = new();
+        // The asset database and the macOS and Windows file systems ignore case: "Fill" and "fill"
+        // are one file, and the second render written there replaced the first
+        private static readonly HashSet<string> s_Taken = new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> s_Reachable = new();
 
         private enum OwnerKind

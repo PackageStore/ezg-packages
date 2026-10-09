@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.8.7] - 2026-10-09
+### Fixed
+- **"First on top" auto layout.** A frame with `itemReverseZIndex` draws its first child on top:
+  its children are built in reverse sibling order, and a layout group keeps Figma's placement with
+  `reverseArrangement`. A chip whose icon overlaps its label (negative spacing) showed the label
+  over the icon.
+- **FILL image fills cover their box.** Figma scales a FILL image until it fills the box and crops
+  the overflow, centred; a plain `Image` stretched the whole bitmap. A fill whose aspect differs
+  from its box now gets a cropped copy, `<fill>_cover-<w>x<h>.png`, next to it (`ImageFillCover`),
+  with the fill's importer settings and the fill's MD5 in its `userData`, so it is cut again only
+  when the art changes. Slice-grid cells and rotated fills are left as they were.
+- **Text strokes and drop shadows at design size.** TMP's distance-field units scale with the font
+  size and the atlas: measured on its SDF shader, face dilate and outline width move an edge by
+  G·k pixels per unit each side, underlay offset and dilate by G·k (G = gradient scale, k = font size
+  / sampling point size). The fixed `strokeWeight × 0.1` outline and −0.6 underlay drew a 3 px
+  stroke at about 1 px. Each preset now maps the stroke (OUTSIDE, CENTER, INSIDE), the shadow offset,
+  spread and blur from pixels, with ratio scaling off (`RATIOS_OFF`). Presets are named in design
+  pixels per font size (`_o3O-1a1a1aff_s1a1a1aff-0x2r0s0@38`).
+- **Font atlas padding covers the effects.** An effect that reaches past the atlas padding is cut
+  and the shadow picks up the neighbouring glyph. A dynamic font asset the bridge downloaded gets
+  the padding its texts need (its atlas is rebuilt); any other font asset logs a warning.
+- **Instance names and hidden layers survive the override prune.** Pruning redundant overrides
+  rewrote an instance's modifications without the GameObjects' own name and active state, so an
+  instance came back named after its component's root and hidden layers came back visible.
+- **MULTIPLY layers darken.** UGUI blends every Image normally, which lightens a dark backdrop. A
+  server render of a MULTIPLY node is rewritten as black at alpha a·(1 − luminance): exact for grey,
+  close for the dark tints shades use. Render cache `FormatVersion` 4.
+- **Art names ignore case.** "Fill" and "fill" are one file on the asset database and on macOS and
+  Windows, so one render overwrote the other; the second now takes a longer name.
+### Changed
+- **Visual check passes at 0.85 per container and 0.75 for text-only containers** (was 0.90 and
+  0.85). TMP styles text its own way and a Linear colour space project blends glyph edges in linear
+  light, so text and the containers holding it stay a few points under Figma; icons drawn far
+  smaller than their image alias a little.
+
 ## [0.8.6] - 2026-10-09
 ### Fixed
 - **A component on the screens page is a screen.** A top-level COMPONENT on the screens page
