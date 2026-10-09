@@ -2279,8 +2279,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "747e481105ccc382184ab10f06733582da22704ace3e17a62659ee70ba833ca7",
-      "size": 10403
+      "sha256": "57c922c834648524853acef3374f5f2ec02489cf008eb3c2cc269bedf8a4ecca",
+      "size": 10613
     },
     {
       "id": "Skills/compile-check",
@@ -2652,8 +2652,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "fe6c3908f0a2716b6589a2ea971e2c4a37a3e7cbddebffaf6463b5030cfce1c4",
-      "size": 16220
+      "sha256": "1c77c536ca6a112fae60699c841580a6ac90d912172a783edf77126dcb6dd29c",
+      "size": 16464
     },
     {
       "id": "Skills/game-animation",
