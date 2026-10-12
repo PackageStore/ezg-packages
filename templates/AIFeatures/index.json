@@ -36,13 +36,13 @@
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 51
+      "count": 49
     },
     {
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 52
+      "count": 53
     },
     {
       "id": "Templates",
@@ -199,8 +199,8 @@
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip",
-      "sha256": "1360990003ae2d67fd40964ae2324b4b8e6067d05ea3c977e7f756b0ade75898",
-      "size": 1586
+      "sha256": "422d7aaa0110b8183d6e8f5e5a4d2ad625756f9581989c5acb8a15c525e6ef98",
+      "size": 1850
     },
     {
       "id": "Commands/auto-build-setup",
@@ -757,8 +757,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "4175b700073b31be0ebc580eaffebb569e31879ed8fa0b66c606ac3e09a25eca",
-      "size": 2584
+      "sha256": "9f001a4fcddb6a52154f72521f4d7f1800c8c7db54b03d4e74dc8a4d7e28b4ad",
+      "size": 2777
     },
     {
       "id": "Config/settings.json",
@@ -908,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "GETTING-STARTED.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
-      "sha256": "a766bd24342c28daa7b35442146253b901ac4b9cfd58faf1fdf6f42d0baee472",
-      "size": 5620
+      "sha256": "e22e93addfb9dda10a29bb94c5b1151182a3b7f0a995b6f7fd521f6310d24975",
+      "size": 5656
     },
     {
       "id": "Docs/new-package-guide",
@@ -1236,24 +1236,6 @@
       "size": 382
     },
     {
-      "id": "Scripts/add_localize.py",
-      "name": "add_localize.py",
-      "category": "Scripts",
-      "description": "",
-      "installPath": ".claude/scripts/add_localize.py",
-      "isDirectory": false,
-      "files": [
-        ".claude/scripts/add_localize.py"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "add_localize.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/add_localize.py.zip",
-      "sha256": "04b27080ebdb27c5bc9f1924ba2a178fda4159df64bbd7f81d5cb315dc14fd93",
-      "size": 2660
-    },
-    {
       "id": "Scripts/art-style-board.py",
       "name": "art-style-board.py",
       "category": "Scripts",
@@ -1342,24 +1324,6 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-snapshot.py.zip",
       "sha256": "659f881d0e52182f71a36fa5cf496f9817aefd4661b6bfcbc93974688ceab661",
       "size": 2819
-    },
-    {
-      "id": "Scripts/batch_add_localize.py",
-      "name": "batch_add_localize.py",
-      "category": "Scripts",
-      "description": "",
-      "installPath": ".claude/scripts/batch_add_localize.py",
-      "isDirectory": false,
-      "files": [
-        ".claude/scripts/batch_add_localize.py"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "batch_add_localize.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/batch_add_localize.py.zip",
-      "sha256": "b21befae827c514da8dcb5a4f9c59cbb307ee07a08dcdba73df7d9085bb04a92",
-      "size": 2724
     },
     {
       "id": "Scripts/bootstrap.ps1",
@@ -2169,7 +2133,7 @@
       "id": "Skills/add-localize",
       "name": "add-localize",
       "category": "Skills",
-      "description": ">-",
+      "description": "Add one or a handful of NEW localization keys you already know the wording for - the EZG MCP tool localize_add_keys writes the row into the team sheet (English + Vietnamese by hand, the other 14 languages machine-translated through the sheet's `template` staging tab, with EZG's shared service account - no key file), then the skill's script merges just those keys into the project's LocalizationData CSVs and runtime .assets. Use when asked to \"thêm key localize\", \"thêm key <x> vào sheet\", \"tạo key localize mới\", \"add a localize key\", \"add a new localization key\", \"cần key dịch cho nút này\". NOT an audit tool - it never scans screens for hardcoded text, never decides key names for strings it was not given, and never touches prefabs; a sweep over screens is `fill-localize`.",
       "installPath": ".claude/skills/add-localize",
       "isDirectory": true,
       "files": [
@@ -2182,8 +2146,8 @@
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip",
-      "sha256": "23b8db475c870f66b3af4f7fce6bf886d257aca7986663098a436740324142b7",
-      "size": 15924
+      "sha256": "a18ba2290e9decd0b62d7d2b9341d5605f347143c3e629e821fa8cb1bb532f30",
+      "size": 14212
     },
     {
       "id": "Skills/add-to-backlog",
@@ -2757,6 +2721,24 @@
       "size": 111485
     },
     {
+      "id": "Skills/game-docs",
+      "name": "game-docs",
+      "category": "Skills",
+      "description": "Search, read and (only when asked) edit this project's external design docs - Google Sheets listed in .claude/project-profile.json under gameDocs.sources - through the EZG MCP tools gsheet_search / gsheet_read / gsheet_write, which use EZG's shared service account (no key file in the project). Use when the user asks about game design/monetization/economy numbers, balance tables, IAP/IAA/gacha config, or says \"tra tài liệu dự án\", \"check the docs\", \"trong sheet có gì\", \"sửa sheet design\". Do not use for in-repo docs already covered by another skill (read those directly), and not for adding localization keys (that is add-localize).",
+      "installPath": ".claude/skills/game-docs",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/game-docs/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "game-docs.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-docs.zip",
+      "sha256": "9252ae99cf34535998a81188f4897a8ba55f64d6451d7497277344b603b55c37",
+      "size": 2656
+    },
+    {
       "id": "Skills/game-systems",
       "name": "game-systems",
       "category": "Skills",
@@ -3286,8 +3268,8 @@
       "source": "defaultsetup",
       "fileName": "setup-project.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-project.zip",
-      "sha256": "c8a64e794e744676b0106109cbcd6c004288e47773d2c7f33f201eb72ed2b5ae",
-      "size": 4259
+      "sha256": "4bb27fbb5e5199f8d853a4ae55dc260724d66df964df94dfcaf79b80502d7a95",
+      "size": 4395
     },
     {
       "id": "Skills/time-manager",
