@@ -598,11 +598,19 @@ namespace UnityFigmaBridge.Editor
         /// <summary>Screens come only from the screens page, so a file without it imports no screen at all.</summary>
         public static void WarnMissingRequiredPages(FigmaFile figmaFile, UnityFigmaBridgeSettings settings)
         {
-            var missing = FigmaDataUtils.MissingRequiredPages(figmaFile, settings.ScreensPageName, settings.ComponentsPageName);
-            if (missing.Count > 0)
-                Debug.LogWarning($"[FigmaBridge] The Figma file has no page named {string.Join(" or ", missing.Select(name => $"'{name}'"))}. " +
-                                 $"Screens are read only from '{settings.ScreensPageName}', and every file needs a " +
-                                 $"'{settings.ScreensPageName}' and a '{settings.ComponentsPageName}' page.");
+            var message = MissingRequiredPagesMessage(figmaFile.document.children.Select(page => page.name).ToList(), settings);
+            if (message != null) Debug.LogWarning("[FigmaBridge] " + message);
+        }
+
+        /// <returns>Null when the file has both required pages.</returns>
+        public static string MissingRequiredPagesMessage(IReadOnlyCollection<string> pageNames, UnityFigmaBridgeSettings settings)
+        {
+            var missing = FigmaDataUtils.MissingRequiredPages(pageNames, settings.ScreensPageName, settings.ComponentsPageName);
+            if (missing.Count == 0) return null;
+            return $"The Figma file has no page named {string.Join(" or ", missing.Select(name => $"'{name}'"))}. " +
+                   $"Screens are read only from '{settings.ScreensPageName}', so without it no screen is listed or imported. " +
+                   $"Pages in the file: {string.Join(", ", pageNames.Select(name => $"'{name}'"))}. " +
+                   "Rename the page in Figma, or change Screens Page Name / Components Page Name in the settings, then refresh.";
         }
 
         private static async Task ImportDocument(string fileId, FigmaFile figmaFile, List<Node> downloadPageNodeList, bool offline)

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.9] - 2026-10-12
+### Fixed
+- **The screens page is found without exact case.** A page matched Screens Page Name and
+  Components Page Name only when the names were identical, so a page named `screens` or
+  `Screens ` listed and imported no screen. Case and spaces at the ends are now ignored.
+- **A missing screens page shows in the Figma Bridge window.** The only signal was one Console
+  warning, and the screen list simply had no Screens tab. After a refresh, the window now shows a
+  warning that names the page it expects and lists the pages the file has.
+
 ## [0.8.8] - 2026-10-12
 ### Fixed
 - **A large document downloads over REST.** Sync asked for the whole file in one

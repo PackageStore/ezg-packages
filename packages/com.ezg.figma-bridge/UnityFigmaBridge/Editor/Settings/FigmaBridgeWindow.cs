@@ -252,6 +252,13 @@ namespace UnityFigmaBridge.Editor.Settings
                 }
                 GUILayout.Space(5);
 
+                if (settings.PageDataList.Count > 0)
+                {
+                    var missingPagesMessage = UnityFigmaBridgeImporter.MissingRequiredPagesMessage(
+                        settings.PageDataList.Select(page => page.Name).ToList(), settings);
+                    if (missingPagesMessage != null) EditorGUILayout.HelpBox(missingPagesMessage, MessageType.Warning);
+                }
+
                 if (screenRows.Count == 0 && componentRows.Count == 0)
                 {
                     EditorGUILayout.HelpBox("No screens or components listed yet - press " + FigmaSourceText.RefreshLabel(settings.Source) + ".",

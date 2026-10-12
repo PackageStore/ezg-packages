@@ -1033,7 +1033,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         public static bool IsScreensPage(Node pageNode, string screensPageName) =>
-            pageNode is { type: NodeType.CANVAS } && pageNode.name == screensPageName;
+            pageNode is { type: NodeType.CANVAS } && PageNameMatches(pageNode.name, screensPageName);
+
+        /// <summary>Case and spaces at the ends are ignored, so an artist's "screens " is still the screens page.</summary>
+        public static bool PageNameMatches(string pageName, string expectedName) =>
+            string.Equals(pageName?.Trim(), expectedName?.Trim(), StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Component sets, and components outside a set, on a page other than the screens page -
@@ -1056,11 +1060,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>The pages every file imported with the bridge must have, when it lacks them</summary>
-        public static List<string> MissingRequiredPages(FigmaFile file, string screensPageName, string componentsPageName)
-        {
-            var pageNames = new HashSet<string>(file.document.children.Select(page => page.name));
-            return new[] { screensPageName, componentsPageName }.Where(name => !pageNames.Contains(name)).ToList();
-        }
+        public static List<string> MissingRequiredPages(IReadOnlyCollection<string> pageNames, string screensPageName, string componentsPageName) =>
+            new[] { screensPageName, componentsPageName }
+                .Where(name => !pageNames.Any(pageName => PageNameMatches(pageName, name))).ToList();
 
         /// <summary>A node that can be a screen root: a top-level frame or component on the screens page.</summary>
         internal static bool IsScreenNodeType(Node node) =>
