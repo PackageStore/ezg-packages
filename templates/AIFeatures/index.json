@@ -2146,8 +2146,8 @@
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip",
-      "sha256": "a18ba2290e9decd0b62d7d2b9341d5605f347143c3e629e821fa8cb1bb532f30",
-      "size": 14212
+      "sha256": "58c742b60b0408ab6a8c8a1d2805c3ce1b5e92e85f4ac67a18b1c558a5435105",
+      "size": 14898
     },
     {
       "id": "Skills/add-to-backlog",
