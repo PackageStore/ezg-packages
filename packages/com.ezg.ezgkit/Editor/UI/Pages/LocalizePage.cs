@@ -7,16 +7,20 @@ using UnityEngine.UIElements;
 namespace Ezg.Editor.Shared.EzgKit.Pages
 {
     /// <summary>
-    ///     Localization: link file localize (Google Sheet của team), service account để ghi (skill add-localize),
-    ///     thư mục CSV / asset, tab cần tải. Ghi đồng bộ vào <c>LocalizeDownloader.asset</c> (com.ezg.localize) và
-    ///     <c>project-profile.json › localize</c> — trước đây hai nơi mặc định hai thư mục khác nhau.
+    ///     Localization: link file localize (Google Sheet của team), thư mục CSV / asset, tab cần tải. Ghi đồng bộ
+    ///     vào <c>LocalizeDownloader.asset</c> (com.ezg.localize) và <c>project-profile.json › localize</c> — trước đây
+    ///     hai nơi mặc định hai thư mục khác nhau.
+    ///     <para>
+    ///         Quyền ghi của skill add-localize không còn là file key trong project: skill gọi tool
+    ///         <c>localize_add_keys</c> của EZG MCP, server ký bằng service account dùng chung. Trang này chỉ nhắc share
+    ///         sheet cho email đó và dọn <c>localize.serviceAccount</c> của cách cũ.
+    ///     </para>
     /// </summary>
     internal sealed class LocalizePage : SetupPage
     {
         #region Keys
 
         private const string K_SHEET = "sheet";
-        private const string K_SERVICE = "serviceAccount";
         private const string K_CSV = "csvRoot";
         private const string K_DEFAULT_TAB = "defaultTab";
         private const string K_STAGING_TAB = "stagingTab";
@@ -26,7 +30,7 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
 
         #region UI state
 
-        private TextField _sheet, _service, _csv, _defaultTab, _stagingTab;
+        private TextField _sheet, _csv, _defaultTab, _stagingTab;
         private VisualElement _tabList;
         private readonly List<(TextField Name, TextField Gid, Toggle Download)> _tabRows = new();
         private Label _reach;
@@ -38,7 +42,16 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
         internal override string Title => "Localization";
 
         internal override string Description =>
-            "Link file localize, quyền ghi (service account) và thư mục dữ liệu ngôn ngữ — để tải localize vào game và để add-localize ghi key mới.";
+            "Link file localize, tab và thư mục dữ liệu ngôn ngữ — để tải localize vào game và để add-localize ghi key mới (qua EZG MCP).";
+
+        /// <summary>
+        ///     Service account của EZG MCP (secret GOOGLE_SA_KEY của ezg-mcp) — sheet phải share Editor cho email này để
+        ///     add-localize ghi được. Đổi service account thì sửa ở đây; tool <c>gsheet_info</c> trả giá trị đang chạy.
+        /// </summary>
+        internal const string EZG_SERVICE_ACCOUNT = "ezg-game-docs@gameflow-500603.iam.gserviceaccount.com";
+
+        /// <summary>Đường dẫn file key của cách cũ (trước EZG MCP); rỗng = không còn.</summary>
+        private static string LegacyServiceAccount() => ProjectProfileFile.Get("localize", "serviceAccount") ?? string.Empty;
 
         internal override bool CanApply => true;
 
@@ -94,38 +107,16 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
                 }
             }
 
-            if (ProjectProfileFile.Exists)
-            {
-                var service = ProjectProfileFile.Get("localize", "serviceAccount");
-                var abs = string.IsNullOrEmpty(service) ? null : Path.IsPathRooted(service) ? service : ProjectPaths.Abs(service);
-                if (abs == null || !File.Exists(abs))
-                    report.Add(EzgStatus.Warn, "Chưa có file service account (add-localize không ghi được lên sheet).",
-                        "Chọn file JSON của service account có quyền Editor trên sheet.");
-                else
-                {
-                    var problem = ServiceAccountProblem(abs);
-                    if (problem != null) report.Add(problem.Value.Level, problem.Value.Text, problem.Value.Fix);
-                    else report.Ok();
-                }
-            }
+            var legacy = LegacyServiceAccount();
+            if (!string.IsNullOrEmpty(legacy))
+                report.Add(EzgStatus.Warn, $"project-profile còn localize.serviceAccount \"{legacy}\" — cách cũ, cần file key trong project.",
+                    "Áp dụng để bỏ trống nó, rồi xoá file key. add-localize giờ ghi qua EZG MCP (share sheet Editor cho " + EZG_SERVICE_ACCOUNT + ").");
 
             var languages = LocalizeBridge.LanguagesOnDisk(CurrentCsvRoot());
             if (languages.Count == 0) report.Add(EzgStatus.Warn, "Chưa có dữ liệu ngôn ngữ nào — text trong game hiện dạng #key.", "Áp dụng rồi bấm Tải localize.");
             else report.Ok();
 
             return report.Resolve(languages.Count == 0 ? "Chưa tải dữ liệu." : $"{languages.Count} ngôn ngữ: {string.Join(", ", languages)}");
-        }
-
-        /// <summary>File key hỏng / nằm trong repo mà không bị ignore → cảnh báo.</summary>
-        private static (EzgStatus Level, string Text, string Fix)? ServiceAccountProblem(string abs)
-        {
-            var json = MiniJson.ParseObject(File.ReadAllText(abs));
-            if (json == null || string.IsNullOrEmpty(json.Str("client_email")))
-                return (EzgStatus.Error, "File service account không có client_email.", "Tải lại key JSON ở Google Cloud > Service Accounts.");
-            if (ProjectPaths.IsInsideProject(abs) && ProcessRunner.IsGitIgnored(abs) == false)
-                return (EzgStatus.Error, $"File key {ProjectPaths.Rel(abs)} nằm trong repo mà KHÔNG bị git ignore — commit là lộ key.",
-                    "Thêm thư mục chứa key (vd Key/) vào .gitignore, hoặc để key ngoài project.");
-            return null;
         }
 
         internal override JsonObject GetValues(bool maskSecrets)
@@ -137,7 +128,7 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
             var csv = CurrentCsvRoot();
             return new JsonObject()
                 .Set(K_SHEET, CurrentSheet())
-                .Set(K_SERVICE, ProjectProfileFile.Get("localize", "serviceAccount") ?? string.Empty)
+                .Set("writeServiceAccount", EZG_SERVICE_ACCOUNT)
                 .Set(K_CSV, csv)
                 .Set("assetsRoot", LocalizeBridge.AssetsRootOf(csv))
                 .Set(K_DEFAULT_TAB, ProjectProfileFile.Get("localize", "defaultTab") ?? "common")
@@ -162,16 +153,13 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
             if (csv != null && csv.Length > 0 && !csv.EndsWith("/LocalizationData"))
                 return ApplyResult.Fail("Thư mục CSV phải kết thúc bằng /LocalizationData (asset sinh ở thư mục anh em Resources/LocalizationData).");
 
-            var service = values.Has(K_SERVICE) ? values.Str(K_SERVICE).Trim() : null;
-            if (!string.IsNullOrEmpty(service))
+            // Cách cũ: bỏ trống đường dẫn key (script add-localize không còn đọc nó) và nhắc xoá file key.
+            var legacy = LegacyServiceAccount();
+            if (!string.IsNullOrEmpty(legacy))
             {
-                var abs = Path.IsPathRooted(service) ? service : ProjectPaths.Abs(service);
-                if (!File.Exists(abs)) result.Notes.Add($"Chưa thấy file service account \"{service}\" — vẫn ghi đường dẫn vào profile.");
-                else
-                {
-                    var problem = ServiceAccountProblem(abs);
-                    if (problem != null) result.Notes.Add(problem.Value.Text);
-                }
+                var legacyAbs = Path.IsPathRooted(legacy) ? legacy : ProjectPaths.Abs(legacy);
+                if (File.Exists(legacyAbs))
+                    result.Notes.Add($"File key cũ \"{legacy}\" không còn được dùng — xoá nó (và đừng commit). add-localize ghi qua EZG MCP.");
             }
 
             List<LocalizeBridge.Tab> tabs = null;
@@ -191,7 +179,7 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
             var entries = new List<(string[], string)>
             {
                 (new[] { "localize", "sheet" }, string.IsNullOrEmpty(sheet) ? null : sheet),
-                (new[] { "localize", "serviceAccount" }, string.IsNullOrEmpty(service) ? null : service),
+                (new[] { "localize", "serviceAccount" }, string.IsNullOrEmpty(legacy) ? null : string.Empty),
                 (new[] { "localize", "csvRoot" }, string.IsNullOrEmpty(csv) ? null : csv),
                 (new[] { "localize", "assetsRoot" }, string.IsNullOrEmpty(csv) ? null : LocalizeBridge.AssetsRootOf(csv)),
                 (new[] { "localize", "defaultTab" }, values.Has(K_DEFAULT_TAB) ? values.Str(K_DEFAULT_TAB).Trim() : null),
@@ -221,9 +209,17 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
             _reach = Ui.Hint(source, string.Empty);
 
             var write = Ui.Card(body, "Quyền ghi (add-localize)",
-                "Skill add-localize ghi key mới lên sheet qua Sheets API bằng service account. client_email của nó phải là Editor trên sheet.");
-            _service = Ui.PathRow(write, "Service account JSON", values.Str(K_SERVICE), false,
-                "Nên để trong Key/ (đã git ignore) hoặc ngoài project.", null, null, "json");
+                "Skill add-localize ghi key mới qua EZG MCP (tool localize_add_keys) bằng service account dùng chung của EZG — " +
+                "không cần file key trong project. Chủ sheet chỉ cần Share quyền Editor cho email dưới đây.");
+            Ui.InfoRow(write, "Share Editor cho", EZG_SERVICE_ACCOUNT);
+            var writeActions = Ui.Row(write, "ezg-actions");
+            Ui.Button(writeActions, "Copy email", () =>
+            {
+                UnityEditor.EditorGUIUtility.systemCopyBuffer = EZG_SERVICE_ACCOUNT;
+                host.Toast("Đã copy " + EZG_SERVICE_ACCOUNT, EzgStatus.Ok);
+            }, "secondary", "Dán vào ô Share của Google Sheet, chọn Editor.");
+            if (!string.IsNullOrEmpty(LegacyServiceAccount()))
+                Ui.Hint(write, $"Còn localize.serviceAccount \"{LegacyServiceAccount()}\" từ cách cũ — Áp dụng sẽ bỏ trống nó; xoá file key đi.");
             _defaultTab = Ui.TextRow(write, "Tab mặc định", values.Str(K_DEFAULT_TAB), "Tab add-localize ghi vào khi không chỉ định (common).");
             _stagingTab = Ui.TextRow(write, "Tab staging", values.Str(K_STAGING_TAB), "Tab template dùng để dịch máy trước khi chuyển sang tab thật.");
 
@@ -308,7 +304,6 @@ namespace Ezg.Editor.Shared.EzgKit.Pages
 
             return new JsonObject()
                 .Set(K_SHEET, _sheet.value)
-                .Set(K_SERVICE, _service.value)
                 .Set(K_CSV, _csv.value)
                 .Set(K_DEFAULT_TAB, _defaultTab.value)
                 .Set(K_STAGING_TAB, _stagingTab.value)

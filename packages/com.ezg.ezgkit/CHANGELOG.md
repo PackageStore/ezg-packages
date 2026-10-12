@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1] - 2026-10-12
+### Changed
+- Mục **Localization**: bỏ ô "Service account JSON". Skill add-localize giờ ghi sheet qua EZG MCP (tool
+  `localize_add_keys`) bằng service account dùng chung của EZG, key nằm trên server — card "Quyền ghi" chỉ còn
+  hiện email cần Share quyền Editor (nút Copy email). Không còn cảnh báo "Chưa có file service account".
+- `localize.serviceAccount` còn lại từ cách cũ: trang báo Còn việc, Áp dụng bỏ trống nó và nhắc xoá file key.
+  `GetPageValuesJson("localize")` trả `writeServiceAccount` thay cho `serviceAccount`.
+
 ## [1.0.0] - 2026-10-06
 ### Changed
 - **Viết lại toàn bộ UI bằng UI Toolkit** (bỏ hẳn IMGUI của 0.x: `EzgKitWindow`, `EzgKitStyles`, `SetupGui`,
