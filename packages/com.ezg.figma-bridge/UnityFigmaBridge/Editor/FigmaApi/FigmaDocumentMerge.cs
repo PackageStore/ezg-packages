@@ -30,8 +30,10 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             AllPages(pageList).Where(page => !FigmaDataUtils.IsIgnored((string)page["name"]));
 
         /// <param name="parts">Downloaded parts in document order (<see cref="FigmaDocumentDownload.Parts"/>).</param>
-        public static void Write(JObject pageList, IReadOnlyList<FigmaDocumentDownload.Part> parts, string targetPath)
+        /// <returns>Ids of the top-level nodes the parts no longer hold; they are left out of the written file.</returns>
+        public static List<string> Write(JObject pageList, IReadOnlyList<FigmaDocumentDownload.Part> parts, string targetPath)
         {
+            var goneNodeIds = new List<string>();
             var maps = SubtreeMaps.ToDictionary(name => name, _ => new JObject());
             using var writer = new JsonTextWriter(File.CreateText(targetPath));
             writer.WriteStartObject();
@@ -48,7 +50,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 writer.WriteStartArray();
                 foreach (var part in parts.Where(part => part.PageId == (string)page["id"]))
                     foreach (var nodeId in part.NodeIds)
-                        CopyNode(part.Path, nodeId, writer, maps);
+                        if (!CopyNode(part.Path, nodeId, writer, maps)) goneNodeIds.Add(nodeId);
                 writer.WriteEndArray();
                 writer.WriteEndObject();
             }
@@ -63,6 +65,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             foreach (var property in pageList.Properties())
                 if (property.Name != "document" && !maps.ContainsKey(property.Name)) property.WriteTo(writer);
             writer.WriteEndObject();
+            return goneNodeIds;
+        }
+
+        /// <summary>"'name' (id)" for each id, with the names the page list gives its top-level nodes.</summary>
+        public static string DescribeTopLevelNodes(JObject pageList, IEnumerable<string> nodeIds)
+        {
+            var names = new Dictionary<string, string>();
+            foreach (var node in Pages(pageList).SelectMany(page => (page["children"] as JArray) ?? new JArray()))
+                names[(string)node["id"]] = (string)node["name"];
+            return string.Join(", ", nodeIds.Select(id => names.TryGetValue(id, out var name) ? $"'{name}' ({id})" : id));
         }
 
         private static void WriteWithoutChildren(JObject node, JsonWriter writer)
@@ -72,12 +84,14 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>Copies <c>nodes[nodeId].document</c> of a response and folds its subtree maps into <paramref name="maps"/>.</summary>
-        private static void CopyNode(string path, string nodeId, JsonWriter writer, Dictionary<string, JObject> maps)
+        /// <returns>False, with nothing written, when Figma returns the node as null: it was deleted after the page list was read.</returns>
+        private static bool CopyNode(string path, string nodeId, JsonWriter writer, Dictionary<string, JObject> maps)
         {
             using var reader = new JsonTextReader(File.OpenText(path)) { DateParseHandling = DateParseHandling.None };
             reader.Read();
-            if (!SeekProperty(reader, "nodes") || !SeekProperty(reader, nodeId) || reader.TokenType != JsonToken.StartObject)
-                throw new Exception($"Figma returned no node {nodeId}");
+            if (!SeekProperty(reader, "nodes")) throw new Exception($"Figma returned no nodes map for node {nodeId}");
+            if (!SeekProperty(reader, nodeId) || reader.TokenType == JsonToken.Null) return false;
+            if (reader.TokenType != JsonToken.StartObject) throw new Exception($"Figma returned no node {nodeId}");
 
             var copied = false;
             while (reader.Read() && reader.TokenType == JsonToken.PropertyName)
@@ -99,6 +113,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 }
             }
             if (!copied) throw new Exception($"Figma returned no document for node {nodeId}");
+            return true;
         }
 
         /// <summary>Walks the properties of the object the reader is on, leaving it on the value of <paramref name="name"/>.</summary>

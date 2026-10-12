@@ -169,19 +169,45 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             var parts = new List<FigmaDocumentDownload.Part>();
             try
             {
-                var pageList = await FigmaDocumentDownload.PageList(fileId, accessToken, pageListPath, DOWNLOAD_PROGRESS_TITLE);
-                await FigmaDocumentDownload.Parts(fileId, accessToken, pageList,
-                    index => $"{DOCUMENT_DOWNLOAD_FOLDER}/document-part-{index}.json", DOWNLOAD_PROGRESS_TITLE, parts);
+                // A top-level node deleted after the page list was read comes back null in its part:
+                // the file changed during the download, so it is read once more before nodes are left out
+                for (var attempt = 1; ; attempt++)
+                {
+                    var pageList = await FigmaDocumentDownload.PageList(fileId, accessToken, pageListPath, DOWNLOAD_PROGRESS_TITLE);
+                    await FigmaDocumentDownload.Parts(fileId, accessToken, pageList,
+                        index => $"{DOCUMENT_DOWNLOAD_FOLDER}/document-part-{index}.json", DOWNLOAD_PROGRESS_TITLE, parts);
 
-                FigmaImportTimer.Begin("Document JSON decode and cache write");
-                EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, "Decoding file", 1);
+                    FigmaImportTimer.Begin("Document JSON decode and cache write");
+                    EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, "Decoding file", 1);
+                    List<string> goneNodeIds;
+                    try
+                    {
+                        var ignoredNames = FigmaDocumentDownload.IgnoredNames(pageList);
+                        foreach (var part in parts) part.Path = Strip(part.Path, ignoredNames);
+                        FigmaDataUtils.ReportIgnored(ignoredNames);
+                        goneNodeIds = FigmaDocumentMerge.Write(pageList, parts, mergedPath);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new Exception($"Problem decoding Figma document JSON {e.ToString()}");
+                    }
+                    if (goneNodeIds.Count == 0) break;
+
+                    var goneNodes = FigmaDocumentMerge.DescribeTopLevelNodes(pageList, goneNodeIds);
+                    if (attempt > 1)
+                    {
+                        Debug.LogWarning($"[FigmaBridge] The Figma file changed again during the download. {goneNodes} " +
+                                         "no longer exist and are left out of this import. Import again once nobody is editing the file.");
+                        break;
+                    }
+                    Debug.LogWarning($"[FigmaBridge] The Figma file changed during the download: {goneNodes} no longer exist. Downloading it again.");
+                    foreach (var part in parts) File.Delete(part.Path);
+                    parts.Clear();
+                }
+
                 FigmaFile figmaFile;
                 try
                 {
-                    var ignoredNames = FigmaDocumentDownload.IgnoredNames(pageList);
-                    foreach (var part in parts) part.Path = Strip(part.Path, ignoredNames);
-                    FigmaDataUtils.ReportIgnored(ignoredNames);
-                    FigmaDocumentMerge.Write(pageList, parts, mergedPath);
                     figmaFile = ReadDocument(mergedPath);
                 }
                 catch (Exception e)

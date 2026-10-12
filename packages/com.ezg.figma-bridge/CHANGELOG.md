@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.10] - 2026-10-12
+### Fixed
+- **A node deleted during the download no longer stops the import.** The REST download reads the
+  page list first and the top-level nodes after it, so a frame deleted in between came back `null`
+  and the merge threw `Figma returned no node <id>`. The file is now downloaded once more; a node
+  still missing after that is left out with a warning that names it, and the import goes on.
+
 ## [0.8.9] - 2026-10-12
 ### Fixed
 - **The screens page is found without exact case.** A page matched Screens Page Name and
