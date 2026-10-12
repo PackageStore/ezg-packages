@@ -2724,7 +2724,7 @@
       "id": "Skills/game-docs",
       "name": "game-docs",
       "category": "Skills",
-      "description": "Search, read and (only when asked) edit this project's external design docs - Google Sheets listed in .claude/project-profile.json under gameDocs.sources - through the EZG MCP tools gsheet_search / gsheet_read / gsheet_write, which use EZG's shared service account (no key file in the project). Use when the user asks about game design/monetization/economy numbers, balance tables, IAP/IAA/gacha config, or says \"tra tài liệu dự án\", \"check the docs\", \"trong sheet có gì\", \"sửa sheet design\". Do not use for in-repo docs already covered by another skill (read those directly), and not for adding localization keys (that is add-localize).",
+      "description": "Search, read and (only when asked) edit this project's external design docs - Google Sheets listed in .claude/project-profile.json under gameDocs.sources - through the EZG MCP tools gsheet_search / gsheet_read / gsheet_write / gsheet_delete_rows, which use EZG's shared service account (no key file in the project). Use when the user asks about game design/monetization/economy numbers, balance tables, IAP/IAA/gacha config, or says \"tra tài liệu dự án\", \"check the docs\", \"trong sheet có gì\", \"sửa sheet design\". Do not use for in-repo docs already covered by another skill (read those directly), and not for adding localization keys (that is add-localize).",
       "installPath": ".claude/skills/game-docs",
       "isDirectory": true,
       "files": [
@@ -2735,8 +2735,8 @@
       "source": "defaultsetup",
       "fileName": "game-docs.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-docs.zip",
-      "sha256": "9252ae99cf34535998a81188f4897a8ba55f64d6451d7497277344b603b55c37",
-      "size": 2656
+      "sha256": "42ebada2914edfe62c3d2755b0d84f55e530a49087a88295f8515d9617baf6d3",
+      "size": 3055
     },
     {
       "id": "Skills/game-systems",
