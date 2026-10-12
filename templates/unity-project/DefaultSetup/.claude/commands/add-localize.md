@@ -33,33 +33,38 @@ Examples:
 /add-localize key: gold_pack_9, vi: Gói Vàng 9, en: Coin Pack 9, tab: shop
 ```
 
-## 2. DRY RUN FIRST
-
-```bash
-python3 .claude/skills/add-localize/scripts/add_localize.py \
-    --key '<key>' --en '<en>' --vi '<vi>' [--tab '<tab>'] --dry-run
-```
-
-Show the plan. If the key already exists in that tab the script says so — stop
-and ask instead of forcing.
-
-## 3. RUN IT
+## 2. PLAN
 
 ```bash
 python3 .claude/skills/add-localize/scripts/add_localize.py \
     --key '<key>' --en '<en>' --vi '<vi>' [--tab '<tab>']
 ```
 
-It stages the row in `template` with GOOGLETRANSLATE formulas, waits for them to
-resolve, writes the static text into the target tab, then merges just those keys
-into `LocalizationData/<lang>/<tab>.csv` and
-`Resources/LocalizationData/<lang>/<tab>.asset` for all 16 languages.
+Writes nothing: validates against the project and prints the arguments for the
+EZG MCP tool `localize_add_keys`. The sheet is written by that tool with EZG's
+shared service account — never ask for or create a service-account key file.
+Tool missing → the EZG MCP server is not connected; see step 0 of the skill.
 
-For several keys at once, write a JSON list and pass `--file`.
+## 3. SHEET, THEN PROJECT
+
+1. `localize_add_keys` with the printed arguments plus `"dry_run": true` — if a
+   key already exists in that tab, stop and ask instead of forcing.
+2. `localize_add_keys` with the printed arguments: stages the row in `template`
+   with GOOGLETRANSLATE, waits for it to resolve, writes the static text into the
+   target tab. A `resume:` line means the wait timed out — call again with its
+   `staging_rows`.
+3. Save the whole result to a temp file, then:
+   ```bash
+   python3 .claude/skills/add-localize/scripts/add_localize.py --apply <result.json>
+   ```
+   It merges just those keys into `LocalizationData/<lang>/<tab>.csv` and
+   `Resources/LocalizationData/<lang>/<tab>.asset` for all 16 languages.
+
+For several keys at once, write a JSON list and pass `--file` in step 2.
 
 ## 4. REPORT
 
-- [ ] Sheet row written (tab + row number from the script output)
+- [ ] Sheet row written (tab + row number from the `localize_add_keys` result)
 - [ ] 16 language columns resolved, no `#ERROR!`
 - [ ] CSV + `.asset` touched for the key only — `git diff --stat` shows nothing else
 - [ ] Tell the user to open the Editor once so Unity reimports them

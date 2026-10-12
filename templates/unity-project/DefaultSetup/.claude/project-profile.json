@@ -36,19 +36,30 @@
 
   "$comment_localize": [
     "Where /add-localize reads its per-project values. `sheet` is the team's",
-    "localization workbook: the public link is enough to READ it, but every",
-    "write goes through the Sheets API, so `serviceAccount` must point at a",
-    "service-account JSON whose client_email is an Editor on that sheet.",
+    "localization workbook: the public link is enough to READ it; writes go",
+    "through the EZG MCP tool localize_add_keys, which uses EZG's shared",
+    "service account - share the sheet with that account as Editor (the MCP",
+    "tool gsheet_info returns its email). No key file belongs in the project.",
     "Empty `sheet` = the skill refuses and tells you to fill this in.",
     "csvRoot/assetsRoot are derived from sourceRoot when omitted."
   ],
   "localize": {
     "sheet": "",
-    "serviceAccount": "Key/service-account-gsheets.json",
     "csvRoot": "",
     "assetsRoot": "",
     "stagingTab": "template",
     "defaultTab": "common"
+  },
+
+  "$comment_gameDocs": [
+    "The design docs the game-docs skill searches, reads and (on request) edits",
+    "through the EZG MCP tools gsheet_*. One entry per Google Sheet:",
+    "{ key, type: \"google_sheet\", url, title, description } - the description",
+    "is what picks the right sheet for a question. Each sheet must be shared",
+    "with EZG's service account: Viewer to read, Editor to write."
+  ],
+  "gameDocs": {
+    "sources": []
   },
 
   "$comment_sensitiveGlobs": [

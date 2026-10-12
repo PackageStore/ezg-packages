@@ -1,41 +1,33 @@
 #!/usr/bin/env python3
-"""Sheets access and Unity LanguageData I/O — the parts `add-localize` needs.
+"""Unity LanguageData I/O and the sheet-URL parser - the local parts `add-localize` needs.
 
-Standard library only: the JWT for the service account is signed with
-`cryptography` when it is installed and with `openssl` on PATH otherwise, so a
-bare Python install is enough and nothing has to be pip-installed into a Unity
-project.
+Standard library only, so nothing has to be pip-installed into a Unity project.
 
-Provenance: lifted verbatim from `fill-localize/scripts/localize_sheet.py`, the
-skill where this code was written and proved against this sheet and these
-assets. It is duplicated rather than imported because `add-localize` ships in
-the default setup of every new project while `fill-localize` does not — a skill
-that silently needs a second skill installed is a skill that is broken on
-arrival. Keep the two copies in step when either is fixed.
+Sheets access is NOT here any more: the sheet half of add-localize runs on the
+EZG MCP server (tool `localize_add_keys`), which writes with EZG's shared
+service account. No service-account key belongs in a project.
+
+Provenance: the CSV/.asset half was lifted verbatim from
+`fill-localize/scripts/localize_sheet.py`, the skill where it was written and
+proved against these assets. It is duplicated rather than imported because
+`add-localize` ships in the default setup of every new project while
+`fill-localize` does not - a skill that silently needs a second skill installed
+is a skill that is broken on arrival. Keep the two copies in step when either
+is fixed.
 
 What each piece is for
 ----------------------
-  sheet_id / api / service_account_token  talk to the Sheets REST API
+  sheet_id                               sheet URL or ID -> the ID
   read_project_csv / pipeline_text        the `key~value` CSVs the importer reads
   read_asset / write_asset                LanguageData .asset files, edited in
                                           place so an unchanged entry keeps its
                                           original bytes and the diff stays small
 """
-import json
 import os
 import re
-import urllib.error
-import urllib.parse
-import urllib.request
 
 
 SHEET_URL_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
-
-
-LANG_COL_RE = re.compile(r"^(.*)-([a-z]{2}[a-z]*)$")
-
-
-SCOPE = "https://www.googleapis.com/auth/spreadsheets"
 
 
 DQ_ESCAPE = re.compile(r"\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|.)")
@@ -49,68 +41,6 @@ DQ_SIMPLE = {"n": "\n", "t": "\t", "r": "\r", "0": "\0", "\\": "\\",
 def sheet_id(url_or_id):
     m = SHEET_URL_RE.search(url_or_id)
     return m.group(1) if m else url_or_id
-
-
-def _b64url(b):
-    import base64
-    return base64.urlsafe_b64encode(b).rstrip(b"=")
-
-
-def service_account_token(path, scope=SCOPE):
-    """Mint an access token from a service-account JSON key (RS256 JWT grant).
-
-    Uses `cryptography` if present, else shells out to openssl, so the script
-    stays dependency-free on a bare Python install.
-    """
-    import time
-    d = json.load(open(path, encoding="utf-8"))
-    now = int(time.time())
-    header = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
-    claim = _b64url(json.dumps({
-        "iss": d["client_email"], "scope": scope,
-        "aud": d["token_uri"], "iat": now, "exp": now + 3600,
-    }).encode())
-    signing_input = header + b"." + claim
-
-    try:
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import padding
-        key = serialization.load_pem_private_key(
-            d["private_key"].encode(), password=None)
-        sig = key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
-    except ImportError:
-        import subprocess
-        import tempfile
-        with tempfile.TemporaryDirectory() as td:
-            pem = os.path.join(td, "k.pem")
-            open(pem, "w", newline="\n").write(d["private_key"])
-            sig = subprocess.run(
-                ["openssl", "dgst", "-sha256", "-sign", pem],
-                input=signing_input, stdout=subprocess.PIPE, check=True).stdout
-
-    body = urllib.parse.urlencode({
-        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        "assertion": (signing_input + b"." + _b64url(sig)).decode(),
-    }).encode()
-    try:
-        with urllib.request.urlopen(d["token_uri"], body) as r:
-            return json.load(r)["access_token"]
-    except urllib.error.HTTPError as e:
-        raise SystemExit("service-account token request failed: %s\n%s"
-                         % (e, e.read().decode("utf-8", "replace")[:400]))
-
-
-def api(token, method, path, payload=None):
-    url = "https://sheets.googleapis.com/v4/spreadsheets/%s" % path
-    data = json.dumps(payload).encode() if payload is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": "Bearer " + token, "Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req) as r:
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        raise SystemExit("Sheets API %s %s failed: %s\n%s"
-                         % (method, path, e, e.read().decode("utf-8", "replace")[:600]))
 
 
 def read_project_csv(path):

@@ -66,7 +66,7 @@ Mở project trong Unity, rồi trong Claude Code gõ `/setup-project`. Skill m�
 | Ads & Privacy | MAX key + ad unit, tắt debug ads, consent, ATT, đối tượng người chơi |
 | Gói bán (IAP) | chỉ xem danh sách gói + cảnh báo; tạo/sửa gói bằng MCP gói bán |
 | ArtStyle | thư mục art cho board → "Nhờ Claude soạn" (skill soạn `ArtStyle.md` từ art của game) |
-| Localization | link file localize, service account, tab |
+| Localization | link file localize, tab — ghi key mới qua EZG MCP (share sheet Editor cho service account EZG, không cần file key) |
 | Nâng cao | Firebase (tạo app + tải config), nhà phát hành, social |
 
 Trạng thái lưu ở `ProjectSettings/EzgKitSetup.json` (commit cho cả team, không chứa secret). Secret chỉ đi vào

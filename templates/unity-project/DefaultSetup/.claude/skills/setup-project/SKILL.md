@@ -19,7 +19,7 @@ chat, không tự điền giá trị thay dev khi dev chưa đưa giá trị.
 | `ads` | Ads & Privacy | MAX key + ad unit, debug ads, consent, ATT, đối tượng người chơi | — |
 | `iap` | Gói bán (IAP) | chỉ xem danh sách gói + cảnh báo; tạo/sửa gói bằng MCP gói bán | — |
 | `artstyle` | ArtStyle | thư mục art cho board, bấm "Nhờ Claude soạn" | **soạn `.claude/docs/ArtStyle.md`** (STEP 4) |
-| `localize` | Localization | link file localize, service account, tab | kiểm tra link đọc được, tải thử |
+| `localize` | Localization | link file localize, tab (ghi qua EZG MCP, không cần file key) | kiểm tra link đọc được, tải thử, kiểm tra quyền ghi của service account EZG |
 | `firebase`, `publisher`, `social` | Nhóm "Nâng cao" | tạo app Firebase, đổi nhà phát hành, link social | — |
 
 ## Tham số
@@ -106,7 +106,10 @@ secret (token, key bí mật, mật khẩu keystore) vào chat, commit hay file 
   5. Báo dev: file cần duyệt, những gì đã suy ra và những gì còn trống.
 - **`localize`** — đọc `localize.sheet` trong `.claude/project-profile.json`: tải bản CSV export (như trang
   Localization làm) xác nhận đọc được + liệt kê tab/ngôn ngữ thấy được; lỗi quyền thì nói dev share sheet
-  "Anyone with the link" (đọc) và cho `client_email` của service account quyền Editor (ghi qua `/add-localize`).
+  "Anyone with the link" (đọc). Ghi (`/add-localize`) đi qua EZG MCP bằng service account dùng chung của EZG:
+  gọi `gsheet_info` với link sheet — lỗi quyền thì nói dev share sheet quyền **Editor** cho email mà `gsheet_info`
+  (không tham số) trả về. Không bao giờ xin hay tạo file key service account trong project; còn
+  `localize.serviceAccount` / file key cũ thì xoá đi.
 
 ## STEP 5 — Kết thúc
 
