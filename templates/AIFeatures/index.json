@@ -2593,8 +2593,8 @@
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "fbf5ba7ba028fde66fcc06d4f53cc11d8b63a006dd008838301ead109763f3bd",
-      "size": 44474
+      "sha256": "ba10d6a4907abf36283c45604dac2b04786bc2a96e9fc669632b1e5a24f433b5",
+      "size": 45061
     },
     {
       "id": "Skills/figma-hygiene",
