@@ -1412,8 +1412,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-wait.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.ps1.zip",
-      "sha256": "4e1d3252c3416964071bfc0046f3d4cf69db2e009a3ed1c1a199bebe13c3d1b2",
-      "size": 2561
+      "sha256": "22bb68af26ed62b4cc4dd29d7c94cb088d023438e83dccd33814ffdd12aa55dd",
+      "size": 2704
     },
     {
       "id": "Scripts/bughub-wait.sh",
@@ -1430,8 +1430,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-wait.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip",
-      "sha256": "9ebad66a71efa77b748fe4c7dc8783e2c16f565a937f92bc4ab66ca70681e5a0",
-      "size": 2391
+      "sha256": "348c1d78dff6c28c7bd695f837ad157c06d0394e3c289ca65467dc6ce79814ca",
+      "size": 2504
     },
     {
       "id": "Scripts/bughub-watch.py",
@@ -1448,8 +1448,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "50a8c52f6c7eddb2ef2bc1315790a80e4d3a07a8e0cc7a7a30ce1ccfd372f7cf",
-      "size": 17032
+      "sha256": "5061f08df1de6d869f896f2c213ba32223af0d9265967b00a14a1903cabfea4f",
+      "size": 20414
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1963,10 +1963,12 @@
       "installPath": ".claude/scripts/tests",
       "isDirectory": true,
       "files": [
+        ".claude/scripts/tests/test_auto_clear_ps1.py",
         ".claude/scripts/tests/test_backlog_concurrency.py",
         ".claude/scripts/tests/test_backlog_ops.py",
         ".claude/scripts/tests/test_backlog_park.py",
         ".claude/scripts/tests/test_backlog_preflight.py",
+        ".claude/scripts/tests/test_bughub_wait.py",
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
         ".claude/scripts/tests/test_run_backlog_refs.py",
@@ -1975,13 +1977,13 @@
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 11,
+      "fileCount": 13,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "a8f06894e9a93b1d781ed0a959413982d08dfc199297bd19108936c2f1ee48a1",
-      "size": 57254
+      "sha256": "3d1ff1a672656dd164f2b680e0cd6f514fe66a8f2fcbfe9dd73f2b201dc7fca6",
+      "size": 64941
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2236,8 +2238,8 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "4420be79efb9acea099624749f11256444fa346ad6185452f3b618c72e64c99d",
-      "size": 18844
+      "sha256": "6da0b04f5eb652a3373a2600b36a73fb1cffb07624173837530502d06b0d6e03",
+      "size": 22039
     },
     {
       "id": "Skills/backend-communication",
@@ -2696,7 +2698,7 @@
       "id": "Skills/fix-bug",
       "name": "fix-bug",
       "category": "Skills",
-      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash cũng tự mở lại); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd \"organization has disabled Claude subscription access\") tự thử lại mỗi 30 giây, không giới hạn số lần; chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash hoặc đứng im quá 20 phút (watchdog) cũng tự mở lại, bug đang giữ dở được session mới làm tiếp); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd \"organization has disabled Claude subscription access\") tự thử lại mỗi 30 giây, không giới hạn số lần (macOS iTerm2 + Windows Terminal); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
       "installPath": ".claude/skills/fix-bug",
       "isDirectory": true,
       "files": [
@@ -2707,8 +2709,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "897323ea27b5a371cd0b9f720bc3098e70dd21b06735fedfaa4f85d5aecd417b",
-      "size": 18332
+      "sha256": "1c96b33c3537ded8c7a1ae115246e23535109263a87353d2713d0687f5fa263a",
+      "size": 19536
     },
     {
       "id": "Skills/game-animation",
