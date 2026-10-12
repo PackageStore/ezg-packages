@@ -10,11 +10,12 @@ project or on a laptop. This script does the two local steps around it:
              `localize_add_keys`
   2. (MCP)   localize_add_keys stages the rows in `template` (English, =C<row>,
              GOOGLETRANSLATE for every language not authored by hand), waits
-             until they resolve, writes the static text into the target tab and
-             returns the 16 translations per key
-  3. apply   `--apply <result.json>` merges only those keys into
-             LocalizationData/<lang>/<tab>.csv and
-             Resources/LocalizationData/<lang>/<tab>.asset (additive)
+             for the translations and writes the finished keys into the target
+             tab. It answers in rounds of under 40 s: `next_call` continues
+             the rest, every round that wrote keys returns `apply_command`
+  3. apply   `--apply-url <url>` (the round's apply_command) fetches exactly
+             those rows and merges them into LocalizationData/<lang>/<tab>.csv
+             and Resources/LocalizationData/<lang>/<tab>.asset (additive)
 
 Scope: this adds keys. It does NOT scan prefabs for hardcoded strings and does
 NOT attach the localize component - that is `fill-localize`.
@@ -29,7 +30,9 @@ Usage
   keys.json: [{"key": "ui_play", "en": "Play", "vi": "Choi", "tab": "shop"}, ...]
 
   python3 .claude/skills/add-localize/scripts/add_localize.py \
-      --apply /tmp/localize-result.json [--dry-run]                    # 3. apply
+      --apply-url '<url from the round>' [--dry-run]                    # 3. apply
+
+  (`--apply <result.json> ...` / `--apply -` (stdin) still take a saved result.)
 
 Any language column can be authored by hand instead of machine-translated:
   --pt "..." --th "..." --zhcn "..." --ko "..." --ja "..." --de "..." --it "..."
@@ -43,6 +46,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KEY_RE = re.compile(r"^[a-z0-9_]+$")
@@ -113,6 +118,9 @@ ALL_LANGS = tuple(AUTHORED) + tuple(sorted(GT_CODE))
 GT_FALLBACK = dict(GT_CODE, vi="vi")
 
 MCP_TOOL = "localize_add_keys"
+# Keys per localize_add_keys call. The server takes up to 50, but fewer keys per call means fewer
+# GOOGLETRANSLATE formulas evaluating at once, so each round finishes more keys.
+CALL_SIZE = 25
 
 
 # --------------------------------------------------------------------------
@@ -235,20 +243,28 @@ def plan(args, S):
             if e["values"][code]:
                 item[code] = e["values"][code]
         mcp_entries.append(item)
-    call = {"sheet": S.sheet_id(args.sheet), "entries": mcp_entries,
-            "default_tab": DEFAULT_TAB, "staging_tab": STAGING_TAB}
-    if args.force:
-        call["force"] = True
-    if args.stage_only:
-        call["stage_only"] = True
-    if args.timeout:
-        call["timeout_seconds"] = args.timeout
-    print("\nNext: call the EZG MCP tool `%s` with these arguments "
-          "(add \"dry_run\": true to only check the sheet first):" % MCP_TOOL)
-    print(json.dumps(call, ensure_ascii=False, indent=2))
-    print("\nThen save the tool's whole JSON result to a file and run:\n"
-          "  python3 .claude/skills/add-localize/scripts/add_localize.py "
-          "--apply <file>")
+    calls = []
+    for start in range(0, len(mcp_entries), CALL_SIZE):
+        call = {"sheet": S.sheet_id(args.sheet),
+                "entries": mcp_entries[start:start + CALL_SIZE],
+                "default_tab": DEFAULT_TAB, "staging_tab": STAGING_TAB}
+        if args.force:
+            call["force"] = True
+        if args.stage_only:
+            call["stage_only"] = True
+        calls.append(call)
+
+    print("\nNext - for each call below, in order (no need to ask the user between "
+          "steps):")
+    print("  a. call the EZG MCP tool `%s` with the call's JSON" % MCP_TOOL)
+    print("  b. the result has apply_command -> run it (Bash, verbatim)")
+    print("  c. status in_progress -> call %s again at once with the result's "
+          "next_call, unchanged; repeat b/c" % MCP_TOOL)
+    print("  d. status needs_attention -> ask the user about result.failed "
+          "(type that language by hand / retry later / skip), then use retry_call")
+    for n, call in enumerate(calls, 1):
+        print("\n--- call %d/%d (%d key(s)) ---" % (n, len(calls), len(call["entries"])))
+        print(json.dumps(call, ensure_ascii=False, indent=2))
 
 
 # --------------------------------------------------------------------------
@@ -368,22 +384,54 @@ def apply_to_project(S, tab, entries, csv_root, assets_root, overwrite,
     return added, kept, touched
 
 
-def load_result(path):
-    """The localize_add_keys result: the whole object, its `apply` block, or the list."""
+def fetch_url(url):
+    """The rows a localize_add_keys round wrote, from its signed apply_url."""
+    if not url.startswith("https://") and not url.startswith("http://127.0.0.1"):
+        raise SystemExit("--apply-url must be the https link from the round's apply_command")
+    req = urllib.request.Request(url, headers={"Accept": "application/json",
+                                               "User-Agent": "add-localize"})
     try:
-        data = json.load(open(path, encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise SystemExit("cannot read %s as JSON: %s" % (path, e))
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.load(e).get("message") or str(e)
+        except ValueError:
+            msg = str(e)
+        raise SystemExit("apply link refused (HTTP %d): %s" % (e.code, msg))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise SystemExit("cannot fetch the apply link: %s" % e)
+
+
+def load_result(path, data=None):
+    """The localize_add_keys result: the whole object, its `apply` block, or the list.
+
+    `path` is a file, or `-` for stdin; `data` is an already-parsed result
+    (from --apply-url).
+    """
+    if data is None:
+        try:
+            if path == "-":
+                data = json.load(sys.stdin)
+            else:
+                data = json.load(open(path, encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise SystemExit("cannot read %s as JSON: %s" % (path, e))
+    if isinstance(data, dict):
+        for w in data.get("warnings") or []:
+            print("  ! %s" % w)
     if isinstance(data, dict) and data.get("stageOnly"):
         raise SystemExit("that result is from stage_only - nothing was written "
                          "to the sheet, so there is nothing to apply yet")
+    if isinstance(data, dict) and "apply" not in data and data.get("apply_url"):
+        return load_result(None, fetch_url(data["apply_url"]))
     if isinstance(data, dict) and "apply" in data:
         data = data["apply"]
     if isinstance(data, dict):
         data = data.get("entries")
     if not isinstance(data, list):
         raise SystemExit("%s is not a localize_add_keys result (no apply.entries)"
-                         % path)
+                         % (path or "the apply link"))
     out = []
     for i, d in enumerate(data):
         values = d.get("values") if isinstance(d, dict) else None
@@ -399,7 +447,14 @@ def load_result(path):
 
 
 def apply(args, S):
-    entries = load_result(args.apply)
+    merged = {}
+    for url in args.apply_url or []:
+        for e in load_result(None, fetch_url(url)):
+            merged[(e["tab"], e["key"])] = e
+    for path in args.apply or []:
+        for e in load_result(path):
+            merged[(e["tab"], e["key"])] = e
+    entries = list(merged.values())
     if not entries:
         print("Nothing to apply - the sheet step wrote no new key "
               "(already present in its tab?).")
@@ -439,9 +494,6 @@ def main():
                                                       PROFILE["sheet"]))
     ap.add_argument("--csv-root", default=under_root(PROFILE["csvRoot"]))
     ap.add_argument("--assets", default=under_root(PROFILE["assetsRoot"]))
-    ap.add_argument("--timeout", type=int, default=0,
-                    help="seconds the server waits for GOOGLETRANSLATE "
-                         "(default 60, max 120)")
     ap.add_argument("--allow-any-tab", action="store_true",
                     help="permit tabs that have no CSV table in this project")
     ap.add_argument("--force", action="store_true",
@@ -450,8 +502,11 @@ def main():
                     help="only stage in `%s` and return the translations - "
                          "nothing is written to a real tab or to the project"
                          % STAGING_TAB)
-    ap.add_argument("--apply", metavar="RESULT_JSON",
-                    help="merge a localize_add_keys result into the project")
+    ap.add_argument("--apply-url", metavar="URL", action="append",
+                    help="merge the rows a localize_add_keys round wrote (its "
+                         "apply_command); repeatable")
+    ap.add_argument("--apply", metavar="RESULT_JSON", nargs="+",
+                    help="merge saved localize_add_keys result(s); - reads stdin")
     ap.add_argument("--overwrite", action="store_true",
                     help="(--apply) replace the project's existing copy for these keys")
     ap.add_argument("--create-missing", action="store_true",
@@ -461,7 +516,7 @@ def main():
     args = ap.parse_args()
 
     S = load_sheet_module()
-    if args.apply:
+    if args.apply or args.apply_url:
         apply(args, S)
     else:
         plan(args, S)
@@ -469,4 +524,5 @@ def main():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     main()

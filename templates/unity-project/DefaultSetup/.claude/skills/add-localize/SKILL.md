@@ -1,18 +1,22 @@
 ---
 name: add-localize
-description: Add one or a handful of NEW localization keys you already know the wording for - the EZG MCP tool localize_add_keys writes the row into the team sheet (English + Vietnamese by hand, the other 14 languages machine-translated through the sheet's `template` staging tab, with EZG's shared service account - no key file), then the skill's script merges just those keys into the project's LocalizationData CSVs and runtime .assets. Use when asked to "thêm key localize", "thêm key <x> vào sheet", "tạo key localize mới", "add a localize key", "add a new localization key", "cần key dịch cho nút này". NOT an audit tool - it never scans screens for hardcoded text, never decides key names for strings it was not given, and never touches prefabs; a sweep over screens is `fill-localize`.
+description: Add one or a handful of NEW localization keys you already know the wording for - the EZG MCP tool localize_add_keys writes the row into the team sheet (English + Vietnamese by hand, the other 14 languages machine-translated through the sheet's `template` staging tab, with EZG's shared service account - no key file), then the skill's script merges just those keys into the project's LocalizationData CSVs and runtime .assets. Any batch size - the tool works in short rounds the agent repeats on its own. Use when asked to "thêm key localize", "thêm key <x> vào sheet", "tạo key localize mới", "add a localize key", "add a new localization key", "cần key dịch cho nút này". NOT an audit tool - it never scans screens for hardcoded text, never decides key names for strings it was not given, and never touches prefabs; a sweep over screens is `fill-localize`.
 ---
 
 # add-localize — one key, sheet to runtime asset
 
-You already know the key name and the English (and ideally Vietnamese) copy.
-Three steps put it everywhere it has to exist:
+You already know the key name and the English (and ideally Vietnamese) copy —
+one key or fifty. Three steps put them everywhere they have to exist:
 
 ```
-  1. plan (script)        2. sheet (EZG MCP)                       3. apply (script)
+  1. plan (script)        2. sheet (EZG MCP, rounds)               3. apply (script, each round)
   validate vs project  ->  template tab: key | =C<r> | GT...    ->  LocalizationData/<lang>/<tab>.csv
-  print tool arguments     target tab:  key | static text           Resources/.../<lang>/<tab>.asset
+  print tool calls         target tab:  key | static text           Resources/.../<lang>/<tab>.asset
 ```
+
+**Run it end to end without stopping to ask** — the only point that needs the
+user is a key Google cannot translate (`needs_attention`). Between rounds, one
+short progress line is enough ("vòng 2: 31/50 key đã xong").
 
 The sheet is written by the **EZG MCP server** (`localize_add_keys`) with EZG's
 shared Google service account. The key stays on that server: **never** ask for,
@@ -65,35 +69,47 @@ python3 .claude/skills/add-localize/scripts/add_localize.py --file keys.json
 ```
 
 It writes nothing. It normalises the keys, refuses a tab this project has no
-CSV table for, and prints the **exact arguments** for `localize_add_keys`.
+CSV table for, and prints the **exact arguments** for `localize_add_keys` —
+one call per 25 keys (`--- call 1/2 ---`), to run in order.
 (Windows without `python3`: use `py` / `python`.)
 
 ## 2. Sheet — `localize_add_keys`
 
-Call the tool with the printed arguments, unchanged.
+Call the tool with a printed call, unchanged. It stages the keys in `template`
+and answers within ~40 s whatever the batch size (Claude Code cuts an MCP call
+at 60 s), with a `status`:
 
-- Unsure whether a key already exists in the sheet? Call it once with
-  `"dry_run": true` first: it checks tabs, headers and existing keys and writes
-  nothing. A key already in its tab is skipped unless `force` — stop and ask
-  rather than forcing.
-- It stages each key in `template`, waits for GOOGLETRANSLATE, writes the
-  resolved text into the target tab and returns the 16 translations plus an
-  `apply` block.
-- **Timeout** (`GOOGLETRANSLATE chưa xong…` with a `resume:` line): the rows are
-  already staged. Call again with the same arguments plus the `staging_rows`
-  from that line — never without it, or the keys get staged twice.
+| `status` | Do |
+|---|---|
+| `done` | run `apply_command` (step 3); next printed call, or finished |
+| `in_progress` | run `apply_command` if the result has one (keys finished this round), then call `localize_add_keys` **again at once with `next_call`, exactly as given** — no question to the user, no re-planning. It continues the same staging rows; repeat until the status changes |
+| `needs_attention` | run `apply_command` if present, then ask the user about `failed` (key + language + Google's message): **(a)** type that language by hand → call `retry_call` with the text added to that entry as a field (`"ja": "…"`); **(b)** try again later → `retry_call` as is; **(c)** skip the key |
 
-## 3. Apply
+- A key already in its target tab is not written again (`skipped`), but it is
+  still part of `apply_command` — rerunning add-localize is how a key that
+  reached the sheet but not the project gets pulled in. `force` writes a
+  second row; ask before using it.
+- Unsure about the sheet? `"dry_run": true` checks tabs, headers and existing
+  keys and writes nothing.
+- Never build a call by hand from `staging_rows` / `round` — copy `next_call`
+  / `retry_call`. Calling the plan's JSON again for keys already staged would
+  stage them twice.
 
-Save the tool's whole JSON result to a file outside the repo (e.g. the OS temp
-dir) and run:
+## 3. Apply — every round that wrote keys
+
+Run the round's `apply_command` verbatim:
 
 ```bash
-python3 .claude/skills/add-localize/scripts/add_localize.py --apply <result.json>
+python3 .claude/skills/add-localize/scripts/add_localize.py --apply-url '<url>'
 ```
 
-It merges only the keys the sheet step wrote into every language's CSV and
-`.asset`; `--dry-run` reports without writing. Then delete the temp file.
+The script fetches exactly the rows that round wrote (a signed link, valid 7
+days) and merges them into every language's CSV and `.asset` — additive, an
+existing value is kept unless `--overwrite`. **Do not copy translations out of
+the tool result**; the link carries them. `--dry-run` reports without writing.
+Apply after each round rather than once at the end: if the session stops
+midway, the sheet and the project still agree. (`--apply <result.json>` and
+`--apply -` for stdin still take a saved result with an inline `apply` block.)
 
 ## Flags worth knowing
 
@@ -103,7 +119,7 @@ It merges only the keys the sheet step wrote into every language's CSV and
 | `--<lang> "text"` | plan | author one language by hand instead of machine-translating it (`--ja`, `--pt`, `--zhcn`, …) |
 | `--stage-only` | plan | the tool stages in `template` and returns the 16 translations, nothing else — no real tab, no project file. Use it to eyeball the machine translation first |
 | `--force` | plan | the tool writes the sheet row even if the key is already in that tab |
-| `--timeout N` | plan | how long the tool waits for GOOGLETRANSLATE (default 60 s, max 120) |
+| `--apply-url <url>` | apply | the round's `apply_command`; repeatable |
 | `--overwrite` | apply | let the sheet's copy replace what the project already has for these keys |
 | `--create-missing` | apply | create the CSV/.asset for a table this project does not ship yet |
 | `--dry-run` | apply | report what would change, write nothing |
@@ -124,9 +140,12 @@ rows below.
 
 ## Things that will bite
 
-- **GOOGLETRANSLATE is asynchronous.** A freshly written formula reads back as
-  empty or `Loading...` for a few seconds. The tool polls; on timeout it returns
-  `staging_rows` so the next call continues instead of staging again.
+- **GOOGLETRANSLATE is slow and sometimes fails.** A fresh formula reads back
+  as `Loading...` for seconds (minutes for hundreds at once), and now and then
+  as `#VALUE!` "Google Translate internal error." — which never clears by
+  itself. The tool finishes what it can each round, re-enters a failing cell so
+  Google translates it again, and only after 3 rounds in error reports the key
+  as `failed` instead of holding the rest of the batch.
 - **Machine translation has no game context.** It is fine for `Play` / `Shop`
   and wrong for anything with tone, a pun, or a `{0}` placeholder that has to
   stay in a specific position. Check the result before shipping, and pass
