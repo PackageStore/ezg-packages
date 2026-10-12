@@ -14,10 +14,10 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>A node whose name contains this (any case) is dropped from the document with its subtree.</summary>
         public const string IgnoreMarker = "[ignore]";
 
-        public static bool IsIgnored(Node node)
-        {
-            return node?.name != null && node.name.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
+        public static bool IsIgnored(Node node) => IsIgnored(node?.name);
+
+        public static bool IsIgnored(string nodeName) =>
+            nodeName != null && nodeName.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>
         ///     Remove every <see cref="IgnoreMarker"/> node from the parsed document so nothing downstream
@@ -30,9 +30,14 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (file?.document == null) return 0;
             var removed = new List<string>();
             PruneIgnoredChildren(file.document, removed);
-            if (removed.Count > 0)
-                Debug.Log($"[FigmaBridge] {removed.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", removed)}");
+            ReportIgnored(removed);
             return removed.Count;
+        }
+
+        internal static void ReportIgnored(List<string> names)
+        {
+            if (names.Count > 0)
+                Debug.Log($"[FigmaBridge] {names.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", names)}");
         }
 
         private static void PruneIgnoredChildren(Node node, List<string> removed)

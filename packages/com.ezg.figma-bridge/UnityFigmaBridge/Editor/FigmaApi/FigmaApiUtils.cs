@@ -57,8 +57,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>Where the last downloaded document is cached; the offline re-import reads it back.</summary>
         public static string CachedDocumentPath => Path.Combine("Assets", WRITE_FILE_PATH).Replace('\\', '/');
 
-        private const string DOCUMENT_DOWNLOAD_PATH = "Temp/FigmaBridge/document-download.json";
-        private const int DOCUMENT_DOWNLOAD_ATTEMPTS = 3;
+        private const string DOCUMENT_DOWNLOAD_FOLDER = "Temp/FigmaBridge";
 
         private static readonly JsonSerializerSettings s_DocumentJsonSettings = new JsonSerializerSettings
         {
@@ -89,7 +88,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         ///     to wait and which quota tier applied. Figma folds every failure into a generic
         ///     "check your token" otherwise.
         /// </summary>
-        private static string DescribeFailure(UnityWebRequest request)
+        internal static string DescribeFailure(UnityWebRequest request)
         {
             var line = $"HTTP {request.responseCode} {request.error}";
             var retryAfter = request.GetResponseHeader("retry-after");
@@ -163,88 +162,60 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <exception cref="Exception"></exception>
         public static async Task<FigmaFile> GetFigmaDocument(string fileId, string accessToken, bool writeFile)
         {
-            var url =
-                $"https://api.figma.com/v1/files/{fileId}?geometry=paths"; // We need geometry=paths to get rotation and full transform
-
-            FigmaFile figmaFile = null;
             FigmaImportTimer.Begin("Document JSON download (Figma API)");
-            Directory.CreateDirectory(Path.GetDirectoryName(DOCUMENT_DOWNLOAD_PATH));
-            for (var attempt = 1; ; attempt++)
-            {
-                using var webRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET,
-                    new DownloadHandlerFile(DOCUMENT_DOWNLOAD_PATH) { removeFileOnAbort = true }, null);
-                webRequest.SetRequestHeader("X-Figma-Token", accessToken);
-                var operation = webRequest.SendWebRequest();
-                // Figma sends no length for the document, so the bar can only report the bytes so far
-                while (!operation.isDone)
-                {
-                    EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE,
-                        $"Downloading file ({webRequest.downloadedBytes / 1048576.0:0.0} MB)", webRequest.downloadProgress);
-                    await Task.Delay(100);
-                }
-
-                if (webRequest.result == UnityWebRequest.Result.Success) break;
-                // A document of hundreds of MB can lose its HTTP/2 stream part-way (curl error 92)
-                if (webRequest.result == UnityWebRequest.Result.ConnectionError && attempt < DOCUMENT_DOWNLOAD_ATTEMPTS)
-                {
-                    Debug.LogWarning($"[FigmaBridge] Document download failed ({DescribeFailure(webRequest)}), attempt {attempt + 1} of {DOCUMENT_DOWNLOAD_ATTEMPTS}");
-                    continue;
-                }
-                throw new Exception($"{DescribeFailure(webRequest)}\nError downloading FIGMA document, url - {url}");
-            }
-
-            FigmaImportTimer.Begin("Document JSON decode and cache write");
-            EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, "Decoding file", 1);
-            var strippedPath = DOCUMENT_DOWNLOAD_PATH + ".stripped";
+            Directory.CreateDirectory(DOCUMENT_DOWNLOAD_FOLDER);
+            var pageListPath = $"{DOCUMENT_DOWNLOAD_FOLDER}/document-pages.json";
+            var mergedPath = $"{DOCUMENT_DOWNLOAD_FOLDER}/document.json";
+            var parts = new List<FigmaDocumentDownload.Part>();
             try
             {
-                WriteWithoutTextGeometry(DOCUMENT_DOWNLOAD_PATH, strippedPath);
-                figmaFile = ReadDocument(strippedPath);
-                Debug.Log($"Figma file downloaded, name {figmaFile.name}");
-                if (writeFile) File.Copy(strippedPath, CachedDocumentPath, true);
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"Problem decoding Figma document JSON {e.ToString()}");
+                var pageList = await FigmaDocumentDownload.PageList(fileId, accessToken, pageListPath, DOWNLOAD_PROGRESS_TITLE);
+                await FigmaDocumentDownload.Parts(fileId, accessToken, pageList,
+                    index => $"{DOCUMENT_DOWNLOAD_FOLDER}/document-part-{index}.json", DOWNLOAD_PROGRESS_TITLE, parts);
+
+                FigmaImportTimer.Begin("Document JSON decode and cache write");
+                EditorUtility.DisplayProgressBar(DOWNLOAD_PROGRESS_TITLE, "Decoding file", 1);
+                FigmaFile figmaFile;
+                try
+                {
+                    var ignoredNames = FigmaDocumentDownload.IgnoredNames(pageList);
+                    foreach (var part in parts) part.Path = Strip(part.Path, ignoredNames);
+                    FigmaDataUtils.ReportIgnored(ignoredNames);
+                    FigmaDocumentMerge.Write(pageList, parts, mergedPath);
+                    figmaFile = ReadDocument(mergedPath);
+                }
+                catch (Exception e)
+                {
+                    throw new Exception($"Problem decoding Figma document JSON {e.ToString()}");
+                }
+                Debug.Log($"Figma file downloaded, name {figmaFile.name}, {parts.Count} part(s)");
+                if (writeFile) File.Copy(mergedPath, CachedDocumentPath, true);
+                return figmaFile;
             }
             finally
             {
-                File.Delete(DOCUMENT_DOWNLOAD_PATH);
-                File.Delete(strippedPath);
+                foreach (var path in parts.Select(part => part.Path).Append(pageListPath).Append(mergedPath)) File.Delete(path);
             }
-
-            return figmaFile;
         }
 
-        /// <summary>
-        ///     Copies the document without the glyph outlines of TEXT nodes. TMP draws text from the
-        ///     characters and style, and an outside stroke on text can add megabytes of outline per
-        ///     node. Figma writes a node's type before its geometry; geometry met first is kept.
-        /// </summary>
-        private static void WriteWithoutTextGeometry(string sourcePath, string targetPath)
+        /// <returns>The stripped copy; the downloaded file is deleted.</returns>
+        private static string Strip(string downloadPath, List<string> ignoredNames)
         {
-            using var reader = new JsonTextReader(File.OpenText(sourcePath)) { DateParseHandling = DateParseHandling.None };
-            using var writer = new JsonTextWriter(File.CreateText(targetPath));
-            var objectTypes = new Stack<string>();
-            var typeValueNext = false;
-            while (reader.Read())
+            var strippedPath = downloadPath + ".stripped";
+            try
             {
-                if (reader.TokenType == JsonToken.PropertyName && reader.Value is "fillGeometry" or "strokeGeometry" &&
-                    objectTypes.Peek() == "TEXT")
-                {
-                    reader.Skip();
-                    continue;
-                }
-                if (typeValueNext && reader.TokenType == JsonToken.String)
-                {
-                    objectTypes.Pop();
-                    objectTypes.Push((string)reader.Value);
-                }
-                typeValueNext = reader.TokenType == JsonToken.PropertyName && (string)reader.Value == "type";
-                if (reader.TokenType == JsonToken.StartObject) objectTypes.Push(null);
-                else if (reader.TokenType == JsonToken.EndObject) objectTypes.Pop();
-                writer.WriteToken(reader, false);
+                ignoredNames.AddRange(FigmaDocumentStrip.Write(downloadPath, strippedPath));
             }
+            catch
+            {
+                File.Delete(strippedPath);
+                throw;
+            }
+            finally
+            {
+                File.Delete(downloadPath);
+            }
+            return strippedPath;
         }
 
         /// <summary>Decodes a document file with the shared JSON settings and prunes ignored nodes; used by the REST download and the Bridge source.</summary>

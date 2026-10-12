@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.8] - 2026-10-12
+### Fixed
+- **A large document downloads over REST.** Sync asked for the whole file in one
+  `/v1/files/<key>?geometry=paths` response. Glyph outlines of stroked text can make that a GB of
+  JSON (one Screens page measured 1 GB), and Figma resets the HTTP/2 stream part-way: curl error
+  92, `HTTP 200 Unknown Error`, every retry. The document now comes as a depth-2 page list plus
+  `/nodes` responses of four top-level nodes each, merged into the same whole-file shape. A part
+  whose stream drops is split in two and sent again; one node, and the page list, are tried three times.
+- **`[ignore]` layers are dropped before the decode.** They were decoded in full and then pruned.
+  A page or top-level node named `[ignore]` is not requested at all. A nested one still downloads
+  with its parent, and the strip pass that drops TEXT glyph outlines now leaves it out too, so
+  neither the decode nor `FigmaOutput.json` holds it.
+- **A short 429 is waited out.** A document download that gets a Retry-After of 60 s or less
+  waits and sends again, up to three times; a longer one fails with the retry-after shown.
+
 ## [0.8.7] - 2026-10-09
 ### Fixed
 - **"First on top" auto layout.** A frame with `itemReverseZIndex` draws its first child on top:
