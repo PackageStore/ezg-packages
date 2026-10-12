@@ -113,6 +113,19 @@ class BackendRuleParity(unittest.TestCase):
         )
 
 
+class CredentialValuePatternParity(unittest.TestCase):
+    def test_both_twins_use_the_same_secret_value_regex(self):
+        """The definite secret-value regex (sk_/rk_ keys, Bearer, eyJ) is spelled
+        inline in each twin; a fix to one alone lets the other keep blocking."""
+        py = (SCRIPTS / "backlog-preflight.py").read_text(encoding="utf-8")
+        ps1 = PS1.read_text(encoding="utf-8")
+        m_py = re.search(r'search\(r"(\(\(\?-i:\\b\[sr\]k_[^"]*)", trimmed\)', py)
+        m_ps = re.search(r"\$trimmed -match '(\(\(\?-i:\\b\[sr\]k_[^']*)'", ps1)
+        self.assertIsNotNone(m_py, "could not read the secret-value regex in backlog-preflight.py")
+        self.assertIsNotNone(m_ps, "could not read the secret-value regex in backlog-preflight.ps1")
+        self.assertEqual(m_py.group(1), m_ps.group(1))
+
+
 class ProfileDefaultsAreComplete(unittest.TestCase):
     def test_defaults_cover_every_key_the_scripts_ask_for(self):
         """A key read without a DEFAULTS entry returns None and fails silently.

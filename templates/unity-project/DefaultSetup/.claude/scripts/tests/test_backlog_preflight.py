@@ -137,13 +137,71 @@ class CredentialRuleTests(PreflightTestCase):
         run_git(self.dir, "reset", "-q")
         self.stage("Assets/Scripts/Pay.cs", "\n".join([
             "public class Pay {",
-            '    private string _k = "sk_live_abc123";',
+            # built by concatenation: a whole key-shaped literal in this file
+            # trips GitHub push protection on the template repo
+            '    private string _k = "' + "sk_" + "live_" + "51Hx9QkLmN0pRsTuVwXy2z" + '";',
             "}",
         ]) + "\n")
         r = self.run_preflight()
         cred = self.findings(r, "credential")
         self.assertEqual(len(cred), 1)
         self.assertEqual(cred[0]["confidence"], "definite")
+
+    def test_sk_id_prefix_in_game_data_is_not_a_secret(self):
+        # regression: any lowercase `sk_...` word used to count as a Stripe key,
+        # so skill ids (sk_fire_bolt) in a tuning CSV, a localize CSV and a
+        # C# constant raised critical-definite findings and parked the task
+        self.stage("Assets/Data/GameTuning.csv", "\n".join([
+            "key,value,type,note",
+            'skill_override_json,"[""sk_fire_bolt"",""sk_ice_wall""]",json,F43 override',
+        ]) + "\n")
+        self.stage("Assets/Data/skill.csv", "\n".join([
+            "key,en",
+            "sk_fire_bolt_name,Fire Bolt",
+            "sk_test_dummy_desc,Dummy skill for tests",
+            "sk_test_skill,Test skill",
+            "sk_live_event_name,Live event skill",
+            # split like the key fixtures: whole, these ids trip generic
+            # (sk|rk)_(live|test)_ scanners (gitleaks) in generated projects
+            "sk_" + "test_thunderbolt,Thunderbolt",
+            "sk_" + "live_dragonbreath,Dragon Breath",
+            "sk_" + "test_blizzard01,Blizzard",
+            "rk_" + "test_leaderboardweekly,Weekly board",
+            "title_flame,Bearer of the flame",
+            "ring_desc,Ring bearer responsibilities",
+            "stat_hint,Bearer strength/defense",
+        ]) + "\n")
+        self.stage("Assets/Scripts/SkillIds.cs", "\n".join([
+            "public static class SkillIds {",
+            '    public const string FireBolt = "sk_fire_bolt";',
+            '    public const string VeryLongName = "sk_abcdefghijklmnopqrstuvwxyz_ink";',
+            '    public const string LongOneWord = "sk_lightningstormultimatefinale";',
+            "}",
+        ]) + "\n")
+        r = self.run_preflight()
+        self.assertEqual(self.findings(r, "credential"), [])
+        self.assertFalse(r["summary"]["has_blocking_definite"])
+
+    def test_real_secret_key_shapes_stay_definite(self):
+        keys = [
+            # concatenated on purpose — see the note in the test above
+            "sk_" + "live_" + "51Hx9QkLmN0pRsTuVwXy2z",
+            "sk_" + "test_" + "7fGh2JkLmNpQrStUvWx3Yz4a",
+            "rk_" + "live_" + "51Hx9QkLmN0pRsTuVwXy2zAb",
+            "sk_" + "prod_" + "a1b2c3d4e5f6g7h8i9j0k1l2",
+            "sk_" + "0123456789abcdef" * 3,  # opaque 48-char key, no `_`
+            "Bearer " + "abcDEF0123456789xyz.payload",
+            "Bearer " + "ab+cd/EF12gh34IJ56kl==",  # base64 token with + / =
+        ]
+        self.stage("Assets/Scripts/Pay.cs", "\n".join(
+            ["public class Pay {"]
+            + ['    private string _k%d = "%s";' % (i, k) for i, k in enumerate(keys)]
+            + ["}"]) + "\n")
+        r = self.run_preflight()
+        cred = self.findings(r, "credential")
+        self.assertEqual(len(cred), len(keys))
+        self.assertTrue(all(f["confidence"] == "definite" for f in cred))
+        self.assertTrue(r["summary"]["has_blocking_definite"])
 
 
 class CoreRuleTests(PreflightTestCase):

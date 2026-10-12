@@ -448,7 +448,17 @@ def main():
                 # IGNORECASE) and flagged them critical-definite. Real Stripe keys
                 # are lowercase `sk_...`; a JWT header is literally `eyJ` (base64
                 # of '{"'), so exact case loses nothing.
-                if search(r"((?-i:\bsk_[A-Za-z0-9_]+)|Bearer\s+[A-Za-z0-9._-]+|(?-i:\beyJ[A-Za-z0-9._-]+))", trimmed):
+                # `sk_` alone is not a key: game data uses it as an id prefix
+                # (skill ids such as sk_fire_bolt in CSV/localize/code), and a
+                # definite finding there blocks the task with no way out. Match
+                # real key shapes only: sk_/rk_ + live|test|prod|dev + a body of
+                # 20+ letters/digits, or `sk_` + an opaque body of 24+. The body
+                # must hold a capital or a digit and end at a word boundary:
+                # real keys do, lowercase snake_case ids (sk_test_dummy_skill)
+                # do not. `Bearer` needs a 16+ char token holding a digit for the
+                # same reason ("Bearer of the flame" is localize text).
+                # Keep in lockstep with backlog-preflight.ps1.
+                if search(r"((?-i:\b[sr]k_(?:live|test|prod|dev)_(?=[a-z]*[A-Z0-9])[A-Za-z0-9]{20,}\b)|(?-i:\bsk_(?=[a-z]*[A-Z0-9])[A-Za-z0-9]{24,}\b)|Bearer\s+(?=[A-Za-z._~+/-]*[0-9])[A-Za-z0-9._~+/-]{16,}|(?-i:\beyJ[A-Za-z0-9._-]+))", trimmed):
                     add_finding(findings, "credential", "critical", "definite", current_file, line_number, trimmed,
                                 "Potential secret/JWT/Bearer token in staged diff. Remove from client/repo.")
                     sensitive_reasons.append({"type": "credential-pattern", "file": current_file, "line": line_number})

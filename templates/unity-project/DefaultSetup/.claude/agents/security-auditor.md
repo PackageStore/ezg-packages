@@ -70,7 +70,8 @@ If the diff touches any of the following patterns, audit extremely carefully:
 
 - Grep diff for hardcoded credentials:
   - `[\"'][A-Za-z0-9_-]{20,}[\"']` that are not class/method names — flag
-  - `sk_\w+`, `Bearer\s+\w+`, `eyJ\w+` (JWT) — block (critical)
+  - `sk_`/`rk_` + `live|test|prod|dev` + a 20+ letter/digit key body, an opaque `sk_` + 24+ letters/digits (a real key body holds a capital or a digit), `Bearer` + a 16+ char token holding a digit, `eyJ\w+` (JWT) — block (critical)
+  - A bare `sk_` prefix is NOT a key: game data uses it for ids (`sk_fire_bolt`, `sk_test_dummy_skill`), and "Bearer of the flame" is game text. Do not flag these
   - `supabase_*_key`, `cloudflare_*_token`, `iap_*_secret` — block (critical)
 - Verify keys are loaded from environment variables / scriptable objects NOT checked in / encrypted at rest.
 - Supabase anon key is OK in client (it is public). Supabase service role key is NOT allowed in client — **block**.

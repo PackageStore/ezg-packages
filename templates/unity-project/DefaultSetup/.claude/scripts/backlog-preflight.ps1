@@ -488,8 +488,17 @@ foreach ($rawLine in ($diff -split "`n")) {
             # INSIDE ordinary identifiers (task_still, TASK_BASE case-insensitively)
             # and flagged them critical-definite. Real Stripe keys are lowercase
             # `sk_...`; a JWT header is literally `eyJ` (base64 of '{"'), so exact
-            # case loses nothing. Keep in lockstep with backlog-preflight.py.
-            if ($trimmed -match '((?-i:\bsk_[A-Za-z0-9_]+)|Bearer\s+[A-Za-z0-9._-]+|(?-i:\beyJ[A-Za-z0-9._-]+))') {
+            # case loses nothing.
+            # `sk_` alone is not a key: game data uses it as an id prefix (skill
+            # ids such as sk_fire_bolt in CSV/localize/code), and a definite
+            # finding there blocks the task with no way out. Match real key shapes
+            # only: sk_/rk_ + live|test|prod|dev + a body of 20+ letters/digits, or
+            # `sk_` + an opaque body of 24+. The body must hold a capital or a digit
+            # and end at a word boundary: real keys do, lowercase snake_case ids
+            # (sk_test_dummy_skill) do not. `Bearer` needs a 16+ char token holding
+            # a digit for the same reason ("Bearer of the flame" is localize text).
+            # Keep in lockstep with backlog-preflight.py.
+            if ($trimmed -match '((?-i:\b[sr]k_(?:live|test|prod|dev)_(?=[a-z]*[A-Z0-9])[A-Za-z0-9]{20,}\b)|(?-i:\bsk_(?=[a-z]*[A-Z0-9])[A-Za-z0-9]{24,}\b)|Bearer\s+(?=[A-Za-z._~+/-]*[0-9])[A-Za-z0-9._~+/-]{16,}|(?-i:\beyJ[A-Za-z0-9._-]+))') {
                 Add-Finding $findings "credential" "critical" "definite" $currentFile $lineNumber $trimmed "Potential secret/JWT/Bearer token in staged diff. Remove from client/repo."
                 $sensitiveReasons.Add([PSCustomObject]@{
                     type = "credential-pattern"
