@@ -4,6 +4,38 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-12
+
+**Changed** — giảm token mỗi lượt của backlog loop, không đổi hành vi (đo trên 206 iteration thật: agent chính
+chiếm 66% chi phí, context trung bình 263K token/lượt × ~93 lượt/iteration)
+- **`CLAUDE.md` bỏ mục "Autonomous Backlog System"** (~9K token, bị nạp vào MỌI lượt của mọi phiên VÀ mọi
+  subagent) sang `.claude/docs/backlog-system.md` — nội dung giữ nguyên; chỉ đổi cấp heading, thêm một dòng ghi
+  chú, link đổi cho tương đối với `docs/`, và `[Project Name]` → "của project" (builder chỉ thay placeholder trong
+  `CLAUDE.md`). `CLAUDE.md` giữ con trỏ text thường (không `@import`, vì import sẽ nạp lại) + 4 invariant mọi phiên
+  phải biết (backlog trong `.git/backlog`, không commit; transition chỉ qua `backlog-ops.py`; chạy cả suite
+  `.claude/scripts/tests` trước và sau khi sửa script backlog / skill `run-backlog`; `.claude/` là nguồn chuẩn).
+  Đo bằng probe: −8,5K token/lượt. Project đã sinh trước đây chỉ được lợi khi `CLAUDE.md` của nó được cập nhật
+  (Feature Hub item `Config/CLAUDE.md` + `Docs/backlog-system.md`, hoặc sửa tay) — `agents-update.sh` không đụng
+  `CLAUDE.md`.
+- **`run-backlog` SKILL.md tách 4 mục điều kiện ra file cạnh nó**: 1c/1d/1f → `ref-resume.md`, 1b →
+  `ref-requires.md`, 2a–2b → `ref-worktree.md`, 5.0 → `ref-workflow.md` (chuyển nguyên văn — đã dựng lại bản cũ từ
+  core + ref, khớp từng byte). Loop gọi `scripts/run-backlog-refs.py` trước mỗi iteration không phải audit (chọn tất định theo
+  mode / trạng thái `pick` / recovery / marker `**Requires:**`·`**Backed by workflow:**` trong task, không chắc thì
+  nạp dư) và inline đúng các file cần vào prompt sau dòng `AGENT_SKILL_REFS=`. Thiếu dòng đó (chạy tay, loop cũ)
+  hoặc helper lỗi (`unavailable`) → agent đọc cả 4. Luật "không nới gate" (trước chỉ nằm ở 1f) được chép thêm
+  vào Notes để mọi iteration đều thấy (1f vẫn giữ). Core −5,9K token; ref chỉ nạp khi áp dụng.
+- STEP 4c + Notes: gom các lookup chỉ-đọc độc lập vào **một lượt, gọi song song** (một `codegraph_explore` gọi tên
+  mọi symbol + các Read/Grep không phụ thuộc nó) — mỗi lượt đọc lại toàn bộ context từ cache, nên chi phí đi theo
+  số lượt (27% số lượt agent chính là lượt chỉ-đọc).
+
+**Fixed**
+- `sync-agent-system.sh`: bước "prune orphaned tests" xoá nhầm test khi docstring của nó nhắc tên chính nó
+  (`test_backlog_park.py`, `test_run_backlog_refs.py`) — giờ bỏ qua `TEMPLATE_ONLY_TESTS` và mọi tên `test_*.py`.
+  Thêm marker `TEMPLATE_AHEAD` để lần sync upstream sau không ghi đè `run-backlog` skill, hai loop controller và
+  `docs/workflow-model-recommendations.md` (link "§11" chết đã sửa thành bảng subagent của `backlog-system.md`).
+- `run-backlog-loop.sh`: chèn recovery appendix bằng ghép chuỗi thay vì `${var//pat/repl}` (bash 5.2
+  `patsub_replacement` biến `&` trong phần thay thế thành chuỗi khớp).
+
 ## 2026-10-09
 
 **Added**

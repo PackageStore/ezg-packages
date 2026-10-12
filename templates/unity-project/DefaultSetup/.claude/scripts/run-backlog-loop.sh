@@ -408,6 +408,9 @@ notify() {
 # it belongs to this loop with BACKLOG_LOOP_TOKEN; a hand-run /run-backlog without
 # it gets LOOP_BUSY instead of a task.
 OPS="$SCRIPT_DIR/backlog-ops.py"
+# Picks the run-backlog skill's conditional sections (ref-*.md) that apply to an iteration;
+# the prompt inlines them (skill_refs_block). Missing/failing → the agent reads them all.
+REFS_HELPER="$SCRIPT_DIR/run-backlog-refs.py"
 command -v python3 >/dev/null 2>&1 || {
   echo "ERROR: python3 is required — backlog-ops.py holds the loop lease and every task transition." >&2
   exit 1
@@ -470,6 +473,7 @@ Environment for this iteration (STEP 2 of the skill reads these):
 8. Use English for all output, progress messages, reports, and commit messages.
 9. Never end your turn to wait for anything (a background Bash job, Monitor, an Editor recompile/import, a bundle build, a subagent). This is a non-interactive session: the end of your turn ends the iteration and strands the task in progress. Wait in the foreground instead (Bash 'sleep <=10' between 'unity_editor_state' / file polls, Agent calls with run_in_background false). Your turn ends only with the STEP 10 report or a stop token.
 __RECOVERY__
+__SKILL_REFS__
 Start now.
 EOF
 
@@ -794,6 +798,27 @@ unparked_todo_count() {
   echo "$n"
 }
 
+# The run-backlog skill's conditional sections for this iteration (run-backlog-refs.py),
+# printed as the prompt block that inlines them. <out-file> keeps a copy next to the log.
+# Any failure degrades to telling the agent to read every ref file, as a hand-run does.
+skill_refs_block() {  # skill_refs_block <out-file>
+  local out="$1" sel rc
+  local args=(--out "$out" --mode "$MODE" --backlog-root "$BACKLOG_ROOT" --skill-dir "$WORK_DIR/.claude/skills/run-backlog")
+  [ -n "${PICK_STATE:-}" ] && args+=(--state "$PICK_STATE")
+  [ -n "${pick_path:-}" ] && args+=(--task-path "$pick_path")
+  [ -n "${TASK_NNN:-}" ] && args+=(--task-nnn "$TASK_NNN")
+  [ "$IS_RECOVERY" -eq 1 ] && args+=(--recovery)
+  sel="$(cd "$WORK_DIR" && python3 "$REFS_HELPER" "${args[@]}" 2>/dev/null)"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ -s "$out" ]; then
+    echo "  Skill refs:  ${sel#refs: }" >&2
+    cat "$out"
+  else
+    echo "  Skill refs:  helper failed (exit $rc: ${sel:-no output}) — the agent reads every ref file itself" >&2
+    echo "AGENT_SKILL_REFS=unavailable (run-backlog-refs.py failed) - Read every ref-*.md file in .claude/skills/run-backlog/ (if any) before STEP 1; they are part of the skill."
+  fi
+}
+
 # The appendix that turns the run-backlog prompt into a recovery prompt.
 recovery_appendix() {
   cat <<EOT
@@ -826,6 +851,7 @@ Environment:
 - AGENT_MODE=$MODE
 - AGENT_BRANCH=$AGENT_BRANCH
 - AGENT_BACKLOG_ROOT=$BACKLOG_ROOT
+AGENT_SKILL_REFS=none (post-hoc audit: the skill's conditional sections do not apply)
 Do not ask for confirmation. Use English. Never end your turn to wait for anything in the background.
 
 Start now.
@@ -1416,10 +1442,22 @@ while [ "$i" -lt "$MAX_ITERATIONS" ]; do
       ITER_RECOVERY_BRIEF="$PENDING_RECOVERY_BRIEF"
       echo "  RECOVERY iteration $PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERIES for task $TASK_NNN after $PENDING_RECOVERY_EVENT."
       recovery_text="$(recovery_appendix)"
-      ITER_PROMPT=${ITER_PROMPT//__RECOVERY__/$recovery_text}
+      case "$ITER_PROMPT" in
+        *__RECOVERY__*) ITER_PROMPT="${ITER_PROMPT%%__RECOVERY__*}${recovery_text}${ITER_PROMPT#*__RECOVERY__}" ;;
+        *) ITER_PROMPT="$ITER_PROMPT
+$recovery_text" ;;
+      esac
     else
       ITER_PROMPT=${ITER_PROMPT//__RECOVERY__/}
     fi
+    # Spliced, not ${var//pat/repl}: the inlined skill text holds '&', which bash 5.2's
+    # patsub_replacement would expand inside a substitution's replacement.
+    refs_text="$(skill_refs_block "$base.refs.md")"
+    case "$ITER_PROMPT" in
+      *__SKILL_REFS__*) ITER_PROMPT="${ITER_PROMPT%%__SKILL_REFS__*}${refs_text}${ITER_PROMPT#*__SKILL_REFS__}" ;;
+      *) ITER_PROMPT="$ITER_PROMPT
+$refs_text" ;;
+    esac
   fi
   printf '%s\n' "$ITER_PROMPT" > "$prompt_file"
   rm -f "$flag_file"

@@ -746,6 +746,46 @@ Read the brief FIRST, then follow run-backlog SKILL.md section 1f (Recovery iter
 "@
 }
 
+# The run-backlog skill's conditional sections (ref-*.md) that apply to this iteration,
+# chosen by run-backlog-refs.py and returned as the prompt block that inlines them. The
+# helper writes UTF-8 to a file (read back with -Encoding UTF8) so Windows PowerShell 5.1
+# never decodes the skill text through the console code page. Any failure degrades to
+# telling the agent to read every ref file, which is what a hand-run does.
+function Get-SkillRefsBlock {
+    param($Pick, [bool]$IsRecovery, [string]$OutFile)
+    $fallback = "AGENT_SKILL_REFS=unavailable (run-backlog-refs.py failed) - Read every ref-*.md file in .claude/skills/run-backlog/ (if any) before STEP 1; they are part of the skill."
+    # Empty strings are dropped by Windows PowerShell 5.1 when calling a native exe, so an
+    # option is only passed with a value.
+    $refsArgs = @("--out", $OutFile, "--mode", $Mode.ToLowerInvariant(), "--backlog-root", $BacklogRoot, "--skill-dir", (Join-Path $WorkDir ".claude/skills/run-backlog"))
+    if ($Pick -and $Pick.Json) {
+        if ([string]$Pick.Json.state) { $refsArgs += @("--state", [string]$Pick.Json.state) }
+        if ([string]$Pick.Json.path) { $refsArgs += @("--task-path", [string]$Pick.Json.path) }
+        if ([string]$Pick.Json.nnn) { $refsArgs += @("--task-nnn", [string]$Pick.Json.nnn) }
+    }
+    if ($IsRecovery) { $refsArgs += "--recovery" }
+    $sel = ""
+    $rc = 1
+    Push-Location -LiteralPath $WorkDir
+    try {
+        $sel = ((& $pythonName $RefsScript @refsArgs 2>$null) | Out-String).Trim()
+        $rc = $LASTEXITCODE
+    } catch {
+        $sel = $_.Exception.Message
+        $rc = 1
+    } finally {
+        Pop-Location
+    }
+    if ($rc -eq 0 -and (Test-Path -LiteralPath $OutFile)) {
+        $block = Get-Content -LiteralPath $OutFile -Raw -Encoding UTF8
+        if ($block) {
+            Write-Log "Skill refs:      $($sel -replace '^refs: ', '')" "Gray"
+            return $block
+        }
+    }
+    Write-Log "Skill refs: helper failed (exit $rc): $sel - the agent reads every ref file itself" "Yellow"
+    return $fallback
+}
+
 # Post-hoc gate audit: the task reached DONE and was committed, but the log shows
 # no spawn of a reviewer its tier requires. Run those reviewers on the commit and
 # fix what they find in a follow-up commit - instead of stopping the loop.
@@ -768,6 +808,7 @@ Environment:
 - AGENT_MODE=$($Mode.ToLowerInvariant())
 - AGENT_BRANCH=$AgentBranch
 - AGENT_BACKLOG_ROOT=$BacklogRoot
+AGENT_SKILL_REFS=none (post-hoc audit: the skill's conditional sections do not apply)
 Do not ask for confirmation. Use English. Never end your turn to wait for anything in the background.
 
 Start now.
@@ -2218,6 +2259,7 @@ if (-not $pythonName) {
 # is still at work. Iterations inherit BACKLOG_LOOP_TOKEN through Start-Process; a
 # hand-run /run-backlog without it gets LOOP_BUSY instead of a task.
 $OpsScript = Join-Path $PSScriptRoot "backlog-ops.py"
+$RefsScript = Join-Path $PSScriptRoot "run-backlog-refs.py"
 if (-not $pythonName) {
     Write-Log "FATAL: no working Python - backlog-ops.py holds the loop lease and every task transition." "Red"
     Write-Host ""
@@ -2433,6 +2475,10 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
         $PromptAppendix = New-RecoveryAppendix -Recovery $pendingRecovery
         $env:AGENT_RECOVERY_BRIEF = $pendingRecovery.BriefPath
         Write-Log "RECOVERY iteration $($pendingRecovery.Attempt)/$MaxRecoveries for task $taskNnn after $($pendingRecovery.Event)." "Yellow"
+    }
+    if (-not $isAudit) {
+        $refsFile = Join-Path $LogDir "refs-$Provider-$timestamp-$($iter.ToString('000')).md"
+        $PromptAppendix = $PromptAppendix + "`n" + (Get-SkillRefsBlock -Pick $pick -IsRecovery $isRecovery -OutFile $refsFile)
     }
 
     $invocation = New-AgentInvocation `

@@ -2,7 +2,7 @@
 
 Hướng dẫn chọn model cho các workflow chạy **thủ công** (`/new-*`, `/format-code`…), cân giữa độ chính xác, tốc độ và quota.
 
-> **Phạm vi:** doc này chỉ áp cho lúc bạn tự gọi một workflow trong session tương tác. Pipeline tự động (`/planning-task`, `/planning-system`, `/run-backlog`) KHÔNG đọc file này — model của nó nằm trong `model:` của `.claude/agents/*.md` và map theo tier trong `.claude/scripts/run-backlog-loop.sh`. Xem bảng tổng ở [backlog-system.md](backlog-system.md) §11.
+> **Phạm vi:** doc này chỉ áp cho lúc bạn tự gọi một workflow trong session tương tác. Pipeline tự động (`/planning-task`, `/planning-system`, `/run-backlog`) KHÔNG đọc file này — model của nó nằm trong `model:` của `.claude/agents/*.md` và map theo tier trong `.claude/scripts/run-backlog-loop.sh`. Xem bảng tổng ở [backlog-system.md](backlog-system.md), bảng *Subagents dùng cho `/run-backlog`*.
 
 > **Sonnet đã bị loại khỏi mọi workflow của project này** (2026-09-10) vì độ chính xác không đạt. Sàn hiện tại là **Opus** ở mọi vai trò. **Fable chưa được đưa vào bất kỳ mặc định nào** — nó chỉ là lựa chọn bạn tự bật khi thấy Opus không đủ, vì đắt hơn Opus ~1.9× mà chưa có số đo chứng minh chất lượng hơn trong pipeline này.
 

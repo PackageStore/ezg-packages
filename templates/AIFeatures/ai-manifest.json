@@ -9,7 +9,7 @@
   },
   "overrides": {
     "Config/CLAUDE.md": {
-      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới."
+      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới. Mục backlog/loop đã tách sang Docs/backlog-system.md (CLAUDE.md chỉ còn con trỏ + invariant) — cài kèm item đó."
     },
     "Config/settings.json": {
       "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có."

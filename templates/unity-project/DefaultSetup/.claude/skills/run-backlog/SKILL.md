@@ -9,6 +9,29 @@ You are an autonomous development agent and the **orchestrator** of a multi-agen
 
 Follow these steps **precisely**.
 
+## Conditional sections — four sibling files
+
+Four sections of this skill live in files next to it, because most iterations never need them.
+Every rule in them is as binding as this file. Their headings and numbers are unchanged, so
+every reference below ("STEP 1c", "1d", "1f", "the requires gate", "STEP 2b", "STEP 5.0")
+still names them; the stub heading at each one's place points to its file.
+
+| File | Sections | Applies when |
+|---|---|---|
+| [`ref-resume.md`](ref-resume.md) | 1c Ship recovery · 1d Resume protocol · 1f Recovery iteration | `pick` returns `ship-pending` or `in-progress`, or the prompt carries `AGENT_RECOVERY_BRIEF` |
+| [`ref-requires.md`](ref-requires.md) | 1b Requires gate | the task body declares `**Requires:**` |
+| [`ref-worktree.md`](ref-worktree.md) | STEP 2a–2b (base branch, worktree sync) | `AGENT_MODE=worktree` |
+| [`ref-workflow.md`](ref-workflow.md) | STEP 5.0 Workflow-backed shortcut, incl. the Phase D designer pass | the task body declares `**Backed by workflow:**` |
+
+- **The loop decides before the iteration starts.** Its prompt carries a line
+  `AGENT_SKILL_REFS=<files | none>` followed by the full text of every file that applies —
+  that text is already in your context, do not Read those files again.
+- **No `AGENT_SKILL_REFS=` line in your prompt** (a hand-run `/run-backlog`, an older loop
+  runner), or it says `unavailable` → Read all four files now, before STEP 1.
+- **A condition from the table comes up that the inlined set does not cover** — e.g. `pick`
+  returns a different task than `AGENT_SKILL_REFS_FOR` names → Read that file before you act on
+  the condition.
+
 ## Project profile — resolve `<placeholders>` before you use them
 
 This skill ships unchanged to every project on this base, so anything that
@@ -209,65 +232,9 @@ Extract from the task file:
 - **Completion criteria** (exit conditions)
 - **Required verification steps after loop stops (manual)** — will be copied verbatim into the DONE summary for the user.
 
-### 1c. Ship recovery (`state: "ship-pending"`)
+### 1c. Ship recovery (`state: "ship-pending"`) → [`ref-resume.md`](ref-resume.md)
 
-The task is already in `$BACKLOG_ROOT/done/` with its summary, but `shipped` was never
-recorded — the run died somewhere in STEP 8–9. Its code is either still uncommitted, or
-committed but not pushed, or fully shipped with only the record missing.
-
-1. `python3 .claude/scripts/backlog-ops.py resume <NNN>` — takes over the dead run's claim
-   (exit 4/5 → busy rule).
-2. Decide from `task_commits` — the commits since the task started whose tree matches the
-   tree STEP 9e recorded right before its commit (`checkpoint --step commit --tree`; the
-   message itself carries no trailer). Never from `partial_work`: after a commit it only
-   holds dirt that arrived later (Unity auto-dirt, the dev's edits), and committing that
-   would be wrong.
-   - `task_commits` empty → the code was never committed: run **STEP 9** for this task now,
-     exactly as written (9a reset → 9b list → 9c scoped stage → 9d message for THIS task,
-     from its done-file title → 9e tree checkpoint + commit + push). This run has no
-     transcript of the implementation, so 9b's list comes from `partial_work`, cross-checked
-     against the done file's summary — leave out what is plainly auto-dirt and name it in
-     STEP 10. Do not start any other task first — its `git add -A` would otherwise swallow
-     this code.
-   - `task_commits` non-empty → already committed. `unpushed_commits` > 0 (HAS_REMOTE=1) →
-     `git push` only; otherwise nothing to do in git. **Do not commit again.**
-3. `python3 .claude/scripts/backlog-ops.py shipped <NNN> --commit <sha from task_commits, or the one just made> --push <pushed|no-remote|failed> --note recovered`
-4. **A push that fails here is the same stop as in 9e**: record `shipped … --push failed`
-   (step 3), then output the 9e `manual intervention required — push of <WORK_BRANCH> to
-   origin failed; …` line and stop — do NOT go on to `pick`, or the next task stacks one
-   more unpushed commit onto the diverged branch.
-5. Otherwise mention the recovery in STEP 10, then go back to STEP 1 and `pick` again.
-
-### 1d. Resume protocol (`state: "in-progress"`)
-
-Never resume blind — the previous attempt usually left real work behind.
-
-1. `python3 .claude/scripts/backlog-ops.py resume <NNN>` — exit 4 (`TASK_BUSY`: its owner
-   is alive) or exit 5 (`RESUME_CONFLICT`: it started in another checkout/branch) → print
-   the token and stop without touching anything.
-2. Read the JSON:
-   - `partial_work` — files changed since the task started (staged, unstaged, untracked):
-     this attempt's inheritance. `note: unverified (no baseline)` (`legacy: true`, the task
-     predates claims) means pre-existing dirt cannot be told apart — judge each file by content.
-   - `preexisting_dirty_unchanged` — dirt that was already there at `start` and is untouched:
-     NOT this task's work. Never edit or revert it; name it in the DONE summary if STEP 9's
-     `git add -A` will carry it.
-   - `commits_since_start` — commits that landed after `start` (a STEP 2b merge, the dev's
-     own commits). Read them before assuming the base is unchanged.
-   - `checkpoints` / `last_checkpoint` + `guidance` — how far the dead attempt got.
-3. Inspect the partial work BEFORE writing anything: `git diff -- <paths>`,
-   `git diff --cached -- <paths>`, and read each untracked file. Then follow `guidance`:
-   - nothing survived → a fresh start from STEP 4;
-   - no `implemented` checkpoint → **continue** the implementation from the partial diff
-     against the task's completion criteria — keep what is correct, finish what is missing;
-     never revert it or re-implement from scratch;
-   - `implemented` or later → the implementation was complete: re-check it against the
-     completion criteria, then continue at STEP 5a.
-4. **Every gate from STEP 5b on runs again** — a dead attempt's verdicts are not trusted
-   (the diff may have changed after them). Checkpoints are re-recorded as you go.
-5. The DONE summary records `**Attempts:** <attempt> (resumed from <last checkpoint or "start">)`.
-6. A dead attempt may have left the Editor busy: before any Unity work, poll `unity_editor_state`
-   and stop play mode if it is still playing (a run that died mid-smoke leaves it on).
+### 1d. Resume protocol (`state: "in-progress"`) → [`ref-resume.md`](ref-resume.md)
 
 ### 1e. Multi-iteration tasks — checkpointed exit (`TASK_CHECKPOINTED`)
 
@@ -309,73 +276,9 @@ resumes the task through 1d.
   default 6). Past the cap it parks the task (`CHECKPOINT_LIMIT`) and moves on; with
   `-NoSelfHeal` it stops for a human look.
 
-### 1f. Recovery iteration (prompt carries `AGENT_RECOVERY_BRIEF`)
+### 1f. Recovery iteration (prompt carries `AGENT_RECOVERY_BRIEF`) → [`ref-resume.md`](ref-resume.md)
 
-The previous iteration on this task ended without finishing it, and the controller sent you
-back in instead of stopping. The prompt names the brief (`AGENT_RECOVERY_BRIEF=<path>`) and
-the attempt (`AGENT_RECOVERY_ATTEMPT=<n>/<max>`).
-
-1. **Read the brief first.** It names what happened (`<TOKEN>` / `WATCHDOG_KILL` /
-   `ITERATION_FAILED` / `SILENT_END` / `MANUAL_INTERVENTION`) and carries the failed
-   iteration's final report (or its last messages when it died). Then `pick` as usual — it
-   returns the same task — and take it over through **1d** (`resume`), or STEP 3 if it never
-   started. Read the task file's `## Block report` / `## Resume notes` sections too.
-2. **Diagnose before you edit.** Name the root cause in one sentence, from evidence, before
-   touching code. Repeating the previous attempt's fix is the one thing guaranteed to fail.
-
-   | What happened | Do |
-   |---|---|
-   | `COMPILE_BLOCKED` | Re-run 5b and read every error in full. Errors outside the task's files (another session mid-edit, pre-existing breakage): wait ~2 min in the foreground and re-check once; still broken → make the minimal fix that restores a green build and name it in the DONE summary. |
-   | `PREFLIGHT_BLOCKED` | Each `definite` finding is a hard rule — restructure the code so the rule holds (a coroutine becomes UniTask, `DateTime.Now` becomes `TimeManager`, a secret moves out of source…). Never edit the preflight rules. |
-   | `REVIEW_BLOCKED` / `VERIFY_BLOCKED` | Take the remaining findings from the brief and fix their cause, not the symptom. A finding you believe is wrong (contradicts the spec, targets code outside the diff, already fixed) is settled only by re-spawning that reviewer with your counter-evidence and getting its verdict — never by your own say-so. A criterion that truly cannot be met in code (needs an asset the task does not own, a decision) goes through the decision policy below. |
-   | `RUNTIME_BLOCKED` | Reproduce in play mode, read the stack head, fix, re-run 7.5. |
-   | `NO_CHANGES` | Decide which case it is (STEP 6a, exit 2): already satisfied → close it that way; skipped/lost implementation → implement it now. |
-   | `MANUAL_INTERVENTION` (a question or a decision) | Apply the *Autonomous decision policy* (Notes) and continue. |
-   | `WATCHDOG_KILL` / `SILENT_END` / `ITERATION_FAILED` | The run hung or ended its turn early. Same task, smaller steps: no background waits, foreground polls only, checkpoint (1e) before `AGENT_ITERATION_DEADLINE`. If a single step (a bake, a bot session, a bundle build) cannot fit, run it in slices across checkpoints. |
-   | `BASE_MERGE_CONFLICT` (worktree) | Resolve the conflicts on the agent branch (keep both sides' intent; the base wins on files the task does not touch), commit the merge, continue. |
-3. **Every gate gets a fresh budget** in this iteration (2 fix rounds each) and runs again in
-   full — the dead attempt's verdicts are not trusted.
-4. **Never weaken a gate to get past it.** No deleting or loosening completion criteria,
-   tests, preflight rules or reviewer definitions; no skipping a mandatory reviewer; no
-   `--no-verify`; no `#pragma warning disable` to silence a finding. A recovery that
-   "passes" this way is worse than a parked task.
-5. **Still blocked after your fix rounds?** Write the block report (Notes), then print the
-   block token exactly as STEP 5b–7.5 define. The controller either sends a further recovery
-   or parks the task; you never `demote` or park it yourself.
-6. DONE summary: add `**Self-heal:** recovered on attempt <n> after <what happened> — root
-   cause: <one line>`.
-
-### 1b. Requires gate (only when the task declares `**Requires:**`)
-
-Currently one requirement token is defined: `unity-editor` (the task authors prefabs / needs a live Editor, e.g. `/new-ui`- and `/new-package`-backed tasks).
-
-#### 0. Worktree mode short-circuit — do NOT probe
-
-If `$AGENT_MODE = worktree`, the requirement can never be met: the worktree is a
-separate Unity project folder and the only live Editor is attached to the dev's
-checkout. Probing would find that Editor and tempt you into refreshing/playing the
-**wrong project**. Skip the probe entirely and go straight to step 2 below (defer,
-or `EDITOR_REQUIRED` if every remaining task needs the Editor).
-
-#### 1. Probe the Editor — retry-with-wait, NEVER single-shot (current mode only)
-
-**Why:** "The Editor is open" ≠ "the MCP bridge answers *this instant*". Discovery is a port scan that needs the Editor's main thread to respond; right after a heavy previous task (asset import, a large AssetBundle rebuild, or a domain/assembly reload) the main thread is blocked and a one-shot `unity_list_instances` returns **zero instances even though the Editor is up**. A single-shot gate turns that transient into a false hard `EDITOR_REQUIRED` pause. So classify the result, and retry only the genuinely-ambiguous case:
-
-Probe `mcp__unity__unity_list_instances` and classify:
-
-- **This project's Editor is listed** → requirement met. If several instances are listed, `mcp__unity__unity_select_instance` the one whose project path matches this repo (**never** stop to ask a human — the loop is autonomous). If that instance is mid-compile, poll `mcp__unity__unity_editor_state` until it is NOT compiling, then continue to STEP 2 normally.
-- **MCP reachable but only OTHER projects are listed** (a different game's Editor) → a genuine "not live for this project". Do NOT retry — go to step 2.
-- **MCP unreachable / call errored or timed out / zero instances returned** → treat as *maybe-busy, not maybe-absent*. Wait ~5 s (`sleep 5`) and re-probe. Repeat up to **4 attempts (~20 s total)**. If any attempt lists this project → requirement met (first bullet). Only after the full retry budget is exhausted without the project Editor ever appearing → treat as NOT met and go to step 2.
-
-#### 2. Requirement NOT met (retry budget exhausted, or MCP reachable with only other projects):
-
-   - Check whether any OTHER task remains that could run headless: `grep -L '\*\*Requires:\*\*' "$BACKLOG_ROOT"/todo/*.md` (cheap, deterministic — reads no task body beyond the marker).
-   - **Some headless task exists** → defer this one and let the loop continue:
-     ```bash
-     python3 .claude/scripts/backlog-ops.py defer <NNN>
-     ```
-     Then output: `DEFERRED — task <NNN> requires unity-editor (not live); moved to the tail of TODO. Re-run picks the next task.` and STOP this iteration (the loop runner treats it as a normal iteration end and starts the next one).
-   - **Every remaining TODO task requires the editor** → pause the loop exactly like the empty-backlog flow: write `EDITOR_REQUIRED` into `$BACKLOG_ROOT/state` (no commit — it is inside `.git/`), and output: `EDITOR_REQUIRED — all remaining tasks need a live Unity Editor. Open the Editor (and re-run in current mode — worktree mode can never satisfy this), delete $BACKLOG_ROOT/state, then re-run.` (Without the state write, a headless loop would defer-cycle forever.)
+### 1b. Requires gate (only when the task declares `**Requires:**`) → [`ref-requires.md`](ref-requires.md)
 
 ---
 
@@ -392,72 +295,7 @@ Go straight to STEP 3.
 
 Everything below applies to `$AGENT_MODE = worktree` only.
 
-### 2a. Resolve the base branch (worktree mode)
-
-```bash
-[ "$HAS_REMOTE" = "1" ] && git fetch origin      # local-only repo: nothing to fetch
-```
-
-Resolve in this order:
-
-```bash
-BASE_BRANCH="${AGENT_BASE_BRANCH:-}"  # captured by loop runner
-if [ -z "$BASE_BRANCH" ]; then
-  BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)     # ad-hoc single /run-backlog invocation
-fi
-# Starting from an agent branch is ALLOWED (a previous loop leaves HEAD there). Never
-# stop for it — resolve the real base from the recorded config, then the repo default.
-case "$BASE_BRANCH" in
-  ""|HEAD|agent/dev|agent/dev-*)
-    BASE_BRANCH=$(git config "$(python3 .claude/scripts/project_profile.py gitConfigPrefix).agentBaseBranch" 2>/dev/null || true) ;;
-esac
-case "$BASE_BRANCH" in
-  ""|agent/dev|agent/dev-*) BASE_BRANCH=$(python3 .claude/scripts/project_profile.py defaultBaseBranch) ;;   # profile default, last resort
-esac
-```
-
-- **No stop here.** An agent branch / detached `HEAD` is a normal starting point, not an error — the fallback chain above always yields a usable base. Log which branch was resolved and continue.
-
-**Work branch name.** Use `$WORK_BRANCH` from the loop runner. If it is unset, derive it
-exactly the way the runner does — `agent/dev-` plus the base with every `/` replaced by `-`:
-
-```bash
-WORK_BRANCH="${AGENT_BRANCH:-agent/dev-$(printf '%s' "$BASE_BRANCH" | tr '/' '-')}"
-```
-
-The slashes MUST be flattened. Git stores refs as files, so a branch named `Dev1` and a
-branch named `Dev1/agent/dev` cannot coexist — creating the second fails with
-`cannot lock ref ...: 'refs/heads/Dev1' exists`. Never build the name by appending a
-path segment to the base branch.
-
-**Merge source = "latest":** prefer the remote tip `origin/$BASE_BRANCH` whenever it exists (freshest); fall back to the local `$BASE_BRANCH` when the base has no remote tracking branch — which is always the case when `HAS_REMOTE=0`.
-
-### 2b. Sync the worktree branch
-
-The loop runner already created (or reused) the worktree and put it on `$WORK_BRANCH`,
-and your cwd is that worktree. You only need to bring the base in:
-
-```bash
-if [ "$HAS_REMOTE" = "1" ]; then
-  git pull origin "$WORK_BRANCH"                   # skip if the remote branch doesn't exist yet
-fi
-
-if [ "$HAS_REMOTE" = "1" ] && git show-ref --verify --quiet "refs/remotes/origin/$BASE_BRANCH"; then
-  git merge --no-edit "origin/$BASE_BRANCH"        # freshest tip
-else
-  git merge --no-edit "$BASE_BRANCH"               # local-only repo, or base never pushed
-fi
-
-git config "$(python3 .claude/scripts/project_profile.py gitConfigPrefix).agentBaseBranch" "$BASE_BRANCH"   # reporting convenience only, not next-run input
-```
-
-- If the merge reports **conflicts** → STOP with:
-  `BASE_MERGE_CONFLICT — merging <BASE_BRANCH> into <WORK_BRANCH> conflicts. Resolve manually, commit, then re-run.`
-  DO NOT auto-resolve.
-- **Never `git checkout` another branch here.** Git refuses to check out a branch that is
-  already checked out in another worktree, and switching would desync the runner.
-
-> Branch model: each loop run captures whichever non-agent branch is checked out when the runner starts. The repo-local `<gitConfigPrefix>.agentBaseBranch` config is updated only as a reporting convenience; it does not select the next loop's base. The user manually merges `$WORK_BRANCH -> <base branch>` after running the manual verification steps.
+### 2a–2b. Resolve the base branch + sync the worktree branch (worktree mode) → [`ref-worktree.md`](ref-worktree.md)
 
 ---
 
@@ -522,6 +360,7 @@ This project has a CodeGraph MCP index (`mcp__codegraph__*` tools) pre-indexing 
 - NEVER chain multiple Read calls across different files when `codegraph_explore` returns them grouped.
 - Only fall back to Grep for **literal string content**: hardcoded text, localize key strings, CSV values, log messages.
 - **New files** (created in this same implementation) are not yet indexed (~1s file-watcher lag) — Read them directly instead of querying CodeGraph.
+- **Batch the lookups you can already name — one turn, parallel calls.** Every turn re-reads the whole conversation from cache, so exploration cost follows the number of turns, not the size of what they return (the same reason STEP 6a+6b is one call). Before the first lookup, list what you need — symbols, files + line ranges, literal strings — and send it as ONE message of parallel calls: a single `codegraph_explore` naming every symbol you expect to touch, plus the Reads/Greps that do not depend on its answer. Never Read a file that call already returns — Related-file Reads (4b.4) wait for its answer and fetch only what it trimmed. Go one call per turn only when a lookup needs the previous result. This covers read-only lookups (Read / Grep / Glob / CodeGraph / read-only shell); it does not change how you drive Unity or write files. With `CODEGRAPH_UP = false` (4d) the same batching applies to the Grep/Read fallback.
 
 ### 4d. Grep/Read fallback (when CODEGRAPH_UP = false)
 
@@ -535,19 +374,7 @@ DO NOT skip this step. This project's conventions are strict — violations will
 
 ## STEP 5 — Implement task
 
-### 5.0 — Workflow-backed shortcut (run FIRST if `$WF_CMD != none`)
-
-If STEP 1 found a `**Backed by workflow:**` line, the scaffold is specified deterministically by a `/new-*` workflow — do NOT re-derive it free-form.
-
-1. **Read the workflow file inline**: `.claude/commands/<name>.md` (e.g. `new-package.md`). If that file does not exist, STOP with `WORKFLOW_MISSING` — do not improvise a scaffold the workflow was supposed to define. Follow its steps **inline as instructions** — do NOT invoke it as a slash command (you are already mid-orchestration; the Skill tool would fork the flow). Read any reference files / docs the workflow points to (e.g. `FeatureBaseController.cs`, the guide it names, the example features it names).
-1b. **Context docs as 0th-priority workflow input:** if `$CONTEXT_DOCS` includes a `TechSpec/<Name>-Implementation.md`, treat it as the workflow's structured input — for `/new-feature` this IS the "TechSpec attached file" its step 2 gives 0th priority (sections 10.1–10.7 drive Sub-Features, Save Data, CSV Columns, Events, Registration Points). Use the mapping rows already pasted in the task body first; open the full doc when they lack a detail.
-2. **Execute the workflow** using `$WF_ARGS` as its `{{args}}` / argument input. Generate exactly the files, registrations, and conventions the workflow prescribes (controller/manager, `PlayerDataManager`/`CsvAssetDir`/`DataManagerAutoGenerate` registrations, the right CSVs, naming rules, ID ranges, etc.). Honor every "DO NOT" the workflow states (e.g. enemy skills do NOT touch `SkillAffectConfig.csv`/`SkillInfo.csv`). If the `**Custom delta:**` says a workflow step is deferred to another queued task (e.g. "SKIP workflow step 8 — prefab is task NN"), skip that step and note it in the DONE summary instead of executing it.
-3. **Apply the `**Custom delta:**`** from the task body (the logic/wiring/balance beyond the scaffold). For a pure scaffold the delta is `none` — **except a cheat list** (`name · label · method`), which is a legal delta on a pure scaffold; implement it per the cheat bullet below.
-4. Then continue with the normal rules below (conventions, no extra features) and proceed to staging (5a) + compile check (5b).
-
-The workflow's own CHECKLIST is part of the acceptance criteria — make sure every item is satisfied before staging. Quality gates (STEP 6/7) still run in full per `$TASK_TIER`.
-
-**`/new-ui` (and the `/new-package` / `/new-feature` UI step) does not end at Phase C.** Root screens get the **designer pass — Phase D** ([`.claude/docs/ui-designer-pass.md`](../../docs/ui-designer-pass.md)): art, FX and motion laid over the frozen layout, `ui-layout-lock.py diff` + `ui-visual-reviewer` phase D. Its skips (` | polish=off` in `$WF_ARGS`, dev-only screens) and its revert-to-Phase-C fallback are defined there — Phase D never ends the run with a block. That doc or `.claude/scripts/ui-layout-lock.py` missing, or `ui-layout-lock.py begin` answering `skip` → skip it as `designer-pass: skipped (not installed: <file>)` and list the missing item in STEP 10, like a missing commit-style dependency. Its session (backups, lock snapshots) lives in `.claude/tmp/ui-designer/<screen>-<hash>/`; call `ui-layout-lock.py begin --prefab <prefab> --task <NNN>` with this task's number, so a resumed/recovery iteration picks the same session up again (`begin` answers `resume` / `already-done` / `already-reverted` — never retake the lock-before snapshot, never run Phase D twice) while a later task on the same screen starts fresh. A STEP 5b / preflight / 6 / 7 / 7.5 block caused only by Phase D output that the gate's fix rounds cannot clear → revert Phase D and re-run that gate instead of emitting the block token (the **Phase D exception** line at each gate). Record its outcome line (`designer-pass: done|skipped|reverted …`) in the DONE summary, and its outputs (art + `.meta`, motion code, `ArtStyle.md`, the pending screen PNG, `<S>.ui-layout-lock.json`) in the STEP 9b file list.
+### 5.0 — Workflow-backed shortcut (run FIRST if `$WF_CMD != none`) → [`ref-workflow.md`](ref-workflow.md)
 
 If `$WF_CMD = none`, skip this section and implement free-form below.
 
@@ -1369,6 +1196,7 @@ gameplay verification. In current mode drop that line (STEP 5b already compiled)
 - **Preflight is a deterministic guard, not a replacement for reviewers.** Only auto-fix findings with `confidence=definite`; findings with `confidence=contextual` must go into the reviewer/qa prompt.
 - **Delta diff is only used for fix rounds.** The initial review and final QA/preflight must still have the full staged context to avoid missing side effects.
 - **Spawn reviewers in parallel** when more than one of code-reviewer / performance-reviewer / security-auditor is needed — one tool-use block, multiple Agent calls. DO NOT run sequentially (waste of time).
+- **Batch independent lookups for the whole run, not only STEP 4.** Fix rounds and debugging repeat the exploration pattern: when you need several reads / greps / CodeGraph lookups whose inputs you already know, send them as parallel calls in one message (rule in STEP 4c).
 - **Never end the turn to wait.** The loop runs `claude -p`: the end of your turn is the end of the iteration — a background job's completion (Bash `run_in_background`, `Monitor`, a background Agent) cannot reliably wake it again, and the task is stranded in `in-progress/` (seen in practice: an iteration that ended with "Waiting for the Editor recompile to finish." → silent end). Every wait — recompile, asset import, bundle build, play-mode boot, reviewer — happens in the foreground: Bash `sleep ≤10` between `unity_editor_state` / file polls (chain several calls for long waits), Agent calls with `run_in_background: false`. The turn ends only with the STEP 10 report or a stop token. The controller answers a silent end with a recovery iteration (`SILENT_END`, 1f); with `-NoSelfHeal` it resumes once (`SILENT_RETRY`) and then stops (`SILENT_FAIL`).
 - **Autonomous decision policy.** Inside a loop iteration nobody is there to answer, so a decision is never a reason to stop or to end with a question:
   1. Take the option the task spec / `**Context docs:**` / TechSpec recommends; else the one most consistent with the existing code and data; else the most conservative, reversible one.
@@ -1392,6 +1220,7 @@ gameplay verification. In current mode drop that line (STEP 5b already compiled)
   - `REVIEW_BLOCKED` after Round 2 in STEP 6.
   - `VERIFY_BLOCKED` after Round 2 in STEP 7.
   - `RUNTIME_BLOCKED` after Round 2 in STEP 7.5 — **only when the diff's code failed at runtime**. Unity tooling dying mid-gate (unanswered modal / unresponsive bridge / game never boots) is NOT this token: it degrades to `runtime-smoke: skipped (…)` and the task still reaches STEP 8.
+- **Gate integrity — every iteration, every gate.** Never weaken a gate to get past it: no deleting or loosening completion criteria, tests, preflight rules or reviewer definitions; no skipping a mandatory reviewer; no `--no-verify`; no `#pragma warning disable` to silence a finding. A finding you believe is wrong (contradicts the spec, targets code outside the diff, already fixed) is settled only by re-spawning that reviewer with your counter-evidence and getting its verdict — never by your own say-so. A criterion that truly cannot be met in code (needs an asset the task does not own, a decision) goes through the *Autonomous decision policy* below, recorded as `[DECISION-REVIEW]` — that is not weakening the gate. (Section 1f repeats this for recovery iterations.)
 - **No `--ship-anyway` mode.** Self-heal fixes the cause or parks the task; it never ships past a failed gate. A parked task is retried with a fresh budget on the next loop launch (its partial work comes back as `parked_work`).
 - **Push failure is a stop, not a retry.** STEP 9e prints `manual intervention required — push of <WORK_BRANCH> to origin failed; …` — never `--force`, never auto-rebase (push-in-session §4). The loop controller stops on that line even with self-heal on — no recovery iteration is spent on a diverged branch.
 - **No PR creation.** The pipeline only pushes to the work branch; in worktree mode the user merges it manually after manual verification.

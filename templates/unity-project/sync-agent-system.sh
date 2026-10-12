@@ -187,6 +187,8 @@ KEEP_NOTE=(
   "scripts/{sync-to-agents.*,codegraph-doctor.sh,discord-send.ps1}   template-only / correct direction"
   "harness/, settings.json, docs/discord-notification.md   template-only"
   "docs/GETTING-STARTED.md   template-only: first-run guide for a generated project"
+  "docs/backlog-system.md   template keeps its own (the section moved out of CLAUDE.md); upstream's differs — reconcile by hand"
+  "scripts/run-backlog-refs.py   template-only: picks run-backlog's ref-*.md for each loop iteration"
 )
 
 # ---------------------------------------------------------------------------
@@ -203,10 +205,15 @@ TEMPLATE_AHEAD=(
   "docs/new-package-guide.md|ui-designer-pass.md"
   "agents/ui-visual-reviewer.md|Phase D (designer pass"
   "skills/run-backlog|ui-designer-pass.md"
+  "skills/run-backlog|AGENT_SKILL_REFS"               # conditional sections split into ref-*.md (2026-10-12)
+  "scripts/run-backlog-loop.sh|run-backlog-refs.py"   # loop inlines those ref files per iteration
+  "scripts/run-backlog-loop-core.ps1|run-backlog-refs.py"
+  "docs/workflow-model-recommendations.md|Subagents dùng cho"   # points at backlog-system.md's subagent table, not a §11 it lacks
   "backlog-templates|polish=off"
 )
 TEMPLATE_ONLY_TESTS=(
   test_ui_layout_lock.py                              # tests scripts/ui-layout-lock.py (template-only)
+  test_run_backlog_refs.py                            # tests scripts/run-backlog-refs.py + the run-backlog split (template-only)
 )
 
 # ---------------------------------------------------------------------------
@@ -367,10 +374,14 @@ else
   say "--- pruning orphaned tests"
   for t in "$DST"/scripts/tests/test_*.py; do
     [ -e "$t" ] || continue
+    # Template-only tests are curated here on purpose; never prune them.
+    case " ${TEMPLATE_ONLY_TESTS[*]} " in *" $(basename "$t") "*) continue ;; esac
     orphan=0
     while read -r target; do
       [ -n "$target" ] || continue
-      [ -e "$DST/scripts/$target" ] || orphan=1
+      # A test naming itself (or a sibling test) in its run instructions is not a subject script.
+      case "$target" in test_*.py) continue ;; esac
+      [ -e "$DST/scripts/$target" ] || [ -e "$DST/scripts/tests/$target" ] || orphan=1
     done < <(grep -oE '"[a-z_-]+\.py"' "$t" | tr -d '"' | sort -u)
     if [ "$orphan" = "1" ]; then
       rm -f "$t"
