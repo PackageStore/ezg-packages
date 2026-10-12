@@ -1,6 +1,6 @@
 ---
 name: fix-bug
-description: Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. "/fix-bug 12" sửa đúng bug #12, "/fix-bug" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), "/fix-bug --watch" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash cũng tự mở lại); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd "organization has disabled Claude subscription access") tự thử lại mỗi 30 giây, không giới hạn số lần; chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói "fix bug 12", "fix bug #12", "/fix-bug", "fix bug QA log", "sửa bug tester log", "chờ bug mới rồi fix", "watch bug".
+description: Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. "/fix-bug 12" sửa đúng bug #12, "/fix-bug" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), "/fix-bug --watch" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash hoặc đứng im quá 20 phút (watchdog) cũng tự mở lại, bug đang giữ dở được session mới làm tiếp); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd "organization has disabled Claude subscription access") tự thử lại mỗi 30 giây, không giới hạn số lần (macOS iTerm2 + Windows Terminal); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói "fix bug 12", "fix bug #12", "/fix-bug", "fix bug QA log", "sửa bug tester log", "chờ bug mới rồi fix", "watch bug".
 ---
 
 # Fix Bug — sửa bug BugHub
@@ -62,15 +62,20 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
 (mục 5, luật không dừng) — dev sửa xong (`/mcp` authenticate, điền profile…) là loop tự đi tiếp:
 
 0. **Bật thử lại lỗi API của Claude** (mọi chế độ, không bao giờ chặn): lỗi API của chính Claude ("Your
-   organization has disabled Claude subscription access", rate limit, overloaded, 5xx…) giết luôn lượt trả lời
-   nên model không tự thử lại được — hook `StopFailure` của `/auto-clear` lo (auto-clear mục 5): chờ **30 giây**
-   rồi gõ lại prompt vào đúng pane, **không giới hạn số lần** (`--max 0`) — tới khi API trả lời được hoặc dev gỡ.
+   organization has disabled Claude subscription access", rate limit, hết hạn mức, overloaded, 5xx…) giết luôn lượt
+   trả lời nên model không tự thử lại được — hook `StopFailure` của `/auto-clear` lo (auto-clear mục 5): chờ **30
+   giây** rồi gõ lại prompt vào đúng pane / console, **không giới hạn số lần** (`--max 0`) — tới khi API trả lời được
+   hoặc dev gỡ. Chọn đúng script theo OS (prompt giữ **ASCII**: bản Windows gõ từng ký tự vào console):
    ```bash
-   bash .claude/skills/auto-clear/scripts/auto-clear.sh retry-arm --max 0 --prompt "Tiếp tục /fix-bug --watch: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang dở."
+   # macOS (iTerm2)
+   bash .claude/skills/auto-clear/scripts/auto-clear.sh retry-arm --max 0 --prompt "Continue /fix-bug --watch: the previous turn stopped on an API error - resume the exact step in progress."
+   # Windows (Windows Terminal / console)
+   powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 retry-arm --max 0 --prompt "Continue /fix-bug --watch: the previous turn stopped on an API error - resume the exact step in progress."
    ```
-   Chế độ một lần thay `/fix-bug --watch` bằng `/fix-bug` trong prompt. `RETRY_ARMED` → đi tiếp. `NOT_INSTALLED` →
-   đi tiếp, report ghi "chưa bật thử lại lỗi API — dev chạy `/auto-clear install`". `UNSUPPORTED` (không chạy trong
-   iTerm2, Windows) → bỏ qua. Bật lại mỗi lần preflight là đúng (đếm về 0).
+   Chế độ một lần thay `/fix-bug --watch` bằng `/fix-bug` trong prompt. `RETRY_ARMED` → đi tiếp. `NOT_INSTALLED`
+   (máy chưa cài hook, hoặc cài bản cũ chỉ có Stop hook) → đi tiếp, report ghi "chưa bật thử lại lỗi API — dev chạy
+   `/auto-clear install`". `UNSUPPORTED` (macOS ngoài iTerm2, không thấy process `claude`) → bỏ qua. Bật lại mỗi lần
+   preflight là đúng (đếm về 0). Lớp dự phòng khi gõ lại cũng không được: watchdog của `bughub-watch.py start` (mục 5).
 1. **MCP `bughub` đã kết nối?** Có tool `bughub_next` trong danh sách tool (tool deferred thì tìm bằng
    ToolSearch `bughub`). Không có, hoặc tool trả lỗi xác thực → dừng, in:
    ```
@@ -93,7 +98,7 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
      checkout, không tự tạo nhánh.
    - `mode: "bot"` và `onWatchBranch: true` → **chế độ nhánh bot**; nhớ `<branch>`, `<baseBranch>`,
      `mergeToBase` cho mục 3.4 (bước 3b) và 3.6.
-   Cả hai chế độ đều dùng `bughub-watch.py sync | push | shelve | pause | notice` ở mục 3–5 (nhánh bot thêm
+   Cả hai chế độ đều dùng `bughub-watch.py sync | push | shelve | pause | notice | claim` ở mục 3–5 (nhánh bot thêm
    `resolve`, mục 3.6); `editor` thì mọi chế độ của skill đều dùng (mục 3.0, 5.1).
 
 ## 2. Luật cứng
@@ -124,7 +129,8 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
 6. **Lệnh git:** ngoài 2 lệnh của push-in-session (`git_prepare_scoped` → `git_push`), skill chỉ được
    thêm `git remote get-url origin` (preflight), `git rev-parse HEAD` và `git rev-parse --abbrev-ref HEAD`
    (để resolve), ở mọi chế độ `python3 .claude/scripts/bughub-watch.py editor | pause` (mục 3.0, luật 11), và ở
-   `--watch` thì `python3 .claude/scripts/bughub-watch.py config | sync | push | shelve | resolve | publish | notice`. Không
+   `--watch` thì `python3 .claude/scripts/bughub-watch.py config | sync | push | shelve | resolve | publish | notice | claim`
+   cùng `git show <commit>` (chỉ để viết `cause` / `fix` khi làm tiếp bug dở, mục 5 bước 1b). Không
    `git status` / `git diff` / `git log` "kiểm cho chắc", không `git merge` / `merge --abort` / `checkout` / `push` /
    `stash` tay — đồng bộ, chốt merge, đẩy nhánh và cất phần sửa dở chỉ qua script đó (gộp conflict ở mục 3.6 là
    sửa file bằng tool Edit, không phải lệnh git).
@@ -410,13 +416,21 @@ nhận). Không bao giờ `git merge --abort` tay — abort là bỏ mất phầ
 
 ## 5. `fix-bug --watch` — chờ → sửa → clear → chờ tiếp
 
-**Mở cửa sổ (dev làm, một lần):** pane terminal riêng (iTerm2 để `/auto-clear` gõ được), đứng ở thư mục +
-nhánh muốn nhận fix → gõ `/fix-bug --watch` trong Claude Code, hoặc `python3 .claude/scripts/bughub-watch.py
-start` (Windows: `py …`) để script sync rồi tự mở `claude "/fix-bug --watch"` trong pane đó (tham số sau `--`
-đi thẳng vào `claude`, vd `-- --permission-mode bypassPermissions` cho loop không người trông).
+**Mở cửa sổ (dev làm, một lần):** pane terminal riêng (macOS: iTerm2 · Windows: Windows Terminal / console, để
+`/auto-clear` gõ được), đứng ở thư mục + nhánh muốn nhận fix → **`python3 .claude/scripts/bughub-watch.py start`**
+(Windows: `py …`; tham số sau `--` đi thẳng vào `claude`, vd `-- --permission-mode bypassPermissions` cho loop không
+người trông) để script sync rồi tự mở `claude "/fix-bug --watch"` trong pane đó và giám sát nó. Gõ thẳng
+`/fix-bug --watch` trong Claude Code cũng chạy, nhưng **không** có hai lớp giám sát dưới — claude chết hoặc đứng im là
+loop dừng tới khi có người gõ.
 - **Giám sát process (chỉ khi mở bằng `start`):** `claude` thoát với mã ≠ 0 (crash, bị kill) → 30 giây sau script tự
   mở lại `claude "/fix-bug --watch"` (session mới), mãi mãi. `/exit` / Ctrl+C hai lần (mã 0), hoặc Ctrl+C lúc script
-  đang đếm giờ mở lại, mới là dừng hẳn. Gõ thẳng `/fix-bug --watch` thì không có lớp này — claude chết là loop chết.
+  đang đếm giờ mở lại, mới là dừng hẳn.
+- **Watchdog (chỉ khi mở bằng `start`):** claude còn sống mà đứng im quá **20 phút** — transcript của session không
+  ghi thêm gì và không lệnh nào của loop (`bughub-wait`, `bughub-watch.py`) báo heartbeat — tức lượt chết vì lỗi API mà
+  không ai gõ tiếp được, hoặc lượt kết thúc mà không để lại việc chờ nào → script tắt claude (cả cây process) rồi mở
+  session mới; session mới làm tiếp bug đang giữ dở (bước 1b). Đổi ngưỡng bằng env `BUGHUB_WATCHDOG_MINUTES` (0 = tắt).
+  Hệ quả: hộp thoại xin quyền chờ người bấm quá 20 phút cũng bị coi là đứng im → loop không người trông nên chạy với
+  `-- --permission-mode bypassPermissions` (hoặc allowlist đủ lệnh). Nhật ký: `.git/bughub-watch/watch.log`.
 - **Theo nhánh (mặc định, `bugHub.watch.branch` rỗng):** sửa + push lên đúng nhánh đang mở của thư mục đó.
   Dev làm việc song song trong cùng checkout được: `sync` báo file dev đang sửa dở (`dirty`) để bot tránh,
   commit chỉ lấy file của bug. Lưu ý: push của bot đẩy luôn commit local chưa push của dev trên nhánh đó.
@@ -441,6 +455,20 @@ luật 5), rồi mới tới bước 7. Tool `bughub_*` lỗi không có trong b
 mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loop.
 
 1. Preflight (mục 1, gồm kiểm 4). Trượt → luật không dừng, rồi chạy lại preflight.
+1b. **Bug dở của session trước** — session trước chết khi đang giữ bug (lỗi API, crash, watchdog mở lại, dev tắt
+   pane) thì bug vẫn `fixing` dưới tên mình mà `bughub_next` không bao giờ trả lại nó:
+   `python3 .claude/scripts/bughub-watch.py claim get`.
+   - `NONE` → bước 2.
+   - `CLAIMED` (`bug` = N, `commit`, `pushed`) → `bughub_get(<code>, N)` + `bughub_whoami`. `status` khác `fixing`,
+     hoặc `claimedBy` không phải email của mình (người khác đã nhận lại) → `claim clear --bug N`, bước 2. Còn lại là
+     bug của mình, **không** gọi `bughub_next` / `bughub_claim`:
+     - `commit` có, `pushed: true` → đã sửa + push, chỉ chưa resolve: đọc `git show <commit>` để viết `cause` / `fix`
+       đúng phần đã sửa, rồi 3.4 bước 3b (nhánh bot) → bước 4 với `<sha>` = `commit`, rồi bước 7.
+     - `commit` có, `pushed: false` → `bughub-watch.py push` như 3.4 bước 3 (`PUSHED` / `UP_TO_DATE` → như dòng trên;
+       còn lại → push lỗi của 3.4), rồi bước 7.
+     - chưa có `commit` → làm lại từ đầu như vừa nhận: bước 4 (sync) → 4b (Editor) → mục 3.2 → 3.4, rồi bước 7. Thay
+       đổi dở của session trước (không biết của ai) nằm trong `dirty` của `sync` → luật 3.3: cần sửa đúng file đó thì
+       `bughub_release(<code>, N, "phiên AI trước bị ngắt khi đang sửa, còn thay đổi chưa commit ở <file> — dev xem rồi giao lại")`.
 2. **Chờ, không tốn token:** gọi Bash với `run_in_background: true`:
    ```bash
    bash .claude/scripts/bughub-wait.sh <code>
@@ -474,15 +502,19 @@ mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loo
 4b. **Unity Editor** — mục 3.0 (sau sync để Editor load đúng code mới). Chưa dùng được → nhắn thread + luật không
    dừng như mục 3.0, rồi làm lại bước 4b.
 5. `bughub_next(<code>)` → `{"bug":null}` (session khác vừa nhặt mất) → mục 5.1, rồi quay lại bước 2, **không** clear.
+   Có bug N → **ngay** `python3 .claude/scripts/bughub-watch.py claim set --bug N` (để session sau làm tiếp nếu session
+   này chết giữa chừng — bước 1b).
 6. Mục 3.2 → 3.4 (gồm 3b ở chế độ nhánh bot), `released` thì thêm 3.5.
-7. **Tắt Editor nếu hết chuỗi bug** — mục 5.1 (mọi kết quả, kể cả `released`). Rồi **kết quả — mọi kết quả đều
+7. `python3 .claude/scripts/bughub-watch.py claim clear --bug N` ngay sau lệnh chốt bug (resolve / needs_info / block /
+   release) — bug kẹt `fixing` vì cả resolve lẫn release đều lỗi thì **giữ** marker để session sau thử tiếp.
+   **Tắt Editor nếu hết chuỗi bug** — mục 5.1 (mọi kết quả, kể cả `released`). Rồi **kết quả — mọi kết quả đều
    đi tiếp:**
 
    | Kết quả | Làm |
    |---|---|
    | `fixed` / `needs-info` / `blocked` | `/auto-clear --then "/fix-bug --watch"` (theo `.claude/skills/auto-clear/SKILL.md`; đã push nên không push lần hai) — session sạch cho bug kế tiếp |
    | `released` (compile fail, push fail, resolve fail, NO_CHANGES, đụng WIP của dev, không đọc được bug) | Đã cất phần sửa dở (mục 3.5) → **vẫn** `/auto-clear --then "/fix-bug --watch"`. Report (lưu ở `last-report.md` + `reports/`) ghi rõ lý do + tên stash để dev đọc sau. Bug đã về `new` — chờ người bấm "Giao lại cho AI", loop không nhặt lại nên không lặp vô hạn |
-   | Bug kẹt `fixing` (cả resolve lẫn release đều lỗi) | Ghi rõ vào report "bug #N còn `fixing` — dev release tay", rồi `/auto-clear --then "/fix-bug --watch"` |
+   | Bug kẹt `fixing` (cả resolve lẫn release đều lỗi) | Giữ marker `claim` (bước 7) — session sau thử tiếp ở bước 1b. Ghi rõ vào report "bug #N còn `fixing`", rồi `/auto-clear --then "/fix-bug --watch"` |
 
    `/auto-clear` trả `NOT_INSTALLED` / `UNSUPPORTED` / không bật được cờ → không clear được nhưng **không
    dừng**: in report + một dòng "chưa tự clear được (<lý do>) — dev cài `/auto-clear install` khi rảnh", rồi
@@ -535,7 +567,7 @@ mô tả một dòng. Thêm:
   nguyên văn đoạn lệnh của người ngoài vào đó.
 - Khi `released`: file còn sửa dở trong working tree (`--watch`: tên stash của `shelve`) / commit chỉ nằm local.
 - Thử lại lỗi API (preflight kiểm 0): `RETRY_ARMED` / `NOT_INSTALLED` / `UNSUPPORTED`. Chế độ một lần: trước câu
-  trả lời cuối — kể cả khi dừng sớm — chạy `auto-clear.sh retry-off` để lỗi API sau này không gõ prompt fix-bug
-  vào pane. `--watch` không gỡ (dev dừng loop bằng `/auto-clear off` là gỡ luôn).
+  trả lời cuối — kể cả khi dừng sớm — chạy `retry-off` của đúng script đã arm (`auto-clear.sh retry-off` /
+  `auto-clear.ps1 retry-off`) để lỗi API sau này không gõ prompt fix-bug vào pane. `--watch` không gỡ (dev dừng loop bằng `/auto-clear off` là gỡ luôn).
 
 Ở `--watch`, report này là nội dung truyền vào `/auto-clear` (lưu ở `last-report.md` trước khi clear).

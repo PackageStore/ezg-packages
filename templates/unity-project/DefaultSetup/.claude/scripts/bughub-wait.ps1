@@ -8,6 +8,8 @@
 #
 #   Env:  BUGHUB_ENDPOINT        gốc URL Worker (mặc định $DefaultEndpoint bên dưới)
 #         BUGHUB_POLL_INTERVAL   giây giữa hai lần poll, số nguyên ≥ 1 (mặc định 60)
+#         BUGHUB_WATCH_HEARTBEAT file chạm mỗi lần poll (do `bughub-watch.py start` đặt) — watchdog của nó biết
+#                                loop đang chờ bug chứ không phải đứng im
 #
 #   Exit: 0  có bug — stdout đúng một dòng JSON {"new":N,"retry":M}
 #         1  (dành cho thiếu công cụ ở bản .sh; bản này dùng cmdlet có sẵn)
@@ -70,6 +72,9 @@ Write-Err "bughub-wait: chờ bug của $Code ($url, mỗi ${interval}s)"
 $lastErr = ''
 
 while ($true) {
+    if ($env:BUGHUB_WATCH_HEARTBEAT) {
+        try { [System.IO.File]::WriteAllText($env:BUGHUB_WATCH_HEARTBEAT, (Get-Date -Format o)) } catch { }
+    }
     $err = ''
     try {
         $resp = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec $RequestTimeoutSec -UseBasicParsing

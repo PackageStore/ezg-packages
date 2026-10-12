@@ -10,6 +10,8 @@
 #   off             gỡ cờ của pane hiện tại
 #   status          cờ của pane hiện tại đang bật hay không (kèm prompt --then đang chờ, nếu có)
 #   probe           dò pane + so tty, KHÔNG gõ gì — kiểm tra cài đặt / quyền Automation
+#   type-test       gõ "auto-clear type-test ok" + Enter vào pane của claude hiện tại — chạy từ một lệnh
+#                   Bash của Claude Code, chữ đó phải hiện thành tin nhắn user đang xếp hàng (kiểm gõ thật)
 #   hook            Stop hook: có cờ → gỡ cờ → chờ AUTO_CLEAR_DELAY giây → gõ "/clear" + Enter
 #                   (+ prompt --then nếu cờ có, sau AUTO_CLEAR_THEN_DELAY giây)
 #   inject <uuid> [tty]   gõ "/clear" + Enter vào pane <uuid> (nội bộ / test)
@@ -40,6 +42,7 @@ LOG="${STATE_DIR}/auto-clear.log"
 DELAY="${AUTO_CLEAR_DELAY:-1}"
 THEN_DELAY="${AUTO_CLEAR_THEN_DELAY:-3}"
 THEN_MAX=200
+TYPE_TEST_TEXT="auto-clear type-test ok"
 RETRY_DELAY="${AUTO_CLEAR_RETRY_DELAY:-30}"
 RETRY_MAX="${AUTO_CLEAR_RETRY_MAX:-5}"
 RETRY_PROMPT_DEFAULT="Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang dở."
@@ -351,6 +354,17 @@ cmd_probe() {
   iterm_send "$uuid" "$tty" dry
 }
 
+cmd_type_test() {
+  local uuid pid tty result
+  uuid=$(pane_uuid)
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  tty=$(tty_of "$pid")
+  result=$(iterm_send "$uuid" "$tty" type "$TYPE_TEST_TEXT" 2>&1)
+  log "type-test pane=$uuid tty=$tty -> $result"
+  echo "type-test pane=$uuid tty=${tty:-?} -> $result"
+}
+
 cmd_hook() {
   local uuid flag armed_pid armed_tty cur_pid result then_b64 then_prompt mode
   # Stop hook nhận JSON qua stdin — đọc cho hết để phía Claude Code không dính EPIPE.
@@ -457,6 +471,7 @@ case "${1:-status}" in
   off)       cmd_off ;;
   status)    cmd_status ;;
   probe)     cmd_probe ;;
+  type-test) cmd_type_test ;;
   hook)      cmd_hook ;;
   retry-arm) shift; cmd_retry_arm "$@" ;;
   retry-off) cmd_retry_off ;;
@@ -464,5 +479,5 @@ case "${1:-status}" in
   inject)    shift; cmd_inject "$@" ;;
   install)   cmd_install ;;
   uninstall) cmd_uninstall ;;
-  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|hook|retry-arm [--prompt \"<prompt>\"] [--max N]|retry-off|failhook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
+  *) echo "usage: auto-clear.sh {arm [--stdin] [--then \"<prompt>\"]|off|status|probe|type-test|hook|retry-arm [--prompt \"<prompt>\"] [--max N]|retry-off|failhook|inject <uuid> [tty]|install|uninstall}"; exit 1 ;;
 esac

@@ -462,5 +462,129 @@ class FollowBranchTests(WatchTestCase):
         self.assertEqual((code, out["result"]), (0, "DISABLED"))
 
 
+
+class ClaimTests(WatchTestCase):
+    """`claim`: nhớ bug loop đang giữ để session sau (sau lỗi API / crash / watchdog) làm tiếp."""
+    WATCH = {}
+
+    def commit_bug(self, name, bug, date=None):
+        (self.dev / name).write_text(name)
+        git(self.dev, "add", name)
+        env = dict(os.environ, **({"GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date} if date else {}))
+        subprocess.run(["git", "commit", "-qm", f"# UI: fix {name}\n\nBug-Report: #{bug}"], cwd=self.dev, check=True, env=env)
+        return git(self.dev, "rev-parse", "HEAD")
+
+    def test_claim_finds_only_the_commit_made_after_claiming(self):
+        self.assertEqual(self.run_watch(self.dev, "claim", "get"), (0, {"result": "NONE"}))
+        self.commit_bug("old.txt", 7, date="2020-01-01T00:00:00Z")  # lần sửa trước của cùng bug
+        self.commit_bug("other.txt", 70)
+        self.assertEqual(self.run_watch(self.dev, "claim", "set", "--bug", "7"), (0, {"result": "OK", "bug": 7}))
+        code, out = self.run_watch(self.dev, "claim", "get")
+        self.assertEqual((code, out["result"], out["bug"], out["commit"], out["pushed"]), (0, "CLAIMED", 7, None, False))
+
+        sha = self.commit_bug("new.txt", 7)
+        code, out = self.run_watch(self.dev, "claim", "get")
+        self.assertEqual((out["commit"], out["pushed"], out["branch"]), (sha, False, "develop"))
+        git(self.dev, "push", "-q")
+        code, out = self.run_watch(self.dev, "claim", "get")
+        self.assertTrue(out["pushed"])
+
+        self.assertEqual(self.run_watch(self.dev, "claim", "clear", "--bug", "8")[1]["cleared"], False)
+        self.assertEqual(self.run_watch(self.dev, "claim", "clear", "--bug", "7")[1]["cleared"], True)
+        self.assertEqual(self.run_watch(self.dev, "claim", "get")[1], {"result": "NONE"})
+
+    def test_claim_rejects_bad_args(self):
+        for args in (("claim",), ("claim", "set"), ("claim", "set", "--bug", "0"), ("claim", "get", "x")):
+            code, out = self.run_watch(self.dev, *args)
+            self.assertEqual((code, out["result"]), (2, "BAD_ARGS"), args)
+
+
+class WatchdogTests(WatchTestCase):
+    """Watchdog của `start`: claude còn sống mà đứng im (lỗi API không ai gõ tiếp…) → tắt rồi mở session mới."""
+    WATCH = {}
+
+    def setUp(self):
+        super().setUp()
+        if os.name == "nt":
+            self.skipTest("fake claude là script có shebang")
+        self.config = self.tmp / "claude-config"
+        self.runs = self.tmp / "runs"
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+
+    def fake_claude(self, body):
+        """`claude` giả: ghi số lần chạy vào `runs`, rồi chạy `body` (python) với `n` = lần chạy thứ mấy."""
+        claude = self.bin / "claude"
+        claude.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, re, sys, time, pathlib\n"
+            f"runs = pathlib.Path({str(self.runs)!r})\n"
+            "n = (len(runs.read_text().splitlines()) if runs.exists() else 0) + 1\n"
+            "runs.write_text('x\\n' * n)\n"
+            f"projects = pathlib.Path({str(self.config)!r}) / 'projects'\n"
+            "def transcript(folder=None):\n"
+            "    d = projects / (folder or re.sub(r'[^A-Za-z0-9]', '-', os.getcwd()))\n"
+            "    d.mkdir(parents=True, exist_ok=True)\n"
+            "    (d / f's{n}.jsonl').write_text(json.dumps({'cwd': os.getcwd(), 'type': 'user'}) + '\\n')\n"
+            + body)
+        claude.chmod(0o755)
+
+    def start(self, minutes="0.04"):
+        env = dict(os.environ, PATH=f"{self.bin}{os.pathsep}{os.environ['PATH']}", BUGHUB_PAUSE_SECONDS="0",
+                   BUGHUB_WATCHDOG_MINUTES=minutes, CLAUDE_CONFIG_DIR=str(self.config))
+        proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), "start"],
+                              cwd=self.dev, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL,
+                              timeout=60)
+        log = self.dev / ".git" / "bughub-watch" / "watch.log"
+        return proc, len(self.runs.read_text().splitlines()), log.read_text(encoding="utf-8") if log.exists() else ""
+
+    def test_idle_claude_is_restarted(self):
+        # Lần 1: một lượt rồi đứng im mãi (như lượt chết vì lỗi API). Lần 2: thoát bình thường.
+        self.fake_claude("if n == 1:\n    transcript()\n    time.sleep(60)\n")
+        proc, runs, log = self.start()
+        self.assertEqual((proc.returncode, runs), (0, 2), proc.stderr)
+        self.assertIn("watchdog", log)
+        self.assertIn("đứng im", proc.stderr)
+        self.assertFalse(list((self.dev / ".git" / "bughub-watch").glob("heartbeat-*")))
+
+    def test_heartbeat_keeps_a_waiting_claude_alive(self):
+        # Đang chờ bug: transcript không đổi, nhưng lệnh nền chạm heartbeat đều đặn → không bị tắt.
+        self.fake_claude("transcript()\nbeat = pathlib.Path(os.environ['BUGHUB_WATCH_HEARTBEAT'])\n"
+                         "end = time.time() + 5\nwhile time.time() < end:\n    beat.touch()\n    time.sleep(0.3)\n")
+        proc, runs, log = self.start()
+        self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
+        self.assertNotIn("watchdog", log)
+
+    def test_active_transcript_keeps_claude_alive(self):
+        self.fake_claude("end = time.time() + 5\nwhile time.time() < end:\n    transcript()\n    time.sleep(0.3)\n")
+        proc, runs, log = self.start()
+        self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
+
+    def test_no_transcript_never_kills_blind(self):
+        self.fake_claude("time.sleep(5)\n")
+        proc, runs, log = self.start()
+        self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
+        self.assertIn("không thấy transcript", log)
+
+    def test_transcript_found_by_cwd_when_folder_name_differs(self):
+        self.fake_claude("if n == 1:\n    transcript('renamed-by-claude')\n    time.sleep(60)\n")
+        proc, runs, log = self.start()
+        self.assertEqual((proc.returncode, runs), (0, 2), proc.stderr)
+
+    def test_watchdog_off(self):
+        self.fake_claude("transcript()\ntime.sleep(4)\n")
+        proc, runs, log = self.start(minutes="0")
+        self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
+
+    def test_commands_touch_the_heartbeat(self):
+        beat = self.tmp / "beat"
+        env = dict(os.environ, BUGHUB_WATCH_HEARTBEAT=str(beat))
+        for args in (("pause", "--seconds", "0"), ("config",)):
+            beat.unlink(missing_ok=True)
+            subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), *args],
+                           cwd=self.dev, capture_output=True, env=env, check=True)
+            self.assertTrue(beat.exists(), args)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,7 +15,7 @@ máy) đọc cờ rồi **gõ `/clear` + Enter vào đúng pane** đang chạy C
 |---|---|---|
 | Script | `bash .claude/skills/auto-clear/scripts/auto-clear.sh <sub>` | `powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 <sub>` |
 | Nhắm pane bằng | UUID trong `ITERM_SESSION_ID` + so tty với process `claude` | PID process `claude` → `AttachConsole` + `WriteConsoleInput` |
-| Cờ | `~/.claude/auto-clear/<uuid>.flag` | `~/.claude/auto-clear/pid-<pid>.flag` |
+| Cờ | `~/.claude/auto-clear/<uuid>.flag` (+ `<uuid>.retry`) | `~/.claude/auto-clear/pid-<pid>.flag` (+ `pid-<pid>.retry`) |
 
 Cả hai nhắm theo pane/process, **không** theo cửa sổ đang focus — dev đang đứng ở pane khác cũng không
 bị gõ nhầm. Dưới đây `<script>` là dòng "Script" đúng OS trong bảng trên.
@@ -30,7 +30,8 @@ bị gõ nhầm. Dưới đây `<script>` là dòng "Script" đúng OS trong b�
 | `off` | `<script> off` — gỡ cờ (cả prompt `--then` đang chờ) **và** cờ thử lại lỗi API (`retry-arm`), báo lại. **Không** push |
 | `status` | `<script> status` — in thêm dòng `THEN <prompt>` khi cờ có prompt chờ, `FAILHOOK` + `RETRY_ARMED count=k/<max>` (`∞` = không giới hạn) |
 | `probe` | `<script> probe` — dò pane/console, **không** gõ gì (kiểm tra cài đặt) |
-| `retry-arm [--prompt "<prompt>"] [--max N]` | **Thử lại lỗi API** (mục 5) cho pane hiện tại — skill chạy lâu không người trông (vd `/fix-bug`) gọi. `--max 0` = thử lại không giới hạn. **Không** push. Chỉ macOS; Windows trả `UNSUPPORTED` |
+| `type-test` | `<script> type-test` — gõ thật `auto-clear type-test ok` + Enter vào pane/console của claude đang chạy lệnh này. Chạy từ một lệnh Bash của Claude Code: chữ đó phải hiện thành tin nhắn user xếp hàng ở lượt sau — bằng chứng gõ phím chạy được trên máy này. **Không** push |
+| `retry-arm [--prompt "<prompt>"] [--max N]` | **Thử lại lỗi API** (mục 5) cho pane hiện tại — skill chạy lâu không người trông (vd `/fix-bug`) gọi. `--max 0` = thử lại không giới hạn. **Không** push. macOS + Windows |
 | `retry-off` | Gỡ cờ thử lại lỗi API của pane hiện tại. **Không** push |
 | `install` | `<script> install` — đăng ký Stop + StopFailure hook vào `~/.claude/settings.json`. Sửa settings user-level nên **hỏi dev trước** nếu dev chưa yêu cầu rõ |
 | `uninstall` | `<script> uninstall` — gỡ cả hai hook |
@@ -103,24 +104,28 @@ Có `--then "<prompt>"` trong argument → thêm vào lệnh arm, cùng `--stdin
 | `NOT_INSTALLED ...` | Hook chưa đăng ký trên máy này (hoặc trỏ tới script đã bị xoá/dời) → hỏi dev có cho chạy `install` không. Đồng ý → `install` rồi `arm` lại (**không** push lại); không → nhắc dev tự gõ `/clear`. |
 | `UNSUPPORTED ...` | Không chạy trong iTerm2 (macOS) / không tìm thấy process `claude` → nhắc dev tự gõ `/clear` (push đã xong). |
 
-## 5. Thử lại khi lượt trả lời chết vì lỗi API (macOS)
+## 5. Thử lại khi lượt trả lời chết vì lỗi API (macOS + Windows)
 
 Lỗi API của Claude (`Your organization has disabled Claude subscription access`, rate limit, overloaded,
 5xx, mất phiên…) giết lượt trả lời — model không còn chạy nên **skill không tự thử lại được**. Claude Code
 bắn hook `StopFailure` (kèm `error`: `oauth_org_not_allowed`, `authentication_failed`, `rate_limit`,
 `overloaded`, `server_error`…) thay cho `Stop`, và `install` đăng ký hook đó.
 
-- `<script> retry-arm [--prompt "<prompt>"] [--max N]` bật cờ `~/.claude/auto-clear/<uuid>.retry` (pid + tty +
-  prompt + `max`, `count=0`). Prompt mặc định: "Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang
-  dở." — luật prompt như `--then`. Gọi lại là bật lại từ `count=0`.
-- Mỗi `StopFailure`: đúng pane + đúng process `claude` đã arm → `count+1`, chờ `AUTO_CLEAR_RETRY_DELAY`
+- `<script> retry-arm [--prompt "<prompt>"] [--max N]` bật cờ `~/.claude/auto-clear/<uuid>.retry` (Windows:
+  `pid-<pid>.retry`; pid + tty + prompt + `max`, `count=0`). Prompt mặc định: "Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang
+  dở." (Windows: bản tiếng Anh ASCII) — luật prompt như `--then`. Gọi lại là bật lại từ `count=0`. Prompt truyền vào
+  nên giữ ASCII: bản Windows gõ từng ký tự vào console, ký tự ngoài bàn phím là chỗ dễ hỏng nhất.
+- Mỗi `StopFailure`: đúng pane + đúng process `claude` đã arm (Windows: cờ theo pid của process `claude`) → `count+1`, chờ `AUTO_CLEAR_RETRY_DELAY`
   (mặc định **30 giây**) rồi gõ prompt + Enter. Quá `max` lần liên tiếp → thôi gõ, log `failhook give-up` — dev
   xử lý tay (vd đăng nhập lại / chờ org bật lại quyền). `max` = `--max N` lúc arm, không có thì
   `AUTO_CLEAR_RETRY_MAX` (mặc định **5**); `--max 0` = **không giới hạn** — dành cho loop không bao giờ được
   dừng (vd `/fix-bug`): gõ lại mỗi 30 giây tới khi API trả lời được hoặc dev `retry-off` / `off`.
 - Lượt kết thúc bình thường (`Stop`) đưa `count` về 0. Cờ sống qua `/clear`; gỡ bằng `retry-off` hoặc `off`.
 - Kết quả `retry-arm`: `RETRY_ARMED …` · `NOT_INSTALLED` (máy cài bản cũ chỉ có Stop hook → `install` lại, hỏi
-  dev nếu chưa yêu cầu rõ) · `UNSUPPORTED` (không phải iTerm2 / Windows) — không chặn việc của skill gọi nó.
+  dev nếu chưa yêu cầu rõ) · `UNSUPPORTED` (macOS ngoài iTerm2 / không thấy process `claude`) — không chặn việc của skill
+  gọi nó.
+- Cờ Windows theo PID, mà Windows dùng lại PID: `arm` / `retry-arm` xoá cờ của process `claude` đã tắt (log
+  `stale-flag removed`).
 
 ## Cài trên máy mới
 
@@ -130,6 +135,9 @@ bắn hook `StopFailure` (kèm `error`: `oauth_org_not_allowed`, `authentication
    project nào cũng được, không cần cài lại cho từng project.
 2. `<script> probe` — macOS phải ra `ok-dry tty=/dev/ttysN`; Windows phải ra `ok-dry attached pid=N`.
    Lần đầu trên macOS hệ điều hành hỏi quyền điều khiển iTerm2 → Allow.
+   Rồi `<script> type-test` từ một lệnh Bash **trong Claude Code**: ra `-> ok` và lượt sau nhận được tin nhắn
+   `auto-clear type-test ok` = gõ phím chạy thật (Windows: đây là bước duy nhất kiểm được `WriteConsoleInput` trên máy
+   đó — `/clear`, `--then` và thử lại lỗi API đều dùng đúng đường gõ này).
 3. Hook mới thường có hiệu lực ngay; lượt đầu không clear → mở `/hooks` một lần hoặc khởi động lại
    Claude Code.
 
@@ -141,14 +149,17 @@ chạy `install` một lần để chuyển sang bản copy.
 
 Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch` / `pane-not-found` /
 `attach-failed`; có `--then` thì thêm một dòng `hook-then ... prompt=<prompt> -> ok` (hoặc `skip: …` khi
-`/clear` không gõ được — prompt không bao giờ gõ một mình). Thử lại lỗi API: `failhook … error=<mã> lần k/<max>` (`∞` khi không giới hạn),
-`failhook give-up`, `retry-reset`.
+`/clear` không gõ được — prompt không bao giờ gõ một mình). Thử lại lỗi API: `failhook … error=<mã> lần k/<max>` (`∞` khi không giới hạn; Windows:
+`try k/<max|unlimited>`), `failhook give-up`, `retry-reset`; `type-test … -> ok`; Windows thêm `stale-flag removed`.
 
 ## Giới hạn
 
 - macOS: chỉ iTerm2. Claude chạy trong tmux/ssh bên trong iTerm → tty lệch → hook bỏ qua (không clear,
   không gõ nhầm). Terminal.app / VS Code / app desktop → `UNSUPPORTED`.
-- Windows: **thử nghiệm**, chưa chạy trên máy thật. Claude chạy trong WSL không được hỗ trợ.
+- Windows: logic cờ / hook / settings được test bằng PowerShell (kiểm tương thích Windows PowerShell 5.1); riêng
+  phần gõ phím (`AttachConsole` + `WriteConsoleInput`) chỉ kiểm được trên máy Windows thật → sau `install` chạy
+  `probe` + `type-test` một lần. Claude chạy trong WSL không được hỗ trợ. `auto-clear.ps1` phải giữ **thuần ASCII**
+  (PowerShell 5.1 đọc file không BOM theo ANSI).
 - Dev gõ phím đúng lúc hook chờ (~1 giây) → chữ có thể lẫn với `/clear`. Đổi độ trễ bằng env
   `AUTO_CLEAR_DELAY`.
 - `--then`: prompt một dòng, không ký tự điều khiển, ≤ 200 ký tự; chỉ gõ vào đúng pane/process đã arm

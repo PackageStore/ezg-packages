@@ -1,6 +1,9 @@
 # Windows twin of auto-clear.sh - keep the two in lockstep (same subcommands, same
-# ~/.claude/auto-clear/ layout, same ARMED / NOT_ARMED / UNSUPPORTED / NOT_INSTALLED markers).
-# EXPERIMENTAL: not yet verified on a real Windows machine - run `probe` first.
+# ~/.claude/auto-clear/ layout, same ARMED / NOT_ARMED / RETRY_ARMED / UNSUPPORTED / NOT_INSTALLED markers).
+# Run `probe` then `type-test` once on a new machine (see SKILL.md "Cai tren may moi").
+#
+# KEEP THIS FILE PURE ASCII: Windows PowerShell 5.1 reads a script without BOM in the ANSI code page,
+# so any non-ASCII character (Vietnamese, em dash, infinity sign...) turns into garbage or breaks parsing.
 #
 # Types "/clear" + Enter into the console of the Claude Code process that armed the flag, right after
 # the turn ends. It targets the PROCESS, not the focused window: AttachConsole(<claude pid>) then
@@ -11,34 +14,55 @@
 #                   arm the current Claude process; --stdin saves the final report read from stdin;
 #                   --then: after "/clear", wait AUTO_CLEAR_THEN_DELAY seconds and type <prompt> + Enter
 #                   (one line, no control characters, <= 200 characters - otherwise the flag is NOT armed)
-#   off             disarm the current Claude process
-#   status          is the current Claude process armed (plus the pending --then prompt, if any)
+#   off             disarm the current Claude process (both the /clear flag and the API-error retry flag)
+#   status          is the current Claude process armed (plus the pending --then prompt, retry counter)
 #   probe           attach to the Claude console and open its input buffer, WITHOUT typing anything
+#   type-test       type "auto-clear type-test ok" + Enter into the current Claude console: run it from a
+#                   Claude Code Bash tool call - the text must show up as a queued user message
 #   hook            Stop hook: armed -> disarm -> wait AUTO_CLEAR_DELAY seconds -> type "/clear" + Enter
-#                   (+ the --then prompt when the flag carries one, after AUTO_CLEAR_THEN_DELAY seconds)
+#                   (+ the --then prompt when the flag carries one, after AUTO_CLEAR_THEN_DELAY seconds);
+#                   a normal turn end also resets the API-error retry counter to 0
+#   retry-arm [--prompt "<prompt>"] [--max N]
+#                   arm API-ERROR RETRY for the current Claude process: when a turn dies on an API error of
+#                   Claude (org access disabled, rate limit, usage limit, overloaded, 5xx...) the StopFailure
+#                   hook waits AUTO_CLEAR_RETRY_DELAY seconds then types <prompt> + Enter, at most N times in a
+#                   row (default AUTO_CLEAR_RETRY_MAX; 0 = unlimited). The flag lives until retry-off / off
+#   retry-off       disarm the API-error retry of the current Claude process
+#   failhook        StopFailure hook (internal) - see retry-arm
 #   inject <pid>    type "/clear" + Enter into the console of process <pid> (internal / testing)
-#   install         copy this script to ~/.claude/auto-clear/auto-clear.ps1 and register the Stop hook
-#                   (async) on that copy in ~/.claude/settings.json - idempotent, with backup
-#   uninstall       remove the Stop hook from ~/.claude/settings.json and delete the copy
+#   install         copy this script to ~/.claude/auto-clear/auto-clear.ps1 and register the Stop + StopFailure
+#                   hooks (async) on that copy in ~/.claude/settings.json - idempotent, with backup
+#   uninstall       remove both hooks from ~/.claude/settings.json and delete the copy
 #
 # The hook belongs to the MACHINE (user-level settings), not to a repo: one hook serves every project
 # that installs this skill. It therefore runs the copy under ~/.claude/auto-clear/ instead of pointing
-# into a repo, so deleting/moving a repo cannot silently kill it. `arm` re-syncs the copy every time.
+# into a repo, so deleting/moving a repo cannot silently kill it. `arm` / `retry-arm` re-sync the copy.
 #
-# Usage:  powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 <subcommand>
+# Usage:  powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 <subcommand>
 
 $ErrorActionPreference = 'Stop'
 
 $Sub = if ($args.Count -gt 0) { [string]$args[0] } else { 'status' }
 $Rest = if ($args.Count -gt 1) { @($args[1..($args.Count - 1)]) } else { @() }
 
+function Get-EnvNumber([string]$Name, [double]$Default) {
+    $raw = [Environment]::GetEnvironmentVariable($Name)
+    $value = 0.0
+    if ($raw -and [double]::TryParse($raw, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value) -and $value -ge 0) { return $value }
+    return $Default
+}
+
 $ClaudeDir = Join-Path $HOME '.claude'
 $StateDir = Join-Path $ClaudeDir 'auto-clear'
 $ReportDir = Join-Path $StateDir 'reports'
 $Settings = Join-Path $ClaudeDir 'settings.json'
 $LogFile = Join-Path $StateDir 'auto-clear.log'
-$Delay = if ($env:AUTO_CLEAR_DELAY) { [double]$env:AUTO_CLEAR_DELAY } else { 1.0 }
-$ThenDelay = if ($env:AUTO_CLEAR_THEN_DELAY) { [double]$env:AUTO_CLEAR_THEN_DELAY } else { 3.0 }
+$Delay = Get-EnvNumber 'AUTO_CLEAR_DELAY' 1.0
+$ThenDelay = Get-EnvNumber 'AUTO_CLEAR_THEN_DELAY' 3.0
+$RetryDelay = Get-EnvNumber 'AUTO_CLEAR_RETRY_DELAY' 30.0
+$RetryMaxDefault = [int](Get-EnvNumber 'AUTO_CLEAR_RETRY_MAX' 5)
+$RetryPromptDefault = 'Continue: the previous turn stopped on an API error - resume the exact step in progress.'
+$TypeTestText = 'auto-clear type-test ok'
 $ThenMax = 200
 $ScriptPath = $PSCommandPath
 $HookScript = Join-Path $StateDir 'auto-clear.ps1'
@@ -183,14 +207,31 @@ function Get-FlagPath([int]$ClaudePid) {
     return (Join-Path $StateDir ('pid-' + $ClaudePid + '.flag'))
 }
 
-# Script path the Stop hook points at ($null = not registered). Also reads old installs that point into a repo.
-function Get-HookTarget {
+function Get-RetryPath([int]$ClaudePid) {
+    return (Join-Path $StateDir ('pid-' + $ClaudePid + '.retry'))
+}
+
+# Flags are keyed by PID and Windows reuses PIDs: drop the flags of Claude processes that are gone, so a
+# new process that happens to get an old PID never inherits a stale /clear or retry flag.
+function Remove-StaleFlags {
+    if (-not (Test-Path $StateDir)) { return }
+    foreach ($file in @(Get-ChildItem -Path $StateDir -File -ErrorAction SilentlyContinue)) {
+        if ($file.Name -notmatch '^pid-(\d+)\.(flag|retry)$') { continue }
+        $proc = Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue
+        if ($proc -and @('claude', 'node') -contains ([string]$proc.ProcessName).ToLowerInvariant()) { continue }
+        Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
+        Write-Log ('stale-flag removed ' + $file.Name)
+    }
+}
+
+# Script path the hook of <HookEvent> points at ($null = not registered). Also reads old installs that point into a repo.
+function Get-HookTarget([string]$HookEvent = 'Stop', [string]$SubCommand = 'hook') {
     if (-not (Test-Path $Settings)) { return $null }
     try { $data = [System.IO.File]::ReadAllText($Settings) | ConvertFrom-Json } catch { return $null }
-    if (-not ($data -and $data.PSObject.Properties['hooks'] -and $data.hooks.PSObject.Properties['Stop'])) { return $null }
-    foreach ($group in @($data.hooks.Stop)) {
+    if (-not ($data -and $data.PSObject.Properties['hooks'] -and $data.hooks.PSObject.Properties[$HookEvent])) { return $null }
+    foreach ($group in @($data.hooks.$HookEvent)) {
         foreach ($hook in @($group.hooks)) {
-            if (([string]$hook.command) -match '-File "([^"]*auto-clear\.ps1)"') { return $Matches[1] }
+            if (([string]$hook.command) -match ('-File "([^"]*auto-clear\.ps1)" ' + $SubCommand + '(\s|$)')) { return $Matches[1] }
         }
     }
     return $null
@@ -198,12 +239,25 @@ function Get-HookTarget {
 
 # Registered AND the target script still exists (a hook pointing into a deleted/moved repo counts as not installed).
 function Test-HookInstalled {
-    $target = Get-HookTarget
+    $target = Get-HookTarget 'Stop' 'hook'
     return ([bool]$target -and (Test-Path $target))
+}
+
+# StopFailure hook registered too (installs older than retry-arm only had the Stop hook -> run install again).
+function Test-FailHookInstalled {
+    $target = Get-HookTarget 'StopFailure' 'failhook'
+    return ((Test-HookInstalled) -and [bool]$target -and (Test-Path $target))
 }
 
 function Test-SamePath([string]$A, [string]$B) {
     return (($A -replace '\\', '/') -eq ($B -replace '\\', '/'))
+}
+
+# The hooks run the copy - re-sync it with the script that is arming, so hook and flag share one version.
+function Sync-HookCopy {
+    if ((Test-SamePath (Get-HookTarget 'Stop' 'hook') $HookScript) -and -not (Test-SamePath $ScriptPath $HookScript)) {
+        Copy-Item $ScriptPath $HookScript -Force
+    }
 }
 
 function Send-Text([int]$ClaudePid, [string]$Text, [bool]$DryRun) {
@@ -215,7 +269,7 @@ function Send-Clear([int]$ClaudePid, [bool]$DryRun) {
     return (Send-Text $ClaudePid '/clear' $DryRun)
 }
 
-# The --then prompt is stored base64 on one line so newlines / "=" cannot break the key=value flag format.
+# Prompts are stored base64 on one line so newlines / "=" cannot break the key=value flag format.
 function ConvertTo-B64([string]$Text) {
     return [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Text))
 }
@@ -240,6 +294,25 @@ function Get-FlagValue([string]$Flag, [string]$Key) {
         if ($line.StartsWith($Key + '=')) { return $line.Substring($Key.Length + 1) }
     }
     return $null
+}
+
+# Rewrite one key=value line of a flag (keeps every other line).
+function Set-FlagValue([string]$Flag, [string]$Key, [string]$Value) {
+    $lines = @([System.IO.File]::ReadAllLines($Flag) | Where-Object { -not $_.StartsWith($Key + '=') })
+    $lines += ($Key + '=' + $Value)
+    Write-Utf8 $Flag (($lines -join "`n") + "`n")
+}
+
+# Retry limit stored in a retry flag (missing / garbage -> AUTO_CLEAR_RETRY_MAX). 0 = unlimited.
+function Get-RetryMax([string]$Flag) {
+    $raw = Get-FlagValue $Flag 'max'
+    if ($raw -match '^[0-9]+$') { return [int]$raw }
+    return $RetryMaxDefault
+}
+
+function Get-MaxLabel([int]$Max) {
+    if ($Max -eq 0) { return 'unlimited' }
+    return [string]$Max
 }
 
 function Require-ClaudePid {
@@ -275,10 +348,8 @@ function Invoke-Arm([object[]]$Options) {
         exit 3
     }
     $claudePid = Require-ClaudePid
-    # The hook runs the copy - re-sync it with the script that is arming, so hook and flag share one version.
-    if ((Test-SamePath (Get-HookTarget) $HookScript) -and -not (Test-SamePath $ScriptPath $HookScript)) {
-        Copy-Item $ScriptPath $HookScript -Force
-    }
+    Sync-HookCopy
+    Remove-StaleFlags
     New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
     if ($useStdin) {
         # Raw UTF-8 stdin: [Console]::In would decode with the OEM code page and mangle Vietnamese text.
@@ -307,6 +378,13 @@ function Invoke-Arm([object[]]$Options) {
 
 function Invoke-Off {
     $claudePid = Require-ClaudePid
+    # `off` = the dev stops the loop -> drop the API-error retry too, or a later API error types the loop prompt.
+    $retry = Get-RetryPath $claudePid
+    if (Test-Path $retry) {
+        Remove-Item $retry -Force
+        Write-Log ('retry-off pid=' + $claudePid + ' (off)')
+        Write-Output ('RETRY_DISARMED pid=' + $claudePid)
+    }
     $flag = Get-FlagPath $claudePid
     if (Test-Path $flag) {
         Remove-Item $flag -Force
@@ -318,12 +396,68 @@ function Invoke-Off {
     }
 }
 
+function Invoke-RetryArm([object[]]$Options) {
+    $prompt = $RetryPromptDefault
+    $max = $RetryMaxDefault
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        $opt = [string]$Options[$i]
+        if ($opt -eq '--prompt') {
+            if ($i + 1 -ge $Options.Count) { Write-Output 'INVALID_THEN: --prompt is missing its text'; exit 1 }
+            $i++
+            $prompt = [string]$Options[$i]
+        }
+        elseif ($opt -eq '--max') {
+            if ($i + 1 -ge $Options.Count -or ([string]$Options[$i + 1]) -notmatch '^[0-9]+$') {
+                Write-Output 'INVALID_MAX: --max needs an integer >= 0 (0 = unlimited)'; exit 1
+            }
+            $i++
+            $max = [int]$Options[$i]
+        }
+        else { Write-Output 'usage: auto-clear.ps1 retry-arm [--prompt "<prompt>"] [--max N]'; exit 1 }
+    }
+    $promptError = Get-ThenError $prompt
+    if ($promptError) { Write-Output $promptError; exit 1 }
+    if (-not (Test-FailHookInstalled)) {
+        Write-Output ('NOT_INSTALLED: StopFailure hook not registered - run: powershell -ExecutionPolicy Bypass -File "' + $ScriptPath + '" install')
+        exit 3
+    }
+    $claudePid = Require-ClaudePid
+    Sync-HookCopy
+    Remove-StaleFlags
+    New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
+    $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Write-Utf8 (Get-RetryPath $claudePid) ("pid=$claudePid`nwt_session=$($env:WT_SESSION)`ncount=0`nmax=$max`nprompt_b64=" + (ConvertTo-B64 $prompt) + "`narmed_at=$stamp`n")
+    Write-Log ('retry-arm pid=' + $claudePid + ' max=' + (Get-MaxLabel $max) + ' prompt=' + $prompt)
+    Write-Output ('RETRY_ARMED pid=' + $claudePid + ' delay=' + $RetryDelay + 's max=' + (Get-MaxLabel $max))
+}
+
+function Invoke-RetryOff {
+    $claudePid = Require-ClaudePid
+    $retry = Get-RetryPath $claudePid
+    if (Test-Path $retry) {
+        Remove-Item $retry -Force
+        Write-Log ('retry-off pid=' + $claudePid)
+        Write-Output ('RETRY_DISARMED pid=' + $claudePid)
+    }
+    else {
+        Write-Output ('RETRY_NOT_ARMED pid=' + $claudePid)
+    }
+}
+
 function Invoke-Status {
     $claudePid = Require-ClaudePid
-    $target = Get-HookTarget
+    $target = Get-HookTarget 'Stop' 'hook'
     if (Test-HookInstalled) { Write-Output ('HOOK installed (' + $Settings + ' -> ' + $target + ')') }
     elseif ($target) { Write-Output ('HOOK broken: script ' + $target + ' no longer exists - run install again') }
     else { Write-Output 'HOOK not-installed' }
+    if (Test-FailHookInstalled) { Write-Output 'FAILHOOK installed' } else { Write-Output 'FAILHOOK not-installed' }
+    $retry = Get-RetryPath $claudePid
+    if (Test-Path $retry) {
+        Write-Output ('RETRY_ARMED pid=' + $claudePid + ' count=' + (Get-FlagValue $retry 'count') + '/' + (Get-MaxLabel (Get-RetryMax $retry)))
+    }
+    else {
+        Write-Output ('RETRY_NOT_ARMED pid=' + $claudePid)
+    }
     $flag = Get-FlagPath $claudePid
     if (Test-Path $flag) {
         Write-Output ('ARMED pid=' + $claudePid)
@@ -342,11 +476,24 @@ function Invoke-Probe {
     Write-Output (Send-Clear $claudePid $true)
 }
 
+function Invoke-TypeTest {
+    $claudePid = Require-ClaudePid
+    $result = Send-Text $claudePid $TypeTestText $false
+    Write-Log ('type-test pid=' + $claudePid + ' -> ' + $result)
+    Write-Output ('type-test pid=' + $claudePid + ' -> ' + $result)
+}
+
 function Invoke-Hook {
     # The Stop hook receives JSON on stdin - drain it so Claude Code never hits EPIPE.
     if ([Console]::IsInputRedirected) { [void][Console]::In.ReadToEnd() }
     $claudePid = Get-ClaudePid
     if (-not $claudePid) { return }
+    # A normal turn end (an API error fires StopFailure, never Stop) -> the run of API errors is over.
+    $retry = Get-RetryPath $claudePid
+    if ((Test-Path $retry) -and (Get-FlagValue $retry 'count') -ne '0') {
+        Set-FlagValue $retry 'count' '0'
+        Write-Log ('retry-reset pid=' + $claudePid)
+    }
     $flag = Get-FlagPath $claudePid
     if (-not (Test-Path $flag)) { return }
     $thenB64 = Get-FlagValue $flag 'then_b64'
@@ -366,10 +513,43 @@ function Invoke-Hook {
     Write-Log ('hook-then pid=' + $claudePid + ' prompt=' + $thenPrompt + ' -> ' + $result)
 }
 
-function Get-FilteredStopGroups($Data) {
+# StopFailure hook: the turn died on an API error. Retry flag of this Claude process present -> wait
+# RetryDelay seconds, then type the prompt; more than `max` failures in a row (0 = unlimited) -> stop typing
+# (the flag stays, give-up is logged).
+function Invoke-FailHook {
+    $errorCode = ''
+    if ([Console]::IsInputRedirected) {
+        $payload = [Console]::In.ReadToEnd()
+        try { $errorCode = [string](($payload | ConvertFrom-Json).error) } catch { $errorCode = '' }
+    }
+    if (-not $errorCode) { $errorCode = '?' }
+    $claudePid = Get-ClaudePid
+    if (-not $claudePid) { return }
+    $retry = Get-RetryPath $claudePid
+    if (-not (Test-Path $retry)) { return }
+    $max = Get-RetryMax $retry
+    $countRaw = Get-FlagValue $retry 'count'
+    $count = 1
+    if ($countRaw -match '^[0-9]+$') { $count = [int]$countRaw + 1 }
+    if ($max -gt 0 -and $count -gt $max) {
+        Write-Log ('failhook give-up pid=' + $claudePid + ' error=' + $errorCode + ': retried ' + $max + ' times')
+        return
+    }
+    Set-FlagValue $retry 'count' ([string]$count)
+    $prompt = ConvertFrom-B64 (Get-FlagValue $retry 'prompt_b64')
+    if (Get-ThenError $prompt) { Write-Log ('failhook pid=' + $claudePid + ' skip: invalid prompt in flag'); return }
+    Write-Log ('failhook pid=' + $claudePid + ' error=' + $errorCode + ' try ' + $count + '/' + (Get-MaxLabel $max) + ' - wait ' + $RetryDelay + 's')
+    Start-Sleep -Milliseconds ([int]($RetryDelay * 1000))
+    # The dev disarmed (retry-off / off) while we waited -> do not type.
+    if (-not (Test-Path $retry)) { Write-Log ('failhook pid=' + $claudePid + ' skip: retry flag removed while waiting'); return }
+    $result = Send-Text $claudePid $prompt ([bool]$env:AUTO_CLEAR_DRY)
+    Write-Log ('failhook pid=' + $claudePid + ' try ' + $count + ' -> ' + $result)
+}
+
+function Get-FilteredGroups($Data, [string]$HookEvent) {
     $result = @()
-    if ($Data.hooks.PSObject.Properties['Stop']) {
-        foreach ($group in @($Data.hooks.Stop)) {
+    if ($Data.hooks.PSObject.Properties[$HookEvent]) {
+        foreach ($group in @($Data.hooks.$HookEvent)) {
             $kept = @(@($group.hooks) | Where-Object { ([string]$_.command) -notmatch 'auto-clear' })
             if ($kept.Count -gt 0) {
                 $group.hooks = $kept
@@ -381,10 +561,22 @@ function Get-FilteredStopGroups($Data) {
     return $result
 }
 
-function Save-StopGroups($Data, [object[]]$Groups) {
-    if ($Data.hooks.PSObject.Properties['Stop']) { $Data.hooks.Stop = $Groups }
-    else { $Data.hooks | Add-Member -NotePropertyName 'Stop' -NotePropertyValue $Groups }
-    Write-Utf8 $Settings (($Data | ConvertTo-Json -Depth 64) + "`n")
+function Set-Groups($Data, [string]$HookEvent, [object[]]$Groups) {
+    if ($Data.hooks.PSObject.Properties[$HookEvent]) { $Data.hooks.$HookEvent = $Groups }
+    else { $Data.hooks | Add-Member -NotePropertyName $HookEvent -NotePropertyValue $Groups }
+}
+
+function Save-Settings($Data) {
+    # Windows PowerShell 5.1 serializes some arrays as {"value":[...],"Count":n} because of the ETS Count
+    # property on System.Array - drop that type data first (no-op on PowerShell 7).
+    if ($PSVersionTable.PSVersion.Major -lt 6) { Remove-TypeData System.Array -ErrorAction SilentlyContinue }
+    $json = $Data | ConvertTo-Json -Depth 64
+    # Never write something we cannot read back: a broken settings.json disables every hook on the machine.
+    $null = $json | ConvertFrom-Json
+    $tmp = $Settings + '.tmp-auto-clear'
+    Write-Utf8 $tmp ($json + "`n")
+    [System.IO.File]::Copy($tmp, $Settings, $true)
+    Remove-Item -LiteralPath $tmp -Force
 }
 
 function Read-Settings {
@@ -402,21 +594,27 @@ function Invoke-Install {
     New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
     if (-not (Test-SamePath $ScriptPath $HookScript)) { Copy-Item $ScriptPath $HookScript -Force }
     $data = Read-Settings
-    $groups = @(Get-FilteredStopGroups $data)
     # Forward slashes: the hook may run through Git Bash, where backslashes inside quotes are fragile.
-    $command = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($HookScript -replace '\\', '/') + '" hook'
-    $entry = [pscustomobject]@{ type = 'command'; command = $command; async = $true; timeout = 30 }
-    $groups += [pscustomobject]@{ hooks = @($entry) }
-    Save-StopGroups $data $groups
-    Write-Output ('INSTALLED Stop hook -> ' + $Settings + ' (backup: ' + $Settings + '.bak-auto-clear)')
+    $file = ($HookScript -replace '\\', '/')
+    # StopFailure waits AUTO_CLEAR_RETRY_DELAY (30 s) before typing -> its timeout needs headroom.
+    foreach ($spec in @(@('Stop', 'hook', 30), @('StopFailure', 'failhook', 120))) {
+        $groups = @(Get-FilteredGroups $data $spec[0])
+        $command = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $file + '" ' + $spec[1]
+        $entry = [pscustomobject]@{ type = 'command'; command = $command; async = $true; timeout = $spec[2] }
+        $groups += [pscustomobject]@{ hooks = @($entry) }
+        Set-Groups $data $spec[0] $groups
+    }
+    Save-Settings $data
+    Write-Output ('INSTALLED Stop + StopFailure hook -> ' + $Settings + ' (backup: ' + $Settings + '.bak-auto-clear)')
 }
 
 function Invoke-Uninstall {
     if (Test-Path $HookScript) { Remove-Item $HookScript -Force }
     if (-not (Test-Path $Settings)) { Write-Output 'NOT_INSTALLED'; return }
     $data = Read-Settings
-    Save-StopGroups $data @(Get-FilteredStopGroups $data)
-    Write-Output ('UNINSTALLED Stop hook <- ' + $Settings)
+    foreach ($hookEvent in @('Stop', 'StopFailure')) { Set-Groups $data $hookEvent @(Get-FilteredGroups $data $hookEvent) }
+    Save-Settings $data
+    Write-Output ('UNINSTALLED Stop + StopFailure hook <- ' + $Settings)
 }
 
 switch ($Sub) {
@@ -424,9 +622,16 @@ switch ($Sub) {
     'off' { Invoke-Off }
     'status' { Invoke-Status }
     'probe' { Invoke-Probe }
+    'type-test' { Invoke-TypeTest }
     'hook' {
         # A hook must never fail the turn: log and exit 0 whatever happens.
         try { Invoke-Hook } catch { Write-Log ('hook error: ' + $_.Exception.Message) }
+        exit 0
+    }
+    'retry-arm' { Invoke-RetryArm $Rest }
+    'retry-off' { Invoke-RetryOff }
+    'failhook' {
+        try { Invoke-FailHook } catch { Write-Log ('failhook error: ' + $_.Exception.Message) }
         exit 0
     }
     'inject' {
@@ -435,12 +640,8 @@ switch ($Sub) {
     }
     'install' { Invoke-Install }
     'uninstall' { Invoke-Uninstall }
-    # API-error retry (StopFailure hook) is macOS-only for now - see auto-clear.sh retry-arm.
-    'retry-arm' { Write-Output 'UNSUPPORTED: API-error retry (StopFailure hook) is not implemented on Windows yet - resume by hand'; exit 2 }
-    'retry-off' { Write-Output 'RETRY_NOT_ARMED'; exit 0 }
-    'failhook' { exit 0 }
     default {
-        Write-Output 'usage: auto-clear.ps1 {arm [--stdin] [--then "<prompt>"]|off|status|probe|hook|inject <pid>|install|uninstall}'
+        Write-Output 'usage: auto-clear.ps1 {arm [--stdin] [--then "<prompt>"]|off|status|probe|type-test|hook|retry-arm [--prompt "<prompt>"] [--max N]|retry-off|failhook|inject <pid>|install|uninstall}'
         exit 1
     }
 }

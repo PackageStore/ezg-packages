@@ -9,6 +9,8 @@
 #
 #   Env:  BUGHUB_ENDPOINT        gốc URL Worker (mặc định DEFAULT_ENDPOINT bên dưới)
 #         BUGHUB_POLL_INTERVAL   giây giữa hai lần poll, số nguyên ≥ 1 (mặc định 60)
+#         BUGHUB_WATCH_HEARTBEAT file chạm mỗi lần poll (do `bughub-watch.py start` đặt) — watchdog của nó biết
+#                                loop đang chờ bug chứ không phải đứng im
 #
 #   Exit: 0  có bug — stdout đúng một dòng JSON {"new":N,"retry":M}
 #         1  thiếu curl / python3
@@ -88,6 +90,7 @@ echo "bughub-wait: chờ bug của $code ($url, mỗi ${interval}s)" >&2
 last_err=""
 
 while :; do
+  [ -z "${BUGHUB_WATCH_HEARTBEAT:-}" ] || touch "$BUGHUB_WATCH_HEARTBEAT" 2>/dev/null || true
   # -f để không coi trang lỗi là payload; -w vẫn in mã HTTP kể cả khi -f làm curl trả lỗi.
   status="$(curl -fsS --max-time "$CURL_TIMEOUT" -o "$body_file" -w '%{http_code}' --proto '=http,https' -- "$url" 2>/dev/null)" || true
   err=""

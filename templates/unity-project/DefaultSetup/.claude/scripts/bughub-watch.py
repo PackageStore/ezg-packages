@@ -23,9 +23,14 @@ Lệnh:
         Chuẩn bị thư mục (nhánh bot: tạo worktree / chuyển nhánh; theo nhánh: giữ nguyên checkout), chạy
         `sync`, rồi mở `claude "/fix-bug --watch"` ngay trong cửa sổ terminal này và GIÁM SÁT nó: claude
         thoát với mã ≠ 0 (crash, bị kill) → chờ `BUGHUB_PAUSE_SECONDS` rồi mở lại, mãi mãi; thoát mã 0
-        (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại → dừng. `--yes`: không hỏi lại khi phải
-        chuyển nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển nguyên cho
-        claude (vd `-- --permission-mode bypassPermissions`).
+        (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại → dừng. WATCHDOG: claude còn sống mà
+        đứng im quá `BUGHUB_WATCHDOG_MINUTES` phút (mặc định 20; 0 = tắt) — transcript của session không
+        ghi thêm gì và không lệnh nào của loop (`bughub-wait`, lệnh của script này) báo heartbeat, tức là
+        lượt chết vì lỗi API mà không ai gõ tiếp, hoặc model kết thúc lượt mà không để lại việc chờ nào →
+        tắt claude (cả cây process) rồi mở lại session mới. Heartbeat: file trong env
+        `BUGHUB_WATCH_HEARTBEAT` (mỗi lần mở claude một file mới). `--yes`: không hỏi lại khi phải chuyển
+        nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển nguyên cho claude
+        (vd `-- --permission-mode bypassPermissions`).
   sync  TRƯỚC khi nhận mỗi bug: fetch + merge `origin/<nhánh>` (và nhánh chính ở chế độ nhánh bot).
         `OK` kèm `dirty` = file đã track đang sửa dở (bot không được đụng), `takenBase` = file merge
         nhánh chính đã tự lấy bản nhánh chính | `CONFLICT` (merge nhánh chính đang dở, `files` chờ gộp
@@ -60,6 +65,10 @@ Lệnh:
   notice check|mark --reason KEY -- N... | notice clear
         Chống gửi lặp `bughub_note` khi loop pause vì Editor chưa dùng được: `check` trả các bug CHƯA được
         nhắn với lý do KEY, `mark` ghi nhận đã nhắn, `clear` (Editor dùng được lại) xoá để lần lỗi sau nhắn tiếp.
+  claim set --bug N | claim clear [--bug N] | claim get
+        Nhớ bug loop watch ĐANG GIỮ (đã nhận, chưa resolve / needs-info / block / release) để session sau
+        làm tiếp nếu session này chết giữa chừng (lỗi API, crash, watchdog mở lại). `get` → `NONE` hoặc
+        `CLAIMED` kèm `commit` (commit `Bug-Report: #N` tạo SAU lúc nhận, trên HEAD) + `pushed`.
 
 Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log cho người đọc ra stderr.
 Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`) · 2 config / tham số sai / `start` không chuẩn bị
@@ -112,6 +121,13 @@ EDITOR_POLL_SECONDS = 5
 # Entry registry của Unity MCP cũ hơn mức này là của Editor đã chết (= registryStalenessTimeoutMs mặc định của MCP).
 REGISTRY_FRESH_SECONDS = 300
 RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart-unity" / "scripts"
+CLAIM_STATE = "claim.json"
+# `start` đặt env này cho claude nó mở: mọi lệnh của loop chạm file đó để watchdog biết loop còn sống.
+HEARTBEAT_ENV = "BUGHUB_WATCH_HEARTBEAT"
+# Claude đứng im lâu hơn chừng này (phút, env BUGHUB_WATCHDOG_MINUTES; 0 = tắt) → watchdog của `start` mở lại.
+# Phải dài hơn mọi lượt làm việc bình thường không ghi transcript (một lệnh / một lượt suy nghĩ dài).
+WATCHDOG_MINUTES = 20
+WATCHDOG_POLL_SECONDS = 15
 
 
 class Stop(Exception):
@@ -126,6 +142,16 @@ class Stop(Exception):
 def wait(reason: str, message: str, **extra) -> Stop:
     """Trạng thái tạm thời — skill pause rồi thử lại, không dừng loop."""
     return Stop(EXIT_WAIT, "WAIT", message, reason=reason, **extra)
+
+
+def heartbeat() -> None:
+    """Báo watchdog của `start` rằng loop còn sống (đang chờ / đang làm). Không chạy dưới `start` → không làm gì."""
+    path = os.environ.get(HEARTBEAT_ENV)
+    if path:
+        try:
+            Path(path).touch()
+        except OSError:
+            pass
 
 
 # --------------------------------------------------------------------------------------------------
@@ -175,6 +201,7 @@ def fetch(cwd: Path) -> None:
             raise wait("FETCH_FAILED", f"git fetch origin lỗi: {proc.stderr.strip()}")
         print(f"bughub-watch: fetch lỗi, thử lại sau {delay}s — {proc.stderr.strip()}", file=sys.stderr)
         time.sleep(delay)
+        heartbeat()
 
 
 def worktrees(cwd: Path) -> list[dict]:
@@ -665,6 +692,7 @@ def do_pause(argv: list[str]) -> dict:
     seconds = max(0, seconds)
     print(f"bughub-watch: nghỉ {seconds}s (lần lỗi thứ {attempt}) rồi thử lại", file=sys.stderr)
     time.sleep(seconds)
+    heartbeat()
     return {"result": "RESUME", "attempt": attempt, "slept": seconds}
 
 
@@ -816,6 +844,7 @@ def editor_open(root: Path, timeout: int) -> dict:
             print(f"bughub-watch: Editor pid {pid} vẫn đang load ({int(time.monotonic() - started)}s)…", file=sys.stderr)
             last_log = time.monotonic()
         time.sleep(EDITOR_POLL_SECONDS)
+        heartbeat()
 
 
 def editor_close(root: Path, wait_s: int) -> dict:
@@ -831,6 +860,7 @@ def editor_close(root: Path, wait_s: int) -> dict:
     deadline = time.monotonic() + max(0, wait_s)
     while pid_alive(pid) and time.monotonic() < deadline:
         time.sleep(2)
+        heartbeat()
     graceful = not pid_alive(pid)
     if not graceful or restart_unity("--status", root) != "NOT_RUNNING":
         # Editor không tự thoát (hoặc còn import worker mồ côi) → kill cả cụm của project.
@@ -881,6 +911,50 @@ def do_notice(cwd: Path, argv: list[str]) -> dict:
         return {"result": "OK", "reason": reason, "post": [n for n in bugs if n not in posted]}
     write_json(path, {"reason": reason, "posted": sorted(set(posted + bugs))})
     return {"result": "OK", "reason": reason, "marked": bugs}
+
+
+def bug_option(argv: list[str], required: bool) -> int | None:
+    if not argv and not required:
+        return None
+    if len(argv) != 2 or argv[0] != "--bug" or not re.fullmatch(r"[1-9][0-9]*", argv[1]):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "claim set --bug N | claim clear [--bug N] | claim get")
+    return int(argv[1])
+
+
+def bug_commit(bug: int, since: str, cwd: Path) -> str | None:
+    """Commit sửa bug #N (dòng `Bug-Report: #N`) tạo từ lúc nhận bug trở đi, trên HEAD — None nếu chưa có.
+    Lọc theo thời gian để không nhầm commit của lần sửa trước (bug bị QA giao lại)."""
+    proc = git("log", "-n", "1", "--format=%H", f"--since={since}", "-E", f"--grep=^Bug-Report: #{bug}$", "HEAD",
+               cwd=cwd, check=False)
+    sha = proc.stdout.strip()
+    return sha if proc.returncode == 0 and sha else None
+
+
+def do_claim(cwd: Path, argv: list[str]) -> dict:
+    sub, rest = (argv[0], argv[1:]) if argv else ("", [])
+    path = state_file(cwd, CLAIM_STATE)
+    if sub == "set":
+        bug = bug_option(rest, required=True)
+        write_json(path, {"bug": bug, "claimedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                          "branch": current_branch(cwd)})
+        return {"result": "OK", "bug": bug}
+    state = read_json(path)
+    if sub == "clear":
+        bug = bug_option(rest, required=False)
+        cleared = bool(state) and (bug is None or state.get("bug") == bug)
+        if cleared:
+            path.unlink(missing_ok=True)
+        return {"result": "OK", "cleared": cleared}
+    if sub == "get" and not rest:
+        if not state or not isinstance(state.get("bug"), int):
+            return {"result": "NONE"}
+        bug, since = state["bug"], str(state.get("claimedAt") or "")
+        commit = bug_commit(bug, since, cwd) if since else None
+        branch = current_branch(cwd)
+        own = f"refs/remotes/origin/{branch}"
+        pushed = bool(commit and branch and ref_exists(own, cwd) and is_ancestor(commit, own, cwd))
+        return {"result": "CLAIMED", "bug": bug, "claimedAt": since, "branch": branch, "commit": commit, "pushed": pushed}
+    raise Stop(EXIT_CONFIG, "BAD_ARGS", "claim set --bug N | claim clear [--bug N] | claim get")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -969,7 +1043,10 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     unknown = [a for a in (argv[:argv.index("--")] if "--" in argv else argv) if a not in ("--yes", "--no-launch")]
     if unknown:
         raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {' '.join(unknown)}")
-    if launch and not shutil.which("claude"):
+    # Đường dẫn thật (vd `claude.cmd` của bản cài qua npm trên Windows): CreateProcess không tự thêm đuôi .cmd,
+    # nên Popen(["claude"]) ném FileNotFoundError dù `which` thấy lệnh.
+    claude = shutil.which("claude") if launch else None
+    if launch and not claude:
         raise Stop(EXIT_CONFIG, "NO_CLAUDE", "không thấy lệnh `claude` trong PATH")
 
     workdir = prepare_workdir(cfg, cwd, assume_yes)
@@ -994,29 +1071,190 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     sys.stdout.flush()
     set_title(f"BugHub watch · {cfg['projectCode']} · {branch}")
     os.chdir(workdir)
-    sys.exit(supervise(["claude", *extra, WATCH_PROMPT]))
+    sys.exit(supervise([claude, *extra, WATCH_PROMPT], workdir))
 
 
-def supervise(cmd: list[str]) -> int:
-    """Chạy claude và mở lại mỗi khi nó chết (mã ≠ 0: crash, bị kill) — loop watch không chết theo process.
-    Thoát mã 0 (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại = dev dừng → trả mã đó."""
+def watchdog_limit() -> float:
+    """Giây đứng im tối đa trước khi watchdog mở lại claude (0 = tắt watchdog)."""
+    try:
+        minutes = float(os.environ.get("BUGHUB_WATCHDOG_MINUTES", WATCHDOG_MINUTES))
+    except ValueError:
+        minutes = WATCHDOG_MINUTES
+    return max(0.0, minutes) * 60
+
+
+def watch_log(workdir: Path, message: str) -> None:
+    """Nhật ký của lớp giám sát (`.git/bughub-watch/watch.log`) — in ra terminal lúc claude đang chạy là vỡ TUI."""
+    try:
+        path = state_file(workdir, "watch.log")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
+    except (OSError, Stop):
+        pass
+
+
+def claude_projects_dir() -> Path:
+    base = os.environ.get("CLAUDE_CONFIG_DIR")
+    return (Path(base).expanduser() if base else Path.home() / ".claude") / "projects"
+
+
+def transcript_files(folder: Path) -> list[Path]:
+    return [*folder.glob("*.jsonl"), *folder.glob("*/subagents/*.jsonl")]
+
+
+def transcript_cwd(file: Path) -> str | None:
+    try:
+        with file.open(encoding="utf-8", errors="replace") as f:
+            for _, line in zip(range(40), f):
+                try:
+                    cwd = json.loads(line).get("cwd")
+                except (ValueError, AttributeError):
+                    continue
+                if cwd:
+                    return str(cwd)
+    except OSError:
+        pass
+    return None
+
+
+def find_transcript_dir(workdir: Path, since: float) -> Path | None:
+    """Thư mục transcript của Claude Code cho thư mục làm việc này (~/.claude/projects/<cwd, ký tự lạ thành ->)."""
+    root = claude_projects_dir()
+    try:
+        folders = [d for d in root.iterdir() if d.is_dir()]
+    except OSError:
+        return None
+    want = re.sub(r"[^A-Za-z0-9]", "-", str(workdir)).lower()
+    for folder in folders:
+        if folder.name.lower() == want:
+            return folder
+    # Tên thư mục là quy ước nội bộ của Claude Code (có thể đổi / bị cắt ngắn) → dò theo `cwd` ghi trong transcript mới.
+    for folder in folders:
+        for file in folder.glob("*.jsonl"):
+            try:
+                fresh = file.stat().st_mtime >= since
+            except OSError:
+                continue
+            if fresh and same_path(transcript_cwd(file), workdir):
+                return folder
+    return None
+
+
+def last_activity(started: float, beat: Path, folder: Path) -> float:
+    """Mốc gần nhất loop còn làm gì: transcript ghi thêm (lượt đang chạy) hoặc heartbeat (đang chờ / lệnh dài)."""
+    stamps = [started]
+    for file in [beat, *transcript_files(folder)]:
+        try:
+            stamps.append(file.stat().st_mtime)
+        except OSError:
+            pass
+    return max(stamps)
+
+
+def descendants(pid: int) -> list[int]:
+    """PID con cháu của `pid` (POSIX) — để tắt cả background task của claude, không chỉ process chính."""
+    proc = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True)
+    children: dict[int, list[int]] = {}
+    for line in proc.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            children.setdefault(int(parts[1]), []).append(int(parts[0]))
+    found, todo = [], [pid]
+    while todo:
+        for child in children.get(todo.pop(), []):
+            if child not in found:
+                found.append(child)
+                todo.append(child)
+    return found
+
+
+def stop_claude(proc: subprocess.Popen) -> None:
+    """Tắt claude kèm cả cây process của nó (MCP server, shell nền đang chờ bug)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        children = descendants(proc.pid)
+        proc.terminate()
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        for child in children:
+            try:
+                os.kill(child, signal.SIGTERM)
+            except OSError:
+                pass
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        pass
+    if os.name != "nt" and sys.stdin.isatty():
+        subprocess.run(["stty", "sane"], check=False)  # claude bị tắt giữa chừng có thể để terminal ở raw mode
+
+
+def wait_claude(proc: subprocess.Popen, workdir: Path, beat: Path, limit: float) -> tuple[int, bool]:
+    """Chờ claude thoát → (mã thoát, False). Watchdog: đứng im quá `limit` giây → tắt claude → (mã, True)."""
+    if limit <= 0:
+        return proc.wait(), False
+    started = time.time()
+    poll = max(0.5, min(WATCHDOG_POLL_SECONDS, limit / 4))
+    folder, warned = None, False
+    while True:
+        try:
+            return proc.wait(timeout=poll), False
+        except subprocess.TimeoutExpired:
+            pass
+        folder = folder or find_transcript_dir(workdir, started)
+        if folder is None:
+            # Không đọc được transcript thì không phân biệt được "đang làm" với "đứng im" — không bao giờ tắt mù.
+            if not warned and time.time() - started >= limit:
+                watch_log(workdir, f"watchdog: không thấy transcript của claude trong {claude_projects_dir()} — tắt watchdog cho lần chạy này")
+                warned = True
+            continue
+        idle = time.time() - last_activity(started, beat, folder)
+        if idle >= limit:
+            watch_log(workdir, f"watchdog: claude pid {proc.pid} đứng im {int(idle)}s (giới hạn {int(limit)}s) — tắt để mở lại")
+            stop_claude(proc)
+            return (proc.returncode if proc.returncode is not None else -1), True
+
+
+def supervise(cmd: list[str], workdir: Path) -> int:
+    """Chạy claude và mở lại mỗi khi nó chết (mã ≠ 0: crash, bị kill) hoặc đứng im quá lâu (watchdog) — loop
+    watch không chết theo process. Thoát mã 0 (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại = dev
+    dừng → trả mã đó."""
     interrupted: list[bool] = []
 
     def on_sigint(_sig, _frame):
         interrupted.append(True)
 
+    limit = watchdog_limit()
+    beat_dir = state_file(workdir, "heartbeat").parent
+    beat_dir.mkdir(parents=True, exist_ok=True)
+    for old in beat_dir.glob("heartbeat-*"):
+        old.unlink(missing_ok=True)
+    launch = 0
     while True:
+        launch += 1
+        # File heartbeat riêng cho mỗi lần mở: process nền sót lại của lần trước không làm lần này "còn sống" giả.
+        beat = beat_dir / f"heartbeat-{os.getpid()}-{launch}"
+        beat.touch()
+        env = dict(os.environ, **{HEARTBEAT_ENV: beat.as_posix()})
         # Handler Python không truyền sang process con qua exec (SIG_IGN thì có) → claude vẫn nhận Ctrl+C bình
         # thường, còn script không bị KeyboardInterrupt giết process con giữa chừng.
         previous = signal.signal(signal.SIGINT, on_sigint)
         try:
-            code = subprocess.call(cmd)
+            proc = subprocess.Popen(cmd, env=env)
+            code, stalled = wait_claude(proc, workdir, beat, limit)
         finally:
             signal.signal(signal.SIGINT, previous)
-        if code == 0 or interrupted:
+            beat.unlink(missing_ok=True)
+        if not stalled and (code == 0 or interrupted):
             return code
         delay = pause_seconds()
-        print(f"bughub-watch: claude thoát (exit {code}) — mở lại sau {delay}s, Ctrl+C để dừng hẳn", file=sys.stderr)
+        reason = f"đứng im quá {limit / 60:g} phút (watchdog)" if stalled else f"thoát (exit {code})"
+        watch_log(workdir, f"claude {reason} — mở lại sau {delay}s")
+        print(f"bughub-watch: claude {reason} — mở lại sau {delay}s, Ctrl+C để dừng hẳn", file=sys.stderr)
         try:
             time.sleep(delay)
         except KeyboardInterrupt:
@@ -1033,6 +1271,7 @@ def main(argv: list[str]) -> int:
     command = argv[0] if argv and not argv[0].startswith("-") else "start"
     rest = argv[1:] if argv and not argv[0].startswith("-") else argv
     cwd = Path.cwd()
+    heartbeat()
     try:
         if command == "pause":
             # Không cần repo / config — chính lúc config hỏng skill cũng phải pause được.
@@ -1062,9 +1301,11 @@ def main(argv: list[str]) -> int:
                 result = do_editor(cwd, rest)
             elif command == "notice":
                 result = do_notice(cwd, rest)
+            elif command == "claim":
+                result = do_claim(repo_root(cwd), rest)
             else:
                 raise Stop(EXIT_CONFIG, "BAD_ARGS",
-                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice)")
+                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))
