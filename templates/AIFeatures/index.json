@@ -24,7 +24,7 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 15
+      "count": 16
     },
     {
       "id": "Rules",
@@ -253,8 +253,8 @@
       "source": "defaultsetup",
       "fileName": "code-review.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/code-review.zip",
-      "sha256": "7aae814c082269e157b1448f9a8441300c4bfda337090a21884efae3e3d2c3a8",
-      "size": 2401
+      "sha256": "b020cb77ae5c02d91ba228b0d4e8069c667986002c38eb10787b5a7b9045a4fd",
+      "size": 2389
     },
     {
       "id": "Commands/csv-design",
@@ -397,14 +397,14 @@
       "source": "defaultsetup",
       "fileName": "new-class.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-class.zip",
-      "sha256": "8be859e0e20dd4a7a2b441d4a23471faa7e4848435a793c7ba4c09675635df03",
-      "size": 649
+      "sha256": "06cccfa17e74ea59ad5f1efe428132f24477afd9474925af3ba71341eccc4946",
+      "size": 644
     },
     {
       "id": "Commands/new-feature",
       "name": "new-feature",
       "category": "Commands",
-      "description": "Create a new Feature structure in the [Project Name] project",
+      "description": "Create a new Feature structure in this project",
       "installPath": ".claude/commands/new-feature.md",
       "isDirectory": false,
       "files": [
@@ -415,8 +415,8 @@
       "source": "defaultsetup",
       "fileName": "new-feature.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-feature.zip",
-      "sha256": "bd297cec2423f1e0ad1a9939d0c37f3767863e9028bb359b813f16332e715d5e",
-      "size": 3058
+      "sha256": "b9a746809abd9afcb396b600b325f2df21903332c76c14c97da8062422fd5c0b",
+      "size": 3054
     },
     {
       "id": "Commands/new-package",
@@ -728,7 +728,7 @@
       "id": "Config/CLAUDE.md",
       "name": "CLAUDE.md",
       "category": "Config",
-      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới. Mục backlog/loop đã tách sang Docs/backlog-system.md (CLAUDE.md chỉ còn con trỏ + invariant) — cài kèm item đó.",
+      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — template quản lý, project không được sửa, nên cài/cập nhật luôn GHI ĐÈ file hiện có. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; Feature Hub không bao giờ ghi đè hay publish file đó). Project chưa có CLAUDE_PROJECT.md: cài kèm Docs/CLAUDE_PROJECT.template + Scripts/bootstrap.sh rồi chạy bootstrap, và chuyển nội dung riêng của CLAUDE.md cũ sang CLAUDE_PROJECT.md (bản cũ vẫn còn trong git). Mục backlog/loop ở Docs/backlog-system.md — cài kèm.",
       "installPath": "CLAUDE.md",
       "isDirectory": false,
       "files": [
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "8bc936662ada89d25af70495ef5884db7ce61d8e5e5330150145ac5ed5c4eff5",
-      "size": 7133
+      "sha256": "4773b0d562aeae374bb329d807ec346d3141bc9c26a0d00c092aea31ac058aa6",
+      "size": 7877
     },
     {
       "id": "Config/project-profile.json",
@@ -815,6 +815,24 @@
       "size": 8836
     },
     {
+      "id": "Docs/CLAUDE_PROJECT.template",
+      "name": "CLAUDE_PROJECT.template",
+      "category": "Docs",
+      "description": "Khung CLAUDE_PROJECT.md — chỉ dẫn riêng của project (game, gameplay bucket, hệ thống/quy ước riêng) mà CLAUDE.md import. bootstrap copy thành CLAUDE_PROJECT.md ở root repo khi chưa có — file đó project tự điền và commit, Feature Hub không bao giờ ghi đè, không bao giờ đẩy lên server. Cài kèm Config/CLAUDE.md + Scripts/bootstrap.sh.",
+      "installPath": ".claude/docs/CLAUDE_PROJECT.template.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/CLAUDE_PROJECT.template.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "CLAUDE_PROJECT.template.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/CLAUDE_PROJECT.template.zip",
+      "sha256": "21fd137d0671c92facbde8b2559a1ce7edb2bc349dc43fe81e189a4c1a777ad2",
+      "size": 1113
+    },
+    {
       "id": "Docs/design-pipeline",
       "name": "design-pipeline",
       "category": "Docs",
@@ -872,8 +890,8 @@
       "source": "defaultsetup",
       "fileName": "discord-notification.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip",
-      "sha256": "c1bcc6b9e7d6279a23fa6299f5959f2adf67be276be6171a3da958a58d27e053",
-      "size": 3961
+      "sha256": "f83fdc9bed71feea267b61998bb243f9d198189cf019c412a1678adf7765abf2",
+      "size": 3958
     },
     {
       "id": "Docs/GETTING-STARTED",
@@ -890,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "GETTING-STARTED.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
-      "sha256": "cb6c218643a0d70b198f7f29c43d0c4e039128c8fa9d2642d88aebb9884bb414",
-      "size": 5404
+      "sha256": "a766bd24342c28daa7b35442146253b901ac4b9cfd58faf1fdf6f42d0baee472",
+      "size": 5620
     },
     {
       "id": "Docs/new-package-guide",
@@ -1232,8 +1250,8 @@
       "source": "defaultsetup",
       "fileName": "add_localize.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/add_localize.py.zip",
-      "sha256": "ebddafa17ffcdef500b0141374a49623f659b594218d8501577ffd382f15c1f6",
-      "size": 2662
+      "sha256": "04b27080ebdb27c5bc9f1924ba2a178fda4159df64bbd7f81d5cb315dc14fd93",
+      "size": 2660
     },
     {
       "id": "Scripts/art-style-board.py",
@@ -1340,8 +1358,8 @@
       "source": "defaultsetup",
       "fileName": "batch_add_localize.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/batch_add_localize.py.zip",
-      "sha256": "3f1b4aa6740b1e269f5a9e3428bafab257e23df975a90298cdf8e3299dfe8881",
-      "size": 2726
+      "sha256": "b21befae827c514da8dcb5a4f9c59cbb307ee07a08dcdba73df7d9085bb04a92",
+      "size": 2724
     },
     {
       "id": "Scripts/bootstrap.ps1",
@@ -1358,8 +1376,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
-      "sha256": "bbda24560686f0aa2511cb1de78ae2e4f676df5bf5fb5df7ddf4659814aab1ee",
-      "size": 3995
+      "sha256": "accedaf3a0c595dc4b9f06ed4427e4ece1c33b97c54d39693c2ec8f73cf01ef7",
+      "size": 4315
     },
     {
       "id": "Scripts/bootstrap.sh",
@@ -1376,8 +1394,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
-      "sha256": "5f0ce024233c2f9dce4b0377d45c3a711a5a03e641ae1e12658902bac3c9e45d",
-      "size": 3469
+      "sha256": "fa7d41950c6324b81ca499468389eaf832ab6c0dd1a4548056143d160784743d",
+      "size": 3787
     },
     {
       "id": "Scripts/bughub-wait.ps1",
@@ -1718,8 +1736,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "e0c1c0d7569dd8ed85111f3ccb0a6ae0032c94e71694d46bc6a5a38c06d6abe2",
-      "size": 39102
+      "sha256": "ebcd90e2f338f73025c77751839855bc66ffbb95672dfc19c80979055d7b236f",
+      "size": 39141
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1808,8 +1826,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "f106f3ff3483a1d806ee9f5aea0419393144573fb55359f9a97f23af1bdffdab",
-      "size": 30757
+      "sha256": "953e1c3eff08cd755477902c374fb201f82e514b3e9216bcb996958da077dcc8",
+      "size": 30778
     },
     {
       "id": "Scripts/run-backlog-refs.py",
@@ -2689,8 +2707,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "fd3bfb9fd50f04df8a26eeb6bfc7ea624bc419a5147b5bdd113a42adfedd110c",
-      "size": 18317
+      "sha256": "897323ea27b5a371cd0b9f720bc3098e70dd21b06735fedfaa4f85d5aecd417b",
+      "size": 18332
     },
     {
       "id": "Skills/game-animation",
@@ -3062,8 +3080,8 @@
       "source": "extra",
       "fileName": "publish-ai-features.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip",
-      "sha256": "1da5ea0b3396872231cbe0e329f3bc9108c5b58631c6eaeb8163bc7b3fb9fffc",
-      "size": 5235
+      "sha256": "4da6046c1bbef8ecc760aa157bd220d8e5ed0e39890aa7a184c8eb1e3f75cd3f",
+      "size": 5451
     },
     {
       "id": "Skills/publish-feature",
@@ -3152,8 +3170,8 @@
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
-      "sha256": "7211c0368e66b4d83c1551ceaca443685be757d1b1fd47c31780c3f549306d17",
-      "size": 5657
+      "sha256": "764c11d5eb259cc54d835dbbadeb7ec4dd61e3984d352d9a97bc0e726b09f011",
+      "size": 5675
     },
     {
       "id": "Skills/refactor-ui",
@@ -3170,8 +3188,8 @@
       "source": "defaultsetup",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "822ce209ac409f30327d35caaaabf3d86a5d0727449d57db4dde02903c171e62",
-      "size": 13780
+      "sha256": "5c7a70e03b00ceceadda4860fb6253cacec583d7d8253e82c6de772ef84fe1db",
+      "size": 13798
     },
     {
       "id": "Skills/restart-unity",
@@ -3230,8 +3248,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "0d7d9bd68acdcb20fb26de8322bf9cf85da4b0ba4e63f9dbfd771e74952564f6",
-      "size": 44353
+      "sha256": "8af93642fc4643263b9350fcdb23936bb012a49c6a09235a23a20f9aff5aa42e",
+      "size": 44409
     },
     {
       "id": "Skills/setup-package-push",
