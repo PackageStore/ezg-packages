@@ -145,8 +145,8 @@
       "source": "defaultsetup",
       "fileName": "security-auditor.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/security-auditor.zip",
-      "sha256": "8b27463f8be595c6914fd7a9d0e88b3764ffbcc1ff884d8b6448d26174fe328d",
-      "size": 5658
+      "sha256": "b21f26d689291616048a9079d69de13ce8e7ad7145a75cf995579d87f065a30f",
+      "size": 5832
     },
     {
       "id": "Agents/task-planner",
@@ -1268,8 +1268,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-preflight.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip",
-      "sha256": "adf59bd925eaa3b907e6f182496471f2d4d6949216d7296f28cff74bcdb404bf",
-      "size": 8310
+      "sha256": "1c067645522b78dfe67ca19367198d1935b1743129f27fa6498a1ae8e7b66b29",
+      "size": 8654
     },
     {
       "id": "Scripts/backlog-preflight.py",
@@ -1286,8 +1286,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-preflight.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip",
-      "sha256": "e546b43af4b05269593dd2b4f886615708d0bbaef5e3b060033a7351a263a01e",
-      "size": 8906
+      "sha256": "1a94c791a3a80642b8c5fa1a8164541cfab0f37c50f4d8902087d8fac8a3ee95",
+      "size": 9270
     },
     {
       "id": "Scripts/backlog-snapshot.py",
@@ -1925,8 +1925,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "325c2278ee97533b6c3ed54103dcb5c72d1397ac04789724b73a9db322517ec0",
-      "size": 50636
+      "sha256": "91f25cd3335539a372bd31eab14ec478bacc2ba4e700314cdcaddbd1dae48c63",
+      "size": 51831
     },
     {
       "id": "Scripts/ui_spec_common.py",
