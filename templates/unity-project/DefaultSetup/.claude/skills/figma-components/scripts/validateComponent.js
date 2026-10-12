@@ -102,7 +102,7 @@ for (const v of variants) {
 
 const axisNames = Object.keys(axes);
 if (axisNames.length > 1) {
-  warnings.push(`${axisNames.length} variant axes (${axisNames.join(', ')}) — one axis per set; nest the others as exposed instances unless a recipe reads another axis (rule 7)`);
+  errors.push(`${axisNames.length} variant axes (${axisNames.join(', ')}) — one axis per set, State counts; nest the others as exposed instances unless one axis's recipe reads the other's value (rule 7)`);
 }
 if (generic.length) errors.push(`${generic.length} generic node names (hygiene S-2)`);
 if (unstyledText.length) errors.push(`${unstyledText.length} TEXT nodes without a text style (hygiene V-3)`);

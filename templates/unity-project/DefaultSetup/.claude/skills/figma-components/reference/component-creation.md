@@ -153,7 +153,10 @@ Order traps, all of them real:
 
 ### Define the axes before writing code
 
-One axis per set (rule 7). The second axis is a nested, exposed instance.
+One axis per set (rule 7), `State` included. `State` is the outer set; every
+other axis is a nested, exposed instance. Total is the sum of the axes. The
+outer variant is auto layout, Hug on both axes; the nested instance is Hug with
+no width/height override, or its size axis does nothing.
 
 ```
 Base-Plate set:

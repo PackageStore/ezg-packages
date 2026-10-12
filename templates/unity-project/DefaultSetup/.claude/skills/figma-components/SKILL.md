@@ -132,9 +132,15 @@ description.
    into an error state, after which reading `componentPropertyDefinitions`
    throws `Component set has existing errors`.
 7. **One axis per set; compose, never multiply.** A set carries one variant
-   axis. A second quality comes from a nested instance of the set that owns it,
-   marked `isExposedInstance = true`: N colours and 3 states are N + 3
-   variants, not N × 3, and the instance panel still offers all N × 3. Keep two
+   axis, `State` included. `State` is the outer set, the interactive root; every
+   other quality is its own set, nested as an instance marked
+   `isExposedInstance = true`: N colours and 3 states are N + 3 variants, not
+   N × 3, and the instance panel still offers all N × 3. Variant count is the
+   sum of the axes, never the product. A set with holes locks combinations in
+   the instance panel: Figma needs a real variant for every picked combination.
+   Size flows from the nested set: the outer variant is auto layout, Hug on both
+   axes, and the nested instance is Hug with no width/height override. An
+   override pins the size and the nested size axis does nothing. Keep two
    axes in one set only when one axis's recipe reads the other axis's value.
    The 30-combination cap stays as the backstop. See
    `reference/component-spec.md` *Composed sets* and
@@ -275,7 +281,7 @@ defects. Run Phase 0 and record the recurring classes below as you find them:
 | A lowercase or placeholder variant axis value | audit's `variants` per set | Axis values are PascalCase and name a real role; rename |
 | Loose frames on the `Components` page | audit's `looseTopLevel` | Promote or delete |
 | A registry entry not on the page | cross-check `component_ids.json` against the audit | `psd-to-figma/reference/component-registry.md` is stale; refresh it |
-| A set with more than one variant axis | `validateComponent.js` warning | Multiplied matrix. Compose it per rule 7 unless a recipe reads another axis |
+| A set with more than one variant axis | `validateComponent.js` error | Hard error, not a warning. Compose it per rule 7 unless a recipe reads another axis |
 | Slot API unavailable | `figma.createSlot` does not exist in this environment | Use the boolean + instance-swap fallback in `reference/slots-guide.md` |
 
 ## Related skills

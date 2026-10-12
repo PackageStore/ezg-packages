@@ -99,9 +99,23 @@ recipe that swaps per-colour rim tokens needs one variant per colour and forces
 the multiply; an overlay bound to one colour-agnostic token does not. Keep two
 axes in one set only when one axis's recipe must read the other axis's value.
 
-Never override a fill on the nested instance to show a state. A fill override
-survives a `Color` swap on the placed instance and pins the old colour. The
-state goes on a sibling `Overlay` node instead.
+`State` is an axis like any other, and it is the outer set: the interactive
+root. Every other quality is its own set, nested as an exposed instance.
+Variant count is the sum of the axes. A set with fewer variants than the axis
+product has holes, and a hole locks that combination in the instance panel:
+Figma needs a real variant for every picked combination.
+
+Size flows from the nested set. The outer variant is auto layout, Hug on both
+axes. The nested instance is Hug with no width/height override: no fixed frame,
+no STRETCH constraint, no manual resize. An override pins the size, so swapping
+the nested size axis changes nothing. Fill is fine only when the parent is meant
+to decide that axis.
+
+A state look may override the nested instance only for a property the nested
+set never varies across its variants, such as effects. If the nested axis varies
+the property (a fill per `Color`), the override survives the swap on the placed
+instance and pins the old value. The state goes on a sibling `Overlay` node
+instead.
 
 In Unity each `State` variant becomes a prefab that nests the plate variant's
 prefab. A placed instance that picks another `Color` has a nested instance whose
