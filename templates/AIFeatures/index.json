@@ -199,8 +199,8 @@
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip",
-      "sha256": "422d7aaa0110b8183d6e8f5e5a4d2ad625756f9581989c5acb8a15c525e6ef98",
-      "size": 1850
+      "sha256": "f9ef6e1b25e1c692a3456c3aca5f381240f1878c9500a0ea6b7a2389dd922915",
+      "size": 1922
     },
     {
       "id": "Commands/auto-build-setup",
@@ -2133,7 +2133,7 @@
       "id": "Skills/add-localize",
       "name": "add-localize",
       "category": "Skills",
-      "description": "Add one or a handful of NEW localization keys you already know the wording for - the EZG MCP tool localize_add_keys writes the row into the team sheet (English + Vietnamese by hand, the other 14 languages machine-translated through the sheet's `template` staging tab, with EZG's shared service account - no key file), then the skill's script merges just those keys into the project's LocalizationData CSVs and runtime .assets. Use when asked to \"thêm key localize\", \"thêm key <x> vào sheet\", \"tạo key localize mới\", \"add a localize key\", \"add a new localization key\", \"cần key dịch cho nút này\". NOT an audit tool - it never scans screens for hardcoded text, never decides key names for strings it was not given, and never touches prefabs; a sweep over screens is `fill-localize`.",
+      "description": "Add one or a handful of NEW localization keys you already know the wording for - the EZG MCP tool localize_add_keys writes the row into the team sheet (English + Vietnamese by hand, the other 14 languages machine-translated through the sheet's `template` staging tab, with EZG's shared service account - no key file), then the skill's script merges just those keys into the project's LocalizationData CSVs and runtime .assets. Any batch size - the tool works in short rounds the agent repeats on its own. Use when asked to \"thêm key localize\", \"thêm key <x> vào sheet\", \"tạo key localize mới\", \"add a localize key\", \"add a new localization key\", \"cần key dịch cho nút này\". NOT an audit tool - it never scans screens for hardcoded text, never decides key names for strings it was not given, and never touches prefabs; a sweep over screens is `fill-localize`.",
       "installPath": ".claude/skills/add-localize",
       "isDirectory": true,
       "files": [
@@ -2146,8 +2146,8 @@
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip",
-      "sha256": "58c742b60b0408ab6a8c8a1d2805c3ce1b5e92e85f4ac67a18b1c558a5435105",
-      "size": 14898
+      "sha256": "261aea2106154f5127d7bd00f454a9cddfcd60cde1545af4044a27a833a99bc4",
+      "size": 16576
     },
     {
       "id": "Skills/add-to-backlog",
