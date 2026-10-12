@@ -254,22 +254,71 @@ def plan(args, S):
 # --------------------------------------------------------------------------
 # 3. apply - only the keys the sheet step returned, nothing else
 # --------------------------------------------------------------------------
-def csv_newline(path):
-    """Keep the line ending the file already uses.
+def csv_eol(lines):
+    """The line ending a new row gets: whatever most rows already use.
 
-    `fill-localize pull` hardcodes CRLF. That is invisible on a checkout whose
-    git normalises line endings and very visible on one that does not: rewriting
-    a 458-line table in the other ending turns "added one key" into a diff
-    touching every row. Adding one key should show up as one line.
+    Tables come as LF, as CRLF, or - often - mostly LF with a few CRLF rows
+    left by a hand edit. Picking CRLF as soon as one row has it rewrote every
+    row of such a mixed table.
     """
+    crlf = sum(1 for line in lines if line.endswith(b"\r\n"))
+    lf = sum(1 for line in lines if line.endswith(b"\n")) - crlf
+    return b"\r\n" if crlf > lf else b"\n"
+
+
+def patch_csv(path, incoming, overwrite):
+    """-> (new file bytes, or None when nothing changes; existing keys kept).
+
+    Patches the table at byte level instead of re-serialising it: rows that are
+    not touched keep their exact bytes (line ending, BOM, order), a new key is
+    appended as one line, and --overwrite replaces only that key's line and
+    keeps its line ending. `fill-localize pull` rewrites whole tables as CRLF;
+    rewriting here too turns "added one key" into a diff over every row on a
+    checkout that does not normalise line endings.
+    """
+    raw = b""
     if os.path.exists(path):
         with open(path, "rb") as f:
-            head = f.read(65536)
-        if b"\r\n" in head:
-            return "\r\n"
-        if b"\n" in head:
-            return "\n"
-    return "\n"
+            raw = f.read()
+    bom = b"\xef\xbb\xbf" if raw.startswith(b"\xef\xbb\xbf") else b""
+    # split on \n only: a stray \r inside a value is data, not a row break
+    parts = raw[len(bom):].split(b"\n")
+    lines = [p + b"\n" for p in parts[:-1]]
+    if parts[-1]:
+        lines.append(parts[-1])
+    if not lines:
+        lines = [b"key~value\n"]
+    eol = csv_eol(lines)
+
+    rows = {}  # key -> line indexes; header skipped like S.read_project_csv
+    for i, line in enumerate(lines):
+        text = line.rstrip(b"\r\n")
+        if not text or (i == 0 and text.startswith(b"key~")):
+            continue
+        k = text.partition(b"~")[0].decode("utf-8", "replace")
+        if k:
+            rows.setdefault(k, []).append(i)
+
+    kept = 0
+    changed = False
+    for k, v in incoming.items():
+        new = ("%s~%s" % (k, v)).encode("utf-8")
+        if k in rows:
+            if not overwrite:
+                kept += 1
+                continue
+            for i in rows[k]:
+                text = lines[i].rstrip(b"\r\n")
+                if text != new:
+                    lines[i] = new + lines[i][len(text):]
+                    changed = True
+            continue
+        if not lines[-1].endswith(b"\n"):
+            lines[-1] += eol
+        lines.append(new + eol)
+        rows[k] = [len(lines) - 1]
+        changed = True
+    return (bom + b"".join(lines) if changed else None), kept
 
 
 def apply_to_project(S, tab, entries, csv_root, assets_root, overwrite,
@@ -287,21 +336,14 @@ def apply_to_project(S, tab, entries, csv_root, assets_root, overwrite,
 
         csv_path = os.path.join(csv_root, code, tab + ".csv")
         if os.path.exists(csv_path) or create_missing:
-            merged = S.read_project_csv(csv_path)
-            before = dict(merged)
-            for k, v in incoming.items():
-                if k not in merged or overwrite:
-                    merged[k] = v
-                else:
-                    kept += 1
-            if merged != before:
+            body, csv_kept = patch_csv(csv_path, incoming, overwrite)
+            kept += csv_kept
+            if body is not None:
                 touched.append(csv_path)
                 if not dry_run:
                     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-                    body = "key~value\n" + "".join(
-                        "%s~%s\n" % (k, v) for k, v in merged.items())
-                    open(csv_path, "w", encoding="utf-8",
-                         newline=csv_newline(csv_path)).write(body)
+                    with open(csv_path, "wb") as f:
+                        f.write(body)
         else:
             print("  ! no CSV at %s (use --create-missing)" % csv_path)
 

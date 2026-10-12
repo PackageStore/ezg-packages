@@ -141,11 +141,13 @@ rows below.
   translated like the rest, with a warning. Pass it.
 - **Unity has to reimport.** Open the Editor once after a run so the touched CSV
   and `.asset` files are picked up.
-- **Line endings are preserved.** A table may be stored as LF or as CRLF, and
-  on a checkout without `core.autocrlf` rewriting it in the other one turns
-  "added one key" into a diff touching all 458 rows. The script keeps whatever
-  the file already has — one key, one line. (`fill-localize pull` hardcodes
-  CRLF; that is the divergence.)
+- **Line endings are preserved.** A table may be stored as LF, as CRLF, or
+  mixed (mostly LF with a few CRLF rows from a hand edit — common), and on a
+  checkout without `core.autocrlf` rewriting it turns "added one key" into a
+  diff touching every row. So the CSV is patched, never re-serialised: a new
+  key is appended as one line in the ending most rows use, `--overwrite`
+  replaces only that key's line, every other byte stays. (`fill-localize pull`
+  hardcodes CRLF; that is the divergence.)
 - **Two people at once.** The tool checks every staging row still holds its own
   key before writing the target tab and stops if someone else wrote there; rerun
   after looking at the sheet.
