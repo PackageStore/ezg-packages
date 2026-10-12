@@ -1,6 +1,6 @@
 ---
 name: game-docs
-description: Search, read and (only when asked) edit this project's external design docs - Google Sheets listed in .claude/project-profile.json under gameDocs.sources - through the EZG MCP tools gsheet_search / gsheet_read / gsheet_write, which use EZG's shared service account (no key file in the project). Use when the user asks about game design/monetization/economy numbers, balance tables, IAP/IAA/gacha config, or says "tra tài liệu dự án", "check the docs", "trong sheet có gì", "sửa sheet design". Do not use for in-repo docs already covered by another skill (read those directly), and not for adding localization keys (that is add-localize).
+description: Search, read and (only when asked) edit this project's external design docs - Google Sheets listed in .claude/project-profile.json under gameDocs.sources - through the EZG MCP tools gsheet_search / gsheet_read / gsheet_write / gsheet_delete_rows, which use EZG's shared service account (no key file in the project). Use when the user asks about game design/monetization/economy numbers, balance tables, IAP/IAA/gacha config, or says "tra tài liệu dự án", "check the docs", "trong sheet có gì", "sửa sheet design". Do not use for in-repo docs already covered by another skill (read those directly), and not for adding localization keys (that is add-localize).
 ---
 
 # Game Docs — the project's design sheets, through EZG MCP
@@ -90,7 +90,27 @@ for the edit, and always in this order:
 
 `input_option` defaults to `USER_ENTERED` (numbers stay numbers, a leading `=`
 is a formula — like typing); `RAW` stores text as-is. Max 500 cells per call.
-The tools cannot delete rows or rename tabs — tell the user to do those by hand.
+
+## Deleting rows
+
+Only when the user asks for rows to go. Every row below moves up, so a row
+number is only good until the next delete or insert.
+
+1. **Read the rows** (`gsheet_search` / `gsheet_read`) and note each row's key —
+   the value in its key column (usually A).
+2. **Dry run** — `gsheet_delete_rows { spreadsheet, tab, rows: [{row, expect: <key>}], dry_run: true }`
+   (`match_column` if the key is not in A). Show the user exactly which rows go.
+3. **Delete** — the same call without `dry_run`. If any row no longer holds its
+   `expect`, nothing is deleted (`mismatches`): read again. All rows of one call
+   go in one atomic request.
+4. **Report** — the result's `removed` holds each deleted row (formulas kept);
+   restoring means version history, or re-inserting rows by hand and writing
+   `removed` back with `gsheet_write`. Re-read before any further edit by row
+   number.
+
+Row 1 (the header) is refused unless the user explicitly wants it gone
+(`allow_header_row: true`). Max 200 rows per call. Renaming tabs, inserting rows
+and deleting columns are not supported — tell the user to do those by hand.
 
 ## Answering the user
 
