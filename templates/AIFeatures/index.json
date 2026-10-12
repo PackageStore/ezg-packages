@@ -24,7 +24,7 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 14
+      "count": 15
     },
     {
       "id": "Rules",
@@ -36,7 +36,7 @@
       "id": "Scripts",
       "name": "Scripts",
       "description": "Script hỗ trợ mà skill/command gọi tới.",
-      "count": 50
+      "count": 51
     },
     {
       "id": "Skills",
@@ -728,7 +728,7 @@
       "id": "Config/CLAUDE.md",
       "name": "CLAUDE.md",
       "category": "Config",
-      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới.",
+      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới. Mục backlog/loop đã tách sang Docs/backlog-system.md (CLAUDE.md chỉ còn con trỏ + invariant) — cài kèm item đó.",
       "installPath": "CLAUDE.md",
       "isDirectory": false,
       "files": [
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "d8a624acb51a0ae72d013df18ac3175b6d23cb145ffec8a65fe524a0c0d6640c",
-      "size": 14330
+      "sha256": "8bc936662ada89d25af70495ef5884db7ce61d8e5e5330150145ac5ed5c4eff5",
+      "size": 7133
     },
     {
       "id": "Config/project-profile.json",
@@ -795,6 +795,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
       "sha256": "afed3b9fc89a13594b5ec12fdd2477091f708487467278e8c780cb844a3bbfa1",
       "size": 6644
+    },
+    {
+      "id": "Docs/backlog-system",
+      "name": "backlog-system",
+      "category": "Docs",
+      "description": "",
+      "installPath": ".claude/docs/backlog-system.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/backlog-system.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "backlog-system.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/backlog-system.zip",
+      "sha256": "c659249a70280c143a3fb556b2d76ac8ed24d402d4d32ccad8f2e4ae842bdb88",
+      "size": 8836
     },
     {
       "id": "Docs/design-pipeline",
@@ -1034,8 +1052,8 @@
       "source": "defaultsetup",
       "fileName": "workflow-model-recommendations.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
-      "sha256": "ba3d79fdb1e6cea75ccd4af75affe0587496a5798d1aac251682d07c4cede0dc",
-      "size": 2175
+      "sha256": "ed2b5e0b26014be95075dded01d20a00e08d66f71904d4cc3be973d3b5463b7f",
+      "size": 2185
     },
     {
       "id": "Rules/art-style",
@@ -1700,8 +1718,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "91eeea62f40cf826edacfd6928b02f396526a07d5976fa2c9117f4814fcbecf1",
-      "size": 38293
+      "sha256": "e0c1c0d7569dd8ed85111f3ccb0a6ae0032c94e71694d46bc6a5a38c06d6abe2",
+      "size": 39102
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1790,8 +1808,26 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "80eff78ce13c61dcaa11af846b78b4b6167813cf640ce6d4e2e6a01600674f90",
-      "size": 30065
+      "sha256": "f106f3ff3483a1d806ee9f5aea0419393144573fb55359f9a97f23af1bdffdab",
+      "size": 30757
+    },
+    {
+      "id": "Scripts/run-backlog-refs.py",
+      "name": "run-backlog-refs.py",
+      "category": "Scripts",
+      "description": "",
+      "installPath": ".claude/scripts/run-backlog-refs.py",
+      "isDirectory": false,
+      "files": [
+        ".claude/scripts/run-backlog-refs.py"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "run-backlog-refs.py.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-refs.py.zip",
+      "sha256": "203a9969413e178dfe307904f3a63fcdaa5b74a42d558453e80009f460dd6e76",
+      "size": 2770
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -1915,18 +1951,19 @@
         ".claude/scripts/tests/test_backlog_preflight.py",
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
+        ".claude/scripts/tests/test_run_backlog_refs.py",
         ".claude/scripts/tests/test_ui_kit_sync.py",
         ".claude/scripts/tests/test_ui_layout_lock.py",
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 10,
+      "fileCount": 11,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "91f25cd3335539a372bd31eab14ec478bacc2ba4e700314cdcaddbd1dae48c63",
-      "size": 51831
+      "sha256": "a8f06894e9a93b1d781ed0a959413982d08dfc199297bd19108936c2f1ee48a1",
+      "size": 57254
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -3182,15 +3219,19 @@
       "installPath": ".claude/skills/run-backlog",
       "isDirectory": true,
       "files": [
-        ".claude/skills/run-backlog/SKILL.md"
+        ".claude/skills/run-backlog/SKILL.md",
+        ".claude/skills/run-backlog/ref-requires.md",
+        ".claude/skills/run-backlog/ref-resume.md",
+        ".claude/skills/run-backlog/ref-workflow.md",
+        ".claude/skills/run-backlog/ref-worktree.md"
       ],
-      "fileCount": 1,
+      "fileCount": 5,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "f520890c57af539d497672c234c88a6e0debd4faff7724f24cca211fe6f50a5b",
-      "size": 39530
+      "sha256": "0d7d9bd68acdcb20fb26de8322bf9cf85da4b0ba4e63f9dbfd771e74952564f6",
+      "size": 44353
     },
     {
       "id": "Skills/setup-package-push",
