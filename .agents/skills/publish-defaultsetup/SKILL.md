@@ -14,6 +14,8 @@ kèm file `.sha256`. End user chỉ giữ bootstrap mỏng + manifest, nên logi
 > `.claude/`, `.mcp.json`, `CLAUDE.md`, `ProjectSettings/`… (tooling ngoài `Assets/`) — thứ mà
 > `.unitypackage` không mang được. Đây là cơ chế publish đúng, xem mục "Publish DefaultSetup lên R2"
 > trong [templates/unity-project/README.md](../../../templates/unity-project/README.md).
+> Tarball **không bao giờ** mang `CLAUDE_PROJECT.md` (chỉ dẫn riêng của một game, `CLAUDE.md` import nó):
+> script exclude nó, bootstrap của project tự tạo từ khung `.claude/docs/CLAUDE_PROJECT.template.md`.
 
 > **Từ nay không cần chạy tay nữa trong đa số trường hợp.** Push lên `main` chạm vào
 > `templates/unity-project/DefaultSetup/**` là workflow `.github/workflows/publish-ai.yml` tự đóng gói

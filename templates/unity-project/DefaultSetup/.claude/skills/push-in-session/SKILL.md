@@ -41,7 +41,7 @@ skill này tồn tại: agent đã biết sẵn, mọi lệnh dò lại là toke
 - file chỉ `Read` / `Grep` / `codegraph_explore` mà không sửa;
 - file đã dirty từ trước khi session bắt đầu (việc đang làm dở của dev);
 - file Unity tự dirty sau `Assets/Refresh` mà không phải mục tiêu của task — kinh điển là scene
-  và ScriptableObject bị editor tool tự sync lại (project này: xem CLAUDE.md § Gotchas). Chỉ
+  và ScriptableObject bị editor tool tự sync lại (project này: xem CLAUDE_PROJECT.md § Gotchas). Chỉ
   commit chúng khi task đúng là sửa scene/SO đó;
 - artefact tạm trong scratchpad, `Library/`, `Temp/`, log.
 
@@ -130,7 +130,7 @@ commit (đo bằng lượng diff + trọng tâm của task, không phải số f
 | `Audio` | Audio | `AI` | AI agent tooling |
 
 > **`AI` = hạ tầng cho AI agent** (Claude Code / Codex / Gemini…): mọi thứ trong `.claude/` —
-> skill, command, agent, rule, script backlog, hook, MCP config — và `CLAUDE.md`/`.agents/`.
+> skill, command, agent, rule, script backlog, hook, MCP config — và `CLAUDE.md`/`CLAUDE_PROJECT.md`/`.agents/`.
 > **KHÔNG phải** AI logic trong game (enemy AI, pathfinding, behaviour tree): thứ đó là `Play`.
 
 **Chọn tag nào khi cả hai nhóm đều đúng** — tránh tag nói lại thứ prefix đã nói:

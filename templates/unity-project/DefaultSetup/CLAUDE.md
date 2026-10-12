@@ -1,6 +1,21 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Chỉ dẫn **dùng chung** cho mọi project sinh từ EZG Unity game template. Claude Code nạp file này — cùng
+`CLAUDE_PROJECT.md` mà nó import ở cuối — vào mọi phiên, kể cả subagent.
+
+> **⛔ Project KHÔNG được sửa file này — chỉ sửa `CLAUDE_PROJECT.md`.**
+> - `CLAUDE.md` thuộc template EZG: cập nhật từ Feature Hub (item `Config/CLAUDE.md`), `agents-update.sh`
+>   hay chạy lại builder đều **ghi đè** nó — sửa tại chỗ sẽ mất ở lần cập nhật sau.
+> - `CLAUDE_PROJECT.md` (root repo) thuộc project: tên game, gameplay bucket, scene, hệ thống / package /
+>   quy ước / gotcha riêng. Commit cùng repo game; **không bao giờ** đẩy lên server dùng chung (monorepo
+>   `ezg-packages`, Feature Hub, `defaultsetup.tgz`).
+> - Dev hay agent muốn thêm/sửa chỉ dẫn cho Claude — kể cả khi được bảo "sửa CLAUDE.md" — thì sửa
+>   `CLAUDE_PROJECT.md`. Phần dùng chung chỉ sửa ở `templates/unity-project/DefaultSetup/CLAUDE.md` trong
+>   monorepo `ezg-packages` rồi publish (skill `publish-ai-features`).
+> - Hai file mâu thuẫn → `CLAUDE_PROJECT.md` thắng.
+> - Thiếu `CLAUDE_PROJECT.md` → chạy bootstrap (§0), nó tạo file từ khung `.claude/docs/CLAUDE_PROJECT.template.md`.
+>   `CLAUDE.md` vừa bị ghi đè lên một bản cũ có nội dung riêng → lấy lại phần đó từ git
+>   (`git log -p -- CLAUDE.md`) và chuyển sang `CLAUDE_PROJECT.md`.
 
 ## §0 — Bootstrap
 
@@ -24,7 +39,8 @@ powershell -ExecutionPolicy Bypass -File .claude/scripts/bootstrap.ps1     # Win
 ```
 
 Script này idempotent — chạy lại luôn an toàn. Nó tạo link view, `git init` nếu repo chưa có,
-`backlog-ops.py init`, rồi sinh UI kit nếu project chưa có. Chi tiết + việc còn phải làm tay (tinh
+`backlog-ops.py init`, sinh UI kit nếu project chưa có, rồi tạo `.claude/docs/ArtStyle.md` và
+`CLAUDE_PROJECT.md` từ khung nếu thiếu (không bao giờ ghi đè bản đã có). Chi tiết + việc còn phải làm tay (tinh
 chỉnh `.claude/project-profile.json` cho khớp layout/threat surface, tạo remote nếu muốn push):
 [.claude/docs/GETTING-STARTED.md](.claude/docs/GETTING-STARTED.md).
 
@@ -39,13 +55,14 @@ không có — task vẫn implement, vẫn qua gate, vẫn commit, chỉ không 
 
 ## Project Overview
 
-**[Project Name]** — Unity mobile **game template** (Android/iOS). It ships the shared plumbing every
-project on this base needs — UI framework, two-tier data layer, resource/reward economy, shop & IAP,
-analytics, localization, AssetBundle delivery, account sync — and **deliberately contains no gameplay**.
-A new project fills in its own gameplay bucket on top.
+This project is built on the EZG Unity mobile **game template** (Android/iOS). The template ships the
+shared plumbing every project on this base needs — UI framework, two-tier data layer, resource/reward
+economy, shop & IAP, analytics, localization, AssetBundle delivery, account sync — and **no gameplay**:
+each project adds its own gameplay buckets on top. What this particular game is (name, genre, core
+loop, gameplay buckets, scenes, extra systems) lives in `CLAUDE_PROJECT.md`, imported at the end of
+this file.
 
-C# codebase, ~280 scripts — recount with `find Assets/_Project -name '*.cs' | wc -l`. Primary working
-directory: `Assets/_Project/`.
+Primary working directory: `Assets/_Project/`.
 
 > **Where does new code go?** Domain buckets + per-feature layout + file-type→location table: see [.claude/rules/project-structure.md](.claude/rules/project-structure.md). Read it before creating any new file.
 
@@ -63,7 +80,8 @@ directory: `Assets/_Project/`.
   the generated ScriptableObjects live in per-feature `Resources/` folders.
 - There is no `DataManager.GetConfig<T>()` — only the generated properties (backed by `DataManager.Get<T>()`).
 
-Collections currently shipped: `UIDontDestroy`, `CoinPack`, `DailyDealsPack_1`, `GemPack`,
+Collections the template ships (a project adds its own — `DataManager.Generated.cs` is the full list):
+`UIDontDestroy`, `CoinPack`, `DailyDealsPack_1`, `GemPack`,
 `RemoveAdsPack`, `ChangeName`, `DefaultResource`, `GeneralConfig`, `RatingConfig`, `ResourceExchange`,
 `UnlockFeature`, `DynamicMoneyBarConfig`.
 
@@ -71,7 +89,7 @@ Collections currently shipped: `UIDontDestroy`, `CoinPack`, `DailyDealsPack_1`, 
 `ShopNavigateConfig`, `UserAvatars`, `UserFrame`.
 
 **Player data** (persisted, JSON in PlayerPrefs):
-- Accessed via `PlayerDataManager.<Module>` — modules shipped: `Account`, `Campaign`, `LoginActivity`,
+- Accessed via `PlayerDataManager.<Module>` — modules the template ships: `Account`, `Campaign`, `LoginActivity`,
   `Settings`, `PlayerResource`, `UnlockFeature`, `PlayerRating`, `PlayerShop`
 - Each module extends `DataPlayerBase` / `DataPlayerBaseGeneric<T>` and is resolved at runtime via
   `DataPlayer.GetModule<T>()` (cached by `PlayerDataManager` — feature code should not call it directly)
@@ -141,7 +159,7 @@ someAsyncTask.Forget(); // fire-and-forget
 | Localization | `Features/_Shared/Localize/LocalizeHelper.cs` over `com.ezg.localize` |
 | Red dots / badges | `Features/_Shared/RedDot/` — inherit `RedDotBadge`, ids in `RedDotId` |
 | Backend | `Features/_Shared/Networking/GameNetworkManager.cs` (Supabase read + Cloudflare Worker write) |
-| In-game bug reports | `Features/_Shared/BugLogger/` (Discord webhook) |
+| In-game bug reports | `Features/_Shared/BugLogger/` (Discord webhook), or package `com.ezg.buglogger` (BugHub, installed by `/bughub-setup`) |
 | Ads | `Features/_Shared/Ads/AdsController.cs` |
 | Audio | `Features/_Shared/AudioGame/` over `com.ezg.audio` |
 | Secrets / per-app config | `Features/_Shared/Config/AppSecretsConfig.cs` (fill in per project) |
@@ -149,7 +167,8 @@ someAsyncTask.Forget(); // fire-and-forget
 
 ### Domain Buckets
 
-`Assets/_Project/Features/` currently contains:
+The template ships these buckets under `Assets/_Project/Features/` (the project's own additions are
+listed in `CLAUDE_PROJECT.md`):
 
 | Bucket | Contents |
 |--------|----------|
@@ -160,13 +179,13 @@ someAsyncTask.Forget(); // fire-and-forget
 | `Social` | `Account`, `AvatarSelect`, `ChangeName`, `GiftCode` |
 | `System` | `Admin`, `DefaultResource`, `GameCheat`, `GeneralConfig`, `OverviewCanvas`, `Rating`, `RequireInternet`, `ResourceExchange`, `RewardPopup`, `SaveFound`, `Settings`, `Tooltip`, `UnlockFeature` |
 
-**There is no gameplay bucket yet** — this is a template. A new project creates its own
-(e.g. `Features/Gameplay/`, `Features/Combat/`…) and mirrors the standard feature layout
+**The template ships no gameplay bucket.** Each project creates its own (e.g. `Features/Gameplay/`,
+`Features/Combat/`…), records it in `CLAUDE_PROJECT.md`, and mirrors the standard feature layout
 (`Scripts/Controller` = controller + static Service, `Scripts/Data` = player data + CSV model/collection
 + EventName, plus `CsvConfig/`, `Resources/`, `Visuals/` — those two are the only `Scripts/` sub-folders).
 Never put single-feature code in `_Shared/`.
 
-Scenes shipped: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `BattleScene.unity`
+Scenes the template ships: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScene.unity`, `BattleScene.unity`
 (empty placeholder for the game scene).
 
 ## Important Locations
@@ -248,3 +267,12 @@ Invariant — áp cho MỌI phiên, kể cả việc làm tay:
   `productName: Unity Game Template`, `companyName: DefaultCompany`. Store links, backend URLs và mọi per-app secret
   nằm trong `AppSecretsConfig`. Điền hết khi project thật được sinh ra — `/validate-release` chặn bundle id rỗng
   (blocker) và cảnh báo productName còn placeholder (warn).
+
+---
+
+## Project-specific — `CLAUDE_PROJECT.md`
+
+Chỉ dẫn riêng của project này, import nguyên văn ngay dưới. Claude Code tự nạp; agent không hỗ trợ import
+(Codex, Gemini…) thì đọc thẳng file `CLAUDE_PROJECT.md` ở root repo.
+
+@CLAUDE_PROJECT.md

@@ -12,7 +12,11 @@
 #     here, so the two can never disagree about what is seed-once.
 #   - .claude/docs/ArtStyle.md (+ docs/ArtStyle/) — the project's own art direction; the
 #     template ships only the empty frame docs/ArtStyle.template.md, which bootstrap copies once.
-#   - anything outside `.claude/` and the `.agents/` link view.
+#   - CLAUDE_PROJECT.md — the project's own half of CLAUDE.md (frame:
+#     docs/CLAUDE_PROJECT.template.md, copied once by bootstrap).
+#   - anything outside `.claude/`, the `.agents/` link view and CLAUDE.md. CLAUDE.md is
+#     template-owned and gets updated too — but only once CLAUDE_PROJECT.md exists, since
+#     before the split the project's own notes may still live inside CLAUDE.md.
 #
 # Files the template no longer ships are REPORTED, not deleted: a project may have
 # added its own skills next to the shipped ones, and there is no safe way to tell
@@ -35,7 +39,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --prune)   PRUNE=1; shift ;;
-    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -104,6 +108,32 @@ while IFS= read -r -d '' src_file; do
   fi
 done < <(find "$SRC" -type f -print0)
 
+# CLAUDE.md: template-owned (a project's own instructions live in CLAUDE_PROJECT.md, which
+# CLAUDE.md imports and which nothing here ever touches), so it is refreshed like any
+# .claude/ file. Except before the split: a project with no CLAUDE_PROJECT.md may still keep
+# its own notes inside CLAUDE.md, and overwriting would bury them in git history. Hold it
+# then and say how to unblock — never guess which lines were the project's.
+say ""
+say "--- CLAUDE.md (template-owned; the project's own half is CLAUDE_PROJECT.md)"
+SRC_CLAUDE_MD="$SCRIPT_DIR/DefaultSetup/CLAUDE.md"
+held=0
+if [ ! -f "$SRC_CLAUDE_MD" ]; then
+  say "  (the template ships no CLAUDE.md)"
+elif [ ! -e "$TARGET/CLAUDE.md" ]; then
+  run cp -p "$SRC_CLAUDE_MD" "$TARGET/CLAUDE.md"
+  say "  add     CLAUDE.md"
+  added=$((added + 1))
+elif cmp -s "$SRC_CLAUDE_MD" "$TARGET/CLAUDE.md"; then
+  say "  (up to date)"
+elif [ ! -f "$TARGET/CLAUDE_PROJECT.md" ]; then
+  say "  hold    CLAUDE.md  (no CLAUDE_PROJECT.md yet — the old CLAUDE.md may hold this project's own notes)"
+  held=1
+else
+  run cp -p "$SRC_CLAUDE_MD" "$TARGET/CLAUDE.md"
+  say "  update  CLAUDE.md"
+  updated=$((updated + 1))
+fi
+
 # Orphans: present in the project, absent from the template.
 say ""
 say "--- in the project but no longer shipped by the template:"
@@ -146,6 +176,11 @@ say ""
 say "=== $added added, $updated updated, $skipped preserved, $orphans orphaned ==="
 if [ "$orphans" -gt 0 ] && [ "$PRUNE" = "0" ]; then
   say "Re-run with --prune to delete the orphans listed above."
+fi
+if [ "$held" = "1" ]; then
+  say "CLAUDE.md was NOT updated: run 'bash .claude/scripts/bootstrap.sh' in the project (it creates"
+  say "CLAUDE_PROJECT.md from .claude/docs/CLAUDE_PROJECT.template.md), move the project's own notes"
+  say "from CLAUDE.md into it, then re-run this script."
 fi
 say ""
 say "Next: re-read .claude/docs/GETTING-STARTED.md if the profile grew new keys,"

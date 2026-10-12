@@ -18,6 +18,10 @@ templates/unity-project/*/
 # Temporary extraction dir
 temp_extract/
 
+# A game project's own half of CLAUDE.md (CLAUDE.md imports it) — never belongs in the shared
+# monorepo. Only the frame DefaultSetup/.claude/docs/CLAUDE_PROJECT.template.md ships.
+CLAUDE_PROJECT.md
+
 # Skills live in .agents/skills/ (committed). `.claude/skills` is a per-machine
 # junction/symlink into it (git can't represent a Windows junction) — recreate it
 # locally with: node scripts/link-skills.mjs

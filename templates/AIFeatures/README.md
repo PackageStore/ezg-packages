@@ -36,6 +36,11 @@ Trùng `<Category>/<name>` thì bản sau thắng theo thứ tự **DefaultSetup
 
 Category lạ đặt trong `AIFeatures/` (không có trong bảng) → đích mặc định `.claude/<category viết thường>/<item>`.
 
+> `CLAUDE.md` (Config) là phần **dùng chung** — template quản lý, project không sửa, cài là ghi đè. Phần
+> riêng của từng game nằm ở `CLAUDE_PROJECT.md` (CLAUDE.md import nó), file này **không bao giờ** có trong
+> catalog: script publish báo lỗi nếu gặp. Catalog chỉ có khung `Docs/CLAUDE_PROJECT.template`, bootstrap
+> copy thành `CLAUDE_PROJECT.md` khi project chưa có.
+
 > `.agents/` **không** nằm trong catalog: nó chỉ là link view trỏ về `.claude/` do
 > `bootstrap.sh` / `bootstrap.ps1` tạo trong project. Cài vào `.claude/` là `.agents/` thấy ngay.
 

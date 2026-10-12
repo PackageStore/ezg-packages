@@ -134,7 +134,7 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
    qua `bughub-watch.py publish` (mục 3.4).
 8. **Vùng không được tự sửa.** Bản sửa chạy không có reviewer, nên nguyên nhân nằm ở một trong các vùng
    dưới → `bughub_people(<code>)` → `bughub_block(<code>, N, reason, need: [<dev / lead>])`, không sửa:
-   - Luôn luôn: tooling của agent (`.claude/**`, `.agents/**`, `CLAUDE.md`), CI/build (`.gitlab-ci.yml`,
+   - Luôn luôn: tooling của agent (`.claude/**`, `.agents/**`, `CLAUDE.md`, `CLAUDE_PROJECT.md`), CI/build (`.gitlab-ci.yml`,
      `AutoBuild/**`, script build trong Editor), `Packages/manifest.json`, `ProjectSettings/**`, `*.asmdef`.
    - Ở `--watch` (không có người ngồi cạnh): thêm mọi file khớp
      `python3 .claude/scripts/project_profile.py sensitiveGlobs` (IAP, receipt, auth, token, save…).
@@ -275,7 +275,7 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
 
 ### 3.4 Sửa → compile → commit → resolve
 
-1. **Sửa** theo rule của project (`CLAUDE.md`, `.claude/rules/*`), phạm vi nhỏ nhất đủ hết bug, chỉ file
+1. **Sửa** theo rule của project (`CLAUDE.md` + `CLAUDE_PROJECT.md`, `.claude/rules/*`), phạm vi nhỏ nhất đủ hết bug, chỉ file
    của bug này.
 2. **`/compile-check` — bắt buộc** khi bug sửa `.cs` / `.asmdef` / `.asmref` (luật 10); bug chỉ sửa
    asset/prefab/CSV thì không cần. Làm đúng `.claude/skills/compile-check/SKILL.md` trên instance đã chọn ở

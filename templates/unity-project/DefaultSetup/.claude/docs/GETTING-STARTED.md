@@ -2,7 +2,8 @@
 
 Tài liệu này dành cho lần đầu mở một project vừa sinh từ base template. Nó chỉ nói về **agent
 system** (planning → backlog → run-backlog): những gì phải chạy một lần, những gì phải điền tay,
-và cách biết mọi thứ đã đúng. Kiến trúc code/gameplay xem [CLAUDE.md](../../CLAUDE.md).
+và cách biết mọi thứ đã đúng. Kiến trúc code xem [CLAUDE.md](../../CLAUDE.md) (dùng chung, không sửa);
+game cụ thể + quy ước riêng xem [CLAUDE_PROJECT.md](../../CLAUDE_PROJECT.md) (project tự điền).
 
 Thứ tự dưới đây là bắt buộc: bước 2 cần bước 1 đã xong.
 
@@ -24,7 +25,7 @@ bash .claude/scripts/bootstrap.sh                                          # mac
 powershell -ExecutionPolicy Bypass -File .claude/scripts/bootstrap.ps1     # Windows
 ```
 
-Bốn việc nó làm, và lý do không việc nào ship kèm được trong git:
+Sáu việc nó làm, và lý do không việc nào ship kèm được trong tarball template:
 
 | Bước | Tạo ra | Vì sao không nằm trong git |
 |------|--------|-----------------------------|
@@ -32,6 +33,8 @@ Bốn việc nó làm, và lý do không việc nào ship kèm được trong gi
 | Git repo | `.git/` nếu chưa có | project vừa generate chưa `git init` |
 | Backlog | `.git/backlog/{planning,todo,in-progress,done}` + `BACKLOG.md` | bookkeeping riêng từng dev; để trong tree thì mỗi nhánh mang một index riêng và merge là đụng NNN |
 | UI kit | `.claude/ui-kit/{ui-kit.json,ui-kit.css,kit-preview.html}` — chỉ sinh khi chưa có | trích từ prefab template của **chính project này** và mang hash của chúng; kit copy từ project khác mô tả sai game và `/ui-mockup` chặn ngay là `kit_stale` |
+| Art style | `.claude/docs/ArtStyle.md` từ khung `ArtStyle.template.md` — chỉ khi chưa có | art direction riêng của game; template chỉ ship khung nên cập nhật template không bao giờ ghi đè bản đã điền |
+| Chỉ dẫn riêng | `CLAUDE_PROJECT.md` ở root từ khung `.claude/docs/CLAUDE_PROJECT.template.md` — chỉ khi chưa có | `CLAUDE.md` thuộc template (Feature Hub ghi đè, project không sửa) và import file này; nội dung riêng của game nằm ở đây, commit cùng repo, không bao giờ lên server dùng chung |
 
 Chạy lại bất cứ lúc nào — đây cũng là cách sửa một checkout hỏng nửa vời (ai đó xoá `.agents/`,
 hoặc `.agents/` biến thành thư mục thật).

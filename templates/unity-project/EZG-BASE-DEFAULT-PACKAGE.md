@@ -12,7 +12,7 @@
 | `.claude/`       | Claude agents, commands, docs, harness, rules, scripts, skills |
 | `.env.example`   | Template cấu hình biến môi trường (Discord bot, developer IDs) |
 | `.mcp.json`      | Cấu hình các MCP server (Unity, CodeGraph, GitLab) |
-| `CLAUDE.md`      | Tài liệu hướng dẫn AI coding assistant cho dự án |
+| `CLAUDE.md`      | Chỉ dẫn AI coding assistant dùng chung (template quản lý, project không sửa); import `CLAUDE_PROJECT.md` — phần riêng của dự án, bootstrap tạo từ khung, không nằm trong gói |
 | `backlog/`       | Thư mục quản lý backlog các task phát triển tính năng |
 | `BACKLOG.md`     | File cấu trúc và theo dõi tổng quan backlog |
 

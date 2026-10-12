@@ -26,7 +26,7 @@ graph TD
 
 ### Bước 1: Tạo Discord Bot & Lấy Token
 1. Truy cập [Discord Developer Portal](https://discord.com/developers/applications).
-2. Nhấn **New Application** và đặt tên cho Bot (ví dụ: `[Project Name] Backlog Agent`).
+2. Nhấn **New Application** và đặt tên cho Bot (ví dụ: `<tên project> Backlog Agent`).
 3. Đi tới mục **Bot** ở menu bên trái, nhấn **Add Bot**.
 4. Tại phần Token, nhấn **Reset Token** và copy Token này (đây là `DISCORD_BOT_TOKEN`).
 5. Cuộn xuống phần **Privileged Gateway Intents**, bật **Presence Intent**, **Server Members Intent**, và **Message Content Intent** (nếu cần tương tác 2 chiều sau này). Nhấn **Save Changes**.

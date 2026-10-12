@@ -145,6 +145,13 @@ tên project riêng. Thứ này sẽ chạy trên máy người khác.
 game (palette, kit, hướng đã loại). Bộ dùng chung chỉ ship khung `ArtStyle.template.md`; đẩy bản của một
 game lên là mọi project khác bị bám nhầm style.
 
+**Không bao giờ đẩy `CLAUDE_PROJECT.md`** — chỉ dẫn riêng của một game (`CLAUDE.md` import nó). Bộ dùng
+chung chỉ ship khung `.claude/docs/CLAUDE_PROJECT.template.md`; `.gitignore` của monorepo và
+`upload-unity-template-ai.mjs` cũng chặn file này. `CLAUDE.md` của project cũng **không** phải nguồn để
+đẩy: project không được sửa nó (bản trong project chỉ là bản cài từ template). Đổi phần dùng chung thì sửa
+thẳng `templates/unity-project/DefaultSetup/CLAUDE.md` trong monorepo, giữ nó trung tính — không tên game,
+không bucket/scene/hệ thống riêng của project nào.
+
 ---
 
 ## STEP 4 — Commit + push (đây là bước deploy)

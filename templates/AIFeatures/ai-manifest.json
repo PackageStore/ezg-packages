@@ -9,7 +9,10 @@
   },
   "overrides": {
     "Config/CLAUDE.md": {
-      "description": "Chỉ dẫn gốc cho Claude ở project root — CÀI ĐÈ file hiện có, chỉ cài cho project mới. Mục backlog/loop đã tách sang Docs/backlog-system.md (CLAUDE.md chỉ còn con trỏ + invariant) — cài kèm item đó."
+      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — template quản lý, project không được sửa, nên cài/cập nhật luôn GHI ĐÈ file hiện có. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; Feature Hub không bao giờ ghi đè hay publish file đó). Project chưa có CLAUDE_PROJECT.md: cài kèm Docs/CLAUDE_PROJECT.template + Scripts/bootstrap.sh rồi chạy bootstrap, và chuyển nội dung riêng của CLAUDE.md cũ sang CLAUDE_PROJECT.md (bản cũ vẫn còn trong git). Mục backlog/loop ở Docs/backlog-system.md — cài kèm."
+    },
+    "Docs/CLAUDE_PROJECT.template": {
+      "description": "Khung CLAUDE_PROJECT.md — chỉ dẫn riêng của project (game, gameplay bucket, hệ thống/quy ước riêng) mà CLAUDE.md import. bootstrap copy thành CLAUDE_PROJECT.md ở root repo khi chưa có — file đó project tự điền và commit, Feature Hub không bao giờ ghi đè, không bao giờ đẩy lên server. Cài kèm Config/CLAUDE.md + Scripts/bootstrap.sh."
     },
     "Config/settings.json": {
       "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có."

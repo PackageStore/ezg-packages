@@ -781,6 +781,11 @@ Category ↔ đích cài trong project (`installPath`):
 | `Docs` / `Scripts` / `Harness` / `Templates` / `UiKit` | `.claude/<thư mục tương ứng>/<name>` | file hoặc thư mục con |
 | `Config` | `.claude/settings.json`, `.claude/project-profile.json`, `.mcp.json`, `CLAUDE.md` | 1 file |
 
+`CLAUDE.md` là phần **dùng chung** (template quản lý, project không sửa, cài/cập nhật là ghi đè); nó import
+`CLAUDE_PROJECT.md` — phần riêng của từng game, bootstrap tạo từ khung `.claude/docs/CLAUDE_PROJECT.template.md`.
+`CLAUDE_PROJECT.md` **không bao giờ** vào catalog hay `defaultsetup.tgz`: `.gitignore` của repo, script
+publish AI (báo lỗi) và tarball (exclude) đều chặn.
+
 Sau publish, cấu trúc trên R2:
 
 ```text

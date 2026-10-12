@@ -6,6 +6,32 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-12
 
+**Changed** — `CLAUDE.md` tách đôi: phần dùng chung (template quản lý) + `CLAUDE_PROJECT.md` (của từng project)
+- **`CLAUDE.md` thành file của template**: đầu file có luật "project KHÔNG được sửa file này — chỉ sửa
+  `CLAUDE_PROJECT.md`" (kể cả khi được bảo "sửa CLAUDE.md"; hai file mâu thuẫn thì `CLAUDE_PROJECT.md` thắng), cuối
+  file import `@CLAUDE_PROJECT.md`. Đã thử thật bằng `claude -p`: import được nạp cho cả phiên chính lẫn subagent;
+  thiếu file thì Claude Code bỏ qua êm, `CLAUDE.md` vẫn nạp. Bỏ mọi chỗ mô tả "project hiện tại" (`[Project Name]`,
+  "~280 scripts", "no gameplay bucket yet", "currently contains") → viết thành "template ships…", phần riêng
+  trỏ sang `CLAUDE_PROJECT.md`. Dòng BugLogger ghi thêm lựa chọn package `com.ezg.buglogger` (BugHub).
+- **`.claude/docs/CLAUDE_PROJECT.template.md`** (mới): khung 4 mục (Game · Gameplay buckets & scenes · Hệ thống &
+  package riêng · Quy ước & gotcha), dòng `**Status:** template` để bootstrap nhận ra khung chưa điền.
+- **`bootstrap.sh` / `bootstrap.ps1` bước [6/6]**: copy khung thành `CLAUDE_PROJECT.md` ở root repo khi chưa có
+  (không bao giờ ghi đè), khung chưa điền → next step `[ACTION]`. Builder đã gọi bootstrap sau lần apply cuối nên
+  project sinh mới có sẵn file. Thêm marker `TEMPLATE_AHEAD` cho bootstrap, `run-backlog`, hai loop controller.
+- **`CLAUDE_PROJECT.md` không bao giờ lên server**: `.gitignore` monorepo bỏ qua mọi `CLAUDE_PROJECT.md`;
+  `upload-unity-template-ai.mjs` báo lỗi nếu item nào chứa nó; `upload-unity-template-defaultsetup.mjs` exclude nó
+  khỏi tarball; skill `publish-ai-features` cấm đẩy (và cấm lấy `CLAUDE.md` của project làm nguồn).
+- **Ghi đè `CLAUDE.md` là đường cập nhật chính thức**: mô tả Feature Hub `Config/CLAUDE.md` đổi sang "cài/cập nhật
+  luôn ghi đè" (bỏ "chỉ cài cho project mới"), thêm mô tả `Docs/CLAUDE_PROJECT.template`. `agents-update.sh` giờ cập
+  nhật cả `CLAUDE.md` — nhưng giữ nguyên (`hold`) khi project chưa có `CLAUDE_PROJECT.md`, vì lúc đó `CLAUDE.md` cũ
+  có thể còn nội dung riêng; không bao giờ đụng `CLAUDE_PROJECT.md`.
+- Skill dùng chung trỏ mục riêng của project sang `CLAUDE_PROJECT.md` (`refactor-ui`, `push-in-session`,
+  `fix-bug`, `run-backlog`); prompt loop yêu cầu đọc `CLAUDE.md + CLAUDE_PROJECT.md` (adapter không phải Claude
+  không tự nạp import). `[Project Name]` trong command/script/doc dùng chung → "this project" (giữ trong
+  `validate-release` — đó là danh sách phát hiện productName còn placeholder). Builder vẫn còn dòng thay
+  `[Project Name]` trong `CLAUDE.md`, giờ là no-op (`replace_placeholder_in_file` bỏ qua khi không thấy) — gỡ ở lần
+  publish builder kế tiếp.
+
 **Changed** — giảm token mỗi lượt của backlog loop, không đổi hành vi (đo trên 206 iteration thật: agent chính
 chiếm 66% chi phí, context trung bình 263K token/lượt × ~93 lượt/iteration)
 - **`CLAUDE.md` bỏ mục "Autonomous Backlog System"** (~9K token, bị nạp vào MỌI lượt của mọi phiên VÀ mọi

@@ -797,7 +797,7 @@ function New-AuditPrompt {
 Post-hoc quality gate for backlog task $($Audit.Nnn). Do NOT run /run-backlog, and do NOT pick, start, resume or touch any other backlog task.
 
 Task $($Audit.Nnn) reached DONE and was committed as $($Audit.Commit), but the iteration that did it never spawned the mandatory reviewer(s): $($Audit.Missing -join ', '). Run them now:
-1. Read .claude/skills/run-backlog/SKILL.md (STEP 6d/6e for code-reviewer, STEP 7 for qa-verifier - the prompt shapes), CLAUDE.md, and the task's done file: $donePath
+1. Read .claude/skills/run-backlog/SKILL.md (STEP 6d/6e for code-reviewer, STEP 7 for qa-verifier - the prompt shapes), CLAUDE.md + CLAUDE_PROJECT.md, and the task's done file: $donePath
 2. Write the commit's diff to a file: git show --format= $($Audit.Commit) > .claude/tmp/backlog/audit-$($Audit.Nnn).diff
 3. Spawn exactly the missing reviewer(s) with the Agent tool ($types), in parallel, in the foreground. Pass the task spec from the done file and the diff path.
 4. pass / warn -> nothing to change. block / fail -> fix the findings (max 2 rounds, re-spawning the reviewer as in STEP 6e / 7b), compile-check per STEP 5b, then commit ONLY the files you fixed, in the skill's STEP 9 style (git reset -q; git add -- <paths>; message "<prefix> <Tag>: <subject>" with prefix and tag chosen per push-in-session sections 3.1-3.2, no Co-Authored-By or other trailer) and push when an origin remote exists.
@@ -1337,7 +1337,7 @@ Goal: execute exactly one backlog task iteration with behavior equivalent to the
 Required contract:
 1. Read .claude/skills/run-backlog/SKILL.md before changing files.
 2. Follow that skill exactly for one iteration only.
-3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code requested by the workflow.
+3. Read CLAUDE.md + CLAUDE_PROJECT.md (project-only rules; they win over CLAUDE.md), .claude/rules/*, the selected task file, and only the relevant code requested by the workflow.
 4. If your CLI cannot spawn subagents, perform the code-reviewer, security-auditor, and qa-verifier gates in this same session by reading their instructions from .claude/agents/*.md and applying the same blocking criteria.
 5. Preserve the same stop tokens and print them exactly when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, LOOP_BUSY, TASK_BUSY, RESUME_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.) A task that legitimately needs more than one iteration ends with TASK_CHECKPOINTED instead (skill section 1e) - that is NOT a block, the next iteration resumes it; never print it together with a block token.
 6. Commit to the work branch ($AgentBranch) only when the run-backlog skill says the task is DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> Tag: <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.
@@ -1363,7 +1363,7 @@ Execute exactly one iteration of this project's run-backlog workflow.
 Required contract:
 1. Read .claude/skills/run-backlog/SKILL.md before changing any files.
 2. Follow that skill exactly for one iteration only.
-3. Read CLAUDE.md, .claude/rules/*, the selected task file, and only the relevant code the workflow requests.
+3. Read CLAUDE.md + CLAUDE_PROJECT.md (project-only rules; they win over CLAUDE.md), .claude/rules/*, the selected task file, and only the relevant code the workflow requests.
 4. Spawn the code-reviewer, security-auditor, and qa-verifier subagents per the skill spec using the Agent tool.
 5. Print exactly these tokens when blocked: COMPILE_BLOCKED, PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, RUNTIME_BLOCKED, EDITOR_REQUIRED, NO_CHANGES, BASE_MERGE_CONFLICT, LOOP_BUSY, TASK_BUSY, RESUME_CONFLICT, or "manual intervention required". (DEFERRED is NOT a block - end the iteration normally. Starting on an agent branch is allowed - never print BASE_UNKNOWN.) A task that legitimately needs more than one iteration ends with TASK_CHECKPOINTED instead (skill section 1e) - that is NOT a block, the next iteration resumes it; never print it together with a block token.
 6. Commit to the work branch ($AgentBranch) only when the skill marks the task DONE, exactly as its STEP 9 says (push-in-session style: reset the index, stage ONLY this task's files, message ``<prefix> Tag: <subject>``, no Co-Authored-By or other trailer), and push it only when the repo has an origin remote (the skill's HAS_REMOTE probe decides). Do not create a PR.

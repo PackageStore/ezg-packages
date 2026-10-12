@@ -1,10 +1,10 @@
 ---
-description: Create a new Feature structure in the [Project Name] project
+description: Create a new Feature structure in this project
 ---
 
 // turbo-all
 # Create New Feature Workflow
-As a Unity Senior Developer, create a new feature structure following [Project Name] conventions. This workflow aligns with `/feature-development` and the `.claude/rules/` — read those for the full rules.
+As a Unity Senior Developer, create a new feature structure following this project's conventions. This workflow aligns with `/feature-development` and the `.claude/rules/` — read those for the full rules.
 
 ## 1. ARGUMENT PARSING
 Parse `{{args}}` with format: `FeatureName: Description`

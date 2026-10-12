@@ -189,6 +189,7 @@ KEEP_NOTE=(
   "docs/GETTING-STARTED.md   template-only: first-run guide for a generated project"
   "docs/backlog-system.md   template keeps its own (the section moved out of CLAUDE.md); upstream's differs — reconcile by hand"
   "scripts/run-backlog-refs.py   template-only: picks run-backlog's ref-*.md for each loop iteration"
+  "docs/CLAUDE_PROJECT.template.md   template-only: frame bootstrap copies to the project's own CLAUDE_PROJECT.md"
 )
 
 # ---------------------------------------------------------------------------
@@ -210,6 +211,11 @@ TEMPLATE_AHEAD=(
   "scripts/run-backlog-loop-core.ps1|run-backlog-refs.py"
   "docs/workflow-model-recommendations.md|Subagents dùng cho"   # points at backlog-system.md's subagent table, not a §11 it lacks
   "backlog-templates|polish=off"
+  "scripts/bootstrap.sh|CLAUDE_PROJECT"               # seeds CLAUDE_PROJECT.md from its frame (2026-10-12)
+  "scripts/bootstrap.ps1|CLAUDE_PROJECT"
+  "skills/run-backlog|CLAUDE_PROJECT"                 # CLAUDE.md split: project-only rules live in CLAUDE_PROJECT.md
+  "scripts/run-backlog-loop.sh|CLAUDE_PROJECT"
+  "scripts/run-backlog-loop-core.ps1|CLAUDE_PROJECT"
 )
 TEMPLATE_ONLY_TESTS=(
   test_ui_layout_lock.py                              # tests scripts/ui-layout-lock.py (template-only)

@@ -334,7 +334,7 @@ Carry `CODEGRAPH_UP` forward — it is passed into every reviewer prompt in STEP
 
 ### 4b. Read project context
 
-1. `CLAUDE.md` is already auto-injected into your context by the Claude Code CLI at session start — DO NOT Read it again (redundant read = wasted tokens). Just apply its rules.
+1. `CLAUDE.md` and the `CLAUDE_PROJECT.md` it imports (project-only rules, which win over `CLAUDE.md`) are already auto-injected into your context by the Claude Code CLI at session start — DO NOT Read them again (redundant read = wasted tokens). Just apply their rules.
 2. Read the files in `.claude/rules/` — `code-style.md`, `core-system.md`, `data-persistence.md`, `third-party.md`. (`output-format.md` is only for text responses, do not apply it in this autonomous loop.)
 3. Read `SKILL.md` files in `.claude/skills/` that correspond to the system being touched (see mapping in `.claude/agents/code-reviewer.md` under "Skill-specific conventions").
 4. Read the files listed in the **Related files** of the task (for any detail `codegraph_explore` trimmed).
@@ -1006,7 +1006,7 @@ taken from your own transcript — not from `git status` / `git diff`. In the lo
 
 Leave out, per push-in-session §1: files you only read; Unity auto-dirt after
 `Assets/Refresh` that the task did not target (typically scenes / ScriptableObjects an
-editor tool re-syncs on refresh — CLAUDE.md lists the project's known offenders); anything
+editor tool re-syncs on refresh — CLAUDE_PROJECT.md lists the project's known offenders); anything
 under `Library/`, `Temp/`, `.claude/tmp/`, the scratchpad. Unsure → leave it out and
 list it in STEP 10.
 
@@ -1068,7 +1068,7 @@ MISSING; when the file exists, its tables win. Keep the two in lockstep.
 - Tag, exactly one — kind of work: `Feat` `Enh` `Bug` `Ref` `Bal` `Perf` `Clean` `Pol`
   `Sec` `Cont`; area: `UI` `Play` `Meta` `Mon` `Save` `BE` `Audio` `Loc` `Track` `Ads`
   `Bundle` `Editor` `CI` `AI`. Never invent another. `AI` = agent tooling (`.claude/`,
-  `CLAUDE.md`, `.agents/`), NOT in-game AI — that is `Play`.
+  `CLAUDE.md`, `CLAUDE_PROJECT.md`, `.agents/`), NOT in-game AI — that is `Play`.
 - Precedence: (1) a kind tag the prefix cannot express wins — `Bal` `Perf` `Ref` `Clean`
   `Pol` `Sec` `Cont`; (2) otherwise `Feat` / `Bug` / `Enh` only repeat the prefix, so use
   the area tag; (3) several areas, none dominant → `Feat` / `Bug` / `Enh`.

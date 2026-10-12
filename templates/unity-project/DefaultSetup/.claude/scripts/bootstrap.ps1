@@ -65,7 +65,7 @@ foreach ($candidate in @("py", "python3", "python")) {
 if (-not $py) { Write-Fail "no working Python on PATH - install Python 3.9+ (or disable the Store alias) and re-run." }
 
 # --- 1. link view -----------------------------------------------------------
-Write-Host "[1/5] Link view" -ForegroundColor Cyan
+Write-Host "[1/6] Link view" -ForegroundColor Cyan
 $syncScript = Get-ChildItem -Path $ScriptDir -Filter "sync-to-*.ps1" -File -ErrorAction SilentlyContinue |
               Select-Object -First 1
 if ($syncScript) {
@@ -81,7 +81,7 @@ Write-Host ""
 # `git init`-ed yet cannot have one. A project generated from the base template is
 # exactly that case, and initialising is the only sensible answer - an empty repo
 # with no commits and no remote is trivially undone (remove the .git folder).
-Write-Host "[2/5] Git repository" -ForegroundColor Cyan
+Write-Host "[2/6] Git repository" -ForegroundColor Cyan
 git rev-parse --git-dir 2>&1 | Out-Null
 $isRepo = ($LASTEXITCODE -eq 0)
 if ($isRepo) {
@@ -94,7 +94,7 @@ if ($isRepo) {
 Write-Host ""
 
 # --- 3. backlog -------------------------------------------------------------
-Write-Host "[3/5] Backlog" -ForegroundColor Cyan
+Write-Host "[3/6] Backlog" -ForegroundColor Cyan
 if ($py -and $isRepo) {
     & $py (Join-Path $ScriptDir "backlog-ops.py") init | Out-Null
     if ($LASTEXITCODE -ne 0) {
@@ -114,7 +114,7 @@ Write-Host ""
 # the developer should produce and review deliberately. Neither case is fatal -
 # a project without UI prefabs is a perfectly good state, and bootstrap that
 # reports INCOMPLETE for it would train everyone to ignore the exit code.
-Write-Host "[4/5] UI kit" -ForegroundColor Cyan
+Write-Host "[4/6] UI kit" -ForegroundColor Cyan
 $kitSync = Join-Path $ScriptDir "ui-kit-sync.py"
 $kitState = ""
 if ($py) {
@@ -144,7 +144,7 @@ Write-Host ""
 # never shipped by the template - only ArtStyle.template.md is, so a template update
 # can never overwrite a filled-in style guide. Copy the frame when the project has
 # none; an unfilled one is a next-step note, not a failure.
-Write-Host "[5/5] Art style" -ForegroundColor Cyan
+Write-Host "[5/6] Art style" -ForegroundColor Cyan
 $docsDir = Join-Path (Split-Path -Parent $ScriptDir) "docs"
 $artDoc = Join-Path $docsDir "ArtStyle.md"
 $artTemplate = Join-Path $docsDir "ArtStyle.template.md"
@@ -166,6 +166,36 @@ if (Test-Path $artDoc) {
     }
 } else {
     Write-Host "  --  no ArtStyle.template.md in this setup - skipped"
+}
+Write-Host ""
+
+# --- 6. Project instructions ------------------------------------------------
+# CLAUDE.md is OWNED BY THE TEMPLATE (Feature Hub / agents-update overwrite it) and
+# imports CLAUDE_PROJECT.md, which is OWNED BY THE PROJECT and never shipped - only
+# docs/CLAUDE_PROJECT.template.md is. Copy the frame to the repo root when there is
+# none, so the import always resolves; an unfilled one is a next-step note, not a
+# failure. An existing file is never touched.
+Write-Host "[6/6] Project instructions" -ForegroundColor Cyan
+$projDoc = Join-Path $RepoRoot "CLAUDE_PROJECT.md"
+$projTemplate = Join-Path $docsDir "CLAUDE_PROJECT.template.md"
+$projState = ""
+if (Test-Path $projDoc) {
+    if (Select-String -Path $projDoc -Pattern '^\*\*Status:\*\* template' -Quiet) {
+        $projState = "template"
+        Write-Host "  WARN CLAUDE_PROJECT.md is still the empty frame (see next steps)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  OK  CLAUDE_PROJECT.md present" -ForegroundColor Green
+    }
+} elseif (Test-Path $projTemplate) {
+    try {
+        Copy-Item $projTemplate $projDoc -ErrorAction Stop
+        $projState = "template"
+        Write-Host "  NEW CLAUDE_PROJECT.md created from the template" -ForegroundColor Yellow
+    } catch {
+        Write-Fail "could not create CLAUDE_PROJECT.md"
+    }
+} else {
+    Write-Host "  --  no CLAUDE_PROJECT.template.md in this setup - skipped"
 }
 Write-Host ""
 
@@ -204,6 +234,11 @@ if ($kitState -and $kitState -notin @("fresh", "no-templates", "missing")) {
 if ($artState -eq "template") {
     Write-Host "  - [ACTION] Fill in .claude/docs/ArtStyle.md (palette, UI kit, layout, fonts) - every visual" -ForegroundColor Yellow
     Write-Host "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
+}
+
+if ($projState -eq "template") {
+    Write-Host "  - [ACTION] Fill in CLAUDE_PROJECT.md (game, gameplay buckets, project-only rules) - Claude loads it" -ForegroundColor Yellow
+    Write-Host "    in every session through CLAUDE.md. Never edit CLAUDE.md itself: template updates overwrite it."
 }
 
 Write-Host "  - [ACTION] Open the project in Unity, then run /setup-project in Claude Code - it opens the" -ForegroundColor Yellow

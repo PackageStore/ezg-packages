@@ -49,9 +49,13 @@ function buildTarball() {
   //                                     diverges the moment anyone edits a skill. bootstrap.sh /
   //                                     bootstrap.ps1 create real links in the generated project.
   //   --exclude                      : drop junk / per-developer files that must not be distributed.
+  //   --exclude=CLAUDE_PROJECT.md    : a game project's own half of CLAUDE.md never ships — the
+  //                                     builder must not overwrite it, and bootstrap seeds a fresh
+  //                                     one from .claude/docs/CLAUDE_PROJECT.template.md instead.
   execFileSync("tar", [
     "--no-xattrs",
     "--exclude=.agents",
+    "--exclude=CLAUDE_PROJECT.md",
     "--exclude=.DS_Store", "--exclude=settings.local.json",
     "-czf", out, "-C", TEMPLATE_DIR, "DefaultSetup",
   ], {

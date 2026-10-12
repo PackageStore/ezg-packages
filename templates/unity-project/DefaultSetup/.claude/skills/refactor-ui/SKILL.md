@@ -17,7 +17,7 @@ per-project (`featuresRoot`, `uiTemplatesRoot`, `localize.*`) đọc bằng
 
 ## 0. Hợp đồng tự chủ (đọc trước tiên)
 
-- **Đọc `CLAUDE.md` § Trạng thái & Gotchas trước khi đụng UI** — project có thể có luật riêng mà
+- **Đọc phần riêng của project (`CLAUDE_PROJECT.md` — trạng thái, gotcha) trước khi đụng UI** — project có thể có luật riêng mà
   skill này phải tuân (UI port đông cứng, bẫy URP, prefab cố tình không ghi đè).
 - **Đọc `.claude/docs/ArtStyle.md` + `Read` các board `.claude/docs/ArtStyle/*.png` + ảnh màn đã duyệt
   (§8, `ArtStyle/screens/approved/`) và ảnh hướng bị loại (§9, `screens/rejected/`) trước khi viết
@@ -30,7 +30,7 @@ per-project (`featuresRoot`, `uiTemplatesRoot`, `localize.*`) đọc bằng
 - **Không hỏi, tự quyết**: art direction, bố cục, màu, typography, motion, copy text, cách tách node,
   refactor phần view của controller. Chọn phương án tốt nhất rồi làm — ghi lý do ngắn trong design
   brief (§2), không đưa lựa chọn cho user.
-- **Luật "UI đông cứng"** (project có UI port nguyên xi, CLAUDE.md cấm sửa layout/hình ảnh khi chưa
+- **Luật "UI đông cứng"** (project có UI port nguyên xi, CLAUDE_PROJECT.md cấm sửa layout/hình ảnh khi chưa
   hỏi): dev gõ `/refactor-ui <màn>` **chính là lời cho phép** đổi layout/hình ảnh/view code của
   **đúng màn đó**. Mọi màn khác vẫn đông cứng:
   - **Không sửa asset template dùng chung** dưới `uiTemplatesRoot` (`button_template`,
@@ -39,7 +39,7 @@ per-project (`featuresRoot`, `uiTemplatesRoot`, `localize.*`) đọc bằng
     **override trên instance nằm trong prefab target**.
   - Child/item template **dùng chung với màn khác** → override trên instance của màn target, hoặc
     tách bản riêng cho màn target (prefab mới trong feature đó), không sửa bản dùng chung.
-  - Prefab được CLAUDE.md đánh dấu "bản dev đã sửa, cố tình không ghi đè" → rework được, nhưng
+  - Prefab được CLAUDE_PROJECT.md đánh dấu "bản dev đã sửa, cố tình không ghi đè" → rework được, nhưng
     **không bao giờ** khôi phục/ghi đè từ project donor.
 - Mọi gate "chờ user OK" của `/new-ui` (new-ui-guide §0d Checkpoint 0, checkpoint mode interactive
   của từng phase) chạy ở **chế độ autonomous**: tự chấm bằng ảnh chụp + spawn `ui-visual-reviewer`
@@ -97,7 +97,7 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
   chúng, ưu tiên màn cùng họ §4b. Màn làm lại gần đây (`git log … UI: rework|redesign|restyle`) mà chưa
   vào bảng đó **không phải mốc**: chưa duyệt thì có thể chính là hướng sắp bị loại, lấy làm mẫu là nhân
   lỗi sang màn sau. §8 trống → mốc là board kit §3 + chính bản đang ship, bản mới phải vượt rõ nó.
-  Màn port từ project donor (CLAUDE.md § Project nguồn) → mở bản gốc bên donor để hiểu hành vi
+  Màn port từ project donor (CLAUDE_PROJECT.md § Project nguồn) → mở bản gốc bên donor để hiểu hành vi
   (read-only, không copy asset về).
 - Prefab/child template của màn có được **prefab khác dùng lại** không (item element, popup con) —
   đổi nó là đổi cả màn kia (§0 luật đông cứng), phải chụp kiểm cả hai.
@@ -170,7 +170,7 @@ tĩnh (§7), neo đúng mép cho đa tỷ lệ, nền full-bleed, không `SetAct
 - Liệt kê serialized reference của controller + tên node được `Find`/tham chiếu trong code trước khi
   tái cấu trúc; dời/đổi node thì nối lại reference và chạy playbook §8
   (`unity_search_missing_references` = 0 — trừ các GUID sprite đã treo sẵn từ project donor mà
-  CLAUDE.md liệt kê, đừng "sửa" chúng).
+  CLAUDE_PROJECT.md liệt kê, đừng "sửa" chúng).
 - Tìm chỗ khác dùng prefab/child template (item template, popup con) trước khi đổi cấu trúc chúng.
 - Dọn node mồ côi của bản cũ (ẩn không dùng, sprite cũ không còn ai tham chiếu) — bản final không mang rác.
 - **Không đụng `.meta` của prefab** (mất `assetBundleName` như `features__shop` → `UIManager` không
@@ -252,7 +252,7 @@ Luật kỹ thuật (bắt buộc):
   trơn) → dựng preview scene (`EditorSceneManager.NewPreviewScene`), instantiate màn nền + màn cần
   chụp, **đổi canvas của instance preview sang World Space** kích thước W×H (scale 0.01), camera
   ortho `size = H/200` (1920 → 9.6) tại `z = −10`, render vào RenderTexture W×H, `ReadPixels` → PNG.
-  Đây là cùng cách project dùng để pixel-diff UI (CLAUDE.md § Cách nghiệm thu). Chỉ đổi canvas trên
+  Đây là cùng cách project dùng để pixel-diff UI (CLAUDE_PROJECT.md § Cách nghiệm thu). Chỉ đổi canvas trên
   **instance preview**, không bao giờ trên asset. Nạp dữ liệu thật (gọi hàm init/refresh bằng
   reflection nếu cần), `ForceRebuildLayoutImmediate` vài vòng trước khi render.
 - Play mode: `unity_screenshot_game` ở Game view pin 1080×1920 (playbook §0).
@@ -307,7 +307,7 @@ smoke/capture trong **một** `unity_execute_code`; kiểm `Application.isPlayin
 **không** `DOTween.KillAll()` (giết tween của session khác) — chỉ kill tween của mình; lưu và trả lại
 `DOTween.timeScale` / `defaultUpdateType` trong `finally`; không `Assets/Refresh` khi session khác đang
 play (import từng path bằng `ImportAsset`); lỗi compile ở file không thuộc session → chờ, không sửa hộ.
-Console spam `TLS Allocator ALLOC_TEMP_TLS ... unfreed allocations` là lỗi môi trường (CLAUDE.md §
+Console spam `TLS Allocator ALLOC_TEMP_TLS ... unfreed allocations` là lỗi môi trường (CLAUDE_PROJECT.md §
 Gotchas — Metal Toolchain / shader keyword), không phải bug của UI vừa làm.
 
 ## 7. Localize
@@ -338,7 +338,7 @@ Gotchas — Metal Toolchain / shader keyword), không phải bug của UI vừa 
    [`auto-clear`](../auto-clear/SKILL.md): `/push-in-session` với subject dạng
    `rework <màn> as <concept>` (commit body: art/localize/bug đã sửa), chỉ file của session này.
    Loại khỏi commit: file session khác lỡ bị cuốn vào stage (`git restore --staged`), scene/SO do
-   editor tool tự sync sau `Assets/Refresh` (vd `BattleScene.unity` + waypoint SO — CLAUDE.md §
+   editor tool tự sync sau `Assets/Refresh` (vd `BattleScene.unity` + waypoint SO — CLAUDE_PROJECT.md §
    Gotchas). Push xong mới bật cờ. Push lỗi / compile fail / còn block → **không** clear, báo lỗi
    nguyên văn.
 3. Project chưa cài `auto-clear` → chạy `/push-in-session * UI:` (nếu có) rồi nhắc dev tự `/clear`.

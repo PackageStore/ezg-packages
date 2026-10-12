@@ -118,6 +118,13 @@ function categoryTargetDir(categoryId) {
 
 // Junk that must never travel to a project.
 const EXCLUDED_NAMES = new Set([".DS_Store", "settings.local.json", "__pycache__", ".pytest_cache"]);
+
+// A game project's OWN files, which only ever exist inside that project. CLAUDE_PROJECT.md is the
+// project's half of CLAUDE.md (CLAUDE.md imports it): one game's copy in the catalog would overwrite
+// every other game's instructions on install. Only the empty frame
+// .claude/docs/CLAUDE_PROJECT.template.md ships. Finding one here is a mistake upstream, so the
+// publish fails instead of quietly dropping it.
+const PROJECT_OWNED_NAMES = new Set(["CLAUDE_PROJECT.md"]);
 const isJunk = (name) => EXCLUDED_NAMES.has(name) || name.startsWith("._") || name.endsWith(".pyc");
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -477,6 +484,13 @@ async function main() {
     .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 
   if (items.length === 0) throw new Error("Không tìm thấy AI item nào để publish.");
+
+  const leaked = items.flatMap((item) =>
+    item.files.filter((f) => PROJECT_OWNED_NAMES.has(basename(f))).map((f) => `${item.id}: ${f}`));
+  if (leaked.length > 0)
+    throw new Error(
+      "File riêng của project không được lên catalog dùng chung (chỉ ship khung " +
+      ".claude/docs/CLAUDE_PROJECT.template.md) — gỡ khỏi repo rồi chạy lại:\n  " + leaked.join("\n  "));
 
   // Pack + hash every item (cheap: a few hundred KB of text), so the index always reflects disk.
   for (const item of items) {
