@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using V = Ezg.CheatGate.Tests.CheatGateTestVectors;
+using V = Ezg.Package.CheatGate.Tests.CheatGateTestVectors;
 
-namespace Ezg.CheatGate.Tests
+namespace Ezg.Package.CheatGate.Tests
 {
     public class CheatGateCoreTests
     {

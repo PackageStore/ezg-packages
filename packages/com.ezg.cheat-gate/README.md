@@ -32,7 +32,7 @@ Máy đang giữ grant -> lúc mở game và lúc quay lại game (tối đa 30 
 2. Lúc khởi động (splash / bootstrap), một lần:
 
    ```csharp
-   using Ezg.CheatGate;
+   using Ezg.Package.CheatGate;
 
    CheatGate.Initialize("SM007");                 // mã project của game trong BugHub
    CheatGate.Changed += unlocked =>

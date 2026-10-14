@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Ezg.CheatGate
+namespace Ezg.Package.CheatGate
 {
     /// <summary>
     ///     Public keys a grant may be signed with. The private half is the ezg-cheat-gate Worker's secret

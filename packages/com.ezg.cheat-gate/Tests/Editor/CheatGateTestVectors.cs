@@ -2,7 +2,7 @@
 // ezg-scopedregister/cheat-gate/scripts/make-test-vectors.mjs: grants signed by the Worker's own grant.js with a
 // throwaway key (only its public half is here), device ids hashed by node:crypto. Regenerate, do not edit.
 // </auto-generated>
-namespace Ezg.CheatGate.Tests
+namespace Ezg.Package.CheatGate.Tests
 {
     internal static class CheatGateTestVectors
     {

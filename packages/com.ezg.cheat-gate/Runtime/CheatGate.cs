@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace Ezg.CheatGate
+namespace Ezg.Package.CheatGate
 {
     /// <summary>
     ///     Who may open cheats in this build. Usage:

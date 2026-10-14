@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Ezg.CheatGate
+namespace Ezg.Package.CheatGate
 {
     /// <summary>What a valid grant says.</summary>
     public sealed class CheatGateClaims

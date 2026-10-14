@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace Ezg.CheatGate.Tests
+namespace Ezg.Package.CheatGate.Tests
 {
     public class CheatGateJsonTests
     {

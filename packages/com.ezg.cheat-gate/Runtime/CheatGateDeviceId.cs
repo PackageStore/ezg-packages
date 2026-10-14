@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Ezg.CheatGate
+namespace Ezg.Package.CheatGate
 {
     /// <summary>
     ///     The id a test phone is listed under: the first 12 hex digits (upper case) of

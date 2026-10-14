@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 2026-10-14
+### Fixed
+- Namespace is now `Ezg.Package.CheatGate` (was `Ezg.CheatGate`): from game code in any `Ezg.*` namespace, `CheatGate.X` resolved to the namespace `Ezg.CheatGate` instead of the class and did not compile. 0.1.0 is deprecated.
+
 ## [0.1.0] - 2026-10-14
 ### Added
 - `CheatGate`: `Initialize(projectCode)`, `TryUnlock(callback)` (10th tap on the version label), `IsUnlocked`, `Changed`, `DeviceIdDisplay`.

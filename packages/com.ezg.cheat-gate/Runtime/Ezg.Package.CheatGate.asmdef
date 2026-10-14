@@ -1,6 +1,6 @@
 {
     "name": "Ezg.Package.CheatGate",
-    "rootNamespace": "Ezg.CheatGate",
+    "rootNamespace": "Ezg.Package.CheatGate",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

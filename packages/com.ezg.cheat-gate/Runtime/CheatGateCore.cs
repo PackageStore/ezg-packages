@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Ezg.CheatGate
+namespace Ezg.Package.CheatGate
 {
     /// <summary>Outcome of <see cref="CheatGateCore.TryUnlock" /> / <see cref="CheatGate.TryUnlock" />.</summary>
     public enum CheatGateResult

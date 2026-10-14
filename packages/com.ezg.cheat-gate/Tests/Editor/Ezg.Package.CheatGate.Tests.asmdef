@@ -1,6 +1,6 @@
 {
     "name": "Ezg.Package.CheatGate.Tests",
-    "rootNamespace": "Ezg.CheatGate.Tests",
+    "rootNamespace": "Ezg.Package.CheatGate.Tests",
     "references": [
         "Ezg.Package.CheatGate",
         "UnityEngine.TestRunner",

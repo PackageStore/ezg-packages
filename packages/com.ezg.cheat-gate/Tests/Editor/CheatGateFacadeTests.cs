@@ -3,7 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Ezg.CheatGate.Tests
+namespace Ezg.Package.CheatGate.Tests
 {
     /// <summary>The UnityEngine side: device id from SystemInfo, the Editor override, use before Initialize.</summary>
     public class CheatGateFacadeTests
