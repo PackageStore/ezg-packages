@@ -245,6 +245,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     var childGameObject = BuildFigmaNode(childNode, nodeRectTransform, figmaNode,
                         nodeRecursionDepth + 1, figmaImportProcessData,includedPageObject, withinComponentDefinition);
                     if (childGameObject == null) continue;
+                    AutoLayout.ApplyChild(childGameObject, childNode, figmaNode, figmaImportProcessData);
                     // Check if this object has a mask component. If so, set as the active mask component
                     // Only a "Use as mask" layer masks its siblings; a clipping frame's Mask masks its own children
                     var childGameObjectMask = childNode.isMask ? childGameObject.GetComponent<Mask>() : null;

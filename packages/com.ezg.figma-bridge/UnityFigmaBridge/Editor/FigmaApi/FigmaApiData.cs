@@ -228,6 +228,14 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// Determines if the layer should stretch along the parent’s counter axis. This property is only provided for direct children of auto-layout frames.
         /// </summary>
         public LayoutAlign layoutAlign;
+
+        /// <summary>ABSOLUTE for a child of an auto-layout frame that keeps its own position.</summary>
+        public string layoutPositioning;
+
+        /// <summary>FIXED, HUG or FILL along each axis, for auto-layout frames and their children.</summary>
+        public string layoutSizingHorizontal;
+
+        public string layoutSizingVertical;
         
         /// <summary>
         /// Node ID of node to transition to in prototyping

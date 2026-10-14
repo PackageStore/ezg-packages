@@ -215,6 +215,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     image.pixelsPerUnitMultiplier = 1f;
                     image.preserveAspect = false;
                     image.enabled = true;
+                    OuterStroke.Apply(nodeGameObject, node, figmaImportProcessData);
                     return;
                 }
             }

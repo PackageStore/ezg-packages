@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.11] - 2026-10-14
+### Fixed
+- **A layer renamed inside an instance keeps its instance name.** A child of a placed instance
+  took the name of the component layer (`Value`, `Label`), so code that looks up the screen-side
+  name (`Txt_Stage`, `Btn_Fight/Txt_Label`) found nothing. The child now takes the instance name
+  when it differs from the component layer; names an import step gave the component stay.
+- **An instance under a hidden parent is built.** The placeholder search skipped inactive objects,
+  so an instance inside a hidden group stayed an empty marker. Inactive placeholders are now
+  replaced too, and the instance keeps the placeholder's active state.
+- **Hidden layers inside an instance are hidden.** A layer hidden on the instance side (a boolean
+  component property such as `Show-Sub=false`, or a visibility override) stayed active. Each
+  instance child now takes the visibility of the instance node data.
+- **OUTSIDE and CENTER strokes are drawn past the box.** The frame shape sprite stops at the
+  node's rect, so the outer part of the stroke was dropped. It is now a `[Stroke]` child Image
+  that reaches past the rect, ignored by layout groups, and a square-corner clip of the frame
+  grows by the stroke so it stays visible. A rounded clip (Mask) still hides it, with a warning.
+### Changed
+- **Enable Auto Layout builds usable layout groups.** Spacing, padding and both alignments carry
+  over (the alignment was always overwritten with Middle Center before), space-between uses the
+  gap Figma drew, and an ABSOLUTE child is ignored by the group. Each child keeps its Figma size
+  through its LayoutElement, while a hugging text and a FILL child stretch and shrink. A HUG
+  frame gets a ContentSizeFitter, unless an auto-layout parent already sizes it. The setting is
+  still off by default.
+
 ## [0.8.10] - 2026-10-12
 ### Fixed
 - **A node deleted during the download no longer stops the import.** The REST download reads the

@@ -58,8 +58,9 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Scene chứa canvas và asset runtime của prototype.\nVí dụ: Assets/Scenes/Main.unity")]
         public string RunTimeAssetsScenePath;
 
-        [Tooltip("Bật Horizontal/Vertical Layout Group theo auto layout của Figma (thử nghiệm).\n" +
-                 "Ví dụ: frame auto layout dọc thành Vertical Layout Group.")]
+        [Tooltip("Bật Horizontal/Vertical Layout Group theo auto layout của Figma: khoảng cách, padding, căn lề; " +
+                 "frame HUG có thêm ContentSizeFitter; con giữ kích thước Figma, text HUG và con FILL co giãn.\n" +
+                 "Ví dụ: hàng HUG căn giữa vẫn căn giữa khi một con bị ẩn hoặc text dài ra.")]
         public bool EnableAutoLayout = false;
 
         [Tooltip("Chỉ bind MonoBehaviour trong namespace này vào screen.\nVí dụ: MyGame.UI")]

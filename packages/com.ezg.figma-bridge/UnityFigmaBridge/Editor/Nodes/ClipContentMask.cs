@@ -37,7 +37,9 @@ namespace UnityFigmaBridge.Editor.Nodes
             if (radii == Vector4.zero)
             {
                 RemoveComponent<Mask>(nodeGameObject);
-                UnityUiUtils.GetOrAddComponent<RectMask2D>(nodeGameObject);
+                var rectMask = UnityUiUtils.GetOrAddComponent<RectMask2D>(nodeGameObject);
+                // Figma does not clip a frame's own stroke, so the clip reaches past the box to the stroke's outer edge
+                rectMask.padding = -Vector4.one * OuterStroke.Outset(node);
                 return;
             }
 

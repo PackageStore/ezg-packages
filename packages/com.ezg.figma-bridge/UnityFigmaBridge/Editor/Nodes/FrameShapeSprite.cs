@@ -73,8 +73,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 Node.StrokeAlign.CENTER => node.strokeWeight * 0.5f,
                 _ => 0f
             };
-            if (stroke != null && node.strokeAlign != Node.StrokeAlign.INSIDE)
-                Debug.LogWarning($"[FrameShapeSprite] '{node.name}' has a {node.strokeAlign} stroke: only the part inside its box is drawn.");
 
             var white = SolidTint.TryGetShapeTint(node, out _);
             var pixels = Draw(node, width, height, radii, stroke, strokeWidth, white);

@@ -51,7 +51,7 @@ namespace UnityFigmaBridge.Editor.Components
         {
             var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
             var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
-            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaNodeObject>();
+            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaNodeObject>(true);
             foreach (var placeholder in allPlaceholderComponents)
                 Object.DestroyImmediate(placeholder);
             // Save
@@ -143,7 +143,8 @@ namespace UnityFigmaBridge.Editor.Components
             if (!figmaImportProcessData.InstanceSources.TryGetValue(assetPath, out var instanceSources))
                 figmaImportProcessData.InstanceSources[assetPath] = instanceSources = new List<FigmaInstanceSource>();
             // Get all placeholders within this prefab - these will be replaced
-            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaComponentNodeMarker>();
+            // Inactive too: a placeholder under a hidden parent must still become an instance
+            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaComponentNodeMarker>(true);
             
             // Filter out any that are replacements in prefab instances (we want to skip these)
             var targetPlaceHolderComponents = new List<FigmaComponentNodeMarker>();
@@ -185,6 +186,7 @@ namespace UnityFigmaBridge.Editor.Components
                 UnityUiUtils.CloneTransformData(placeholder.transform as RectTransform, addedReplacementComponent.transform as RectTransform);
                 // Copy name
                 addedReplacementComponent.name = placeholder.name; // Copy original name
+                addedReplacementComponent.SetActive(placeholder.gameObject.activeSelf);
                 
                 // Change node Id to match instantiated version
                 var figmaNodeComponent = addedReplacementComponent.GetComponent<FigmaNodeObject>();
@@ -300,7 +302,9 @@ namespace UnityFigmaBridge.Editor.Components
                 if (matchingChildGameObject != null)
                 {
                     matchingChildGameObject = SwapChangedComponent(childNode, matchingChildGameObject, figmaImportProcessData);
+                    ApplyInstanceSideNameAndVisibility(childNode, matchingChildGameObject, figmaImportProcessData);
                     ApplyFigmaProperties(childNode, matchingChildGameObject, node, figmaImportProcessData);
+                    AutoLayout.ApplyChild(matchingChildGameObject, childNode, node, figmaImportProcessData);
 
                 }
                 else
@@ -335,6 +339,22 @@ namespace UnityFigmaBridge.Editor.Components
             if (SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)
                 && SolidTint.TryGetRenderTint(node, out var instanceTint))
                 image.color = instanceTint;
+        }
+
+        /// <summary>
+        ///     A layer inside an instance can be renamed or hidden on the instance side (a rename, a
+        ///     visibility override or a boolean component property). The instance node data holds the
+        ///     result, so the child takes it. The name changes only when it differs from the component
+        ///     layer, so names an import step gave to the component side stay.
+        /// </summary>
+        private static void ApplyInstanceSideNameAndVisibility(Node childNode, GameObject childObject,
+            FigmaImportProcessData figmaImportProcessData)
+        {
+            var componentNodeId = childNode.id.Split(';').Last();
+            if (figmaImportProcessData.NodeLookupDictionary.TryGetValue(componentNodeId, out var componentNode)
+                && componentNode != null && componentNode.name != childNode.name)
+                childObject.name = childNode.name;
+            if (childObject.activeSelf != childNode.visible) childObject.SetActive(childNode.visible);
         }
 
         private static string ComponentSideNodeId(GameObject nodeObject)

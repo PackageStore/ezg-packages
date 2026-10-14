@@ -13,7 +13,7 @@
   ],
   "license": "MIT",
   "unity": "6000.3",
-  "version": "0.8.10",
+  "version": "0.8.11",
   "type": "library",
   "hideInEditor": false,
   "dependencies": {
