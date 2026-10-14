@@ -1,17 +1,19 @@
 """Tests for the Windows twin of auto-clear (.claude/skills/auto-clear/scripts/auto-clear.ps1).
 
-Chạy script THẬT bằng PowerShell (`pwsh`, hoặc `powershell` trên Windows) với HOME tạm. Trên máy không phải
-Windows, cây process được giả lập: hàm `Get-CimInstance` / `Get-Process` định nghĩa trước khi gọi script
-(hàm thắng cmdlet cùng tên) cho cha của shell test là `claude.exe` pid 777. Phần gõ phím (AttachConsole +
-WriteConsoleInput) chỉ chạy được trên Windows thật — ngoài Windows test chỉ kiểm tới bước gọi nó.
-Không có PowerShell → skip.
+Chạy script THẬT bằng PowerShell (`pwsh`, hoặc `powershell` trên Windows) với HOME tạm. Cây process được giả
+lập trên MỌI nền tảng (kể cả Windows — không thì test bám vào process claude thật đang chạy test): hàm
+`Get-CimInstance` / `Get-Process` định nghĩa trước khi gọi script (hàm thắng cmdlet cùng tên) cho cha của shell
+test là `claude.exe` pid 777. Phần gõ phím (AttachConsole + WriteConsoleInput) vì vậy dừng ở attach pid 777 —
+test chỉ kiểm tới bước gọi nó. Không có PowerShell → skip.
 
 Run from the repo root:
     python3 -m unittest discover -s .claude/scripts/tests -v
 """
 
+import base64
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -57,16 +59,17 @@ class AutoClearPs1Tests(unittest.TestCase):
                     AUTO_CLEAR_THEN_DELAY="0", AUTO_CLEAR_RETRY_DELAY="0", **extra)
 
     def wrapper(self, *args):
-        """File .ps1 gọi script thật (kèm mock ngoài Windows) — stdin của process đi thẳng vào script."""
+        """File .ps1 gọi script thật (kèm mock cây process) — stdin của process đi thẳng vào script."""
         quoted = " ".join("'" + a.replace("'", "''") + "'" for a in args)
         wrapper = self.home / "run.ps1"
-        wrapper.write_text((MOCKS if os.name != "nt" else "") + f"\n& '{SCRIPT}' {quoted}\nexit $LASTEXITCODE\n",
+        wrapper.write_text(MOCKS + f"\n& '{SCRIPT}' {quoted}\nexit $LASTEXITCODE\n",
                            encoding="utf-8")
         return wrapper
 
-    def run_ps(self, *args, stdin=""):
+    def run_ps(self, *args, stdin="", env=None):
         proc = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(self.wrapper(*args))],
-                              input=stdin, capture_output=True, encoding="utf-8", env=self.env(), cwd=self.home)
+                              input=stdin, capture_output=True, encoding="utf-8", env=self.env(**(env or {})),
+                              cwd=self.home)
         return proc.returncode, proc.stdout + proc.stderr
 
     def run_hook(self, sub, payload):
@@ -120,6 +123,51 @@ class AutoClearPs1Tests(unittest.TestCase):
         self.assertEqual((fail[0]["async"], fail[0]["timeout"]), (True, 120))
         self.assertTrue((self.state / "auto-clear.ps1").exists())
         self.assertTrue((self.claude / "settings.json.bak-auto-clear").exists())
+
+    def test_script_has_version_marker_matching_bash_twin(self):
+        marker = re.compile(r"^# auto-clear-version: (\d+)\s*$", re.M)
+        ps1 = marker.search(SCRIPT.read_text(encoding="ascii"))
+        sh = marker.search(SCRIPT.with_suffix(".sh").read_text(encoding="utf-8"))
+        self.assertTrue(ps1 and sh, "cả hai bản phải có dòng auto-clear-version")
+        self.assertEqual(ps1.group(1), sh.group(1), "auto-clear.ps1 và auto-clear.sh phải cùng version")
+
+    def test_install_and_arm_never_downgrade_a_newer_hook_copy(self):
+        # Project khác trên cùng máy đã cài bản mới hơn: install / retry-arm của bản này không được chép đè.
+        self.install()
+        copy = self.state / "auto-clear.ps1"
+        newer = re.sub(r"(?m)^# auto-clear-version: \d+", "# auto-clear-version: 99", SCRIPT.read_text(encoding="ascii"))
+        copy.write_text(newer, encoding="ascii", newline="")
+        code, out = self.run_ps("install")
+        self.assertEqual(code, 0, out)
+        self.assertIn("KEPT_NEWER", out)
+        code, out = self.run_ps("retry-arm", "--max", "0")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(copy.read_text(encoding="ascii", newline=""), newer)
+        self.assertIn("keep hook copy v99", self.log())
+
+    def test_install_and_arm_replace_an_older_hook_copy(self):
+        # Bản copy cũ không có dòng version (= v0, failhook không làm gì) → arm chép đè bằng bản này.
+        self.install()
+        copy = self.state / "auto-clear.ps1"
+        copy.write_text("# auto-clear cũ\n'failhook' { exit 0 }\n", encoding="utf-8")
+        code, out = self.run_ps("retry-arm", "--max", "0")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(copy.read_bytes(), SCRIPT.read_bytes())
+
+    def test_arm_repairs_prompt_rewritten_by_git_bash(self):
+        # Git Bash đổi "/fix-bug --watch" thành "C:/Program Files/Git/fix-bug --watch" trước khi powershell nhận.
+        self.install()
+        git_bash = {"MSYSTEM": "MINGW64", "EXEPATH": r"C:\Program Files\Git\bin"}
+        code, out = self.run_ps("retry-arm", "--prompt", "C:/Program Files/Git/fix-bug --watch", env=git_bash)
+        self.assertEqual(code, 0, out)
+        prompt = base64.b64decode(self.retry_flag()["prompt_b64"]).decode("utf-8")
+        self.assertEqual(prompt, "/fix-bug --watch")
+        code, out = self.run_ps("arm", "--then", "C:/Program Files/Git/fix-bug --watch", env=git_bash)
+        self.assertEqual(code, 0, out)
+        self.assertIn("then=/fix-bug --watch", out)
+        # Không có MSYSTEM (không chạy từ Git Bash) → giữ nguyên chữ.
+        code, out = self.run_ps("arm", "--then", "C:/Program Files/Git/x", env={"MSYSTEM": ""})
+        self.assertIn("then=C:/Program Files/Git/x", out)
 
     def test_uninstall_removes_both_hooks(self):
         self.install()

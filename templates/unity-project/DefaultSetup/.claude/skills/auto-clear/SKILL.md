@@ -147,6 +147,13 @@ script tự đồng bộ lại bản copy, nên update skill qua Feature Hub là
 bản cũ (hook trỏ thẳng vào repo, vd `.agents/scripts/auto-clear.sh` của project khác) vẫn chạy được;
 chạy `install` một lần để chuyển sang bản copy.
 
+**Nhiều project trên một máy dùng chung một bản copy.** Script mang dòng `# auto-clear-version: N`; `arm` /
+`retry-arm` / `install` **không** chép đè bản copy có số lớn hơn (`install` in `KEPT_NEWER: …` và vẫn đăng ký hook
+trên bản copy mới hơn; log `keep hook copy vN`). Script **chưa có** dòng đó (bản trước cơ chế này) thì vẫn chép đè
+vô điều kiện → mỗi project trên máy phải update skill này, không thì project cũ hạ cấp hook của cả máy mỗi lần
+`arm` (Windows: bản cũ có `failhook` không làm gì → thử lại lỗi API chết âm thầm cho mọi project). Sửa phía hook →
+tăng N ở **cả** `.sh` lẫn `.ps1`.
+
 Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch` / `pane-not-found` /
 `attach-failed`; có `--then` thì thêm một dòng `hook-then ... prompt=<prompt> -> ok` (hoặc `skip: …` khi
 `/clear` không gõ được — prompt không bao giờ gõ một mình). Thử lại lỗi API: `failhook … error=<mã> lần k/<max>` (`∞` khi không giới hạn; Windows:
