@@ -1,0 +1,29 @@
+{
+    "name": "Ezg.BugLogger.Tests.Editor",
+    "rootNamespace": "Ezg.BugLogger.Tests",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Ezg.BugLogger",
+        "Ezg.BugLogger.Settings",
+        "Ezg.BugLogger.Editor",
+        "Ezg.BugLogger.UI",
+        "UnityEngine.UI",
+        "UniTask"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

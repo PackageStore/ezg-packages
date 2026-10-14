@@ -1,0 +1,17 @@
+{
+    "name": "Ezg.BugLogger",
+    "rootNamespace": "Ezg.BugLogger",
+    "references": [
+        "UniTask",
+        "Ezg.BugLogger.Settings"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

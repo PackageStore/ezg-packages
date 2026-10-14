@@ -1,0 +1,25 @@
+{
+    "name": "Ezg.BugLogger.UI",
+    "rootNamespace": "Ezg.BugLogger.UI",
+    "references": [
+        "Ezg.BugLogger",
+        "UniTask",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "EZG_BUGLOGGER_INPUT_SYSTEM"
+        }
+    ],
+    "noEngineReferences": false
+}
