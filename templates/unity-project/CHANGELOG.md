@@ -9,7 +9,12 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 **Changed** — cheat chỉ mở cho máy test có tên trong danh sách (`com.ezg.cheat-gate`), bỏ whitelist Remote Config
 - `unity-template.json` thêm `com.ezg.cheat-gate` 0.1.1 (project mới tự có; project cũ thấy trong tab UPM của Feature Hub).
 - `ezg.base.features.unitypackage` (`sha256 c809525a… → 48dd750e…`, chỉ thay 6 entry, 700 asset còn lại giữ nguyên
-  byte, GUID giữ nguyên): `GameSystems.cs` (`CanEnableCheat` / `InitCheatGate` / `TryEnableCheat(Action<bool>)` hỏi
+  byte, GUID giữ nguyên). File mới nằm ở key riêng `unity-template/files/ezg.base.features-48dd750e.unitypackage`
+  (`url` trong `unity-template.json` trỏ vào đó): manifest trên R2 chỉ đổi khi CI publish lại từ `main` sau merge, nên
+  không lúc nào manifest và file lệch nhau. `asset-catalog.json` (tab Unity Packages của Feature Hub) cố ý giữ bản
+  cũ — đổi nó là Feature Hub gợi ý cài đè base features lên project đang chạy. Máy publish local cần bản mới ở
+  `PackageTemplate/ezg.base.features.unitypackage` (tải từ url trên), nếu không `publish.mjs` báo lệch SHA-256.
+  Nội dung: `GameSystems.cs` (`CanEnableCheat` / `InitCheatGate` / `TryEnableCheat(Action<bool>)` hỏi
   `CheatGate`; máy không có tên thấy `Device ID: XXXX-XXXX-XXXX (copied)`, câu chữ không nhắc "cheat"),
   `GameRemoteConfig.cs` (bỏ `enable_cheat_default` / `enable_cheat_default_device` và sync cờ cheat sau fetch),
   `SplashSceneController.cs` (`InitCheatGate()` thay `DisableCheat(false)`), `SettingsController.cs` (tap 10 lần →
