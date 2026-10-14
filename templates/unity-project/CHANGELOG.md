@@ -4,6 +4,22 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-14
+
+**Changed** — cheat chỉ mở cho máy test có tên trong danh sách (`com.ezg.cheat-gate`), bỏ whitelist Remote Config
+- `unity-template.json` thêm `com.ezg.cheat-gate` 0.1.1 (project mới tự có; project cũ thấy trong tab UPM của Feature Hub).
+- `ezg.base.features.unitypackage` (`sha256 c809525a… → 48dd750e…`, chỉ thay 6 entry, 700 asset còn lại giữ nguyên
+  byte, GUID giữ nguyên): `GameSystems.cs` (`CanEnableCheat` / `InitCheatGate` / `TryEnableCheat(Action<bool>)` hỏi
+  `CheatGate`; máy không có tên thấy `Device ID: XXXX-XXXX-XXXX (copied)`, câu chữ không nhắc "cheat"),
+  `GameRemoteConfig.cs` (bỏ `enable_cheat_default` / `enable_cheat_default_device` và sync cờ cheat sau fetch),
+  `SplashSceneController.cs` (`InitCheatGate()` thay `DisableCheat(false)`), `SettingsController.cs` (tap 10 lần →
+  `TryEnableCheat` có callback), `GameConstant.cs` (`CheatGateProject = ""` — `TODO: [Setup]` mã BugHub; trống =
+  chỉ mở trong Editor), `Ezg.Features.asmdef` (+ `Ezg.Package.CheatGate`). Gate cũ chỉ mở ở development build;
+  gate mới mở ở mọi bản build cho đúng máy trong danh sách (máy QA dùng được Bug Logger trên bản store).
+- `DefaultSetup/.claude/skills/bughub-setup` bước 7: kiểm `GameConstant.CheatGateProject` khớp mã BugHub thay cho gate
+  Remote Config; hướng dẫn thêm máy QA bằng ezg MCP `test_device_add`.
+- Đã kiểm: project sinh mới từ template (builder thật) compile sạch trước và sau khi thay 6 file (Unity 6000.3.16f1).
+
 ## 2026-10-12
 
 **Changed** — `CLAUDE.md` tách đôi: phần dùng chung (template quản lý) + `CLAUDE_PROJECT.md` (của từng project)
