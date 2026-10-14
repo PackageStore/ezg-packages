@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.13] - 2026-10-14
+### Fixed
+- **A HUG frame that includes strokes in layout is as wide as in Figma.** "Include strokes in
+  layout" adds the stroke to the frame's size, but the layout group padding left it out, so a
+  pill with a 3 px INSIDE stroke hugged 6 px narrower and its row shifted. The group padding now
+  adds the stroke on each side: an INSIDE stroke fully, a CENTER stroke half, an OUTSIDE stroke
+  not at all, per side when the sides have their own weights. The space-between gap counts it too.
+
 ## [0.8.12] - 2026-10-14
 ### Fixed
 - **A HUG auto-layout frame resizes to its content.** The transform pass gives every node a

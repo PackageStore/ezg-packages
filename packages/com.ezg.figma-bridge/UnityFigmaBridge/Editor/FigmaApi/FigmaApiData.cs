@@ -236,6 +236,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public string layoutSizingHorizontal;
 
         public string layoutSizingVertical;
+
+        /// <summary>True when an auto-layout frame counts its stroke in its size, as "Include strokes in layout".</summary>
+        public bool strokesIncludedInLayout;
+
+        /// <summary>Per-side stroke weights, when the sides differ.</summary>
+        public IndividualStrokeWeights individualStrokeWeights;
         
         /// <summary>
         /// Node ID of node to transition to in prototyping
@@ -956,6 +962,15 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public Newtonsoft.Json.Linq.JToken componentPropAssignments;
 
     }
+    /// <summary>Stroke weight of each side of a frame.</summary>
+    public class IndividualStrokeWeights
+    {
+        public float top;
+        public float right;
+        public float bottom;
+        public float left;
+    }
+
     /// <summary>
     /// A 2d vector
     /// </summary>

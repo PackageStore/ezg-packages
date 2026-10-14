@@ -39,8 +39,10 @@ namespace UnityFigmaBridge.Editor.Nodes
             group.childForceExpandWidth = group.childForceExpandHeight = false;
             group.childScaleWidth = group.childScaleHeight = false;
             group.childAlignment = Alignment(node, horizontal);
-            group.padding = new RectOffset(Mathf.RoundToInt(node.paddingLeft), Mathf.RoundToInt(node.paddingRight),
-                Mathf.RoundToInt(node.paddingTop), Mathf.RoundToInt(node.paddingBottom));
+            var inset = StrokeInset(node);
+            group.padding = new RectOffset(Mathf.RoundToInt(node.paddingLeft + inset.x),
+                Mathf.RoundToInt(node.paddingRight + inset.y), Mathf.RoundToInt(node.paddingTop + inset.z),
+                Mathf.RoundToInt(node.paddingBottom + inset.w));
             group.spacing = node.primaryAxisAlignItems == Node.PrimaryAxisAlignItems.SPACE_BETWEEN
                 ? SpaceBetweenGap(node, horizontal)
                 : node.itemSpacing;
@@ -125,15 +127,37 @@ namespace UnityFigmaBridge.Editor.Nodes
             return (TextAnchor)(row * 3 + column);
         }
 
+        /// <summary>
+        ///     The stroke a frame counts in its size when it includes strokes in layout, per side as
+        ///     (left, right, top, bottom): an INSIDE stroke fully, a CENTER stroke half, an OUTSIDE one not.
+        /// </summary>
+        private static Vector4 StrokeInset(Node node)
+        {
+            if (!node.strokesIncludedInLayout || node.strokes == null ||
+                !node.strokes.Any(s => s != null && s.visible && !FigmaDataUtils.IsShaderPaint(s)))
+                return Vector4.zero;
+            var share = node.strokeAlign switch
+            {
+                Node.StrokeAlign.INSIDE => 1f,
+                Node.StrokeAlign.CENTER => 0.5f,
+                _ => 0f
+            };
+            var sides = node.individualStrokeWeights;
+            return sides != null
+                ? new Vector4(sides.left, sides.right, sides.top, sides.bottom) * share
+                : Vector4.one * (node.strokeWeight * share);
+        }
+
         /// <summary>UGUI has no space-between, so the gap is the one Figma used at import size.</summary>
         private static float SpaceBetweenGap(Node node, bool horizontal)
         {
             var placed = (node.children ?? new Node[] { })
                 .Where(c => c.visible && c.layoutPositioning != "ABSOLUTE" && c.size != null).ToList();
             if (placed.Count < 2 || node.size == null) return node.itemSpacing;
+            var inset = StrokeInset(node);
             var length = horizontal
-                ? node.size.x - node.paddingLeft - node.paddingRight - placed.Sum(c => c.size.x)
-                : node.size.y - node.paddingTop - node.paddingBottom - placed.Sum(c => c.size.y);
+                ? node.size.x - node.paddingLeft - node.paddingRight - inset.x - inset.y - placed.Sum(c => c.size.x)
+                : node.size.y - node.paddingTop - node.paddingBottom - inset.z - inset.w - placed.Sum(c => c.size.y);
             return Mathf.Max(0f, length / (placed.Count - 1));
         }
     }
