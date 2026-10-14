@@ -1394,8 +1394,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-wait.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip",
-      "sha256": "348c1d78dff6c28c7bd695f837ad157c06d0394e3c289ca65467dc6ce79814ca",
-      "size": 2504
+      "sha256": "1cde2b40ddcaf30daddd86e28c6707d4a540b55954a2a2ec74e9efd0d345b1cc",
+      "size": 3033
     },
     {
       "id": "Scripts/bughub-watch.py",
@@ -1946,8 +1946,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "3d1ff1a672656dd164f2b680e0cd6f514fe66a8f2fcbfe9dd73f2b201dc7fca6",
-      "size": 64941
+      "sha256": "278e3653bca80e340a97f640e29e66d36763b7724c28efd26af7d4de3791e20d",
+      "size": 65503
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2673,8 +2673,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "1c96b33c3537ded8c7a1ae115246e23535109263a87353d2713d0687f5fa263a",
-      "size": 19536
+      "sha256": "f9644fe905765cb75a5288ee49a6b6697115f8b5d0de80b6e09e0afce88e2e9e",
+      "size": 19749
     },
     {
       "id": "Skills/game-animation",
