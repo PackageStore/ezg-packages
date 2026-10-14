@@ -30,7 +30,7 @@
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 9
+      "count": 10
     },
     {
       "id": "Scripts",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "2820faca06ab4614bffefe229373bd461cbc787c4dfa2f3a96d9602b6851870e",
-      "size": 7889
+      "sha256": "7c2a65d945fb193924fbf71ee1fbf7f895435a84afc9c6cbdd34b9e1d7a94b6b",
+      "size": 7944
     },
     {
       "id": "Config/project-profile.json",
@@ -1234,6 +1234,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/third-party.zip",
       "sha256": "5d23152be44211a971a6502530115e79999d785e69d456a2fb8e6caea6db1b9c",
       "size": 382
+    },
+    {
+      "id": "Rules/tracking-attribution",
+      "name": "tracking-attribution",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/tracking-attribution.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/tracking-attribution.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "tracking-attribution.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/tracking-attribution.zip",
+      "sha256": "b55d95a0d9f376b6385ef00fae29e0f2832e7796b6a3fc0ca8d73d086a52d3a7",
+      "size": 1989
     },
     {
       "id": "Scripts/art-style-board.py",
@@ -3424,8 +3442,8 @@
       "source": "defaultsetup",
       "fileName": "validate-release.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip",
-      "sha256": "3d94104b558fc7c1f05cf4bc016c92075773850d3b17ad253c3eb0f405d9e772",
-      "size": 22753
+      "sha256": "7751c784276f2c72d5ad49b56693ce21a7ec078ed77317c1afd7013357ad3679",
+      "size": 23489
     },
     {
       "id": "Templates/_GUARDRAILS",
