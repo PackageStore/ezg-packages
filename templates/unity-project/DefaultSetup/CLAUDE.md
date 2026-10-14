@@ -155,7 +155,7 @@ someAsyncTask.Forget(); // fire-and-forget
 |--------|-------------|
 | IAP integration | `Features/_Shared/Purchase/IAPIntegration/` (`InAppPurchase`, `IapBootstrap`, `GameIapHost`) |
 | AssetBundles | `Features/_Shared/AssetBundles/` (`AssetBundleName`, `AssetRefs`, `AssetBundleConfig`) |
-| Analytics / tracking | `Features/_Shared/Analytics/` (Firebase + AppsFlyer, `TrackingEventName`, `AdsPlacement`) |
+| Analytics / tracking | `Features/_Shared/Analytics/` (Firebase + AppsFlyer, `TrackingEventName`, `AdsPlacement`) — boot order + init rules so AppsFlyer / Meta / GameAnalytics install counts match: [.claude/rules/tracking-attribution.md](.claude/rules/tracking-attribution.md) |
 | Localization | `Features/_Shared/Localize/LocalizeHelper.cs` over `com.ezg.localize` |
 | Red dots / badges | `Features/_Shared/RedDot/` — inherit `RedDotBadge`, ids in `RedDotId` |
 | Backend | `Features/_Shared/Networking/GameNetworkManager.cs` (Supabase read + Cloudflare Worker write) |

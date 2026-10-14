@@ -596,6 +596,8 @@ def check_tracking(ctx: Ctx) -> None:
         else:
             ctx.ok("tracking.appsflyer-key", label, value, file=relp)
 
+    check_gameanalytics_keys(ctx)
+
     fb_settings = ctx.glob(["Assets/**/FacebookSettings.asset"])
     manifests = [p for p in ctx.glob(["Assets/Plugins/Android/**/AndroidManifest.xml"])
                  if "com.facebook.sdk.ApplicationId" in (ctx.read(p) or "")]
@@ -629,6 +631,48 @@ def check_tracking(ctx: Ctx) -> None:
                      f"settings={values[0]} · manifest={match.group(1)}", file=mrel, fix=fix)
         else:
             ctx.ok(cid, label, values[0])
+
+
+# UnityEngine.RuntimePlatform — GameAnalytics Settings.asset lưu danh sách platform dạng hex,
+# mỗi phần tử int32 little-endian (vd Android = 11 → "0b000000").
+GA_RUNTIME_PLATFORMS = {"Android": 11, "iOS": 8}
+GA_SETTINGS_FILE = "Assets/Resources/GameAnalytics/Settings.asset"
+
+
+def _ga_platforms(text: str) -> list[int]:
+    raw = (yaml_scalar(text, "Platforms") or "").strip()
+    if not re.fullmatch(r"(?:[0-9a-fA-F]{8})*", raw):
+        return []
+    return [int.from_bytes(bytes.fromhex(raw[i:i + 8]), "little") for i in range(0, len(raw), 8)]
+
+
+def check_gameanalytics_keys(ctx: Ctx) -> None:
+    """GameAnalytics chỉ khởi tạo trên platform có game key trong Settings.asset. Thiếu một platform
+    là GA không đếm install / event nào ở đó, và số GA lệch hẳn AppsFlyer/Meta trên platform ấy."""
+    cid = "tracking.gameanalytics-key"
+    text = ctx.read(GA_SETTINGS_FILE)
+    if text is None:
+        ctx.skip(cid, "GameAnalytics game key", "không có GameAnalytics SDK")
+        return
+
+    platforms = _ga_platforms(text)
+    game_keys, secret_keys = yaml_list(text, "gameKey"), yaml_list(text, "secretKey")
+    for platform in sorted(ctx.platforms):
+        label = f"GameAnalytics game key ({platform})"
+        runtime_id = GA_RUNTIME_PLATFORMS.get(platform)
+        if runtime_id is None:
+            continue
+        if runtime_id not in platforms:
+            ctx.item(cid, label, "blocker", "Settings.asset không khai platform này", file=GA_SETTINGS_FILE,
+                     fix="Tạo game cho platform này trên GameAnalytics rồi thêm qua Window/GameAnalytics/Select Settings.")
+            continue
+        index = platforms.index(runtime_id)
+        game_key = game_keys[index] if index < len(game_keys) else ""
+        secret_key = secret_keys[index] if index < len(secret_keys) else ""
+        if not game_key or not secret_key:
+            ctx.item(cid, label, "blocker", "game key / secret key rỗng", file=GA_SETTINGS_FILE)
+        else:
+            ctx.ok(cid, label, game_key, file=GA_SETTINGS_FILE)
 
 
 def check_flags(ctx: Ctx) -> None:

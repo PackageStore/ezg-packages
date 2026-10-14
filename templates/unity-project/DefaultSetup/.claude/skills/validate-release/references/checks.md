@@ -53,6 +53,7 @@ rồi cắt đúng nested class tương ứng trong file ad-unit bằng cách đ
 | id | Mức | Hỏng khi | Bỏ qua khi |
 |---|---|---|---|
 | `tracking.appsflyer-key` | ✗ | Hằng `AppsFlyerId` / `IOSAppId` rỗng hoặc placeholder | Không thấy hằng đó |
+| `tracking.gameanalytics-key` | ✗ | `Assets/Resources/GameAnalytics/Settings.asset` không khai platform build, hoặc game/secret key của platform đó rỗng — GA không đếm install/event nào trên platform ấy. Một dòng mỗi platform | Không có GameAnalytics SDK |
 | `tracking.facebook-appid` | ✗ | App ID lệch giữa `FacebookSettings` và `AndroidManifest` | Không có Facebook SDK |
 | `tracking.facebook-provider` | ✗ | `FacebookContentProvider<id>` sai → crash lúc khởi động | như trên |
 | `tracking.facebook-token` | ✗ | Client Token lệch giữa settings và manifest | như trên |
