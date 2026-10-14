@@ -338,27 +338,33 @@ Kiểm lại: `python3 .claude/scripts/project_profile.py bugHub` phải in đú
 ## Bước 7 — Cheat cho máy QA (ai thấy Bug Logger)
 
 Bug Logger có trong **mọi** bản build; nút nổi (UI của package, `BugLoggerUI.LauncherVisible`) chỉ hiện khi game
-bật nó theo cheat (`GameSystems.isCheat` — template gán trong `DebugToolsCheatGate`). Cheat bật được ở mọi bản build khi Remote Config cho phép đúng máy đó.
-Kiểm gate cheat của project còn chặn bản không phải development build không:
+bật nó theo cheat (`GameSystems.isCheat` — template gán trong `DebugToolsCheatGate`). Cheat bật được ở mọi bản build
+cho đúng những máy có trong danh sách máy test của project — package `com.ezg.cheat-gate` (`CheatGate`), mã project
+khai ở `GameConstant.CheatGateProject`. Kiểm project đã dùng CheatGate với đúng mã BugHub chưa:
 
 ```bash
-f=$(grep -rl "static bool CanEnableCheatFromRemoteConfig" Assets --include="*.cs" | head -1)
-[ -n "$f" ] || echo "NO-GATE"
-[ -n "$f" ] && awk '/static bool CanEnableCheatFromRemoteConfig/{on=1} on&&/^#if/{print "GATED: " $0; exit} on&&/^        }/{exit}' "$f"
+f=$(grep -rl "CheatGateProject[[:space:]]*=" Assets --include="*.cs" | head -1)
+[ -n "$f" ] || echo "NO-CHEATGATE"
+[ -n "$f" ] && grep -ho 'CheatGateProject[[:space:]]*=[[:space:]]*"[^"]*"' "$f"
+grep -rl "static bool CanEnableCheatFromRemoteConfig" Assets --include="*.cs" | head -1 | sed 's/^/OLD-GATE: /'
 ```
 
 | Tình huống | Kết quả |
 |---|---|
-| `NO-GATE` | `cần dev làm: project không có CanEnableCheatFromRemoteConfig — tự quyết cách bật icon Bug Logger cho máy QA` |
-| có dòng `GATED: #if …DEVELOPMENT_BUILD…` | `cần dev làm: gate cheat chỉ mở ở Editor/development build — bản CI (không development) sẽ không bao giờ hiện Bug Logger; bỏ #if đó trong <f> (TechSpec BugHub D5)` |
-| không in gì | `ok` |
+| `NO-CHEATGATE` (có hoặc không `OLD-GATE`) | `cần dev làm: project chưa dùng com.ezg.cheat-gate — cài từ Feature Hub và tích hợp theo README của package (bỏ whitelist Remote Config cũ)` |
+| `CheatGateProject = ""` | `cần dev làm: đặt GameConstant.CheatGateProject = "<code>" trong <f>` |
+| `CheatGateProject = "<khác code>"` | `cần dev làm: GameConstant.CheatGateProject đang là "<giá trị>", BugHub là "<code>" — sửa cho khớp` |
+| `CheatGateProject = "<code>"`, không có `OLD-GATE` | `ok` |
+| `CheatGateProject = "<code>"`, còn `OLD-GATE` | `cần dev làm: còn gate cũ CanEnableCheatFromRemoteConfig trong <file> — bỏ để chỉ còn CheatGate` |
 
 Skill **không** tự sửa gate (đụng cheat của bản store, cần dev quyết). Luôn in hướng dẫn thêm máy QA:
 
-1. Firebase Console → Remote Config: `enable_cheat_default` = `true`.
-2. `enable_cheat_default_device` = `{"devices":["<deviceId máy QA>", …]}` — deviceId = `SystemInfo.deviceUniqueIdentifier`
-   (xem trong game: Settings / màn cheat; hoặc log `DeviceId` lúc boot).
-3. Chỉ đưa **máy nội bộ** vào danh sách — máy nào trong đó cũng thấy cheat, kể cả trên bản store.
+1. Trên máy QA, mở game (bản có tích hợp) → Settings → tap version 10 lần → game hiện `Device ID: XXXX-XXXX-XXXX`
+   (đã copy sẵn).
+2. Lead / QA của project trong BugHub thêm máy bằng MCP `ezg`: `test_device_add` với project `<code>`, device_id đó
+   và label (ai cầm máy nào). Có hiệu lực sau ~1-2 phút; QA tap lại 10 lần là mở cheat.
+3. Gỡ máy: `test_device_remove`; xem danh sách: `test_device_list`. Không dùng Remote Config
+   `enable_cheat_default` / `enable_cheat_default_device` nữa.
 
 ## Bước 8 — `/auto-clear` cho `/fix-bug --watch`
 

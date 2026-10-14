@@ -16,6 +16,7 @@
     "com.ezg.autotest": "0.1.1",
     "com.ezg.buglogger": "0.2.3",
     "com.ezg.build-report": "0.1.2",
+    "com.ezg.cheat-gate": "0.1.1",
     "com.ezg.colors": "0.1.2",
     "com.ezg.core": "0.1.3",
     "com.ezg.csv-reader": "0.2.6",
@@ -233,8 +234,8 @@
       },
       {
         "fileName": "ezg.base.features.unitypackage",
-        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features.unitypackage",
-        "sha256": "c809525a7225de0763aea0899930bd309a133149628ab1bbb87de0dd743e9260"
+        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features-48dd750e.unitypackage",
+        "sha256": "48dd750e309b08dbdeda7f9a584a02543809414d4c24feab90b737ae5a127322"
       },
       {
         "fileName": "ezg.base.visuals.unitypackage",

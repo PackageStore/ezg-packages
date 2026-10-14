@@ -1,0 +1,19 @@
+{
+  "name": "com.ezg.cheat-gate",
+  "displayName": "EZG Cheat Gate",
+  "version": "0.1.1",
+  "unity": "2022.3",
+  "description": "Opens in-game cheats on release builds only for listed test phones. Tapping the version label 10 times asks the EZG cheat-gate Worker once whether this phone (hashed SystemInfo.deviceUniqueIdentifier, shown as XXXX-XXXX-XXXX) is on the project's list; a listed phone gets an RSA-signed grant (bound to the request's nonce) valid 7 days offline, re-checked at launch and on return to the foreground (at most every 30 minutes) only by phones that hold one. Ordinary players never send a request. The list is managed with the ezg MCP tools test_device_add / test_device_remove (BugHub Lead / QA).",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "cheat",
+    "debug",
+    "qa",
+    "test-device"
+  ],
+  "dependencies": {
+    "com.unity.modules.unitywebrequest": "1.0.0"
+  }
+}
