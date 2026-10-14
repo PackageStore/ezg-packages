@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "4773b0d562aeae374bb329d807ec346d3141bc9c26a0d00c092aea31ac058aa6",
-      "size": 7877
+      "sha256": "2820faca06ab4614bffefe229373bd461cbc787c4dfa2f3a96d9602b6851870e",
+      "size": 7889
     },
     {
       "id": "Config/project-profile.json",
