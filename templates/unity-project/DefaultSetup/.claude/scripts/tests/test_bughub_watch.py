@@ -532,9 +532,9 @@ class WatchdogTests(WatchTestCase):
             + body)
         claude.chmod(0o755)
 
-    def start(self, minutes="0.04"):
+    def start(self, minutes="0.04", **extra_env):
         env = dict(os.environ, PATH=f"{self.bin}{os.pathsep}{os.environ['PATH']}", BUGHUB_PAUSE_SECONDS="0",
-                   BUGHUB_WATCHDOG_MINUTES=minutes, CLAUDE_CONFIG_DIR=str(self.config))
+                   BUGHUB_WATCHDOG_MINUTES=minutes, CLAUDE_CONFIG_DIR=str(self.config), **extra_env)
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), "start"],
                               cwd=self.dev, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL,
                               timeout=60)
@@ -573,6 +573,18 @@ class WatchdogTests(WatchTestCase):
         self.fake_claude("if n == 1:\n    transcript('renamed-by-claude')\n    time.sleep(60)\n")
         proc, runs, log = self.start()
         self.assertEqual((proc.returncode, runs), (0, 2), proc.stderr)
+
+    def test_parent_claude_session_env_is_not_inherited(self):
+        # `start` gọi từ trong một session Claude: claude con không được thừa hưởng biến phiên của session cha.
+        self.fake_claude("(runs.parent / 'env.json').write_text(json.dumps(dict(os.environ)))\n")
+        proc, runs, _ = self.start(CLAUDECODE="1", CLAUDE_CODE_CHILD_SESSION="1", CLAUDE_CODE_SESSION_ID="parent",
+                                   CLAUDE_PID="4242")
+        self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
+        env = json.loads((self.tmp / "env.json").read_text())
+        for key in ("CLAUDECODE", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_PID"):
+            self.assertNotIn(key, env)
+        self.assertEqual(env["CLAUDE_CONFIG_DIR"], str(self.config))
+        self.assertIn("BUGHUB_WATCH_HEARTBEAT", env)
 
     def test_watchdog_off(self):
         self.fake_claude("transcript()\ntime.sleep(4)\n")
