@@ -213,7 +213,18 @@ namespace Ezg.Package.Pooling
         /// <param name="forceReturn">If true, bypasses the return checks.</param>
         public void ReturnPool(GameObject mainObject, GameObject obj, bool forceReturn = false)
         {
-            if (_allowReturnPool || forceReturn) _pools[mainObject.name]?.Enqueue(obj);
+            if (_allowReturnPool || forceReturn)
+            {
+                // Pool chưa từng được tạo cho prefab này (vd object Instantiate ngoài pool rồi trả về):
+                // tạo queue thay vì ném KeyNotFoundException — "?." không bảo vệ được indexer của Dictionary.
+                if (!_pools.TryGetValue(mainObject.name, out var queue))
+                {
+                    queue = new Queue<GameObject>();
+                    _pools[mainObject.name] = queue;
+                }
+
+                queue.Enqueue(obj);
+            }
 
             if (_removeParentWhenReturnPool) obj.transform.parent = null;
         }

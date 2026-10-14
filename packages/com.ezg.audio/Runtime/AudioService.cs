@@ -32,6 +32,10 @@ namespace Ezg.Package.Audio
 
         private CancellationTokenSource _musicFadeCts;
 
+        // Khi true, mọi yêu cầu PlayMusic bị bỏ qua (vd: đang chạy video intro lúc loading,
+        // không cho bgm home phát đè lên video). Bật/tắt qua SetSuppressMusic.
+        private bool _suppressMusic;
+
         /// <summary>Gets the AudioSource used for background music playback.</summary>
         public AudioSource MusicSource { get; private set; }
 
@@ -155,13 +159,37 @@ namespace Ezg.Package.Audio
         }
 
         /// <summary>
+        /// Gets whether background music is currently suppressed via <see cref="SetSuppressMusic"/>.
+        /// </summary>
+        public bool IsMusicSuppressed => _suppressMusic;
+
+        /// <summary>
+        /// Chặn/cho phép phát nhạc nền. Khi chặn sẽ huỷ fade đang chạy + dừng nhạc đang phát ngay lập tức
+        /// (vd để bgm home không kêu đè lên video intro lúc loading). Khi bỏ chặn, game tự gọi lại PlayMusic.
+        /// </summary>
+        /// <param name="suppress">True to block music playback and stop current music; false to allow it again.</param>
+        public void SetSuppressMusic(bool suppress)
+        {
+            _suppressMusic = suppress;
+            if (!suppress || MusicSource == null)
+                return;
+
+            RestartMusicFade();
+            MusicSource.volume = 0f;
+            MusicSource.Stop();
+        }
+
+        /// <summary>
         /// Plays background music with a fade-in. Skips if the same clip is already playing.
-        /// Does nothing if music volume is zero.
+        /// Does nothing if music volume is zero or music is suppressed (<see cref="SetSuppressMusic"/>).
         /// </summary>
         /// <param name="clip">The AudioClip to play as music.</param>
         /// <param name="isLoop">Whether the music should loop.</param>
         public void PlayMusic(AudioClip clip, bool isLoop = false)
         {
+            if (_suppressMusic)
+                return;
+
             if (_settings.GetMusicVolume() == 0f)
                 return;
 
@@ -309,7 +337,8 @@ namespace Ezg.Package.Audio
             try
             {
                 await FadeMusic(0f, MUSIC_FADE_DURATION, token);
-                MusicSource.Stop();
+                if (MusicSource != null)
+                    MusicSource.Stop();
             }
             catch (OperationCanceledException)
             {

@@ -38,6 +38,13 @@ namespace Ezg.Package.Audio
         /// <summary>Stops the currently playing background music with a fade-out.</summary>
         void StopMusic();
 
+        /// <summary>
+        /// Blocks (or re-allows) background music. While suppressed, <see cref="PlayMusic"/> is ignored;
+        /// enabling suppression also stops the current music immediately (no fade).
+        /// </summary>
+        /// <param name="suppress">True to block music and stop current music; false to allow music again.</param>
+        void SetSuppressMusic(bool suppress);
+
         /// <summary>Stops all currently playing sound effects immediately.</summary>
         void StopSound();
 

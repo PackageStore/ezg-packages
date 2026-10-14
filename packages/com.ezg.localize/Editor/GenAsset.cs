@@ -82,7 +82,7 @@ namespace Ezg.Package.Localize
 
             if (field != null)
             {
-                field.SetValue(gm, CsvReaderLib.Deserialize(data, type, path));
+                field.SetValue(gm, CsvReaderLib.AdaptToFieldType(CsvReaderLib.Deserialize(data, type, path), field.FieldType));
 
                 method?.Invoke(gm, null);
 

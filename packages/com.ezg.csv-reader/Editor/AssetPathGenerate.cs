@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -55,7 +56,29 @@ namespace Ezg.Package.CsvReader
         /// <param name="orderedKeys">A list to preserve order of entries.</param>
         private static void AddCsvConfigEntries(Dictionary<string, string> entries, List<string> orderedKeys)
         {
-            foreach (var csvPath in CsvPathUtility.EnumerateCsvConfigAssetPaths())
+            var csvPaths = CsvPathUtility.EnumerateCsvConfigAssetPaths().ToList();
+
+            // Cảnh báo khi có 2+ file trùng tên: chúng sẽ sinh ra const trùng tên
+            // trong CsvAssetDir (lỗi biên dịch CS0102 nếu không bị lọc). In rõ path để biết file rác nằm đâu.
+            var byName = csvPaths
+                .GroupBy(path => CsvPathUtility.GetCsvAssetValue(path))
+                .Where(g => g.Count() > 1)
+                .ToList();
+            if (byName.Count > 0)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine(
+                    $"[AssetPathGenerate] ⚠ Có {byName.Count} tên file bị TRÙNG (sẽ tạo field duplicate trong {CsvReaderSettings.Current.generatedClassName}, chỉ giữ entry đầu tiên):");
+                foreach (var dup in byName.OrderBy(d => d.Key))
+                {
+                    sb.AppendLine($"  • {dup.Key}:");
+                    foreach (var p in dup) sb.AppendLine($"      - {p.Replace(@"\", "/")}");
+                }
+
+                Debug.LogWarning(sb.ToString());
+            }
+
+            foreach (var csvPath in csvPaths)
             {
                 var fileName = CsvPathUtility.GetCsvAssetValue(csvPath);
                 AddEntry(entries, orderedKeys, fileName, fileName, csvPath);

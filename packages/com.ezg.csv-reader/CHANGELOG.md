@@ -1,3 +1,19 @@
+## [0.3.0] - 2026-10-14
+
+### Changed
+- **`CsvReader.Deserialize(text, Type, file)` always returns an array** (0, 1 or N elements). Before, a CSV
+  with a single data group returned a lone object and `Deserialize<T>` threw `InvalidCastException`.
+  Callers that set a field use the new `CsvReader.AdaptToFieldType(value, fieldType)` (array field → array,
+  single field → first element, null for none). `BasePostProcessor` and com.ezg.localize `GenAsset` do.
+
+### Fixed
+- Empty CSV returns an empty array instead of throwing.
+- Invalid (non-lowercase) or duplicate header columns are skipped with a warning instead of aborting every
+  later column; rows shorter than the header no longer index out of range.
+- An array field with no matching columns gets an empty array plus a warning.
+- On a parse exception the type and file are logged and an empty array is returned.
+- `AssetPathGenerate` groups duplicate collection names in one warning listing every path.
+
 ## [0.2.6] - 2026-07-30
 
 ### Fixed
