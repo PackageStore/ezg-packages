@@ -41,6 +41,8 @@ namespace Ezg.Tracking.Samples
         private void EnableTrackingForDemo()
         {
             TrackingService.IsTracking = true;
+            // Real project: set right after AppsFlyer.startSDK(), at the very start of the boot.
+            TrackingService.IsAppsFlyerStarted = true;
             TrackingService.IsInitFirebase = true;
         }
 

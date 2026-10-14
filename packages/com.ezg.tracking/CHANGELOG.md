@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-10-14
+
+### Fixed
+- **AppsFlyer events were silently dropped whenever Firebase was slow or failed.** `SendAppsFlyer` returned early while `IsInitFirebase` was false, so a slow `CheckAndFixDependenciesAsync`, a timeout, or a device without Play Services lost every AppsFlyer event — including one-shot events such as `af_first_open` that a game marks as sent in its save and never retries. AppsFlyer does not depend on Firebase: events now go out as soon as `IsAppsFlyerStarted` is set.
+- **Conversion data that arrived before Firebase was lost.** `SetUAProperties` discarded its argument while Firebase was not ready, and the customary `SetUAProperties(null)` right after Firebase init then wrote "Unattributed" over the user. The last non-null conversion data is now kept, applied automatically when `IsInitFirebase` flips to true, and a `null` call re-applies it instead of overwriting it.
+
+### Added
+- `TrackingService.IsAppsFlyerStarted` — set it right after `AppsFlyer.startSDK()`. Projects that do not set it keep the old gate (AppsFlyer events wait for `IsInitFirebase`), so upgrading needs no code change; setting it is what decouples AppsFlyer from Firebase.
+- README section 3.1: boot order that keeps AppsFlyer / Meta / GameAnalytics install counts aligned (start AppsFlyer first, on its own; GameAnalytics right after).
+
+### Changed
+- `IsInitFirebase` is now a property (was a field). Source-compatible for every read and assignment.
+
 ## [0.2.2] - 2026-08-14
 
 ### Fixed

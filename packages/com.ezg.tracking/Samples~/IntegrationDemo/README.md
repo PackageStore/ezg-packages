@@ -22,7 +22,7 @@ Starter **tối giản, self-contained** cho `Ezg.Tracking`. Mọi thứ ở đ�
 
 ## Đưa vào project thật — 3 bước
 
-1. **Bật engine sau khi Firebase init:** `TrackingService.IsInitFirebase = true;` (xem `DemoBootstrap.EnableTrackingForDemo`).
+1. **Bật engine:** `TrackingService.IsAppsFlyerStarted = true;` ngay sau `AppsFlyer.startSDK()` (đầu boot), và `TrackingService.IsInitFirebase = true;` sau khi Firebase init (xem `DemoBootstrap.EnableTrackingForDemo` + README package mục 3.1).
 2. **Cắm user-property provider** đọc từ player-data của bạn (xem `DemoBootstrap.RegisterUserProperties`). Bỏ qua nếu không cần user-property.
 3. **Gọi tại feature code** theo 1 trong 3 kiểu trong `DemoUsage.cs`: typed `.Send()`, dictionary, hoặc `TrackingService.SendFirebase/SendAppsFlyer` trực tiếp.
 

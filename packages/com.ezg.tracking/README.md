@@ -19,7 +19,8 @@ Engine analytics **game-agnostic**. Đẩy event + user-property sang **Firebase
 Engine **không** tham chiếu player-data, không hardcode tên event của game. Ba điểm cắm để host project điền vào:
 
 - `TrackingService.UserPropertyProvider` — `Func<object>` trả snapshot user-property; engine gọi trước mỗi Firebase event.
-- `TrackingService.IsInitFirebase` — bật `true` **sau khi** Firebase init xong; trước đó mọi call là no-op an toàn.
+- `TrackingService.IsInitFirebase` — bật `true` **sau khi** Firebase init xong; trước đó mọi call Firebase là no-op an toàn. Conversion data AppsFlyer về trước mốc này được giữ lại và tự áp khi cờ bật.
+- `TrackingService.IsAppsFlyerStarted` — bật `true` **ngay sau** `AppsFlyer.startSDK()`. Từ 0.3.0, event AppsFlyer chỉ chờ cờ này, **không** chờ Firebase (project chưa bật cờ thì giữ luật cũ: chờ `IsInitFirebase`). Xem [mục 3.1](#31-thứ-tự-boot-để-af--meta--ga-khớp-install).
 - Các overload `SendFirebase<TEnum>` / `SendAppsFlyer<TEnum>` — gọi bằng enum riêng của game để có type-safety mà engine vẫn agnostic.
 
 ---
@@ -39,8 +40,12 @@ Engine **không** tham chiếu player-data, không hardcode tên event của gam
 ## 3. Quick start
 
 ```csharp
+// 0) Ngay sau AppsFlyer.startSDK() — ĐẦU boot, xem 3.1:
+TrackingService.IsAppsFlyerStarted = true;
+
 // 1) Sau khi Firebase init xong:
 TrackingService.IsInitFirebase = true;
+TrackingService.SetUAProperties(null); // null không đè conversion data đã về — chỉ đánh "Unattributed" khi chưa có gì
 
 // 2) (Tuỳ chọn) cắm user-property provider:
 TrackingService.UserPropertyProvider = () => new Dictionary<string, object>
@@ -53,6 +58,16 @@ TrackingService.UserPropertyProvider = () => new Dictionary<string, object>
 TrackingService.SendFirebase("level_start", new Dictionary<string, object> { ["level_id"] = 7 }).Forget();
 MyEnum.level_start.Send(new MyConfig { level_id = 7 }); // qua extension tự định nghĩa (xem sample)
 ```
+
+### 3.1. Thứ tự boot để AF / Meta / GA khớp install
+
+Mỗi SDK chỉ ghi install khi nó **start**. Meta (Facebook SDK native, `AutoLogAppEventsEnabled`) tự start lúc mở app; nếu AppsFlyer/GameAnalytics start sau một chuỗi bước dài (tải bundle, init ads, Firebase…) thì người chơi thoát app khi splash còn chạy sẽ được Meta đếm nhưng AF/GA thì không. Ví dụ thật: CPI test i001 (10/2026) có AF 240 install, GA 315 install.
+
+1. **AppsFlyer ĐẦU TIÊN**, ngay khi save/config nạp xong (chỉ cần customer user id): `initSDK` → (ATT, customer user id, Purchase Connector — mỗi bước bọc try/catch riêng) → `startSDK()` trong `finally` → `TrackingService.IsAppsFlyerStarted = true`.
+2. **Độc lập**: AF một bước boot riêng, không chung try/catch với IAP hay module khác; listener conversion data là GameObject riêng của game, **không** mượn listener của module IAP.
+3. **GameAnalytics ngay sau AF** (GA bỏ hẳn mọi event bắn trước `Initialize`).
+4. Mới tới bundle / ads / Firebase. Khi Firebase xong: `IsInitFirebase = true` rồi `SetUAProperties(null)` — conversion data về sớm được áp lại tự động.
+5. Event một-lần-mỗi-cài-đặt (`af_first_open`…) gửi **sau** `startSDK`; set cờ "đã gửi" trong save chỉ sau khi chắc gửi được.
 
 ---
 

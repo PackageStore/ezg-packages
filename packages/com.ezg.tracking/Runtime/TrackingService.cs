@@ -28,7 +28,51 @@ namespace Ezg.Tracking
 
         public static bool IsTracking = true;
 
-        public static bool IsInitFirebase;
+        /// <summary>
+        /// Set <c>true</c> once Firebase has initialized. Gates every Firebase call. Flipping it to <c>true</c> also
+        /// applies any AppsFlyer conversion data that arrived earlier (see <see cref="SetUAProperties"/>), because
+        /// AppsFlyer should start well before Firebase and its callback can land first.
+        /// </summary>
+        public static bool IsInitFirebase
+        {
+            get => _isInitFirebase;
+            set
+            {
+                var becameReady = value && !_isInitFirebase;
+                _isInitFirebase = value;
+                if (!becameReady || _lastConversionData == null) return;
+
+                try
+                {
+                    ApplyUAProperties(_lastConversionData);
+                }
+                catch (Exception e)
+                {
+                    // Setter chạy trong luồng boot của game — lỗi Firebase không được phép kéo boot theo.
+                    Debug.LogWarning($"[TrackingService] Applying pending UA properties failed: {e}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Set <c>true</c> right after <c>AppsFlyer.startSDK()</c>. Gates <see cref="SendAppsFlyer(string, object)"/> —
+        /// AppsFlyer does not need Firebase, so its events must not wait for (or be lost to) a slow or failed Firebase
+        /// init. Projects that never set this flag keep the legacy gate: AppsFlyer events go out once
+        /// <see cref="IsInitFirebase"/> is true.
+        /// <para>
+        /// Start AppsFlyer as the very first SDK of the boot, on its own and independent of every other module: an
+        /// install is only recorded once <c>startSDK</c> runs, so a player who quits during a long splash is counted
+        /// by GameAnalytics and Meta but never by AppsFlyer.
+        /// </para>
+        /// </summary>
+        public static bool IsAppsFlyerStarted;
+
+        private static bool _isInitFirebase;
+
+        /// <summary>Last non-null conversion data passed to <see cref="SetUAProperties"/>.</summary>
+        private static Dictionary<string, string> _lastConversionData;
+
+        private static bool CanSendAppsFlyer => IsAppsFlyerStarted || _isInitFirebase;
 
         /// <summary>
         /// Sentinel for optional numeric values: any int/long/float/double equal to this value is treated as
@@ -202,7 +246,7 @@ namespace Ezg.Tracking
         /// <param name="config">The optional config object.</param>
         public static void SendAppsFlyer(string eventName, object config = null)
         {
-            if (!IsInitFirebase)
+            if (!CanSendAppsFlyer)
             {
                 return;
             }
@@ -229,7 +273,7 @@ namespace Ezg.Tracking
         /// <param name="parameters">The event parameters.</param>
         public static void SendAppsFlyer(string eventName, IDictionary<string, object> parameters)
         {
-            if (!IsInitFirebase)
+            if (!CanSendAppsFlyer)
             {
                 return;
             }
@@ -273,12 +317,25 @@ namespace Ezg.Tracking
 
         /// <summary>
         /// Sets user acquisition properties based on conversion data.
+        /// <para>
+        /// Safe to call before Firebase is ready: the data is kept and applied when <see cref="IsInitFirebase"/>
+        /// flips to <c>true</c>. A <c>null</c> call (the usual "mark unattributed" right after Firebase init) never
+        /// overwrites real conversion data that already arrived — it re-applies that data instead.
+        /// </para>
         /// </summary>
-        /// <param name="conversionData">The conversion data dictionary.</param>
+        /// <param name="conversionData">The conversion data dictionary, or null when none has arrived yet.</param>
         public static void SetUAProperties(Dictionary<string, string> conversionData)
         {
-            if (!IsInitFirebase) return;
+            if (conversionData != null) _lastConversionData = conversionData;
+            else conversionData = _lastConversionData;
 
+            if (!_isInitFirebase) return;
+
+            ApplyUAProperties(conversionData);
+        }
+
+        private static void ApplyUAProperties(Dictionary<string, string> conversionData)
+        {
             string uaNetwork, uaCampaign, uaAdgroup, uaCreative;
 
             if (conversionData == null)
