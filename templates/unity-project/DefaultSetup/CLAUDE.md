@@ -159,7 +159,7 @@ someAsyncTask.Forget(); // fire-and-forget
 | Localization | `Features/_Shared/Localize/LocalizeHelper.cs` over `com.ezg.localize` |
 | Red dots / badges | `Features/_Shared/RedDot/` — inherit `RedDotBadge`, ids in `RedDotId` |
 | Backend | `Features/_Shared/Networking/GameNetworkManager.cs` (Supabase read + Cloudflare Worker write) |
-| In-game bug reports | `Features/_Shared/BugLogger/` (Discord webhook), or package `com.ezg.buglogger` (BugHub, installed by `/bughub-setup`) |
+| In-game bug reports | `Features/_Shared/BugLogger/` (Discord webhook), or package `com.ezg.buglogger` (BugHub, ships with the template; `/bughub-setup` wires the project code) |
 | Ads | `Features/_Shared/Ads/AdsController.cs` |
 | Audio | `Features/_Shared/AudioGame/` over `com.ezg.audio` |
 | Secrets / per-app config | `Features/_Shared/Config/AppSecretsConfig.cs` (fill in per project) |
