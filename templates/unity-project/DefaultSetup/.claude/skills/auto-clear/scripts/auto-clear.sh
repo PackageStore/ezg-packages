@@ -31,6 +31,12 @@
 # Vì vậy nó chạy bản copy ở ~/.claude/auto-clear/ chứ không trỏ vào repo — xoá/dời repo không làm hook
 # chết âm thầm. `arm` đồng bộ lại bản copy mỗi lần chạy, nên update skill là hook dùng bản mới luôn.
 #
+# auto-clear-version: 1
+#   Tăng số này (cùng số với auto-clear.ps1) mỗi khi phía hook đổi. `arm` / `retry-arm` / `install` KHÔNG
+#   chép đè bản copy mang số LỚN HƠN: nhiều project trên một máy, project còn skill cũ sẽ hạ cấp hook dùng
+#   chung mỗi lần arm (bản copy cũ có failhook không làm gì = thử lại lỗi API chết âm thầm cho mọi project).
+#   Script không có dòng này tính là version 0.
+#
 # Nhắm pane theo UUID trong ITERM_SESSION_ID ("w0t0p3:<UUID>") qua AppleScript `write text` — ghi
 # thẳng vào input của pane đó, KHÔNG gửi phím vào cửa sổ đang focus. Trước khi gõ còn so tty của pane
 # với tty của process `claude` đã bật cờ: lệch (tmux/ssh, Claude đã thoát) → bỏ qua, không gõ nhầm.
@@ -99,10 +105,31 @@ failhook_installed() {
   hook_installed && grep -q 'auto-clear\.sh.* failhook' "$SETTINGS" 2>/dev/null
 }
 
+# Số "auto-clear-version: N" của một file script (0 = không có dòng đó = cũ hơn chính cơ chế này).
+script_version() {
+  local v
+  v="$(sed -n 's/^# auto-clear-version: \([0-9][0-9]*\)[[:space:]]*$/\1/p' "$1" 2>/dev/null | head -n 1)"
+  printf '%s' "${v:-0}"
+}
+
+# Chép script này đè bản copy của hook, trừ khi bản copy MỚI HƠN (xem "auto-clear-version" ở đầu file).
+# Exit 0 = bản copy giờ bằng hoặc mới hơn version của script này; 1 = đã giữ bản copy mới hơn.
+copy_hook_script() {
+  [ "$SCRIPT_PATH" = "$HOOK_SCRIPT" ] && return 0
+  local mine theirs
+  mine="$(script_version "$SCRIPT_PATH")"
+  theirs="$(script_version "$HOOK_SCRIPT")"
+  if [ -f "$HOOK_SCRIPT" ] && [ "$theirs" -gt "$mine" ]; then
+    log "keep hook copy v$theirs (newer than v$mine of $SCRIPT_PATH)"
+    return 1
+  fi
+  cmp -s "$SCRIPT_PATH" "$HOOK_SCRIPT" || cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
+}
+
 # Hook chạy bản copy → đồng bộ với bản của skill đang bật cờ để hook luôn khớp phiên bản vừa arm.
 sync_hook_copy() {
-  if [ "$(hook_target)" = "$HOOK_SCRIPT" ] && ! cmp -s "$SCRIPT_PATH" "$HOOK_SCRIPT"; then
-    cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
+  if [ "$(hook_target)" = "$HOOK_SCRIPT" ]; then
+    copy_hook_script || true
   fi
 }
 
@@ -416,7 +443,7 @@ cmd_inject() {
 
 cmd_install() {
   mkdir -p "$STATE_DIR"
-  [ "$SCRIPT_PATH" = "$HOOK_SCRIPT" ] || cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
+  copy_hook_script || echo "KEPT_NEWER: $HOOK_SCRIPT is v$(script_version "$HOOK_SCRIPT"), this script is v$(script_version "$SCRIPT_PATH") - hooks registered on the newer copy"
   python3 - "$SETTINGS" "$HOOK_SCRIPT" <<'PY'
 import json, os, shutil, sys
 path, script = sys.argv[1], sys.argv[2]

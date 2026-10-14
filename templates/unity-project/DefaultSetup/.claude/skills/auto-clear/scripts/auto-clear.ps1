@@ -38,6 +38,17 @@
 # that installs this skill. It therefore runs the copy under ~/.claude/auto-clear/ instead of pointing
 # into a repo, so deleting/moving a repo cannot silently kill it. `arm` / `retry-arm` re-sync the copy.
 #
+# auto-clear-version: 1
+#   Bump this number (same number in auto-clear.sh) whenever the hook side changes. `arm` / `retry-arm` /
+#   `install` never overwrite a hook copy carrying a HIGHER number: with several projects on one machine,
+#   a project still on an old skill would otherwise downgrade the shared hook on every arm (an old copy
+#   whose failhook does nothing = API-error retry silently dead for every project). Scripts without the
+#   marker count as version 0.
+#
+# Called from Git Bash (the Bash tool of Claude Code on Windows), an argument starting with "/" is rewritten
+# into a Windows path ("/fix-bug --watch" -> "C:/Program Files/Git/fix-bug --watch"). arm --then and
+# retry-arm --prompt undo that rewrite (only when MSYSTEM is set and the prefix is the Git root).
+#
 # Usage:  powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 <subcommand>
 
 $ErrorActionPreference = 'Stop'
@@ -253,11 +264,49 @@ function Test-SamePath([string]$A, [string]$B) {
     return (($A -replace '\\', '/') -eq ($B -replace '\\', '/'))
 }
 
+# "auto-clear-version: N" marker of a script file (0 = no marker = older than the marker itself).
+function Get-ScriptVersion([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+    $m = [regex]::Match([System.IO.File]::ReadAllText($Path), '(?m)^# auto-clear-version: (\d+)\s*$')
+    if ($m.Success) { return [int]$m.Groups[1].Value }
+    return 0
+}
+
+# Copy this script over the hook copy unless the copy is NEWER (see "auto-clear-version" in the header).
+# Returns $true when the copy now matches this script's version or newer, $false when a newer copy was kept.
+function Copy-HookScript {
+    if (Test-SamePath $ScriptPath $HookScript) { return $true }
+    $mine = Get-ScriptVersion $ScriptPath
+    $theirs = Get-ScriptVersion $HookScript
+    if ((Test-Path -LiteralPath $HookScript) -and $theirs -gt $mine) {
+        Write-Log ('keep hook copy v' + $theirs + ' (newer than v' + $mine + ' of ' + $ScriptPath + ')')
+        return $false
+    }
+    Copy-Item $ScriptPath $HookScript -Force
+    return $true
+}
+
 # The hooks run the copy - re-sync it with the script that is arming, so hook and flag share one version.
 function Sync-HookCopy {
-    if ((Test-SamePath (Get-HookTarget 'Stop' 'hook') $HookScript) -and -not (Test-SamePath $ScriptPath $HookScript)) {
-        Copy-Item $ScriptPath $HookScript -Force
+    if (Test-SamePath (Get-HookTarget 'Stop' 'hook') $HookScript) { [void](Copy-HookScript) }
+}
+
+# Undo the Git Bash (MSYS) rewrite of a leading "/" argument: "C:/Program Files/Git/fix-bug" -> "/fix-bug".
+function Repair-MsysPrompt([string]$Text) {
+    if (-not $env:MSYSTEM -or [string]::IsNullOrEmpty($Text)) { return $Text }
+    # EXEPATH = <git root>\bin (string ops, not Split-Path: keep it working under pwsh on macOS/Linux CI too).
+    $roots = @()
+    if ($env:EXEPATH) { $roots += (($env:EXEPATH -replace '\\', '/').TrimEnd('/') -replace '/bin$', '') }
+    if ($env:ProgramFiles) { $roots += ($env:ProgramFiles + '/Git') }
+    foreach ($root in $roots) {
+        $prefix = ($root -replace '\\', '/').TrimEnd('/')
+        if ($prefix -and $Text.StartsWith($prefix + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
+            $fixed = $Text.Substring($prefix.Length)
+            Write-Log ('msys-path repaired: ' + $Text + ' -> ' + $fixed)
+            return $fixed
+        }
     }
+    return $Text
 }
 
 function Send-Text([int]$ClaudePid, [string]$Text, [bool]$DryRun) {
@@ -334,7 +383,7 @@ function Invoke-Arm([object[]]$Options) {
         elseif ($opt -eq '--then') {
             if ($i + 1 -ge $Options.Count) { Write-Output 'INVALID_THEN: --then is missing its prompt'; exit 1 }
             $i++
-            $thenPrompt = [string]$Options[$i]
+            $thenPrompt = Repair-MsysPrompt ([string]$Options[$i])
         }
         else { Write-Output 'usage: auto-clear.ps1 arm [--stdin] [--then "<prompt>"]'; exit 1 }
     }
@@ -404,7 +453,7 @@ function Invoke-RetryArm([object[]]$Options) {
         if ($opt -eq '--prompt') {
             if ($i + 1 -ge $Options.Count) { Write-Output 'INVALID_THEN: --prompt is missing its text'; exit 1 }
             $i++
-            $prompt = [string]$Options[$i]
+            $prompt = Repair-MsysPrompt ([string]$Options[$i])
         }
         elseif ($opt -eq '--max') {
             if ($i + 1 -ge $Options.Count -or ([string]$Options[$i + 1]) -notmatch '^[0-9]+$') {
@@ -592,7 +641,9 @@ function Read-Settings {
 
 function Invoke-Install {
     New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
-    if (-not (Test-SamePath $ScriptPath $HookScript)) { Copy-Item $ScriptPath $HookScript -Force }
+    if (-not (Copy-HookScript)) {
+        Write-Output ('KEPT_NEWER: ' + $HookScript + ' is v' + (Get-ScriptVersion $HookScript) + ', this script is v' + (Get-ScriptVersion $ScriptPath) + ' - hooks registered on the newer copy')
+    }
     $data = Read-Settings
     # Forward slashes: the hook may run through Git Bash, where backslashes inside quotes are fragile.
     $file = ($HookScript -replace '\\', '/')

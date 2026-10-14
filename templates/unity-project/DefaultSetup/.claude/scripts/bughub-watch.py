@@ -124,6 +124,14 @@ RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart
 CLAIM_STATE = "claim.json"
 # `start` đặt env này cho claude nó mở: mọi lệnh của loop chạm file đó để watchdog biết loop còn sống.
 HEARTBEAT_ENV = "BUGHUB_WATCH_HEARTBEAT"
+# Biến PHIÊN mà Claude Code đặt cho shell của nó. `start` gọi từ trong một session Claude (agent mở cửa sổ watch hộ
+# dev) mà để claude con thừa hưởng chúng thì claude con tự coi là session con của session đó: không ghi transcript
+# riêng (watchdog mù — tưởng đứng im giữa lúc đang sửa bug) và bám vào socket nhắn tin của session cha. Chỉ bỏ khi
+# thật sự đang ở trong session Claude (có CLAUDECODE); biến cấu hình của user (CLAUDE_CONFIG_DIR…) giữ nguyên.
+PARENT_SESSION_ENV = ("CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT", "CLAUDE_CODE_CHILD_SESSION",
+                      "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_ENTRYPOINT",
+                      "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
+                      "CLAUDE_CODE_SSE_PORT")
 # Claude đứng im lâu hơn chừng này (phút, env BUGHUB_WATCHDOG_MINUTES; 0 = tắt) → watchdog của `start` mở lại.
 # Phải dài hơn mọi lượt làm việc bình thường không ghi transcript (một lệnh / một lượt suy nghĩ dài).
 WATCHDOG_MINUTES = 20
@@ -979,9 +987,13 @@ def confirm(question: str, assume_yes: bool) -> bool:
         return True
     if not sys.stdin.isatty():
         return False
+    # Câu hỏi ra stderr: stdout chỉ dành cho dòng JSON kết quả. Windows coi NUL là tty nên tới được đây cả khi
+    # stdin rỗng — in ra stdout thì câu hỏi dính vào đầu dòng JSON.
+    print(f"{question} [y/N] ", end="", file=sys.stderr, flush=True)
     try:
-        return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+        return input().strip().lower() in ("y", "yes")
     except EOFError:
+        print(file=sys.stderr)
         return False
 
 
@@ -1240,6 +1252,9 @@ def supervise(cmd: list[str], workdir: Path) -> int:
         beat = beat_dir / f"heartbeat-{os.getpid()}-{launch}"
         beat.touch()
         env = dict(os.environ, **{HEARTBEAT_ENV: beat.as_posix()})
+        if "CLAUDECODE" in env:
+            for key in PARENT_SESSION_ENV:
+                env.pop(key, None)
         # Handler Python không truyền sang process con qua exec (SIG_IGN thì có) → claude vẫn nhận Ctrl+C bình
         # thường, còn script không bị KeyboardInterrupt giết process con giữa chừng.
         previous = signal.signal(signal.SIGINT, on_sigint)

@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "4773b0d562aeae374bb329d807ec346d3141bc9c26a0d00c092aea31ac058aa6",
-      "size": 7877
+      "sha256": "2820faca06ab4614bffefe229373bd461cbc787c4dfa2f3a96d9602b6851870e",
+      "size": 7889
     },
     {
       "id": "Config/project-profile.json",
@@ -1412,8 +1412,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "5061f08df1de6d869f896f2c213ba32223af0d9265967b00a14a1903cabfea4f",
-      "size": 20414
+      "sha256": "872bdf63a6a4b176ec9ab4f382e6aef905d78b515dba1a1d0afa09a6319684b5",
+      "size": 20942
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1946,8 +1946,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "278e3653bca80e340a97f640e29e66d36763b7724c28efd26af7d4de3791e20d",
-      "size": 65503
+      "sha256": "cd3296dd9a74940fcbc1a353020b5cd9135c74419f9f5dde100e3021664b6072",
+      "size": 66735
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2202,8 +2202,8 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "6da0b04f5eb652a3373a2600b36a73fb1cffb07624173837530502d06b0d6e03",
-      "size": 22039
+      "sha256": "fd476ac530c57c51037f34748f77569965c7f845d8d3bbf5cf497c269ab1da3d",
+      "size": 23823
     },
     {
       "id": "Skills/backend-communication",
