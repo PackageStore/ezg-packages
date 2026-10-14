@@ -4,6 +4,27 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-15
+
+**Added** — skill `/auto-test-device <device id> <tính năng>`: agent QA tự chơi game trên thiết bị rồi log bug lên BugHub
+- `DefaultSetup/.claude/skills/auto-test-device/`: `SKILL.md` (quy trình QA: preflight BugHub → charter từ GDD/code/CSV →
+  ca test P0–P5 gồm biên, gián đoạn Back/nền/kill/mất mạng/spam tap, lưu trữ sau restart → audit visual + đối chiếu
+  config → log bug có bằng chứng, chống trùng → report), `references/qa-playbook.md` (checklist visual/logic, ma trận
+  gián đoạn, rubric mức độ, chuẩn viết bug, cách tiếp cận theo thể loại).
+- `scripts/qadevice.py` (Python thuần, Pillow tuỳ chọn): Android qua adb (máy thật/emulator, tự boot AVD), iOS
+  Simulator (simctl + idb), iPhone (devicectl), Unity Editor Play mode. Chụp + ảnh xem thu nhỏ + lưới toạ độ, so khung
+  (bắt thao tác không phản hồi), kiểm màn đen/shader hồng, logcat nền (crash Java/native, ANR, LMK, exception Unity,
+  thiếu glyph), perf, mạng/xoay/nền/restart; bước tái hiện tự sinh từ `--as`; log bug đúng contract Bug Logger
+  (`POST /v1/reports`: report schema 1 + screenshot + log + save), category/tag tự chọn theo form BugHub.
+- `probe/` — EZG QA Probe (`Assets/EzgQaProbe/`, cài bằng `qadevice.py probe-install`): server HTTP nhỏ trong game,
+  kích hoạt bằng token mỗi phiên (intent extra / argument / file trigger), Android chỉ nghe localhost; build release
+  chỉ mở khi `releaseGate` (cờ cheat) true. Cho cây UI kèm toạ độ, audit (tràn/cắt chữ, thiếu glyph, key localize lộ,
+  nút bị overlay che, chữ tràn khỏi nút, thiếu sprite/material), chạm/kéo qua EventSystem, đọc state / gọi hàm cheat
+  bằng reflection, log Unity kèm stack, context + gửi bug qua Bug Logger trong game. Không phụ thuộc UniTask/TMP.
+- Đã kiểm: emulator Android 15 (game thật hộp đen + APK test có probe: intent → adb forward → ui/audit/tap/state/
+  exception/restart/mạng), Unity Editor 6000.2 Play mode trên project thật, probe compile sạch Editor/Android/iOS,
+  18 unit test (`python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests`).
+
 ## 2026-10-14
 
 **Changed** — cheat chỉ mở cho máy test có tên trong danh sách (`com.ezg.cheat-gate`), bỏ whitelist Remote Config

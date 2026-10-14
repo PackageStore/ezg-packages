@@ -4,6 +4,11 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-15
+
+**Added**
+- Skill `/auto-test-device <device id> <tính năng>` vào DefaultSetup: agent QA chơi game trên Android (adb/emulator), iOS Simulator, iPhone hoặc Unity Editor như người chơi thật, test visual + logic theo charter, bắt crash/ANR/exception từ log, rồi tự log bug lên BugHub đúng contract Bug Logger (ảnh + log + bước tái hiện, chống trùng). Kèm EZG QA Probe (cài vào `Assets/EzgQaProbe/`) cho cây UI, audit visual tự động, đọc state và gọi cheat.
+
 ## 2026-10-14
 
 **Added**
