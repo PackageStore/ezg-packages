@@ -22,7 +22,8 @@ SCRIPTS = REPO / ".claude" / "scripts"
 
 
 def git(cwd, *args):
-    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+    # UTF-8 tường minh: text=True giải mã theo locale (cp1252 trên Windows) → message tiếng Việt thành chữ rác.
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8").stdout.strip()
 
 
 class WatchTestCase(unittest.TestCase):
@@ -505,16 +506,18 @@ class WatchdogTests(WatchTestCase):
 
     def setUp(self):
         super().setUp()
-        if os.name == "nt":
-            self.skipTest("fake claude là script có shebang")
         self.config = self.tmp / "claude-config"
         self.runs = self.tmp / "runs"
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
 
     def fake_claude(self, body):
-        """`claude` giả: ghi số lần chạy vào `runs`, rồi chạy `body` (python) với `n` = lần chạy thứ mấy."""
-        claude = self.bin / "claude"
+        """`claude` giả: ghi số lần chạy vào `runs`, rồi chạy `body` (python) với `n` = lần chạy thứ mấy.
+        Windows không chạy được shebang → `claude.cmd` gọi Python (đúng dạng `claude.cmd` của bản cài npm), nên
+        watchdog được kiểm cả đường `taskkill /T` tắt cây process cmd → python."""
+        claude = self.bin / ("claude.py" if os.name == "nt" else "claude")
+        if os.name == "nt":
+            (self.bin / "claude.cmd").write_text(f'@"{sys.executable}" "%~dp0claude.py" %*\r\n', encoding="utf-8")
         claude.write_text(
             f"#!{sys.executable}\n"
             "import json, os, re, sys, time, pathlib\n"

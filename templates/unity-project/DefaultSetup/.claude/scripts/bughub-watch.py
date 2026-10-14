@@ -979,9 +979,13 @@ def confirm(question: str, assume_yes: bool) -> bool:
         return True
     if not sys.stdin.isatty():
         return False
+    # Câu hỏi ra stderr: stdout chỉ dành cho dòng JSON kết quả. Windows coi NUL là tty nên tới được đây cả khi
+    # stdin rỗng — in ra stdout thì câu hỏi dính vào đầu dòng JSON.
+    print(f"{question} [y/N] ", end="", file=sys.stderr, flush=True)
     try:
-        return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+        return input().strip().lower() in ("y", "yes")
     except EOFError:
+        print(file=sys.stderr)
         return False
 
 
