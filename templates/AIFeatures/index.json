@@ -2300,8 +2300,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "57c922c834648524853acef3374f5f2ec02489cf008eb3c2cc269bedf8a4ecca",
-      "size": 10613
+      "sha256": "2e2726b17f9c72aa94bf4efefdabcc322a991915f7329e9ab62c4e990ebfa12a",
+      "size": 10753
     },
     {
       "id": "Skills/compile-check",
