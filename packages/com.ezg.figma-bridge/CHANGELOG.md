@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.12] - 2026-10-14
+### Fixed
+- **A HUG auto-layout frame resizes to its content.** The transform pass gives every node a
+  LayoutElement that holds its design size, and that element outranks the frame's own layout
+  group, so the ContentSizeFitter and a parent group always read the fixed Figma size. With
+  Enable Auto Layout on, the HUG axes of an auto-layout frame are now left unset, both on the
+  frame and when it is a child of another auto-layout frame. A HUG row centred by its parent
+  re-centres when a child hides or a text changes length.
+
 ## [0.8.11] - 2026-10-14
 ### Fixed
 - **A layer renamed inside an instance keeps its instance name.** A child of a placed instance

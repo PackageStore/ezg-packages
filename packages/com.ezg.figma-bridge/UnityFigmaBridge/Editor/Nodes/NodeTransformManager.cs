@@ -62,6 +62,7 @@ namespace UnityFigmaBridge.Editor.Nodes
 
                 layoutElement.minHeight = figmaNode.absoluteBoundingBox.height;
                 layoutElement.minWidth = figmaNode.absoluteBoundingBox.width;
+                AutoLayout.ReleaseHugAxes(layoutElement, figmaNode, settings);
             }
 
             // Apply constraints

@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Settings;
 using UnityFigmaBridge.Editor.Utils;
 
 namespace UnityFigmaBridge.Editor.Nodes
@@ -60,6 +61,17 @@ namespace UnityFigmaBridge.Editor.Nodes
             fitter.verticalFit = hugsHeight ? ContentSizeFitter.FitMode.PreferredSize : ContentSizeFitter.FitMode.Unconstrained;
         }
 
+        /// <summary>
+        ///     A HUG auto-layout frame takes its size from its own layout group. A LayoutElement that
+        ///     holds the design size outranks the group, so the HUG axes are left unset.
+        /// </summary>
+        public static void ReleaseHugAxes(LayoutElement element, Node node, UnityFigmaBridgeSettings settings)
+        {
+            if (settings == null || !settings.EnableAutoLayout || !IsAutoLayout(node)) return;
+            if (node.layoutSizingHorizontal == Hug) element.minWidth = element.preferredWidth = -1f;
+            if (node.layoutSizingVertical == Hug) element.minHeight = element.preferredHeight = -1f;
+        }
+
         /// <summary>Sizes one child of an auto-layout parent, as a LayoutElement the group reads.</summary>
         public static void ApplyChild(GameObject child, Node childNode, Node parentNode, FigmaImportProcessData figmaImportProcessData)
         {
@@ -80,13 +92,17 @@ namespace UnityFigmaBridge.Editor.Nodes
             var textWidth = autoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT;
             var textHeight = textWidth || autoResize == TypeStyle.TextAutoResize.HEIGHT;
             var size = childNode.size;
-            element.preferredWidth = fillsWidth || textWidth || size == null ? -1f : size.x;
-            element.preferredHeight = fillsHeight || textHeight || size == null ? -1f : size.y;
+            var hugsWidth = IsAutoLayout(childNode) && childNode.layoutSizingHorizontal == Hug;
+            var hugsHeight = IsAutoLayout(childNode) && childNode.layoutSizingVertical == Hug;
+            var freeWidth = fillsWidth || textWidth || hugsWidth;
+            var freeHeight = fillsHeight || textHeight || hugsHeight;
+            element.preferredWidth = freeWidth || size == null ? -1f : size.x;
+            element.preferredHeight = freeHeight || size == null ? -1f : size.y;
             element.flexibleWidth = fillsWidth ? 1f : -1f;
             element.flexibleHeight = fillsHeight ? 1f : -1f;
             // The transform pass pins the minimum to the design size; a hugging or filling axis must be free to shrink
-            if (fillsWidth || textWidth) element.minWidth = -1f;
-            if (fillsHeight || textHeight) element.minHeight = -1f;
+            if (freeWidth) element.minWidth = -1f;
+            if (freeHeight) element.minHeight = -1f;
         }
 
         private static TextAnchor Alignment(Node node, bool horizontal)
