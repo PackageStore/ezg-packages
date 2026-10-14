@@ -13,7 +13,10 @@
 #                                loop đang chờ bug chứ không phải đứng im
 #
 #   Exit: 0  có bug — stdout đúng một dòng JSON {"new":N,"retry":M}
-#         1  thiếu curl / python3
+#         1  thiếu curl / Python chạy được (python3, python, py -3 — thử theo thứ tự), hoặc Python hỏng giữa
+#            chừng. Lỗi công cụ không tự hết nên phải thoát cho model biết, KHÔNG poll tiếp: `python3` có thể chỉ
+#            là stub (Windows: alias Microsoft Store "Python was not found"; macOS chưa cài Command Line Tools)
+#            — `command -v` vẫn thấy, chạy thì lỗi, và poll tiếp ở đây là treo im lặng tới khi có người dừng.
 #         2  sai tham số (thiếu code, thừa tham số, code lệch ^[A-Za-z0-9_-]+$, interval hoặc endpoint không hợp lệ)
 #         3  project không tồn tại trên server (404)
 #   Lỗi mạng / timeout / 5xx / payload hỏng → poll tiếp (chỉ log stderr khi loại lỗi đổi, tránh spam).
@@ -50,12 +53,24 @@ if ! [[ "$interval" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
-for dep in curl python3; do
-  if ! command -v "$dep" >/dev/null 2>&1; then
-    echo "bughub-wait: thiếu '$dep'" >&2
-    exit 1
+if ! command -v curl >/dev/null 2>&1; then
+  echo "bughub-wait: thiếu 'curl'" >&2
+  exit 1
+fi
+
+# Chọn Python bằng cách CHẠY THẬT, không chỉ `command -v`: stub vẫn nằm trên PATH (xem Exit 1 ở trên).
+PY=()
+for cand in python3 python "py -3"; do
+  read -r -a argv <<<"$cand"
+  if command -v "${argv[0]}" >/dev/null 2>&1 && "${argv[@]}" -c 'import json, sys' >/dev/null 2>&1; then
+    PY=("${argv[@]}")
+    break
   fi
 done
+if [ "${#PY[@]}" -eq 0 ]; then
+  echo "bughub-wait: không có Python chạy được (đã thử python3, python, py -3 — python3 có thể chỉ là stub của Microsoft Store / Xcode Command Line Tools). Windows: dùng bughub-wait.ps1" >&2
+  exit 1
+fi
 
 endpoint="${BUGHUB_ENDPOINT:-$DEFAULT_ENDPOINT}"
 endpoint="${endpoint%/}"
@@ -67,12 +82,12 @@ if ! [[ "$endpoint" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ || "$endpoint" =~ ^htt
 fi
 url="$endpoint/v1/projects/$code/pending"
 
-# Parse bằng python3 (không phụ thuộc jq). Exit 0 = có bug (in JSON), 5 = chưa có, 4 = payload hỏng.
+# Parse bằng Python (không phụ thuộc jq). Exit 0 = có bug (in JSON), 5 = chưa có, 4 = payload hỏng.
+# Body đi qua stdin, không qua đường dẫn: Python Windows chạy từ Git Bash không mở được path kiểu /tmp/….
 PARSE_PY='
 import json, sys
 try:
-    with open(sys.argv[1], encoding="utf-8") as f:
-        data = json.load(f)
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     new = int(data.get("new", 0))
     retry = int(data.get("retry", 0))
 except Exception:
@@ -97,11 +112,15 @@ while :; do
   case "$status" in
     200)
       rc=0
-      out="$(python3 -c "$PARSE_PY" "$body_file")" || rc=$?
+      out="$("${PY[@]}" -c "$PARSE_PY" <"$body_file")" || rc=$?
       case "$rc" in
-        0) printf '%s\n' "$out"; exit 0 ;;
+        0) printf '%s\n' "${out%$'\r'}"; exit 0 ;;   # Python Windows in \r\n
         5) ;;
-        *) err="payload không phải JSON {new,retry}" ;;
+        4) err="payload không phải JSON {new,retry}" ;;
+        *)
+          echo "bughub-wait: ${PY[*]} lỗi khi đọc payload (exit $rc) — dừng, không poll tiếp" >&2
+          exit 1
+          ;;
       esac
       ;;
     404)

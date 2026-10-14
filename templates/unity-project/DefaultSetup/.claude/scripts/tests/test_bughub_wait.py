@@ -1,7 +1,8 @@
 """Tests for bughub-wait.sh / bughub-wait.ps1 (chờ bug BugHub cho /fix-bug --watch) với server giả trên localhost.
 
 Hai bản phải giữ cùng hợp đồng: exit 0 + đúng một dòng JSON khi có bug `retry`, exit 3 khi 404, poll tiếp khi
-server lỗi, và chạm file `BUGHUB_WATCH_HEARTBEAT` mỗi lần poll (watchdog của `bughub-watch.py start`).
+server lỗi, và chạm file `BUGHUB_WATCH_HEARTBEAT` mỗi lần poll (watchdog của `bughub-watch.py start`). Bản .sh
+thêm: không có Python chạy được (python3 chỉ là stub) → exit 1 ngay, không poll tiếp im lặng.
 Bản .ps1 chạy bằng pwsh/powershell nếu có, không thì skip.
 
 Run from the repo root:
@@ -100,6 +101,33 @@ class WaitContract:
 class WaitShTests(WaitContract, unittest.TestCase):
     def command(self, code):
         return [BASH, str(SCRIPTS / "bughub-wait.sh"), code]
+
+    def stub_python(self, body):
+        """Đặt python3 / python / py giả lên đầu PATH — mô phỏng stub của Microsoft Store / Xcode CLT."""
+        stub_dir = self.tmp / "stub-bin"
+        stub_dir.mkdir()
+        for name in ("python3", "python", "py"):
+            path = stub_dir / name
+            path.write_text("#!/bin/sh\n" + body, encoding="utf-8", newline="\n")
+            path.chmod(0o755)
+        old_path = os.environ["PATH"]
+        os.environ["PATH"] = str(stub_dir) + os.pathsep + old_path
+        self.addCleanup(os.environ.__setitem__, "PATH", old_path)
+
+    def test_python_stub_exits_1_instead_of_polling_forever(self):
+        # `command -v python3` thấy stub nhưng chạy thì lỗi: phải thoát 1 để model biết, không treo im lặng.
+        self.stub_python('echo "Python was not found" >&2\nexit 49\n')
+        proc, server = self.run_wait([(200, {"new": 0, "retry": 1})], timeout=20)
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertEqual(proc.stdout, "")
+        self.assertEqual(server.hits, 0, "chưa có Python chạy được thì không poll")
+
+    def test_python_breaking_mid_run_exits_1(self):
+        # Qua được bước dò (import json, sys) nhưng lỗi khi parse: lỗi công cụ, không phải payload hỏng.
+        self.stub_python('[ "$2" = "import json, sys" ] && exit 0\nexit 49\n')
+        proc, server = self.run_wait([(200, {"new": 0, "retry": 1})], timeout=20)
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertEqual(server.hits, 1)
 
 
 @unittest.skipUnless(PWSH, "cần PowerShell (pwsh) để chạy bughub-wait.ps1")

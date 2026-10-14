@@ -469,12 +469,17 @@ mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loo
      - chưa có `commit` → làm lại từ đầu như vừa nhận: bước 4 (sync) → 4b (Editor) → mục 3.2 → 3.4, rồi bước 7. Thay
        đổi dở của session trước (không biết của ai) nằm trong `dirty` của `sync` → luật 3.3: cần sửa đúng file đó thì
        `bughub_release(<code>, N, "phiên AI trước bị ngắt khi đang sửa, còn thay đổi chưa commit ở <file> — dev xem rồi giao lại")`.
-2. **Chờ, không tốn token:** gọi Bash với `run_in_background: true`:
+2. **Chờ, không tốn token:** gọi với `run_in_background: true` **đúng bản theo OS** (platform của môi trường):
    ```bash
+   # macOS / Linux
    bash .claude/scripts/bughub-wait.sh <code>
-   # Windows: powershell -ExecutionPolicy Bypass -File .claude/scripts/bughub-wait.ps1 <code>
    ```
-   Rồi **kết thúc lượt** với một dòng "Đang chờ bug mới của `<code>` (nhánh `<nhánh>`)…" — không poll, không
+   ```powershell
+   # Windows (win32) — BẮT BUỘC bản .ps1, kể cả khi gọi qua Bash tool (Git Bash)
+   powershell -ExecutionPolicy Bypass -File .claude/scripts/bughub-wait.ps1 <code>
+   ```
+   Windows **không** chạy `bughub-wait.sh`: `python3` ở đó thường chỉ là alias Microsoft Store, và bản `.sh` đọc
+   payload bằng Python. Rồi **kết thúc lượt** với một dòng "Đang chờ bug mới của `<code>` (nhánh `<nhánh>`)…" — không poll, không
    `sleep`, không gọi tool nào nữa. Lượt sau tự bắt đầu khi có notification script kết thúc. Môi trường không
    có `run_in_background` → dùng Monitor chạy cùng lệnh làm phương án dự phòng.
 3. **Đọc kết quả script:**
@@ -482,7 +487,7 @@ mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loo
    | Exit | Nghĩa | Làm |
    |---|---|---|
    | `0` | stdout `{"new":N,"retry":M}` — có bug đã giao cho AI (`retry` > 0; bug `new` không đánh thức) | bước 4 |
-   | `1` | thiếu `curl` / `python3` | luật không dừng (báo dev cài), rồi bước 2 |
+   | `1` | thiếu `curl` / không có Python chạy được (`python3` chỉ là stub), hoặc Python hỏng giữa chừng | luật không dừng (in dòng stderr của script, báo dev cài / sửa Python — Windows: kiểm lại đã gọi bản `.ps1` chưa), rồi bước 2 |
    | `2` | sai tham số / `projectCode` không hợp lệ | luật không dừng (báo dev kiểm `bugHub.projectCode`), rồi bước 1 |
    | `3` | server không biết project (404) | luật không dừng (trỏ `/bughub-setup`), rồi bước 2 |
    | khác / bị kill | — | luật không dừng, rồi bước 2 |
