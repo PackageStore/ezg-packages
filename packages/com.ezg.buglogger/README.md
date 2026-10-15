@@ -26,7 +26,7 @@ Game chỉ quyết định lúc nào hiện nút báo lỗi.
 Package không gate theo define: mọi bản build đều chứa code gửi report. **Host** quyết định ai thấy UI báo lỗi
 (ví dụ chỉ hiện nút khi cheat bật cho máy QA). `Initialize()` lúc outbox rỗng không gọi mạng, không poll. Overlay UI
 chỉ được dựng (`Resources.Load`) ở lần đầu bật nút — bản người chơi không bao giờ bật thì không tốn CPU/RAM, chỉ tốn
-dung lượng build cho prefab + sprite + 3 font trong `Resources` (cỡ 1,8 MB trước nén: sprite RGBA32 ~1,4 MB + font ~0,4 MB).
+dung lượng build cho prefab + sprite + 3 font trong `Resources` (cỡ 2,9 MB trước nén: sprite RGBA32 ~2,5 MB + font ~0,4 MB).
 
 ---
 
@@ -77,10 +77,10 @@ BugLoggerUI.LauncherVisible = isCheatOn;
 | `UniTask<byte[]> CaptureScreenshotAsync()` / `void CaptureScreenshot(Action<byte[]>)` | Chụp màn hình **không kèm UI Bug Logger** (nút nổi, toast, form): tắt overlay đúng frame chụp rồi bật lại, trả JPG đã nén như ảnh form gửi (null khi lỗi). Công cụ tự gửi report (QA tự động, cheat) dùng hàm này thay vì `ScreenCapture`. Bản callback gọi qua reflection được. |
 | `void HideForCapture(float seconds)` | Ẩn UI Bug Logger cho công cụ chụp từ ngoài app (adb screencap, simctl): gọi, chờ 1–2 frame, chụp, gọi lại với `0`. Hết hạn tự hiện lại. |
 
-Form gồm: ảnh chụp (xem lớn, bật/tắt đính kèm), tiêu đề, mô tả (bắt buộc — gửi vào `actual`), phân loại, tỉ lệ
+Form gồm: ảnh chụp (chạm để chỉnh sửa — xem dưới, bật/tắt đính kèm), tiêu đề, mô tả (bắt buộc — gửi vào `actual`), phân loại, tỉ lệ
 tái hiện (`x/y`), màn hình / tính năng, tag, người được tag (lựa chọn + giới hạn lấy từ form của server, giới hạn
 độ dài áp thẳng vào ô nhập). Đóng form khi chưa gửi thì nội dung đang gõ được giữ cho lần mở sau trong phiên.
-Phím Back (Android) đóng ảnh lớn / form. Nếu host chưa gán `BugLoggerConfig.Notify`, thông báo của package hiện
+Phím Back (Android) đóng màn chỉnh sửa ảnh / form. Nếu host chưa gán `BugLoggerConfig.Notify`, thông báo của package hiện
 bằng toast của Bug Logger; report gửi xong / thất bại cũng hiện toast khi nút nổi đang bật.
 
 Chữ trên UI cố ý chỉ có tiếng Việt và không đi qua localize của game (công cụ nội bộ QA). Font Be Vietnam Pro
@@ -90,12 +90,49 @@ Phím Back: chạy với Input Manager cũ và với Input System mới (`com.un
 bật define `EZG_BUGLOGGER_INPUT_SYSTEM`). Màu và độ trong suốt được chỉnh trên project Gamma color space; project
 Linear blend các lớp mờ (scrim, bóng, nút nổi lúc rảnh) trong không gian tuyến tính nên các lớp đó sáng hơn một chút.
 
+### Chỉnh sửa ảnh chụp
+
+Chạm thumbnail trong form mở màn **Chỉnh sửa ảnh** (kiểu công cụ chụp màn hình) để QA chỉ thẳng vào chỗ lỗi:
+
+| Công cụ | Thao tác |
+|---|---|
+| Khung / Tròn | Kéo để khoanh vùng; chạm = đặt nhanh khung mặc định quanh điểm chạm. |
+| Mũi tên | Kéo từ đuôi tới chỗ lỗi; chạm = mũi tên dựng sẵn chỉ vào điểm đó (đuôi hướng vào giữa ảnh). |
+| Bút | Vẽ tự do (nét được rút gọn đỉnh khi thả tay). |
+| Đánh số | Chạm đặt huy hiệu 1, 2, 3… (tối đa 99) — QA nhắc lại số trong mô tả ("bước 2: bấm vào ②"). |
+| Làm nổi | Kéo chọn vùng cần chú ý, phần còn lại của ảnh tối đi (tối đa 8 vùng). |
+| Cắt | Kéo góc / cạnh để cắt, kéo giữa khung để dời, kéo ngoài khung để vẽ khung mới. |
+
+Thêm: 5 màu nét (đỏ mặc định), hoàn tác / làm lại (100 bước), Xoá hết (cũng hoàn tác được). **Xong** → ảnh gửi đi +
+thumbnail là bản đã chỉnh (bật lại "Đính kèm" nếu QA đã tắt); **Huỷ** / Back khi đã sửa phải bấm hai lần. Bản chỉnh
+**không phá huỷ**: form giữ ảnh chụp gốc (RenderTexture trên GPU, đủ độ phân giải màn hình — cắt vùng nhỏ vẫn nét) +
+danh sách nét; mở lại là sửa tiếp, hoàn tác hết là gửi đúng ảnh gốc. Ảnh gốc được giải phóng khi form đóng; bị mất nội
+dung (Android GLES mất context khi app vào nền) thì tự dựng lại từ JPG gốc. Thumbnail giữ tỉ lệ vùng cắt (dải quá
+ngang / quá dọc thì cắt giữa, không méo). Công cụ / màu chọn
+lần trước được nhớ trong phiên.
+
+- Độ dày nét, cỡ huy hiệu tính theo cạnh ngắn của vùng đang xem ⇒ cắt nhỏ rồi vẽ thì nét mảnh theo. Mép nét khử răng
+  cưa bằng dải alpha ở đỉnh mesh (không cần MSAA / shader riêng).
+- Ảnh xuất dựng trên GPU (`BugImageFlattener`): blit vùng cắt + vẽ cùng mesh của màn chỉnh sửa bằng `CommandBuffer`
+  thực thi ngay với material UI mặc định ⇒ giống hệt cái QA thấy, chạy với mọi render pipeline, Edit lẫn Play mode
+  (`Graphics.DrawMeshNow` thì không vẽ gì khi Play với URP); project Linear thì màu đỉnh được đổi sang linear như canvas
+  làm; rồi nén JPG cạnh dài ≤ 1280 px như ảnh chụp thường.
+- **Không cần quyền nào.** Chụp = đọc framebuffer của chính game, chỉnh = vẽ trên texture trong bộ nhớ, lưu = outbox
+  trong `persistentDataPath`, gửi = HTTPS. Package không đọc / ghi thư viện ảnh của máy, không có plugin native hay
+  `AndroidManifest`: không thêm `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` (Android),
+  không cần `NSPhotoLibraryUsageDescription` (iOS). Muốn QA đính kèm ảnh có sẵn trong máy thì dùng picker hệ thống
+  (Android Photo Picker, iOS `PHPickerViewController`) — cũng không cần quyền; đừng thêm plugin gallery bên thứ ba
+  (thường tự chèn quyền đọc ảnh vào manifest — Google Play chặn game dùng quyền này).
+
 ### Sửa UI
 
 Prefab `Runtime/UI/Resources/EzgBugLogger/BugLoggerOverlay.prefab` là **output** của
 `Editor/BugLoggerUIPrefabBuilder.cs`: đổi bố cục / kích thước thì sửa builder rồi chạy
 **Tools → EZG → Bug Logger → Rebuild UI Prefab**, đừng sửa tay prefab. Màu nằm ở `BugLoggerPalette`, chữ ở
-`BugLoggerStrings`, sprite sinh sẵn ở `Runtime/UI/Sprites` (trắng, tint bằng màu). Test EditMode
+`BugLoggerStrings`, sprite sinh sẵn ở `Runtime/UI/Sprites` (trắng, tint bằng màu). Icon công cụ của màn chỉnh sửa
+ảnh + atlas `bl_annotation_atlas.png` (ô trắng + chữ số của huy hiệu) do `Tools~/generate_image_editor_sprites.py`
+sinh (Pillow); đổi bố cục atlas thì cập nhật `BugAnnotationAtlas`. Atlas import dạng texture thường (không phải
+sprite, không mipmap, không nén) để không bị Sprite Atlas của project gói lại. Test EditMode
 `BugLoggerUIPrefabTests` chặn prefab tham chiếu asset ngoài package hoặc thiếu field.
 
 ---
@@ -237,9 +274,12 @@ Không ghi gì dưới `Assets/`. Trong Editor, runtime lấy HEAD + branch hi�
 - **EditMode** `Ezg.BugLogger.Tests.Editor`: backoff + bỏ cuộc, phân loại response (403 tạm, 400/404/413
   vĩnh viễn, Retry-After), builder (đủ field schema, giới hạn), outbox, ring buffer, form (server → cache →
   mặc định), baker (commit/branch), settings, mã hoá screenshot, prefab UI chỉ dùng asset của package + nối đủ field,
-  lượt tải lựa chọn form dùng chung cho nhiều chỗ chờ.
+  lượt tải lựa chọn form dùng chung cho nhiều chỗ chờ; màn chỉnh sửa ảnh: lịch sử undo/redo + cắt + giới hạn,
+  mesh nét (đỉnh hợp lệ, không phụ thuộc tỉ lệ hiển thị, vùng tối của "làm nổi"), xuất ảnh trên GPU (đúng chiều, đúng
+  vùng cắt, nét đúng chỗ).
 - **PlayMode** `Ezg.BugLogger.Tests.Runtime`: uploader với transport giả (gửi, trùng, từ chối, backoff 5/10/20 s
-  khi `timeScale = 0`, Retry-After, bỏ cuộc 50 lần / 24 h, giữ khi chưa cấu hình), form với host không tồn tại.
+  khi `timeScale = 0`, Retry-After, bỏ cuộc 50 lần / 24 h, giữ khi chưa cấu hình), form với host không tồn tại, xuất
+  ảnh đã chỉnh khi game đang chạy (nét có mặt, không lật dọc).
 
 ---
 

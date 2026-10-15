@@ -6,6 +6,13 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-15
 
+**Added** — Bug Logger: QA chỉnh sửa ảnh chụp trước khi gửi (cắt, khoanh, mũi tên, bút, đánh số, làm nổi)
+- `com.ezg.buglogger` 0.3.0: chạm thumbnail trong form báo lỗi mở màn Chỉnh sửa ảnh — cắt, khung / tròn, mũi tên, bút
+  vẽ tay, huy hiệu đánh số 1–99, làm nổi vùng (phần còn lại tối đi), 5 màu, hoàn tác / làm lại / xoá hết. Ảnh gửi
+  BugHub là bản đã chỉnh; sửa không phá huỷ (form giữ ảnh gốc full độ phân giải trên GPU tới khi đóng). Không thêm
+  quyền nào (không đụng thư viện ảnh, không plugin native / manifest) — README của package § Chỉnh sửa ảnh chụp.
+- `unity-template.json`: `com.ezg.buglogger` 0.3.0.
+
 **Fixed** — Bug Logger: nút nổi bật lại khi đang tải lựa chọn form làm hỏng luồng; ảnh gửi BugHub dính nút báo lỗi
 - `com.ezg.buglogger` 0.2.4: `BugLoggerUI.LauncherVisible = true` lần hai trong lúc request lựa chọn form (≤ 15 s) chưa
   xong ném `InvalidOperationException: Already continuation registered` ra khỏi setter → mất nút nổi, event của game

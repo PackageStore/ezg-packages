@@ -71,12 +71,35 @@ namespace Ezg.BugLogger.Tests
             }
         }
 
-        // Tham chiếu của lớp uGUI gốc mà InputField để trống là hợp lệ: ô kế khi điều hướng, sprite theo trạng thái.
+        // Tham chiếu của lớp uGUI gốc để trống là hợp lệ: ô kế khi điều hướng, sprite theo trạng thái (InputField),
+        // material của Graphic (trống = material UI mặc định — các lớp nét vẽ của màn chỉnh sửa ảnh).
         private static bool IsEmptyByDesign(string propertyPath)
         {
-            return propertyPath == "m_Script" ||
+            return propertyPath == "m_Script" || propertyPath == "m_Material" ||
                    propertyPath.StartsWith("m_Navigation.", StringComparison.Ordinal) ||
                    propertyPath.StartsWith("m_SpriteState.", StringComparison.Ordinal);
+        }
+
+        /// <summary>Màn chỉnh sửa ảnh: mỗi công cụ một nút (đúng thứ tự enum), mỗi màu nét một ô chọn.</summary>
+        [Test]
+        public void OverlayPrefab_ImageEditorHasEveryToolAndColor()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PREFAB_PATH);
+            var editor = prefab.GetComponentInChildren<BugLoggerImageEditor>(true);
+            Assert.IsNotNull(editor, "Prefab thiếu BugLoggerImageEditor");
+
+            var serialized = new SerializedObject(editor);
+            var tools = serialized.FindProperty("_toolButtons");
+            Assert.AreEqual(Enum.GetValues(typeof(BugEditorTool)).Length, tools.arraySize);
+            foreach (BugEditorTool tool in Enum.GetValues(typeof(BugEditorTool)))
+            {
+                var button = tools.GetArrayElementAtIndex((int)tool).objectReferenceValue;
+                Assert.IsNotNull(button, "Thiếu nút công cụ " + tool);
+                Assert.AreEqual(tool.ToString(), button.name, "Nút ở vị trí " + tool + " không phải công cụ đó");
+            }
+
+            Assert.AreEqual(BugLoggerPalette.AnnotationColors.Length, serialized.FindProperty("_swatches").arraySize);
+            Assert.IsNotNull(prefab.GetComponentInChildren<BugLoggerForm>(true), "Prefab thiếu form");
         }
 
         /// <summary>

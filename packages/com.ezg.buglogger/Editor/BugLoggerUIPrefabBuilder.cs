@@ -42,6 +42,13 @@ namespace Ezg.BugLogger.Editor
         private const float STEPPER_BUTTON = 60f;
         private const float THUMB_HEIGHT = 300f;
         private const float TOAST_HEIGHT = 88f;
+        private const float EDITOR_TOP_BAR = 128f;
+        private const float EDITOR_BOTTOM = 316f;
+        private const float EDITOR_BUTTON = 88f;
+        private const float TOOL_WIDTH = 114f;
+        private const float TOOL_HEIGHT = 124f;
+        private const float SWATCH_SIZE = 72f;
+        private const string ATLAS_PATH = SPRITE_DIR + "bl_annotation_atlas.png";
         private const float MULTILINE_SPACING = 1.12f;
 
         private static Font _regular;
@@ -99,13 +106,13 @@ namespace Ezg.BugLogger.Editor
             var overlay = root.gameObject.AddComponent<BugLoggerOverlay>();
 
             var launcher = BuildLauncher(SafeLayer("LauncherLayer", root));
-            var viewer = BuildViewer(root, out var viewerRoot);
-            var form = BuildForm(root, viewer);
-            viewerRoot.SetAsLastSibling();
+            var editor = BuildEditor(root, out var editorRoot);
+            var form = BuildForm(root, editor);
+            editorRoot.SetAsLastSibling();
             var toast = BuildToast(SafeLayer("ToastLayer", root));
 
             Wire(overlay, ("_canvas", canvas), ("_scaler", scaler), ("_launcher", launcher), ("_form", form),
-                ("_toast", toast), ("_viewer", viewer));
+                ("_toast", toast), ("_editor", editor));
         }
 
         private static RectTransform SafeLayer(string name, RectTransform parent)
@@ -175,7 +182,7 @@ namespace Ezg.BugLogger.Editor
 
         #region Form
 
-        private static BugLoggerForm BuildForm(RectTransform root, BugLoggerImageViewer viewer)
+        private static BugLoggerForm BuildForm(RectTransform root, BugLoggerImageEditor editor)
         {
             var formRoot = Node("Form", root);
             Stretch(formRoot);
@@ -373,7 +380,7 @@ namespace Ezg.BugLogger.Editor
                 ("_statusDot", dotImage), ("_statusText", statusText), ("_submitButton", submitButton),
                 ("_submitBackground", submitBackground), ("_submitIcon", submitIcon), ("_submitLabel", submitLabel),
                 ("_iconSend", LoadSprite("ic_send")), ("_iconCheck", LoadSprite("ic_check")),
-                ("_viewer", viewer));
+                ("_editor", editor));
             return form;
         }
 
@@ -409,12 +416,12 @@ namespace Ezg.BugLogger.Editor
             var previewStroke = Node("Stroke", preview);
             Stretch(previewStroke);
             AddImage(previewStroke, "bl_r20_stroke", BugLoggerPalette.StrokeStrong);
-            var expand = Node("Expand", preview);
-            Place(expand, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-12f, 12f), Vector2.one * 52f);
-            AddImage(expand, "bl_circle", BugLoggerPalette.WithAlpha(Color.black, 0.55f));
-            var expandIcon = Node("Icon", expand);
-            Place(expandIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * 24f);
-            AddImage(expandIcon, "ic_expand", Color.white);
+            var edit = Node("Edit", preview);
+            Place(edit, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-12f, 12f), Vector2.one * 56f);
+            AddImage(edit, "bl_circle", BugLoggerPalette.Accent);
+            var editIcon = Node("Icon", edit);
+            Place(editIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * 28f);
+            AddImage(editIcon, "ic_edit", BugLoggerPalette.OnAccent);
             var previewButton = preview.gameObject.AddComponent<Button>();
             previewButton.transition = Selectable.Transition.None;
             previewButton.targetGraphic = thumb;
@@ -438,8 +445,8 @@ namespace Ezg.BugLogger.Editor
             AddText(infoTitle, BugLoggerStrings.SCREENSHOT_TITLE, _semiBold, 32, BugLoggerPalette.TextPrimary,
                 TextAnchor.MiddleLeft);
             var hintNode = Node("Hint", info);
-            var hint = AddText(hintNode, "Chạm để xem lớn", _regular, 24, BugLoggerPalette.TextSecondary,
-                TextAnchor.MiddleLeft);
+            var hint = AddText(hintNode, BugLoggerStrings.SCREENSHOT_HINT_FORMAT, _regular, 24,
+                BugLoggerPalette.TextSecondary, TextAnchor.MiddleLeft);
             var spacer = Node("Spacer", info);
             Layout(spacer, -1f, 14f);
 
@@ -684,45 +691,233 @@ namespace Ezg.BugLogger.Editor
 
         #endregion
 
-        #region Viewer / Toast
+        #region Image editor / Toast
 
-        private static BugLoggerImageViewer BuildViewer(RectTransform root, out RectTransform viewerRoot)
+        private static BugLoggerImageEditor BuildEditor(RectTransform root, out RectTransform editorRoot)
         {
-            viewerRoot = Node("Viewer", root);
-            Stretch(viewerRoot);
-            var group = viewerRoot.gameObject.AddComponent<CanvasGroup>();
+            editorRoot = Node("ImageEditor", root);
+            Stretch(editorRoot);
+            var group = editorRoot.gameObject.AddComponent<CanvasGroup>();
 
-            var backdrop = Node("Backdrop", viewerRoot);
+            var backdrop = Node("Backdrop", editorRoot);
             Stretch(backdrop);
-            var backdropImage = AddImage(backdrop, null, BugLoggerPalette.WithAlpha(Color.black, 0.92f), true);
-            var closeArea = backdrop.gameObject.AddComponent<Button>();
-            closeArea.transition = Selectable.Transition.None;
-            closeArea.targetGraphic = backdropImage;
+            AddImage(backdrop, null, BugLoggerPalette.EditorBackdrop, true);
 
-            var frame = Node("Frame", viewerRoot);
-            Stretch(frame);
-            frame.gameObject.AddComponent<BugLoggerSafeArea>();
+            var content = Node("Content", editorRoot);
+            Stretch(content);
+            var safe = Node("Safe", content);
+            Stretch(safe);
+            safe.gameObject.AddComponent<BugLoggerSafeArea>();
 
-            var fit = Node("Fit", frame);
-            Stretch(fit, 40f, 40f, 40f, 140f);
-            var imageNode = Node("Image", fit);
-            Stretch(imageNode);
-            var image = imageNode.gameObject.AddComponent<RawImage>();
-            image.raycastTarget = false;
-            var fitter = imageNode.gameObject.AddComponent<AspectRatioFitter>();
+            // --- Thanh trên: Huỷ · tiêu đề · Hoàn tác · Làm lại · Xong
+            var top = Node("TopBar", safe);
+            Place(top, new Vector2(0f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(0f, EDITOR_TOP_BAR));
+            top.anchorMax = Vector2.one;
+            Row(top, new RectOffset(28, 28, 20, 20), 16f, TextAnchor.MiddleLeft);
+
+            var close = CircleButton(top, "Close", EDITOR_BUTTON, BugLoggerPalette.Surface, "ic_close", 32f,
+                BugLoggerPalette.TextPrimary);
+            Layout((RectTransform)close.transform, EDITOR_BUTTON, EDITOR_BUTTON);
+            var titleNode = Node("Title", top);
+            var title = AddText(titleNode, BugLoggerStrings.EDITOR_TITLE, _semiBold, 38, BugLoggerPalette.TextPrimary,
+                TextAnchor.MiddleLeft);
+            title.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Layout(titleNode, -1f, -1f, 1f);
+            var undo = CircleButton(top, "Undo", EDITOR_BUTTON, BugLoggerPalette.Surface, "ic_undo", 40f,
+                BugLoggerPalette.TextPrimary);
+            Layout((RectTransform)undo.transform, EDITOR_BUTTON, EDITOR_BUTTON);
+            var undoGroup = undo.gameObject.AddComponent<CanvasGroup>();
+            var redo = CircleButton(top, "Redo", EDITOR_BUTTON, BugLoggerPalette.Surface, "ic_redo", 40f,
+                BugLoggerPalette.TextPrimary);
+            Layout((RectTransform)redo.transform, EDITOR_BUTTON, EDITOR_BUTTON);
+            var redoGroup = redo.gameObject.AddComponent<CanvasGroup>();
+            var done = BuildPillButton(top, "Done", BugLoggerStrings.EDITOR_DONE, "ic_check");
+
+            // --- Thanh dưới: gợi ý · màu · công cụ
+            var bottom = Node("BottomBar", safe);
+            Place(bottom, Vector2.zero, new Vector2(0.5f, 0f), Vector2.zero, new Vector2(0f, EDITOR_BOTTOM));
+            bottom.anchorMax = new Vector2(1f, 0f);
+            Column(bottom, new RectOffset(16, 16, 8, 28), 16f, TextAnchor.UpperCenter);
+
+            var hintNode = Node("Hint", bottom);
+            var hint = AddText(hintNode, BugLoggerStrings.HINT_RECT, _regular, 26, BugLoggerPalette.TextSecondary,
+                TextAnchor.MiddleCenter);
+            hint.verticalOverflow = VerticalWrapMode.Truncate;
+            Layout(hintNode, -1f, 40f);
+
+            var colors = Node("Colors", bottom);
+            Row(colors, new RectOffset(), 22f, TextAnchor.MiddleCenter);
+            Layout(colors, -1f, SWATCH_SIZE);
+            var colorGroup = colors.gameObject.AddComponent<CanvasGroup>();
+            var palette = BugLoggerPalette.AnnotationColors;
+            var swatches = new Object[palette.Length];
+            for (var i = 0; i < palette.Length; i++) swatches[i] = BuildSwatch(colors, "Swatch" + i, palette[i]);
+
+            var tools = Node("Tools", bottom);
+            Row(tools, new RectOffset(), 4f, TextAnchor.MiddleCenter);
+            Layout(tools, -1f, TOOL_HEIGHT);
+            var toolButtons = new Object[Enum.GetValues(typeof(BugEditorTool)).Length];
+            BuildTool(tools, toolButtons, BugEditorTool.Rect, "ic_rect", BugLoggerStrings.TOOL_RECT);
+            BuildTool(tools, toolButtons, BugEditorTool.Ellipse, "ic_ellipse", BugLoggerStrings.TOOL_ELLIPSE);
+            BuildTool(tools, toolButtons, BugEditorTool.Arrow, "ic_arrow", BugLoggerStrings.TOOL_ARROW);
+            BuildTool(tools, toolButtons, BugEditorTool.Pen, "ic_pen", BugLoggerStrings.TOOL_PEN);
+            BuildTool(tools, toolButtons, BugEditorTool.Marker, "ic_marker", BugLoggerStrings.TOOL_MARKER);
+            BuildTool(tools, toolButtons, BugEditorTool.Spotlight, "ic_spotlight", BugLoggerStrings.TOOL_SPOTLIGHT);
+            BuildTool(tools, toolButtons, BugEditorTool.Crop, "ic_crop", BugLoggerStrings.TOOL_CROP);
+            var divider = Node("Divider", tools);
+            Layout(divider, 2f, 72f);
+            AddImage(divider, null, BugLoggerPalette.Stroke);
+            var clearButton = BuildToolButton(tools, "Clear", "ic_trash", BugLoggerStrings.EDITOR_CLEAR, out _, out _,
+                out _);
+            var clearGroup = clearButton.gameObject.AddComponent<CanvasGroup>();
+
+            // --- Vùng ảnh: nhận chạm cả ở lề quanh ảnh (kéo tay cầm cắt sát mép), ảnh + 3 lớp nét + khung cắt
+            var stage = Node("Stage", safe);
+            Stretch(stage, 0f, EDITOR_BOTTOM, 0f, EDITOR_TOP_BAR);
+            AddImage(stage, null, Color.clear, true);
+            var surface = stage.gameObject.AddComponent<BugImageEditorSurface>();
+            stage.SetSiblingIndex(0);
+
+            var area = Node("Area", stage);
+            Stretch(area, 28f, 8f, 28f, 8f);
+            var fit = Node("Fit", area);
+            Stretch(fit);
+            var fitter = fit.gameObject.AddComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             fitter.aspectRatio = 9f / 16f;
 
-            var close = CircleButton(frame, "Close", 88f, BugLoggerPalette.WithAlpha(Color.white, 0.14f), "ic_close",
-                34f, Color.white);
-            Place((RectTransform)close.transform, Vector2.one, Vector2.one, new Vector2(-32f, -32f),
-                Vector2.one * 88f);
+            // Ảnh + nét cắt theo mép ảnh; khung cắt nằm ngoài mặt nạ để tay cầm sát mép ảnh không bị cắt mất nửa.
+            var clip = Node("Clip", fit);
+            Stretch(clip);
+            clip.gameObject.AddComponent<RectMask2D>();
 
-            var component = viewerRoot.gameObject.AddComponent<BugLoggerImageViewer>();
-            Wire(component, ("_group", group), ("_frame", fit), ("_image", image), ("_fitter", fitter),
-                ("_closeArea", closeArea), ("_closeButton", close));
-            viewerRoot.gameObject.SetActive(false);
+            var imageNode = Node("Image", clip);
+            Stretch(imageNode);
+            var image = imageNode.gameObject.AddComponent<RawImage>();
+            image.raycastTarget = false;
+
+            var atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(ATLAS_PATH);
+            if (atlas == null) throw new InvalidOperationException("Thiếu atlas " + ATLAS_PATH);
+            var dim = BuildAnnotationLayer(clip, "Dim", BugAnnotationGraphic.Layer.Dim, atlas);
+            var shapes = BuildAnnotationLayer(clip, "Shapes", BugAnnotationGraphic.Layer.Shapes, atlas);
+            var pending = BuildAnnotationLayer(clip, "Pending", BugAnnotationGraphic.Layer.Pending, atlas);
+
+            var cropNode = Node("Crop", fit);
+            Stretch(cropNode);
+            var crop = cropNode.gameObject.AddComponent<BugCropOverlayGraphic>();
+            crop.raycastTarget = false;
+            Wire(crop, ("_atlas", atlas));
+            cropNode.gameObject.SetActive(false);
+
+            var component = editorRoot.gameObject.AddComponent<BugLoggerImageEditor>();
+            Wire(component,
+                ("_group", group), ("_content", content),
+                ("_closeButton", close), ("_undoButton", undo), ("_undoGroup", undoGroup), ("_redoButton", redo),
+                ("_redoGroup", redoGroup), ("_doneButton", done),
+                ("_surface", surface), ("_fit", fit), ("_fitter", fitter), ("_image", image), ("_dimLayer", dim),
+                ("_shapeLayer", shapes), ("_pendingLayer", pending), ("_cropOverlay", crop), ("_atlas", atlas),
+                ("_hint", hint), ("_colorGroup", colorGroup), ("_swatches", swatches), ("_toolButtons", toolButtons),
+                ("_clearButton", clearButton), ("_clearGroup", clearGroup));
+            editorRoot.gameObject.SetActive(false);
             return component;
+        }
+
+        private static BugAnnotationGraphic BuildAnnotationLayer(RectTransform parent, string name,
+            BugAnnotationGraphic.Layer layer, Texture2D atlas)
+        {
+            var node = Node(name, parent);
+            Stretch(node);
+            var graphic = node.gameObject.AddComponent<BugAnnotationGraphic>();
+            graphic.raycastTarget = false;
+            Wire(graphic, ("_atlas", atlas), ("_layer", (int)layer));
+            return graphic;
+        }
+
+        private static void BuildTool(RectTransform parent, Object[] slots, BugEditorTool tool, string icon,
+            string label)
+        {
+            var button = BuildToolButton(parent, tool.ToString(), icon, label, out var background, out var iconImage,
+                out var labelText);
+            var component = button.gameObject.AddComponent<BugLoggerToolButton>();
+            Wire(component, ("_button", button), ("_background", background), ("_icon", iconImage),
+                ("_label", labelText));
+            slots[(int)tool] = component;
+        }
+
+        /// <summary>Ô icon + nhãn của thanh công cụ (công cụ chọn được, hoặc nút hành động như Xoá hết).</summary>
+        private static Button BuildToolButton(RectTransform parent, string name, string icon, string label,
+            out Image background, out Image iconImage, out Text labelText)
+        {
+            var node = Node(name, parent);
+            Layout(node, TOOL_WIDTH, TOOL_HEIGHT);
+            background = AddImage(node, "bl_r24", BugLoggerPalette.WithAlpha(BugLoggerPalette.Surface, 0f), true,
+                BOX_SPRITE_RADIUS / 24f);
+            Column(node, new RectOffset(0, 0, 18, 14), 8f, TextAnchor.UpperCenter);
+            node.GetComponent<VerticalLayoutGroup>().childForceExpandWidth = false;
+
+            var iconNode = Node("Icon", node);
+            Layout(iconNode, 50f, 50f);
+            iconImage = AddImage(iconNode, icon, BugLoggerPalette.TextSecondary);
+            var labelNode = Node("Label", node);
+            labelText = AddText(labelNode, label, _medium, 22, BugLoggerPalette.TextSecondary, TextAnchor.MiddleCenter);
+            labelText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Layout(labelNode, TOOL_WIDTH, 30f);
+
+            var button = node.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = background;
+            Pressable(node, 0.92f);
+            return button;
+        }
+
+        private static BugLoggerSwatch BuildSwatch(RectTransform parent, string name, Color color)
+        {
+            var node = Node(name, parent);
+            Layout(node, SWATCH_SIZE, SWATCH_SIZE);
+            var hit = AddImage(node, null, Color.clear, true);
+
+            var ring = Node("Ring", node);
+            Stretch(ring);
+            var ringImage = AddImage(ring, "bl_circle_stroke", BugLoggerPalette.WithAlpha(Color.white, 0f));
+            var dot = Node("Dot", node);
+            Place(dot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * (SWATCH_SIZE - 16f));
+            var fillNode = Node("Fill", dot);
+            Stretch(fillNode);
+            var fill = AddImage(fillNode, "bl_circle", color);
+            var edge = Node("Edge", dot);
+            Stretch(edge);
+            AddImage(edge, "bl_circle_stroke", BugLoggerPalette.WithAlpha(Color.black, 0.35f));
+
+            var button = node.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = hit;
+            Pressable(node, 0.9f);
+
+            var component = node.gameObject.AddComponent<BugLoggerSwatch>();
+            Wire(component, ("_button", button), ("_fill", fill), ("_ring", ringImage), ("_dot", dot));
+            return component;
+        }
+
+        /// <summary>Nút viên thuốc màu nhấn: icon + nhãn (Xong của màn chỉnh sửa).</summary>
+        private static Button BuildPillButton(RectTransform parent, string name, string label, string icon)
+        {
+            var node = Node(name, parent);
+            Layout(node, 184f, EDITOR_BUTTON);
+            var background = AddImage(node, "bl_pill", BugLoggerPalette.Accent, true,
+                PILL_SPRITE_RADIUS / (EDITOR_BUTTON / 2f));
+            Row(node, new RectOffset(24, 30, 0, 0), 12f, TextAnchor.MiddleCenter);
+            var iconNode = Node("Icon", node);
+            Layout(iconNode, 34f, 34f);
+            AddImage(iconNode, icon, BugLoggerPalette.OnAccent);
+            var labelNode = Node("Label", node);
+            var text = AddText(labelNode, label, _semiBold, 32, BugLoggerPalette.OnAccent, TextAnchor.MiddleCenter);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            var button = node.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = background;
+            Pressable(node, 0.94f);
+            return button;
         }
 
         private static BugLoggerToast BuildToast(RectTransform parent)

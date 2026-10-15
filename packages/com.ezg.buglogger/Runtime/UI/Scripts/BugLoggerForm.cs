@@ -10,7 +10,8 @@ using BugLoggerApi = Ezg.BugLogger.BugLogger;
 namespace Ezg.BugLogger.UI
 {
     /// <summary>
-    ///     Form báo lỗi của QA: ảnh chụp màn hình, tiêu đề, mô tả, phân loại, tỉ lệ tái hiện, tag, người được tag.
+    ///     Form báo lỗi của QA: ảnh chụp màn hình (chạm để khoanh vùng / vẽ / cắt), tiêu đề, mô tả, phân loại, tỉ lệ tái
+    ///     hiện, tag, người được tag.
     ///     Lựa chọn (phân loại / tag / người / giới hạn) tải từ BugHub qua <see cref="BugLoggerApi" />; gửi = ghi vào
     ///     outbox của package rồi uploader tự đẩy lên server. Đóng mà chưa gửi thì nội dung đang gõ được giữ cho lần mở
     ///     sau trong phiên.
@@ -48,6 +49,10 @@ namespace Ezg.BugLogger.UI
         private const float CARD_MAX_HEIGHT = 1900f;
         private const float THUMB_HEIGHT = 300f;
         private const float THUMB_MAX_WIDTH = 420f;
+
+        // Ảnh đã cắt thành dải rất ngang / rất dọc: khung thumbnail không nhỏ hơn mức này (vẫn chạm được để sửa tiếp),
+        // phần ảnh thừa cắt giữa thay vì kéo méo.
+        private const float THUMB_MIN_SIDE = 120f;
 
         private const int FEATURE_MAX = 64;
         private const int REPRODUCE_MAX = 20;
@@ -111,7 +116,7 @@ namespace Ezg.BugLogger.UI
         [SerializeField] private Sprite _iconCheck;
 
         [Header("Khác")]
-        [SerializeField] private BugLoggerImageViewer _viewer;
+        [SerializeField] private BugLoggerImageEditor _editor;
 
         // Lựa chọn tải từ server được giữ cả phiên; bản cache/mặc định (mất mạng) thì lần mở sau tải lại.
         private static BugFormOptions _serverOptions;
@@ -137,6 +142,11 @@ namespace Ezg.BugLogger.UI
         private Action _onClosed;
         private byte[] _screenshotJpg;
         private Texture2D _preview;
+
+        // Ảnh chụp gốc (GPU, full độ phân giải) + JPG gốc + bản chỉnh sửa — màn chỉnh sửa luôn dựng lại từ ảnh gốc.
+        private Texture _source;
+        private byte[] _originalJpg;
+        private BugImageDocument _document;
         private bool _isClosing;
         private bool _isSubmitted;
         private bool _isSelectionTouched;
@@ -201,6 +211,7 @@ namespace Ezg.BugLogger.UI
             CancelOpen();
             BugTweener.Kill(this);
             DestroyPreview();
+            DestroySource();
         }
 
         private void Update()
@@ -219,8 +230,11 @@ namespace Ezg.BugLogger.UI
 
         #region Public Methods
 
-        /// <summary>Mở form với ảnh vừa chụp (có thể null) và màn hình/tính năng gợi ý.</summary>
-        public void Open(byte[] screenshotJpg, Texture2D preview, string featureKey, Action onClosed)
+        /// <summary>
+        ///     Mở form với ảnh vừa chụp (có thể null) và màn hình/tính năng gợi ý. Form nhận quyền sở hữu
+        ///     <paramref name="preview" /> và <paramref name="source" /> (ảnh chụp gốc để chỉnh sửa), huỷ khi đóng.
+        /// </summary>
+        public void Open(byte[] screenshotJpg, Texture2D preview, Texture source, string featureKey, Action onClosed)
         {
             CancelOpen();
             _openCts = new CancellationTokenSource();
@@ -228,9 +242,14 @@ namespace Ezg.BugLogger.UI
             _isClosing = false;
             _isSubmitted = false;
 
+            if (_editor.IsOpen) _editor.Close();
             DestroyPreview();
+            DestroySource();
             _screenshotJpg = screenshotJpg;
+            _originalJpg = screenshotJpg;
             _preview = preview;
+            _source = source;
+            _document = source != null && screenshotJpg != null ? new BugImageDocument(source.width, source.height) : null;
 
             gameObject.SetActive(true);
             ResetForm(featureKey);
@@ -255,7 +274,7 @@ namespace Ezg.BugLogger.UI
                 _draftContent = _contentField.Text;
             }
 
-            if (_viewer.IsOpen) _viewer.Hide();
+            if (_editor.IsOpen) _editor.Close();
             _group.blocksRaycasts = false;
             PlayHide();
         }
@@ -341,11 +360,39 @@ namespace Ezg.BugLogger.UI
                 return;
             }
 
-            var aspect = (float)_preview.width / Mathf.Max(1, _preview.height);
             _thumbnail.texture = _preview;
-            _thumbnailLayout.preferredWidth = Mathf.Min(THUMB_HEIGHT * aspect, THUMB_MAX_WIDTH);
-            _screenshotHint.text = string.Format(BugLoggerStrings.SCREENSHOT_HINT_FORMAT, _preview.width,
-                _preview.height);
+            FitThumbnail((float)_preview.width / Mathf.Max(1, _preview.height));
+            var isEdited = _document != null && !_document.IsPristine;
+            _screenshotHint.text = string.Format(
+                isEdited ? BugLoggerStrings.SCREENSHOT_EDITED_FORMAT : BugLoggerStrings.SCREENSHOT_HINT_FORMAT,
+                _preview.width, _preview.height);
+        }
+
+        /// <summary>
+        ///     Khung thumbnail giữ tỉ lệ ảnh trong giới hạn cao <see cref="THUMB_HEIGHT" /> × rộng
+        ///     <see cref="THUMB_MAX_WIDTH" />, không cạnh nào dưới <see cref="THUMB_MIN_SIDE" />; khi phải nới khung thì
+        ///     cắt giữa ảnh (uvRect) cho khỏi méo.
+        /// </summary>
+        private void FitThumbnail(float aspect)
+        {
+            aspect = Mathf.Max(aspect, 0.0001f);
+            var width = THUMB_HEIGHT * aspect;
+            var height = THUMB_HEIGHT;
+            if (width > THUMB_MAX_WIDTH)
+            {
+                width = THUMB_MAX_WIDTH;
+                height = width / aspect;
+            }
+
+            width = Mathf.Max(width, THUMB_MIN_SIDE);
+            height = Mathf.Max(height, THUMB_MIN_SIDE);
+            _thumbnailLayout.preferredWidth = width;
+            _thumbnailLayout.preferredHeight = height;
+
+            var frameAspect = width / height;
+            _thumbnail.uvRect = aspect > frameAspect
+                ? new Rect((1f - frameAspect / aspect) * 0.5f, 0f, frameAspect / aspect, 1f)
+                : new Rect(0f, (1f - aspect / frameAspect) * 0.5f, 1f, aspect / frameAspect);
         }
 
         private void PlayShow()
@@ -397,13 +444,14 @@ namespace Ezg.BugLogger.UI
 
         private void FinishClose()
         {
-            _viewer.Close();
+            _editor.Close();
             BugTweener.Kill(this);
             HideSkeletons();
             gameObject.SetActive(false);
             _isClosing = false;
             _thumbnail.texture = null;
             DestroyPreview();
+            DestroySource();
             _screenshotJpg = null;
 
             var onClosed = _onClosed;
@@ -426,6 +474,30 @@ namespace Ezg.BugLogger.UI
 
             Destroy(_preview);
             _preview = null;
+        }
+
+        /// <summary>
+        ///     Ảnh gốc cho màn chỉnh sửa. RenderTexture mất nội dung khi GPU mất context (Android GLES lúc app vào nền) ⇒
+        ///     dựng lại từ JPG gốc: nét thấp hơn (cạnh dài ≤ 1280) nhưng bản sửa vẫn khớp vì toạ độ cắt / nét tính theo tỉ lệ
+        ///     ảnh.
+        /// </summary>
+        private Texture GetSource()
+        {
+            if (!(_source is RenderTexture renderTexture) || renderTexture.IsCreated()) return _source;
+
+            Destroy(renderTexture);
+            _source = BugLoggerScreenCapture.DecodePreview(_originalJpg);
+            return _source;
+        }
+
+        private void DestroySource()
+        {
+            _document = null;
+            _originalJpg = null;
+            if (_source == null) return;
+
+            Destroy(_source);
+            _source = null;
         }
 
         #endregion
@@ -855,7 +927,33 @@ namespace Ezg.BugLogger.UI
 
         private void OnThumbnailClicked()
         {
-            if (_preview != null) _viewer.Show(_preview);
+            if (_isClosing || _isSubmitted || _document == null || GetSource() == null) return;
+
+            _editor.Open(GetSource, _document, OnImageEdited);
+        }
+
+        /// <summary>
+        ///     Màn chỉnh sửa bấm Xong: thay ảnh gửi đi + thumbnail bằng bản đã sửa (<paramref name="jpg" /> null = đã hoàn
+        ///     tác về ảnh gốc). QA đã chỉnh ảnh thì chắc chắn muốn gửi kèm ⇒ bật lại "Đính kèm".
+        /// </summary>
+        private void OnImageEdited(BugImageDocument document, byte[] jpg)
+        {
+            if (_source == null || !IsOpen || _isClosing) return;
+
+            _document = document;
+            _screenshotJpg = jpg ?? _originalJpg;
+            var preview = BugLoggerScreenCapture.DecodePreview(_screenshotJpg);
+            if (preview != null)
+            {
+                DestroyPreview();
+                _preview = preview;
+            }
+
+            SetupScreenshot();
+            if (_attachSwitch.IsOn) return;
+
+            _attachSwitch.SetOn(true, true);
+            OnAttachChanged(true);
         }
 
         private void OnAttachChanged(bool isOn)

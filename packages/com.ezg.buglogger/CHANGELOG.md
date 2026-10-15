@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0] - 2026-10-15
+
+### Added
+- Màn **Chỉnh sửa ảnh** (chạm thumbnail trong form): cắt, khoanh khung / tròn, mũi tên, bút vẽ tay, huy hiệu đánh số
+  1–99, làm nổi một vùng (phần còn lại tối đi); 5 màu nét, hoàn tác / làm lại / xoá hết; chạm nhanh = đặt khung /
+  mũi tên mặc định. Xong → ảnh gửi đi + thumbnail là bản đã chỉnh (cắt rồi thì kích thước theo vùng cắt); Huỷ / Back
+  khi đã sửa phải bấm hai lần. Chỉnh không phá huỷ: mở lại sửa tiếp, hoàn tác hết = ảnh gốc.
+- Form giữ ảnh chụp gốc đủ độ phân giải màn hình (RenderTexture trên GPU) tới khi đóng, để cắt vùng nhỏ vẫn nét; mất
+  nội dung (Android GLES mất context) thì dựng lại từ JPG gốc. Thumbnail giữ tỉ lệ vùng cắt, không méo.
+- Không cần quyền mới: toàn bộ chạy trên texture trong bộ nhớ của game, không đụng thư viện ảnh của máy, không plugin
+  native / manifest (README § Chỉnh sửa ảnh chụp).
+
+### Changed
+- Màn xem ảnh lớn (`BugLoggerImageViewer`) được thay bằng màn chỉnh sửa; nút trên thumbnail đổi thành bút chì.
+- Thêm 11 icon + atlas `bl_annotation_atlas.png` (cỡ build tăng ~1,2 MB trước nén); script sinh ở
+  `Tools~/generate_image_editor_sprites.py`.
+
 ## [0.2.4] - 2026-10-15
 
 ### Fixed

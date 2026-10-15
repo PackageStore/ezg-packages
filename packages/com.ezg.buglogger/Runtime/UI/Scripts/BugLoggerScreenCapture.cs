@@ -49,6 +49,21 @@ namespace Ezg.BugLogger.UI
 
             try
             {
+                return EncodeJpg(shot);
+            }
+            finally
+            {
+                Object.Destroy(shot);
+            }
+        }
+
+        /// <summary>Nén ảnh chụp thành JPG như ảnh form gửi đi; không huỷ <paramref name="shot" />. Null khi lỗi.</summary>
+        public static byte[] EncodeJpg(Texture2D shot)
+        {
+            if (shot == null) return null;
+
+            try
+            {
                 return BugLoggerApi.EncodeScreenshot(shot);
             }
             catch (Exception ex)
@@ -56,9 +71,39 @@ namespace Ezg.BugLogger.UI
                 Debug.LogWarning($"[BugLogger] Encode screenshot failed. {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        ///     Chép ảnh chụp sang một RenderTexture riêng để giữ lâu (màn chỉnh sửa ảnh). Khác texture chỉ-GPU, RenderTexture
+        ///     báo được khi mất nội dung (<see cref="RenderTexture.IsCreated" /> = false — Android GLES mất context lúc app
+        ///     vào nền) để caller dựng lại. Null khi lỗi; không huỷ <paramref name="shot" />.
+        /// </summary>
+        public static RenderTexture CopyToRenderTexture(Texture2D shot)
+        {
+            if (shot == null) return null;
+
+            var previous = RenderTexture.active;
+            RenderTexture target = null;
+            try
+            {
+                target = new RenderTexture(shot.width, shot.height, 0, RenderTextureFormat.ARGB32,
+                    RenderTextureReadWrite.sRGB) { name = "BugLogger.Screenshot", useMipMap = false };
+                if (!target.Create()) throw new InvalidOperationException("RenderTexture.Create failed");
+
+                Graphics.Blit(shot, target);
+                var result = target;
+                target = null;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BugLogger] Keep screenshot as RenderTexture failed. {ex.Message}");
+                return null;
+            }
             finally
             {
-                Object.Destroy(shot);
+                RenderTexture.active = previous;
+                if (target != null) Object.Destroy(target);
             }
         }
 

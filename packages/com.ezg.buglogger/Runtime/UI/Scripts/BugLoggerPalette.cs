@@ -26,6 +26,22 @@ namespace Ezg.BugLogger.UI
         public static readonly Color Danger = Hex(0xFF6B6B);
         public static readonly Color Shadow = Hex(0x000000, 0.55f);
 
+        /// <summary>Nền màn chỉnh sửa ảnh — tối hẳn để màu ảnh chụp không bị nền lẫn vào.</summary>
+        public static readonly Color EditorBackdrop = Hex(0x07090E);
+
+        /// <summary>
+        ///     Màu nét vẽ trên ảnh (đỏ mặc định): rực, khác hẳn nhau để nổi trên mọi kiểu nền game. Thứ tự = thứ tự ô chọn
+        ///     màu của màn chỉnh sửa.
+        /// </summary>
+        public static readonly Color32[] AnnotationColors =
+        {
+            new Color32(0xFF, 0x3B, 0x30, 0xFF),
+            new Color32(0xFF, 0xD6, 0x0A, 0xFF),
+            new Color32(0x30, 0xD1, 0x58, 0xFF),
+            new Color32(0x0A, 0x84, 0xFF, 0xFF),
+            new Color32(0xFF, 0xFF, 0xFF, 0xFF)
+        };
+
         public static Color WithAlpha(Color color, float alpha)
         {
             color.a = alpha;

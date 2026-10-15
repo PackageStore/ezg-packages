@@ -10,7 +10,8 @@ namespace Ezg.BugLogger.UI
         public const string SUBTITLE_SEPARATOR = "  ·  ";
 
         public const string SCREENSHOT_TITLE = "Ảnh chụp màn hình";
-        public const string SCREENSHOT_HINT_FORMAT = "Chạm để xem lớn  ·  {0}×{1}";
+        public const string SCREENSHOT_HINT_FORMAT = "Chạm để khoanh vùng, vẽ, cắt  ·  {0}×{1}";
+        public const string SCREENSHOT_EDITED_FORMAT = "Đã chỉnh sửa · chạm để sửa tiếp  ·  {0}×{1}";
         public const string SCREENSHOT_NONE = "Không chụp được màn hình";
         public const string SCREENSHOT_ATTACH = "Đính kèm vào báo cáo";
 
@@ -54,5 +55,29 @@ namespace Ezg.BugLogger.UI
         public const string TOAST_SENT_FORMAT = "Đã gửi báo cáo #{0}";
         public const string TOAST_SENT = "Đã gửi báo cáo";
         public const string TOAST_FAILED_FORMAT = "Gửi báo cáo thất bại: {0}";
+
+        public const string EDITOR_TITLE = "Chỉnh sửa ảnh";
+        public const string EDITOR_CLEAR = "Xoá hết";
+        public const string EDITOR_DISCARD_CONFIRM = "Chạm lần nữa để bỏ các thay đổi";
+        public const string EDITOR_LIMIT = "Đã đủ số nét tối đa — hoàn tác bớt hoặc Xoá hết";
+        public const string EDITOR_SPOTLIGHT_LIMIT_FORMAT = "Tối đa {0} vùng làm nổi";
+        public const string EDITOR_MARKER_LIMIT_FORMAT = "Tối đa {0} số";
+        public const string EDITOR_RENDER_FAILED = "Không xuất được ảnh đã sửa — thử lại";
+
+        public const string TOOL_CROP = "Cắt";
+        public const string TOOL_RECT = "Khung";
+        public const string TOOL_ELLIPSE = "Tròn";
+        public const string TOOL_ARROW = "Mũi tên";
+        public const string TOOL_PEN = "Bút";
+        public const string TOOL_MARKER = "Đánh số";
+        public const string TOOL_SPOTLIGHT = "Làm nổi";
+
+        public const string HINT_CROP = "Kéo góc / cạnh để cắt · kéo giữa khung để dời";
+        public const string HINT_RECT = "Kéo để khoanh vùng lỗi · chạm để đặt khung nhanh";
+        public const string HINT_ELLIPSE = "Kéo để khoanh tròn vùng lỗi · chạm để đặt nhanh";
+        public const string HINT_ARROW = "Kéo từ đuôi tới chỗ lỗi · chạm để chỉ nhanh";
+        public const string HINT_PEN = "Vẽ tự do lên ảnh";
+        public const string HINT_MARKER = "Chạm để đặt số · nhắc lại số này trong mô tả";
+        public const string HINT_SPOTLIGHT = "Kéo chọn vùng cần chú ý · phần còn lại tối đi";
     }
 }

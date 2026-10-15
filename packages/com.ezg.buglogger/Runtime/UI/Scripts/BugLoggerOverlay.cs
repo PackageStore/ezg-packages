@@ -10,7 +10,8 @@ using BugLoggerApi = Ezg.BugLogger.BugLogger;
 namespace Ezg.BugLogger.UI
 {
     /// <summary>
-    ///     Canvas overlay riêng của Bug Logger (sort order rất cao, sống qua đổi scene): nút nổi, form, toast, xem ảnh.
+    ///     Canvas overlay riêng của Bug Logger (sort order rất cao, sống qua đổi scene): nút nổi, form, toast, màn chỉnh
+    ///     sửa ảnh.
     ///     Tự co theo hướng màn hình, tự lo chụp ảnh — không dựa vào UI framework của game. Dựng bởi
     ///     <see cref="BugLoggerUI" />, game không tạo trực tiếp.
     /// </summary>
@@ -30,7 +31,7 @@ namespace Ezg.BugLogger.UI
         [SerializeField] private BugLoggerLauncher _launcher;
         [SerializeField] private BugLoggerForm _form;
         [SerializeField] private BugLoggerToast _toast;
-        [SerializeField] private BugLoggerImageViewer _viewer;
+        [SerializeField] private BugLoggerImageEditor _editor;
 
         private Vector2Int _appliedScreen;
         private bool _launcherWanted;
@@ -59,7 +60,8 @@ namespace Ezg.BugLogger.UI
         {
             _form.Bind(this, _canvas);
             _form.gameObject.SetActive(false);
-            _viewer.Close();
+            _editor.Bind(this);
+            _editor.Close();
             _toast.gameObject.SetActive(false);
             _launcher.gameObject.SetActive(false);
             _launcher.Clicked += OnLauncherClicked;
@@ -137,7 +139,7 @@ namespace Ezg.BugLogger.UI
 
         public void CloseForm()
         {
-            if (_viewer.IsOpen) _viewer.Close();
+            if (_editor.IsOpen) _editor.Close();
             _form.Close();
         }
 
@@ -149,10 +151,10 @@ namespace Ezg.BugLogger.UI
         /// <summary>Chụp màn hình không có overlay (nút nổi, toast, form) — xem <see cref="BugLoggerUI.CaptureScreenshotAsync" />.</summary>
         public async UniTask<byte[]> CaptureScreenshotAsync(CancellationToken cancellationToken)
         {
-            if (!cancellationToken.CanBeCanceled) return await CaptureJpgAsync(true, destroyCancellationToken);
+            if (!cancellationToken.CanBeCanceled) return await CaptureJpgAsync(destroyCancellationToken);
 
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken, cancellationToken);
-            return await CaptureJpgAsync(true, linked.Token);
+            return await CaptureJpgAsync(linked.Token);
         }
 
         /// <summary>Ẩn overlay trong <paramref name="seconds" /> giây thực (≤ 0: hiện lại ngay) — xem <see cref="BugLoggerUI.HideForCapture" />.</summary>
@@ -168,7 +170,8 @@ namespace Ezg.BugLogger.UI
 
         /// <summary>
         ///     Ẩn cả overlay đúng frame chụp (nút nổi / toast không lọt vào ảnh), chụp ở cuối frame, nén JPG qua package,
-        ///     rồi mới mở form và dừng game.
+        ///     rồi mới mở form và dừng game. Ảnh chụp gốc (chỉ trên GPU, đủ độ phân giải màn hình) giao cho form giữ tới khi
+        ///     đóng — màn chỉnh sửa cắt / vẽ trên ảnh này cho nét.
         /// </summary>
         private async UniTaskVoid CaptureAndOpenAsync()
         {
@@ -176,30 +179,57 @@ namespace Ezg.BugLogger.UI
             var featureKey = ResolveFeatureKey();
             _launcher.Hide(false);
 
-            byte[] jpg;
+            Texture2D shot;
             try
             {
-                jpg = await CaptureJpgAsync(false, destroyCancellationToken);
+                shot = await CaptureTextureAsync(false, destroyCancellationToken);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
 
+            var jpg = BugLoggerScreenCapture.EncodeJpg(shot);
+            Texture source = null;
+            if (jpg != null && shot != null)
+            {
+                // Giữ bản RenderTexture (biết khi bị mất nội dung); không tạo được thì giữ luôn ảnh chụp.
+                source = BugLoggerScreenCapture.CopyToRenderTexture(shot);
+                if (source == null) source = shot;
+            }
+
+            if (shot != null && source != shot) Destroy(shot);
+
             PauseGame();
-            _form.Open(jpg, BugLoggerScreenCapture.DecodePreview(jpg), featureKey, OnFormClosed);
+            _form.Open(jpg, BugLoggerScreenCapture.DecodePreview(jpg), source, featureKey, OnFormClosed);
             _isCapturing = false;
             BugLoggerUI.RaiseFormOpened();
         }
 
+        /// <summary>Chụp (bỏ qua một frame) rồi nén JPG, huỷ ảnh chụp — xem <see cref="CaptureTextureAsync" />.</summary>
+        private async UniTask<byte[]> CaptureJpgAsync(CancellationToken cancellationToken)
+        {
+            var shot = await CaptureTextureAsync(true, cancellationToken);
+            if (shot == null) return null;
+
+            try
+            {
+                return BugLoggerScreenCapture.EncodeJpg(shot);
+            }
+            finally
+            {
+                Destroy(shot);
+            }
+        }
+
         /// <summary>
-        ///     Tắt canvas overlay tới hết frame chụp, chụp ở cuối frame, nén JPG, rồi bật lại (trừ khi còn lượt chụp
-        ///     khác / đang <see cref="HideForCapture" />).
+        ///     Tắt canvas overlay tới hết frame chụp, chụp ở cuối frame, rồi bật lại (trừ khi còn lượt chụp khác / đang
+        ///     <see cref="HideForCapture" />). Caller sở hữu (và phải huỷ) texture trả về; null khi chụp lỗi.
         /// </summary>
         /// <param name="skipFrame">
         ///     Chờ qua một frame trước khi chụp: caller ngoài có thể gọi lúc canvas của frame hiện tại đã vẽ xong.
         /// </param>
-        private async UniTask<byte[]> CaptureJpgAsync(bool skipFrame, CancellationToken cancellationToken)
+        private async UniTask<Texture2D> CaptureTextureAsync(bool skipFrame, CancellationToken cancellationToken)
         {
             _captureHolds++;
             ApplyCanvasVisibility();
@@ -207,7 +237,7 @@ namespace Ezg.BugLogger.UI
             {
                 if (skipFrame) await UniTask.NextFrame(PlayerLoopTiming.Update, cancellationToken);
                 await UniTask.WaitForEndOfFrame(this, cancellationToken);
-                return BugLoggerScreenCapture.CaptureJpg();
+                return BugLoggerScreenCapture.Capture();
             }
             finally
             {
@@ -298,7 +328,7 @@ namespace Ezg.BugLogger.UI
         {
             if (!IsBackPressed()) return;
 
-            if (_viewer.IsOpen) _viewer.Hide();
+            if (_editor.IsOpen) _editor.HandleBack();
             else if (_form.IsOpen) _form.Close();
         }
 

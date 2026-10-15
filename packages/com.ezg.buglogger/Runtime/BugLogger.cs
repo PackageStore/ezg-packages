@@ -107,6 +107,30 @@ namespace Ezg.BugLogger
         /// <returns>Byte JPG, hoặc null khi <paramref name="source"/> null hay mã hoá lỗi.</returns>
         public static byte[] EncodeScreenshot(Texture2D source)
         {
+            return EncodeTexture(source);
+        }
+
+        #endregion
+
+        #region Internal
+
+        /// <summary>Khởi tạo với nơi gửi cho sẵn (settings đã đọc, hoặc test). Gọi lại là vô hại.</summary>
+        internal static void Initialize(string endpoint, string projectCode)
+        {
+            if (_isInitialized)
+                return;
+
+            _isInitialized = true;
+            BugLogRingBuffer.Attach();
+            BugLoggerConfig.Configure(endpoint, projectCode);
+        }
+
+        /// <summary>
+        /// <see cref="EncodeScreenshot"/> cho mọi loại texture (kể cả RenderTexture — ảnh đã chỉnh của UI Bug Logger).
+        /// Tên khác <see cref="EncodeScreenshot"/> có chủ đích: công cụ ngoài tìm hàm đó qua reflection theo tên.
+        /// </summary>
+        internal static byte[] EncodeTexture(Texture source)
+        {
             if (source == null)
                 return null;
 
@@ -133,21 +157,6 @@ namespace Ezg.BugLogger
                 RenderTexture.ReleaseTemporary(renderTexture);
                 DestroyTemporary(scaled);
             }
-        }
-
-        #endregion
-
-        #region Internal
-
-        /// <summary>Khởi tạo với nơi gửi cho sẵn (settings đã đọc, hoặc test). Gọi lại là vô hại.</summary>
-        internal static void Initialize(string endpoint, string projectCode)
-        {
-            if (_isInitialized)
-                return;
-
-            _isInitialized = true;
-            BugLogRingBuffer.Attach();
-            BugLoggerConfig.Configure(endpoint, projectCode);
         }
 
         /// <summary>Trả toàn bộ package về trạng thái chưa khởi tạo (test). Report đang chờ vẫn trên disk.</summary>
