@@ -2,7 +2,8 @@
     "name": "Ezg.QaProbe",
     "rootNamespace": "Ezg.QaProbe",
     "references": [
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Ezg.Package.CheatGate"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -11,6 +12,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.ezg.cheat-gate",
+            "expression": "0.1.1",
+            "define": "EZG_QA_CHEAT_GATE"
+        }
+    ],
     "noEngineReferences": false
 }

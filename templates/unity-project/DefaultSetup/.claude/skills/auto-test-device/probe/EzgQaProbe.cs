@@ -8,8 +8,12 @@
 //  * Không làm gì cho tới khi được kích hoạt bằng trigger mang token ngẫu nhiên: intent extra `ezg_qa_probe` (Android),
 //    argument `-ezgQaProbe` / biến môi trường `EZG_QA_PROBE` (iOS), hoặc file `<persistentDataPath>/ezg_qa_probe.txt`.
 //  * Mọi request phải mang đúng token (header X-QA-Token). Android chỉ nghe 127.0.0.1 (vào bằng `adb forward`).
-//  * Build release: chỉ phục vụ khi "cổng" mở — Editor / Development Build / define EZG_QA_PROBE, hoặc giá trị bool
-//    static khai trong Resources/EzgQaProbeConfig.json (`releaseGate`, vd cờ cheat của game) đang true.
+//  * Build release: chỉ phục vụ khi "cổng" mở — Editor / Development Build / define EZG_QA_PROBE, máy có trong danh
+//    sách máy test của package com.ezg.cheat-gate (grant ký RSA từ server), hoặc giá trị bool static khai trong
+//    Resources/EzgQaProbeConfig.json (`releaseGate`, vd cờ cheat của game) đang true.
+//  * Project có com.ezg.cheat-gate: được kích hoạt là probe tự hỏi CheatGate một lần (như QA tap version 10 lần) —
+//    máy trong danh sách thì mở cổng + bật cheat của game (`cheatOn`), máy khác chỉ thấy Device ID. Người chơi thường
+//    không bao giờ kích hoạt probe nên vẫn không gửi request nào.
 //  * Define EZG_QA_PROBE_DISABLED loại toàn bộ code này khỏi build.
 //
 // Không phụ thuộc UniTask/TMP/BugLogger (dùng Awaitable của Unity 6 + reflection) để chạy được ở mọi project.
@@ -34,6 +38,9 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Scripting;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+#if EZG_QA_CHEAT_GATE
+using Ezg.Package.CheatGate;
+#endif
 
 [assembly: AlwaysLinkAssembly]
 
@@ -46,7 +53,7 @@ namespace Ezg.QaProbe
         #region Fields
 
         /// <summary>Phiên bản probe — qadevice.py so để biết bản trong project có cũ không.</summary>
-        public const string VERSION = "1.0.0";
+        public const string VERSION = "1.1.0";
 
         public const int DEFAULT_PORT = 7531;
         public const string LOG_TAG = "[EzgQaProbe]";
@@ -145,9 +152,10 @@ namespace Ezg.QaProbe
                 return false;
             }
 
+            ProbeCheat.Arm();
             ProbeGate.Refresh();
-            Debug.Log(string.Format(CultureInfo.InvariantCulture, "{0} listening {1}:{2} gate={3} v{4} source={5}", LOG_TAG,
-                address, Port, ProbeGate.IsOpen ? "open" : "closed", VERSION, source));
+            Debug.Log(string.Format(CultureInfo.InvariantCulture, "{0} listening {1}:{2} gate={3} v{4} source={5} cheatGate={6}", LOG_TAG,
+                address, Port, ProbeGate.IsOpen ? "open" : "closed", VERSION, source, ProbeCheat.Present ? ProbeCheat.State : "none"));
             return true;
         }
 
@@ -311,7 +319,8 @@ namespace Ezg.QaProbe
             var token = req.Header("x-qa-token") ?? req.Get("token");
             if (string.IsNullOrEmpty(_token) || !FixedTimeEquals(token, _token)) return ProbeResponse.Error(401, "unauthorized", "sai token");
             if (req.Path == "/logs") return ProbeLog.Handle(req);
-            if (req.Path != "/ping" && !ProbeGate.IsOpen)
+            // Cổng đóng vẫn trả lời /ping (trạng thái) và /unlock (hỏi lại CheatGate — server quyết, không tự mở được).
+            if (req.Path != "/ping" && req.Path != "/unlock" && !ProbeGate.IsOpen)
                 return ProbeResponse.Error(423, "gate_closed", ProbeGate.Reason);
 
             var job = new ProbeJob(req);
@@ -340,6 +349,15 @@ namespace Ezg.QaProbe
         /// <summary>Đường dẫn bool static (Namespace.Type.member) mở probe ở build release, vd cờ cheat.</summary>
         public string releaseGate = "";
 
+        /// <summary>Hàm bật cheat của game (Namespace.Type.Method, nhận 0 tham số hoặc một Action&lt;bool&gt;) — trống thì gán releaseGate = true.</summary>
+        public string cheatOn = "";
+
+        /// <summary>Hàm tắt cheat của game — trống thì gán releaseGate = false.</summary>
+        public string cheatOff = "";
+
+        /// <summary>Project có com.ezg.cheat-gate: true = được kích hoạt là tự hỏi quyền + bật cheat game; false = chỉ đọc trạng thái.</summary>
+        public bool autoCheat = true;
+
         public int port = EzgQaProbe.DEFAULT_PORT;
     }
 
@@ -353,15 +371,20 @@ namespace Ezg.QaProbe
         public static bool IsOpen => _open;
         public static string Reason => _reason;
 
+        /// <summary>Chỉ để thử cổng release ngay trong Editor (unity_execute_code): bỏ qua "editor"/"development build".</summary>
+#pragma warning disable 0649 // gán qua reflection
+        internal static bool SimulateRelease;
+#pragma warning restore 0649
+
         public static void Refresh()
         {
-            if (Application.isEditor)
+            if (Application.isEditor && !SimulateRelease)
             {
                 Set(true, "editor");
                 return;
             }
 
-            if (Debug.isDebugBuild)
+            if (Debug.isDebugBuild && !SimulateRelease)
             {
                 Set(true, "development build");
                 return;
@@ -370,15 +393,25 @@ namespace Ezg.QaProbe
             Set(true, "define EZG_QA_PROBE");
             return;
 #else
-            var gate = EzgQaProbe.Config?.releaseGate;
-            if (string.IsNullOrEmpty(gate))
+            if (ProbeCheat.IsUnlocked)
             {
-                Set(false, "build release không khai releaseGate trong EzgQaProbeConfig — dùng development build");
+                Set(true, "cheat-gate: máy " + ProbeCheat.DeviceId + " có trong danh sách máy test " + ProbeCheat.Project);
                 return;
             }
 
-            var ok = ProbeReflect.TryEval(gate, out var value, out _) && value is bool b && b;
-            Set(ok, ok ? gate + "=true" : gate + "=false — bật cheat trên máy để mở probe");
+            var gate = EzgQaProbe.Config?.releaseGate;
+            if (!string.IsNullOrEmpty(gate) && ProbeReflect.TryEval(gate, out var value, out _) && value is bool b && b)
+            {
+                Set(true, gate + "=true");
+                return;
+            }
+
+            if (ProbeCheat.Present)
+                Set(false, ProbeCheat.ClosedReason());
+            else if (string.IsNullOrEmpty(gate))
+                Set(false, "build release không khai releaseGate trong EzgQaProbeConfig — dùng development build");
+            else
+                Set(false, gate + "=false — bật cheat trên máy để mở probe");
 #endif
         }
 
@@ -386,6 +419,277 @@ namespace Ezg.QaProbe
         {
             _open = open;
             _reason = reason;
+        }
+    }
+
+    /// <summary>
+    ///     Máy test của package com.ezg.cheat-gate. Probe vừa được kích hoạt (tool QA mở game) → hỏi CheatGate một lần như QA
+    ///     tap version 10 lần: máy có trong danh sách → mở cổng probe + bật cheat của game; máy khác → cổng đóng, báo Device ID
+    ///     để Lead thêm bằng ezg MCP test_device_add rồi tool hỏi lại (/unlock). Chạy trên main thread.
+    /// </summary>
+    [Preserve]
+    internal static class ProbeCheat
+    {
+        private const float INIT_WAIT_SECONDS = 30f;
+
+#pragma warning disable 0414, 0169 // build không có cheat-gate: các field dưới không được đọc
+        private static bool _armed;
+        private static bool _requested;
+        private static bool _askedGame;
+        private static bool _applied;
+        private static float _armedAt;
+#pragma warning restore 0414, 0169
+        private static volatile string _state = "";
+        private static volatile string _deviceId = "";
+        private static volatile string _project = "";
+
+        /// <summary>Build có com.ezg.cheat-gate ≥ 0.1.1 (define EZG_QA_CHEAT_GATE do asmdef versionDefines bật).</summary>
+        public static bool Present
+        {
+            get
+            {
+#if EZG_QA_CHEAT_GATE
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
+        /// <summary>waiting_init · checking · unlocked · refused · offline · not_configured · off · "" (chưa kích hoạt).</summary>
+        public static string State => _state;
+
+        public static string DeviceId => _deviceId;
+        public static string Project => _project;
+
+        /// <summary>Máy đang giữ quyền cheat của CheatGate (main thread).</summary>
+        public static bool IsUnlocked
+        {
+            get
+            {
+#if EZG_QA_CHEAT_GATE
+                return _armed && CheatGate.IsUnlocked;
+#else
+                return false;
+#endif
+            }
+        }
+
+        /// <summary>Probe vừa bật: bắt đầu xin quyền.</summary>
+        public static void Arm()
+        {
+            if (!Present) return;
+            _armed = true;
+            _requested = false;
+            _armedAt = Time.realtimeSinceStartup;
+            Tick();
+        }
+
+        /// <summary>/unlock: hỏi lại server (sau khi Lead vừa thêm máy vào danh sách). Trả trạng thái mới.</summary>
+        public static string Rearm()
+        {
+            if (!Present) return "none";
+            Arm();
+            return _state;
+        }
+
+        /// <summary>Gọi định kỳ từ ProbeHost (0,5 s).</summary>
+        public static void Tick()
+        {
+#if EZG_QA_CHEAT_GATE
+            if (!_armed) return;
+            _deviceId = CheatGate.DeviceIdDisplay;
+            _project = CheatGate.Project;
+            if (CheatGate.IsUnlocked)
+            {
+                _state = "unlocked";
+                _requested = false;
+                if (!_applied && EzgQaProbe.Config.autoCheat)
+                {
+                    _applied = true;
+                    var ok = ProbeGameCheat.Set(true, out var via, out var error);
+                    Debug.Log(EzgQaProbe.LOG_TAG + " cheat-gate: máy " + _deviceId + " có trong danh sách " + _project +
+                              (ok ? " → bật cheat của game (" + via + ")" : " — không bật được cheat của game: " + error));
+                }
+
+                return;
+            }
+
+            // Vừa mất quyền (bị xoá khỏi danh sách / grant hết hạn): lần mở lại sau sẽ bật cheat game lần nữa.
+            if (_state == "unlocked") _applied = false;
+            if (!CheatGate.IsInitialized || _project.Length == 0)
+            {
+                // Game gọi CheatGate.Initialize ở splash — chờ; quá lâu hoặc Initialize với mã rỗng = project chưa cấu hình.
+                _state = CheatGate.IsInitialized || Time.realtimeSinceStartup - _armedAt > INIT_WAIT_SECONDS ? "not_configured" : "waiting_init";
+                return;
+            }
+
+            if (CheatGate.IsChecking)
+            {
+                _state = "checking";
+                return;
+            }
+
+            if (!EzgQaProbe.Config.autoCheat)
+            {
+                _state = "off";
+                return;
+            }
+
+            if (!_requested)
+            {
+                _requested = true;
+                _state = "checking";
+                Request();
+                return;
+            }
+
+            _state = Application.internetReachability == NetworkReachability.NotReachable ? "offline" : "refused";
+#endif
+        }
+
+        /// <summary>Lý do cổng đóng theo trạng thái CheatGate.</summary>
+        public static string ClosedReason()
+        {
+            switch (_state)
+            {
+                case "waiting_init": return "cheat-gate: chờ game gọi CheatGate.Initialize";
+                case "checking": return "cheat-gate: đang hỏi server danh sách máy test";
+                case "refused":
+                    return "cheat-gate: máy " + _deviceId + " chưa có trong danh sách máy test " + _project +
+                           " — thêm bằng ezg MCP test_device_add rồi hỏi lại (probe-connect --unlock)";
+                case "offline": return "cheat-gate: máy không có mạng — lần mở đầu CheatGate cần mạng";
+                case "not_configured": return "cheat-gate: game chưa CheatGate.Initialize(mã project) hoặc mã trống (vd GameConstant.CheatGateProject)";
+                case "off": return "cheat-gate: autoCheat=false trong EzgQaProbeConfig — tap version 10 lần trên máy để mở";
+                default: return "cheat-gate: chưa kích hoạt";
+            }
+        }
+
+        public static void Write(ProbeJson w)
+        {
+            w.BeginObject("cheatGate").Prop("present", Present).Prop("state", _state).Prop("deviceId", _deviceId).Prop("project", _project)
+                .Prop("unlocked", IsUnlocked).EndObject();
+        }
+
+#if EZG_QA_CHEAT_GATE
+        private static void Request()
+        {
+            // Lần đầu đi đường của game (game tự bật cờ cheat; bị từ chối thì game hiện Device ID trên máy cho QA chép);
+            // các lần hỏi lại thì hỏi thẳng CheatGate, không hiện gì lên màn.
+            if (!_askedGame)
+            {
+                _askedGame = true;
+                if (ProbeGameCheat.TryAsk(ok =>
+                    {
+                        if (ok) _applied = true;
+                    }))
+                    return;
+            }
+
+            CheatGate.TryUnlock(null);
+        }
+#endif
+    }
+
+    /// <summary>Bật/tắt chế độ cheat của game: hàm cheatOn/cheatOff trong config, không có thì gán thẳng releaseGate.</summary>
+    [Preserve]
+    internal static class ProbeGameCheat
+    {
+        /// <summary>Gọi hàm bật cheat dạng hỏi quyền (một tham số Action&lt;bool&gt;, vd GameSystems.TryEnableCheat của template). False khi game không có.</summary>
+        public static bool TryAsk(Action<bool> done)
+        {
+            var m = Resolve(EzgQaProbe.Config?.cheatOn);
+            if (m == null || !TakesCallback(m)) return false;
+            try
+            {
+                m.Invoke(null, new object[] { done });
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning(EzgQaProbe.LOG_TAG + " cheatOn lỗi: " + Inner(e));
+                return false;
+            }
+        }
+
+        /// <summary>Bật/tắt cheat của game; via = cách đã dùng.</summary>
+        public static bool Set(bool on, out string via, out string error)
+        {
+            var path = on ? EzgQaProbe.Config?.cheatOn : EzgQaProbe.Config?.cheatOff;
+            error = null;
+            var m = Resolve(path);
+            if (m != null)
+            {
+                via = path;
+                try
+                {
+                    var ps = m.GetParameters();
+                    var args = new object[ps.Length];
+                    for (var i = 0; i < ps.Length; i++)
+                    {
+                        if (ps[i].HasDefaultValue) args[i] = ps[i].DefaultValue;
+                        else if (ps[i].ParameterType.IsValueType) args[i] = Activator.CreateInstance(ps[i].ParameterType);
+                    }
+
+                    m.Invoke(null, args);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    error = Inner(e);
+                    return false;
+                }
+            }
+
+            var gate = EzgQaProbe.Config?.releaseGate;
+            if (string.IsNullOrEmpty(gate))
+            {
+                via = "";
+                error = "EzgQaProbeConfig không có " + (on ? "cheatOn" : "cheatOff") + " hay releaseGate";
+                return false;
+            }
+
+            via = gate + "=" + (on ? "true" : "false");
+            return ProbeReflect.TrySetStatic(gate, on, out error);
+        }
+
+        /// <summary>Giá trị cờ cheat của game (releaseGate), null khi không đọc được.</summary>
+        public static void WriteFlag(ProbeJson w)
+        {
+            var gate = EzgQaProbe.Config?.releaseGate;
+            w.Key("cheat");
+            if (!string.IsNullOrEmpty(gate) && ProbeReflect.TryEval(gate, out var value, out _) && value is bool b) w.Value(b);
+            else w.Null();
+        }
+
+        private static MethodInfo Resolve(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            var dot = path.LastIndexOf('.');
+            if (dot <= 0) return null;
+            var type = ProbeReflect.FindType(path.Substring(0, dot));
+            if (type == null) return null;
+            var name = path.Substring(dot + 1).TrimEnd('(', ')');
+            MethodInfo best = null;
+            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                if (m.Name != name || !(TakesCallback(m) || m.GetParameters().All(p => p.HasDefaultValue))) continue;
+                if (best == null || TakesCallback(m)) best = m;
+            }
+
+            return best;
+        }
+
+        private static bool TakesCallback(MethodInfo m)
+        {
+            var ps = m.GetParameters();
+            return ps.Length == 1 && ps[0].ParameterType == typeof(Action<bool>);
+        }
+
+        private static string Inner(Exception e)
+        {
+            var inner = e is TargetInvocationException t && t.InnerException != null ? t.InnerException : e;
+            return inner.GetType().Name + ": " + inner.Message;
         }
     }
 
@@ -437,6 +741,7 @@ namespace Ezg.QaProbe
             if (Time.unscaledTime >= _nextGate)
             {
                 _nextGate = Time.unscaledTime + GATE_REFRESH_SECONDS;
+                ProbeCheat.Tick();
                 ProbeGate.Refresh();
             }
 
@@ -589,6 +894,8 @@ namespace Ezg.QaProbe
                 case "/perf": return Perf();
                 case "/context": return await Context(r.GetInt("save", 0) == 1);
                 case "/bug": return await Bug(r);
+                case "/cheat": return Cheat(r.Get("on"));
+                case "/unlock": return Unlock();
                 default: return ProbeResponse.Error(404, "not_found", "endpoint không có: " + r.Path);
             }
         }
@@ -604,10 +911,39 @@ namespace Ezg.QaProbe
                 .Prop("timeScale", Time.timeScale).Prop("fps", Math.Round(ProbeHost.Fps, 1))
                 .Prop("uptime", Math.Round(Time.realtimeSinceStartup - EzgQaProbe.StartTime, 1))
                 .Prop("bugLogger", ProbeReflect.FindType("Ezg.BugLogger.BugLogger") != null);
+            ProbeGameCheat.WriteFlag(w);
+            ProbeCheat.Write(w);
             w.BeginObject("app").Prop("name", Application.productName).Prop("version", Application.version)
                 .Prop("id", Application.identifier).Prop("unity", Application.unityVersion)
                 .Prop("platform", Application.platform.ToString()).Prop("debug", Debug.isDebugBuild).EndObject();
             WriteScreen(w);
+            return ProbeResponse.Json(200, w.EndObject().ToString());
+        }
+
+        // GET /cheat?on=1|0 — bật/tắt chế độ cheat của game (không tham số: chỉ đọc). Cần cổng mở.
+        private static ProbeResponse Cheat(string on)
+        {
+            var via = "";
+            if (on == "1" || on == "0")
+            {
+                if (!ProbeGameCheat.Set(on == "1", out via, out var error)) return ProbeResponse.Error(400, "cheat_failed", error);
+                ProbeGate.Refresh();
+            }
+
+            var w = new ProbeJson().BeginObject().Prop("via", via).Prop("gate", ProbeGate.IsOpen ? "open" : "closed");
+            ProbeGameCheat.WriteFlag(w);
+            ProbeCheat.Write(w);
+            return ProbeResponse.Json(200, w.EndObject().ToString());
+        }
+
+        // POST /unlock — hỏi lại CheatGate (được gọi cả khi cổng đóng: server quyết, probe không tự mở được).
+        private static ProbeResponse Unlock()
+        {
+            var state = ProbeCheat.Rearm();
+            ProbeGate.Refresh();
+            var w = new ProbeJson().BeginObject().Prop("state", state).Prop("gate", ProbeGate.IsOpen ? "open" : "closed")
+                .Prop("gateReason", ProbeGate.Reason);
+            ProbeCheat.Write(w);
             return ProbeResponse.Json(200, w.EndObject().ToString());
         }
 
@@ -1860,6 +2196,46 @@ namespace Ezg.QaProbe
 
             value = obj;
             return true;
+        }
+
+        /// <summary>Gán field/property static (Namespace.Type.member).</summary>
+        public static bool TrySetStatic(string path, object value, out string error)
+        {
+            error = null;
+            var dot = path.LastIndexOf('.');
+            var type = dot > 0 ? FindType(path.Substring(0, dot)) : null;
+            if (type == null)
+            {
+                error = "không thấy type của " + path;
+                return false;
+            }
+
+            var name = path.Substring(dot + 1);
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
+            try
+            {
+                var f = type.GetField(name, flags);
+                if (f != null && !f.IsInitOnly && !f.IsLiteral)
+                {
+                    f.SetValue(null, value);
+                    return true;
+                }
+
+                var p = type.GetProperty(name, flags);
+                if (p != null && p.CanWrite)
+                {
+                    p.SetValue(null, value);
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                return false;
+            }
+
+            error = "không gán được " + path;
+            return false;
         }
 
         public static bool TryCall(string path, List<string> args, out object value, out string error)

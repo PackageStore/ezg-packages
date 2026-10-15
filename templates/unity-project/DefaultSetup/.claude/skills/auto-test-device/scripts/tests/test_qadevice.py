@@ -229,5 +229,131 @@ class MiscTests(unittest.TestCase):
         self.assertTrue(a.dry_run)
 
 
+GAMESYSTEMS_CHEATGATE = """using System;
+namespace Ezg.Feature.Shared.Systems
+{
+    public static class GameSystems
+    {
+        public static bool isCheat;
+        public static void TryEnableCheat(Action<bool> done = null) { }
+        public static void DisableCheat(bool emitEvent = true) { isCheat = false; }
+    }
+}
+"""
+
+GAMESYSTEMS_REMOTECONFIG = """namespace Ezg.Feature.Shared.Systems
+{
+    public static class GameSystems
+    {
+        public static bool isCheat = false;
+        public static bool TryEnableCheat() { return false; }
+        public static void DisableCheat(bool emitEvent = true) { }
+    }
+}
+"""
+
+
+def make_project(gamesystems, cheat_gate_ver=None, code=None):
+    root = tempfile.mkdtemp()
+    d = os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Systems")
+    os.makedirs(d)
+    with open(os.path.join(d, "GameSystems.cs"), "w") as f:
+        f.write(gamesystems)
+    os.makedirs(os.path.join(root, "Packages"))
+    deps = {"com.unity.ugui": "2.0.0"}
+    if cheat_gate_ver:
+        deps["com.ezg.cheat-gate"] = cheat_gate_ver
+    with open(os.path.join(root, "Packages", "manifest.json"), "w") as f:
+        json.dump({"dependencies": deps}, f)
+    if code is not None:
+        c = os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Config")
+        os.makedirs(c)
+        with open(os.path.join(c, "GameConstant.cs"), "w") as f:
+            f.write('public static class GameConstant { public const string CheatGateProject = "%s"; }\n' % code)
+    return root
+
+
+class CheatGateTests(unittest.TestCase):
+    def test_detect_template_cheat_gate(self):
+        root = make_project(GAMESYSTEMS_CHEATGATE, "0.1.1", "DEMO01")
+        cfg = q.detect_cheat_config(root)
+        self.assertEqual(cfg["releaseGate"], "Ezg.Feature.Shared.Systems.GameSystems.isCheat")
+        self.assertEqual(cfg["cheatOn"], "Ezg.Feature.Shared.Systems.GameSystems.TryEnableCheat")
+        self.assertEqual(cfg["cheatOff"], "Ezg.Feature.Shared.Systems.GameSystems.DisableCheat")
+        self.assertEqual(q.cheat_gate_info(root), ("0.1.1", "DEMO01"))
+
+    def test_remote_config_try_enable_is_not_cheat_on(self):
+        # TryEnableCheat() kiểu cũ hỏi Remote Config và có thể TẮT cheat — không được dùng làm cheatOn.
+        root = make_project(GAMESYSTEMS_REMOTECONFIG)
+        cfg = q.detect_cheat_config(root)
+        self.assertEqual(cfg["cheatOn"], "")
+        self.assertEqual(cfg["cheatOff"], "Ezg.Feature.Shared.Systems.GameSystems.DisableCheat")
+        self.assertEqual(q.cheat_gate_info(root), (None, None))
+
+    def test_install_probe_writes_and_redetects_config(self):
+        root = make_project(GAMESYSTEMS_REMOTECONFIG)
+        q.install_probe(root)
+        cfg_path = os.path.join(root, "Assets", "EzgQaProbe", "Resources", "EzgQaProbeConfig.json")
+        cfg = q.read_json(cfg_path)
+        self.assertEqual((cfg["cheatOn"], cfg["autoCheat"], cfg["port"]), ("", True, q.PROBE_PORT))
+        self.assertTrue(os.path.isfile(os.path.join(root, "Assets", "EzgQaProbe", "EzgQaProbe.cs")))
+        # project chuyển sang com.ezg.cheat-gate → cài lại tự nhận hàm mới, giữ cổng dev đã đặt
+        cfg["releaseGate"] = "My.Flags.qa"
+        q.write_json(cfg_path, cfg)
+        with open(os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Systems", "GameSystems.cs"), "w") as f:
+            f.write(GAMESYSTEMS_CHEATGATE)
+        q.install_probe(root, force=True)
+        cfg = q.read_json(cfg_path)
+        self.assertEqual(cfg["releaseGate"], "My.Flags.qa")
+        self.assertEqual(cfg["cheatOn"], "Ezg.Feature.Shared.Systems.GameSystems.TryEnableCheat")
+        self.assertEqual(q.ensure_probe_in_project(root), "")
+
+    def test_describe_probe_states(self):
+        base = {"gate": "closed", "cheatGate": {"present": True, "deviceId": "7F3A-9C21-B04E", "project": "DEMO01"}}
+        j = dict(base, cheatGate=dict(base["cheatGate"], state="refused"))
+        status, hint = q.describe_probe(j, "DEMO01", "Pixel 7")
+        self.assertIn("7F3A-9C21-B04E", status)
+        self.assertIn('test_device_add(project="DEMO01", device_id="7F3A-9C21-B04E"', hint)
+        self.assertIn("probe-connect --unlock", hint)
+        j = {"gate": "open", "cheat": True, "cheatGate": dict(base["cheatGate"], state="unlocked", unlocked=True)}
+        status, hint = q.describe_probe(j)
+        self.assertIn("danh sách test DEMO01", status)
+        self.assertIn("cheat game BẬT", status)
+        self.assertEqual(hint, "")
+        status, hint = q.describe_probe({"gate": "closed", "gateReason": "X.isCheat=false", "cheatGate": {"present": False}})
+        self.assertIn("X.isCheat=false", status)
+        self.assertIn("probe-connect", hint)
+        for st in ("offline", "not_configured", "off", "checking"):
+            status, hint = q.describe_probe(dict(base, cheatGate=dict(base["cheatGate"], state=st)))
+            self.assertTrue(status.startswith("CỔNG ĐÓNG") and hint, st)
+
+    def test_wait_cheat_gate_polls_until_final(self):
+        seq = [{"gate": "closed", "cheatGate": {"present": True, "state": "checking"}},
+               {"gate": "open", "cheatGate": {"present": True, "state": "unlocked"}}]
+
+        class Cli:
+            def get(self, endpoint, timeout=None):
+                return seq.pop(0)
+
+        orig = q.time.sleep
+        q.time.sleep = lambda s: None
+        try:
+            j = q.wait_cheat_gate(Cli(), {"gate": "closed", "cheatGate": {"present": True, "state": "waiting_init"}}, 30)
+        finally:
+            q.time.sleep = orig
+        self.assertEqual(j["gate"], "open")
+        self.assertEqual(seq, [])
+
+    def test_parser_new_commands(self):
+        p = q.build_parser()
+        a = p.parse_args(["probe-connect", "--unlock", "--unlock-wait", "60"])
+        self.assertTrue(a.unlock)
+        self.assertEqual(a.unlock_wait, 60)
+        self.assertEqual(p.parse_args(["cheat", "off"]).mode, "off")
+        self.assertEqual(p.parse_args(["cheat"]).mode, "status")
+        a = p.parse_args(["start", "--feature", "Shop"])
+        self.assertEqual((a.device, a.no_probe_install, a.skip_bughub), ("auto", False, False))
+
+
 if __name__ == "__main__":
     unittest.main()

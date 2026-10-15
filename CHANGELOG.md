@@ -6,6 +6,9 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 ## 2026-10-15
 
+**Changed**
+- `/auto-test-device` 1.1: một lệnh `start` lo hết preflight (BugHub, Pillow, probe, chọn máy, cài app). Project có `com.ezg.cheat-gate`: máy nằm trong danh sách máy test tự mở cheat + probe ngay trên bản release, không cần tap version; máy chưa có tên thì skill in Device ID và hỏi một câu để thêm bằng `test_device_add`.
+
 **Added**
 - Skill `/auto-test-device <device id> <tính năng>` vào DefaultSetup: agent QA chơi game trên Android (adb/emulator), iOS Simulator, iPhone hoặc Unity Editor như người chơi thật, test visual + logic theo charter, bắt crash/ANR/exception từ log, rồi tự log bug lên BugHub đúng contract Bug Logger (ảnh + log + bước tái hiện, chống trùng). Kèm EZG QA Probe (cài vào `Assets/EzgQaProbe/`) cho cây UI, audit visual tự động, đọc state và gọi cheat.
 

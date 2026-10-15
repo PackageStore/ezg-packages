@@ -6,6 +6,26 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-15
 
+**Changed** — `/auto-test-device` 1.1: một lệnh `start` lo hết preflight; máy test của `com.ezg.cheat-gate` tự mở cheat
+- EZG QA Probe 1.1.0: project có `com.ezg.cheat-gate` ≥ 0.1.1 (asmdef `versionDefines` → `EZG_QA_CHEAT_GATE`, project
+  không có package vẫn compile — reference thiếu được bỏ qua) thì probe vừa được tool kích hoạt là tự hỏi CheatGate một
+  lần như QA tap version 10 lần (lần đầu đi qua `GameSystems.TryEnableCheat(Action<bool>)` của template nên game tự
+  bật cờ cheat). Máy có trong danh sách máy test → mở cổng probe ở bản release + bật cheat của game (`cheatOn`), không
+  cần tap; máy khác → cổng đóng, `/ping` trả Device ID. Người chơi thường không bao giờ kích hoạt probe nên vẫn không
+  gửi request nào. Endpoint mới `/unlock` (hỏi lại, được gọi khi cổng đóng — server quyết) và `/cheat?on=1|0`. Config
+  thêm `cheatOn` / `cheatOff` / `autoCheat` (tự dò từ `GameSystems`; `TryEnableCheat()` kiểu Remote Config cũ không
+  được dùng vì có thể tắt cheat).
+- `qadevice.py start [device]`: kiểm BugHub trước khi đụng máy (chưa sẵn sàng → mã thoát 4), tự cài Pillow, tự
+  cài/cập nhật probe vào project, không truyền máy thì dùng máy duy nhất đang cắm (không máy nào + một AVD → tự boot),
+  chờ CheatGate xong rồi in đúng việc tiếp theo (vd `test_device_add(project, device_id, label)` + `probe-connect
+  --unlock`). Lệnh mới `probe-connect --unlock` (hỏi lại server tới khi nhận máy, ≤ 3 phút), `cheat on|off|status`.
+  Mất `adb forward` khi adb server khởi động lại (Unity đang build Android) → tự dựng lại; cài APK lỗi rỗng → thử lại.
+- `SKILL.md`: preflight còn một lệnh + bảng xử lý output; máy chưa có trong danh sách → hỏi user đúng một câu rồi gọi
+  ezg MCP `test_device_add`; soi visual cần màn sạch thì `cheat off`.
+- Đã thử thật trên emulator Android 15 với APK IL2CPP có `com.ezg.cheat-gate` 0.1.1 + server cheat-gate thật: bản
+  release máy chưa có tên → báo Device ID sau ~11 s, `/unlock` hỏi lại, mọi endpoint khác trả 423; bản development
+  (CheatGate mở) → probe tự bật cheat game, `cheat off/on` giữ cổng mở. 24 unit test.
+
 **Added** — skill `/auto-test-device <device id> <tính năng>`: agent QA tự chơi game trên thiết bị rồi log bug lên BugHub
 - `DefaultSetup/.claude/skills/auto-test-device/`: `SKILL.md` (quy trình QA: preflight BugHub → charter từ GDD/code/CSV →
   ca test P0–P5 gồm biên, gián đoạn Back/nền/kill/mất mạng/spam tap, lưu trữ sau restart → audit visual + đối chiếu

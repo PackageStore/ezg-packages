@@ -1,6 +1,6 @@
 ---
 name: auto-test-device
-description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
+description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
 ---
 
 # Auto Test Device — QA tự động chơi game trên thiết bị và log bug
@@ -25,21 +25,24 @@ Mỗi lệnh Bash là shell mới — viết đầy đủ đường dẫn script
 2. **Có bằng chứng mới log.** Bug visual: ảnh chỉ đúng chỗ sai. Bug logic: giá trị trước/sau + giá trị kỳ vọng
    lấy từ config/GDD. Crash/exception: chữ ký log. **Tái hiện lại ít nhất một lần** trước khi log (crash/ANR
    một lần là đủ — ghi `--rate 1/1`). Không log điều mình đoán.
-3. **Không trùng.** Trước mỗi bug: so với bug đang mở trên BugHub (STEP 1.3) và để tool chặn trùng trong máy.
+3. **Không trùng.** Trước mỗi bug: so với bug đang mở trên BugHub (STEP 1b) và để tool chặn trùng trong máy.
    Trùng → không log, ghi vào report "đã có #N".
 4. **Không phá máy QA.** Không `--fresh` / `app clear` trừ khi tính năng là luồng người chơi mới (tutorial,
    onboarding, lần đầu mở). Không hoàn tất giao dịch IAP thật — mở sheet thanh toán, kiểm giá, huỷ. Thay đổi
    mạng/xoay màn được `stop` trả lại.
-5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `probe-install` thêm `Assets/EzgQaProbe/` — báo dev
-   commit + build lại.
+5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `start` tự thêm/cập nhật `Assets/EzgQaProbe/` (file do
+   tool quản lý) — báo dev commit + build lại.
 6. **Không hỏi user giữa chừng.** Tự quyết theo skill này. Chỉ dừng hẳn khi: BugHub chưa setup, không có thiết
-   bị, app chưa cài và không tìm thấy bản build.
+   bị, app chưa cài và không tìm thấy bản build. Ngoại lệ duy nhất: máy chưa có trong danh sách máy test (STEP 1)
+   → hỏi đúng **một** câu có thêm máy không — thêm máy là cấp quyền cheat trên bản release nên phải do user quyết.
 7. **Luôn `stop` cuối phiên** (kể cả khi lỗi giữa chừng) — tắt log nền, trả cài đặt máy, xoá trigger probe, viết report.
 8. Không nhắc tên game/studio khác trong bug, ghi chú, report (luật `no-external-game-refs` nếu project có).
 
 ## 0. Đọc argument
 
-`/auto-test-device <device id> <tính năng…>` — từ đầu tiên là thiết bị, phần còn lại là tính năng (tiếng Việt tự do).
+`/auto-test-device [device id] <tính năng…>` — từ đầu tiên là thiết bị **nếu** nó giống id thiết bị (bảng dưới),
+phần còn lại là tính năng (tiếng Việt tự do). Không có id → `auto`: đúng một máy đang cắm thì dùng luôn; không máy nào
+mà có đúng một AVD thì tự boot.
 
 | `<device id>` | Ý nghĩa |
 |---|---|
@@ -48,33 +51,50 @@ Mỗi lệnh Bash là shell mới — viết đầy đủ đường dẫn script
 | UDID hoặc tên Simulator (`iPhone 17 Pro`) | iOS Simulator — tự boot |
 | identifier/UDID/tên iPhone | iPhone thật qua `devicectl` (bắt buộc build có probe) |
 | `editor` | Unity Editor của project ở Play mode (qua probe) — khi không có máy nào; vào Play bằng Unity MCP `unity_play_mode` rồi `probe-connect` |
-| `auto` / `android` / `ios` / bỏ trống | Thiết bị duy nhất đang kết nối |
+| `auto` / `android` / `ios` / bỏ trống | Thiết bị duy nhất đang kết nối (không có máy + một AVD → tự boot) |
 
 Không rõ id → `$QA devices` để xem. Tính năng bỏ trống → test **vòng chơi chính + mọi màn vào được từ màn chính**
 (smoke thăm dò). Tính năng lớn ("toàn bộ game") → chia theo màn/hệ thống, làm lần lượt trong cùng phiên.
 
-## 1. Preflight
+## 1. Preflight — một lệnh
 
-1. **Công cụ:** `$QA doctor`. Thiếu Pillow → tự cài `python3 -m pip install --user pillow` (Windows `py -m pip …`)
-   rồi chạy lại doctor — thiếu Pillow vẫn chạy được nhưng mất ảnh thu nhỏ, lưới toạ độ, so khung, audit ảnh.
-   Thiếu adb → báo cần Android platform-tools / Unity Android module, dừng nếu thiết bị là Android.
-2. **BugHub (bắt buộc):** `$QA bughub-check`. Mã thoát 4 / dòng `CHƯA SẴN SÀNG` → dừng skill, in nguyên các dòng
-   `✗` và bảo dev chạy **`/bughub-setup`**. Không tự sửa asset/profile/server.
-3. **Bug đang mở (chống trùng):** nếu có tool MCP `bughub_list` (deferred → ToolSearch `bughub`) gọi
-   `bughub_list(project: <mã>)` (và lọc theo tính năng nếu tool hỗ trợ) — giữ danh sách tiêu đề + số issue để so ở
-   STEP 5. Không có MCP → ghi chú "không đối chiếu được bug server" vào report, vẫn tiếp tục (tool vẫn chặn trùng
-   trong máy).
-4. **Probe:** dòng `probe:` của doctor. Project chưa có → `$QA probe-install` (một lần cho mỗi project; tự dò cổng
-   release `GameSystems.isCheat` của template EZG). Build đang nằm trên máy vẫn là bản cũ → phiên này test **hộp
-   đen**; ghi vào report "đã thêm probe — commit + build để lần sau test sâu".
-5. **Mở phiên:** `$QA start <device id> --feature "<tính năng>"`. Đọc kỹ output:
-   - `app … chưa cài` → tool tự cài bản build mới nhất tìm thấy trong repo; không có → dừng, báo dev cài build.
-   - `probe: OK` → có `ui`, `audit` sâu, `state`, `call`, `tap --text`. `CỔNG ĐÓNG` → build release: bật cheat trên
-     máy theo cách của game (template EZG: bấm version trong Settings 10 lần; máy chưa nằm trong danh sách máy test
-     thì Lead thêm bằng ezg MCP `test_device_add`) rồi `$QA probe-connect`.
-   - `probe: không có` → hộp đen: quyết định bằng ảnh + toạ độ, log, perf.
-   - Ảnh `shot #001` → **Read** ảnh để biết game đang ở đâu.
-   - Muốn tiếp tục đúng trạng thái QA đang chơi dở trên máy → thêm `--attach` (không khởi động lại game).
+```bash
+$QA start <device id|auto> --feature "<tính năng>"
+```
+
+`start` tự làm hết, theo thứ tự: kiểm BugHub → tự cài Pillow nếu thiếu → tự cài/cập nhật probe vào project → chọn máy
+→ cài app nếu chưa có (bản build mới nhất trong repo) → mở game kèm token probe → nối probe → project có
+`com.ezg.cheat-gate` thì chờ probe tự xin quyền cheat (máy trong danh sách máy test: mở cổng + bật cheat của game, không
+cần tap) → chụp ảnh đầu. Đọc output:
+
+| Output | Làm |
+|---|---|
+| Mã thoát 4, `BugHub: CHƯA SẴN SÀNG` + các dòng `✗` | Dừng skill, in nguyên các dòng `✗`, bảo dev chạy **`/bughub-setup`**. Không tự sửa asset/profile/server |
+| Lỗi công cụ / thiết bị (thiếu adb, `unauthorized`, nhiều máy) | `$QA doctor` / `$QA devices`, sửa theo hướng dẫn trong lỗi; thiếu adb mà máy là Android → dừng |
+| `app … chưa cài … không tìm thấy bản build` | Dừng, báo dev cài build |
+| `probe: OK … cổng mở` | Test sâu: `ui`, `audit` sâu, `state`, `call`, `cheat`, `tap --text` |
+| `probe: OK … CỔNG ĐÓNG — máy XXXX-XXXX-XXXX chưa có trong danh sách máy test của <mã>` | Xem **1a** |
+| `probe: OK … CỔNG ĐÓNG — máy không có mạng` | Bật mạng (`$QA net on` nếu mạng do tool tắt) rồi `$QA probe-connect --unlock` |
+| `probe: OK … CỔNG ĐÓNG — game chưa CheatGate.Initialize…` | Lỗi cấu hình project (mã CheatGate trống) → test hộp đen, ghi vào report cho dev |
+| `probe: OK … CỔNG ĐÓNG (<cờ cheat>=false)` (project chưa dùng cheat-gate) | Tự bật cheat như QA nếu game cho bật bằng thao tác (vd mở Settings, `$QA tap <dòng version> --times 10 --interval 0.15`) rồi `$QA probe-connect`; không được → hộp đen |
+| `probe: không có` | Build trên máy chưa có probe → hộp đen: ảnh + toạ độ, log, perf |
+| `ghi chú: đã cài/cập nhật probe …` | Build trên máy là bản cũ; ghi vào report "đã thêm probe — commit + build để lần sau test sâu" |
+
+Dòng `→ …` dưới output là việc cần làm tiếp — làm đúng như nó. Ảnh `shot #001` → **Read** để biết game đang ở đâu.
+Muốn tiếp tục đúng trạng thái QA đang chơi dở trên máy → thêm `--attach` (không khởi động lại game).
+
+**1a. Máy chưa có trong danh sách máy test** (project dùng `com.ezg.cheat-gate`). Hỏi user **một** câu bằng
+AskUserQuestion: "Thêm máy `<Device ID>` (<model>) vào danh sách máy test của `<mã>` để test sâu?" — lựa chọn: *Thêm
+(khuyên dùng)* · *Thêm 7 ngày* · *Không, test hộp đen*. Đồng ý → tool MCP `ezg` `test_device_add` (deferred →
+ToolSearch `test_device`) với đúng `project` + `device_id` mà dòng `→` in ra, `label` = `<git user.name> - <model>`
+(`expires_in_days: 7` nếu chọn 7 ngày) → `$QA probe-connect --unlock` (tự hỏi lại server tới khi nhận, ≤ 3 phút).
+MCP từ chối (tài khoản không phải Lead/QA) hoặc không có MCP `ezg` → chuyển nguyên lời từ chối / dòng `→` cho user ở
+report cuối, phiên này test hộp đen. Không bao giờ tự đoán Device ID.
+
+**1b. Bug đang mở (chống trùng):** nếu có tool MCP `bughub_list` (deferred → ToolSearch `bughub`) gọi
+`bughub_list(project: <mã>)` (và lọc theo tính năng nếu tool hỗ trợ) — giữ danh sách tiêu đề + số issue để so ở
+STEP 5. Không có MCP → ghi chú "không đối chiếu được bug server" vào report, vẫn tiếp tục (tool vẫn chặn trùng
+trong máy). Làm song song với `start`.
 
 ## 2. Hiểu tính năng → Test charter
 
@@ -86,9 +106,9 @@ Không rõ id → `$QA devices` để xem. Tính năng bỏ trống → test **v
 3. **Code:** `codegraph_explore` (có `.codegraph/`) hoặc Grep/Read: controller màn (`Screen*Controller`, prefab
    `screen_*`/`popup_*`), static Service (luật nghiệp vụ, công thức), PlayerData module (state lưu), CSV config
    (`CsvConfig/*.csv` — **giá trị kỳ vọng**: giá, thưởng, thời gian, điều kiện mở khoá), localize key, cheat
-   (`Cheat_*`, GameCheat) để dựng điều kiện.
+   (`Cheat_*`, GameCheat) để dựng điều kiện — cổng mở thì cheat của game đã bật sẵn, dùng menu cheat như QA hoặc `call`.
 4. **Visual chuẩn:** `.claude/docs/ArtStyle.md` (nếu có) + mockup/ảnh duyệt — để biết màn nào "đúng style".
-5. **Bug cũ** của tính năng (STEP 1.3) — vùng hay hỏng, đừng log lại.
+5. **Bug cũ** của tính năng (STEP 1b) — vùng hay hỏng, đừng log lại.
 
 Viết charter vào `<thư mục phiên>/charter.md` (đường dẫn in ở `start`) theo mẫu trong playbook §2: mục tiêu, đường
 vào tính năng, trạng thái/điều kiện, **oracle** (bảng giá trị kỳ vọng có trích nguồn file:dòng), danh sách ca test
@@ -154,7 +174,9 @@ cầu → đó cũng là phát hiện (UX, `--type ux`).
 `$QA audit` → chụp + kiểm ảnh + log; có probe thì thêm audit sâu (tràn/cắt chữ, thiếu glyph, chữ là key localize /
 `{0}` / NaN / null, nút ngoài màn hoặc ngoài safe area, nút bị che, vùng chạm < 6 mm, Image trắng thiếu sprite,
 material lỗi, chữ chồng chữ) và ảnh `*.audit.jpg` khoanh từng lỗi. **Mỗi phát hiện của audit vẫn phải nhìn ảnh xác
-nhận** (popup đang mở thì "bị che" là đúng; panel trắng có chủ đích không phải thiếu sprite).
+nhận** (popup đang mở thì "bị che" là đúng; panel trắng có chủ đích không phải thiếu sprite). UI cheat/debug (nút
+cheat, overlay FPS, nút Bug Logger) không phải bug — cần màn sạch để soi visual thì `$QA cheat off`, soi xong
+`$QA cheat on` (cổng theo cheat-gate vẫn mở khi tắt cheat game; cổng theo cờ cheat thì tool cảnh báo sẽ đóng).
 
 Sau đó soi bằng mắt theo checklist playbook §4 (bố cục, chữ, ảnh/icon, trạng thái, nhất quán style ArtStyle.md,
 animation, safe area/tai thỏ, tỉ lệ màn). Game có đổi ngôn ngữ → ít nhất một lượt với ngôn ngữ chữ dài (Đức/Nga/
@@ -186,7 +208,7 @@ Việt…) qua màn của tính năng, đổi lại ngôn ngữ cũ khi xong.
 
 Khi một lỗi đã xác nhận (luật 2):
 
-1. **Trùng?** So với danh sách bug mở (STEP 1.3): cùng màn + cùng triệu chứng → không log, ghi "trùng #N".
+1. **Trùng?** So với danh sách bug mở (STEP 1b): cùng màn + cùng triệu chứng → không log, ghi "trùng #N".
 2. **Ảnh bằng chứng:** đưa game về đúng trạng thái lỗi rồi `$QA shot`, hoặc dùng ảnh cũ: `--shot <tên file trong
    shots/>`. Bug không thấy được trên màn (logic thuần) → ảnh màn liên quan nhất.
 3. **Gửi:**
@@ -226,14 +248,15 @@ hiện mới — hoặc thiết bị/app hỏng không cứu được.
    - Bảng bug đã log: `#N` + tiêu đề + mức độ + link (hoặc "trùng #N" / "gửi lỗi").
    - Kết quả ca test: số pass/fail/blocked, ca fail nào chưa thành bug (vì sao).
    - Phát hiện không log (nghi vấn chưa tái hiện được, góp ý UX nhỏ) — một dòng mỗi cái.
-   - Đường dẫn `report.md`, thiết bị + build đã test, probe có/không (đã `probe-install` thì nhắc commit + build).
+   - Đường dẫn `report.md`, thiết bị + build đã test, probe có/không + cổng mở bằng gì (`start` có ghi chú cài/cập
+     nhật probe thì nhắc commit + build; máy chưa được thêm vào danh sách máy test thì kèm dòng `→ test_device_add …`).
 
 ## Lệnh nhanh
 
 | Việc | Lệnh |
 |---|---|
 | Thiết bị / công cụ / BugHub | `devices` · `doctor` · `bughub-check` |
-| Mở / đóng phiên | `start <device> --feature "…" [--attach] [--fresh] [--install x.apk]` · `stop` · `probe-connect [--retrigger]` |
+| Mở / đóng phiên | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install]` · `stop` · `probe-connect [--retrigger] [--unlock]` |
 | Nhìn | `shot [--grid] [--marks]` · `burst N` · `wait S [--settle]` · `audit` · `ui [--find x] [--marks]` (probe) |
 | Chạm | `tap X Y` · `tap 50% 80%` · `tap @id` / `--text` / `--name` / `--world` (probe) · `tap … --times 5` · `longpress` |
 | Vuốt/kéo | `swipe X1 Y1 X2 Y2` · `swipe --dir up` · `drag X1 Y1 X2 Y2 [--hold ms]` |
@@ -241,7 +264,7 @@ hiện mới — hoặc thiết bị/app hỏng không cứu được.
 | App | `app restart\|stop\|launch\|background --secs N\|clear\|info\|install x.apk` |
 | Môi trường | `net off\|on\|wifi-off\|data-off` · `rotate portrait\|landscape\|auto` |
 | Log / hiệu năng | `logs [--all] [--tail N] [--grep re] [--ignore re]` · `perf` |
-| Game (probe) | `state Type.Member…` · `call Type.Method args` · `types <từ khoá>` · `timescale 10` |
+| Game (probe) | `state Type.Member…` · `call Type.Method args` · `types <từ khoá>` · `timescale 10` · `cheat on\|off\|status` |
 | Ca test | `mark "<ca>"` · `note "<kết quả>" --result pass\|fail\|blocked\|skip` · `steps` |
 | Bug | `bug --title … --actual … --expected … --type … --severity … [--log-sig] [--shot] [--save] [--dry-run]` · `bug-resend <id>` |
 | Probe | `probe-install [--gate auto\|none\|Ns.Type.member] [--force]` |
@@ -258,8 +281,12 @@ Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--g
 | Back / mạng / xoay | có | không có Back; không mạng/xoay | không |
 | Nhập chữ Unicode | probe (`text --probe`) | idb/probe | probe |
 
-- **Probe** (`Assets/EzgQaProbe/`, từ `probe/` của skill): kích hoạt bằng token ngẫu nhiên mỗi phiên (intent extra /
-  argument / file trigger), chỉ nghe localhost trên Android, build release chỉ mở khi `releaseGate` (cờ cheat) true.
+- **Probe** (`Assets/EzgQaProbe/`, từ `probe/` của skill; `start` tự cài/cập nhật): kích hoạt bằng token ngẫu nhiên
+  mỗi phiên (intent extra / argument / file trigger), chỉ nghe localhost trên Android. Build release chỉ mở cổng khi:
+  máy có trong danh sách máy test của `com.ezg.cheat-gate` (probe được kích hoạt là tự hỏi server một lần, như QA tap
+  version 10 lần — người chơi thường không bao giờ kích hoạt probe nên không gửi request nào), hoặc cờ `releaseGate`
+  (cờ cheat của game) đang true. Mở bằng cheat-gate thì probe bật luôn cheat của game (`cheatOn` trong
+  `Resources/EzgQaProbeConfig.json`, tự dò từ `GameSystems` của template; `autoCheat: false` để tắt hành vi này).
   Chạm qua probe đi qua EventSystem — UI chạy tốt; object 3D chỉ nhận nếu game dùng EventSystem/PhysicsRaycaster
   hoặc `OnMouse*` (Android luôn dùng input thật nên không bị giới hạn này).
 - Đa chạm (pinch zoom) không giả lập được bằng adb — test zoom bằng nút/cuộn nếu game có, ghi `skip` cho ca pinch.

@@ -47,10 +47,12 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
+CHEAT_PENDING = ("", "waiting_init", "checking")
+CHEAT_UNLOCK_RETRY_S = 30  # hỏi lại CheatGate tối đa 1 lần/30 s (server giới hạn tần suất)
 DEFAULT_ENDPOINT = "https://bug-reporter.developer-a1f.workers.dev"
 VIEW_LONG_EDGE = 1280
 BUG_SHOT_LONG_EDGE = 1280
@@ -355,6 +357,29 @@ def has_xcrun():
 
 
 # ───────────────────────────────────────────────────────────── ảnh
+
+def ensure_pillow():
+    """Thiếu Pillow → tự `pip install --user pillow` một lần. Trả dòng báo ("" khi đã có sẵn)."""
+    global Image, ImageChops, ImageDraw, ImageFont, ImageStat
+    if Image is not None:
+        return ""
+    cmd = [sys.executable, "-m", "pip", "install", "--user", "--quiet", "--disable-pip-version-check", "pillow"]
+    rc, _, err = run(cmd, timeout=300)
+    if rc != 0 and "externally-managed" in (err or ""):
+        rc, _, err = run(cmd + ["--break-system-packages"], timeout=300)  # chỉ ghi vào user site
+    try:
+        import importlib
+        import site
+        importlib.invalidate_caches()
+        us = site.getusersitepackages()
+        if us and us not in sys.path:
+            sys.path.append(us)
+        from PIL import Image as _im, ImageChops as _ic, ImageDraw as _id, ImageFont as _if, ImageStat as _is
+        Image, ImageChops, ImageDraw, ImageFont, ImageStat = _im, _ic, _id, _if, _is
+        return "Pillow: đã tự cài"
+    except Exception:
+        return "Pillow: không tự cài được (%s) — vẫn chạy, thiếu ảnh thu nhỏ/lưới toạ độ/so khung" % clip((err or "").strip(), 160)
+
 
 def png_size(data):
     if not data or data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24:
@@ -692,13 +717,14 @@ class ProbeError(QaError):
 class Probe:
     """Client HTTP của EZG QA Probe (chạy trong game). Mọi request mang header X-QA-Token."""
 
-    def __init__(self, base, token, timeout=15):
+    def __init__(self, base, token, timeout=15, reconnect=None):
         self.base = base.rstrip("/")
         self.token = token
         self.timeout = timeout
+        self.reconnect = reconnect  # () -> bool: dựng lại đường vào (adb forward) khi bị từ chối kết nối
         self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-    def request(self, method, endpoint, params=None, data=None, timeout=None, raw=False):
+    def request(self, method, endpoint, params=None, data=None, timeout=None, raw=False, _retry=True):
         url = self.base + endpoint
         if params:
             url += "?" + urllib.parse.urlencode(params, doseq=True)
@@ -712,6 +738,9 @@ class Probe:
         except urllib.error.HTTPError as e:
             payload, status = e.read(), e.code
         except Exception as e:  # socket/timeout
+            # adb server khởi động lại (Unity/Android Studio build) làm mất mọi forward → dựng lại rồi thử một lần nữa.
+            if _retry and self.reconnect and "refused" in str(e).lower() and self.reconnect():
+                return self.request(method, endpoint, params, data, timeout, raw, _retry=False)
             raise ProbeError("probe không trả lời (%s)" % e, 0)
         if raw and status < 400:
             return payload
@@ -898,6 +927,10 @@ class Android(Device):
 
     def install(self, path):
         rc, out, err = self.adb("install", "-r", "-d", "-g", path, timeout=600)
+        if rc != 0 and not (out + err).strip():  # adb server vừa bị khởi động lại (vd Unity đang build Android) → thử lại
+            time.sleep(2)
+            self.adb("wait-for-device", timeout=60)
+            rc, out, err = self.adb("install", "-r", "-d", "-g", path, timeout=600)
         if rc != 0 or "Success" not in out:
             raise QaError("cài APK lỗi: %s" % (out + err).strip()[-400:])
 
@@ -1030,6 +1063,15 @@ class Android(Device):
         rc, out, err = self.adb("forward", "tcp:0", "tcp:%d" % device_port, timeout=15)
         out = out.strip()
         return int(out) if out.isdigit() else None
+
+    def reforward(self, local_port, device_port):
+        """Dựng lại đúng forward cũ (cổng máy tính giữ nguyên để base URL của phiên còn đúng)."""
+        rc, _, _ = self.adb("forward", "tcp:%d" % local_port, "tcp:%d" % device_port, timeout=15)
+        return rc == 0
+
+    def probe_client(self, base, token, device_port):
+        local = int(base.rsplit(":", 1)[-1])
+        return Probe(base, token, reconnect=lambda: self.reforward(local, device_port))
 
     def unforward(self, local_port):
         if local_port:
@@ -1496,8 +1538,13 @@ def resolve_device(spec, headless=True):
                 return IosSim(d["id"], d["model"])
             return IosDevice(d["id"], d["model"], d.get("host", ""))
         if not cands:
+            avds = list_avds(adb) if adb and low in ("auto", "android", "") else []
+            if len(avds) == 1:
+                print("Không có máy nào đang cắm — tự boot AVD %s" % avds[0])
+                return Android(boot_avd(adb, avds[0], headless), adb)
             raise QaError("không có thiết bị nào đang kết nối. Cắm máy Android (bật USB debugging) / boot emulator / Simulator, "
-                          "hoặc truyền tên AVD để tự boot. `devices` để xem danh sách.")
+                          "hoặc truyền tên AVD để tự boot%s. `devices` để xem danh sách." % (
+                              (" (có: %s)" % ", ".join(avds)) if avds else ""))
         raise QaError("có %d thiết bị — chỉ rõ id: %s" % (len(cands), ", ".join(d["id"] for _, d in cands)))
     for d in androids:
         if d["model"].lower().replace("_", " ") == low.replace("_", " ") and d["state"] == "device":
@@ -1566,7 +1613,8 @@ class Session(object):
             dev = IosDevice(dv["id"], dv.get("name", ""), dv.get("host", ""))
         pr = self.d.get("probe") or {}
         if pr.get("ok") and pr.get("base"):
-            dev.probe = Probe(pr["base"], pr["token"])
+            dev.probe = dev.probe_client(pr["base"], pr["token"], pr.get("port") or PROBE_PORT) if isinstance(dev, Android) \
+                else Probe(pr["base"], pr["token"])
         return dev
 
     def step(self, action, desc="", **params):
@@ -2287,6 +2335,9 @@ def cmd_doctor(a):
     print("project:   %s · %s · Unity %s" % (ps.get("productName"), ps["ids"], ps.get("unityVersion")))
     probe_dest = find_probe_in_project(root)
     print("probe:     %s" % (("đã cài ở %s (v%s)" % probe_dest) if probe_dest else "chưa cài vào project (`probe-install`)"))
+    cg_ver, cg_code = cheat_gate_info(root)
+    print("cheat:     %s" % (("com.ezg.cheat-gate %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (cg_ver, cg_code or "?"))
+                             if cg_ver else "không có com.ezg.cheat-gate — cổng release theo cờ cheat của game (releaseGate)"))
     print("state:     %s" % state_root())
 
 
@@ -2353,8 +2404,35 @@ def find_artifact(root, platform):
     return best[1] if best else None
 
 
+def ensure_probe_in_project(root):
+    """Project chưa có probe / probe cũ hơn skill → cài/cập nhật (file do tool quản lý). Trả dòng báo, "" khi đã mới."""
+    existing = find_probe_in_project(root)
+    src_ver = probe_src_version()
+    if existing and _ver(existing[1]) >= _ver(src_ver):
+        return ""
+    install_probe(root, force=True)
+    return "%s probe v%s vào %s — commit thư mục này + build mới thì lần sau test sâu được" % (
+        "cập nhật" if existing else "đã cài", src_ver, existing[0] if existing else "Assets/EzgQaProbe")
+
+
 def cmd_start(a):
     root = repo_root()
+    # BugHub là điều kiện bắt buộc — kiểm trước khi đụng vào máy.
+    bh = bughub_status(root, a.code)
+    if not bh["ok"] and not a.skip_bughub:
+        print("BugHub: CHƯA SẴN SÀNG · mã %s · endpoint %s" % (bh["code"] or "?", bh["endpoint"]))
+        for pr_ in bh["problems"]:
+            print("  ✗ " + pr_)
+        print("→ chạy /bughub-setup cho project này rồi thử lại.")
+        sys.exit(4)
+    notes = [n for n in (ensure_pillow(),) if n]
+    if a.probe != "off" and not a.no_probe_install and (a.device or "").lower() not in ("editor", "unity-editor"):
+        try:
+            n = ensure_probe_in_project(root)
+            if n:
+                notes.append(n)
+        except (OSError, QaError) as e:
+            notes.append("không cài được probe vào project: %s" % e)
     dev = resolve_device(a.device, headless=not a.window)
     ps = project_settings(root)
     pkg = a.package or ps["ids"].get("Android" if dev.platform == "Android" else "iPhone") or ps["ids"].get("Standalone")
@@ -2384,7 +2462,6 @@ def cmd_start(a):
             sess.d["app"].update({"commitSha": bi.get("commitSha", ""), "branch": bi.get("branch", ""),
                                   "builtAtUtc": bi.get("builtAtUtc", "")})
         sess.d["changed"]["stayon"] = dev.stay_awake(True)
-    bh = bughub_status(root, a.code)
     sess.d["bughub"] = {"ok": bh["ok"], "code": bh["code"], "endpoint": bh["endpoint"], "problems": bh["problems"]}
     sess.save()
     log_start(sess, dev)
@@ -2448,11 +2525,56 @@ def cmd_start(a):
     if a.probe == "require" and not (sess.d.get("probe") or {}).get("ok"):
         raise QaError("--probe require nhưng không nối được probe (xem dòng probe ở trên)")
     print("bughub: %s" % ("OK (%s)" % bh["code"] if bh["ok"] else "CHƯA SẴN SÀNG — " + "; ".join(bh["problems"])))
+    for n in notes:
+        print("ghi chú: " + n)
     print("thư mục phiên: %s" % sess.dir)
+    hint = (sess.d.get("probe") or {}).get("next")
+    if hint:
+        print("→ " + hint)
     observe(sess, dev, "start")
 
 
-def connect_probe(sess, dev, wait=25):
+def wait_cheat_gate(cli, j, wait):
+    """Build có com.ezg.cheat-gate: chờ probe hỏi xong CheatGate (game Initialize ở splash + 1 request) rồi trả /ping mới."""
+    t0 = time.time()
+    while j.get("gate") != "open" and (j.get("cheatGate") or {}).get("present") and \
+            (j.get("cheatGate") or {}).get("state") in CHEAT_PENDING and time.time() - t0 < wait:
+        time.sleep(1.0)
+        try:
+            j = cli.get("/ping", timeout=5)
+        except ProbeError:
+            break
+    return j
+
+
+def describe_probe(j, code=None, model=""):
+    """/ping → (trạng thái một dòng, việc cần làm tiếp hoặc "")."""
+    cg = j.get("cheatGate") or {}
+    state, dev_id, proj = cg.get("state", ""), cg.get("deviceId", ""), cg.get("project") or code or "<mã project>"
+    cheat = j.get("cheat")
+    cheat_txt = "" if cheat is None else (" · cheat game %s" % ("BẬT" if cheat else "tắt"))
+    if j.get("gate") == "open":
+        if cg.get("present") and state == "unlocked":
+            return "cổng mở — cheat-gate: máy %s có trong danh sách test %s%s" % (dev_id, proj, cheat_txt), ""
+        return "cổng mở (%s)%s" % (j.get("gateReason", ""), cheat_txt), ""
+    if cg.get("present"):
+        if state == "refused":
+            return ("CỔNG ĐÓNG — máy %s chưa có trong danh sách máy test của %s" % (dev_id, proj),
+                    "thêm máy: ezg MCP test_device_add(project=\"%s\", device_id=\"%s\", label=\"<người cầm máy> - %s\") "
+                    "rồi `probe-connect --unlock` (server nhận sau ~1-2 phút, lệnh tự chờ)" % (proj, dev_id, model or "máy test"))
+        if state == "offline":
+            return "CỔNG ĐÓNG — máy không có mạng, CheatGate cần mạng ở lần mở đầu", "bật mạng trên máy rồi `probe-connect --unlock`"
+        if state == "not_configured":
+            return ("CỔNG ĐÓNG — game chưa CheatGate.Initialize(mã project) / mã trống",
+                    "dev đặt mã BugHub vào GameConstant.CheatGateProject (hoặc chỗ game gọi CheatGate.Initialize) rồi build lại — phiên này test hộp đen")
+        if state == "off":
+            return "CỔNG ĐÓNG — autoCheat=false trong EzgQaProbeConfig", "tap version 10 lần trên máy (máy trong danh sách) rồi `probe-connect`"
+        return "CỔNG ĐÓNG — cheat-gate chưa xong (%s)" % (state or "?"), "`probe-connect --unlock` để chờ thêm"
+    return ("CỔNG ĐÓNG (%s)" % j.get("gateReason", ""),
+            "bật cheat trên máy theo cách của game (vd bấm version trong Settings 10 lần, hoặc thêm máy vào danh sách cheat của game) rồi `probe-connect`")
+
+
+def connect_probe(sess, dev, wait=25, cheat_wait=40):
     pr = sess.d["probe"]
     token, port = pr["token"], pr["port"]
     t0 = time.time()
@@ -2478,14 +2600,18 @@ def connect_probe(sess, dev, wait=25):
                     return "không có (không biết địa chỉ mạng của iPhone — cần kết nối CoreDevice/USB)"
                 base = "http://%s:%d" % ("[%s]" % host if ":" in host else host, p)
             try:
-                j = Probe(base, token, timeout=4).get("/ping", timeout=4)
+                cli = Probe(base, token, timeout=4)
+                j = cli.get("/ping", timeout=4)
+                j = wait_cheat_gate(cli, j, cheat_wait)
                 pr.update({"ok": True, "base": base, "port": p, "version": j.get("version"), "gate": j.get("gate"),
+                           "gateReason": j.get("gateReason", ""), "cheatGate": j.get("cheatGate") or {}, "cheat": j.get("cheat"),
                            "screen_w": j.get("screen", {}).get("w"), "screen_h": j.get("screen", {}).get("h"),
                            "bugLogger": j.get("bugLogger"), "local": base.rsplit(":", 1)[-1]})
+                status, hint = describe_probe(j, sess.d.get("bughub", {}).get("code"), sess.d["device"].get("model", ""))
+                pr["next"] = hint
                 sess.save()
-                dev.probe = Probe(base, token)
-                gate = "" if j.get("gate") == "open" else " — CỔNG ĐÓNG (%s): bật cheat trên máy để mở" % j.get("gateReason", "")
-                return "OK v%s @ %s · Unity %sx%s%s" % (j.get("version"), base, pr["screen_w"], pr["screen_h"], gate)
+                dev.probe = dev.probe_client(base, token, p) if isinstance(dev, Android) else Probe(base, token)
+                return "OK v%s @ %s · Unity %sx%s · %s" % (j.get("version"), base, pr["screen_w"], pr["screen_h"], status)
             except ProbeError as e:
                 last_err = str(e)
                 if isinstance(dev, Android):
@@ -2512,8 +2638,38 @@ def cmd_probe_connect(a):
         if isinstance(dev, Android):
             dev.background(sess.d["package"], 1)
     print("probe: %s" % connect_probe(sess, dev, wait=a.wait))
-    if (sess.d.get("probe") or {}).get("ok") and not sess.d.get("view"):
+    pr = sess.d.get("probe") or {}
+    if a.unlock and pr.get("ok") and pr.get("gate") != "open":
+        print("probe: %s" % unlock_probe(sess, dev, a.unlock_wait))
+        pr = sess.d.get("probe") or {}
+    if pr.get("next") and pr.get("gate") != "open":
+        print("→ " + pr["next"])
+    if pr.get("ok") and not sess.d.get("view"):
         observe(sess, dev, "probe")
+
+
+def unlock_probe(sess, dev, wait):
+    """Hỏi lại CheatGate (vd vừa test_device_add) và chờ server nhận — tối đa `wait` giây, hỏi lại mỗi 30 s."""
+    pr = sess.d["probe"]
+    cli = dev.probe
+    t0, last, j = time.time(), 0.0, {}
+    while time.time() - t0 < wait:
+        try:
+            if time.time() - last >= CHEAT_UNLOCK_RETRY_S:
+                last = time.time()
+                cli.post("/unlock", timeout=10)
+            j = wait_cheat_gate(cli, cli.get("/ping", timeout=5), 20)
+        except ProbeError as e:
+            return "không hỏi lại được: %s" % e
+        st = (j.get("cheatGate") or {}).get("state")
+        if j.get("gate") == "open" or not (j.get("cheatGate") or {}).get("present") or st in ("not_configured", "off"):
+            break
+        time.sleep(3)
+    status, hint = describe_probe(j, sess.d.get("bughub", {}).get("code"), sess.d["device"].get("model", ""))
+    pr.update({"gate": j.get("gate"), "gateReason": j.get("gateReason", ""), "cheatGate": j.get("cheatGate") or {},
+               "cheat": j.get("cheat"), "next": hint})
+    sess.save()
+    return status
 
 
 def _probe_in_log(sess):
@@ -2982,6 +3138,22 @@ def cmd_timescale(a):
     print("timeScale %s → %s" % (j.get("previous"), j.get("value")))
 
 
+def cmd_cheat(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    pr = need_probe(dev, "Bật/tắt cheat của game")
+    params = {} if a.mode == "status" else {"on": 1 if a.mode == "on" else 0}
+    j = pr.get("/cheat", **params)
+    cg = j.get("cheatGate") or {}
+    print("cheat game: %s%s · cổng probe %s%s" % (
+        {True: "BẬT", False: "tắt"}.get(j.get("cheat"), "?"), (" (qua %s)" % j["via"]) if j.get("via") else "", j.get("gate"),
+        (" · cheat-gate %s %s" % (cg.get("state"), cg.get("deviceId"))) if cg.get("present") else ""))
+    if a.mode != "status":
+        sess.step("cheat", "(chuẩn bị) %s cheat của game" % ("Bật" if a.mode == "on" else "Tắt"))
+        if j.get("gate") != "open":
+            print("⚠ cổng probe đóng sau khi tắt cheat (cổng theo cờ cheat của game) — `cheat on` không gọi được nữa; bật lại trên máy rồi `probe-connect`")
+
+
 def cmd_mark(a):
     sess = Session.load(a.session)
     rec = sess.step("mark", a.name or "")
@@ -3184,6 +3356,15 @@ def cmd_report(a):
     print(md if a.print else "report: %s" % path)
 
 
+def probe_report_line(pr):
+    if not pr.get("ok"):
+        return "không (hộp đen)"
+    cg = pr.get("cheatGate") or {}
+    if pr.get("gate") != "open":
+        return "có nhưng cổng đóng (%s) — hộp đen" % (pr.get("gateReason") or "?")
+    return "có (v%s%s)" % (pr.get("version"), (" · cheat-gate máy %s" % cg.get("deviceId")) if cg.get("state") == "unlocked" else "")
+
+
 def build_session_report(sess):
     d = sess.d
     steps = read_jsonl(sess.path("steps.jsonl"))
@@ -3200,7 +3381,7 @@ def build_session_report(sess):
            "| Thiết bị | %s · %s (`%s`) |" % (dv.get("model"), dv.get("os"), dv["id"]),
            "| Build | %s v%s (%s)%s |" % (d["package"], app.get("version"), app.get("build"),
                                        (" · %s@%s" % (app.get("commitSha", "")[:9], app.get("branch"))) if app.get("commitSha") else ""),
-           "| Probe | %s |" % ("có" if (d.get("probe") or {}).get("ok") else "không (hộp đen)"),
+           "| Probe | %s |" % probe_report_line(d.get("probe") or {}),
            "| Thao tác | %d · ảnh %d · ca test %d |" % (len(actions), d.get("shot", 0), len(cases)),
            "| Khởi động nguội | %s |" % (("%d ms" % d["launch_ms"]) if d.get("launch_ms") else "?"), ""]
     out.append("## Bug đã log (%d)" % len(bugs))
@@ -3277,43 +3458,93 @@ def _ver(v):
     return tuple(int(x) if x.isdigit() else 0 for x in re.split(r"[.\-]", v or "0"))
 
 
-def detect_gate(root):
-    """Cổng mở probe ở build release: cờ cheat của template EZG nếu có (GameSystems.isCheat)."""
+def detect_cheat_config(root):
+    """GameSystems của template EZG: cờ cheat (releaseGate), hàm bật cheat qua CheatGate (cheatOn), hàm tắt (cheatOff)."""
+    out = {"releaseGate": "", "cheatOn": "", "cheatOff": ""}
     for path in glob.glob(os.path.join(root, "Assets", "**", "GameSystems.cs"), recursive=True):
         text = read_text(path)
-        if re.search(r"public\s+static\s+bool\s+isCheat\b", text):
-            ns = re.search(r"^\s*namespace\s+([\w.]+)", text, re.M)
-            return ("%s.GameSystems.isCheat" % ns.group(1)) if ns else "GameSystems.isCheat"
-    return ""
+        if not re.search(r"public\s+static\s+bool\s+isCheat\b", text):
+            continue
+        ns = re.search(r"^\s*namespace\s+([\w.]+)", text, re.M)
+        prefix = ("%s.GameSystems" % ns.group(1)) if ns else "GameSystems"
+        out["releaseGate"] = prefix + ".isCheat"
+        # Chỉ bản hỏi CheatGate (nhận Action<bool>); TryEnableCheat() kiểu cũ hỏi Remote Config và có thể TẮT cheat.
+        if re.search(r"public\s+static\s+void\s+TryEnableCheat\s*\(\s*(System\.)?Action\s*<\s*bool\s*>", text):
+            out["cheatOn"] = prefix + ".TryEnableCheat"
+        if re.search(r"public\s+static\s+void\s+DisableCheat\s*\(", text):
+            out["cheatOff"] = prefix + ".DisableCheat"
+        return out
+    return out
 
 
-def cmd_probe_install(a):
-    root = repo_root()
+def detect_gate(root):
+    """Cổng mở probe ở build release: cờ cheat của template EZG nếu có (GameSystems.isCheat)."""
+    return detect_cheat_config(root)["releaseGate"]
+
+
+def cheat_gate_info(root):
+    """com.ezg.cheat-gate trong project → (phiên bản | None, mã project trong GameConstant.CheatGateProject | None)."""
+    man = read_json(os.path.join(root, "Packages", "manifest.json"), {}) or {}
+    ver = (man.get("dependencies") or {}).get("com.ezg.cheat-gate")
+    code = None
+    if ver:
+        for path in glob.glob(os.path.join(root, "Assets", "**", "GameConstant.cs"), recursive=True):
+            m = re.search(r'CheatGateProject\s*=\s*"([^"]*)"', read_text(path))
+            if m:
+                code = m.group(1)
+                break
+    return ver, code
+
+
+def probe_src_version():
+    return re.search(r'VERSION\s*=\s*"([^"]+)"', read_text(os.path.join(PROBE_SRC_DIR, "EzgQaProbe.cs"))).group(1)
+
+
+def install_probe(root, force=False, dest=None, gate=None):
+    """Chép probe vào project + ghi/bổ sung config. gate: None = tự dò, "" = không có cổng release, path = dùng đúng."""
     existing = find_probe_in_project(root)
-    src = os.path.join(PROBE_SRC_DIR, "EzgQaProbe.cs")
-    src_ver = re.search(r'VERSION\s*=\s*"([^"]+)"', read_text(src)).group(1)
-    dest = existing[0] if existing else (a.dest or "Assets/EzgQaProbe")
+    src_ver = probe_src_version()
+    dest = existing[0] if existing else (dest or "Assets/EzgQaProbe")
     dest_abs = os.path.join(root, dest)
-    if existing and _ver(existing[1]) >= _ver(src_ver) and not a.force:
-        print("probe đã cài ở %s (v%s ≥ v%s) — không đổi" % (dest, existing[1], src_ver))
+    lines = []
+    if existing and _ver(existing[1]) >= _ver(src_ver) and not force:
+        lines.append("probe đã cài ở %s (v%s ≥ v%s) — không đổi" % (dest, existing[1], src_ver))
     else:
         os.makedirs(dest_abs, exist_ok=True)
         for fn in ("EzgQaProbe.cs", "Ezg.QaProbe.asmdef", "link.xml"):
             shutil.copyfile(os.path.join(PROBE_SRC_DIR, fn), os.path.join(dest_abs, fn))
-        print("%s probe v%s → %s" % ("cập nhật" if existing else "cài", src_ver, dest))
-    gate = a.gate if a.gate not in (None, "auto") else detect_gate(root)
-    if a.gate == "none":
-        gate = ""
+        lines.append("%s probe v%s → %s" % ("cập nhật" if existing else "cài", src_ver, dest))
     cfg_path = os.path.join(dest_abs, "Resources", "EzgQaProbeConfig.json")
-    if not os.path.isfile(cfg_path) or a.gate is not None:
-        cfg = read_json(cfg_path, {}) or {}
-        cfg.update({"releaseGate": gate, "port": PROBE_PORT})
-        write_json(cfg_path, cfg)
-        print("config: %s (releaseGate=%s)" % (os.path.relpath(cfg_path, root), gate or "(không — build release luôn đóng)"))
-    else:
-        print("config giữ nguyên: %s (releaseGate=%s)" % (os.path.relpath(cfg_path, root), (read_json(cfg_path, {}) or {}).get("releaseGate") or "(không)"))
+    cfg = read_json(cfg_path, {}) or {}
+    det = detect_cheat_config(root)
+    if gate is not None:
+        cfg["releaseGate"] = gate
+    elif not cfg.get("releaseGate"):
+        cfg["releaseGate"] = det["releaseGate"]
+    # Hàm bật/tắt cheat: dò lại mỗi lần (project đổi sang com.ezg.cheat-gate thì tự nhận), giữ giá trị dev tự đặt khác mẫu.
+    for k in ("cheatOn", "cheatOff"):
+        if not cfg.get(k) or cfg.get(k, "").endswith((".GameSystems.TryEnableCheat", ".GameSystems.DisableCheat")):
+            cfg[k] = det[k]
+    cfg.setdefault("autoCheat", True)
+    cfg.setdefault("port", PROBE_PORT)
+    write_json(cfg_path, cfg)
+    cg_ver, cg_code = cheat_gate_info(root)
+    lines.append("config: %s (releaseGate=%s · cheatOn=%s · cheatOff=%s)" % (
+        os.path.relpath(cfg_path, root), cfg["releaseGate"] or "(không)", cfg["cheatOn"] or "(gán releaseGate)", cfg["cheatOff"] or "(gán releaseGate)"))
+    lines.append("cổng release: %s" % (
+        ("com.ezg.cheat-gate %s (mã %s) — máy có trong danh sách test tự mở, không cần tap" % (cg_ver, cg_code or "?")) if cg_ver
+        else ("cờ %s phải true (bật cheat trên máy)" % cfg["releaseGate"]) if cfg["releaseGate"]
+        else "không có — build release luôn đóng, chỉ development build mở"))
+    return lines
+
+
+def cmd_probe_install(a):
+    root = repo_root()
+    gate = None if a.gate in (None, "auto") else ("" if a.gate == "none" else a.gate)
+    for line in install_probe(root, force=a.force, dest=a.dest, gate=gate):
+        print(line)
     print("→ Build mới (APK/IPA) sẽ có probe. Build cũ trên máy vẫn test được ở chế độ hộp đen.")
-    print("→ Nhớ commit thư mục %s (kèm .meta Unity sinh ra) để cả team dùng." % dest)
+    print("→ Nhớ commit thư mục probe (kèm .meta Unity sinh ra) để cả team dùng.")
 
 
 # ───────────────────────────────────────────────────────────── argparse
@@ -3358,12 +3589,20 @@ def build_parser():
     sp.add_argument("--settle", type=float, default=3.0, help="chờ sau khi mở game rồi mới chụp (s)")
     sp.add_argument("--window", action="store_true", help="boot AVD có cửa sổ (mặc định headless)")
     sp.add_argument("--code", help="mã BugHub (mặc định từ project-profile)")
+    sp.add_argument("--no-probe-install", action="store_true", help="không tự cài/cập nhật probe vào project")
+    sp.add_argument("--skip-bughub", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(fn=cmd_start)
 
     sp = sub.add_parser("probe-connect", help="nối lại probe (sau khi bật cheat/cổng, vào Play mode Editor, app restart)")
     sp.add_argument("--wait", type=float, default=30)
     sp.add_argument("--retrigger", action="store_true", help="ghi lại file trigger + đưa app nền/mở lại để probe đọc")
+    sp.add_argument("--unlock", action="store_true", help="hỏi lại CheatGate (vừa thêm máy bằng test_device_add) và chờ cổng mở")
+    sp.add_argument("--unlock-wait", type=float, default=180, help="chờ server nhận máy mới tối đa N giây")
     sp.set_defaults(fn=cmd_probe_connect)
+
+    sp = sub.add_parser("cheat", help="(probe) bật/tắt chế độ cheat của game: on | off | status")
+    sp.add_argument("mode", choices=("on", "off", "status"), nargs="?", default="status")
+    sp.set_defaults(fn=cmd_cheat)
 
     sp = sub.add_parser("shot", help="chụp màn hình + so khung + kiểm log")
     sp.add_argument("--grid", action="store_true")
