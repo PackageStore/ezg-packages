@@ -2232,20 +2232,17 @@
       "isDirectory": true,
       "files": [
         ".claude/skills/auto-test-device/SKILL.md",
-        ".claude/skills/auto-test-device/probe/Ezg.QaProbe.asmdef",
-        ".claude/skills/auto-test-device/probe/EzgQaProbe.cs",
-        ".claude/skills/auto-test-device/probe/link.xml",
         ".claude/skills/auto-test-device/references/qa-playbook.md",
         ".claude/skills/auto-test-device/scripts/qadevice.py",
         ".claude/skills/auto-test-device/scripts/tests/test_qadevice.py"
       ],
-      "fileCount": 7,
+      "fileCount": 4,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "785b1ad340bc2e77939ea9ba381204d7cfdb2d1e42dea674ae3a48d5e74e3f9b",
-      "size": 101555
+      "sha256": "0803cb66a18b6f7d693d28d4ed84d390965674d54bf90b4a120d7fbabf8a4296",
+      "size": 76163
     },
     {
       "id": "Skills/backend-communication",
