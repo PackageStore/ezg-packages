@@ -2241,8 +2241,8 @@
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "46e19fa829c928728f0a49638ab11a39ac243a3d7963ad0c0f7732b24e06bdc3",
-      "size": 76320
+      "sha256": "36d09e23bd0fde623ce93f46b993045769cab0d6f13b116c3b54f3b4a684970c",
+      "size": 77256
     },
     {
       "id": "Skills/backend-communication",
