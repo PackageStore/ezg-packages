@@ -2227,7 +2227,7 @@
       "id": "Skills/auto-test-device",
       "name": "auto-test-device",
       "category": "Skills",
-      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
+      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Lỗi không làm dừng task: lỗi API của Claude (org tắt quyền, rate limit, overloaded…) tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry` mỗi 30s. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
       "installPath": ".claude/skills/auto-test-device",
       "isDirectory": true,
       "files": [
@@ -2241,8 +2241,8 @@
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "94da974c9151d198077d43a344bdbbce26aef88d2bf4f9f9d735bf4b43aabd78",
-      "size": 88005
+      "sha256": "6f22269af56531b846fe3da7da81824ddeafeee7bc66c11268ae61f6198fc436",
+      "size": 94258
     },
     {
       "id": "Skills/backend-communication",
