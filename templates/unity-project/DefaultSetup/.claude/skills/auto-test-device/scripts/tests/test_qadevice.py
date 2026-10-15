@@ -253,7 +253,7 @@ GAMESYSTEMS_REMOTECONFIG = """namespace Ezg.Feature.Shared.Systems
 """
 
 
-def make_project(gamesystems, cheat_gate_ver=None, code=None):
+def make_project(gamesystems, cheat_gate_ver=None, code=None, registry=False):
     root = tempfile.mkdtemp()
     d = os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Systems")
     os.makedirs(d)
@@ -263,8 +263,11 @@ def make_project(gamesystems, cheat_gate_ver=None, code=None):
     deps = {"com.unity.ugui": "2.0.0"}
     if cheat_gate_ver:
         deps["com.ezg.cheat-gate"] = cheat_gate_ver
+    man = {"dependencies": deps}
+    if registry:
+        man["scopedRegistries"] = [{"name": "Easygoing", "url": "https://registry.example", "scopes": ["com.ezg"]}]
     with open(os.path.join(root, "Packages", "manifest.json"), "w") as f:
-        json.dump({"dependencies": deps}, f)
+        json.dump(man, f)
     if code is not None:
         c = os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Config")
         os.makedirs(c)
@@ -290,23 +293,46 @@ class CheatGateTests(unittest.TestCase):
         self.assertEqual(cfg["cheatOff"], "Ezg.Feature.Shared.Systems.GameSystems.DisableCheat")
         self.assertEqual(q.cheat_gate_info(root), (None, None))
 
-    def test_install_probe_writes_and_redetects_config(self):
-        root = make_project(GAMESYSTEMS_REMOTECONFIG)
-        q.install_probe(root)
-        cfg_path = os.path.join(root, "Assets", "EzgQaProbe", "Resources", "EzgQaProbeConfig.json")
-        cfg = q.read_json(cfg_path)
-        self.assertEqual((cfg["cheatOn"], cfg["autoCheat"], cfg["port"]), ("", True, q.PROBE_PORT))
-        self.assertTrue(os.path.isfile(os.path.join(root, "Assets", "EzgQaProbe", "EzgQaProbe.cs")))
-        # project chuyển sang com.ezg.cheat-gate → cài lại tự nhận hàm mới, giữ cổng dev đã đặt
-        cfg["releaseGate"] = "My.Flags.qa"
-        q.write_json(cfg_path, cfg)
-        with open(os.path.join(root, "Assets", "_Project", "Features", "_Shared", "Systems", "GameSystems.cs"), "w") as f:
-            f.write(GAMESYSTEMS_CHEATGATE)
-        q.install_probe(root, force=True)
-        cfg = q.read_json(cfg_path)
-        self.assertEqual(cfg["releaseGate"], "My.Flags.qa")
+    def test_ensure_probe_adds_package_and_removes_legacy_copy(self):
+        root = make_project(GAMESYSTEMS_REMOTECONFIG, registry=True)
+        legacy = os.path.join(root, "Assets", "EzgQaProbe")
+        os.makedirs(os.path.join(legacy, "Resources"))
+        with open(os.path.join(legacy, "EzgQaProbe.cs"), "w") as f:
+            f.write('// %s — đừng sửa tay.\npublic const string VERSION = "1.1.0";\n' % q.LEGACY_PROBE_MARK)
+        q.write_json(os.path.join(legacy, "Resources", "EzgQaProbeConfig.json"),
+                     {"releaseGate": "My.Flags.qa", "cheatOn": "", "cheatOff": "Ezg.Feature.Shared.Systems.GameSystems.DisableCheat",
+                      "autoCheat": True, "port": 7531})
+        open(legacy + ".meta", "w").close()
+        info = q.find_probe_in_project(root)
+        self.assertEqual((info["package"], info["legacy"], info["legacyVersion"], info["registry"]),
+                         (None, os.path.join("Assets", "EzgQaProbe"), "1.1.0", True))
+        notes = q.ensure_probe_in_project(root)
+        self.assertEqual(len(notes), 3, notes)  # thêm package · giữ cấu hình tự đặt · gỡ bản cũ
+        man = q.read_manifest(root)
+        self.assertEqual(man["dependencies"][q.PROBE_PACKAGE], q.PROBE_MIN_VERSION)
+        self.assertEqual(list(man["dependencies"]), sorted(man["dependencies"]))  # chèn đúng thứ tự
+        self.assertEqual(man["scopedRegistries"][0]["scopes"], ["com.ezg"])
+        self.assertFalse(os.path.exists(legacy) or os.path.exists(legacy + ".meta"))
+        self.assertEqual(q.read_json(os.path.join(root, q.PROBE_OVERRIDE)), {"releaseGate": "My.Flags.qa"})
+        cfg = q.effective_probe_config(root)
+        self.assertEqual((cfg["releaseGate"], cfg["cheatOn"], cfg["override"]), ("My.Flags.qa", "", True))
+        self.assertEqual(q.ensure_probe_in_project(root), [])  # chạy lại: không đổi gì
+
+    def test_ensure_probe_version_rules(self):
+        root = make_project(GAMESYSTEMS_CHEATGATE, "0.1.1", "DEMO01")
+        for current, expected in (("1.0.0", q.PROBE_MIN_VERSION), ("9.0.0", "9.0.0"), ("file:../qa-probe", "file:../qa-probe")):
+            q.set_manifest_dependency(root, q.PROBE_PACKAGE, current)
+            notes = q.ensure_probe_in_project(root)
+            self.assertEqual(q.read_manifest(root)["dependencies"][q.PROBE_PACKAGE], expected)
+            self.assertEqual(bool(notes), current == "1.0.0")
+        # không có registry EZG → vẫn thêm nhưng cảnh báo
+        root = make_project(GAMESYSTEMS_CHEATGATE)
+        notes = q.ensure_probe_in_project(root)
+        self.assertTrue(any("scoped registry" in n for n in notes), notes)
+        cfg = q.effective_probe_config(root)
         self.assertEqual(cfg["cheatOn"], "Ezg.Feature.Shared.Systems.GameSystems.TryEnableCheat")
-        self.assertEqual(q.ensure_probe_in_project(root), "")
+        q.write_probe_override(root, {"cheatOn": "none"})
+        self.assertEqual(q.effective_probe_config(root)["cheatOn"], "")
 
     def test_describe_probe_states(self):
         base = {"gate": "closed", "cheatGate": {"present": True, "deviceId": "7F3A-9C21-B04E", "project": "DEMO01"}}

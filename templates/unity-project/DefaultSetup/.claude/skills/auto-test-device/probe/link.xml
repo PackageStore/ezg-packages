@@ -1,4 +1,0 @@
-<!-- EZG QA Probe: giữ nguyên assembly khi Managed Stripping cao (endpoint gọi qua reflection). Do /auto-test-device quản lý. -->
-<linker>
-    <assembly fullname="Ezg.QaProbe" preserve="all"/>
-</linker>

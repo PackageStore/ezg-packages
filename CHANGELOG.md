@@ -6,6 +6,9 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 ## 2026-10-15
 
+**Added**
+- `com.ezg.qa-probe` 1.2.0: EZG QA Probe thành package dùng chung (trước đây skill chép code vào `Assets/EzgQaProbe/` của từng project). Ship sẵn trong template; project cũ được `/auto-test-device` tự thêm một dòng vào manifest. Không cần cấu hình: probe tự dò cờ cheat và hàm bật/tắt cheat của template. Kèm test PlayMode, đã chạy trên Unity 6.2 và 6.3, có và không có `com.ezg.cheat-gate`.
+
 **Changed**
 - `/auto-test-device` 1.1: một lệnh `start` lo hết preflight (BugHub, Pillow, probe, chọn máy, cài app). Project có `com.ezg.cheat-gate`: máy nằm trong danh sách máy test tự mở cheat + probe ngay trên bản release, không cần tap version; máy chưa có tên thì skill in Device ID và hỏi một câu để thêm bằng `test_device_add`.
 

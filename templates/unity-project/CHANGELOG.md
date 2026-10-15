@@ -6,6 +6,24 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-15
 
+**Changed** — `/auto-test-device` 1.2: probe là package `com.ezg.qa-probe`, không còn chép code vào `Assets/`
+- EZG QA Probe chuyển sang `packages/com.ezg.qa-probe` (1.2.0; lịch sử file giữ qua `git mv` từ
+  `DefaultSetup/.claude/skills/auto-test-device/probe/`). CI publish tự thêm package vào `unity-template.json` nên
+  project mới có sẵn probe nằm im trong mọi bản build (chỉ thức khi tool QA mở game kèm token và cổng mở).
+- Probe tự dò config lúc kích hoạt (`GameSystems.isCheat` / `TryEnableCheat(Action<bool>)` / `DisableCheat`), không
+  còn `Resources/EzgQaProbeConfig.json` riêng cho từng project; file đó (đặt ở bất kỳ `Resources/`) chỉ để ghi đè.
+- `link.xml` đưa vào build qua `IUnityLinkerProcessor` (UnityLinker không đọc link.xml trong package).
+- `qadevice.py`: `start` / `probe-install` thêm hoặc nâng dòng `com.ezg.qa-probe` trong `Packages/manifest.json` (giữ
+  thứ tự dòng, cảnh báo khi thiếu scoped registry EZG), gỡ bản chép cũ `Assets/EzgQaProbe/` (cấu hình tự đặt khác mặc
+  định được giữ lại bằng file ghi đè), `doctor` in config probe dự kiến, báo khi probe trong build cũ hơn bản skill cần.
+  Thư mục `probe/` của skill bị bỏ. 25 unit test.
+- Sửa lỗi có từ bản đầu: `start --attach` trên Android 11+ không nối được probe (app không đọc được file trigger do adb
+  ghi) → gửi intent mới mang token; `stop` tắt probe (`/stop`); `start` khi phiên trước chưa `stop` thì tự đóng gọn
+  phiên đó (trả mạng/xoay màn, tắt logcat nền, ghi report) thay vì để tiến trình logcat mồ côi.
+- Đã kiểm: test PlayMode của package 11/11 (Unity 6000.2 + cheat-gate) và 10/10 (Unity 6000.3, không cheat-gate); APK
+  IL2CPP Managed Stripping High dựng từ package chạy trên emulator Android 15 (release: Device ID + 423; development: tự
+  bật cheat qua `TryEnableCheat` dò được, ui/audit/tap/state/exception/cheat on-off, attach sau stop và chồng phiên).
+
 **Changed** — `/auto-test-device` 1.1: một lệnh `start` lo hết preflight; máy test của `com.ezg.cheat-gate` tự mở cheat
 - EZG QA Probe 1.1.0: project có `com.ezg.cheat-gate` ≥ 0.1.1 (asmdef `versionDefines` → `EZG_QA_CHEAT_GATE`, project
   không có package vẫn compile — reference thiếu được bỏ qua) thì probe vừa được tool kích hoạt là tự hỏi CheatGate một

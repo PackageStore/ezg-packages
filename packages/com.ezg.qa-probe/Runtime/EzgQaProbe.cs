@@ -2,15 +2,17 @@
 // chạy trên thiết bị như một QA: cây UI kèm toạ độ, audit visual, chụp màn, chạm/kéo qua EventSystem, đọc state /
 // gọi hàm cheat bằng reflection, log Unity kèm stack, context + gửi bug qua Bug Logger.
 //
-// FILE DO TOOL QUẢN LÝ — đừng sửa tay. Cập nhật: `python3 .claude/skills/auto-test-device/scripts/qadevice.py probe-install --force`.
+// Package com.ezg.qa-probe (monorepo ezg-packages). Project không cần cấu hình gì: mặc định tự dò theo quy ước template
+// EZG (GameSystems.isCheat / TryEnableCheat / DisableCheat, com.ezg.cheat-gate); muốn ghi đè thì đặt TextAsset
+// Resources/EzgQaProbeConfig.json — xem README của package.
 //
 // An toàn:
 //  * Không làm gì cho tới khi được kích hoạt bằng trigger mang token ngẫu nhiên: intent extra `ezg_qa_probe` (Android),
 //    argument `-ezgQaProbe` / biến môi trường `EZG_QA_PROBE` (iOS), hoặc file `<persistentDataPath>/ezg_qa_probe.txt`.
 //  * Mọi request phải mang đúng token (header X-QA-Token). Android chỉ nghe 127.0.0.1 (vào bằng `adb forward`).
 //  * Build release: chỉ phục vụ khi "cổng" mở — Editor / Development Build / define EZG_QA_PROBE, máy có trong danh
-//    sách máy test của package com.ezg.cheat-gate (grant ký RSA từ server), hoặc giá trị bool static khai trong
-//    Resources/EzgQaProbeConfig.json (`releaseGate`, vd cờ cheat của game) đang true.
+//    sách máy test của package com.ezg.cheat-gate (grant ký RSA từ server), hoặc cờ cheat của game (`releaseGate`,
+//    mặc định GameSystems.isCheat) đang true.
 //  * Project có com.ezg.cheat-gate: được kích hoạt là probe tự hỏi CheatGate một lần (như QA tap version 10 lần) —
 //    máy trong danh sách thì mở cổng + bật cheat của game (`cheatOn`), máy khác chỉ thấy Device ID. Người chơi thường
 //    không bao giờ kích hoạt probe nên vẫn không gửi request nào.
@@ -53,7 +55,7 @@ namespace Ezg.QaProbe
         #region Fields
 
         /// <summary>Phiên bản probe — qadevice.py so để biết bản trong project có cũ không.</summary>
-        public const string VERSION = "1.1.0";
+        public const string VERSION = "1.2.0";
 
         public const int DEFAULT_PORT = 7531;
         public const string LOG_TAG = "[EzgQaProbe]";
@@ -71,8 +73,14 @@ namespace Ezg.QaProbe
         internal static readonly ConcurrentQueue<ProbeJob> Jobs = new ConcurrentQueue<ProbeJob>();
         internal static ProbeConfig Config = new ProbeConfig();
 
+        /// <summary>Chỉ cho test: config dùng thẳng thay vì đọc Resources + dò code game.</summary>
+        internal static ProbeConfig TestConfig;
+
         private static ProbeServer _server;
         private static string _token;
+
+        // Token của phiên đã kết thúc (/stop) hoặc bị phiên mới thay — không bao giờ dùng lại (intent cũ vẫn mang nó).
+        private static readonly HashSet<string> _retired = new HashSet<string>();
         private static ProbeHost _host;
 
         /// <summary>Server đang nghe.</summary>
@@ -92,6 +100,7 @@ namespace Ezg.QaProbe
         private static void ResetStatics()
         {
             Deactivate();
+            _retired.Clear();
             Application.focusChanged -= OnFocusChanged;
         }
 
@@ -103,10 +112,11 @@ namespace Ezg.QaProbe
             TryActivateFromTrigger("launch");
         }
 
-        // Host đẩy file trigger / gửi intent mới khi game đang chạy → app lấy lại focus là nhận.
+        // Tool gửi lại intent (Android — Unity setIntent trong onNewIntent) / ghi file trigger (iOS, Editor) khi game đang
+        // chạy (`start --attach`) → app lấy lại focus là nhận, kể cả khi probe đang nghe với token của phiên trước.
         private static void OnFocusChanged(bool focused)
         {
-            if (focused && _server == null) TryActivateFromTrigger("focus");
+            if (focused) TryActivateFromTrigger("focus");
         }
 
         #endregion
@@ -162,10 +172,18 @@ namespace Ezg.QaProbe
         /// <summary>Tắt probe, đóng cổng.</summary>
         public static void Deactivate()
         {
+            Deactivate(false);
+        }
+
+        /// <summary>Tắt probe; retire = token của phiên này không bao giờ được dùng lại (phiên test đã kết thúc).</summary>
+        public static void Deactivate(bool retire)
+        {
+            if (retire && !string.IsNullOrEmpty(_token)) _retired.Add(_token);
             _server?.Stop();
             _server = null;
             Port = 0;
             _token = null;
+            ProbeCheat.Disarm();
             while (Jobs.TryDequeue(out var job)) job.Finish(ProbeResponse.Error(503, "stopped", "probe đã tắt"));
         }
 
@@ -177,7 +195,14 @@ namespace Ezg.QaProbe
         {
             try
             {
-                if (TryReadTrigger(out var token, out var port, out var from)) Activate(token, port, source + ":" + from);
+                if (!TryReadTrigger(out var token, out var port, out var from)) return;
+                if (_server != null)
+                {
+                    if (FixedTimeEquals(token, _token)) return;
+                    Deactivate(true); // phiên mới thay phiên cũ
+                }
+
+                Activate(token, port, source + ":" + from);
             }
             catch (Exception e)
             {
@@ -185,37 +210,40 @@ namespace Ezg.QaProbe
             }
         }
 
+        // Token đầu tiên còn dùng được theo thứ tự intent → argument → env → file.
         private static bool TryReadTrigger(out string token, out int port, out string from)
         {
             token = null;
             port = 0;
             from = "";
 #if UNITY_ANDROID && !UNITY_EDITOR
-            try
             {
-                using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-                using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+                try
                 {
-                    if (activity != null)
+                    using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                    using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
                     {
-                        using (var intent = activity.Call<AndroidJavaObject>("getIntent"))
+                        if (activity != null)
                         {
-                            if (intent != null)
+                            using (var intent = activity.Call<AndroidJavaObject>("getIntent"))
                             {
-                                token = intent.Call<string>("getStringExtra", EXTRA_TOKEN);
-                                port = intent.Call<int>("getIntExtra", EXTRA_PORT, 0);
-                                from = "intent";
+                                if (intent != null)
+                                {
+                                    token = intent.Call<string>("getStringExtra", EXTRA_TOKEN);
+                                    port = intent.Call<int>("getIntExtra", EXTRA_PORT, 0);
+                                    from = "intent";
+                                }
                             }
                         }
                     }
                 }
-            }
-            catch (Exception)
-            {
-                // Không đọc được intent (activity chưa sẵn) — thử nguồn khác.
+                catch (Exception)
+                {
+                    // Không đọc được intent (activity chưa sẵn) — thử nguồn khác.
+                }
             }
 #endif
-            if (!IsValidToken(token))
+            if (!Usable(token))
             {
                 var args = SafeArgs();
                 for (var i = 0; i < args.Length - 1; i++)
@@ -227,14 +255,14 @@ namespace Ezg.QaProbe
                 from = "args";
             }
 
-            if (!IsValidToken(token))
+            if (!Usable(token))
             {
                 token = SafeEnv(ENV_TOKEN);
                 int.TryParse(SafeEnv(ENV_PORT), out port);
                 from = "env";
             }
 
-            if (!IsValidToken(token))
+            if (!Usable(token))
             {
                 var path = Path.Combine(Application.persistentDataPath, TRIGGER_FILE);
                 if (File.Exists(path))
@@ -247,8 +275,10 @@ namespace Ezg.QaProbe
             }
 
             if (port <= 0) port = DEFAULT_PORT;
-            return IsValidToken(token);
+            return Usable(token);
         }
+
+        private static bool Usable(string token) => IsValidToken(token) && !_retired.Contains(token);
 
         private static bool IsValidToken(string token)
         {
@@ -294,16 +324,39 @@ namespace Ezg.QaProbe
 
         private static void LoadConfig()
         {
+            if (TestConfig != null)
+            {
+                Config = TestConfig;
+                return;
+            }
+
+            var config = new ProbeConfig();
             try
             {
                 var asset = Resources.Load<TextAsset>(CONFIG_RESOURCE);
-                if (asset != null && !string.IsNullOrWhiteSpace(asset.text)) Config = JsonUtility.FromJson<ProbeConfig>(asset.text) ?? new ProbeConfig();
+                if (asset != null && !string.IsNullOrWhiteSpace(asset.text)) config = JsonUtility.FromJson<ProbeConfig>(asset.text) ?? new ProbeConfig();
             }
             catch (Exception e)
             {
-                Debug.LogWarning(LOG_TAG + " config hỏng: " + e.Message);
+                Debug.LogWarning(LOG_TAG + " config hỏng, dùng mặc định: " + e.Message);
+                config = new ProbeConfig();
             }
+
+            try
+            {
+                config.ResolveDefaults(ProbeReflect.GameTypes());
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning(LOG_TAG + " không dò được config từ code game: " + e.Message);
+            }
+
+            Config = config;
+            Debug.Log(LOG_TAG + " config releaseGate=" + Or(config.releaseGate) + " cheatOn=" + Or(config.cheatOn) + " cheatOff=" +
+                      Or(config.cheatOff) + " autoCheat=" + config.autoCheat);
         }
+
+        private static string Or(string s) => string.IsNullOrEmpty(s) ? "-" : s;
 
         private static void EnsureHost()
         {
@@ -320,7 +373,7 @@ namespace Ezg.QaProbe
             if (string.IsNullOrEmpty(_token) || !FixedTimeEquals(token, _token)) return ProbeResponse.Error(401, "unauthorized", "sai token");
             if (req.Path == "/logs") return ProbeLog.Handle(req);
             // Cổng đóng vẫn trả lời /ping (trạng thái) và /unlock (hỏi lại CheatGate — server quyết, không tự mở được).
-            if (req.Path != "/ping" && req.Path != "/unlock" && !ProbeGate.IsOpen)
+            if (req.Path != "/ping" && req.Path != "/unlock" && req.Path != "/stop" && !ProbeGate.IsOpen)
                 return ProbeResponse.Error(423, "gate_closed", ProbeGate.Reason);
 
             var job = new ProbeJob(req);
@@ -341,24 +394,94 @@ namespace Ezg.QaProbe
         #endregion
     }
 
-    /// <summary>Cấu hình đọc từ Resources/EzgQaProbeConfig.json.</summary>
+    /// <summary>
+    ///     Cấu hình probe. Mục để trống = tự dò từ code game (<see cref="ProbeAutoConfig" />); "none" = tắt hẳn mục đó.
+    ///     Ghi đè bằng TextAsset Resources/EzgQaProbeConfig.json (chỉ cần khai mục muốn đổi).
+    /// </summary>
     [Serializable]
     [Preserve]
     internal sealed class ProbeConfig
     {
-        /// <summary>Đường dẫn bool static (Namespace.Type.member) mở probe ở build release, vd cờ cheat.</summary>
+        public const string NONE = "none";
+
+        /// <summary>Bool static (Namespace.Type.member) mở probe ở build release, vd cờ cheat của game.</summary>
         public string releaseGate = "";
 
-        /// <summary>Hàm bật cheat của game (Namespace.Type.Method, nhận 0 tham số hoặc một Action&lt;bool&gt;) — trống thì gán releaseGate = true.</summary>
+        /// <summary>Hàm bật cheat của game (Namespace.Type.Method, 0 tham số hoặc một Action&lt;bool&gt;) — không có thì gán releaseGate = true.</summary>
         public string cheatOn = "";
 
-        /// <summary>Hàm tắt cheat của game — trống thì gán releaseGate = false.</summary>
+        /// <summary>Hàm tắt cheat của game — không có thì gán releaseGate = false.</summary>
         public string cheatOff = "";
 
         /// <summary>Project có com.ezg.cheat-gate: true = được kích hoạt là tự hỏi quyền + bật cheat game; false = chỉ đọc trạng thái.</summary>
         public bool autoCheat = true;
 
         public int port = EzgQaProbe.DEFAULT_PORT;
+
+        /// <summary>Điền mục trống bằng giá trị dò từ code game, đổi "none" thành trống (tắt).</summary>
+        public void ResolveDefaults(IEnumerable<Type> gameTypes)
+        {
+            if (string.IsNullOrEmpty(releaseGate) || string.IsNullOrEmpty(cheatOn) || string.IsNullOrEmpty(cheatOff))
+            {
+                var detected = ProbeAutoConfig.Detect(gameTypes);
+                if (string.IsNullOrEmpty(releaseGate)) releaseGate = detected.releaseGate;
+                if (string.IsNullOrEmpty(cheatOn)) cheatOn = detected.cheatOn;
+                if (string.IsNullOrEmpty(cheatOff)) cheatOff = detected.cheatOff;
+            }
+
+            if (releaseGate == NONE) releaseGate = "";
+            if (cheatOn == NONE) cheatOn = "";
+            if (cheatOff == NONE) cheatOff = "";
+            if (port <= 0) port = EzgQaProbe.DEFAULT_PORT;
+        }
+    }
+
+    /// <summary>
+    ///     Dò quy ước template EZG trong code game: static class <c>GameSystems</c> có cờ <c>static bool isCheat</c> (cổng
+    ///     release), <c>TryEnableCheat(Action&lt;bool&gt;)</c> (bật cheat qua CheatGate) và <c>DisableCheat(...)</c>.
+    ///     <c>TryEnableCheat()</c> không tham số (gate Remote Config đời cũ) KHÔNG được dùng: nó có thể tắt cheat đang bật.
+    /// </summary>
+    [Preserve]
+    internal static class ProbeAutoConfig
+    {
+        private const BindingFlags STATIC = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        private const string TYPE_NAME = "GameSystems";
+        private const string FLAG = "isCheat";
+
+        public static ProbeConfig Detect(IEnumerable<Type> types)
+        {
+            var result = new ProbeConfig();
+            Type best = null;
+            foreach (var t in types)
+            {
+                if (t == null || t.Name != TYPE_NAME || t.IsNested || !HasFlag(t)) continue;
+                // Nhiều type cùng tên (hiếm): ưu tiên namespace Ezg.* của template.
+                if (best == null || (IsEzg(t) && !IsEzg(best))) best = t;
+            }
+
+            if (best == null) return result;
+            result.releaseGate = best.FullName + "." + FLAG;
+            foreach (var m in best.GetMethods(STATIC))
+            {
+                var ps = m.GetParameters();
+                if (m.Name == "TryEnableCheat" && ps.Length == 1 && ps[0].ParameterType == typeof(Action<bool>))
+                    result.cheatOn = best.FullName + ".TryEnableCheat";
+                else if (m.Name == "DisableCheat" && ps.All(p => p.HasDefaultValue))
+                    result.cheatOff = best.FullName + ".DisableCheat";
+            }
+
+            return result;
+        }
+
+        private static bool IsEzg(Type t) => (t.Namespace ?? "").StartsWith("Ezg.", StringComparison.Ordinal);
+
+        private static bool HasFlag(Type t)
+        {
+            var f = t.GetField(FLAG, STATIC);
+            if (f != null) return f.FieldType == typeof(bool) && !f.IsLiteral && !f.IsInitOnly;
+            var p = t.GetProperty(FLAG, STATIC);
+            return p != null && p.PropertyType == typeof(bool) && p.CanRead;
+        }
     }
 
     /// <summary>Cổng cho phép phục vụ request (đánh giá trên main thread, cache cho thread socket).</summary>
@@ -475,22 +598,37 @@ namespace Ezg.QaProbe
             }
         }
 
-        /// <summary>Probe vừa bật: bắt đầu xin quyền.</summary>
+        /// <summary>Probe vừa bật (phiên mới): bắt đầu xin quyền từ đầu.</summary>
         public static void Arm()
         {
             if (!Present) return;
-            _armed = true;
+            _askedGame = false;
+            _applied = false;
+            Start();
+        }
+
+        /// <summary>Probe tắt: thôi theo dõi CheatGate.</summary>
+        public static void Disarm()
+        {
+            _armed = false;
             _requested = false;
-            _armedAt = Time.realtimeSinceStartup;
-            Tick();
+            _state = "";
         }
 
         /// <summary>/unlock: hỏi lại server (sau khi Lead vừa thêm máy vào danh sách). Trả trạng thái mới.</summary>
         public static string Rearm()
         {
             if (!Present) return "none";
-            Arm();
+            Start();
             return _state;
+        }
+
+        private static void Start()
+        {
+            _armed = true;
+            _requested = false;
+            _armedAt = Time.realtimeSinceStartup;
+            Tick();
         }
 
         /// <summary>Gọi định kỳ từ ProbeHost (0,5 s).</summary>
@@ -727,6 +865,9 @@ namespace Ezg.QaProbe
         private static int _frameCount;
         private float _nextGate;
 
+        /// <summary>/stop: tắt probe ở frame kế tiếp (kết thúc phiên test).</summary>
+        public static volatile bool StopRequested;
+
         public static float Fps { get; private set; }
         public static float WorstMs { get; private set; }
 
@@ -746,6 +887,12 @@ namespace Ezg.QaProbe
             }
 
             for (var i = 0; i < JOBS_PER_FRAME && EzgQaProbe.Jobs.TryDequeue(out var job); i++) _ = Run(job);
+            if (StopRequested)
+            {
+                StopRequested = false;
+                Debug.Log(EzgQaProbe.LOG_TAG + " stopped (phiên test kết thúc)");
+                EzgQaProbe.Deactivate(true);
+            }
         }
 
         private void OnDestroy()
@@ -896,6 +1043,9 @@ namespace Ezg.QaProbe
                 case "/bug": return await Bug(r);
                 case "/cheat": return Cheat(r.Get("on"));
                 case "/unlock": return Unlock();
+                case "/stop":
+                    ProbeHost.StopRequested = true; // tắt ở frame sau, sau khi đã trả lời
+                    return ProbeResponse.Json(200, "{\"ok\":true}");
                 default: return ProbeResponse.Error(404, "not_found", "endpoint không có: " + r.Path);
             }
         }
@@ -913,6 +1063,9 @@ namespace Ezg.QaProbe
                 .Prop("bugLogger", ProbeReflect.FindType("Ezg.BugLogger.BugLogger") != null);
             ProbeGameCheat.WriteFlag(w);
             ProbeCheat.Write(w);
+            var c = EzgQaProbe.Config;
+            w.BeginObject("config").Prop("releaseGate", c.releaseGate).Prop("cheatOn", c.cheatOn).Prop("cheatOff", c.cheatOff)
+                .Prop("autoCheat", c.autoCheat).EndObject();
             w.BeginObject("app").Prop("name", Application.productName).Prop("version", Application.version)
                 .Prop("id", Application.identifier).Prop("unity", Application.unityVersion)
                 .Prop("platform", Application.platform.ToString()).Prop("debug", Debug.isDebugBuild).EndObject();

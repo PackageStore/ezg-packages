@@ -1,0 +1,29 @@
+{
+    "name": "Ezg.QaProbe.Tests",
+    "rootNamespace": "Ezg.QaProbe.Tests",
+    "references": [
+        "Ezg.QaProbe",
+        "Ezg.Package.CheatGate",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.ezg.cheat-gate",
+            "expression": "0.1.1",
+            "define": "EZG_QA_CHEAT_GATE"
+        }
+    ],
+    "noEngineReferences": false
+}

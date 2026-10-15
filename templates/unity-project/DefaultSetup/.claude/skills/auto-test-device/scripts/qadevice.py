@@ -47,7 +47,7 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
@@ -66,7 +66,10 @@ IS_WIN = os.name == "nt"
 IS_MAC = sys.platform == "darwin"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
-PROBE_SRC_DIR = os.path.join(SKILL_DIR, "probe")
+PROBE_PACKAGE = "com.ezg.qa-probe"
+PROBE_MIN_VERSION = "1.2.0"  # bản package skill này cần (đồng bộ với EzgQaProbe.VERSION)
+PROBE_OVERRIDE = os.path.join("Assets", "Resources", "EzgQaProbeConfig.json")
+LEGACY_PROBE_MARK = "FILE DO TOOL QUẢN LÝ"  # bản v1.0/1.1 chép vào Assets/EzgQaProbe/ — nay thay bằng package
 REPORTER = "auto-test-device"
 
 SEVERITIES = ("critical", "high", "medium", "low")
@@ -980,12 +983,15 @@ class Android(Device):
         if "Success" not in out:
             raise QaError("pm clear lỗi: %s" % (out + err).strip())
 
-    def background(self, pkg, secs):
+    def background(self, pkg, secs, token=None, port=None):
+        """Đưa app xuống nền rồi mở lại. token: gửi kèm intent mới (Unity setIntent trong onNewIntent) để probe đang
+        chạy đổi sang token của phiên này — đường duy nhất trên Android 11+ (app không đọc được file do adb ghi)."""
         self.key("home")
         time.sleep(max(0.5, secs))
         comp = self.launcher(pkg)
         if comp:
-            self.sh("am start -n %s" % comp, timeout=30)
+            extra = (" --es ezg_qa_probe %s --ei ezg_qa_port %d" % (token, port or PROBE_PORT)) if token else ""
+            self.sh("am start -n %s%s" % (comp, extra), timeout=30)
         else:
             self.sh("monkey -p %s -c android.intent.category.LAUNCHER 1" % pkg, timeout=30)
 
@@ -1633,8 +1639,8 @@ class Session(object):
 
 def need_probe(dev, what):
     if not dev.probe:
-        raise QaError("%s cần EZG QA Probe trong build (start báo 'probe: không có'). Cài bằng `probe-install`, build lại, "
-                      "rồi `start` lại; tạm thời test hộp đen bằng ảnh + toạ độ." % what)
+        raise QaError("%s cần EZG QA Probe trong build (start báo 'probe: không có'). Project cần package %s (`start` tự thêm "
+                      "vào Packages/manifest.json) rồi build lại; tạm thời test hộp đen bằng ảnh + toạ độ." % (what, PROBE_PACKAGE))
     return dev.probe
 
 
@@ -2333,8 +2339,16 @@ def cmd_doctor(a):
     root = repo_root()
     ps = project_settings(root)
     print("project:   %s · %s · Unity %s" % (ps.get("productName"), ps["ids"], ps.get("unityVersion")))
-    probe_dest = find_probe_in_project(root)
-    print("probe:     %s" % (("đã cài ở %s (v%s)" % probe_dest) if probe_dest else "chưa cài vào project (`probe-install`)"))
+    info = find_probe_in_project(root)
+    print("probe:     %s" % (("package %s %s" % (PROBE_PACKAGE, info["package"])) if info["package"]
+                             else "chưa có package %s trong Packages/manifest.json (`start` tự thêm)" % PROBE_PACKAGE))
+    if info["legacy"]:
+        print("           ⚠ còn bản chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (info["legacy"], info["legacyVersion"]))
+    if not info["registry"]:
+        print("           ⚠ manifest không có scoped registry EZG (scope com.ezg) — cài registry qua Feature Hub trước")
+    cfg = effective_probe_config(root)
+    print("config:    releaseGate=%s · cheatOn=%s · cheatOff=%s%s" % (
+        cfg["releaseGate"] or "-", cfg["cheatOn"] or "-", cfg["cheatOff"] or "-", " (có ghi đè %s)" % PROBE_OVERRIDE if cfg["override"] else ""))
     cg_ver, cg_code = cheat_gate_info(root)
     print("cheat:     %s" % (("com.ezg.cheat-gate %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (cg_ver, cg_code or "?"))
                              if cg_ver else "không có com.ezg.cheat-gate — cổng release theo cờ cheat của game (releaseGate)"))
@@ -2405,14 +2419,21 @@ def find_artifact(root, platform):
 
 
 def ensure_probe_in_project(root):
-    """Project chưa có probe / probe cũ hơn skill → cài/cập nhật (file do tool quản lý). Trả dòng báo, "" khi đã mới."""
-    existing = find_probe_in_project(root)
-    src_ver = probe_src_version()
-    if existing and _ver(existing[1]) >= _ver(src_ver):
-        return ""
-    install_probe(root, force=True)
-    return "%s probe v%s vào %s — commit thư mục này + build mới thì lần sau test sâu được" % (
-        "cập nhật" if existing else "đã cài", src_ver, existing[0] if existing else "Assets/EzgQaProbe")
+    """Project chưa có package probe / bản cũ hơn skill cần → thêm/nâng dòng trong manifest; gỡ bản chép cũ trong Assets.
+    Trả danh sách dòng báo (rỗng khi không đổi gì)."""
+    notes = []
+    info = find_probe_in_project(root)
+    ver = info["package"]
+    if ver is None or (_is_semver(ver) and _ver(ver) < _ver(PROBE_MIN_VERSION)):
+        set_manifest_dependency(root, PROBE_PACKAGE, PROBE_MIN_VERSION)
+        notes.append("%s %s %s vào Packages/manifest.json — commit manifest (+ packages-lock.json Unity sinh) và build mới thì "
+                     "lần sau test sâu được" % ("nâng" if ver else "đã thêm", PROBE_PACKAGE, PROBE_MIN_VERSION))
+        if not info["registry"]:
+            notes.append("⚠ manifest chưa có scoped registry EZG (scope com.ezg) — Unity không tải được %s; cài registry qua "
+                         "Feature Hub" % PROBE_PACKAGE)
+    if info["legacy"]:
+        notes.extend(remove_legacy_probe(root, info["legacy"]))
+    return notes
 
 
 def cmd_start(a):
@@ -2426,13 +2447,12 @@ def cmd_start(a):
         print("→ chạy /bughub-setup cho project này rồi thử lại.")
         sys.exit(4)
     notes = [n for n in (ensure_pillow(),) if n]
-    if a.probe != "off" and not a.no_probe_install and (a.device or "").lower() not in ("editor", "unity-editor"):
+    if a.probe != "off" and not a.no_probe_install:
         try:
-            n = ensure_probe_in_project(root)
-            if n:
-                notes.append(n)
+            notes.extend(ensure_probe_in_project(root))
         except (OSError, QaError) as e:
-            notes.append("không cài được probe vào project: %s" % e)
+            notes.append("không thêm được package probe vào project: %s" % e)
+    close_previous_session()
     dev = resolve_device(a.device, headless=not a.window)
     ps = project_settings(root)
     pkg = a.package or ps["ids"].get("Android" if dev.platform == "Android" else "iPhone") or ps["ids"].get("Standalone")
@@ -2472,21 +2492,25 @@ def cmd_start(a):
     token = "".join(random.choice(string.ascii_letters + string.digits) for _ in range(24)) if a.probe != "off" else None
     port = a.port
     if token:
+        sess.d["probe"] = {"token": token, "port": port, "ok": False}
         if isinstance(dev, Android):
             dev.unforward_probe(port)
-        sess.d["probe"] = {"token": token, "port": port, "ok": False}
-        try:
-            dev.write_trigger(pkg, "%s:%d" % (token, port))
-        except Exception:
-            pass
+            dev.remove_trigger(pkg)  # Android dùng intent; file do bản cũ ghi chỉ gây cảnh báo "Access denied"
+        else:
+            try:
+                dev.write_trigger(pkg, "%s:%d" % (token, port))
+            except Exception:
+                pass
     running = bool(dev.pidof(pkg))
     launch_ms = None
     if a.attach and running:
-        if hasattr(dev, "background"):
-            try:
-                dev.background(pkg, 1)  # nạp lại trigger khi app lấy lại focus
-            except NotSupported:
-                pass
+        try:
+            if isinstance(dev, Android):
+                dev.background(pkg, 1, token, port)  # intent mới mang token phiên này
+            elif hasattr(dev, "background"):
+                dev.background(pkg, 1)  # nạp lại file trigger khi app lấy lại focus
+        except NotSupported:
+            pass
         sess.step("attach", "Tiếp tục phiên chơi đang mở của game")
     else:
         if running:
@@ -2611,7 +2635,9 @@ def connect_probe(sess, dev, wait=25, cheat_wait=40):
                 pr["next"] = hint
                 sess.save()
                 dev.probe = dev.probe_client(base, token, p) if isinstance(dev, Android) else Probe(base, token)
-                return "OK v%s @ %s · Unity %sx%s · %s" % (j.get("version"), base, pr["screen_w"], pr["screen_h"], status)
+                old = " · probe trong build cũ (v%s < %s): build mới để có đủ tính năng" % (j.get("version"), PROBE_MIN_VERSION) \
+                    if _is_semver(j.get("version")) and _ver(j.get("version")) < _ver(PROBE_MIN_VERSION) else ""
+                return "OK v%s @ %s · Unity %sx%s · %s%s" % (j.get("version"), base, pr["screen_w"], pr["screen_h"], status, old)
             except ProbeError as e:
                 last_err = str(e)
                 if isinstance(dev, Android):
@@ -2633,10 +2659,11 @@ def cmd_probe_connect(a):
         raise QaError("phiên mở với --probe off")
     if isinstance(dev, Android) and pr.get("local"):
         dev.unforward(int(pr["local"]))
-    if a.retrigger and hasattr(dev, "write_trigger"):
-        dev.write_trigger(sess.d["package"], "%s:%d" % (pr["token"], pr.get("port", PROBE_PORT)))
+    if a.retrigger:
         if isinstance(dev, Android):
-            dev.background(sess.d["package"], 1)
+            dev.background(sess.d["package"], 1, pr["token"], pr.get("port", PROBE_PORT))
+        elif hasattr(dev, "write_trigger"):
+            dev.write_trigger(sess.d["package"], "%s:%d" % (pr["token"], pr.get("port", PROBE_PORT)))
     print("probe: %s" % connect_probe(sess, dev, wait=a.wait))
     pr = sess.d.get("probe") or {}
     if a.unlock and pr.get("ok") and pr.get("gate") != "open":
@@ -3415,9 +3442,33 @@ def build_session_report(sess):
 
 def cmd_stop(a):
     sess = Session.load(a.session)
+    close_session(sess)
+    print("đã dừng phiên %s · report: %s" % (sess.id, sess.path("report.md")))
+
+
+def close_previous_session():
+    """`start` khi phiên trước chưa `stop` (agent bỏ dở): đóng gọn nó — trả cài đặt máy, tắt log nền, ghi report."""
+    try:
+        prev = Session.load(None)
+    except QaError:
+        return
+    if prev.d.get("ended"):
+        return
+    try:
+        close_session(prev, quiet=True)
+        print("đã đóng phiên trước chưa stop: %s" % prev.id)
+    except Exception as e:  # máy cũ đã rút / phiên hỏng — không chặn phiên mới
+        log_stop(prev)
+        prev.d["ended"] = now_iso()
+        prev.save()
+        print("đóng phiên trước %s không trọn: %s" % (prev.id, e))
+
+
+def close_session(sess, quiet=False):
     dev = sess.device()
     fresh, rep = check_logs(sess, dev)
-    print_issues(fresh, rep)
+    if not quiet:
+        print_issues(fresh, rep)
     ch = sess.d.get("changed") or {}
     try:
         if ch.get("network"):
@@ -3431,6 +3482,10 @@ def cmd_stop(a):
                 dev.probe.post("/timescale", value=1, timeout=5)
             except QaError:
                 pass
+            try:
+                dev.probe.post("/stop", timeout=5)  # probe thôi nghe; phiên sau (kể cả --attach) dùng token mới
+            except QaError:
+                pass
         if hasattr(dev, "remove_trigger"):
             dev.remove_trigger(sess.d["package"])
         if isinstance(dev, Android):
@@ -3441,21 +3496,93 @@ def cmd_stop(a):
     sess.d["ended"] = now_iso()
     sess.save()
     write_text(sess.path("report.md"), build_session_report(sess))
-    print("đã dừng phiên %s · report: %s" % (sess.id, sess.path("report.md")))
 
 
-def find_probe_in_project(root):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(root, "Assets")):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-        if "EzgQaProbe.cs" in filenames:
-            p = os.path.join(dirpath, "EzgQaProbe.cs")
-            m = re.search(r'VERSION\s*=\s*"([^"]+)"', read_text(p))
-            return os.path.relpath(dirpath, root), (m.group(1) if m else "?")
-    return None
+def _is_semver(v):
+    return bool(re.match(r"^\d+\.\d+\.\d+", v or ""))
 
 
 def _ver(v):
     return tuple(int(x) if x.isdigit() else 0 for x in re.split(r"[.\-]", v or "0"))
+
+
+def read_manifest(root):
+    return read_json(os.path.join(root, "Packages", "manifest.json"), {}) or {}
+
+
+def find_probe_in_project(root):
+    """Probe trong project: package (phiên bản/khai báo trong manifest), bản chép cũ trong Assets, registry EZG."""
+    man = read_manifest(root)
+    info = {"package": (man.get("dependencies") or {}).get(PROBE_PACKAGE), "legacy": None, "legacyVersion": None,
+            "registry": any("com.ezg" in (r.get("scopes") or []) for r in (man.get("scopedRegistries") or []))}
+    assets = os.path.join(root, "Assets")
+    for dirpath, dirnames, filenames in os.walk(assets):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        if "EzgQaProbe.cs" in filenames:
+            text = read_text(os.path.join(dirpath, "EzgQaProbe.cs"))
+            if LEGACY_PROBE_MARK in text:
+                m = re.search(r'VERSION\s*=\s*"([^"]+)"', text)
+                info["legacy"] = os.path.relpath(dirpath, root)
+                info["legacyVersion"] = m.group(1) if m else "?"
+                break
+    return info
+
+
+def set_manifest_dependency(root, name, version):
+    """Thêm/sửa một dependency, giữ nguyên thứ tự các dòng khác (dòng mới chèn theo thứ tự chữ cái)."""
+    path = os.path.join(root, "Packages", "manifest.json")
+    man = read_json(path, None)
+    if not isinstance(man, dict):
+        raise QaError("không đọc được %s" % path)
+    deps = man.get("dependencies") or {}
+    if name in deps:
+        deps[name] = version
+    else:
+        items = list(deps.items())
+        idx = next((i for i, (k, _) in enumerate(items) if k > name), len(items))
+        items.insert(idx, (name, version))
+        deps = dict(items)
+    man["dependencies"] = deps
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(man, ensure_ascii=False, indent=2) + "\n")
+
+
+def remove_legacy_probe(root, rel_dir):
+    """Gỡ bản chép cũ (v1.0/1.1) — package thay thế. Giữ cấu hình tự đặt khác mặc định bằng file ghi đè."""
+    notes = []
+    d = os.path.join(root, rel_dir)
+    cfg = read_json(os.path.join(d, "Resources", "EzgQaProbeConfig.json"), {}) or {}
+    det = detect_cheat_config(root)
+    custom = {k: cfg[k] for k in ("releaseGate", "cheatOn", "cheatOff") if cfg.get(k) and cfg[k] != det.get(k)}
+    if cfg.get("autoCheat") is False:
+        custom["autoCheat"] = False
+    if custom:
+        write_probe_override(root, custom)
+        notes.append("giữ cấu hình probe tự đặt (%s) ở %s" % (", ".join(sorted(custom)), PROBE_OVERRIDE))
+    shutil.rmtree(d, ignore_errors=True)
+    if os.path.isfile(d.rstrip(os.sep) + ".meta"):
+        os.remove(d.rstrip(os.sep) + ".meta")
+    notes.append("đã gỡ bản probe chép cũ %s/ — thay bằng package %s" % (rel_dir, PROBE_PACKAGE))
+    return notes
+
+
+def write_probe_override(root, values):
+    path = os.path.join(root, PROBE_OVERRIDE)
+    cur = read_json(path, {}) or {}
+    cur.update(values)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_json(path, cur)
+
+
+def effective_probe_config(root):
+    """Config probe sẽ dùng khi chạy: tự dò GameSystems (như ProbeAutoConfig trong package) + file ghi đè nếu có."""
+    det = detect_cheat_config(root)
+    ov = read_json(os.path.join(root, PROBE_OVERRIDE), {}) or {}
+    out = {"override": bool(ov)}
+    for k in ("releaseGate", "cheatOn", "cheatOff"):
+        v = ov.get(k) or det[k]
+        out[k] = "" if v == "none" else v
+    return out
 
 
 def detect_cheat_config(root):
@@ -3496,55 +3623,23 @@ def cheat_gate_info(root):
     return ver, code
 
 
-def probe_src_version():
-    return re.search(r'VERSION\s*=\s*"([^"]+)"', read_text(os.path.join(PROBE_SRC_DIR, "EzgQaProbe.cs"))).group(1)
-
-
-def install_probe(root, force=False, dest=None, gate=None):
-    """Chép probe vào project + ghi/bổ sung config. gate: None = tự dò, "" = không có cổng release, path = dùng đúng."""
-    existing = find_probe_in_project(root)
-    src_ver = probe_src_version()
-    dest = existing[0] if existing else (dest or "Assets/EzgQaProbe")
-    dest_abs = os.path.join(root, dest)
-    lines = []
-    if existing and _ver(existing[1]) >= _ver(src_ver) and not force:
-        lines.append("probe đã cài ở %s (v%s ≥ v%s) — không đổi" % (dest, existing[1], src_ver))
-    else:
-        os.makedirs(dest_abs, exist_ok=True)
-        for fn in ("EzgQaProbe.cs", "Ezg.QaProbe.asmdef", "link.xml"):
-            shutil.copyfile(os.path.join(PROBE_SRC_DIR, fn), os.path.join(dest_abs, fn))
-        lines.append("%s probe v%s → %s" % ("cập nhật" if existing else "cài", src_ver, dest))
-    cfg_path = os.path.join(dest_abs, "Resources", "EzgQaProbeConfig.json")
-    cfg = read_json(cfg_path, {}) or {}
-    det = detect_cheat_config(root)
-    if gate is not None:
-        cfg["releaseGate"] = gate
-    elif not cfg.get("releaseGate"):
-        cfg["releaseGate"] = det["releaseGate"]
-    # Hàm bật/tắt cheat: dò lại mỗi lần (project đổi sang com.ezg.cheat-gate thì tự nhận), giữ giá trị dev tự đặt khác mẫu.
-    for k in ("cheatOn", "cheatOff"):
-        if not cfg.get(k) or cfg.get(k, "").endswith((".GameSystems.TryEnableCheat", ".GameSystems.DisableCheat")):
-            cfg[k] = det[k]
-    cfg.setdefault("autoCheat", True)
-    cfg.setdefault("port", PROBE_PORT)
-    write_json(cfg_path, cfg)
+def cmd_probe_install(a):
+    root = repo_root()
+    notes = ensure_probe_in_project(root)
+    if a.gate:
+        write_probe_override(root, {"releaseGate": a.gate})
+        notes.append("ghi đè releaseGate=%s ở %s" % (a.gate, PROBE_OVERRIDE))
+    info = find_probe_in_project(root)
+    for line in notes or ["package %s %s đã có trong manifest — không đổi" % (PROBE_PACKAGE, info["package"])]:
+        print(line)
+    cfg = effective_probe_config(root)
     cg_ver, cg_code = cheat_gate_info(root)
-    lines.append("config: %s (releaseGate=%s · cheatOn=%s · cheatOff=%s)" % (
-        os.path.relpath(cfg_path, root), cfg["releaseGate"] or "(không)", cfg["cheatOn"] or "(gán releaseGate)", cfg["cheatOff"] or "(gán releaseGate)"))
-    lines.append("cổng release: %s" % (
+    print("config: releaseGate=%s · cheatOn=%s · cheatOff=%s" % (cfg["releaseGate"] or "-", cfg["cheatOn"] or "(gán releaseGate)",
+                                                               cfg["cheatOff"] or "(gán releaseGate)"))
+    print("cổng release: %s" % (
         ("com.ezg.cheat-gate %s (mã %s) — máy có trong danh sách test tự mở, không cần tap" % (cg_ver, cg_code or "?")) if cg_ver
         else ("cờ %s phải true (bật cheat trên máy)" % cfg["releaseGate"]) if cfg["releaseGate"]
         else "không có — build release luôn đóng, chỉ development build mở"))
-    return lines
-
-
-def cmd_probe_install(a):
-    root = repo_root()
-    gate = None if a.gate in (None, "auto") else ("" if a.gate == "none" else a.gate)
-    for line in install_probe(root, force=a.force, dest=a.dest, gate=gate):
-        print(line)
-    print("→ Build mới (APK/IPA) sẽ có probe. Build cũ trên máy vẫn test được ở chế độ hộp đen.")
-    print("→ Nhớ commit thư mục probe (kèm .meta Unity sinh ra) để cả team dùng.")
 
 
 # ───────────────────────────────────────────────────────────── argparse
@@ -3778,10 +3873,8 @@ def build_parser():
     sp = sub.add_parser("stop", help="kết thúc phiên: trả mạng/xoay, tắt log, xoá trigger probe, viết report")
     sp.set_defaults(fn=cmd_stop)
 
-    sp = sub.add_parser("probe-install", help="cài/cập nhật EZG QA Probe vào project Unity")
-    sp.add_argument("--dest", help="thư mục đích (mặc định Assets/EzgQaProbe)")
-    sp.add_argument("--gate", help="auto | none | Namespace.Type.member (bool static mở probe ở build release)")
-    sp.add_argument("--force", action="store_true")
+    sp = sub.add_parser("probe-install", help="thêm/nâng package com.ezg.qa-probe trong manifest, gỡ bản chép cũ")
+    sp.add_argument("--gate", help="ghi đè cổng release: none | Namespace.Type.member (bool static)")
     sp.set_defaults(fn=cmd_probe_install)
     return p
 

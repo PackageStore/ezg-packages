@@ -30,8 +30,8 @@ Mỗi lệnh Bash là shell mới — viết đầy đủ đường dẫn script
 4. **Không phá máy QA.** Không `--fresh` / `app clear` trừ khi tính năng là luồng người chơi mới (tutorial,
    onboarding, lần đầu mở). Không hoàn tất giao dịch IAP thật — mở sheet thanh toán, kiểm giá, huỷ. Thay đổi
    mạng/xoay màn được `stop` trả lại.
-5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `start` tự thêm/cập nhật `Assets/EzgQaProbe/` (file do
-   tool quản lý) — báo dev commit + build lại.
+5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `start` tự thêm/nâng dòng `com.ezg.qa-probe` trong
+   `Packages/manifest.json` (và gỡ bản probe chép cũ `Assets/EzgQaProbe/` nếu còn) — báo dev commit + build lại.
 6. **Không hỏi user giữa chừng.** Tự quyết theo skill này. Chỉ dừng hẳn khi: BugHub chưa setup, không có thiết
    bị, app chưa cài và không tìm thấy bản build. Ngoại lệ duy nhất: máy chưa có trong danh sách máy test (STEP 1)
    → hỏi đúng **một** câu có thêm máy không — thêm máy là cấp quyền cheat trên bản release nên phải do user quyết.
@@ -62,7 +62,7 @@ Không rõ id → `$QA devices` để xem. Tính năng bỏ trống → test **v
 $QA start <device id|auto> --feature "<tính năng>"
 ```
 
-`start` tự làm hết, theo thứ tự: kiểm BugHub → tự cài Pillow nếu thiếu → tự cài/cập nhật probe vào project → chọn máy
+`start` tự làm hết, theo thứ tự: kiểm BugHub → tự cài Pillow nếu thiếu → thêm package probe vào manifest nếu thiếu → chọn máy
 → cài app nếu chưa có (bản build mới nhất trong repo) → mở game kèm token probe → nối probe → project có
 `com.ezg.cheat-gate` thì chờ probe tự xin quyền cheat (máy trong danh sách máy test: mở cổng + bật cheat của game, không
 cần tap) → chụp ảnh đầu. Đọc output:
@@ -78,7 +78,8 @@ cần tap) → chụp ảnh đầu. Đọc output:
 | `probe: OK … CỔNG ĐÓNG — game chưa CheatGate.Initialize…` | Lỗi cấu hình project (mã CheatGate trống) → test hộp đen, ghi vào report cho dev |
 | `probe: OK … CỔNG ĐÓNG (<cờ cheat>=false)` (project chưa dùng cheat-gate) | Tự bật cheat như QA nếu game cho bật bằng thao tác (vd mở Settings, `$QA tap <dòng version> --times 10 --interval 0.15`) rồi `$QA probe-connect`; không được → hộp đen |
 | `probe: không có` | Build trên máy chưa có probe → hộp đen: ảnh + toạ độ, log, perf |
-| `ghi chú: đã cài/cập nhật probe …` | Build trên máy là bản cũ; ghi vào report "đã thêm probe — commit + build để lần sau test sâu" |
+| `ghi chú: đã thêm/nâng com.ezg.qa-probe …` / `đã gỡ bản probe chép cũ …` | Build trên máy là bản cũ; ghi vào report "đã thêm package probe — commit manifest + build để lần sau test sâu" |
+| `ghi chú: ⚠ manifest chưa có scoped registry EZG` | Project chưa nối registry EZG → báo dev cài qua Feature Hub; phiên này hộp đen |
 
 Dòng `→ …` dưới output là việc cần làm tiếp — làm đúng như nó. Ảnh `shot #001` → **Read** để biết game đang ở đâu.
 Muốn tiếp tục đúng trạng thái QA đang chơi dở trên máy → thêm `--attach` (không khởi động lại game).
@@ -267,7 +268,7 @@ hiện mới — hoặc thiết bị/app hỏng không cứu được.
 | Game (probe) | `state Type.Member…` · `call Type.Method args` · `types <từ khoá>` · `timescale 10` · `cheat on\|off\|status` |
 | Ca test | `mark "<ca>"` · `note "<kết quả>" --result pass\|fail\|blocked\|skip` · `steps` |
 | Bug | `bug --title … --actual … --expected … --type … --severity … [--log-sig] [--shot] [--save] [--dry-run]` · `bug-resend <id>` |
-| Probe | `probe-install [--gate auto\|none\|Ns.Type.member] [--force]` |
+| Probe | `probe-install [--gate none\|Ns.Type.member]` (thêm/nâng package, gỡ bản chép cũ, ghi đè cổng) |
 
 Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--grid`, `--marks`, `--inject` (chạm qua probe).
 
@@ -281,12 +282,13 @@ Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--g
 | Back / mạng / xoay | có | không có Back; không mạng/xoay | không |
 | Nhập chữ Unicode | probe (`text --probe`) | idb/probe | probe |
 
-- **Probe** (`Assets/EzgQaProbe/`, từ `probe/` của skill; `start` tự cài/cập nhật): kích hoạt bằng token ngẫu nhiên
-  mỗi phiên (intent extra / argument / file trigger), chỉ nghe localhost trên Android. Build release chỉ mở cổng khi:
-  máy có trong danh sách máy test của `com.ezg.cheat-gate` (probe được kích hoạt là tự hỏi server một lần, như QA tap
-  version 10 lần — người chơi thường không bao giờ kích hoạt probe nên không gửi request nào), hoặc cờ `releaseGate`
-  (cờ cheat của game) đang true. Mở bằng cheat-gate thì probe bật luôn cheat của game (`cheatOn` trong
-  `Resources/EzgQaProbeConfig.json`, tự dò từ `GameSystems` của template; `autoCheat: false` để tắt hành vi này).
+- **Probe** = package `com.ezg.qa-probe` (template EZG có sẵn; project cũ thì `start` tự thêm vào manifest — chi tiết ở
+  README của package): kích hoạt bằng token ngẫu nhiên mỗi phiên (intent extra / argument / file trigger), chỉ nghe
+  localhost trên Android. Build release chỉ mở cổng khi: máy có trong danh sách máy test của `com.ezg.cheat-gate` (probe
+  được kích hoạt là tự hỏi server một lần, như QA tap version 10 lần — người chơi thường không bao giờ kích hoạt probe
+  nên không gửi request nào), hoặc cờ cheat của game đang true. Mở bằng cheat-gate thì probe bật luôn cheat của game.
+  Không cần cấu hình: probe tự dò `GameSystems.isCheat` / `TryEnableCheat(Action<bool>)` / `DisableCheat` của template
+  (`doctor` in config dự kiến); game khác quy ước → ghi đè bằng `Assets/Resources/EzgQaProbeConfig.json`.
   Chạm qua probe đi qua EventSystem — UI chạy tốt; object 3D chỉ nhận nếu game dùng EventSystem/PhysicsRaycaster
   hoặc `OnMouse*` (Android luôn dùng input thật nên không bị giới hạn này).
 - Đa chạm (pinch zoom) không giả lập được bằng adb — test zoom bằng nút/cuộn nếu game có, ghi `skip` cho ca pinch.

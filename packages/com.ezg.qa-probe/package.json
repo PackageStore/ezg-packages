@@ -1,0 +1,25 @@
+{
+  "name": "com.ezg.qa-probe",
+  "displayName": "EZG QA Probe",
+  "version": "1.2.0",
+  "unity": "6000.0",
+  "description": "Cầu nối cho skill /auto-test-device: agent QA trên máy dev đọc cây UI kèm toạ độ, audit visual (tràn chữ, thiếu glyph, key localize lộ, nút bị che), chụp màn, chạm/kéo qua EventSystem, đọc state / gọi cheat bằng reflection, lấy log Unity kèm stack và gửi bug qua Bug Logger của game. Nằm im trong mọi bản build: chỉ bật khi tool QA mở game kèm token ngẫu nhiên (intent extra / argument / file trigger), Android chỉ nghe localhost. Bản release chỉ phục vụ khi máy có trong danh sách máy test của com.ezg.cheat-gate (probe tự hỏi CheatGate một lần rồi bật luôn cheat của game) hoặc cờ cheat của game đang bật. Không cần cấu hình: tự dò GameSystems.isCheat / TryEnableCheat / DisableCheat của template EZG. Define EZG_QA_PROBE_DISABLED loại hẳn khỏi build.",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "ezg",
+    "qa",
+    "test-automation",
+    "device",
+    "cheat-gate"
+  ],
+  "dependencies": {
+    "com.unity.modules.androidjni": "1.0.0",
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.screencapture": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.ugui": "2.0.0"
+  }
+}
