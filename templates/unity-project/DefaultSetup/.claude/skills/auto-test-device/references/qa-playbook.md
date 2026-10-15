@@ -62,7 +62,8 @@ Vẽ nhanh trong đầu các trạng thái (khoá → mở → đang chạy → 
 | Back hệ thống (Android) | `key back` | đóng popup trên cùng / hỏi thoát ở màn gốc; không đóng nhầm 2 lớp, không kẹt |
 | Nền ngắn | `app background --secs 5` | quay lại đúng màn, state giữ, nhạc/timer tiếp tục đúng |
 | Nền dài | `app background --secs 60` | timer/offline tính đúng thời gian thực |
-| Kill + mở lại | `app restart` | state đã xác nhận được lưu; luồng dở dang xử lý hợp lý (không mất tiền/nhân đôi thưởng) |
+| Kill + mở lại (như người chơi) | `app restart` (Home → chờ → tắt) | state đã xác nhận được lưu; luồng dở dang xử lý hợp lý (không mất tiền/nhân đôi thưởng, phần thưởng đang chờ nhận vẫn còn) |
+| Crash / OS giết app | `app restart --hard` | không hỏng save, không nhân đôi thưởng; mất vài giây tiến trình gần nhất có thể là thiết kế (lưu theo chu kỳ) — chỉ log khi mất thứ người chơi đã "chốt" (mua, nhận thưởng lớn) và ghi rõ "chỉ khi crash" |
 | Mất mạng | `net off` (… `net on`) | thông báo lỗi tử tế, nút thử lại, không treo loading, không trao thưởng khi request chưa thành |
 | Spam / double tap | `tap … --times 5 --interval 0.05` | chỉ xử lý 1 lần |
 | Bấm trong animation | tap ngay khi popup đang mở / số đang chạy | không kẹt, không nhận thưởng hai lần |
@@ -161,6 +162,10 @@ liệt kê các màn.
 - Lỗi chỉ có trên emulator do thiếu Google Play Services / GPU giả lập (ads không load, đăng nhập Google lỗi,
   shader nhẹ khác máy thật) — ghi chú "chỉ emulator", kiểm lại trên máy thật nếu có.
 - Quảng cáo không có (no fill) trên máy test — trừ khi game xử lý sai trường hợp này (kẹt, vẫn trao thưởng).
+- Overlay của app khác trên máy QA (bong bóng ghi âm/chat, ghi màn hình) che nút game/quảng cáo — lỗi môi trường:
+  ca phụ thuộc ghi `blocked`, nêu trong report để user tắt overlay đó.
+- Mất vài giây tiến trình khi app bị kill thẳng (`app restart --hard`) mà `app restart` thường vẫn lưu đúng — lưu theo
+  chu kỳ là thiết kế phổ biến (xem bảng §3.4).
 - Thiết kế có chủ đích đã nêu trong GDD (vd giá tăng theo cấp số nhân).
 - Log warning/info của SDK bên thứ ba không gây hậu quả.
 

@@ -24,6 +24,7 @@ import datetime as dt
 import fnmatch
 import glob
 import hashlib
+import html
 import io
 import json
 import os
@@ -48,7 +49,7 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
@@ -76,6 +77,12 @@ REPORTER = "auto-test-device"
 
 SEVERITIES = ("critical", "high", "medium", "low")
 BUG_TYPES = ("crash", "logic", "visual", "ux", "perf", "gd")
+STOP_SETTLE_SECONDS = 2.0  # `app restart|stop` mặc định: ở Home chừng này giây (game kịp OnApplicationPause → lưu) rồi mới tắt
+OVERLAY_TYPES = ("APPLICATION_OVERLAY", "SYSTEM_ALERT", "SYSTEM_OVERLAY", "SYSTEM_ERROR", "PHONE")
+OVERLAY_CACHE_SECONDS = 60  # danh sách overlay app khác: dò lại tối đa 1 lần/phút (dumpsys input chậm)
+VALUE_PRINT_MAX = 1500      # `call` / `state` in giá trị tối đa chừng này ký tự (--full / --out để lấy trọn)
+AD_CLOSE_WORDS = ("close", "skip", "dismiss", "dong", "bo qua")  # đã bỏ dấu, chữ thường
+AD_CLOSE_MARKS = ("x", "×", "✕", "✖", "╳")
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -712,6 +719,163 @@ def classify_probe_logs(entries, ignore=()):
 
 # ───────────────────────────────────────────────────────────── probe
 
+# ───────────────────────────────────────────────────────────── overlay app khác + view native (Android)
+
+def parse_overlay_windows(window_dump, game_pkg=""):
+    """`dumpsys window windows` → cửa sổ nổi của app BÊN THỨ BA: [{token, package, uid, type}].
+    Bỏ cửa sổ hệ thống (uid < 10000: systemui, ROM) và của chính game."""
+    out = []
+    for block in re.split(r"\n\s*Window #\d+ ", "\n" + (window_dump or ""))[1:]:
+        head = re.match(r"Window\{(\w+) u\d+ ([^}]*)\}", block)
+        ty = re.search(r"\bty=([A-Z_]+)", block)
+        if not head or not ty or ty.group(1) not in OVERLAY_TYPES:
+            continue
+        pkg = re.search(r"\bpackage=(\S+)", block)
+        uid = re.search(r"\bmOwnerUid=(\d+)", block)
+        package = pkg.group(1) if pkg else head.group(2).split("/")[0].strip()
+        uid_val = int(uid.group(1)) if uid else 0
+        if (uid and uid_val % 100000 < 10000) or package in ("android", "com.android.systemui") or package == game_pkg:
+            continue
+        out.append({"token": head.group(1), "package": package, "uid": uid_val, "type": ty.group(1)})
+    return out
+
+
+def parse_input_regions(input_dump):
+    """`dumpsys input` → {token cửa sổ: {"rect": [x, y, w, h] px máy, "visible": bool}} theo vùng chạm thật
+    (touchableRegion, không có thì frame). Lấy dòng đầu của mỗi token (danh sách cửa sổ hiện tại)."""
+    res = {}
+
+    def flush(tok, text):
+        if not tok or tok in res:
+            return
+        if "touchableRegion=<empty>" in text:
+            res[tok] = {"rect": [0, 0, 0, 0], "visible": False}
+            return
+        r = (re.search(r"touchableRegion=\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]", text)
+             or re.search(r"\bframe=\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]", text))
+        if not r:
+            return
+        x1, y1, x2, y2 = (int(v) for v in r.groups())
+        hidden = bool(re.search(r"NOT_VISIBLE|NOT_TOUCHABLE|\bvisible=false", text))
+        res[tok] = {"rect": [x1, y1, x2 - x1, y2 - y1], "visible": not hidden}
+
+    # Mỗi cửa sổ là một mục "N: name=<token> …" — tuỳ bản Android có/không nháy, một dòng hoặc kéo sang dòng thụt sâu hơn.
+    tok, indent, buf = None, 0, []
+    for line in (input_dump or "").splitlines():
+        m = re.match(r"(\s*)\d+: name='?(?:Window\{)?(\w+) ", line)  # API 35+: name=abc Foo, — bản cũ có nháy
+        if m:
+            flush(tok, "\n".join(buf))
+            tok, indent, buf = m.group(2), len(m.group(1)), [line]
+        elif tok and line.strip() and len(line) - len(line.lstrip()) > indent:
+            buf.append(line)
+        else:
+            flush(tok, "\n".join(buf))
+            tok, buf = None, []
+    flush(tok, "\n".join(buf))
+    return res
+
+
+def overlay_rects(window_dump, input_dump, game_pkg=""):
+    """Overlay app khác ĐANG nhận chạm: [{package, type, rect:[x,y,w,h] px máy}]."""
+    regions = parse_input_regions(input_dump)
+    out = []
+    for w in parse_overlay_windows(window_dump, game_pkg):
+        r = regions.get(w["token"])
+        if r and r["visible"] and r["rect"][2] > 0 and r["rect"][3] > 0:
+            out.append(dict(w, rect=r["rect"]))
+    return out
+
+
+def point_in_rects(x, y, items):
+    """Phần tử đầu tiên (có "rect" [x,y,w,h]) chứa điểm (x, y); None nếu không có."""
+    for it in items or []:
+        rx, ry, rw, rh = it["rect"]
+        if rx <= x < rx + rw and ry <= y < ry + rh:
+            return it
+    return None
+
+
+def uncovered_point(rect, covers, inset=0.2):
+    """Điểm trong `rect` (bỏ viền `inset` — nút thật thường nhỏ hơn bounds) không nằm dưới `covers`; None nếu bị che kín."""
+    x, y, w, h = rect
+    for fy in (0.5, 0.35, 0.65, inset, 1 - inset):
+        for fx in (0.5, 0.35, 0.65, inset, 1 - inset):
+            px, py = int(x + w * fx), int(y + h * fy)
+            if not point_in_rects(px, py, covers):
+                return px, py
+    return None
+
+
+def parse_uia_nodes(xml):
+    """XML của `uiautomator dump` → [{text, desc, id, cls, pkg, clickable, enabled, rect}]."""
+    nodes = []
+    for m in re.finditer(r"<node\b([^>]*)>", xml or ""):
+        attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', m.group(1)))
+        b = re.match(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]", attrs.get("bounds", ""))
+        if not b:
+            continue
+        x1, y1, x2, y2 = (int(v) for v in b.groups())
+        nodes.append({"text": html.unescape(attrs.get("text", "")), "desc": html.unescape(attrs.get("content-desc", "")),
+                      "id": attrs.get("resource-id", ""), "cls": attrs.get("class", ""), "pkg": attrs.get("package", ""),
+                      "clickable": attrs.get("clickable") == "true", "enabled": attrs.get("enabled", "true") == "true",
+                      "rect": [x1, y1, x2 - x1, y2 - y1]})
+    return nodes
+
+
+def _ad_close_label(node):
+    """Nhãn khớp nút đóng/skip quảng cáo ("" nếu không khớp)."""
+    for raw in (node["desc"], node["text"], node["id"].split("/")[-1]):
+        val = (raw or "").strip()
+        if not val:
+            continue
+        if val.lower() in AD_CLOSE_MARKS:
+            return val
+        norm = " " + " ".join(re.findall(r"[a-z0-9]+", strip_accents(val).lower())) + " "
+        if "privacy" in norm or "info" in norm:
+            continue
+        if any((" %s " % w) in norm or norm.strip().startswith(w) for w in AD_CLOSE_WORDS):
+            return val
+    return ""
+
+
+def pick_close_candidates(nodes):
+    """Nút đóng/skip quảng cáo, tốt nhất trước: bấm được > nhỏ (nút X) > nằm cao."""
+    out = []
+    for n in nodes:
+        if not n["enabled"] or n["rect"][2] <= 0 or n["rect"][3] <= 0:
+            continue
+        label = _ad_close_label(n)
+        if label:
+            out.append(dict(n, label=label))
+    out.sort(key=lambda n: (not n["clickable"], n["rect"][2] * n["rect"][3], n["rect"][1]))
+    return out
+
+
+def find_duplicate(rows, code, title, log_sig="", screen="", btype=""):
+    """Bug đã log trong máy trùng bug sắp gửi → (dòng index, lý do); không trùng → (None, "").
+    Trùng khi: cùng chữ ký log · tiêu đề giống ≥ 75% · cùng màn + cùng loại + tiêu đề giống ≥ 40%."""
+    code = (code or "").upper()
+    for b in rows or []:
+        if (b.get("code") or "").upper() != code:
+            continue
+        if log_sig and b.get("logSig") == log_sig:
+            return b, "cùng chữ ký log %s" % log_sig
+        sim = similar(b.get("title", ""), title)
+        if sim >= 0.75:
+            return b, "tiêu đề giống %d%%" % round(sim * 100)
+        if screen and btype and b.get("screen") == screen and b.get("type") == btype and sim >= 0.4:
+            return b, "cùng màn %s, cùng loại %s, tiêu đề giống %d%%" % (clip(screen, 60), btype, round(sim * 100))
+    return None, ""
+
+
+def format_value(prefix, value, limit=VALUE_PRINT_MAX, full=False):
+    """Dòng in kết quả `call`/`state`; quá dài thì cắt và NÓI RÕ là đã cắt (JSON cụt không parse được)."""
+    s = json.dumps(value, ensure_ascii=False)
+    if full or len(s) <= limit:
+        return "%s → %s" % (prefix, s)
+    return "%s → %s… [đã cắt %d/%d ký tự — thêm --full hoặc --out <file>]" % (prefix, s[:limit], limit, len(s))
+
+
 class ProbeError(QaError):
     def __init__(self, msg, status=0, body=None):
         QaError.__init__(self, msg)
@@ -814,6 +978,17 @@ class Device(object):
 
     def clear_data(self, pkg):
         raise NotSupported("xoá dữ liệu app không hỗ trợ trên %s" % self.kind)
+
+    def stop_like_player(self, pkg, settle):
+        """Tắt như người chơi vuốt khỏi đa nhiệm: về Home trước (game nhận OnApplicationPause → lưu) rồi mới tắt.
+        Thiết bị không có Home → NotSupported, caller rơi về kill thẳng."""
+        self.key("home")
+        time.sleep(max(0.5, settle))
+        self.stop(pkg)
+
+    def overlays(self, pkg=""):
+        """Cửa sổ nổi của app khác đè lên màn (chỉ Android dò được)."""
+        return []
 
 
 class Android(Device):
@@ -979,6 +1154,23 @@ class Android(Device):
         rc, out, _ = self.sh("dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'", timeout=15)
         m = re.search(r"mCurrentFocus=Window\{\S+ \S+ ([^/\s}]+)", out) or re.search(r"ActivityRecord\{\S+ \S+ ([^/\s}]+)", out)
         return m.group(1) if m else ""
+
+    def overlays(self, pkg=""):
+        """Bong bóng / cửa sổ nổi của app BÊN THỨ BA (ghi âm, chat head, ghi màn hình…) — adb chạm vào vùng đó là
+        trúng app kia chứ không phải game. Ghép loại cửa sổ (dumpsys window) với vùng chạm thật (dumpsys input)."""
+        rc1, wd, _ = self.sh("dumpsys window windows", timeout=30)
+        rc2, idump, _ = self.sh("dumpsys input", timeout=30)
+        return overlay_rects(wd, idump, pkg)
+
+    def uia_dump(self):
+        """Cây view native (uiautomator) — để thấy nút của Activity quảng cáo / hệ thống mà probe Unity không thấy."""
+        path = "/sdcard/ezg_qa_uia.xml"
+        for _ in range(3):
+            rc, out, _ = self.sh("uiautomator dump %s >/dev/null 2>&1; cat %s; rm -f %s" % (path, path, path), timeout=45)
+            if "<hierarchy" in out:
+                return out
+            time.sleep(1.0)
+        raise QaError("uiautomator dump không lấy được cây view (màn đang chạy animation liên tục?) — nhìn ảnh rồi tap tay")
 
     def clear_data(self, pkg):
         rc, out, err = self.sh("pm clear %s" % pkg, timeout=60)
@@ -1258,6 +1450,12 @@ class IosSim(Device):
         self.simctl("launch", self.id, "com.apple.Preferences", timeout=30)
         time.sleep(max(0.5, secs))
         self.simctl("launch", self.id, bundle, timeout=30)
+
+    def stop_like_player(self, bundle, settle):
+        # Không cần idb: mở Settings đẩy game xuống nền (applicationWillResignActive → lưu) rồi mới terminate.
+        self.simctl("launch", self.id, "com.apple.Preferences", timeout=30)
+        time.sleep(max(0.5, settle))
+        self.stop(bundle)
 
     def data_dir(self, bundle):
         rc, out, _ = self.simctl("get_app_container", self.id, bundle, "data", timeout=20)
@@ -2583,6 +2781,9 @@ def cmd_start(a):
     if hint:
         print("→ " + hint)
     observe(sess, dev, "start")
+    for o in get_overlays(sess, dev, refresh=True):
+        print("⚠ overlay app khác: %s — tool chặn chạm adb vào vùng này (sẽ trúng app kia). Nút game nằm dưới → "
+              "--inject; nút quảng cáo nằm dưới → tắt/dời overlay trên máy trước khi test" % overlay_line(sess, o))
 
 
 def wait_cheat_gate(cli, j, wait):
@@ -2765,6 +2966,66 @@ def act_point(a, sess, dev):
     return x, y, ""
 
 
+def get_overlays(sess, dev, refresh=False):
+    """Overlay app khác (cache trong phiên, dò lại tối đa 1 lần/OVERLAY_CACHE_SECONDS)."""
+    if not isinstance(dev, Android):
+        return []
+    cache = sess.d.get("overlays") or {}
+    if refresh or time.time() - cache.get("t", 0) > OVERLAY_CACHE_SECONDS:
+        try:
+            items = dev.overlays(sess.d.get("package", ""))
+        except QaError:
+            items = cache.get("items", [])
+        cache = {"t": time.time(), "items": items}
+        sess.d["overlays"] = cache
+        sess.save()
+    return cache.get("items", [])
+
+
+def overlay_line(sess, o):
+    x, y, w, h = o["rect"]
+    if not (sess.d.get("view") or {}).get("shot_w"):
+        return "%s (%s) che px máy [%d,%d %dx%d]" % (o["package"], o["type"], x, y, w, h)
+    vx, vy = device_to_view(sess, x, y)
+    vx2, vy2 = device_to_view(sess, x + w, y + h)
+    return "%s (%s) che vùng ảnh (%d,%d)-(%d,%d) = px máy [%d,%d %dx%d]" % (o["package"], o["type"], vx, vy, vx2, vy2, x, y, w, h)
+
+
+def guard_overlay(a, sess, dev, points):
+    """Chặn chạm adb rơi vào overlay app khác — chạm đó trúng app kia (từng bật nhầm ghi âm của app mic nổi)."""
+    if getattr(a, "inject", False) or not dev.native_input or getattr(a, "allow_overlay", False):
+        return
+    ovs = get_overlays(sess, dev)
+    for x, y in points:
+        o = point_in_rects(x, y, ovs)
+        if o:
+            raise QaError("điểm chạm (%d,%d) px máy nằm dưới overlay của app khác: %s — adb chạm sẽ trúng app đó, không "
+                          "phải game. Cách xử lý: chạm UI game qua probe (--inject), hoặc tắt/dời overlay đó trên máy, "
+                          "hoặc --allow-overlay nếu cố ý chạm vào nó" % (x, y, overlay_line(sess, o)))
+
+
+def kill_app(dev, pkg, hard=False, settle=STOP_SETTLE_SECONDS):
+    """Tắt game. Mặc định như người chơi (Home → chờ → tắt: game kịp OnApplicationPause/lưu); hard = kill thẳng
+    như crash / OS giết app — game KHÔNG kịp lưu. Trả "player" | "hard" | "hard-fallback" (máy không có Home)."""
+    if hard:
+        dev.stop(pkg)
+        return "hard"
+    try:
+        dev.stop_like_player(pkg, settle)
+        return "player"
+    except NotSupported:
+        dev.stop(pkg)
+        return "hard-fallback"
+
+
+KILL_DESC = {"player": "Về màn hình chính, vuốt tắt game khỏi đa nhiệm",
+             "hard": "Game bị tắt đột ngột (giả lập crash / hệ điều hành giết app)",
+             "hard-fallback": "Tắt hẳn game"}
+KILL_NOTE = {"player": "Home → chờ %ss → tắt, như người chơi vuốt tắt",
+             "hard": "kill thẳng — như crash / OS giết app, game không kịp lưu lúc pause",
+             "hard-fallback": "máy không có phím Home → kill thẳng; bug lưu trữ phải xác nhận lại trên Android/Simulator"}
+
+
 def inject(sess, dev, path, **params):
     pr = need_probe(dev, "Input qua probe")
     sx, sy = unity_scale(sess)
@@ -2792,6 +3053,7 @@ def cmd_tap(a):
     sess = Session.load(a.session)
     dev = sess.device()
     x, y, el = act_point(a, sess, dev)
+    guard_overlay(a, sess, dev, [(x, y)])
     if a.times > 1 and not (a.inject or not dev.native_input) and isinstance(dev, Android):
         dev.tap_many(x, y, a.times, a.interval)
     else:
@@ -2814,6 +3076,7 @@ def cmd_longpress(a):
     sess = Session.load(a.session)
     dev = sess.device()
     x, y, el = act_point(a, sess, dev)
+    guard_overlay(a, sess, dev, [(x, y)])
     if a.inject or not dev.native_input:
         inject(sess, dev, "/tap", x=x, y=y, hold=a.ms)
     else:
@@ -2841,6 +3104,7 @@ def cmd_swipe(a, action="swipe"):
         x1, y1 = to_device_xy(sess, a.coords[0], a.coords[1], a.space)
         x2, y2 = to_device_xy(sess, a.coords[2], a.coords[3], a.space)
     hold = getattr(a, "hold", 0)
+    guard_overlay(a, sess, dev, [(x1, y1)])  # điểm đặt tay quyết định cửa sổ nhận cả cử chỉ
     if a.inject or not dev.native_input:
         inject(sess, dev, "/drag", x1=x1, y1=y1, x2=x2, y2=y2, ms=a.ms, hold=hold)
     elif action == "drag":
@@ -2947,18 +3211,18 @@ def cmd_app(a):
     if op == "restart":
         sess.d["expect_exit"] = sess.d.get("expect_exit", 0) + 1
         sess.save()
-        dev.stop(pkg)
+        mode = kill_app(dev, pkg, hard=a.hard, settle=a.settle)
         time.sleep(1.0)
         relaunch(sess, dev)
-        sess.step("restart", a.desc or "")
-        print("restart xong (kill + mở lại)")
+        sess.step("restart", a.desc or (KILL_DESC[mode] + ", rồi mở lại game"), mode=mode)
+        print("restart xong (%s → mở lại)" % (KILL_NOTE[mode] % a.settle if mode == "player" else KILL_NOTE[mode]))
     elif op == "stop":
         sess.d["expect_exit"] = sess.d.get("expect_exit", 0) + 1
         sess.save()
-        dev.stop(pkg)
+        mode = kill_app(dev, pkg, hard=a.hard, settle=a.settle)
         sess.d["app_running"] = False
-        sess.step("stop", a.desc or "Tắt hẳn game")
-        print("đã tắt app")
+        sess.step("stop", a.desc or KILL_DESC[mode], mode=mode)
+        print("đã tắt app (%s)" % (KILL_NOTE[mode] % a.settle if mode == "player" else KILL_NOTE[mode]))
         return
     elif op == "launch":
         relaunch(sess, dev)
@@ -3030,6 +3294,64 @@ def cmd_rotate(a):
     sess.step("rotate", a.desc or "", mode=a.mode)
     print("xoay → %s" % a.mode)
     after_action(a, sess, dev, "rotate-" + a.mode)
+
+
+def cmd_overlays(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    if not isinstance(dev, Android):
+        print("chỉ Android dò được overlay app khác")
+        return
+    ovs = get_overlays(sess, dev, refresh=True)
+    if not ovs:
+        print("không có overlay app khác đang nhận chạm")
+    for o in ovs:
+        print("⚠ " + overlay_line(sess, o))
+
+
+def cmd_ad_close(a):
+    """Quảng cáo/trang native (Activity riêng — probe Unity không thấy): tìm nút đóng/skip qua uiautomator rồi bấm
+    như người chơi. Nút bị overlay app khác che kín → báo rõ thay vì bấm trúng app kia."""
+    sess = Session.load(a.session)
+    dev = sess.device()
+    if not isinstance(dev, Android):
+        raise NotSupported("ad-close chỉ có trên Android — iOS: nhìn ảnh rồi tap nút X (hoặc chờ quảng cáo tự đóng)")
+    deadline = time.time() + max(0.0, a.timeout)
+    while True:
+        cands = pick_close_candidates(parse_uia_nodes(dev.uia_dump()))
+        if cands or a.list or time.time() >= deadline:
+            break
+        time.sleep(2.0)
+    fg = dev.foreground()
+    if not cands:
+        print("không thấy nút đóng/skip (foreground=%s) sau %ss — quảng cáo còn đếm ngược? `wait` thêm rồi chạy lại, "
+              "hoặc `key back`" % (fg or "?", a.timeout))
+        return
+    ovs = get_overlays(sess, dev, refresh=True)
+    for c in cands[:5]:
+        x, y, w, h = c["rect"]
+        vx, vy = device_to_view(sess, x + w // 2, y + h // 2)
+        o = point_in_rects(x + w // 2, y + h // 2, ovs)
+        print("  ứng viên \"%s\" ảnh (%d,%d) %dx%d px máy%s%s" % (c["label"], vx, vy, w, h,
+                                                             "" if c["clickable"] else " · không clickable",
+                                                             (" · BỊ CHE bởi " + o["package"]) if o else ""))
+    if a.list:
+        return
+    c = cands[0]
+    if a.allow_overlay:
+        pt = (c["rect"][0] + c["rect"][2] // 2, c["rect"][1] + c["rect"][3] // 2)
+    else:
+        pt = uncovered_point(c["rect"], ovs)
+    if pt is None:
+        o = point_in_rects(c["rect"][0] + c["rect"][2] // 2, c["rect"][1] + c["rect"][3] // 2, ovs) or (ovs[0] if ovs else {})
+        raise QaError("nút đóng quảng cáo \"%s\" bị overlay app khác che kín: %s — adb không bấm xuyên được; tắt/dời overlay "
+                      "đó trên máy rồi chạy lại `ad-close`. Ca test phụ thuộc quảng cáo ghi `blocked` (môi trường), "
+                      "KHÔNG phải bug game" % (c["label"], overlay_line(sess, o) if o else "?"))
+    dev.tap(pt[0], pt[1])
+    vx, vy = device_to_view(sess, pt[0], pt[1])
+    sess.step("tap", a.desc or "Bấm nút đóng quảng cáo (%s)" % c["label"], xy=[vx, vy], dev=list(pt), el=c["label"])
+    print("ad-close: bấm \"%s\" (%d,%d) ảnh · foreground trước đó=%s" % (c["label"], vx, vy, fg or "?"))
+    after_action(a, sess, dev, a.label or "ad-close")
 
 
 def cmd_logs(a):
@@ -3152,12 +3474,19 @@ def cmd_state(a):
     sess = Session.load(a.session)
     dev = sess.device()
     pr = need_probe(dev, "Đọc state game")
+    dump = {}
     for p in a.paths:
         try:
             j = pr.get("/get", path=p, timeout=10)
-            print("%s = %s" % (p, json.dumps(j.get("value"), ensure_ascii=False)[:2000]))
+            dump[p] = j.get("value")
+            if not a.out:
+                print(format_value(p, j.get("value"), full=a.full).replace(" → ", " = ", 1))
         except ProbeError as e:
             print("%s → lỗi: %s" % (p, e))
+    if a.out and dump:
+        write_text(os.path.abspath(a.out), json.dumps(dump if len(a.paths) > 1 else next(iter(dump.values())),
+                                                      ensure_ascii=False, indent=2))
+        print("đã ghi %d giá trị vào %s" % (len(dump), os.path.abspath(a.out)))
 
 
 def cmd_call(a):
@@ -3166,7 +3495,12 @@ def cmd_call(a):
     pr = need_probe(dev, "Gọi hàm trong game")
     j = pr.post("/call", method=a.method, args=a.args)
     sess.step("call", a.desc or "", method="%s(%s)" % (a.method, ", ".join(a.args)))
-    print("%s(%s) → %s" % (a.method, ", ".join(a.args), json.dumps(j.get("value"), ensure_ascii=False)[:1500]))
+    head = "%s(%s)" % (a.method, ", ".join(a.args))
+    if a.out:
+        write_text(os.path.abspath(a.out), json.dumps(j.get("value"), ensure_ascii=False, indent=2))
+        print("%s → đã ghi kết quả vào %s" % (head, os.path.abspath(a.out)))
+    else:
+        print(format_value(head, j.get("value"), full=a.full))
     if not a.no_shot:
         time.sleep(a.wait)
         observe(sess, dev, "call")
@@ -3245,13 +3579,7 @@ def cmd_bug(a):
     if not code:
         raise QaError("không có mã BugHub — chạy /bughub-setup")
     form = read_json(os.path.join(state_root(), "bughub-form-%s.json" % code.upper()), {}) or {}
-    # chống trùng trong máy (mọi phiên của project)
     idx_path = os.path.join(state_root(), "bugs-index.jsonl")
-    if not a.force:
-        for b in read_jsonl(idx_path):
-            if b.get("code", "").upper() == code.upper() and similar(b.get("title", ""), a.title) >= 0.75:
-                raise QaError("trùng bug đã log #%s \"%s\" (phiên %s) — bỏ qua, hoặc --force nếu thật sự khác" % (
-                    b.get("number") or "?", b.get("title"), b.get("session")))
     if a.steps and a.steps != "auto":
         steps = (("Điều kiện: %s\n" % a.precondition) if a.precondition else "") + a.steps.replace("\\n", "\n")
     else:
@@ -3267,6 +3595,13 @@ def cmd_bug(a):
             ctx = dev.probe.get("/context", save=1 if a.save else 0, timeout=20)
         except QaError:
             ctx = {}
+    screen = ctx.get("screen") or ""
+    # chống trùng trong máy (mọi phiên của project): chữ ký log · tiêu đề · màn + loại
+    if not a.force:
+        dup, why = find_duplicate(read_jsonl(idx_path), code, a.title, a.log_sig or "", screen, a.type)
+        if dup:
+            raise QaError("trùng bug đã log #%s \"%s\" (phiên %s; %s) — bỏ qua, hoặc --force nếu thật sự khác" % (
+                dup.get("number") or "?", dup.get("title"), dup.get("session"), why))
     app.setdefault("commitSha", "")
     if ctx.get("commitSha") and ctx["commitSha"] != "unknown":
         app["commitSha"], app["branch"] = ctx["commitSha"], ctx.get("branch", app.get("branch", ""))
@@ -3306,7 +3641,7 @@ def cmd_bug(a):
               "tagIds": pick_tags(form, btype, sev, a.tag or []), "mentionIds": pick_people(form, a.mention or [])}
     extra = {"reporter": REPORTER, "qaSession": sess.id, "severity": sev, "bugType": btype,
              "deviceSerial": dv["id"], "probe": "yes" if dev.probe else "no", "logSig": a.log_sig or "",
-             "scene": ctx.get("scene", ""), "screens": ",".join(ctx.get("screens", []) or [])[:256],
+             "scene": ctx.get("scene", ""), "screen": screen[:256], "screens": ",".join(ctx.get("screens", []) or [])[:256],
              "toolVersion": VERSION, "repoHead": _git_head(root)}
     for k, val in (ctx.get("extra") or {}).items():
         extra.setdefault("game." + k, val)
@@ -3352,7 +3687,7 @@ def cmd_bug(a):
     ok = status in (200, 201, 202)
     rec = {"t": now_iso(), "session": sess.id, "code": code, "title": report["title"], "severity": sev, "type": btype,
            "status": status, "number": resp.get("number"), "url": resp.get("url"), "duplicate": resp.get("duplicate"),
-           "reportId": report["id"], "dir": bug_dir, "logSig": a.log_sig, "step": _last_step_n(sess)}
+           "reportId": report["id"], "dir": bug_dir, "logSig": a.log_sig, "screen": screen, "step": _last_step_n(sess)}
     if ok:
         append_jsonl(sess.path("bugs.jsonl"), rec)
         append_jsonl(idx_path, rec)
@@ -3391,8 +3726,10 @@ def cmd_bug_resend(a):
     status, resp = post_report(bh.get("endpoint") or DEFAULT_ENDPOINT, bh.get("code"), report, rb("screenshot.jpg"), rb("log.txt"))
     print("%s %s" % (status, json.dumps(resp, ensure_ascii=False)))
     if status in (200, 201, 202):
+        ex = report.get("extra") or {}
         rec = {"t": now_iso(), "session": sess.id, "code": bh.get("code"), "title": report["title"], "status": status,
-               "number": resp.get("number"), "url": resp.get("url"), "reportId": report["id"], "dir": d}
+               "number": resp.get("number"), "url": resp.get("url"), "reportId": report["id"], "dir": d,
+               "type": ex.get("bugType"), "logSig": ex.get("logSig") or None, "screen": ex.get("screen", "")}
         append_jsonl(sess.path("bugs.jsonl"), rec)
         append_jsonl(os.path.join(state_root(), "bugs-index.jsonl"), rec)
 
@@ -3687,6 +4024,8 @@ def build_parser():
         if coords:
             sp.add_argument("--space", choices=("view", "device"), default="view", help="toạ độ theo ảnh xem (mặc định) hay px máy")
             sp.add_argument("--inject", action="store_true", help="chạm qua probe thay vì input hệ thống")
+            sp.add_argument("--allow-overlay", action="store_true",
+                            help="cho chạm adb vào vùng overlay của app khác (mặc định chặn — chạm sẽ trúng app kia)")
 
     sp = sub.add_parser("doctor", help="kiểm công cụ trên máy")
     sp.set_defaults(fn=cmd_doctor)
@@ -3796,8 +4135,24 @@ def build_parser():
     sp.add_argument("path", nargs="?")
     sp.add_argument("--secs", type=float, default=5)
     sp.add_argument("--wait", type=float, default=4)
+    sp.add_argument("--hard", action="store_true",
+                    help="restart/stop: kill thẳng như crash/OS giết app (mặc định: Home → chờ → tắt như người chơi)")
+    sp.add_argument("--settle", type=float, default=STOP_SETTLE_SECONDS, help="restart/stop: giây ở Home trước khi tắt")
     sp.add_argument("--as", dest="desc")
     sp.set_defaults(fn=cmd_app)
+
+    sp = sub.add_parser("overlays", help="(Android) liệt kê overlay của app khác đang đè lên màn (chạm adb vào đó trúng app kia)")
+    sp.set_defaults(fn=cmd_overlays)
+
+    sp = sub.add_parser("ad-close", help="(Android) tìm + bấm nút đóng/skip của quảng cáo native; báo khi bị overlay che")
+    sp.add_argument("--timeout", type=float, default=30, help="chờ nút đóng xuất hiện tối đa N giây (quảng cáo đếm ngược)")
+    sp.add_argument("--list", action="store_true", help="chỉ liệt kê nút ứng viên, không bấm")
+    sp.add_argument("--allow-overlay", action="store_true", help="bấm cả khi tâm nút nằm dưới overlay app khác")
+    sp.add_argument("--wait", type=float, default=1.5, help="chờ sau khi bấm rồi mới chụp (s)")
+    sp.add_argument("--no-shot", action="store_true")
+    sp.add_argument("--label")
+    sp.add_argument("--as", dest="desc")
+    sp.set_defaults(fn=cmd_ad_close)
 
     sp = sub.add_parser("net", help="mạng: off|on|wifi-off|data-off")
     sp.add_argument("mode", choices=("off", "on", "wifi-off", "data-off"))
@@ -3833,6 +4188,8 @@ def build_parser():
 
     sp = sub.add_parser("state", help="(probe) đọc giá trị static: Namespace.Type.Member.Member…")
     sp.add_argument("paths", nargs="+")
+    sp.add_argument("--full", action="store_true", help="in trọn giá trị (mặc định cắt ở %d ký tự)" % VALUE_PRINT_MAX)
+    sp.add_argument("--out", help="ghi giá trị (JSON) ra file thay vì in")
     sp.set_defaults(fn=cmd_state)
 
     sp = sub.add_parser("call", help="(probe) gọi hàm static/instance: Type.Method arg1 arg2 (setup/cheat)")
@@ -3841,6 +4198,8 @@ def build_parser():
     sp.add_argument("--as", dest="desc")
     sp.add_argument("--no-shot", action="store_true")
     sp.add_argument("--wait", type=float, default=0.8)
+    sp.add_argument("--full", action="store_true", help="in trọn kết quả (mặc định cắt ở %d ký tự)" % VALUE_PRINT_MAX)
+    sp.add_argument("--out", help="ghi kết quả (JSON) ra file thay vì in — cho danh sách dài")
     sp.set_defaults(fn=cmd_call)
 
     sp = sub.add_parser("types", help="(probe) tìm type + member static theo từ khoá (vd Cheat, PlayerData)")
@@ -3886,7 +4245,7 @@ def build_parser():
     sp.add_argument("--via", choices=("http", "ingame"), default="http")
     sp.add_argument("--code")
     sp.add_argument("--endpoint")
-    sp.add_argument("--force", action="store_true", help="bỏ qua kiểm trùng trong máy")
+    sp.add_argument("--force", action="store_true", help="bỏ qua kiểm trùng trong máy (chữ ký log / tiêu đề / màn+loại)")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_bug)
 

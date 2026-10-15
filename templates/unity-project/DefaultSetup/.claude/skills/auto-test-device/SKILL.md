@@ -11,11 +11,15 @@ Bạn là **QA chuyên nghiệp**: chơi game bằng input thật như người 
 Playbook kỹ thuật test, checklist visual/logic, rubric mức độ, mẫu bug: [references/qa-playbook.md](references/qa-playbook.md)
 — **đọc hết một lần ở STEP 2**.
 
-```
-QA="python3 .claude/skills/auto-test-device/scripts/qadevice.py"     # Windows: py .claude/skills/auto-test-device/scripts/qadevice.py
+Trong tài liệu này `$QA <lệnh>` là **cách viết tắt** của:
+
+```bash
+python3 .claude/skills/auto-test-device/scripts/qadevice.py <lệnh>     # Windows: py .claude/skills/auto-test-device/scripts/qadevice.py <lệnh>
 ```
 
-Mỗi lệnh Bash là shell mới — viết đầy đủ đường dẫn script mỗi lần (biến `QA` ở trên chỉ để đọc tài liệu cho gọn).
+Mỗi lệnh Bash là shell mới — gõ đầy đủ đường dẫn mỗi lần. **Không** gán `QA="python3 …"` rồi gọi `$QA`: zsh (shell mặc
+định macOS) không tách chuỗi thành từ ⇒ lỗi `no such file or directory: python3 .claude/…`. Muốn gọn trong MỘT lệnh Bash
+nhiều bước thì dùng hàm: `qa() { python3 .claude/skills/auto-test-device/scripts/qadevice.py "$@"; }; qa tap 10 20 --as "…"; qa state X.Y`.
 
 ## Luật cứng
 
@@ -25,11 +29,12 @@ Mỗi lệnh Bash là shell mới — viết đầy đủ đường dẫn script
 2. **Có bằng chứng mới log.** Bug visual: ảnh chỉ đúng chỗ sai. Bug logic: giá trị trước/sau + giá trị kỳ vọng
    lấy từ config/GDD. Crash/exception: chữ ký log. **Tái hiện lại ít nhất một lần** trước khi log (crash/ANR
    một lần là đủ — ghi `--rate 1/1`). Không log điều mình đoán.
-3. **Không trùng.** Trước mỗi bug: so với bug đang mở trên BugHub (STEP 1b) và để tool chặn trùng trong máy.
-   Trùng → không log, ghi vào report "đã có #N".
+3. **Không trùng.** Trước mỗi bug: so với bug đang mở trên BugHub (STEP 1b) và để tool chặn trùng trong máy (cùng
+   chữ ký log · tiêu đề giống · cùng màn + cùng loại). Trùng → không log, ghi vào report "đã có #N".
 4. **Không phá máy QA.** Không `--fresh` / `app clear` trừ khi tính năng là luồng người chơi mới (tutorial,
    onboarding, lần đầu mở). Không hoàn tất giao dịch IAP thật — mở sheet thanh toán, kiểm giá, huỷ. Thay đổi
-   mạng/xoay màn được `stop` trả lại.
+   mạng/xoay màn được `stop` trả lại. Overlay của app khác (bong bóng ghi âm/chat…) che nút → không đổi density,
+   quyền hệ thống hay force-stop app đó để lách — báo user / ghi ca `blocked` (môi trường), không phải bug game.
 5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `start` tự thêm/nâng dòng `com.ezg.qa-probe` trong
    `Packages/manifest.json` (và gỡ bản probe chép cũ `Assets/EzgQaProbe/` nếu còn) — báo dev commit + build lại.
 6. **Không hỏi user giữa chừng.** Tự quyết theo skill này. Chỉ dừng hẳn khi: BugHub chưa setup, không có thiết
@@ -80,6 +85,7 @@ cần tap) → chụp ảnh đầu. Đọc output:
 | `probe: không có` | Build trên máy chưa có probe → hộp đen: ảnh + toạ độ, log, perf |
 | `ghi chú: đã thêm/nâng com.ezg.qa-probe …` / `đã gỡ bản probe chép cũ …` | Build trên máy là bản cũ; ghi vào report "đã thêm package probe — commit manifest + build để lần sau test sâu" |
 | `ghi chú: ⚠ manifest chưa có scoped registry EZG` | Project chưa nối registry EZG → báo dev cài qua Feature Hub; phiên này hộp đen |
+| `⚠ overlay app khác: <package> … che vùng ảnh (x,y)-(x,y)` | App khác đang nổi trên màn — chạm adb vào vùng đó trúng app kia (tool chặn sẵn). Nút game nằm dưới → `--inject`; nút quảng cáo/hệ thống nằm dưới → ghi vào report cho user tắt/dời overlay đó; ca phụ thuộc ghi `blocked` |
 
 Dòng `→ …` dưới output là việc cần làm tiếp — làm đúng như nó. Ảnh `shot #001` → **Read** để biết game đang ở đâu.
 Muốn tiếp tục đúng trạng thái QA đang chơi dở trên máy → thêm `--attach` (không khởi động lại game).
@@ -157,8 +163,11 @@ Mỗi thao tác — **quan sát → nghĩ → làm → kiểm**:
      nghi bug "nút không phản hồi"/"bị overlay vô hình che" (probe: `ui` xem `✗che:`).
    - `⚠ LOG: … lỗi MỚI` → **dừng lại xử lý ngay**: lỗi xuất hiện ở bước nào, tái hiện, log bug với `--log-sig`.
    - `⚠ ẢNH:` (màn đen/trắng trơn, mảng hồng magenta) → bug visual/render — tái hiện rồi log.
-   - `⚠ app đang ở foreground: …` → quảng cáo/trình duyệt/store đã mở: xử lý như người chơi (chờ nút X, Back)
-     rồi kiểm game quay về đúng chỗ.
+   - `⚠ app đang ở foreground: …` → quảng cáo/trình duyệt/store đã mở: xử lý như người chơi rồi kiểm game quay về
+     đúng chỗ. Quảng cáo (Android) → `$QA ad-close` (tự chờ đếm ngược, tìm nút X/Skip trong cây view native qua
+     uiautomator, bấm như người chơi; nút bị overlay app khác che kín thì báo rõ thay vì bấm trúng app kia). Không
+     thấy nút → `$QA ad-close --list` / `key back`. Trình duyệt/store → `key back`.
+   - `LỖI: điểm chạm … nằm dưới overlay của app khác` → đừng thử toạ độ khác quanh đó; làm theo hướng dẫn trong lỗi.
    - So kết quả với oracle trong charter (mục 4.2).
 4. **Chờ:** `$QA wait 3` (chờ rồi chụp) · `$QA wait 20 --settle` (chờ tới khi màn đứng yên) · animation/hiệu ứng
    → `$QA burst 6` (dải nhiều khung để soi nhấp nháy, nhảy layout). Thời gian chờ dài (sản xuất, hồi chiêu,
@@ -191,6 +200,10 @@ Việt…) qua màn của tính năng, đổi lại ngôn ngữ cũ khi xong.
 - **So với oracle** (CSV/GDD): giá trừ đúng một lần, thưởng cộng đúng một lần, thời gian đúng, mở khoá đúng điều
   kiện, số hiển thị khớp nhau giữa HUD/popup/màn chi tiết, format số (1.2K, dấu phẩy) nhất quán.
 - **Lưu trữ:** sau thay đổi state quan trọng → `$QA app restart` → state còn nguyên? Nền 30s → timer/offline đúng?
+  `app restart` mặc định tắt **như người chơi** (về Home → chờ 2s → tắt: game kịp `OnApplicationPause` để lưu);
+  `app restart --hard` = kill thẳng như crash / OS giết app (game KHÔNG kịp lưu). Bug mất dữ liệu sau restart
+  **phải tái hiện bằng `app restart` mặc định** mới log như bug lưu trữ thường; chỉ ra với `--hard` → ghi rõ "chỉ khi
+  app bị giết đột ngột (crash)" trong actual và hạ một mức (thường low/medium) — lưu theo chu kỳ là thiết kế phổ biến.
 - **Gián đoạn & lặp:** P2 ở charter — Back trên mọi popup (Android), `$QA tap … --times 5 --interval 0.05` cho nút
   nhận thưởng/mua (thưởng nhân đôi = bug nghiêm trọng), `$QA net off` giữa luồng mạng (game phải báo lỗi tử tế,
   không treo, không mất/nhân đôi phần thưởng), `$QA app background --secs 10`.
@@ -232,7 +245,8 @@ Khi một lỗi đã xác nhận (luật 2):
      của game y như QA bấm nút bug. Mặc định `http` (cùng contract, trả ngay số issue).
    - Trước khi gửi bug đầu tiên của phiên có thể chạy `--dry-run` để xem report.
 4. Output `BUG #N → url` = xong. `BugHub từ chối …` → đọc lỗi, sửa tham số, `$QA bug-resend <id>`; lỗi mạng → thử
-   lại sau. `trùng bug đã log` → đúng là trùng thì bỏ; khác thật → thêm chi tiết vào tiêu đề hoặc `--force`.
+   lại sau. `trùng bug đã log … (<lý do>)` → đúng là trùng thì bỏ; khác thật (lý do "cùng màn…" mà triệu chứng khác,
+   hoặc lỗi cũ đã sửa nay tái phát cùng chữ ký log) → thêm chi tiết vào tiêu đề hoặc `--force`.
 5. `$QA mark "<ca tiếp theo>"` rồi chơi tiếp — một bug không chặn phần còn lại của charter (bug chặn hẳn tính năng
    → ghi các ca phụ thuộc là `blocked`).
 
@@ -262,15 +276,18 @@ hiện mới — hoặc thiết bị/app hỏng không cứu được.
 | Chạm | `tap X Y` · `tap 50% 80%` · `tap @id` / `--text` / `--name` / `--world` (probe) · `tap … --times 5` · `longpress` |
 | Vuốt/kéo | `swipe X1 Y1 X2 Y2` · `swipe --dir up` · `drag X1 Y1 X2 Y2 [--hold ms]` |
 | Phím / chữ | `key back\|home\|enter\|app_switch` · `text "abc" [--submit]` · `text "Tiếng Việt" --probe` |
-| App | `app restart\|stop\|launch\|background --secs N\|clear\|info\|install x.apk` |
+| App | `app restart\|stop [--hard] [--settle S]` · `app launch\|background --secs N\|clear\|info\|install x.apk` |
+| Quảng cáo / overlay (Android) | `ad-close [--timeout S] [--list]` · `overlays` (app khác đang nổi trên màn) |
 | Môi trường | `net off\|on\|wifi-off\|data-off` · `rotate portrait\|landscape\|auto` |
 | Log / hiệu năng | `logs [--all] [--tail N] [--grep re] [--ignore re]` · `perf` |
-| Game (probe) | `state Type.Member…` · `call Type.Method args` · `types <từ khoá>` · `timescale 10` · `cheat on\|off\|status` |
+| Game (probe) | `state Type.Member… [--full\|--out f.json]` · `call Type.Method args [--full\|--out f.json]` · `types <từ khoá>` · `timescale 10` · `cheat on\|off\|status` |
 | Ca test | `mark "<ca>"` · `note "<kết quả>" --result pass\|fail\|blocked\|skip` · `steps` |
 | Bug | `bug --title … --actual … --expected … --type … --severity … [--log-sig] [--shot] [--save] [--dry-run]` · `bug-resend <id>` |
 | Probe | `probe-install [--gate none\|Ns.Type.member]` (thêm/nâng package, gỡ bản chép cũ, ghi đè cổng) |
 
-Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--grid`, `--marks`, `--inject` (chạm qua probe).
+Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--grid`, `--marks`, `--inject` (chạm qua probe),
+`--allow-overlay` (cố ý chạm vào overlay app khác — mặc định tool chặn). `call`/`state` cắt kết quả dài và ghi rõ
+`[đã cắt …]` — cần trọn (danh sách id, JSON để parse) thì `--out <file>` rồi Read file đó.
 
 ## Phụ lục — nền tảng & giới hạn
 
@@ -292,5 +309,7 @@ Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--g
   Chạm qua probe đi qua EventSystem — UI chạy tốt; object 3D chỉ nhận nếu game dùng EventSystem/PhysicsRaycaster
   hoặc `OnMouse*` (Android luôn dùng input thật nên không bị giới hạn này).
 - Đa chạm (pinch zoom) không giả lập được bằng adb — test zoom bằng nút/cuộn nếu game có, ghi `skip` cho ca pinch.
+- Overlay app khác (Android): `start` và `overlays` dò cửa sổ nổi của app bên thứ ba (dumpsys window + input); chạm
+  adb vào vùng đó bị chặn vì sẽ trúng app kia. iOS không có overlay kiểu này.
 - Trạng thái phiên ở `<git-common-dir>/auto-test-device/` (ảnh, log, bug đã gửi, `report.md`) — không bao giờ commit.
 - `qadevice.py` chỉ dùng thư viện chuẩn Python 3.8+ (Pillow tuỳ chọn); test: `python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests`.

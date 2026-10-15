@@ -434,5 +434,190 @@ class CaptureHiddenTests(unittest.TestCase):
         self.assertEqual(q.grab_png(None, self.FakeDevice(None, [])), b"png")
 
 
+WINDOW_DUMP = """WINDOW MANAGER WINDOWS (dumpsys window windows)
+  Window #12 Window{41f58bb u0 com.miui.securitycenter/.FloatingWindow}:
+    mOwnerUid=1000 showForAllUsers=false package=com.miui.securitycenter appop=SYSTEM_ALERT_WINDOW
+    mAttrs={(0,720)(wrapxwrap) gr=TOP START CENTER pkg = com.miui.securitycenter ty=SYSTEM_ALERT fmt=TRANSLUCENT
+  Window #13 Window{8b9d7c8 u0 com.example.voicebubble}:
+    mOwnerUid=10354 showForAllUsers=false package=com.example.voicebubble appop=SYSTEM_ALERT_WINDOW
+    mAttrs={(1318,-627)(188x188) gr=TOP LEFT CENTER pkg = com.example.voicebubble adpkg = null ty=APPLICATION_OVERLAY fmt=TRANSLUCENT
+  Window #14 Window{8e48eb4 u0 ShellDropTarget}:
+    mOwnerUid=1000 showForAllUsers=true package=com.android.systemui appop=SYSTEM_ALERT_WINDOW
+    mAttrs={(0,0)(fillxfill) pkg = com.android.systemui ty=APPLICATION_OVERLAY fmt=TRANSLUCENT
+  Window #15 Window{77aa001 u0 com.example.game}:
+    mOwnerUid=10390 package=com.example.game appop=SYSTEM_ALERT_WINDOW
+    mAttrs={(0,0)(fillxfill) ty=APPLICATION_OVERLAY
+  Window #16 Window{e4b7933 u0 com.example.game/com.unity3d.ads.adplayer.FullScreenWebViewDisplay}:
+    mOwnerUid=10390 package=com.example.game
+    mAttrs={(0,0)(fillxfill) ty=BASE_APPLICATION
+"""
+
+INPUT_DUMP = """Input Dispatcher State:
+  Windows:
+    3: name='41f58bb com.miui.securitycenter/.FloatingWindow', displayId=0, frame=[0,720][10,730], touchableRegion=[0,720][10,730], ownerUid=1000
+    4: name='8b9d7c8 com.example.voicebubble', id=88, displayId=0, inputConfig=0x0, frame=[1092,152][1280,340], globalScale=1.0, touchableRegion=[1092,152][1280,340], ownerPid=4000, ownerUid=10354
+    5: name='8e48eb4 ShellDropTarget', displayId=0, inputConfig=NOT_TOUCHABLE, frame=[0,0][1280,2772], touchableRegion=<empty>
+    6: name='77aa001 com.example.game', displayId=0, frame=[0,0][1280,2772], touchableRegion=[0,0][1280,2772]
+  RecentQueue:
+    displayId=0, name='8b9d7c8 com.example.voicebubble' result='OK'
+"""
+
+UIA_XML = ('<?xml version="1.0"?><hierarchy rotation="0">'
+           '<node index="0" text="" resource-id="root" class="android.view.View" package="com.example.game" content-desc="" '
+           'clickable="true" enabled="true" bounds="[0,0][1280,2772]">'
+           '<node index="1" text="" resource-id="" class="android.widget.Button" package="com.example.game" content-desc="Close" '
+           'clickable="true" enabled="true" bounds="[1134,146][1238,253]" />'
+           '<node index="2" text="" resource-id="" class="android.widget.Button" package="com.example.game" content-desc="Privacy" '
+           'clickable="true" enabled="true" bounds="[13,2668][104,2759]" />'
+           '<node index="3" text="Install Now" resource-id="" class="android.widget.Button" package="com.example.game" '
+           'content-desc="" clickable="true" enabled="true" bounds="[840,2540][1250,2680]" />'
+           '<node index="4" text="Bỏ qua quảng cáo" resource-id="com.ads:id/skip" class="android.widget.TextView" '
+           'package="com.example.game" content-desc="" clickable="false" enabled="true" bounds="[40,140][400,220]" />'
+           '</node></hierarchy>')
+
+
+class OverlayAndAdTests(unittest.TestCase):
+    def test_parse_overlay_windows_keeps_third_party_only(self):
+        ws = q.parse_overlay_windows(WINDOW_DUMP, PKG)
+        self.assertEqual([w["package"] for w in ws], ["com.example.voicebubble"])
+        self.assertEqual((ws[0]["token"], ws[0]["type"], ws[0]["uid"]), ("8b9d7c8", "APPLICATION_OVERLAY", 10354))
+
+    def test_input_regions_and_overlay_rects(self):
+        reg = q.parse_input_regions(INPUT_DUMP)
+        self.assertEqual(reg["8b9d7c8"], {"rect": [1092, 152, 188, 188], "visible": True})
+        self.assertFalse(reg["8e48eb4"]["visible"])
+        ovs = q.overlay_rects(WINDOW_DUMP, INPUT_DUMP, PKG)
+        self.assertEqual([(o["package"], o["rect"]) for o in ovs], [("com.example.voicebubble", [1092, 152, 188, 188])])
+
+    def test_input_regions_multiline_entries(self):
+        dump = ("  Windows:\n"
+                "    4: name='Window{8b9d7c8 u0 com.example.voicebubble}', displayId=0, inputConfig=0x0\n"
+                "        frame=[1092,152][1280,340], globalScale=1.0\n"
+                "        touchableRegion=[1100,160][1270,330], ownerUid=10354\n"
+                "    5: name='77aa001 com.example.game', displayId=0, inputConfig=NOT_VISIBLE\n"
+                "        frame=[0,0][1280,2772]\n"
+                "  RecentQueue:\n"
+                "    displayId=0, name='8b9d7c8 com.example.voicebubble' frame=[0,0][1,1]\n")
+        reg = q.parse_input_regions(dump)
+        self.assertEqual(reg["8b9d7c8"], {"rect": [1100, 160, 170, 170], "visible": True})
+        self.assertFalse(reg["77aa001"]["visible"])
+
+    def test_input_regions_api35_unquoted(self):
+        dump = ("      4: name=2ccd23c StatusBar, id=78, displayId=0, inputConfig=NOT_FOCUSABLE | TRUSTED_OVERLAY, alpha=1, "
+                "frame=[0,0][1080,136], globalScale=1, touchableRegion=[0,0][1080,136], ownerPid=830, ownerUid=10179\n"
+                "    transform (ROT_0) (IDENTITY)\n"
+                "      5: name=8b9d7c8 com.example.voicebubble, id=88, displayId=0, inputConfig=NOT_FOCUSABLE, alpha=1, "
+                "frame=[1092,152][1280,340], touchableRegion=[1092,152][1280,340], ownerUid=10354\n")
+        reg = q.parse_input_regions(dump)
+        self.assertEqual(reg["2ccd23c"]["rect"], [0, 0, 1080, 136])
+        self.assertEqual(reg["8b9d7c8"]["rect"], [1092, 152, 188, 188])
+
+    def test_point_and_uncovered(self):
+        ovs = [{"package": "x", "rect": [1092, 152, 188, 188]}]
+        self.assertIsNotNone(q.point_in_rects(1186, 200, ovs))
+        self.assertIsNone(q.point_in_rects(1186, 148, ovs))
+        # nút X bị che gần kín (chỉ hở mép trên, mép đó nằm ngoài vùng lõi của nút) → None
+        self.assertIsNone(q.uncovered_point([1134, 146, 104, 107], ovs))
+        pt = q.uncovered_point([1000, 146, 200, 100], ovs)
+        self.assertIsNotNone(pt)
+        self.assertIsNone(q.point_in_rects(pt[0], pt[1], ovs))
+
+    def test_uia_close_candidates(self):
+        nodes = q.parse_uia_nodes(UIA_XML)
+        self.assertEqual(len(nodes), 5)
+        cands = q.pick_close_candidates(nodes)
+        self.assertEqual([c["label"] for c in cands], ["Close", "Bỏ qua quảng cáo"])
+        self.assertEqual(cands[0]["rect"], [1134, 146, 104, 107])
+
+    def test_close_label_marks_and_ids(self):
+        base = {"text": "", "desc": "", "id": "", "cls": "", "pkg": "", "clickable": True, "enabled": True, "rect": [0, 0, 10, 10]}
+        self.assertEqual(q._ad_close_label(dict(base, text="×")), "×")
+        self.assertEqual(q._ad_close_label(dict(base, id="com.ad:id/close_button")), "close_button")
+        self.assertEqual(q._ad_close_label(dict(base, text="Đóng")), "Đóng")
+        self.assertEqual(q._ad_close_label(dict(base, desc="Ad info")), "")
+        self.assertEqual(q._ad_close_label(dict(base, text="Install Now")), "")
+
+
+class FakeKillDevice(object):
+    def __init__(self, has_home=True):
+        self.calls, self.has_home = [], has_home
+
+    def stop_like_player(self, pkg, settle):
+        if not self.has_home:
+            raise q.NotSupported("no home")
+        self.calls.append(("home-then-stop", pkg, settle))
+
+    def stop(self, pkg):
+        self.calls.append(("stop", pkg))
+
+
+class FakeSession(object):
+    def __init__(self, d=None):
+        self.d = d or {}
+
+    def save(self):
+        pass
+
+
+class KillDedupValueTests(unittest.TestCase):
+    def test_kill_app_modes(self):
+        dev = FakeKillDevice()
+        self.assertEqual(q.kill_app(dev, PKG), "player")
+        self.assertEqual(dev.calls, [("home-then-stop", PKG, q.STOP_SETTLE_SECONDS)])
+        dev = FakeKillDevice()
+        self.assertEqual(q.kill_app(dev, PKG, hard=True), "hard")
+        self.assertEqual(dev.calls, [("stop", PKG)])
+        dev = FakeKillDevice(has_home=False)
+        self.assertEqual(q.kill_app(dev, PKG), "hard-fallback")
+        self.assertEqual(dev.calls, [("stop", PKG)])
+
+    def test_find_duplicate(self):
+        rows = [{"code": "GAME01", "number": 54, "title": "IAP: log lỗi OnProductsFetchFailed mỗi lần mở game",
+                 "logSig": "1c4945d57f", "type": "logic", "screen": "screen_battle"},
+                {"code": "GAME01", "number": 55, "title": "Upgrade: thời gian thập phân theo locale máy",
+                 "type": "visual", "screen": "screen_upgrade"},
+                {"code": "OTHER", "number": 9, "title": "Shop: mua gói trừ tiền 2 lần", "type": "logic"}]
+        dup, why = q.find_duplicate(rows, "game01", "Khởi động: lỗi IAP khác hẳn tiêu đề", "1c4945d57f")
+        self.assertEqual((dup["number"], "chữ ký log" in why), (54, True))
+        dup, _ = q.find_duplicate(rows, "GAME01", "Upgrade: thời gian thập phân theo locale máy!")
+        self.assertEqual(dup["number"], 55)
+        dup, why = q.find_duplicate(rows, "GAME01", "Upgrade: số thập phân theo locale lệch với tiền", "", "screen_upgrade", "visual")
+        self.assertEqual((dup["number"], "cùng màn" in why), (55, True))
+        self.assertEqual(q.find_duplicate(rows, "GAME01", "Upgrade: số thập phân theo locale lệch với tiền", "", "screen_shop", "visual"), (None, ""))
+        self.assertEqual(q.find_duplicate(rows, "GAME01", "Shop: mua gói trừ tiền 2 lần"), (None, ""))
+
+    def test_format_value_truncates_loudly(self):
+        self.assertEqual(q.format_value("f()", [1, 2]), "f() → [1, 2]")
+        line = q.format_value("f()", ["x" * 50] * 100, limit=40)
+        self.assertIn("[đã cắt 40/", line)
+        self.assertNotIn("đã cắt", q.format_value("f()", ["x" * 50] * 100, limit=40, full=True))
+
+    def test_guard_overlay_blocks_native_tap_only(self):
+        dev = object.__new__(q.Android)
+        dev.probe = None
+        dev.overlays = lambda pkg="": [{"package": "com.example.voicebubble", "type": "APPLICATION_OVERLAY", "rect": [1092, 152, 188, 188]}]
+        sess = FakeSession({"package": PKG, "view": {"w": 591, "h": 1280, "shot_w": 1280, "shot_h": 2772}})
+        args = q.build_parser().parse_args(["tap", "546", "92"])
+        with self.assertRaises(q.QaError) as cm:
+            q.guard_overlay(args, sess, dev, [(1186, 200)])
+        self.assertIn("com.example.voicebubble", str(cm.exception))
+        q.guard_overlay(args, sess, dev, [(600, 1200)])  # ngoài overlay — không chặn
+        for flags in (["--inject"], ["--allow-overlay"]):
+            q.guard_overlay(q.build_parser().parse_args(["tap", "546", "92"] + flags), sess, dev, [(1186, 200)])
+
+    def test_parser_v13_options(self):
+        p = q.build_parser()
+        a = p.parse_args(["app", "restart", "--hard"])
+        self.assertEqual((a.hard, a.settle), (True, q.STOP_SETTLE_SECONDS))
+        self.assertFalse(p.parse_args(["app", "stop", "--settle", "4"]).hard)
+        a = p.parse_args(["ad-close", "--timeout", "45", "--list"])
+        self.assertEqual((a.timeout, a.list, a.allow_overlay), (45, True, False))
+        self.assertEqual(p.parse_args(["overlays"]).fn, q.cmd_overlays)
+        a = p.parse_args(["call", "ShopService.GetAllProductId", "--out", "/tmp/ids.json", "--full"])
+        self.assertEqual((a.out, a.full), ("/tmp/ids.json", True))
+        self.assertTrue(p.parse_args(["state", "A.B", "--full"]).full)
+        self.assertTrue(p.parse_args(["drag", "1", "2", "3", "4", "--allow-overlay"]).allow_overlay)
+
+
 if __name__ == "__main__":
     unittest.main()
