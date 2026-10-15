@@ -325,6 +325,13 @@ class CheatGateTests(unittest.TestCase):
             notes = q.ensure_probe_in_project(root)
             self.assertEqual(q.read_manifest(root)["dependencies"][q.PROBE_PACKAGE], expected)
             self.assertEqual(bool(notes), current == "1.0.0")
+        # giữ kiểu kết thúc file của Unity (không newline cuối)
+        mp = os.path.join(root, "Packages", "manifest.json")
+        with open(mp, "w") as f:
+            f.write(json.dumps(q.read_manifest(root), indent=2))
+        q.set_manifest_dependency(root, "com.ezg.zz", "1.0.0")
+        with open(mp) as f:
+            self.assertTrue(f.read().endswith("}"))
         # không có registry EZG → vẫn thêm nhưng cảnh báo
         root = make_project(GAMESYSTEMS_CHEATGATE)
         notes = q.ensure_probe_in_project(root)

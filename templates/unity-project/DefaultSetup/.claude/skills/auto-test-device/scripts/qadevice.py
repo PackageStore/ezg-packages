@@ -3534,6 +3534,7 @@ def set_manifest_dependency(root, name, version):
     man = read_json(path, None)
     if not isinstance(man, dict):
         raise QaError("không đọc được %s" % path)
+    eol = "\n" if read_text(path).endswith("\n") else ""  # Unity ghi manifest không có newline cuối — giữ nguyên
     deps = man.get("dependencies") or {}
     if name in deps:
         deps[name] = version
@@ -3544,7 +3545,7 @@ def set_manifest_dependency(root, name, version):
         deps = dict(items)
     man["dependencies"] = deps
     with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(man, ensure_ascii=False, indent=2) + "\n")
+        f.write(json.dumps(man, ensure_ascii=False, indent=2) + eol)
 
 
 def remove_legacy_probe(root, rel_dir):
