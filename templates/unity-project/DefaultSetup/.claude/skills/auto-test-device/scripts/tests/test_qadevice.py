@@ -388,5 +388,51 @@ class CheatGateTests(unittest.TestCase):
         self.assertEqual((a.device, a.no_probe_install, a.skip_bughub), ("auto", False, False))
 
 
+class CaptureHiddenTests(unittest.TestCase):
+    class FakeProbe(object):
+        def __init__(self, supported=True, status=None):
+            self.calls, self.supported, self.status = [], supported, status
+
+        def get(self, endpoint, timeout=None, **params):
+            self.calls.append((endpoint, params.get("sec")))
+            if self.status:
+                raise q.ProbeError("probe %s" % self.status, self.status)
+            return {"supported": self.supported}
+
+    class FakeDevice(object):
+        def __init__(self, probe, shots):
+            self.probe, self.shots = probe, shots
+
+        def screenshot_png(self):
+            self.shots.append(list(self.probe.calls) if self.probe else [])
+            return b"png"
+
+    def test_hides_bug_logger_around_native_screenshot(self):
+        shots = []
+        pr = self.FakeProbe()
+        self.assertEqual(q.grab_png(None, self.FakeDevice(pr, shots)), b"png")
+        self.assertEqual(shots, [[("/capturehidden", q.CAPTURE_HIDE_SECONDS)]])
+        self.assertEqual(pr.calls[-1], ("/capturehidden", 0))
+
+    def test_unsupported_game_or_old_probe_is_asked_once(self):
+        for pr in (self.FakeProbe(supported=False), self.FakeProbe(status=404)):
+            shots = []
+            q.grab_png(None, self.FakeDevice(pr, shots))
+            q.grab_png(None, self.FakeDevice(pr, shots))
+            self.assertEqual(len(pr.calls), 1)
+            self.assertEqual(len(shots), 2)
+
+    def test_gate_closed_still_shoots_and_retries_later(self):
+        pr = self.FakeProbe(status=423)
+        shots = []
+        q.grab_png(None, self.FakeDevice(pr, shots))
+        q.grab_png(None, self.FakeDevice(pr, shots))
+        self.assertEqual(len(pr.calls), 2)
+        self.assertEqual(len(shots), 2)
+
+    def test_no_probe(self):
+        self.assertEqual(q.grab_png(None, self.FakeDevice(None, [])), b"png")
+
+
 if __name__ == "__main__":
     unittest.main()

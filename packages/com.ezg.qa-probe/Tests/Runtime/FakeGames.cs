@@ -61,3 +61,17 @@ namespace Ezg.QaProbe.Tests.WrongFlag
         public static int isCheat;
     }
 }
+
+namespace Ezg.QaProbe.Tests.BugLogger
+{
+    /// <summary>Thay <c>Ezg.BugLogger.UI.BugLoggerUI</c>: ghi lại các lần probe ẩn/hiện UI Bug Logger quanh lúc chụp.</summary>
+    public static class FakeBugLoggerUI
+    {
+        public static readonly System.Collections.Generic.List<float> Calls = new System.Collections.Generic.List<float>();
+
+        public static void HideForCapture(float seconds)
+        {
+            Calls.Add(seconds);
+        }
+    }
+}

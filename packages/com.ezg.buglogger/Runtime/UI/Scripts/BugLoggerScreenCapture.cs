@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using BugLoggerApi = Ezg.BugLogger.BugLogger;
 using Object = UnityEngine.Object;
 
 namespace Ezg.BugLogger.UI
@@ -35,6 +36,30 @@ namespace Ezg.BugLogger.UI
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Chụp rồi nén JPG như ảnh form gửi đi (<see cref="BugLoggerApi.EncodeScreenshot" />), huỷ texture chụp. Gọi ở
+        ///     cuối frame. Null khi chụp hoặc nén lỗi.
+        /// </summary>
+        public static byte[] CaptureJpg()
+        {
+            var shot = Capture();
+            if (shot == null) return null;
+
+            try
+            {
+                return BugLoggerApi.EncodeScreenshot(shot);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BugLogger] Encode screenshot failed. {ex.Message}");
+                return null;
+            }
+            finally
+            {
+                Object.Destroy(shot);
+            }
         }
 
         /// <summary>Giải mã JPG đã nén thành texture chỉ-GPU để làm thumbnail (đúng ảnh sẽ gửi đi).</summary>

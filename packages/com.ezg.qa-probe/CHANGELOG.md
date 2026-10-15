@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1] - 2026-10-15
+### Fixed
+- Ảnh chụp (`/shot`, ảnh tự chụp của `/bug`) dính nút nổi báo lỗi của Bug Logger → ảnh gửi BugHub có cả nút. Giờ probe
+  gọi `BugLoggerUI.HideForCapture` (com.ezg.buglogger ≥ 0.2.4, qua reflection) để ẩn UI Bug Logger đúng frame chụp rồi
+  hiện lại. Game không có Bug Logger / bản cũ hơn thì chụp như trước.
+### Added
+- `/capturehidden?sec=N`: ẩn UI Bug Logger N giây (tối đa 10, 0 = hiện lại) cho tool chụp từ ngoài app (adb screencap,
+  simctl); trả về sau 2 frame để frame trên màn đã sạch nút. `qadevice.py` gọi quanh mỗi lần chụp.
+
 ## [1.2.0] - 2026-10-15
 ### Added
 - Package hoá EZG QA Probe (trước đây skill `/auto-test-device` chép `EzgQaProbe.cs` vào `Assets/EzgQaProbe/` của từng

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import datetime as dt
 import fnmatch
 import glob
@@ -67,8 +68,9 @@ IS_MAC = sys.platform == "darwin"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
 PROBE_PACKAGE = "com.ezg.qa-probe"
-PROBE_MIN_VERSION = "1.2.0"  # bản package skill này cần (đồng bộ với EzgQaProbe.VERSION)
+PROBE_MIN_VERSION = "1.2.1"  # bản package skill này cần (đồng bộ với EzgQaProbe.VERSION)
 PROBE_OVERRIDE = os.path.join("Assets", "Resources", "EzgQaProbeConfig.json")
+CAPTURE_HIDE_SECONDS = 3  # nút nổi Bug Logger ẩn tối đa chừng này quanh một lần adb/simctl chụp (probe tự hiện lại khi hết)
 LEGACY_PROBE_MARK = "FILE DO TOOL QUẢN LÝ"  # bản v1.0/1.1 chép vào Assets/EzgQaProbe/ — nay thay bằng package
 REPORTER = "auto-test-device"
 
@@ -1786,9 +1788,34 @@ def print_issues(fresh, repeats, verbose_lines=6):
 
 # ───────────────────────────────────────────────────────────── chụp + quan sát
 
+@contextlib.contextmanager
+def bug_logger_hidden(dev):
+    """Ẩn UI Bug Logger trong game (nút nổi báo lỗi, toast — probe /capturehidden) quanh lúc adb/simctl chụp, để ảnh xem
+    và ảnh gửi BugHub không dính nút. Không có probe / game không có Bug Logger / probe cũ → chụp như thường."""
+    pr = getattr(dev, "probe", None)
+    hidden = False
+    if pr is not None and getattr(pr, "capture_hidden", True):
+        try:
+            hidden = bool(pr.get("/capturehidden", timeout=5, sec=CAPTURE_HIDE_SECONDS).get("supported"))
+            if not hidden:
+                pr.capture_hidden = False  # game không có Bug Logger đủ mới — khỏi hỏi lại mỗi lần chụp
+        except ProbeError as e:
+            if e.status == 404:
+                pr.capture_hidden = False  # probe < 1.2.1 chưa có endpoint
+    try:
+        yield
+    finally:
+        if hidden:
+            try:
+                pr.get("/capturehidden", timeout=5, sec=0)
+            except QaError:
+                pass  # probe tự hiện lại nút khi hết CAPTURE_HIDE_SECONDS
+
+
 def grab_png(sess, dev):
     try:
-        return dev.screenshot_png()
+        with bug_logger_hidden(dev):
+            return dev.screenshot_png()
     except NotSupported:
         pr = need_probe(dev, "Chụp màn hình trên thiết bị này")
         data = pr.request("GET", "/shot", params={"fmt": "png"}, timeout=30, raw=True)

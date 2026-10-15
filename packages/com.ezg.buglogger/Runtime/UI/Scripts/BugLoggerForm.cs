@@ -116,8 +116,9 @@ namespace Ezg.BugLogger.UI
         // Lựa chọn tải từ server được giữ cả phiên; bản cache/mặc định (mất mạng) thì lần mở sau tải lại.
         private static BugFormOptions _serverOptions;
 
-        // Lượt tải đang chạy — prefetch lúc hiện nút nổi và form mở giữa chừng dùng chung một request.
-        private static UniTask<BugFormOptions>? _pendingFetch;
+        // Lượt tải dùng chung — prefetch lúc hiện nút nổi và form mở giữa chừng chờ cùng một request.
+        private static readonly BugSharedFetch<BugFormOptions> OptionsFetch =
+            new BugSharedFetch<BugFormOptions>(FetchOptionsAsync);
 
         // Nội dung đang gõ dở khi đóng form mà chưa gửi.
         private static string _draftTitle = string.Empty;
@@ -190,7 +191,7 @@ namespace Ezg.BugLogger.UI
         private static void ResetStatics()
         {
             _serverOptions = null;
-            _pendingFetch = null;
+            OptionsFetch.Reset();
             _draftTitle = string.Empty;
             _draftContent = string.Empty;
         }
@@ -546,32 +547,16 @@ namespace Ezg.BugLogger.UI
         /// </summary>
         public static void PrefetchOptions()
         {
-            if (_serverOptions == null) FetchOptionsShared().Forget();
-        }
-
-        private static UniTask<BugFormOptions> FetchOptionsShared()
-        {
-            if (_pendingFetch.HasValue) return _pendingFetch.Value;
-
-            var fetch = FetchOptionsAsync().Preserve();
-            // Xong đồng bộ thì finally đã chạy trước dòng này — không giữ lại task đã xong làm "đang tải".
-            if (fetch.Status == UniTaskStatus.Pending) _pendingFetch = fetch;
-            return fetch;
+            // Đang tải thì thôi: nút nổi bật/tắt liên tục (cheat đổi trạng thái) không bắn thêm request.
+            if (_serverOptions == null && !OptionsFetch.IsRunning) OptionsFetch.Run().Forget();
         }
 
         private static async UniTask<BugFormOptions> FetchOptionsAsync()
         {
-            try
-            {
-                // Không truyền token: package không ném vì mạng, request sống hết vòng đời app.
-                var options = await BugLoggerApi.GetFormOptionsAsync();
-                if (options.Source == BugFormOptionsSource.Server) _serverOptions = options;
-                return options;
-            }
-            finally
-            {
-                _pendingFetch = null;
-            }
+            // Không truyền token: package không ném vì mạng, request sống hết vòng đời app.
+            var options = await BugLoggerApi.GetFormOptionsAsync();
+            if (options.Source == BugFormOptionsSource.Server) _serverOptions = options;
+            return options;
         }
 
         private async UniTaskVoid LoadOptionsAsync(CancellationToken cancellationToken)
@@ -587,7 +572,7 @@ namespace Ezg.BugLogger.UI
             if (hasPrevious) ApplyOptions(_options, false);
             else ShowSkeletons();
 
-            var (cancelled, options) = await FetchOptionsShared().AttachExternalCancellation(cancellationToken)
+            var (cancelled, options) = await OptionsFetch.Run().AttachExternalCancellation(cancellationToken)
                 .SuppressCancellationThrow();
             if (cancelled || this == null) return;
 

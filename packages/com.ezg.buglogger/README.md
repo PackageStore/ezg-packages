@@ -74,6 +74,8 @@ BugLoggerUI.LauncherVisible = isCheatOn;
 | `bool PauseGameWhileOpen` | Mặc định `true`: form mở → `Time.timeScale = 0`. |
 | `Action ResumeGame` | Cách resume khi form đóng. |
 | `event FormOpened` / `FormClosed` | |
+| `UniTask<byte[]> CaptureScreenshotAsync()` / `void CaptureScreenshot(Action<byte[]>)` | Chụp màn hình **không kèm UI Bug Logger** (nút nổi, toast, form): tắt overlay đúng frame chụp rồi bật lại, trả JPG đã nén như ảnh form gửi (null khi lỗi). Công cụ tự gửi report (QA tự động, cheat) dùng hàm này thay vì `ScreenCapture`. Bản callback gọi qua reflection được. |
+| `void HideForCapture(float seconds)` | Ẩn UI Bug Logger cho công cụ chụp từ ngoài app (adb screencap, simctl): gọi, chờ 1–2 frame, chụp, gọi lại với `0`. Hết hạn tự hiện lại. |
 
 Form gồm: ảnh chụp (xem lớn, bật/tắt đính kèm), tiêu đề, mô tả (bắt buộc — gửi vào `actual`), phân loại, tỉ lệ
 tái hiện (`x/y`), màn hình / tính năng, tag, người được tag (lựa chọn + giới hạn lấy từ form của server, giới hạn
@@ -234,7 +236,8 @@ Không ghi gì dưới `Assets/`. Trong Editor, runtime lấy HEAD + branch hi�
 
 - **EditMode** `Ezg.BugLogger.Tests.Editor`: backoff + bỏ cuộc, phân loại response (403 tạm, 400/404/413
   vĩnh viễn, Retry-After), builder (đủ field schema, giới hạn), outbox, ring buffer, form (server → cache →
-  mặc định), baker (commit/branch), settings, mã hoá screenshot, prefab UI chỉ dùng asset của package + nối đủ field.
+  mặc định), baker (commit/branch), settings, mã hoá screenshot, prefab UI chỉ dùng asset của package + nối đủ field,
+  lượt tải lựa chọn form dùng chung cho nhiều chỗ chờ.
 - **PlayMode** `Ezg.BugLogger.Tests.Runtime`: uploader với transport giả (gửi, trùng, từ chối, backoff 5/10/20 s
   khi `timeScale = 0`, Retry-After, bỏ cuộc 50 lần / 24 h, giữ khi chưa cấu hình), form với host không tồn tại.
 

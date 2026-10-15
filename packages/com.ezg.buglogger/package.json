@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.buglogger",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "displayName": "EZG Bug Logger",
   "description": "Bug Logger dùng chung mọi project EZG: lõi gửi report (outbox trên disk trước, uploader single-flight lên BugHub Worker có backoff, tự gom context app/device/scene + 200 dòng log + commit/branch, form options có cache disk) kèm UI sẵn dùng (nút nổi kéo thả, form báo lỗi, toast, xem ảnh) với sprite + font nằm trong package nên giống hệt nhau ở mọi project. Có trong mọi bản build; game chỉ quyết định lúc nào hiện nút báo lỗi (BugLoggerUI.LauncherVisible).",
   "unity": "6000.0",

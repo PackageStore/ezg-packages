@@ -10,7 +10,7 @@ reflection, lấy log Unity kèm stack và gửi bug qua Bug Logger của game. 
 Template EZG đã có sẵn. Project cũ: Feature Hub (tab UPM) hoặc để `qadevice.py start` tự thêm vào `Packages/manifest.json`:
 
 ```json
-"com.ezg.qa-probe": "1.2.0"
+"com.ezg.qa-probe": "1.2.1"
 ```
 
 Không cần code hay asset nào trong `Assets/`. Build mới sẽ có probe.

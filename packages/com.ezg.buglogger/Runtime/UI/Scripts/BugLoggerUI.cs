@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -77,6 +79,40 @@ namespace Ezg.BugLogger.UI
             if (_overlay != null) _overlay.CloseForm();
         }
 
+        /// <summary>
+        ///     Chụp màn hình KHÔNG kèm UI của Bug Logger (nút nổi, toast, form): tắt overlay đúng frame chụp rồi bật lại,
+        ///     trả JPG đã nén giống ảnh form gửi đi. Công cụ tự gửi report (QA tự động, cheat) dùng hàm này thay vì
+        ///     <c>ScreenCapture</c> để ảnh trên BugHub không dính nút báo lỗi. Ảnh là frame kế tiếp sau lúc gọi.
+        /// </summary>
+        /// <returns>Byte JPG, hoặc null khi chụp/nén lỗi.</returns>
+        public static UniTask<byte[]> CaptureScreenshotAsync(CancellationToken cancellationToken = default)
+        {
+            return _overlay != null
+                ? _overlay.CaptureScreenshotAsync(cancellationToken)
+                : CaptureWithoutOverlayAsync(cancellationToken);
+        }
+
+        /// <summary>
+        ///     <see cref="CaptureScreenshotAsync" /> dạng callback — gọi qua reflection được, không cần reference UniTask.
+        ///     <paramref name="onCaptured" /> nhận null khi chụp lỗi.
+        /// </summary>
+        public static void CaptureScreenshot(Action<byte[]> onCaptured)
+        {
+            if (onCaptured == null) throw new ArgumentNullException(nameof(onCaptured));
+
+            CaptureAndNotifyAsync(onCaptured).Forget();
+        }
+
+        /// <summary>
+        ///     Ẩn toàn bộ UI của Bug Logger trong <paramref name="seconds" /> giây thực, cho công cụ chụp màn từ ngoài app
+        ///     (adb screencap, simctl io screenshot): gọi, chờ 1–2 frame, chụp, rồi gọi lại với 0. Hết hạn tự hiện lại
+        ///     (công cụ chết giữa chừng không để nút mất luôn); gọi lại để gia hạn, ≤ 0 để hiện ngay.
+        /// </summary>
+        public static void HideForCapture(float seconds)
+        {
+            if (_overlay != null) _overlay.HideForCapture(seconds);
+        }
+
         #endregion
 
         #region Internal
@@ -94,6 +130,29 @@ namespace Ezg.BugLogger.UI
         #endregion
 
         #region Private Methods
+
+        // Chưa dựng overlay ⇒ không có UI nào của package để ẩn, chụp luôn ở cuối frame kế.
+        private static async UniTask<byte[]> CaptureWithoutOverlayAsync(CancellationToken cancellationToken)
+        {
+            await UniTask.NextFrame(PlayerLoopTiming.Update, cancellationToken);
+            await UniTask.WaitForEndOfFrame(cancellationToken);
+            return BugLoggerScreenCapture.CaptureJpg();
+        }
+
+        private static async UniTaskVoid CaptureAndNotifyAsync(Action<byte[]> onCaptured)
+        {
+            byte[] jpg = null;
+            try
+            {
+                jpg = await CaptureScreenshotAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                // Overlay bị huỷ giữa chừng (thoát app / thoát Play) — báo null như chụp lỗi.
+            }
+
+            onCaptured(jpg);
+        }
 
         private static BugLoggerOverlay EnsureOverlay()
         {

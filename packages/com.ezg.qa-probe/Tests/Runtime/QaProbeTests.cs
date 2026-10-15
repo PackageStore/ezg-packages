@@ -283,6 +283,45 @@ namespace Ezg.QaProbe.Tests
             Assert.AreEqual(open, ProbeGate.IsOpen, ProbeGate.Reason);
         }
 
+        // ───────────────────────────── chụp màn: ẩn UI Bug Logger
+
+        [UnityTest]
+        public IEnumerator Shot_HidesBugLoggerAroundCaptureAndCaptureHiddenRoute()
+        {
+            var savedType = ProbeHandlers.BugLoggerUiType;
+            ProbeHandlers.BugLoggerUiType = typeof(BugLogger.FakeBugLoggerUI).FullName;
+            BugLogger.FakeBugLoggerUI.Calls.Clear();
+            try
+            {
+                EzgQaProbe.TestConfig = TemplateConfig();
+                Assert.IsTrue(EzgQaProbe.Activate(TOKEN, 7593, "test"));
+                yield return WaitGate(true);
+
+                yield return Http(EzgQaProbe.Port, "/shot?fmt=jpg&max=64", TOKEN);
+                Assert.AreEqual(200, _status, _body);
+                CollectionAssert.AreEqual(new[] { 2f, 0f }, BugLogger.FakeBugLoggerUI.Calls, "ẩn trước khi chụp, hiện lại sau");
+
+                BugLogger.FakeBugLoggerUI.Calls.Clear();
+                yield return Http(EzgQaProbe.Port, "/capturehidden?sec=99", TOKEN);
+                Assert.AreEqual(200, _status, _body);
+                StringAssert.Contains("\"supported\":true", _body);
+                yield return Http(EzgQaProbe.Port, "/capturehidden?sec=0", TOKEN);
+                Assert.AreEqual(200, _status, _body);
+                CollectionAssert.AreEqual(new[] { 10f, 0f }, BugLogger.FakeBugLoggerUI.Calls, "giới hạn 10 s, 0 = hiện lại");
+
+                ProbeHandlers.BugLoggerUiType = "Ezg.QaProbe.Tests.Missing.BugLoggerUI";
+                yield return Http(EzgQaProbe.Port, "/capturehidden?sec=2", TOKEN);
+                Assert.AreEqual(200, _status, _body);
+                StringAssert.Contains("\"supported\":false", _body);
+                yield return Http(EzgQaProbe.Port, "/shot?fmt=jpg&max=64", TOKEN);
+                Assert.AreEqual(200, _status, "game không có Bug Logger vẫn chụp được");
+            }
+            finally
+            {
+                ProbeHandlers.BugLoggerUiType = savedType;
+            }
+        }
+
         private IEnumerator Http(int port, string path, string token)
         {
             var task = Task.Run(() => Send(port, path, token));

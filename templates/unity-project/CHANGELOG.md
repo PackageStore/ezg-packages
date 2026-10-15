@@ -6,6 +6,16 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-15
 
+**Fixed** — Bug Logger: nút nổi bật lại khi đang tải lựa chọn form làm hỏng luồng; ảnh gửi BugHub dính nút báo lỗi
+- `com.ezg.buglogger` 0.2.4: `BugLoggerUI.LauncherVisible = true` lần hai trong lúc request lựa chọn form (≤ 15 s) chưa
+  xong ném `InvalidOperationException: Already continuation registered` ra khỏi setter → mất nút nổi, event của game
+  (đổi cheat) bị cắt ngang, form mở lúc đó kẹt khung chờ không có phân loại/tag. Lượt tải giờ dùng chung, nhiều chỗ chờ
+  được. Thêm `BugLoggerUI.CaptureScreenshotAsync` / `CaptureScreenshot(Action<byte[]>)` (chụp không kèm UI Bug Logger)
+  và `HideForCapture(seconds)` (cho tool chụp từ ngoài app).
+- `com.ezg.qa-probe` 1.2.1: `/shot` và ảnh tự chụp của `/bug` ẩn UI Bug Logger đúng frame chụp; endpoint mới
+  `/capturehidden?sec=N`. `/auto-test-device`: `qadevice.py` ẩn nút quanh mỗi lần adb/simctl chụp, cần probe 1.2.1.
+- `unity-template.json`: `com.ezg.buglogger` 0.2.4, `com.ezg.qa-probe` 1.2.1.
+
 **Changed** — `/auto-test-device` 1.2: probe là package `com.ezg.qa-probe`, không còn chép code vào `Assets/`
 - EZG QA Probe chuyển sang `packages/com.ezg.qa-probe` (1.2.0; lịch sử file giữ qua `git mv` từ
   `DefaultSetup/.claude/skills/auto-test-device/probe/`). CI publish tự thêm package vào `unity-template.json` nên

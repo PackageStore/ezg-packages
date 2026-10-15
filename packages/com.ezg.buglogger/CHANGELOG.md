@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.4] - 2026-10-15
+
+### Fixed
+- Bật nút nổi lần nữa (`LauncherVisible = true`) khi lượt tải lựa chọn form (timeout 15 s) chưa xong ném
+  `InvalidOperationException: Already continuation registered` ra khỏi setter: `Preserve()` của UniTask chỉ cho một
+  chỗ chờ khi task còn chạy. Hệ quả cũ: bật–tắt–bật nhanh làm mất nút nổi (exception văng trước `Show()`); event của
+  game gọi setter (đổi cheat) bị cắt ngang, listener sau và code sau `EmitEvent` không chạy; mở form khi prefetch còn
+  chạy thì form kẹt khung chờ, không có phân loại / tag / người. Giờ lượt tải dùng chung một
+  `UniTaskCompletionSource` (nhiều chỗ chờ được), prefetch không bắn thêm request khi đang tải.
+
+### Added
+- `BugLoggerUI.CaptureScreenshotAsync()` / `CaptureScreenshot(Action<byte[]>)`: chụp màn hình không kèm UI của Bug
+  Logger (nút nổi, toast, form), trả JPG như ảnh form gửi. Công cụ tự gửi report (QA tự động) dùng thay
+  `ScreenCapture` để ảnh trên BugHub không dính nút báo lỗi.
+- `BugLoggerUI.HideForCapture(float seconds)`: ẩn UI Bug Logger cho công cụ chụp từ ngoài app (adb / simctl), tự hiện
+  lại khi hết hạn.
+
 ## [0.2.3] - 2026-10-08
 
 ### Fixed

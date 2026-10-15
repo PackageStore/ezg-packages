@@ -55,7 +55,7 @@ namespace Ezg.QaProbe
         #region Fields
 
         /// <summary>Phiên bản probe — qadevice.py so để biết bản trong project có cũ không.</summary>
-        public const string VERSION = "1.2.0";
+        public const string VERSION = "1.2.1";
 
         public const int DEFAULT_PORT = 7531;
         public const string LOG_TAG = "[EzgQaProbe]";
@@ -1019,6 +1019,11 @@ namespace Ezg.QaProbe
         private const int MAX_ELEMENTS_ALL = 900;
         private const int MAX_WORLD = 60;
         private const int MAX_COLLIDERS = 6000;
+        private const float BUGLOGGER_HIDE_SHOT_SECONDS = 2f;
+        private const float BUGLOGGER_HIDE_MAX_SECONDS = 10f;
+
+        /// <summary>Type UI của Bug Logger (com.ezg.buglogger ≥ 0.2.4 có <c>HideForCapture</c>). Test đổi sang type giả.</summary>
+        internal static string BugLoggerUiType = "Ezg.BugLogger.UI.BugLoggerUI";
         private static readonly List<RaycastResult> _hits = new List<RaycastResult>();
         private static readonly Dictionary<Type, bool> _screenTypes = new Dictionary<Type, bool>();
         private static readonly Dictionary<Type, bool> _clickTypes = new Dictionary<Type, bool>();
@@ -1031,6 +1036,7 @@ namespace Ezg.QaProbe
                 case "/ui": return Ui(r.GetInt("all", 0) == 1);
                 case "/find": return Find(r.Get("q") ?? "");
                 case "/shot": return await Shot(r.Get("fmt") ?? "jpg", r.GetInt("q", 80), r.GetInt("max", 0));
+                case "/capturehidden": return await CaptureHidden(r.GetFloat("sec", 0f));
                 case "/tap": return await Tap(r.GetFloat("x"), r.GetFloat("y"), r.GetInt("hold", 0));
                 case "/drag": return await Drag(r.GetFloat("x1"), r.GetFloat("y1"), r.GetFloat("x2"), r.GetFloat("y2"), r.GetInt("ms", 600), r.GetInt("hold", 0));
                 case "/text": return SetText(r.Get("text") ?? "", r.Get("path"), r.GetInt("submit", 0) == 1);
@@ -1690,8 +1696,7 @@ namespace Ezg.QaProbe
 
         private static async Awaitable<ProbeResponse> Shot(string fmt, int quality, int maxEdge)
         {
-            await Awaitable.EndOfFrameAsync();
-            var tex = ScreenCapture.CaptureScreenshotAsTexture();
+            var tex = await CaptureWithoutBugLogger();
             try
             {
                 var src = tex;
@@ -1712,6 +1717,64 @@ namespace Ezg.QaProbe
             finally
             {
                 Object.Destroy(tex);
+            }
+        }
+
+        /// <summary>
+        ///     Chụp ở cuối frame, tạm ẩn UI của Bug Logger (nút nổi báo lỗi, toast) để ảnh xem / ảnh gửi BugHub không dính
+        ///     nút. Game không có Bug Logger (hoặc bản cũ chưa có <c>HideForCapture</c>) thì chụp như thường.
+        /// </summary>
+        private static async Awaitable<Texture2D> CaptureWithoutBugLogger()
+        {
+            var hidden = SetBugLoggerHidden(BUGLOGGER_HIDE_SHOT_SECONDS);
+            try
+            {
+                // Canvas tắt có hiệu lực từ frame kế — chụp frame đó.
+                if (hidden) await Awaitable.NextFrameAsync();
+                await Awaitable.EndOfFrameAsync();
+                return ScreenCapture.CaptureScreenshotAsTexture();
+            }
+            finally
+            {
+                if (hidden) SetBugLoggerHidden(0f);
+            }
+        }
+
+        /// <summary>
+        ///     /capturehidden?sec=N — ẩn UI Bug Logger N giây cho tool chụp từ ngoài app (adb screencap, simctl); 0 = hiện
+        ///     lại. Trả về sau 2 frame để frame đang hiển thị đã không còn nút. Bị chặn ở mức tối đa để tool chết giữa
+        ///     chừng không làm mất nút báo lỗi của QA.
+        /// </summary>
+        private static async Awaitable<ProbeResponse> CaptureHidden(float seconds)
+        {
+            seconds = Mathf.Clamp(seconds, 0f, BUGLOGGER_HIDE_MAX_SECONDS);
+            var supported = SetBugLoggerHidden(seconds);
+            if (supported && seconds > 0f)
+            {
+                await Awaitable.NextFrameAsync();
+                await Awaitable.NextFrameAsync();
+            }
+
+            return ProbeResponse.Json(200, new ProbeJson().BeginObject().Prop("supported", supported).Prop("sec", seconds)
+                .EndObject().ToString());
+        }
+
+        /// <summary><c>BugLoggerUI.HideForCapture(seconds)</c> qua reflection (probe không reference Bug Logger).</summary>
+        internal static bool SetBugLoggerHidden(float seconds)
+        {
+            var hide = ProbeReflect.FindType(BugLoggerUiType)?.GetMethod("HideForCapture",
+                BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(float) }, null);
+            if (hide == null) return false;
+
+            try
+            {
+                hide.Invoke(null, new object[] { seconds });
+                return true;
+            }
+            catch (TargetInvocationException e)
+            {
+                Debug.LogWarning("[QaProbe] BugLoggerUI.HideForCapture lỗi: " + (e.InnerException ?? e).Message);
+                return false;
             }
         }
 
@@ -2050,8 +2113,7 @@ namespace Ezg.QaProbe
             }
             else
             {
-                await Awaitable.EndOfFrameAsync();
-                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                var tex = await CaptureWithoutBugLogger();
                 jpg = api.GetMethod("EncodeScreenshot")?.Invoke(null, new object[] { tex }) as byte[];
                 Object.Destroy(tex);
             }

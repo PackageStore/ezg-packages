@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -37,6 +38,12 @@ namespace Ezg.BugLogger.UI
         private bool _isPaused;
         private bool _ownsNotify;
         private float _savedTimeScale = 1f;
+
+        // Số lượt chụp đang chờ cuối frame — còn lượt nào thì canvas còn tắt.
+        private int _captureHolds;
+
+        // HideForCapture: ẩn overlay tới mốc thời gian thực này (0 = không ẩn).
+        private float _hiddenUntil;
 
         #endregion
 
@@ -92,6 +99,11 @@ namespace Ezg.BugLogger.UI
         private void Update()
         {
             if (_appliedScreen.x != Screen.width || _appliedScreen.y != Screen.height) ApplyScaler();
+            if (_hiddenUntil > 0f && Time.realtimeSinceStartup >= _hiddenUntil)
+            {
+                _hiddenUntil = 0f;
+                ApplyCanvasVisibility();
+            }
 
             HandleBackKey();
         }
@@ -134,6 +146,22 @@ namespace Ezg.BugLogger.UI
             _toast.Show(message, kind);
         }
 
+        /// <summary>Chụp màn hình không có overlay (nút nổi, toast, form) — xem <see cref="BugLoggerUI.CaptureScreenshotAsync" />.</summary>
+        public async UniTask<byte[]> CaptureScreenshotAsync(CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.CanBeCanceled) return await CaptureJpgAsync(true, destroyCancellationToken);
+
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken, cancellationToken);
+            return await CaptureJpgAsync(true, linked.Token);
+        }
+
+        /// <summary>Ẩn overlay trong <paramref name="seconds" /> giây thực (≤ 0: hiện lại ngay) — xem <see cref="BugLoggerUI.HideForCapture" />.</summary>
+        public void HideForCapture(float seconds)
+        {
+            _hiddenUntil = seconds > 0f ? Time.realtimeSinceStartup + seconds : 0f;
+            ApplyCanvasVisibility();
+        }
+
         #endregion
 
         #region Private Methods
@@ -147,38 +175,50 @@ namespace Ezg.BugLogger.UI
             _isCapturing = true;
             var featureKey = ResolveFeatureKey();
             _launcher.Hide(false);
-            _canvas.enabled = false;
 
+            byte[] jpg;
             try
             {
-                await UniTask.WaitForEndOfFrame(this, destroyCancellationToken);
+                jpg = await CaptureJpgAsync(false, destroyCancellationToken);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
 
-            byte[] jpg = null;
-            var shot = BugLoggerScreenCapture.Capture();
-            if (shot != null)
-                try
-                {
-                    jpg = BugLoggerApi.EncodeScreenshot(shot);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"[BugLogger] Encode screenshot failed. {ex.Message}");
-                }
-                finally
-                {
-                    Destroy(shot);
-                }
-
-            _canvas.enabled = true;
             PauseGame();
             _form.Open(jpg, BugLoggerScreenCapture.DecodePreview(jpg), featureKey, OnFormClosed);
             _isCapturing = false;
             BugLoggerUI.RaiseFormOpened();
+        }
+
+        /// <summary>
+        ///     Tắt canvas overlay tới hết frame chụp, chụp ở cuối frame, nén JPG, rồi bật lại (trừ khi còn lượt chụp
+        ///     khác / đang <see cref="HideForCapture" />).
+        /// </summary>
+        /// <param name="skipFrame">
+        ///     Chờ qua một frame trước khi chụp: caller ngoài có thể gọi lúc canvas của frame hiện tại đã vẽ xong.
+        /// </param>
+        private async UniTask<byte[]> CaptureJpgAsync(bool skipFrame, CancellationToken cancellationToken)
+        {
+            _captureHolds++;
+            ApplyCanvasVisibility();
+            try
+            {
+                if (skipFrame) await UniTask.NextFrame(PlayerLoopTiming.Update, cancellationToken);
+                await UniTask.WaitForEndOfFrame(this, cancellationToken);
+                return BugLoggerScreenCapture.CaptureJpg();
+            }
+            finally
+            {
+                _captureHolds--;
+                if (this != null) ApplyCanvasVisibility();
+            }
+        }
+
+        private void ApplyCanvasVisibility()
+        {
+            _canvas.enabled = _captureHolds == 0 && _hiddenUntil <= 0f;
         }
 
         private static string ResolveFeatureKey()
