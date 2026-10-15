@@ -890,8 +890,8 @@
       "source": "defaultsetup",
       "fileName": "discord-notification.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip",
-      "sha256": "f83fdc9bed71feea267b61998bb243f9d198189cf019c412a1678adf7765abf2",
-      "size": 3958
+      "sha256": "aba39601ddb234d745fae775127ffb8d17915727ed60aed1abc080806f7798d8",
+      "size": 3467
     },
     {
       "id": "Docs/GETTING-STARTED",
@@ -908,8 +908,8 @@
       "source": "defaultsetup",
       "fileName": "GETTING-STARTED.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
-      "sha256": "e22e93addfb9dda10a29bb94c5b1151182a3b7f0a995b6f7fd521f6310d24975",
-      "size": 5656
+      "sha256": "05f4615d394f44eeb736b64ec55fbac05ccf0826e73fc64d4a9e694e3294c573",
+      "size": 5727
     },
     {
       "id": "Docs/new-package-guide",
@@ -1466,8 +1466,8 @@
       "source": "defaultsetup",
       "fileName": "discord-send.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.ps1.zip",
-      "sha256": "5d50418e73fe5a494bda3b0066ea78f2a269100922e90702187cf22eeb5b3954",
-      "size": 1404
+      "sha256": "8971520bcd1b995ae06381e7ddb26366f6c42b178d9b56b9bc9a1cbb294d18da",
+      "size": 3373
     },
     {
       "id": "Scripts/discord-send.sh",
@@ -1484,8 +1484,8 @@
       "source": "defaultsetup",
       "fileName": "discord-send.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.sh.zip",
-      "sha256": "cde347b3234f4aed1003a61ee3a1fb75405a2bd23bd232b6e9dc421c68c30634",
-      "size": 1239
+      "sha256": "8b55c872faa14e266b3af02723c70a22f5ec241e79d8aa77d88a208647d7e174",
+      "size": 3315
     },
     {
       "id": "Scripts/git_prepare_scoped.ps1",
@@ -1610,8 +1610,8 @@
       "source": "defaultsetup",
       "fileName": "notify.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.ps1.zip",
-      "sha256": "de4e51b997468db397c5307534a1a58f8d8918b4a3002e4c3393b81d044d9d31",
-      "size": 5037
+      "sha256": "07170ffc025b4ec51c3a9b5f278b4887c5b12755414c603620538b5e929955f9",
+      "size": 7877
     },
     {
       "id": "Scripts/notify.sh",
@@ -1628,8 +1628,8 @@
       "source": "defaultsetup",
       "fileName": "notify.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.sh.zip",
-      "sha256": "2d0580fc24685cd0fe3b20c16b7766186038512fa05e9a4484022fa86e7d9139",
-      "size": 3789
+      "sha256": "f03a3860aef4fabaff2683af42bf99c5ae09de883e7fdd0f63055424e78a97c3",
+      "size": 5093
     },
     {
       "id": "Scripts/project_profile.py",
@@ -1646,8 +1646,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "ae6f03d0bae71078e1d9dd82b3942b72efc3d375243d8204fe68c3b8fe82021a",
-      "size": 5108
+      "sha256": "34b9116a3385e77e94e915d7ebff9a085342686047f9a3d36dba31c6ad53860e",
+      "size": 5407
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1718,8 +1718,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
-      "sha256": "ebcd90e2f338f73025c77751839855bc66ffbb95672dfc19c80979055d7b236f",
-      "size": 39141
+      "sha256": "8075943f40cf6bdd37d899255eb35028eacceee4f63628d3bd49225528fe79bf",
+      "size": 40015
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1808,8 +1808,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
-      "sha256": "953e1c3eff08cd755477902c374fb201f82e514b3e9216bcb996958da077dcc8",
-      "size": 30778
+      "sha256": "e2494491429859620bb36a35c0216f31c6a35962b97f7da732f50ce76d2d9f4f",
+      "size": 31674
     },
     {
       "id": "Scripts/run-backlog-refs.py",
@@ -1952,6 +1952,7 @@
         ".claude/scripts/tests/test_backlog_preflight.py",
         ".claude/scripts/tests/test_bughub_wait.py",
         ".claude/scripts/tests/test_bughub_watch.py",
+        ".claude/scripts/tests/test_discord_notify.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
         ".claude/scripts/tests/test_run_backlog_refs.py",
         ".claude/scripts/tests/test_ui_kit_sync.py",
@@ -1959,13 +1960,13 @@
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 13,
+      "fileCount": 14,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "cd3296dd9a74940fcbc1a353020b5cd9135c74419f9f5dde100e3021664b6072",
-      "size": 66735
+      "sha256": "9e2d2bbfb23caa10be7afaf662bcc8a5d62ce5330b2ab0d38ba4b27f314d5eb9",
+      "size": 77880
     },
     {
       "id": "Scripts/ui_spec_common.py",
