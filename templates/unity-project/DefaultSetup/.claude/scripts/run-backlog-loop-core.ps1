@@ -150,6 +150,7 @@ $GitCfgBaseBranch   = (Get-ProfileValue "gitConfigPrefix"  "agent") + ".agentBas
 $ProfileDefaultBase = Get-ProfileValue "defaultBaseBranch" "main"
 $ProjectName        = Get-ProfileValue "projectName"       "UnityProject"
 
+
 # --- Terminal window title -------------------------------------------------
 # A long loop stacks up one console window per task, so the title is the only
 # thing that tells them apart: "<project> - <task>". Twin of
@@ -1131,7 +1132,7 @@ function Get-ToolCategory {
 }
 
 # Approximate per-tool time + token breakdown from a claude stream-json iteration log, for
-# the Discord "Time & Token Breakdown" embed field. Two approximations, both unavoidable
+# the Discord "Per tool" line (notify.ps1 folds this table onto one line). Two approximations, both unavoidable
 # given what stream-json actually timestamps:
 #   - Time: stream-json only puts a "timestamp" on tool_result ("user" role) lines, not on
 #     the tool_use call itself. The gap between consecutive tool_result timestamps is
@@ -1306,7 +1307,10 @@ function Get-LoopCumulative {
     return $cumulative
 }
 
-# Fire a Discord notification via notify.ps1 (gracefully no-ops if not configured).
+# Fire a Discord notification via notify.ps1 (gracefully no-ops if not configured:
+# it needs a bot token plus at least one DM user or channel ID in .env). notify.ps1
+# resolves the project name for the title itself; -Project is deliberately not passed,
+# since a notify.ps1 that predates it would reject the call (advanced-script binding).
 function Send-Notify {
     param([string]$EventType, [string]$Task = "N/A", [string]$Url = "", [string]$Details = "", [string]$Tokens = "", [string]$Progress = "", [string]$Duration = "", [string]$Breakdown = "", [string]$PerModel = "", [string]$Cumulative = "")
     $notifyScript = Join-Path $PSScriptRoot "notify.ps1"
@@ -1316,6 +1320,50 @@ function Send-Notify {
     } catch {
         Write-Log "Notify failed: $($_.Exception.Message)" "Yellow"
     }
+}
+
+# One accurate line for TASK_COMPLETED: the commit this run recorded with
+# `backlog-ops.py shipped` (archived as runs/archive/<NNN>-<stamp>-shipped.json) and
+# where it went. The old fixed sentence said "agent/dev" whatever the mode, and that
+# progress line only repeated the title. A task closed as already satisfied
+# (`--push skipped --note already-satisfied`) made no commit: its record holds the HEAD
+# it was checked at, so it is not reported as one. Twin of completed_details in
+# run-backlog-loop.sh.
+function Get-CompletedDetails {
+    param([string]$TaskBase, [datetime]$Since)
+    $commit = ""; $push = ""; $note = ""
+    $nnn = if ($TaskBase -match '^(\d+)-') { $matches[1] } else { "" }
+    $archiveDir = Join-Path (Join-Path $BacklogRoot "runs") "archive"
+    if ($nnn -and (Test-Path -LiteralPath $archiveDir)) {
+        $rec = Get-ChildItem -LiteralPath $archiveDir -Filter "$nnn-*-shipped.json" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $Since } | Sort-Object Name | Select-Object -Last 1
+        if ($rec) {
+            try {
+                $json = Get-Content -LiteralPath $rec.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+                $commit = [string]$json.shipped.commit
+                $push = [string]$json.shipped.push
+                $note = [string]$json.shipped.note
+            } catch { }
+        }
+    }
+    $bt = [string][char]96   # backtick: Discord inline code
+    $next = "next: manual verify steps (DONE summary)"
+    if ($Mode -eq "Worktree") { $next = "next: manual verify, then merge into $bt$LoopBaseBranch$bt" }
+    if ($note.Trim() -eq "already-satisfied") {
+        $what = "Already satisfied, no new commit"
+        if ($commit) { $what += " (checked at $bt$($commit.Substring(0, [Math]::Min(7, $commit.Length)))$bt on $bt$AgentBranch$bt)" }
+        return "$what - $next."
+    }
+    $what = "Committed to $bt$AgentBranch$bt"
+    if ($commit) { $what = "Committed $bt$($commit.Substring(0, [Math]::Min(7, $commit.Length)))$bt to $bt$AgentBranch$bt" }
+    switch ($push) {
+        "pushed"    { $pushText = "pushed" }
+        "no-remote" { $pushText = "not pushed (no remote)" }
+        "failed"    { $pushText = "PUSH FAILED - push it by hand" }
+        "skipped"   { $pushText = "not pushed (skipped)" }
+        default     { $pushText = "pushed if the repo has a remote" }
+    }
+    return "$what, $pushText - $next."
 }
 
 # Count backlog/done/*.md once - shared by the per-iteration progress label
@@ -2798,7 +2846,7 @@ for ($iter = 1; $iter -le $MaxIterations; $iter++) {
     $statusAfter = Get-BacklogStatus
     $doneCount = Get-DoneCount
     $totalCount = $statusAfter.TodoCount + $statusAfter.InProgressCount + $doneCount
-    $completedDetails = "Progress: Task $doneCount of $totalCount completed successfully.`nCommitted to $AgentBranch (pushed if the repo has a remote). Ready for manual verify + merge into the base branch."
+    $completedDetails = Get-CompletedDetails -TaskBase $taskBase -Since $iterStart
     if ($consumedRecovery) { $completedDetails += "`nFinished by self-heal recovery iteration $($consumedRecovery.Attempt)/$MaxRecoveries (after $($consumedRecovery.Event))." }
     $payload = Get-IterationTokenPayload -LogFile $iterLog
     Send-Notify -EventType "TASK_COMPLETED" -Task $notifyInfo.Title -Url $notifyInfo.Url -Details $completedDetails -Tokens $payload.Tokens -Progress "$doneCount/$totalCount" -Duration $durationText -Breakdown $payload.Breakdown -PerModel $payload.PerModel -Cumulative $payload.Cumulative

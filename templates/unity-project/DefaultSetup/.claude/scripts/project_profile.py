@@ -38,6 +38,7 @@ USAGE
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -54,6 +55,10 @@ DEFAULTS = {
     # project-profile.json at generation time. These only surface if that file
     # is missing, where a generic label beats another project's name.
     "projectName": "UnityProject",
+    # Human-readable name for Discord notification titles ("My Game"). Empty =
+    # projectName split at its CamelCase humps, so a generated project gets a
+    # readable name without touching its profile.
+    "displayName": "",
     "solutionFile": "UnityProject.sln",
     # git config namespace for loop bookkeeping (<prefix>.agentBaseBranch)
     "gitConfigPrefix": "agent",
@@ -169,6 +174,17 @@ class Profile:
     @property
     def project_name(self) -> str:
         return self.get("projectName")
+
+    @property
+    def display_name(self) -> str:
+        explicit = str(self.get("displayName") or "").strip()
+        if explicit:
+            return explicit
+        # "MyGame" -> "My Game", "ABCTemplate" -> "ABC Template".
+        # Twin of Get-ProjectDisplayName (run-backlog-loop-core.ps1, notify.ps1).
+        name = re.sub(r"[_-]+", " ", str(self.project_name or ""))
+        name = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name)
+        return " ".join(name.split())
 
     @property
     def solution_file(self) -> str:
@@ -310,7 +326,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # `project_profile.py sourceRoot` — for shell callers.
         # Key merge theo sub-key thì in bản đã merge, để thiếu sub-key vẫn ra default.
-        value = p.bug_hub if sys.argv[1] == "bugHub" else p.get(sys.argv[1])
+        if sys.argv[1] == "bugHub":
+            value = p.bug_hub
+        elif sys.argv[1] == "displayName":
+            value = p.display_name
+        else:
+            value = p.get(sys.argv[1])
         if isinstance(value, (dict, list)):
             print(json.dumps(value))
         elif value is None:
@@ -321,6 +342,7 @@ if __name__ == "__main__":
         print(json.dumps({
             "source": str(p.source) if p.source else "(defaults — no profile file)",
             "projectName": p.project_name,
+            "displayName": p.display_name,
             "solutionFile": p.solution_file,
             "gitConfigPrefix": p.git_config_prefix,
             "defaultBaseBranch": p.default_base_branch,

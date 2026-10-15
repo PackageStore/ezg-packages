@@ -6,6 +6,24 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-15
 
+**Changed** — Thông báo Discord của backlog loop: gửi vào kênh, embed gọn
+- `discord-send.sh` / `.ps1`: thêm `DISCORD_CHANNELS` (ID kênh) bên cạnh `DISCORD_DEVELOPERS` (DM). Mỗi danh sách
+  tuỳ chọn; không có ID hợp lệ nào thì không gửi. ID chỉ nhận chữ số, trùng thì gửi một lần, placeholder bị bỏ qua.
+  `.env` đọc an toàn (chỉ key `DISCORD_*`, chịu được CRLF/BOM/quote/`export`/comment cuối dòng), body gửi qua stdin,
+  timeout 30 s, kiểm HTTP status, không ping ai (`allowed_mentions` rỗng). Không có jq thì lấy đúng id kênh DM
+  (bản cũ lấy nhầm id người nhận).
+- `notify.sh` / `.ps1`: embed một khối mô tả, không còn field. Tiêu đề `<project>: <sự kiện> (Task i/n, thời gian)`;
+  task hiện tên file thay cho link `file://` hỏng; escape markdown trong tên task; `NOTIFY_DRY_RUN=1` để xem trước.
+  `notify.ps1` dùng chung khối sender với `discord-send.ps1` (test chặn lệch).
+- `project_profile.py`: key `displayName` cho tên trên tiêu đề (rỗng = `projectName` tách CamelCase).
+- `run-backlog-loop.sh` / `-core.ps1`: `TASK_COMPLETED` ghi commit + trạng thái push lấy từ `backlog-ops.py shipped`
+  thay cho câu cố định nhắc `agent/dev`; task đóng vì "đã thoả sẵn" báo là không có commit mới. Loop không truyền
+  tham số mới nào cho notify, nên chạy được với `notify` bản cũ (cập nhật lẻ từng file qua Feature Hub vẫn an toàn).
+- `notify.ps1`: timestamp không còn phụ thuộc định dạng giờ của Windows (vd fi-FI ra `11.01.49` bị Discord từ chối);
+  bot token không còn bị ghi vào env của process loop (trước đây lọt sang mọi process agent); bật TLS 1.2 cho
+  Windows PowerShell 5.1.
+- `docs/discord-notification.md` viết lại theo luồng mới; test mới `scripts/tests/test_discord_notify.py`.
+
 **Added** — Bug Logger: QA chỉnh sửa ảnh chụp trước khi gửi (cắt, khoanh, mũi tên, bút, đánh số, làm nổi)
 - `com.ezg.buglogger` 0.3.0: chạm thumbnail trong form báo lỗi mở màn Chỉnh sửa ảnh — cắt, khung / tròn, mũi tên, bút
   vẽ tay, huy hiệu đánh số 1–99, làm nổi vùng (phần còn lại tối đi), 5 màu, hoàn tác / làm lại / xoá hết. Ảnh gửi

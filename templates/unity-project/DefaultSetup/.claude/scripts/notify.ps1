@@ -1,17 +1,24 @@
 ﻿# Notification classification and Discord routing (PowerShell twin of notify.sh).
 #
-# Self-contained: builds the Discord Embed AND sends the developer DM inline.
-# This repo ships only discord-send.sh (bash), so this script does not depend on
-# a discord-send.ps1 — it POSTs to Discord directly via Invoke-RestMethod. Gracefully
-# degrades (no-op, exit 0) when Discord is not configured, so the loop never fails
-# just because notifications are off.
+# Self-contained: builds the Discord Embed AND sends it inline (the sender block below
+# is byte-identical to discord-send.ps1), so a project that updates only this file
+# still sends correctly. Posts to developers' DMs, to server channels, or both;
+# gracefully degrades (no-op, exit 0) when Discord is not configured, so the loop
+# never fails just because notifications are off.
 #
 # Configure by adding to <repo>/.env (gitignored):
 #   DISCORD_BOT_TOKEN=...
-#   DISCORD_DEVELOPERS=userid1,userid2
+#   DISCORD_DEVELOPERS=userid1,userid2      # DM each user (optional)
+#   DISCORD_CHANNELS=channelid1,channelid2  # post in each channel (optional)
 #
 # Usage:
-#   powershell -File notify.ps1 -Event TASK_COMPLETED -Task "..." [-Url "..."] [-Details "..."] [-Tokens "..."] [-Progress "5/12"] [-Duration "00:04:12"] [-Breakdown "..."] [-PerModel "..."] [-Cumulative "..."]
+#   powershell -File notify.ps1 -Event TASK_COMPLETED -Task "..." [-Url "..."] [-Details "..."] [-Tokens "..."] [-Progress "5/12"] [-Duration "00:04:12"] [-Breakdown "..."] [-PerModel "..."] [-Cumulative "..."] [-Project "My Game"]
+#   NOTIFY_DRY_RUN=1 prints the payload instead of sending it.
+#
+# Embed layout (kept short on purpose - it is read on a phone): the title carries
+# project + event + position + duration, and EVERYTHING else is one description with
+# one line per topic. No embed fields: each field costs a header line, inline fields
+# wrap in narrow columns, and the old fixed-width tables cost a line per row.
 
 param(
     [Parameter(Mandatory = $true)]
@@ -26,16 +33,19 @@ param(
     [string]$Progress = "",
     # Wall-clock time this task's iteration took, e.g. "00:04:12".
     [string]$Duration = "",
-    # Per-tool time+token table (from Get-TimingTokenBreakdown), pre-formatted as fixed-width
-    # text rows. Empty when the caller has nothing to analyze (e.g. BACKLOG_EMPTY, where no
-    # iteration log exists) - the field below is only added when this is non-empty.
+    # Per-tool time+token table (from Get-TimingTokenBreakdown): a header row, then one
+    # fixed-width "<tool>  <time>  <tokens>" row per tool. Empty when the caller has
+    # nothing to analyze (e.g. BACKLOG_EMPTY, where no iteration log exists).
     [string]$Breakdown = "",
     # Per-model token + cost rows for this iteration (subagent usage included), one model
     # per line. Empty when the log carries no modelUsage block.
     [string]$PerModel = "",
     # Running total across every iteration of the current loop run
     # ("3 iters | 41.2M tok | ~$28.90"). Empty on the first notification.
-    [string]$Cumulative = ""
+    [string]$Cumulative = "",
+    # Human-readable project name prefixed to the title ("My Game"). Empty =
+    # resolved from .claude/project-profile.json (see Get-ProjectDisplayName).
+    [string]$Project = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,8 +64,10 @@ switch ($Event) {
         $color = $COLOR_SUCCESS
     }
     "TASK_COMPLETED" {
+        # No description: the title already says it, and the details line says where
+        # the commit went (the old fixed sentence named agent/dev even in Current mode).
         $title = "✅ Task Completed"
-        $description = "A backlog task passed all quality gates and was committed to agent/dev."
+        $description = ""
         $color = $COLOR_SUCCESS
     }
     "COMPILE_BLOCKED" {
@@ -160,6 +172,61 @@ switch ($Event) {
     }
 }
 
+# "My Game" for the title prefix. Twin of Profile.display_name in
+# project_profile.py, but read straight from the JSON: on Windows `python3` is often
+# only the Microsoft Store stub, and the project name must not depend on it.
+function Get-ProjectDisplayName {
+    $name = ""
+    $profilePath = Join-Path (Split-Path -Parent $ScriptDir) "project-profile.json"
+    if (Test-Path -LiteralPath $profilePath) {
+        try {
+            $json = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($json.displayName -and ([string]$json.displayName).Trim()) { return ([string]$json.displayName).Trim() }
+            $name = [string]$json.projectName
+        } catch { }
+    }
+    if (-not $name) { $name = Split-Path -Leaf $ProjectRoot }
+    $name = $name -replace '[_-]+', ' '
+    $name = $name -creplace '(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', ' '
+    return ((($name -split '\s+') | Where-Object { $_ }) -join ' ')
+}
+
+# Backslash-escape Discord markdown so a task title like "fix *_x_*" shows literally.
+function ConvertTo-DiscordText {
+    param([string]$Text)
+    return [regex]::Replace($Text, '([\\*_~`|])', '\$1')
+}
+
+# "a | b`nc | d" -> "a<inner>b · c<inner>d": the caller's multi-line, pipe-separated
+# summaries folded onto one wrapping line.
+function Join-SummaryLines {
+    param([string]$Text, [string]$Inner = " · ")
+    $parts = @()
+    foreach ($line in ($Text -split "`r?`n")) {
+        $line = $line.Trim()
+        if ($line) { $parts += ($line -replace ' \| ', $Inner) }
+    }
+    return ($parts -join " · ")
+}
+
+# Fixed-width breakdown table -> "exec 12.3m/1.2M · Read 3.1m/400K · ...". Rows are
+# "<name>  <time>  <tokens>" with 2+ spaces between columns (the name itself may hold
+# one space: "+3 more"); the first row is the header.
+function Format-Breakdown {
+    param([string]$Text)
+    $parts = @()
+    foreach ($row in @($Text -split "`r?`n" | Select-Object -Skip 1)) {
+        $m = [regex]::Match($row, '^(.*\S) {2,}(\S+) {2,}(\S+) *$')
+        if ($m.Success) {
+            $parts += ("{0} {1}/{2}" -f (ConvertTo-DiscordText $m.Groups[1].Value.Trim()), $m.Groups[2].Value, $m.Groups[3].Value)
+        }
+    }
+    return ($parts -join " · ")
+}
+
+if (-not $Project) { $Project = Get-ProjectDisplayName }
+if ($Project) { $title = "${Project}: $title" }
+
 # Fold "which task in the backlog" + "how long it took" into the title so
 # they're visible without opening the embed body.
 $titleSuffixParts = @()
@@ -168,136 +235,222 @@ if ($Duration) { $titleSuffixParts += $Duration }
 if ($titleSuffixParts.Count -gt 0) {
     $title = "$title (" + ($titleSuffixParts -join ", ") + ")"
 }
+if ($title.Length -gt 256) { $title = $title.Substring(0, 253) + "..." }
 
-$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-
-# Build the Task field value (markdown link when a URL is present)
-if ($Url) {
-    $taskFieldVal = "[$Task]($Url)"
-} else {
-    $taskFieldVal = $Task
-}
-if (-not $taskFieldVal) { $taskFieldVal = "N/A" }
-
-# Details block: default + truncate to stay under Discord's 1024-char field limit
-$detailsText = $Details
-if (-not $detailsText) { $detailsText = "No additional details provided." }
-if ($detailsText.Length -gt 900) { $detailsText = $detailsText.Substring(0, 900) + "..." }
-
+# Invariant culture: in a .NET format ":" is the CULTURE's time separator (fi-FI gives
+# "11.01.49"), and Discord rejects a timestamp that is not ISO 8601.
+$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+$bt = '`'
 $fence = '```'   # triple backtick code fence (literal in single quotes)
-$detailsValue = "$fence`n$detailsText`n$fence"
 
-# Construct the embed object, then serialize. ConvertTo-Json handles all escaping.
-$tokenVal = if ($Tokens) { $Tokens } else { "N/A" }
-$fields = [System.Collections.ArrayList]@(
-    [ordered]@{ name = "Task"; value = $taskFieldVal; inline = $true }
-    [ordered]@{ name = "Token Usage"; value = $tokenVal; inline = $true }
-)
+$lines = New-Object System.Collections.Generic.List[string]
 
+# Task. The loop's Url is a file:// path on its own machine, which Discord does not
+# render as a link (only http/https) - the old "[title](file://...)" arrived as raw
+# text spanning lines. The file name identifies the task and stays true after the
+# file moves from in-progress/ to done/.
+if ($Task -and $Task -ne "N/A") {
+    $taskText = ConvertTo-DiscordText $Task
+    if ($Url -match '^https?://') {
+        $lines.Add("**[$taskText]($Url)**")
+    } else {
+        $taskLine = "**$taskText**"
+        $leaf = if ($Url) { ($Url -split '[\\/]')[-1] } else { "" }
+        if ($leaf) { $taskLine += " · $bt$leaf$bt" }
+        $lines.Add($taskLine)
+    }
+}
+
+if ($description) { $lines.Add($description) }
+
+# Details: the success events' details are the loop's own one-liner (it may carry
+# inline code), so they stay plain; anything else is an error/stop reason quoted
+# verbatim from a log, so it goes in a code block. Truncated well under the 4096-char
+# description limit.
+if ($Details) {
+    $detailsText = $Details
+    if ($detailsText.Length -gt 900) { $detailsText = $detailsText.Substring(0, 900) + "..." }
+    if ($color -eq $COLOR_SUCCESS) {
+        $lines.Add($detailsText)
+    } else {
+        $lines.Add("$fence`n$($detailsText.Replace($fence, "'''"))`n$fence")
+    }
+}
+
+if ($Tokens) { $lines.Add("**Tokens** " + (Join-SummaryLines $Tokens)) }
 # Per-model split (main agent + subagents). Only present when the CLI reported a
 # modelUsage block, so it stays absent for providers/runs that don't emit one.
-if ($PerModel) {
-    $perModelText = $PerModel
-    if ($perModelText.Length -gt 1000) { $perModelText = $perModelText.Substring(0, 1000) + "..." }
-    [void]$fields.Add([ordered]@{ name = "Cost by Model"; value = $perModelText; inline = $true })
-}
-
+if ($PerModel) { $lines.Add("**By model** " + (Join-SummaryLines ($PerModel -replace ': ', ' ') " ")) }
 # Loop-wide running total, so a long unattended run shows what it has burned so far
 # without having to add up every per-task notification by hand.
-if ($Cumulative) {
-    [void]$fields.Add([ordered]@{ name = "Loop Total (so far)"; value = $Cumulative; inline = $true })
-}
-
-[void]$fields.Add([ordered]@{ name = "Details / Error Log"; value = $detailsValue; inline = $false })
-
-# Only add the breakdown field when the caller actually had something to analyze
-# (empty for BACKLOG_EMPTY, and for any event where the log couldn't be parsed).
+if ($Cumulative) { $lines.Add("**Loop total** " + (Join-SummaryLines $Cumulative)) }
 if ($Breakdown) {
-    $breakdownText = $Breakdown
-    if ($breakdownText.Length -gt 1000) { $breakdownText = $breakdownText.Substring(0, 1000) + "..." }
-    [void]$fields.Add([ordered]@{ name = "Time & Token Breakdown (approx., per tool)"; value = "$fence`n$breakdownText`n$fence"; inline = $false })
+    $breakdownText = Format-Breakdown $Breakdown
+    if ($breakdownText) { $lines.Add("**Per tool** (time/tokens, approx.) " + $breakdownText) }
 }
 
 $embed = [ordered]@{
-    title       = $title
-    description = $description
-    color       = $color
-    timestamp   = $timestamp
-    fields      = $fields
+    title     = $title
+    color     = $color
+    timestamp = $timestamp
+}
+if ($lines.Count -gt 0) {
+    $descriptionText = ($lines -join "`n")
+    if ($descriptionText.Length -gt 4000) { $descriptionText = $descriptionText.Substring(0, 4000) + "..." }
+    $embed.description = $descriptionText
 }
 
-# ------------------------------------------------------------------------------
-# Inline Discord DM sender (self-contained port of discord-send.sh).
-# ------------------------------------------------------------------------------
-
-# Load environment variables if .env exists.
-$envPath = Join-Path $ProjectRoot ".env"
-if (Test-Path $envPath) {
-    foreach ($line in Get-Content $envPath) {
-        $trimmed = $line.Trim()
-        if (-not $trimmed -or $trimmed.StartsWith('#') -or -not $trimmed.Contains('=')) { continue }
-        $idx = $trimmed.IndexOf('=')
-        $key = $trimmed.Substring(0, $idx).Trim()
-        $val = $trimmed.Substring($idx + 1).Trim()
-        if ($key) { Set-Item -Path "Env:$key" -Value $val }
-    }
-}
-
-$token = $env:DISCORD_BOT_TOKEN
-$developers = $env:DISCORD_DEVELOPERS
-
-if (-not $token -or $token -eq "YOUR_DISCORD_BOT_TOKEN_HERE") {
-    Write-Host "[Discord Send] DISCORD_BOT_TOKEN not configured in .env. Skipping notification."
-    exit 0
-}
-if (-not $developers -or $developers -eq "DEVELOPER_USER_ID_1,DEVELOPER_USER_ID_2") {
-    Write-Host "[Discord Send] DISCORD_DEVELOPERS not configured in .env. Skipping notification."
+# NOTIFY_DRY_RUN=1: print the payload instead of sending it (layout checks).
+if ($env:NOTIFY_DRY_RUN -eq "1") {
+    @{ embeds = @($embed) } | ConvertTo-Json -Depth 10
     exit 0
 }
 
-$headers = @{
-    "Authorization" = "Bot $token"
-    "Content-Type"  = "application/json"
-}
+# ------------------------------------------------------------------------------
+# Inline Discord sender (DMs + channels).
+# ------------------------------------------------------------------------------
+
+# >>> discord-sender (byte-identical in discord-send.ps1 and notify.ps1 - edit both;
+# test_discord_notify.py fails when they drift. Twin of discord-send.sh.)
+$DiscordApi = "https://discord.com/api/v10"
 # Discord's Cloudflare edge blocks Bot API requests carrying a browser-like User-Agent
 # (PS 5.1's default UA starts with "Mozilla/5.0..."), returning a misleading
 # 403 { "code": 40333, "message": "internal network error" }. Send the documented
-# bot UA format to avoid the block: https://github.com/discord/discord-api-docs/issues/6473
-$discordUserAgent = "DiscordBot (https://github.com/bf-gamedev, 1.0)"
+# bot UA format ("DiscordBot (<url>, <version>)") to avoid the block.
+$DiscordUserAgent = "DiscordBot (https://github.com/PackageStore/ezg-packages, 1.0)"
+$DiscordEnvKeys = @("DISCORD_BOT_TOKEN", "DISCORD_DEVELOPERS", "DISCORD_CHANNELS")
 
-foreach ($rawId in ($developers -split ',')) {
-    $userId = $rawId.Trim()
-    if (-not $userId) { continue }
-
-    Write-Host "[Discord Send] Creating DM channel for user $userId..."
-    try {
-        $dmBody = @{ recipient_id = $userId } | ConvertTo-Json -Compress
-        $dmResp = Invoke-RestMethod -Uri "https://discord.com/api/v10/users/@me/channels" `
-            -Method Post -Headers $headers -UserAgent $discordUserAgent -Body $dmBody
-        $channelId = $dmResp.id
-    } catch {
-        Write-Host "[Discord Send] Failed to create DM channel for user $userId. $($_.Exception.Message)"
-        continue
-    }
-
-    if (-not $channelId) {
-        Write-Host "[Discord Send] Failed to resolve DM channel id for user $userId."
-        continue
-    }
-
-    Write-Host "[Discord Send] Sending notification to Channel ID $channelId..."
-    try {
-        $msgBody = @{ embeds = @($embed) } | ConvertTo-Json -Depth 10
-        # Send the body as explicit UTF-8 bytes so emoji/Unicode survive on Windows PowerShell 5.1.
-        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($msgBody)
-        $sendResp = Invoke-RestMethod -Uri "https://discord.com/api/v10/channels/$channelId/messages" `
-            -Method Post -Headers $headers -UserAgent $discordUserAgent -Body $bodyBytes
-        if ($sendResp.id) {
-            Write-Host "[Discord Send] Notification successfully sent to developer $userId."
+# The DISCORD_* settings: a key in .env wins over the process env (an empty value
+# turns it off). Returned as a hashtable, never written to the process env: notify.ps1
+# runs inside the long-lived loop controller, where a write would outlive later .env
+# edits and hand the bot token to every agent process the loop starts.
+# Quoted values end at the closing quote; an unquoted inline " # comment" is dropped.
+function Get-DiscordConfig {
+    param([string]$Path)
+    $config = @{}
+    foreach ($key in $DiscordEnvKeys) { $config[$key] = [string][Environment]::GetEnvironmentVariable($key) }
+    if (-not (Test-Path -LiteralPath $Path)) { return $config }
+    foreach ($line in (Get-Content -LiteralPath $Path -Encoding UTF8)) {
+        $trimmed = ([string]$line).Trim()
+        if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
+        if ($trimmed.StartsWith('export ')) { $trimmed = $trimmed.Substring(7).TrimStart() }
+        $idx = $trimmed.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $key = $trimmed.Substring(0, $idx).Trim()
+        if ($DiscordEnvKeys -notcontains $key) { continue }
+        $val = $trimmed.Substring($idx + 1).Trim()
+        if ($val.StartsWith('"') -or $val.StartsWith("'")) {
+            $quote = $val.Substring(0, 1)
+            $val = $val.Substring(1)
+            $end = $val.IndexOf($quote)
+            if ($end -ge 0) { $val = $val.Substring(0, $end) }
         } else {
-            Write-Host "[Discord Send] Send returned no message id for developer $userId."
+            $val = $val -replace '\s+#.*$', ''
         }
-    } catch {
-        Write-Host "[Discord Send] Failed to send message to developer $userId. $($_.Exception.Message)"
+        $config[$key] = $val.Trim()
+    }
+    return $config
+}
+
+# The valid Discord IDs (snowflakes: digits only) of a comma/space separated list,
+# deduplicated. The .env placeholders ("DEVELOPER_USER_ID_1") and typos are reported
+# and skipped, so a half-filled .env never sends anywhere.
+function Get-DiscordIds {
+    param([string]$List, [string]$Label)
+    $ids = New-Object System.Collections.Generic.List[string]
+    foreach ($raw in ([string]$List -split '[,;\s]+')) {
+        $id = $raw.Trim()
+        if (-not $id) { continue }
+        if ($id -notmatch '^[0-9]+$') {
+            Write-Host "[Discord Send] Ignoring invalid $Label ID '$id' (expected digits only)."
+            continue
+        }
+        if (-not $ids.Contains($id)) { $ids.Add($id) }
+    }
+    return $ids.ToArray()
+}
+
+function Invoke-DiscordPost {
+    param([string]$Token, [string]$Path, [string]$Json)
+    # Explicit UTF-8 bytes so emoji/Unicode survive on Windows PowerShell 5.1.
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Json)
+    return Invoke-RestMethod -Uri "$DiscordApi$Path" -Method Post `
+        -Headers @{ "Authorization" = "Bot $Token" } -UserAgent $DiscordUserAgent `
+        -ContentType "application/json" -Body $bytes -TimeoutSec 30
+}
+
+# Post $Message and/or one $Embed (hashtable or object) to every configured DM user
+# and channel. Never throws: every failure is logged and skipped.
+function Send-DiscordPayload {
+    param([string]$Message = "", $Embed = $null, [string]$EnvPath)
+    $config = Get-DiscordConfig $EnvPath
+    $token = [string]$config["DISCORD_BOT_TOKEN"]
+    if (-not $token -or $token -eq "YOUR_DISCORD_BOT_TOKEN_HERE") {
+        Write-Host "[Discord Send] DISCORD_BOT_TOKEN not configured in .env. Skipping notification."
+        return
+    }
+    $dmIds = @(Get-DiscordIds ([string]$config["DISCORD_DEVELOPERS"]) "developer")
+    $channelIds = @(Get-DiscordIds ([string]$config["DISCORD_CHANNELS"]) "channel")
+    if ($dmIds.Count -eq 0 -and $channelIds.Count -eq 0) {
+        Write-Host "[Discord Send] Neither DISCORD_DEVELOPERS nor DISCORD_CHANNELS holds a valid ID in .env. Skipping notification."
+        return
+    }
+    if (-not $Message -and -not $Embed) {
+        Write-Host "[Discord Send] Nothing to send (empty message and embed)."
+        return
+    }
+
+    # allowed_mentions parse=[]: text quoted from a log or a task title ("@everyone")
+    # must never ping a channel.
+    $payload = [ordered]@{ allowed_mentions = @{ parse = @() } }
+    if ($Message) { $payload.content = $Message }
+    if ($Embed) { $payload.embeds = @($Embed) }
+    $body = $payload | ConvertTo-Json -Depth 10 -Compress
+
+    # Windows PowerShell 5.1 on .NET 4.x may offer only SSL3/TLS 1.0 unless the machine
+    # opted in; Discord needs TLS 1.2. Left alone when it is SystemDefault (0: the OS
+    # picks, TLS 1.3 included) or already has TLS 1.2; pwsh 7 ignores this setting.
+    try {
+        $protocols = [Net.ServicePointManager]::SecurityProtocol
+        if ([int]$protocols -ne 0 -and -not ($protocols -band [Net.SecurityProtocolType]::Tls12)) {
+            [Net.ServicePointManager]::SecurityProtocol = $protocols -bor [Net.SecurityProtocolType]::Tls12
+        }
+    } catch { }
+
+    $targets = New-Object System.Collections.Generic.List[object]
+    foreach ($userId in $dmIds) {
+        Write-Host "[Discord Send] Creating DM channel for user $userId..."
+        try {
+            $dmResp = Invoke-DiscordPost $token "/users/@me/channels" (@{ recipient_id = $userId } | ConvertTo-Json -Compress)
+            if ($dmResp.id) {
+                $targets.Add(@{ Id = [string]$dmResp.id; Label = "developer $userId (DM)" })
+            } else {
+                Write-Host "[Discord Send] Failed to resolve DM channel id for user $userId."
+            }
+        } catch {
+            Write-Host "[Discord Send] Failed to create DM channel for user $userId. $($_.Exception.Message)"
+        }
+    }
+    foreach ($channelId in $channelIds) { $targets.Add(@{ Id = $channelId; Label = "channel $channelId" }) }
+
+    foreach ($target in $targets) {
+        try {
+            $sendResp = Invoke-DiscordPost $token "/channels/$($target.Id)/messages" $body
+            if ($sendResp.id) {
+                Write-Host "[Discord Send] Notification sent to $($target.Label)."
+            } else {
+                Write-Host "[Discord Send] Send returned no message id for $($target.Label)."
+            }
+        } catch {
+            Write-Host "[Discord Send] Failed to send message to $($target.Label). $($_.Exception.Message)"
+        }
     }
 }
+# <<< discord-sender
+
+try {
+    Send-DiscordPayload -Embed $embed -EnvPath (Join-Path $ProjectRoot ".env")
+} catch {
+    Write-Host "[Discord Send] Unexpected error. $($_.Exception.Message)"
+}
+exit 0

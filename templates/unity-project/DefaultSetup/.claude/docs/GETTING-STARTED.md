@@ -109,6 +109,7 @@ thêm vào"; đọc danh sách rồi chạy lại với `--prune` nếu đồng 
 | Key | Ý nghĩa | Sửa khi |
 |-----|---------|---------|
 | `projectName`, `solutionFile` | tên project + file `.sln` cho compile-check tier 2 | luôn (bootstrap cảnh báo nếu còn placeholder) |
+| `displayName` | tên hiển thị ở đầu tiêu đề thông báo Discord của loop; rỗng = `projectName` tách theo CamelCase | tên game khác tên repo |
 | `gitConfigPrefix` | namespace git config (`<prefix>.agentBaseBranch`) | luôn |
 | `defaultBaseBranch` | base cuối cùng khi HEAD đang ở nhánh agent và git config rỗng | nhánh chính không phải `main` |
 | `sourceRoot`, `featuresRoot`, `gameplayRoot` | layout code; reviewer + task-planner đọc để biết file mới đi đâu | đổi cấu trúc thư mục |

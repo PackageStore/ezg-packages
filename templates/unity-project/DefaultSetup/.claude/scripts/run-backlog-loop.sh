@@ -390,11 +390,58 @@ LOG_DIR_ABS="$(cd "$LOG_DIR" && pwd)"
 RENDER="$SCRIPT_DIR/stream-render.py"
 if command -v python3 >/dev/null 2>&1 && [ -f "$RENDER" ]; then HAS_RENDER=1; else HAS_RENDER=0; fi
 
-# Optional Discord notifier — only fires if .env configures a bot token (see discord-send.sh).
+# Optional Discord notifier — only fires if .env configures a bot token plus at least
+# one DM user or channel ID (see discord-send.sh). notify.sh resolves the project name
+# for the title itself (profile displayName); --project is deliberately not passed, so
+# this loop keeps working with a notify.sh that predates the flag.
 NOTIFY="$SCRIPT_DIR/notify.sh"
 notify() {
   [ -f "$NOTIFY" ] || return 0
   bash "$NOTIFY" "$@" >/dev/null 2>&1 || true
+}
+
+# One accurate line for TASK_COMPLETED: the commit this run recorded with
+# `backlog-ops.py shipped` (archived as runs/archive/<NNN>-<stamp>-shipped.json, newer
+# than this iteration's prompt file) and where it went. The old fixed sentence said
+# "agent/dev" whatever the mode, and its progress line only repeated the title. A task
+# closed as already satisfied (`--push skipped --note already-satisfied`) made no
+# commit: its record holds the HEAD it was checked at, so it is not reported as one.
+# Twin of Get-CompletedDetails in run-backlog-loop-core.ps1.
+completed_details() {  # completed_details <task file basename> <file older than the run>
+  local nnn="" rec="" fields="" commit="" push="" note="" what push_text next
+  case "$1" in [0-9]*-*) nnn="${1%%-*}" ;; esac
+  if [ -n "$nnn" ] && [ -d "$BACKLOG_ROOT/runs/archive" ] && [ -f "$2" ]; then
+    rec="$(find "$BACKLOG_ROOT/runs/archive" -name "$nnn-*-shipped.json" -newer "$2" 2>/dev/null | sort | tail -1)"
+  fi
+  if [ -n "$rec" ]; then
+    # One "commit|push|note" line ("|" never occurs in a sha or a push state; the
+    # note is last, so read keeps any "|" in it). \r: a native Windows python.
+    fields="$(python3 -c 'import json,sys
+try:
+    s = json.load(open(sys.argv[1], encoding="utf-8")).get("shipped") or {}
+    print("|".join(str(s.get(k) or "").replace("\n", " ") for k in ("commit", "push", "note")))
+except Exception: print("")' "$rec" 2>/dev/null | tr -d '\r')"
+    IFS='|' read -r commit push note <<< "$fields"
+    note="$(printf '%s' "$note" | tr '[:upper:]' '[:lower:]')"
+  fi
+  next="next: manual verify steps (DONE summary)"
+  [ "$MODE" = "worktree" ] && next="next: manual verify, then merge into \`$LOOP_BASE_BRANCH\`"
+  if [ "$note" = "already-satisfied" ]; then
+    what="Already satisfied, no new commit"
+    [ -n "$commit" ] && what="$what (checked at \`${commit:0:7}\` on \`$AGENT_BRANCH\`)"
+    printf '%s - %s.' "$what" "$next"
+    return 0
+  fi
+  what="Committed to \`$AGENT_BRANCH\`"
+  [ -n "$commit" ] && what="Committed \`${commit:0:7}\` to \`$AGENT_BRANCH\`"
+  case "$push" in
+    pushed)    push_text="pushed" ;;
+    no-remote) push_text="not pushed (no remote)" ;;
+    failed)    push_text="PUSH FAILED - push it by hand" ;;
+    skipped)   push_text="not pushed (skipped)" ;;
+    *)         push_text="pushed if the repo has a remote" ;;
+  esac
+  printf '%s, %s - %s.' "$what" "$push_text" "$next"
 }
 
 # --- loop lease: ONE consumer of this clone's backlog ----------------------------
@@ -1083,8 +1130,8 @@ get_token_report() {
   ' "$log" 2>/dev/null
 }
 
-# Approximate per-tool time + token breakdown for the Discord "Time & Token Breakdown"
-# field. Twin of Get-TimingTokenBreakdown in run-backlog-loop-core.ps1 (same heuristics,
+# Approximate per-tool time + token breakdown for the Discord "Per tool" line (notify.sh
+# folds this table onto one line). Twin of Get-TimingTokenBreakdown in run-backlog-loop-core.ps1 (same heuristics,
 # same 8-row cap, byte-identical output). Two approximations, both unavoidable given
 # what stream-json actually timestamps:
 #   - Time: only tool_result ("user" role) lines carry a timestamp, not the tool_use
@@ -1905,8 +1952,7 @@ Finished by self-heal recovery iteration $PENDING_RECOVERY_ATTEMPT/$MAX_RECOVERI
   notify --event "TASK_COMPLETED" --task "$TASK_TITLE_NOTIF" --url "$TASK_URL_NOTIF" \
     --tokens "$REPORT_SUMMARY" --per-model "$REPORT_PER_MODEL" \
     --breakdown "$REPORT_BREAKDOWN" --cumulative "$REPORT_CUMULATIVE" \
-    --details "Progress: Task $DONE_NEW of $TOTAL_NEW completed successfully.
-Committed to $AGENT_BRANCH (pushed if the repo has a remote). Ready for manual verify + merge into the base branch.$healed_note" \
+    --details "$(completed_details "$TASK_BASE_NOTIF" "$prompt_file")$healed_note" \
     --progress "$DONE_NEW/$TOTAL_NEW" --duration "$ITER_DURATION"
 done
 

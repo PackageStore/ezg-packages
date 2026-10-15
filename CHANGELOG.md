@@ -6,6 +6,9 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 ## 2026-10-15
 
+**Changed**
+- Thông báo Discord của backlog loop gửi được vào kênh server (`DISCORD_CHANNELS`), song song hoặc thay cho DM (`DISCORD_DEVELOPERS`). Không điền ID nào thì không gửi. Embed gọn hơn: tiêu đề có tên project, vị trí task và thời gian chạy, mỗi chủ đề một dòng. Dòng `TASK_COMPLETED` ghi commit thật và trạng thái push.
+
 **Added**
 - `com.ezg.qa-probe` 1.2.0: EZG QA Probe thành package dùng chung (trước đây skill chép code vào `Assets/EzgQaProbe/` của từng project). Ship sẵn trong template; project cũ được `/auto-test-device` tự thêm một dòng vào manifest. Không cần cấu hình: probe tự dò cờ cheat và hàm bật/tắt cheat của template. Kèm test PlayMode, đã chạy trên Unity 6.2 và 6.3, có và không có `com.ezg.cheat-gate`.
 
