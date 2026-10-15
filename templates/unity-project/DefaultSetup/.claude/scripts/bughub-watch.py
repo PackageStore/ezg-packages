@@ -66,12 +66,21 @@ Lệnh:
         Chống gửi lặp `bughub_note` khi loop pause vì Editor chưa dùng được: `check` trả các bug CHƯA được
         nhắn với lý do KEY, `mark` ghi nhận đã nhắn, `clear` (Editor dùng được lại) xoá để lần lỗi sau nhắn tiếp.
   claim set --bug N | claim clear [--bug N] | claim get
-        Nhớ bug loop watch ĐANG GIỮ (đã nhận, chưa resolve / needs-info / block / release) để session sau
-        làm tiếp nếu session này chết giữa chừng (lỗi API, crash, watchdog mở lại). `get` → `NONE` hoặc
+        Nhớ bug ĐANG GIỮ (đã nhận, chưa resolve / needs-info / block / release) để session sau làm tiếp nếu
+        session này chết giữa chừng (lỗi API, crash, watchdog mở lại), kèm mốc lúc nhận cho `discard`: HEAD và
+        các path đang khác HEAD (thay đổi dở của dev — `discard` không bao giờ đụng). `get` → `NONE` hoặc
         `CLAIMED` kèm `commit` (commit `Bug-Report: #N` tạo SAU lúc nhận, trên HEAD) + `pushed`.
+  discard --bug N [--auto] [-- <file>...]
+        Bug bị người bấm "Huỷ & hoàn tác" (hoặc người khác đã nhận lại) trong lúc bot đang sửa: trả thư mục về
+        như lúc nhận bug. (1) Cất các file bot đã sửa / tạo (danh sách sau `--`; `--auto` = thêm mọi path đang
+        khác HEAD mà lúc nhận chưa khác — dùng khi session trước chết, không biết nó đã sửa gì) vào `git stash`
+        "bughub #N cancelled" — thư mục sạch mà không mất gì, file dở của dev lúc nhận bug không bao giờ bị cất.
+        (2) Commit `Bug-Report: #N` của lần nhận này CHƯA push: nằm trên đỉnh HEAD thì bỏ (`git reset --keep`),
+        không thì `git revert` local. Commit đã push: server BugHub đã revert trên GitLab — `sync` lần sau kéo về.
+        (3) Xoá `Temp/BugHub/N`. (4) Xoá marker `claim` của bug. → `DISCARDED` | `CLEAN` (không có gì để dọn).
 
 Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log cho người đọc ra stderr.
-Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`) · 2 config / tham số sai / `start` không chuẩn bị
+Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`, `CLEAN`) · 2 config / tham số sai / `start` không chuẩn bị
 được thư mục · 3 `WAIT` (tạm thời — pause rồi thử lại; `reason`: DETACHED, WRONG_BRANCH, BUSY, FETCH_FAILED,
 MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED, EDITOR_BUSY,
 EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 thay đổi dở chặn merge
@@ -122,6 +131,8 @@ EDITOR_POLL_SECONDS = 5
 REGISTRY_FRESH_SECONDS = 300
 RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart-unity" / "scripts"
 CLAIM_STATE = "claim.json"
+# Mốc "path đang khác HEAD" lúc nhận bug: quá chừng này path thì không lưu (discard --auto từ chối, phải liệt kê file).
+SNAPSHOT_MAX = 2000
 # `start` đặt env này cho claude nó mở: mọi lệnh của loop chạm file đó để watchdog biết loop còn sống.
 HEARTBEAT_ENV = "BUGHUB_WATCH_HEARTBEAT"
 # Biến PHIÊN mà Claude Code đặt cho shell của nó. `start` gọi từ trong một session Claude (agent mở cửa sổ watch hộ
@@ -943,8 +954,10 @@ def do_claim(cwd: Path, argv: list[str]) -> dict:
     path = state_file(cwd, CLAIM_STATE)
     if sub == "set":
         bug = bug_option(rest, required=True)
+        changed = changed_paths(cwd)
         write_json(path, {"bug": bug, "claimedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-                          "branch": current_branch(cwd)})
+                          "branch": current_branch(cwd), "head": out("rev-parse", "HEAD", cwd=cwd),
+                          "dirty": changed if len(changed) <= SNAPSHOT_MAX else None})
         return {"result": "OK", "bug": bug}
     state = read_json(path)
     if sub == "clear":
@@ -963,6 +976,120 @@ def do_claim(cwd: Path, argv: list[str]) -> dict:
         pushed = bool(commit and branch and ref_exists(own, cwd) and is_ancestor(commit, own, cwd))
         return {"result": "CLAIMED", "bug": bug, "claimedAt": since, "branch": branch, "commit": commit, "pushed": pushed}
     raise Stop(EXIT_CONFIG, "BAD_ARGS", "claim set --bug N | claim clear [--bug N] | claim get")
+
+
+def changed_paths(cwd: Path, paths: list[str] | None = None) -> list[str]:
+    """Path đang khác HEAD: đã track sửa / xoá / staged và untracked chưa ignore (rename: cả hai tên)."""
+    args = ["status", "--porcelain", "-z", "--untracked-files=all"]
+    if paths is not None:
+        if not paths:
+            return []
+        args += ["--", *paths]
+    entries = git(*args, cwd=cwd).stdout.split("\0")
+    changed, rename_source = [], False
+    for entry in entries:
+        if rename_source:
+            changed.append(entry)  # rename/copy: entry kế là path cũ
+            rename_source = False
+            continue
+        if not entry:
+            continue
+        changed.append(entry[3:])
+        rename_source = entry[0] in "RC"
+    return sorted(set(changed))
+
+
+def parse_discard_args(argv: list[str]) -> tuple[int, bool, list[str]]:
+    head, files = (argv[:argv.index("--")], argv[argv.index("--") + 1:]) if "--" in argv else (argv, [])
+    bug, auto, it = None, False, iter(head)
+    for arg in it:
+        if arg == "--bug":
+            value = next(it, "")
+            if not re.fullmatch(r"[1-9][0-9]*", value):
+                raise Stop(EXIT_CONFIG, "BAD_ARGS", "--bug phải là số bug nguyên dương")
+            bug = int(value)
+        elif arg == "--auto":
+            auto = True
+        else:
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {arg} — discard --bug N [--auto] [-- <file>...]")
+    if bug is None:
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "discard cần --bug N")
+    return bug, auto, files
+
+
+def do_discard(cwd: Path, argv: list[str]) -> dict:
+    bug, auto, files = parse_discard_args(argv)
+    root = repo_root(cwd)
+    busy = operation_in_progress(root)
+    if busy:
+        raise wait("BUSY", f"đang có {busy} dở trong {root} — xong nó rồi discard lại")
+    path = state_file(root, CLAIM_STATE)
+    state = read_json(path) or {}
+    state = state if state.get("bug") == bug else {}
+    since = str(state.get("claimedAt") or "")
+    before = state.get("dirty")
+    if auto and not isinstance(before, list):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "không có mốc lúc nhận bug (claim set) — liệt kê file sau `--` thay cho --auto")
+    protected = set(before or [])
+
+    # 1. Working tree: chỉ file của bot, không bao giờ file dev đang sửa dở lúc nhận bug.
+    wanted = []
+    for name in files:
+        target = (root / name).resolve()
+        if root not in target.parents or ".git" in target.relative_to(root).parts:
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"file nằm ngoài repo: {name}")
+        wanted.append(target.relative_to(root).as_posix())
+    if auto:
+        wanted += [name for name in changed_paths(root) if name not in protected]
+    kept = sorted({name for name in (changed_paths(root) if auto else wanted) if name in protected})
+    stashed = changed_paths(root, sorted({name for name in wanted if name not in protected}))
+    stash = None
+    if stashed:
+        git("stash", "push", "--include-untracked", "-m", f"bughub #{bug} cancelled", "--", *stashed, cwd=root)
+        stash = out("rev-parse", "stash@{0}", cwd=root)
+
+    # 2. Commit `Bug-Report: #N` của lần nhận này: đã push thì server đã revert; chưa push thì bỏ / revert local.
+    branch = current_branch(root)
+    upstream = f"refs/remotes/origin/{branch}" if branch and ref_exists(f"refs/remotes/origin/{branch}", root) else None
+    scope = [f"--since={since}", "HEAD"] if since else [f"{upstream}..HEAD"] if upstream else []  # không mốc: chỉ commit chưa push
+    shas = git("log", "--no-merges", "--format=%H", "-E", f"--grep=^Bug-Report: #{bug}$", *scope, cwd=root).stdout.split() if scope else []
+    if shas:
+        # Đã có commit "This reverts commit <sha>" (lần discard trước, hoặc dev revert tay) → không đụng lại.
+        undone = set(re.findall(r"This reverts commit ([0-9a-f]{40})", git("log", "--format=%B", *scope, cwd=root).stdout))
+        shas = [sha for sha in shas if sha not in undone]
+    pushed = [sha for sha in shas if upstream and is_ancestor(sha, upstream, root)]
+    local = [sha for sha in shas if sha not in pushed]
+    dropped, reverted = [], []
+    if local:
+        top = out("rev-list", "--first-parent", "-n", str(len(local)), "HEAD", cwd=root).split()
+        if top == local and git("reset", "--keep", f"{local[-1]}^", cwd=root, check=False).returncode == 0:
+            dropped = local
+        else:
+            for sha in local:  # mới nhất trước
+                proc = git("revert", "--no-edit", sha, cwd=root, check=False)
+                if proc.returncode != 0:
+                    git("revert", "--abort", cwd=root, check=False)
+                    raise wait("REVERT_FAILED", f"không revert được commit local {sha[:10]}: {proc.stderr.strip()} — dev xử lý tay",
+                               stash=stash, reverted=reverted)
+                reverted.append(sha)
+
+    # 3. File tải về của bug, 4. marker.
+    shutil.rmtree(root / "Temp" / "BugHub" / str(bug), ignore_errors=True)
+    if state:
+        path.unlink(missing_ok=True)
+    result = "DISCARDED" if stashed or dropped or reverted else "CLEAN"
+    message = []
+    if stash:
+        message.append(f"đã cất {len(stashed)} file vào git stash \"bughub #{bug} cancelled\" (lấy lại: git stash apply {stash[:10]})")
+    if dropped:
+        message.append(f"bỏ {len(dropped)} commit chưa push")
+    if reverted:
+        message.append(f"revert local {len(reverted)} commit chưa push (đi theo lần push sau)")
+    if pushed:
+        message.append(f"{len(pushed)} commit đã push — server BugHub revert trên GitLab, sync lần sau kéo về")
+    return {"result": result, "bug": bug, "branch": branch, "stash": stash, "stashed": stashed, "kept": kept,
+            "droppedCommits": dropped, "revertedLocally": reverted, "pushedCommits": pushed,
+            "message": "; ".join(message) or "không có gì để dọn"}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1318,9 +1445,11 @@ def main(argv: list[str]) -> int:
                 result = do_notice(cwd, rest)
             elif command == "claim":
                 result = do_claim(repo_root(cwd), rest)
+            elif command == "discard":
+                result = do_discard(cwd, rest)
             else:
                 raise Stop(EXIT_CONFIG, "BAD_ARGS",
-                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim)")
+                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim | discard)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))

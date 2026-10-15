@@ -1,6 +1,6 @@
 ---
 name: fix-bug
-description: Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Mỗi bug một commit, mỗi bug một session sạch. "/fix-bug 12" sửa đúng bug #12, "/fix-bug" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), "/fix-bug --watch" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash hoặc đứng im quá 20 phút (watchdog) cũng tự mở lại, bug đang giữ dở được session mới làm tiếp); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd "organization has disabled Claude subscription access") tự thử lại mỗi 30 giây, không giới hạn số lần (macOS iTerm2 + Windows Terminal); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói "fix bug 12", "fix bug #12", "/fix-bug", "fix bug QA log", "sửa bug tester log", "chờ bug mới rồi fix", "watch bug".
+description: Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt + ảnh trước / sau khi sửa khi lỗi nhìn thấy được trên màn (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi /auto-clear. Người bấm "Huỷ & hoàn tác" giữa chừng → bot dừng ở mốc kiểm kế tiếp, dọn sạch thư mục về như lúc nhận bug (server đã revert commit đã push). Mỗi bug một commit, mỗi bug một session sạch. "/fix-bug 12" sửa đúng bug #12, "/fix-bug" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), "/fix-bug --watch" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash hoặc đứng im quá 20 phút (watchdog) cũng tự mở lại, bug đang giữ dở được session mới làm tiếp); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd "organization has disabled Claude subscription access") tự thử lại mỗi 30 giây, không giới hạn số lần (macOS iTerm2 + Windows Terminal); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói "fix bug 12", "fix bug #12", "/fix-bug", "fix bug QA log", "sửa bug tester log", "chờ bug mới rồi fix", "watch bug".
 ---
 
 # Fix Bug — sửa bug BugHub
@@ -19,8 +19,10 @@ server từ chối `claim` (kể cả `force`), `bughub_next` bỏ qua. Skill **
 |---|---|---|
 | `bughub_get(project, number)` | `fix-bug N` | `number`, `title`, `status` + `report` (§3.4: `report.actual`, `report.app`…) + `comments[]` (`isBot`) + `threadUrl` + `files` (URL) + `log` (64 KiB cuối) + ảnh chụp (image content) + `warnings[]` (tuỳ chọn) |
 | `bughub_claim(project, number, force?, note?)` | `fix-bug N` | `retry` → `fixing`. Người khác đang nhận → lỗi `busy`; bug `new` → `invalid_transition` |
+| `bughub_status(project, number)` | mốc kiểm (luật 12), mục 5 bước 1b | Rẻ, không nội dung: `{status, claimedBy, mine, cancelled}`. `mine: false` = bug không còn của mình; `cancelled: {at, by}` = người bấm **Huỷ & hoàn tác** |
 | `bughub_next(project)` | `fix-bug`, `--watch` | claim atomic bug `retry` cũ nhất (không bao giờ `new`), trả như `bughub_get` + `claimed: {from, to}`; hết bug → `{"bug":null,"project":…}` |
-| `bughub_resolve(project, number, commit, branch?, cause, fix, qa_steps[], files[]?, note?)` | sau push | `fixing` → `fixed`. Server kiểm commit có trên GitLab (`commit_not_found` nếu chưa push) |
+| `bughub_resolve(project, number, commit, branch?, cause, fix, qa_steps[], files[]?, note?, before_image?, after_image?)` | sau push | `fixing` → `fixed`. Server kiểm commit có trên GitLab (`commit_not_found` nếu chưa push). `before_image` / `after_image` = `uploadId` của ảnh trước / sau khi sửa (mục 3.4 bước 0, 2b) — thread chỉ hiện ảnh khi có `after_image`; sai / cũ → chỉ thêm `warnings`, fix vẫn qua |
+| `bughub_upload_image(project, number, kind)` | mục 3.4 bước 0 (`before`), 2b (`after`) | Bug đang do mình giữ: URL dùng một lần (PUT JPEG / PNG / WebP ≤ 8 MiB, 30 phút) + lệnh `curl` mẫu + `uploadId`. Ảnh gắn với lần nhận này — nhận lại bug là ảnh cũ hết dùng được. Bug không còn của mình → `busy` / `invalid_transition` / `cancelled`. (`bughub_upload_after` là tên cũ của `kind: "after"` — không dùng nữa) |
 | `bughub_needs_info(project, number, question)` | thiếu dữ kiện | `fixing` → `needs-info`, câu hỏi hiện trong thread cho QA |
 | `bughub_block(project, number, reason, need[])` | cần người làm tay | `fixing` → `blocked`; `need` = tên người / vai trò lấy từ `bughub_people` |
 | `bughub_release(project, number, reason)` | lối thoát lỗi | `fixing` → `new` (bỏ nhận — chờ người giao lại) |
@@ -39,6 +41,7 @@ theo field `error`. Mã chung cho mọi tool:
 | `unknown_project` / `not_bughub_project` | Mã project sai hoặc project chưa gắn BugHub → dừng, trỏ `/bughub-setup` |
 | `invalid_input` (`field`) | Skill gọi sai tham số → dừng, báo đúng `field`; không thử lại kiểu khác |
 | `not_found` | Bug không tồn tại trong project → báo, dừng |
+| `cancelled` | Người bấm **Huỷ & hoàn tác** trong lúc mình đang giữ bug (server đã đưa bug về `new` và revert commit đã push) → **mục 3.7**, không thử lại, không resolve / release |
 
 ## 0. Đọc argument
 
@@ -125,10 +128,12 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
 4. **Không sửa đoán.** Chưa xác định được nguyên nhân từ ảnh + log + code, hoặc không phải lỗi code →
    `bughub_needs_info` / `bughub_block` (mục 3.3) **trước** khi sửa bất kỳ file nào. Không commit.
 5. **Không để bug kẹt `fixing`.** Mọi đường ra sau khi đã nhận bug kết thúc bằng đúng một trong:
-   `bughub_resolve` · `bughub_needs_info` · `bughub_block` · `bughub_release`.
+   `bughub_resolve` · `bughub_needs_info` · `bughub_block` · `bughub_release` — trừ khi bug **đã bị huỷ /
+   không còn của mình** (luật 12): khi đó không gọi lệnh chốt nào, chỉ dọn theo mục 3.7.
 6. **Lệnh git:** ngoài 2 lệnh của push-in-session (`git_prepare_scoped` → `git_push`), skill chỉ được
    thêm `git remote get-url origin` (preflight), `git rev-parse HEAD` và `git rev-parse --abbrev-ref HEAD`
-   (để resolve), ở mọi chế độ `python3 .claude/scripts/bughub-watch.py editor | pause` (mục 3.0, luật 11), và ở
+   (để resolve), ở mọi chế độ `python3 .claude/scripts/bughub-watch.py editor | pause | claim | discard` (mục 3.0,
+   3.1, 3.7, luật 11) + đúng lệnh `curl` tải ảnh trước / sau khi sửa (mục 3.4 bước 0, 2b), và ở
    `--watch` thì `python3 .claude/scripts/bughub-watch.py config | sync | push | shelve | resolve | publish | notice | claim`
    cùng `git show <commit>` (chỉ để viết `cause` / `fix` khi làm tiếp bug dở, mục 5 bước 1b). Không
    `git status` / `git diff` / `git log` "kiểm cho chắc", không `git merge` / `merge --abort` / `checkout` / `push` /
@@ -163,9 +168,19 @@ Chạy đủ các kiểm tra dưới (kiểm 4 chỉ ở `--watch`), theo thứ 
     Không có "hết lượt thử": thử tới khi qua, kể cả chế độ một lần, kể cả khi đang giữ bug (bug vẫn `fixing` của
     mình, thử tiếp tới khi resolve / release được — luật 5). Lỗi kéo dài (hết phiên cần `/mcp` authenticate…) →
     mỗi lần in một dòng việc dev cần làm, rồi vẫn pause + thử lại.
-    Không áp cho mã có trong bảng (`unknown_project`, `invalid_input`, `not_found`) hay mã riêng của từng tool
-    (`busy`, `invalid_transition`, `commit_not_found`, `unknown_need`…) — chúng có cách xử lý riêng. Lỗi API của
+    Không áp cho mã có trong bảng (`unknown_project`, `invalid_input`, `not_found`, `cancelled`) hay mã riêng của
+    từng tool (`busy`, `invalid_transition`, `commit_not_found`, `unknown_need`…) — chúng có cách xử lý riêng; cũng không
+    áp cho tải ảnh trước / sau khi sửa (mục 3.4 (b)): lỗi thì bỏ ảnh, không thử lại. Lỗi API của
     chính Claude: preflight kiểm 0.
+
+12. **Bị huỷ giữa chừng.** Người (Dev / QA / Lead) bấm **Huỷ & hoàn tác** trong thread bất cứ lúc nào: server đưa bug
+    về `new`, revert trên GitLab mọi commit `Bug-Report: #N` của lần nhận này đã push, và từ đó mọi `bughub_resolve` /
+    `needs_info` / `block` / `release` / `upload_image` của mình trả `cancelled` (commit đẩy lên muộn cũng bị revert
+    khi gọi). Bot phải tự dừng sớm, không phí công: gọi `bughub_status(<code>, N)` ở các **mốc kiểm** —
+    (a) ngay trước khi sửa file đầu tiên (cuối bước 0 của mục 3.4), (b) ngay trước khi commit (mục 3.4 bước 3), (c) trước lệnh
+    `bughub-watch.py push` / `publish` khi push lần đầu lỗi. `mine: true` → làm tiếp. `mine: false` (có `cancelled`, hoặc
+    người khác đã `force` nhận lại / bug đổi trạng thái) → **dừng ngay**, mục 3.7. Lỗi mạng của `bughub_status` → luật 11
+    (thử lại, không coi là bị huỷ).
 
 ## 3. Xử lý một bug (dùng chung cho mọi chế độ)
 
@@ -238,6 +253,10 @@ không kẹt `fixing`, không phải release rồi chờ người giao lại.
     `bughub_get(<code>, N)` một lần; vẫn lỗi → `bughub_release(<code>, N, "không đọc được chi tiết bug")`, dừng
     (`--watch`: kết quả `released`, mục 5 bước 7).
 
+Nhận được bug N (claim thành công, kể cả `changed: false`, hoặc `bughub_next` trả bug) → **ngay**
+`python3 .claude/scripts/bughub-watch.py claim set --bug N` ở **mọi** chế độ: ghi mốc lúc nhận (HEAD + các file đang
+sửa dở của dev) để mục 3.7 trả thư mục về đúng như lúc này nếu bug bị huỷ, và để `--watch` làm tiếp khi session chết.
+
 Các trường hợp dừng ở đây chưa nhận bug nên không cần release, và không `/auto-clear` (`--watch`: không có
 "dừng" — quay lại chờ, mục 5).
 
@@ -279,8 +298,58 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
 | Không phải lỗi code: art/asset, cấu hình server, quyết định thiết kế / balance, yêu cầu tính năng | `bughub_people(<code>)` → `bughub_block(<code>, N, reason, need[])` với `need` chọn từ danh sách đó (lỗi `unknown_need` → chọn lại theo `valid` server trả kèm) | `blocked` |
 | File cần sửa đang có thay đổi dở của dev — ở `--watch` theo danh sách `dirty` của lần `sync` ngay trước khi nhận bug; chế độ một lần theo snapshot `gitStatus` Claude Code đưa vào đầu session (không chạy thêm `git status`, luật 6) | Không sửa chồng: `bughub_release(<code>, N, "file cần sửa đang có thay đổi dở của dev: <file>")` | `released` |
 
+Phân loại xong mà sẽ sửa (dòng đầu bảng) → mục 3.4; **mốc kiểm (a)** của luật 12 nằm cuối bước 0 của mục đó.
+
 ### 3.4 Sửa → compile → commit → resolve
 
+Ghi nhớ suốt bước này **danh sách mọi file mình sửa / tạo** cho bug (file mới của Unity kèm `.meta`) — mục 3.5 / 3.7 cần nó.
+
+**Ảnh trước / sau khi sửa** (bước 0 và 2b) — chỉ khi lỗi **nhìn thấy được** trên màn (UI, hiển thị, text, animation,
+hiệu ứng). Lỗi không nhìn thấy (crash, số liệu, save, log) → bỏ cả hai ảnh. Thiếu ảnh **không bao giờ** chặn bản sửa.
+Bỏ cả hai ảnh (ghi `note`) khi Editor không chụp được an toàn:
+- `--watch`: Editor không do bot mở (`owned: false`, mục 3.0) — không vào Play mode của dev.
+- Mọi chế độ: Editor đang có việc dở theo đúng các kiểm của mục 5.1 bước 3 (đang Play / compiling, scene hoặc prefab
+  stage dirty, agent khác hoạt động trong 5 phút gần nhất) — vào Play lúc đó có thể bật dialog save treo MCP, hoặc đá
+  người khác khỏi Play.
+
+**Chụp + tải một ảnh** (`<kind>` = `before` | `after`):
+- (a) `unity_play_mode play` từ scene boot → chờ vào game → mở đúng màn / popup của bug (đối chiếu `featureKey`,
+  `report.steps`, ảnh QA nếu có) bằng code của project (`unity_execute_code`, gọi đúng API mở màn — không chế dữ liệu,
+  không ghi đè save) → chờ animation xong → `unity_execute_code` (tạo thư mục: chưa có thì Unity không tự tạo và ảnh
+  mất im lặng; xoá ảnh cũ của lần chụp / lần nhận trước để nó không lọt qua bước kiểm file):
+  ```csharp
+  var d = "Temp/BugHub/<N>";
+  System.IO.Directory.CreateDirectory(d);
+  System.IO.File.Delete(d + "/<kind>.png");
+  System.IO.File.Delete(d + "/<kind>.jpg");
+  UnityEngine.ScreenCapture.CaptureScreenshot(d + "/<kind>.png");
+  return "capturing";
+  ```
+  File chỉ được ghi ở cuối frame, mà Editor chạy nền có thể không tick → kiểm bằng `unity_execute_code`
+  `UnityEditor.EditorApplication.QueuePlayerLoopUpdate(); return System.IO.File.Exists("Temp/BugHub/<N>/<kind>.png");`
+  gọi lại tới khi `true` (tối đa ~10 lần). Mở file (Read) xem đúng màn; sai màn → làm lại **một** lần. File > 8 MiB →
+  `unity_execute_code` đọc PNG vào `Texture2D` (`LoadImage`), `EncodeToJPG(85)`, ghi `Temp/BugHub/<N>/<kind>.jpg` và
+  dùng file đó. Rời (a) bằng **bất kỳ** đường nào (xong, lỗi, hết giờ) → luôn `unity_play_mode stop` — không để Editor
+  ở Play mode khi sửa file, compile-check hay sang bug sau.
+- (b) `bughub_upload_image(<code>, N, kind: "<kind>")` → chạy đúng lệnh `curl` nó trả về với file của (a) (Bash timeout
+  120000; Windows dùng `curl.exe`, không dùng alias `curl` của PowerShell) → `{"ok":true}` → ghi đúng chuỗi `uploadId`
+  (16 ký tự hex, không thêm gì) vào `Temp/BugHub/<N>/<kind>.id` (tool Write — session sau làm tiếp bug dở đọc lại,
+  mục 5 bước 1b) và nhớ cho bước 4. `cancelled` → mục 3.7. `busy` / `invalid_transition` → `bughub_status(<code>, N)`:
+  `mine: false` → mục 3.7, `mine: true` → bỏ ảnh này. Mọi lỗi khác của bước này (tool không có trong session,
+  `invalid_input`, mạng / 5xx, `curl` lỗi) → bỏ ảnh này — **không** áp luật 11, không dừng.
+- (c) Không chụp / tải được trong ~10 phút (không vào được màn, Editor lỗi, upload lỗi) → bỏ ảnh đó, thêm vào `note`
+  "Chưa có ảnh <trước / sau> khi sửa: <lý do ngắn>", làm tiếp bản sửa.
+
+0. **Ảnh trước khi sửa** — chưa sửa file nào (kể cả asset). Làm theo thứ tự; 0.1 và 0.3 **luôn** làm, kể cả khi bỏ ảnh
+   (lỗi không nhìn thấy / Editor không an toàn):
+   1. Không phải làm tiếp bug dở (mục 5 bước 1b) → bỏ id ảnh của lần nhận trước, `unity_execute_code`:
+      `var d = "Temp/BugHub/<N>"; if (System.IO.Directory.Exists(d)) { System.IO.File.Delete(d + "/before.id"); System.IO.File.Delete(d + "/after.id"); } return "ok";`
+      (lỗi thì bỏ qua — id cũ chỉ sinh `warnings` lúc resolve).
+   2. Chụp (khi không bỏ ảnh): làm tiếp bug dở → **không** chụp lại (code có thể đã sửa dở): có
+      `Temp/BugHub/<N>/before.id` thì dùng `uploadId` trong đó, không thì bỏ. Còn lại chụp + tải với `kind: "before"`.
+      Ảnh phải **thấy được lỗi**: mở đúng màn mà lỗi không hiện (cần dữ liệu / tiến độ / giao dịch của QA mà không được
+      chế) → không tải ảnh trước (thread tự dùng ảnh QA thay), không ghi `note`.
+   3. **Mốc kiểm (a)** của luật 12: `bughub_status(<code>, N)`; `mine: false` → mục 3.7.
 1. **Sửa** theo rule của project (`CLAUDE.md` + `CLAUDE_PROJECT.md`, `.claude/rules/*`), phạm vi nhỏ nhất đủ hết bug, chỉ file
    của bug này.
 2. **`/compile-check` — bắt buộc** khi bug sửa `.cs` / `.asmdef` / `.asmref` (luật 10); bug chỉ sửa
@@ -295,7 +364,15 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
      `bughub_release(<code>, N, "compile bị chặn bởi thay đổi chưa commit ngoài bug: <file>")`, dừng, báo dev.
    - Release vì compile: chế độ một lần để nguyên phần mình đã sửa trong working tree, liệt kê trong report
      cho dev quyết; `--watch` cất đi theo mục 3.5.
-3. **Commit + push** — làm đúng `.claude/skills/push-in-session/SKILL.md` với prefix `#`; tag vùng chọn
+2b. **Ảnh sau khi sửa** — sau bước 2. Bản sửa chỉ đụng asset / prefab / CSV (không qua compile-check) → trước khi
+   chụp `unity_execute_menu_item("Assets/Refresh")` → `unity_editor_state` tới khi hết `isCompiling`, để Editor nạp bản
+   sửa. Rồi chụp như (a) với `kind: "after"`, **cùng màn, cùng thao tác** như ảnh trước (không có ảnh trước thì như ảnh
+   QA / `report.steps`), và xem ảnh **trước khi** tải (b). Có ảnh trước mà ảnh sau vẫn hiện đúng lỗi đó → bản sửa chưa
+   trúng: không tải, quay lại bước 1 **một** lần (rồi bước 2, chụp lại); vẫn còn → **không** commit:
+   `bughub_release(<code>, N, "đã sửa nhưng lỗi vẫn hiện trên màn: <mô tả ngắn>")`, dừng. Ảnh sau là thứ làm thread hiện
+   ảnh: không có nó thì ảnh trước cũng không hiện.
+3. **Mốc kiểm (b)** của luật 12: `bughub_status(<code>, N)` → `mine: false` → mục 3.7 (chưa commit gì lên GitLab).
+   Rồi **Commit + push** — làm đúng `.claude/skills/push-in-session/SKILL.md` với prefix `#`; tag vùng chọn
    theo bảng §3.2 bên đó (vd `# UI:`, `# Play:`, `# Save:`). Message theo luật 3, truyền **một** argument
    có xuống dòng, đừng để subject đi qua chuỗi format của `printf`:
    ```bash
@@ -303,7 +380,7 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
    # Windows: powershell -ExecutionPolicy Bypass -File .claude/scripts/git_push.ps1 "<cùng message, xuống dòng thật>"
    ```
    - `NO_CHANGES` (không có file nào thật sự đổi) → chưa sửa được gì: `bughub_release(<code>, N, "không tạo ra thay đổi nào")`, dừng.
-   - Push lỗi mà commit đã tạo (thường do nhánh vừa có người push) — ở `--watch`: chạy
+   - Push lỗi mà commit đã tạo (thường do nhánh vừa có người push) — ở `--watch`: mốc kiểm (c) của luật 12, rồi chạy
      `python3 .claude/scripts/bughub-watch.py push` (Bash timeout 300000) — script merge `origin/<nhánh>` vào
      rồi push lại, tối đa 3 lần, không force. `PUSHED` / `UP_TO_DATE` → đi tiếp như push thành công. Còn lại
      (`WAIT`) → coi như push lỗi ở dưới.
@@ -323,14 +400,17 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
 
 4. **Resolve:** `<sha>` = `git rev-parse HEAD` (hoặc `head` của `PUBLISHED`), `<branch>` =
    `<baseBranch>` khi `PUBLISHED`, còn lại `git rev-parse --abbrev-ref HEAD`, rồi
-   `bughub_resolve(<code>, N, commit: <sha>, branch: <branch>, cause, fix, qa_steps, files, note?)`. Mỗi
+   `bughub_resolve(<code>, N, commit: <sha>, branch: <branch>, cause, fix, qa_steps, files, note?, before_image?, after_image?)`
+   (`after_image` = `uploadId` của bước 2b, `before_image` = của bước 0 — chỉ gửi `before_image` khi có `after_image`.
+   Thread hiện ảnh trước và ảnh sau cạnh nhau; không có ảnh trước của mình thì server lấy ảnh QA đính kèm thay). Mỗi
    trường thành một khối riêng trong thẻ Discord (server tự in nhãn đậm, gạch đầu dòng, commit + nhánh — đừng
    lặp lại). Tiếng Việt, ngắn, mỗi trường một ý (luật 9):
    - `cause`: 1 câu — lỗi nằm ở đâu, vì sao xảy ra.
    - `fix`: 1 câu.
    - `qa_steps`: mảng thao tác cụ thể để thấy đã hết lỗi, mỗi phần tử một bước (1–8 bước).
    - `files`: mảng tên file đã sửa (chỉ tên file, không đường dẫn).
-   - `note`: **chỉ** khi có chuyện dev/QA cần biết (chưa đưa lên nhánh chính vì …; đụng file nhạy cảm …).
+   - `note`: **chỉ** khi có chuyện dev/QA cần biết (chưa đưa lên nhánh chính vì …; đụng file nhạy cảm …; chưa có ảnh
+     trước / sau khi sửa vì …).
 
    Ví dụ (minh hoạ khuôn, không phải bug thật):
    ```
@@ -339,6 +419,11 @@ Các trường hợp dừng ở đây chưa nhận bug nên không cần release
    qa_steps: ["Mở popup thưởng, đóng rồi mở lại", "Bấm Nhận — chỉ cộng thưởng một lần"]
    files:    ["ScreenDailyRewardController.cs"]
    ```
+   - `cancelled` → bị huỷ ngay lúc vừa push: server đã revert commit đó trên GitLab (`reverted` trong lỗi) → mục 3.7.
+   - `warnings` có `after_image_not_found` / `before_image_not_found` / `after_image_missing` → fix vẫn được nhận, chỉ
+     thiếu ảnh đó (ảnh của lần nhận trước, hoặc session trước để lại `<kind>.id` cũ); ghi vào report, không gọi lại.
+   - `invalid_input` với `field` là `before_image` / `after_image` (`.id` hỏng) → gọi lại resolve **không** kèm ảnh đó —
+     ngoại lệ của dòng `invalid_input` ở bảng mã lỗi, không dừng.
    - `commit_not_found` → chờ ~10 giây, gọi lại **một** lần. Vẫn lỗi → `bughub_release(<code>, N,
      "resolve lỗi: commit_not_found <sha>")`, dừng, báo dev kiểm `origin` có đúng project GitLab mà
      BugHub gắn không (commit đã push, không cần commit lại).
@@ -401,6 +486,31 @@ Lượt bị ngắt giữa chừng (pause, lỗi API, `/clear`, claude bị mở
 `publish` lần sau trả lại `CONFLICT` với các file chưa xong → làm tiếp từ bước 1 (file đã sạch marker thì `resolve` tự
 nhận). Không bao giờ `git merge --abort` tay — abort là bỏ mất phần đã gộp và lần sau lại conflict y hệt.
 
+### 3.7 Bị huỷ / không còn giữ bug — dọn sạch như trước khi nhận
+
+Vào đây khi mốc kiểm của luật 12 thấy `mine: false`, hoặc bất kỳ tool nào trả `{"error":"cancelled"}`. Bug đã không còn
+của mình: **không** commit, **không** push, **không** resolve / needs_info / block / release.
+
+1. Đang Play mode → `unity_play_mode stop`. Scene / prefab stage đang mở có thay đổi chưa save do mình làm → đóng **không**
+   save (`unity_execute_code`: `PrefabStageUtility.GetCurrentPrefabStage()` khác null → `StageUtility.GoToMainStage()`;
+   scene dirty → `EditorSceneManager.OpenScene(<path>, OpenSceneMode.Single)` mở lại từ đĩa). Editor không dùng được → bỏ qua.
+2. Đã push commit của bug sau lúc bị huỷ mà chưa gọi tool nào kể từ đó (vd session trước chết ngay sau push — mục 5 bước
+   1b `pushed: true`) → `bughub_resolve(<code>, N, commit: <sha>, branch: <nhánh>, summary: "huỷ")` để server revert nó —
+   kết quả mong đợi là `cancelled` kèm `reverted`.
+3. `python3 .claude/scripts/bughub-watch.py discard --bug N -- <mọi file mình đã sửa / tạo cho bug>` (session trước chết,
+   không biết đã sửa gì → `--auto` thay cho danh sách). Script: cất các file đó vào `git stash` "bughub #N cancelled" (file
+   dev đang sửa dở lúc nhận bug không bao giờ bị cất), bỏ commit `Bug-Report: #N` **chưa push** (hoặc revert local nếu
+   không nằm trên đỉnh), xoá `Temp/BugHub/N`, xoá marker `claim`.
+
+   | Exit · `result` | Làm |
+   |---|---|
+   | `0` · `DISCARDED` / `CLEAN` | Xong — thư mục như lúc nhận bug. Ghi `message` + `stash` vào report |
+   | `3` · `WAIT` (`BUSY`: merge dở của `sync` / `publish` → xong mục 3.6 trước; `REVERT_FAILED`; `GIT_FAILED`) | Luật không dừng: pause rồi chạy lại `discard` |
+   | `2` · `BAD_ARGS` | Sửa tham số (vd `--auto` khi không có mốc → liệt kê file), chạy lại |
+4. Có sửa `.cs` → `unity_execute_menu_item("Assets/Refresh")` cho Editor bỏ code của bản sửa đã cất. Ở `--watch`: lần `sync`
+   sau tự kéo các commit revert của server về.
+5. Kết quả bug: `cancelled`. Không nhắn thread (card huỷ của server đã nói đủ).
+
 ## 4. `fix-bug N` và `fix-bug` — chế độ một lần
 
 1. Preflight (mục 1).
@@ -410,7 +520,7 @@ nhận). Không bao giờ `git merge --abort` tay — abort là bỏ mất phầ
 3. Nhận bug (mục 3.1; `fix-bug N` làm mục 3.0 ngay trong đó). `bughub_next` trả `{"bug":null}` (vừa bị nhặt
    mất) → báo như bước 2, dừng. Editor đã mở cứ để đó — chế độ một lần không tự tắt.
 4. Mục 3.2 → 3.4.
-5. Kết quả `fixed` / `needs-info` / `blocked` → **`/auto-clear`** thường (không `--then`), làm theo
+5. Kết quả `fixed` / `needs-info` / `blocked` / `cancelled` → **`/auto-clear`** thường (không `--then`), làm theo
    `.claude/skills/auto-clear/SKILL.md`. Đã push ở 3.4 nên không push lần hai — push-in-session bên đó ra
    `NO_CHANGES` vẫn được bật cờ. Kết quả `released` → **không** `/auto-clear`: dev cần đọc lỗi trước khi mất context.
 
@@ -459,16 +569,20 @@ mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loo
    pane) thì bug vẫn `fixing` dưới tên mình mà `bughub_next` không bao giờ trả lại nó:
    `python3 .claude/scripts/bughub-watch.py claim get`.
    - `NONE` → bước 2.
-   - `CLAIMED` (`bug` = N, `commit`, `pushed`) → `bughub_get(<code>, N)` + `bughub_whoami`. `status` khác `fixing`,
-     hoặc `claimedBy` không phải email của mình (người khác đã nhận lại) → `claim clear --bug N`, bước 2. Còn lại là
-     bug của mình, **không** gọi `bughub_next` / `bughub_claim`:
-     - `commit` có, `pushed: true` → đã sửa + push, chỉ chưa resolve: đọc `git show <commit>` để viết `cause` / `fix`
-       đúng phần đã sửa, rồi 3.4 bước 3b (nhánh bot) → bước 4 với `<sha>` = `commit`, rồi bước 7.
-     - `commit` có, `pushed: false` → `bughub-watch.py push` như 3.4 bước 3 (`PUSHED` / `UP_TO_DATE` → như dòng trên;
-       còn lại → push lỗi của 3.4), rồi bước 7.
-     - chưa có `commit` → làm lại từ đầu như vừa nhận: bước 4 (sync) → 4b (Editor) → mục 3.2 → 3.4, rồi bước 7. Thay
-       đổi dở của session trước (không biết của ai) nằm trong `dirty` của `sync` → luật 3.3: cần sửa đúng file đó thì
-       `bughub_release(<code>, N, "phiên AI trước bị ngắt khi đang sửa, còn thay đổi chưa commit ở <file> — dev xem rồi giao lại")`.
+   - `CLAIMED` (`bug` = N, `commit`, `pushed`) → `bughub_status(<code>, N)`:
+     - `mine: false`, `cancelled: null` và `status` là `fixed` / `needs-info` / `blocked` (session trước đã chốt xong rồi
+       mới chết) → `claim clear --bug N`, bước 2.
+     - `mine: false` còn lại (bị huỷ, đã release, người khác đã nhận lại) → mục 3.7 với `discard --auto` (bước 2 của
+       3.7 chỉ khi có `cancelled` và `pushed: true`), rồi bước 7.
+     - `mine: true` là bug của mình — `bughub_get(<code>, N)` lấy nội dung, **không** gọi `bughub_next` / `bughub_claim`:
+       - `commit` có, `pushed: true` → đã sửa + push, chỉ chưa resolve: đọc `git show <commit>` để viết `cause` / `fix`
+         đúng phần đã sửa, rồi 3.4 bước 3b (nhánh bot) → bước 4 với `<sha>` = `commit` (ảnh: `uploadId` trong
+         `Temp/BugHub/<N>/before.id` / `after.id` nếu còn — không chụp lại), rồi bước 7.
+       - `commit` có, `pushed: false` → `bughub-watch.py push` như 3.4 bước 3 (`PUSHED` / `UP_TO_DATE` → như dòng trên;
+         còn lại → push lỗi của 3.4), rồi bước 7.
+       - chưa có `commit` → làm lại từ đầu như vừa nhận: bước 4 (sync) → 4b (Editor) → mục 3.2 → 3.4, rồi bước 7. Thay
+         đổi dở của session trước (không biết của ai) nằm trong `dirty` của `sync` → luật 3.3: cần sửa đúng file đó thì
+         `bughub_release(<code>, N, "phiên AI trước bị ngắt khi đang sửa, còn thay đổi chưa commit ở <file> — dev xem rồi giao lại")`.
 2. **Chờ, không tốn token:** gọi với `run_in_background: true` **đúng bản theo OS** (platform của môi trường):
    ```bash
    # macOS / Linux
@@ -507,18 +621,20 @@ mỗi 30 giây tới khi được — không bỏ dở bug, không bỏ dở loo
 4b. **Unity Editor** — mục 3.0 (sau sync để Editor load đúng code mới). Chưa dùng được → nhắn thread + luật không
    dừng như mục 3.0, rồi làm lại bước 4b.
 5. `bughub_next(<code>)` → `{"bug":null}` (session khác vừa nhặt mất) → mục 5.1, rồi quay lại bước 2, **không** clear.
-   Có bug N → **ngay** `python3 .claude/scripts/bughub-watch.py claim set --bug N` (để session sau làm tiếp nếu session
-   này chết giữa chừng — bước 1b).
+   Có bug N → **ngay** `python3 .claude/scripts/bughub-watch.py claim set --bug N` (mục 3.1 — để session sau làm tiếp
+   nếu session này chết giữa chừng, bước 1b, và để mục 3.7 dọn đúng).
 6. Mục 3.2 → 3.4 (gồm 3b ở chế độ nhánh bot), `released` thì thêm 3.5.
 7. `python3 .claude/scripts/bughub-watch.py claim clear --bug N` ngay sau lệnh chốt bug (resolve / needs_info / block /
-   release) — bug kẹt `fixing` vì cả resolve lẫn release đều lỗi thì **giữ** marker để session sau thử tiếp.
+   release; `cancelled` thì `discard` đã xoá marker) — bug kẹt `fixing` vì cả resolve lẫn release đều lỗi thì **giữ**
+   marker để session sau thử tiếp.
    **Tắt Editor nếu hết chuỗi bug** — mục 5.1 (mọi kết quả, kể cả `released`). Rồi **kết quả — mọi kết quả đều
    đi tiếp:**
 
    | Kết quả | Làm |
    |---|---|
    | `fixed` / `needs-info` / `blocked` | `/auto-clear --then "/fix-bug --watch"` (theo `.claude/skills/auto-clear/SKILL.md`; đã push nên không push lần hai) — session sạch cho bug kế tiếp |
-   | `released` (compile fail, push fail, resolve fail, NO_CHANGES, đụng WIP của dev, không đọc được bug) | Đã cất phần sửa dở (mục 3.5) → **vẫn** `/auto-clear --then "/fix-bug --watch"`. Report (lưu ở `last-report.md` + `reports/`) ghi rõ lý do + tên stash để dev đọc sau. Bug đã về `new` — chờ người bấm "Giao lại cho AI", loop không nhặt lại nên không lặp vô hạn |
+   | `cancelled` (người bấm Huỷ & hoàn tác, đã dọn ở mục 3.7) | `/auto-clear --then "/fix-bug --watch"` — bug đã về `new`, loop không nhặt lại tới khi có người giao lại |
+   | `released` (compile fail, lỗi vẫn hiện sau khi sửa, push fail, resolve fail, NO_CHANGES, đụng WIP của dev, không đọc được bug) | Đã cất phần sửa dở (mục 3.5) → **vẫn** `/auto-clear --then "/fix-bug --watch"`. Report (lưu ở `last-report.md` + `reports/`) ghi rõ lý do + tên stash để dev đọc sau. Bug đã về `new` — chờ người bấm "Giao lại cho AI", loop không nhặt lại nên không lặp vô hạn |
    | Bug kẹt `fixing` (cả resolve lẫn release đều lỗi) | Giữ marker `claim` (bước 7) — session sau thử tiếp ở bước 1b. Ghi rõ vào report "bug #N còn `fixing`", rồi `/auto-clear --then "/fix-bug --watch"` |
 
    `/auto-clear` trả `NOT_INSTALLED` / `UNSUPPORTED` / không bật được cờ → không clear được nhưng **không
@@ -561,7 +677,8 @@ Bước này không bao giờ chặn loop: lỗi ở đâu thì ghi vào report 
 Theo `.claude/rules/output-format.md`: danh sách file đã đổi, mỗi file một link tuyệt đối `file://` kèm
 mô tả một dòng. Thêm:
 
-- Mỗi bug đã xử lý một dòng: `#N → fixed (<sha> · <nhánh>)` | `#N → needs-info` | `#N → blocked` | `#N → released (<lý do>)`.
+- Mỗi bug đã xử lý một dòng: `#N → fixed (<sha> · <nhánh>[ · ảnh trước + sau | ảnh sau])` | `#N → needs-info` | `#N → blocked` |
+  `#N → released (<lý do>)` | `#N → cancelled (<message của discard>; stash <sha> — dev drop khi chắc không cần)`.
   `--watch` thêm nhánh đích + kết quả `sync` (đã merge gì, `skipped`); chế độ nhánh bot thêm `publish` (`PUBLISHED` / `DISABLED` / lý do chưa đưa lên nhánh chính).
 - Merge nhánh chính bị conflict (mục 3.6): file đã gộp tay (`resolved`), `preferBase`, `takenBase` — hai danh sách sau là
   chỗ nhánh chính đè thay đổi của nhánh bot, dev xem lại; compile sau merge (`clean` / lỗi còn lại).
