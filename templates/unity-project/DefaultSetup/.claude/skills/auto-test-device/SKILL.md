@@ -1,6 +1,6 @@
 ---
 name: auto-test-device
-description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
+description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Lỗi không làm dừng task: lỗi API của Claude (org tắt quyền, rate limit, overloaded…) tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry` mỗi 30s. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
 ---
 
 # Auto Test Device — QA tự động chơi game trên thiết bị và log bug
@@ -37,11 +37,29 @@ nhiều bước thì dùng hàm: `qa() { python3 .claude/skills/auto-test-device
    quyền hệ thống hay force-stop app đó để lách — báo user / ghi ca `blocked` (môi trường), không phải bug game.
 5. **Không sửa code game, không commit.** Ngoại lệ duy nhất: `start` tự thêm/nâng dòng `com.ezg.qa-probe` trong
    `Packages/manifest.json` (và gỡ bản probe chép cũ `Assets/EzgQaProbe/` nếu còn) — báo dev commit + build lại.
-6. **Không hỏi user giữa chừng.** Tự quyết theo skill này. Chỉ dừng hẳn khi: BugHub chưa setup, không có thiết
-   bị, app chưa cài và không tìm thấy bản build. Ngoại lệ duy nhất: máy chưa có trong danh sách máy test (STEP 1)
-   → hỏi đúng **một** câu có thêm máy không — thêm máy là cấp quyền cheat trên bản release nên phải do user quyết.
-7. **Luôn `stop` cuối phiên** (kể cả khi lỗi giữa chừng) — tắt log nền, trả cài đặt máy, xoá trigger probe, viết report.
-8. Không nhắc tên game/studio khác trong bug, ghi chú, report (luật `no-external-game-refs` nếu project có).
+6. **Không hỏi user giữa chừng.** Tự quyết theo skill này. Chỉ dừng hẳn khi: BugHub chưa setup, app chưa cài và
+   không tìm thấy bản build, hoặc chưa từng có thiết bị nào sau một lượt `retry -- start …` (luật 7). Ngoại lệ duy
+   nhất: máy chưa có trong danh sách máy test (STEP 1) → hỏi đúng **một** câu có thêm máy không — thêm máy là cấp
+   quyền cheat trên bản release nên phải do user quyết.
+7. **Lỗi không làm dừng task — tự thử lại mỗi 30 giây, tới khi qua.**
+   - **Lỗi API của Claude** (`Your organization has disabled Claude subscription access for Claude Code`, rate limit,
+     overloaded, 5xx, mất phiên…) giết lượt trả lời — model không còn chạy để tự thử. `start` tự bật thử lại qua hook
+     `StopFailure` của skill `/auto-clear` (`retry-arm --max 0`; máy chưa đăng ký hook thì `start` tự `install`): hook
+     chờ 30s rồi gõ vào đúng pane `Continue /auto-test-device: the previous turn stopped on an API error - resume the
+     exact step in progress (QA session still open).`, không giới hạn số lần. `stop` tự gỡ. Nhận prompt đó → **không**
+     `start` lại: `$QA shot` xem máy đang ở đâu rồi làm tiếp đúng ca/bước dở (phiên, `mark`, bug đã gửi vẫn nguyên trên
+     đĩa). Dòng `thử lại lỗi API: TẮT — …` ở `start` (ngoài iTerm2 / console Windows) → ghi vào report, vẫn test tiếp.
+     Dev đã `/auto-clear off` giữa phiên → `$QA api-retry on`.
+   - **Lỗi tạm thời của công cụ** (máy rút cáp / `offline` / `not found`, adb treo, chụp màn lỗi, probe mất, BugHub
+     lỗi mạng / 5xx / 429) → không dừng, không bỏ ca: bọc lệnh **không gây tác dụng phụ** trong `$QA retry -- <lệnh…>`
+     (chạy lại mỗi 30s, tối đa ~9 phút mỗi lần gọi — gọi Bash với `timeout: 600000`; thoát mã 75 = vẫn lỗi → gọi lại
+     đúng lệnh đó). Thao tác chạm/vuốt/phím **không** bọc `retry` (lặp thao tác = chạm hai lần): chờ máy về bằng
+     `$QA retry -- shot`, nhìn ảnh rồi mới làm lại thao tác. Gửi bug lỗi mạng → `$QA retry -- bug-resend <id>`. Probe mất
+     → `$QA retry -- probe-connect`. Không có máy lúc `start` → `$QA retry -- start <device> --feature "…"` một lượt.
+   - Lỗi cần người (mã 4 BugHub chưa setup, sai cú pháp) `retry` dừng ngay — xử lý theo luật 6.
+8. **Luôn `stop` cuối phiên** (kể cả khi lỗi giữa chừng) — tắt log nền, trả cài đặt máy, xoá trigger probe, gỡ thử
+   lại lỗi API, viết report.
+9. Không nhắc tên game/studio khác trong bug, ghi chú, report (luật `no-external-game-refs` nếu project có).
 
 ## 0. Đọc argument
 
@@ -76,6 +94,9 @@ cần tap) → chụp ảnh đầu. Đọc output:
 |---|---|
 | Mã thoát 4, `BugHub: CHƯA SẴN SÀNG` + các dòng `✗` | Dừng skill, in nguyên các dòng `✗`, bảo dev chạy **`/bughub-setup`**. Không tự sửa asset/profile/server |
 | Lỗi công cụ / thiết bị (thiếu adb, `unauthorized`, nhiều máy) | `$QA doctor` / `$QA devices`, sửa theo hướng dẫn trong lỗi; thiếu adb mà máy là Android → dừng |
+| Không thấy máy / máy `offline` (cáp lỏng, AVD đang boot) | `$QA retry -- start <device> --feature "…"` (30s/lần, luật 7); hết một lượt vẫn không có máy → dừng, báo dev |
+| `thử lại lỗi API: BẬT …` | Đúng — lỗi API giữa phiên sẽ tự gõ tiếp sau 30s (luật 7) |
+| `thử lại lỗi API: TẮT — …` | Ngoài iTerm2 / console Windows, hoặc `install` hook lỗi → ghi vào report, vẫn test tiếp |
 | `app … chưa cài … không tìm thấy bản build` | Dừng, báo dev cài build |
 | `probe: OK … cổng mở` | Test sâu: `ui`, `audit` sâu, `state`, `call`, `cheat`, `tap --text` |
 | `probe: OK … CỔNG ĐÓNG — máy XXXX-XXXX-XXXX chưa có trong danh sách máy test của <mã>` | Xem **1a** |
@@ -244,8 +265,8 @@ Khi một lỗi đã xác nhận (luật 2):
    - `--via ingame` (cần probe + Bug Logger trong build): gửi bằng chính Bug Logger trong game — report mang context
      của game y như QA bấm nút bug. Mặc định `http` (cùng contract, trả ngay số issue).
    - Trước khi gửi bug đầu tiên của phiên có thể chạy `--dry-run` để xem report.
-4. Output `BUG #N → url` = xong. `BugHub từ chối …` → đọc lỗi, sửa tham số, `$QA bug-resend <id>`; lỗi mạng → thử
-   lại sau. `trùng bug đã log … (<lý do>)` → đúng là trùng thì bỏ; khác thật (lý do "cùng màn…" mà triệu chứng khác,
+4. Output `BUG #N → url` = xong. `BugHub từ chối …` → đọc lỗi, sửa tham số, `$QA bug-resend <id>`; lỗi mạng / 5xx /
+   429 (`network: …`, `(0)`, `(5xx)`) → `$QA retry -- bug-resend <id>` (30s/lần, luật 7) rồi chơi tiếp. `trùng bug đã log … (<lý do>)` → đúng là trùng thì bỏ; khác thật (lý do "cùng màn…" mà triệu chứng khác,
    hoặc lỗi cũ đã sửa nay tái phát cùng chữ ký log) → thêm chi tiết vào tiêu đề hoặc `--force`.
 5. `$QA mark "<ca tiếp theo>"` rồi chơi tiếp — một bug không chặn phần còn lại của charter (bug chặn hẳn tính năng
    → ghi các ca phụ thuộc là `blocked`).
@@ -258,7 +279,8 @@ Dừng khi mọi ca P0–P4 trong charter đã có kết quả và thêm **2 vò
 hiện mới — hoặc thiết bị/app hỏng không cứu được.
 
 1. `$QA perf` lần cuối, `$QA logs --all` — lỗi log nào là bug chưa log → xử lý theo STEP 5.
-2. `$QA stop` → `report.md` trong thư mục phiên.
+2. `$QA stop` → `report.md` trong thư mục phiên (stop gỡ luôn thử lại lỗi API — lỗi API sau phiên không gõ prompt
+   auto-test vào pane nữa).
 3. Trả lời user (tiếng Việt), ngắn:
    - Bảng bug đã log: `#N` + tiêu đề + mức độ + link (hoặc "trùng #N" / "gửi lỗi").
    - Kết quả ca test: số pass/fail/blocked, ca fail nào chưa thành bug (vì sao).
@@ -271,7 +293,8 @@ hiện mới — hoặc thiết bị/app hỏng không cứu được.
 | Việc | Lệnh |
 |---|---|
 | Thiết bị / công cụ / BugHub | `devices` · `doctor` · `bughub-check` |
-| Mở / đóng phiên | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install]` · `stop` · `probe-connect [--retrigger] [--unlock]` |
+| Mở / đóng phiên | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install] [--no-api-retry]` · `stop` · `probe-connect [--retrigger] [--unlock]` |
+| Lỗi → thử lại (luật 7) | `retry [--every 30] [--max-wait 540] -- <lệnh…>` (mã 75 = vẫn lỗi, gọi lại) · `api-retry on\|off\|status` |
 | Nhìn | `shot [--grid] [--marks]` · `burst N` · `wait S [--settle]` · `audit` · `ui [--find x] [--marks]` (probe) |
 | Chạm | `tap X Y` · `tap 50% 80%` · `tap @id` / `--text` / `--name` / `--world` (probe) · `tap … --times 5` · `longpress` |
 | Vuốt/kéo | `swipe X1 Y1 X2 Y2` · `swipe --dir up` · `drag X1 Y1 X2 Y2 [--hold ms]` |

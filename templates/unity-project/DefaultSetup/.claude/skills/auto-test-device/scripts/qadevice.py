@@ -49,7 +49,7 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
@@ -83,6 +83,13 @@ OVERLAY_CACHE_SECONDS = 60  # danh sách overlay app khác: dò lại tối đa 
 VALUE_PRINT_MAX = 1500      # `call` / `state` in giá trị tối đa chừng này ký tự (--full / --out để lấy trọn)
 AD_CLOSE_WORDS = ("close", "skip", "dismiss", "dong", "bo qua")  # đã bỏ dấu, chữ thường
 AD_CLOSE_MARKS = ("x", "×", "✕", "✖", "╳")
+# Thử lại lỗi API (skill /auto-clear, hook StopFailure — hook tự chờ 30 s rồi gõ prompt này). ASCII, một dòng, ≤ 200 ký tự.
+API_RETRY_PROMPT = ("Continue /auto-test-device: the previous turn stopped on an API error - resume the exact step "
+                    "in progress (QA session still open).")
+RETRY_EVERY_S = 30       # `retry`: chạy lại lệnh lỗi mỗi chừng này giây
+RETRY_MAX_WAIT_S = 540   # `retry`: một lần gọi thử tối đa chừng này giây (vừa timeout 600 s của Bash tool)
+RETRY_PENDING_RC = 75    # `retry` hết giờ mà lệnh vẫn lỗi — gọi lại `retry`, không dừng phiên
+RETRY_FATAL_RC = (2, 4, 130)  # sai cú pháp · BugHub chưa setup · Ctrl-C: thử lại vô ích
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -2661,6 +2668,76 @@ def ensure_probe_in_project(root):
     return notes
 
 
+def auto_clear_script():
+    """Script của skill /auto-clear cạnh skill này (macOS/Linux: .sh, Windows: .ps1); không có thì bản copy mà hook
+    của máy đang chạy (~/.claude/auto-clear/). None = máy/project chưa có /auto-clear."""
+    name = "auto-clear.ps1" if IS_WIN else "auto-clear.sh"
+    for p in (os.path.join(os.path.dirname(SKILL_DIR), "auto-clear", "scripts", name),
+              os.path.join(os.path.expanduser("~"), ".claude", "auto-clear", name)):
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def auto_clear_cmd(script, *args):
+    if script.endswith(".ps1"):
+        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script] + list(args)
+    return ["bash", script] + list(args)
+
+
+def parse_retry_result(rc, out, err):
+    """Output của `auto-clear retry-arm|retry-off` → (state, dòng kết quả).
+    state: armed · disarmed · not_armed · not_installed · unsupported · error."""
+    for line in (out or "").splitlines():
+        s = line.strip()
+        for key, state in (("RETRY_ARMED", "armed"), ("RETRY_DISARMED", "disarmed"), ("RETRY_NOT_ARMED", "not_armed"),
+                           ("NOT_INSTALLED", "not_installed"), ("UNSUPPORTED", "unsupported"), ("INVALID_", "error")):
+            if s.startswith(key):
+                return state, s
+    tail = [l.strip() for l in ((err or "") + "\n" + (out or "")).splitlines() if l.strip()]
+    return "error", tail[-1] if tail else "auto-clear thoát mã %s" % rc
+
+
+def api_retry(root, action):
+    """Bật (`arm`) / gỡ (`off`) THỬ LẠI LỖI API cho pane Claude Code đang chạy skill: lượt trả lời chết vì lỗi API
+    (org tắt quyền Claude, rate limit, overloaded, 5xx, mất phiên…) thì model không còn chạy để tự thử lại — hook
+    StopFailure của /auto-clear chờ 30 s rồi gõ API_RETRY_PROMPT vào đúng pane, không giới hạn số lần, tới khi
+    API trả lời được hoặc `stop`. Máy chưa đăng ký hook → tự `install` (idempotent, có backup settings, hook không làm
+    gì khi pane không bật cờ) rồi bật lại. Trả (state, dòng); state thêm `missing` khi không có script /auto-clear."""
+    script = auto_clear_script()
+    if not script:
+        return "missing", "project chưa có skill /auto-clear (cài từ Feature Hub)"
+    if action != "arm":
+        return parse_retry_result(*run(auto_clear_cmd(script, "retry-off"), timeout=30, cwd=root))
+    arm = auto_clear_cmd(script, "retry-arm", "--max", "0", "--prompt", API_RETRY_PROMPT)
+    st, line = parse_retry_result(*run(arm, timeout=30, cwd=root))
+    if st == "not_installed":
+        rc, out, err = run(auto_clear_cmd(script, "install"), timeout=60, cwd=root)
+        st, line = parse_retry_result(*run(arm, timeout=30, cwd=root))
+        if st == "armed":
+            line = "đã tự cài hook /auto-clear trên máy · " + line
+        elif rc != 0:
+            line = "`auto-clear install` lỗi: %s" % ((err or out).strip() or "mã %s" % rc)
+    return st, line
+
+
+def describe_api_retry(ar):
+    """Một dòng cho output `start` + report."""
+    if not ar:
+        return "tắt (--no-api-retry)"
+    st, line = ar.get("state"), ar.get("line", "")
+    if st == "armed":
+        return ("BẬT — lượt trả lời chết vì lỗi API (org tắt quyền Claude, rate limit, overloaded, 5xx…) → tự gõ tiếp "
+                "sau %ds, không giới hạn; `stop` gỡ%s" % (RETRY_EVERY_S, " (đã tự cài hook trên máy)" if "đã tự cài" in line else ""))
+    if st == "disarmed":
+        return "đã gỡ (phiên đã stop)"
+    if st == "not_installed":
+        return "TẮT — hook StopFailure chưa cài được trên máy (%s) → dev chạy `/auto-clear install`" % line
+    if st == "unsupported":
+        return "TẮT — %s (chỉ chạy trong iTerm2 trên macOS / console Windows) — lỗi API phải gõ tiếp tay" % line
+    return "TẮT — %s" % line
+
+
 def cmd_start(a):
     root = repo_root()
     # BugHub là điều kiện bắt buộc — kiểm trước khi đụng vào máy.
@@ -2708,6 +2785,9 @@ def cmd_start(a):
                                   "builtAtUtc": bi.get("builtAtUtc", "")})
         sess.d["changed"]["stayon"] = dev.stay_awake(True)
     sess.d["bughub"] = {"ok": bh["ok"], "code": bh["code"], "endpoint": bh["endpoint"], "problems": bh["problems"]}
+    if not a.no_api_retry:
+        st, line = api_retry(root, "arm")
+        sess.d["api_retry"] = {"state": st, "line": line}
     sess.save()
     log_start(sess, dev)
     if a.fresh:
@@ -2762,6 +2842,7 @@ def cmd_start(a):
         probe_msg = connect_probe(sess, dev, wait=a.probe_wait if a.probe == "auto" else max(a.probe_wait, 60))
     if isinstance(dev, UnityEditorTarget) and not (sess.d.get("probe") or {}).get("ok"):
         print("PHIÊN %s (Editor) — chưa nối được probe: vào Play mode (Unity MCP unity_play_mode) rồi chạy `probe-connect`" % sess.id)
+        print("thử lại lỗi API: %s" % describe_api_retry(sess.d.get("api_retry")))
         return
     # chờ game lên hình rồi chụp
     time.sleep(a.settle)
@@ -2774,6 +2855,7 @@ def cmd_start(a):
     if a.probe == "require" and not (sess.d.get("probe") or {}).get("ok"):
         raise QaError("--probe require nhưng không nối được probe (xem dòng probe ở trên)")
     print("bughub: %s" % ("OK (%s)" % bh["code"] if bh["ok"] else "CHƯA SẴN SÀNG — " + "; ".join(bh["problems"])))
+    print("thử lại lỗi API: %s" % describe_api_retry(sess.d.get("api_retry")))
     for n in notes:
         print("ghi chú: " + n)
     print("thư mục phiên: %s" % sess.dir)
@@ -3773,6 +3855,7 @@ def build_session_report(sess):
            "| Build | %s v%s (%s)%s |" % (d["package"], app.get("version"), app.get("build"),
                                        (" · %s@%s" % (app.get("commitSha", "")[:9], app.get("branch"))) if app.get("commitSha") else ""),
            "| Probe | %s |" % probe_report_line(d.get("probe") or {}),
+           "| Thử lại lỗi API | %s |" % describe_api_retry(d.get("api_retry")),
            "| Thao tác | %d · ảnh %d · ca test %d |" % (len(actions), d.get("shot", 0), len(cases)),
            "| Khởi động nguội | %s |" % (("%d ms" % d["launch_ms"]) if d.get("launch_ms") else "?"), ""]
     out.append("## Bug đã log (%d)" % len(bugs))
@@ -3806,8 +3889,61 @@ def build_session_report(sess):
 
 def cmd_stop(a):
     sess = Session.load(a.session)
+    ar = sess.d.get("api_retry") or {}
+    if ar.get("state") == "armed":
+        # Gỡ trước khi viết report: lỗi API sau phiên này không được gõ prompt auto-test vào pane nữa.
+        st, line = api_retry(repo_root(), "off")
+        sess.d["api_retry"] = {"state": "disarmed" if st in ("disarmed", "not_armed") else st, "line": line}
+        if st not in ("disarmed", "not_armed"):
+            print("thử lại lỗi API: gỡ không được (%s) — gõ `/auto-clear off`" % line)
     close_session(sess)
     print("đã dừng phiên %s · report: %s" % (sess.id, sess.path("report.md")))
+
+
+def cmd_api_retry(a):
+    """Bật lại / gỡ / xem thử lại lỗi API của phiên hiện tại (vd dev đã `/auto-clear off`, hoặc start --no-api-retry)."""
+    sess = Session.load(a.session)
+    if a.action != "status":
+        st, line = api_retry(repo_root(), "arm" if a.action == "on" else "off")
+        if a.action == "off" and st in ("disarmed", "not_armed"):
+            st = "disarmed"
+        sess.d["api_retry"] = {"state": st, "line": line}
+        sess.save()
+    print("thử lại lỗi API: %s" % describe_api_retry(sess.d.get("api_retry")))
+
+
+def cmd_retry(a):
+    """Chạy lại một lệnh qadevice mỗi `--every` giây tới khi qua: lỗi tạm thời (máy rút cáp/offline, adb treo, mạng
+    hay BugHub chập chờn, probe mất) không được làm dừng phiên test. Lệnh con chạy trong process riêng, output in
+    thẳng ra. Hết `--max-wait` mà vẫn lỗi → thoát RETRY_PENDING_RC để agent gọi lại đúng lệnh `retry` này."""
+    argv = list(a.argv or [])
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    if not argv:
+        raise QaError("retry cần lệnh qadevice, vd `retry -- shot` · `retry -- bug-resend <id>` · `retry -- start auto --feature …`")
+    if argv[0] == "retry":
+        raise QaError("retry lồng retry — bỏ một lớp")
+    cmd = [sys.executable, os.path.abspath(__file__)] + (["--session", a.session] if a.session else []) + argv
+    every = max(a.every, 1.0)
+    deadline = time.time() + max(a.max_wait, 0)
+    n = 0
+    while True:
+        n += 1
+        sys.stdout.flush()
+        rc = subprocess.call(cmd)
+        if rc == 0:
+            if n > 1:
+                print("retry: qua ở lần %d" % n)
+            return
+        if rc in RETRY_FATAL_RC:
+            raise QaError("retry: lệnh thoát mã %d — lỗi cần người xử lý (cú pháp / BugHub chưa setup), thử lại vô ích" % rc)
+        if time.time() + every > deadline:
+            print("retry: vẫn lỗi sau %d lần (mã %d)" % (n, rc))
+            print("→ không dừng phiên: chạy lại đúng lệnh `retry` này (mỗi %ds một lần, tới khi qua)" % int(every))
+            sys.exit(RETRY_PENDING_RC)
+        print("retry: lần %d lỗi (mã %d) — thử lại sau %ds" % (n, rc, int(every)))
+        sys.stdout.flush()
+        time.sleep(every)
 
 
 def close_previous_session():
@@ -4052,8 +4188,21 @@ def build_parser():
     sp.add_argument("--window", action="store_true", help="boot AVD có cửa sổ (mặc định headless)")
     sp.add_argument("--code", help="mã BugHub (mặc định từ project-profile)")
     sp.add_argument("--no-probe-install", action="store_true", help="không tự cài/cập nhật probe vào project")
+    sp.add_argument("--no-api-retry", action="store_true",
+                    help="không bật thử lại lỗi API (mặc định: /auto-clear retry-arm --max 0 — lượt chết vì lỗi API tự gõ tiếp sau 30 s)")
     sp.add_argument("--skip-bughub", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(fn=cmd_start)
+
+    sp = sub.add_parser("retry", help="chạy lại một lệnh qadevice mỗi 30 s tới khi qua: retry [--every S] [--max-wait S] -- <lệnh…>")
+    sp.add_argument("--every", type=float, default=RETRY_EVERY_S, help="giây giữa hai lần thử")
+    sp.add_argument("--max-wait", type=float, default=RETRY_MAX_WAIT_S,
+                    help="thử tối đa chừng này giây mỗi lần gọi (hết giờ: thoát %d, gọi lại)" % RETRY_PENDING_RC)
+    sp.add_argument("argv", nargs=argparse.REMAINDER, help="lệnh qadevice cần chạy lại, sau `--`")
+    sp.set_defaults(fn=cmd_retry)
+
+    sp = sub.add_parser("api-retry", help="thử lại lỗi API của phiên (hook StopFailure /auto-clear): on | off | status")
+    sp.add_argument("action", choices=("on", "off", "status"), nargs="?", default="status")
+    sp.set_defaults(fn=cmd_api_retry)
 
     sp = sub.add_parser("probe-connect", help="nối lại probe (sau khi bật cheat/cổng, vào Play mode Editor, app restart)")
     sp.add_argument("--wait", type=float, default=30)

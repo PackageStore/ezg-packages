@@ -3,6 +3,8 @@
 
 Chạy: python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests
 """
+import contextlib
+import io
 import json
 import os
 import sys
@@ -617,6 +619,152 @@ class KillDedupValueTests(unittest.TestCase):
         self.assertEqual((a.out, a.full), ("/tmp/ids.json", True))
         self.assertTrue(p.parse_args(["state", "A.B", "--full"]).full)
         self.assertTrue(p.parse_args(["drag", "1", "2", "3", "4", "--allow-overlay"]).allow_overlay)
+
+
+class ApiRetryTests(unittest.TestCase):
+    """Thử lại khi lượt trả lời chết vì lỗi API (start bật qua /auto-clear retry-arm, stop gỡ) + lệnh `retry`."""
+
+    def setUp(self):
+        self._saved = {k: getattr(q, k) for k in ("run", "auto_clear_script", "api_retry", "close_session", "repo_root")}
+        self._load = q.Session.load
+        self._call, self._sleep = q.subprocess.call, q.time.sleep
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            setattr(q, k, v)
+        q.Session.load = self._load
+        q.subprocess.call, q.time.sleep = self._call, self._sleep
+
+    def test_prompt_is_valid_for_auto_clear(self):
+        p = q.API_RETRY_PROMPT
+        self.assertLessEqual(len(p), 200)
+        self.assertNotIn("\n", p)
+        self.assertTrue(all(32 <= ord(c) < 127 for c in p))  # ASCII: bản Windows gõ từng ký tự vào console
+        self.assertIn("/auto-test-device", p)
+
+    def test_parse_retry_result(self):
+        cases = [
+            ("RETRY_ARMED pane=ABC pid=1 tty=/dev/ttys001 delay=30s max=∞", "armed"),
+            ("RETRY_ARMED pid=4242 delay=30s max=unlimited", "armed"),          # Windows
+            ("RETRY_DISARMED pane=ABC", "disarmed"),
+            ("RETRY_NOT_ARMED pane=ABC", "not_armed"),
+            ("NOT_INSTALLED: StopFailure hook chưa đăng ký — chạy: bash x install", "not_installed"),
+            ("UNSUPPORTED: không có ITERM_SESSION_ID (không chạy trong iTerm2)", "unsupported"),
+            ("INVALID_THEN: prompt rỗng", "error"),
+        ]
+        for out, want in cases:
+            self.assertEqual(q.parse_retry_result(0, "noise\n" + out + "\n", "")[0], want, out)
+        self.assertEqual(q.parse_retry_result(127, "", "bash: not found"), ("error", "bash: not found"))
+        self.assertEqual(q.parse_retry_result(1, "", "")[0], "error")
+
+    def test_api_retry_commands(self):
+        calls = []
+        q.auto_clear_script = lambda: "/x/auto-clear.sh"
+        q.run = lambda cmd, **kw: calls.append(cmd) or (0, "RETRY_ARMED pane=P pid=1 tty=? delay=30s max=∞\n", "")
+        self.assertEqual(q.api_retry("/repo", "arm")[0], "armed")
+        self.assertEqual(calls[-1], ["bash", "/x/auto-clear.sh", "retry-arm", "--max", "0", "--prompt", q.API_RETRY_PROMPT])
+        q.run = lambda cmd, **kw: calls.append(cmd) or (0, "RETRY_DISARMED pane=P\n", "")
+        self.assertEqual(q.api_retry("/repo", "off")[0], "disarmed")
+        self.assertEqual(calls[-1], ["bash", "/x/auto-clear.sh", "retry-off"])
+        self.assertEqual(q.auto_clear_cmd("C:/x/auto-clear.ps1", "retry-off")[:6],
+                         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:/x/auto-clear.ps1"])
+        q.auto_clear_script = lambda: None
+        self.assertEqual(q.api_retry("/repo", "arm")[0], "missing")
+
+    def test_api_retry_installs_hook_when_missing(self):
+        calls, outs = [], ["NOT_INSTALLED: StopFailure hook chưa đăng ký", "INSTALLED Stop + StopFailure hook",
+                           "RETRY_ARMED pane=P pid=1 tty=? delay=30s max=∞"]
+        q.auto_clear_script = lambda: "/x/auto-clear.sh"
+        q.run = lambda cmd, **kw: calls.append(cmd[2]) or (0, outs.pop(0) + "\n", "")
+        st, line = q.api_retry("/repo", "arm")
+        self.assertEqual((st, calls), ("armed", ["retry-arm", "install", "retry-arm"]))
+        self.assertIn("đã tự cài hook", q.describe_api_retry({"state": st, "line": line}))
+        calls[:], outs[:] = [], ["UNSUPPORTED: không có ITERM_SESSION_ID"]
+        self.assertEqual(q.api_retry("/repo", "arm")[0], "unsupported")
+        self.assertEqual(calls, ["retry-arm"])  # không phải lỗi thiếu hook → không install
+
+    def test_describe_api_retry(self):
+        self.assertIn("BẬT", q.describe_api_retry({"state": "armed"}))
+        self.assertIn("/auto-clear install", q.describe_api_retry({"state": "not_installed"}))
+        self.assertIn("iTerm2", q.describe_api_retry({"state": "unsupported", "line": "UNSUPPORTED: x"}))
+        self.assertIn("--no-api-retry", q.describe_api_retry(None))
+        self.assertIn("TẮT", q.describe_api_retry({"state": "missing", "line": "project chưa có skill /auto-clear"}))
+
+    def _fake_session(self, state):
+        class S(object):
+            id = "S1"
+            d = {"api_retry": {"state": state, "line": ""}} if state else {}
+
+            def path(self, *p):
+                return "/tmp/" + "/".join(p)
+        return S()
+
+    def test_stop_disarms_only_when_armed(self):
+        calls = []
+        q.api_retry = lambda root, action: calls.append(action) or ("disarmed", "RETRY_DISARMED pane=P")
+        q.close_session = lambda sess, quiet=False: None
+        q.repo_root = lambda: "/repo"
+        sess = self._fake_session("armed")
+        q.Session.load = staticmethod(lambda sid=None: sess)
+        with contextlib.redirect_stdout(io.StringIO()):
+            q.cmd_stop(q.build_parser().parse_args(["stop"]))
+        self.assertEqual(calls, ["off"])
+        self.assertEqual(sess.d["api_retry"]["state"], "disarmed")
+        for st in ("not_installed", "disarmed", None):
+            sess = self._fake_session(st)
+            q.Session.load = staticmethod(lambda sid=None: sess)
+            with contextlib.redirect_stdout(io.StringIO()):
+                q.cmd_stop(q.build_parser().parse_args(["stop"]))
+        self.assertEqual(calls, ["off"])
+
+    def test_retry_loops_until_pass(self):
+        seq, cmds, sleeps = [1, 75, 0], [], []
+        q.subprocess.call = lambda cmd: cmds.append(cmd) or seq.pop(0)
+        q.time.sleep = lambda s: sleeps.append(s)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            q.cmd_retry(q.build_parser().parse_args(["--session", "S9", "retry", "--every", "5", "--", "bug-resend", "r1"]))
+        self.assertEqual(len(cmds), 3)
+        self.assertEqual(cmds[0][-4:], ["--session", "S9", "bug-resend", "r1"])
+        self.assertEqual(sleeps, [5.0, 5.0])
+        self.assertIn("qua ở lần 3", buf.getvalue())
+
+    def test_retry_fatal_and_deadline(self):
+        q.time.sleep = lambda s: None
+        q.subprocess.call = lambda cmd: 4
+        with self.assertRaises(q.QaError):
+            q.cmd_retry(q.build_parser().parse_args(["retry", "--", "start", "auto"]))
+        q.subprocess.call = lambda cmd: 1
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), self.assertRaises(SystemExit) as cm:
+            q.cmd_retry(q.build_parser().parse_args(["retry", "--max-wait", "0", "shot"]))
+        self.assertEqual(cm.exception.code, q.RETRY_PENDING_RC)
+        self.assertIn("không dừng phiên", buf.getvalue())
+        for bad in (["retry"], ["retry", "--", "retry", "shot"]):
+            with self.assertRaises(q.QaError):
+                q.cmd_retry(q.build_parser().parse_args(bad))
+
+    def test_parser_v14_options(self):
+        p = q.build_parser()
+        self.assertTrue(p.parse_args(["start", "auto", "--no-api-retry"]).no_api_retry)
+        self.assertFalse(p.parse_args(["start"]).no_api_retry)
+        a = p.parse_args(["retry", "--", "shot", "--grid"])
+        self.assertEqual((a.fn, a.every, a.max_wait), (q.cmd_retry, q.RETRY_EVERY_S, q.RETRY_MAX_WAIT_S))
+        self.assertEqual(p.parse_args(["api-retry"]).action, "status")
+        self.assertEqual(p.parse_args(["api-retry", "on"]).fn, q.cmd_api_retry)
+
+    def test_api_retry_command_updates_session(self):
+        sess = self._fake_session(None)
+        sess.save = lambda: None
+        q.Session.load = staticmethod(lambda sid=None: sess)
+        q.repo_root = lambda: "/repo"
+        q.api_retry = lambda root, action: ("armed", "RETRY_ARMED x") if action == "arm" else ("not_armed", "RETRY_NOT_ARMED x")
+        with contextlib.redirect_stdout(io.StringIO()):
+            q.cmd_api_retry(q.build_parser().parse_args(["api-retry", "on"]))
+            self.assertEqual(sess.d["api_retry"]["state"], "armed")
+            q.cmd_api_retry(q.build_parser().parse_args(["api-retry", "off"]))
+        self.assertEqual(sess.d["api_retry"]["state"], "disarmed")
+
 
 
 if __name__ == "__main__":
