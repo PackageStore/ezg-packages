@@ -1268,8 +1268,8 @@
       "source": "defaultsetup",
       "fileName": "tracking-attribution.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/tracking-attribution.zip",
-      "sha256": "b55d95a0d9f376b6385ef00fae29e0f2832e7796b6a3fc0ca8d73d086a52d3a7",
-      "size": 1989
+      "sha256": "1ce0344503c9a7e4ebfad51d14a9edd2690ee2d356874d3ee555e3086124ced4",
+      "size": 2248
     },
     {
       "id": "Scripts/art-style-board.py",
