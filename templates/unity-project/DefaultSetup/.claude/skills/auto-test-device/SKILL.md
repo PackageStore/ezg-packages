@@ -1,6 +1,6 @@
 ---
 name: auto-test-device
-description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json["qa"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe. Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
+description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json["qa"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Máy mới / project mới chỉ cần gõ MỘT câu: `doctor` + STEP 0 tự lo hết — kiểm và cập nhật item Feature Hub liên quan (skill này, probe, autotest, cheat-gate, buglogger) qua MCP ezg, BugHub chưa cài thì tự chạy /bughub-setup trong phiên (chỉ hỏi ID forum Discord khi project chưa đăng ký), hook thử lại lỗi API tự cài, probe tự thêm vào manifest, cài app, mở game; bản release có com.ezg.cheat-gate mà máy chưa trong danh sách máy test thì tự thêm bằng test_device_add (tài khoản Lead/QA). Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. "Toàn bộ game" → `plan` chia theo bucket/feature xếp theo rủi ro, mỗi nhóm một charter, làm lần lượt. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", "chạy auto test <device id>", "chạy auto test full game", "auto test toàn bộ game", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → tự chạy /bughub-setup, không dừng. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
 ---
 
 # Auto Test Device — QA tự động chơi game trên thiết bị và log bug
@@ -79,8 +79,11 @@ hoạ** — giá trị thật luôn đọc từ profile.
    `project-profile.json`, `QaProfile.md`, `charters/`, `EzgQaProbeConfig.json`, block `liveness` của autotest settings;
    `stop` flush tri thức vào profile. Tất cả báo dev commit — bạn không `git add`.
 10. **Không hỏi user giữa chừng.** Tự quyết theo skill này và tự xử lý vướng mắc (máy chưa trong danh sách test →
-    tự thêm bằng `test_device_add` nếu MCP cho; không cho → hộp đen + ghi report). Chỉ dừng hẳn khi: BugHub chưa
-    setup, app chưa cài và không tìm thấy bản build, hoặc chưa từng có thiết bị nào sau một lượt `retry -- start …`.
+    tự thêm bằng `test_device_add` nếu MCP cho; không cho → hộp đen + ghi report; BugHub chưa cài → tự chạy
+    `/bughub-setup`; skill/package cũ → tự cập nhật từ Feature Hub). **Ngoại lệ duy nhất được hỏi:** `/bughub-setup`
+    thấy project chưa đăng ký trên server → hỏi dev ID forum Discord (+ mã project nếu profile chưa có) — chỉ dev biết.
+    Chỉ dừng hẳn khi: không có MCP `bughub` / tài khoản không đủ quyền đăng ký project và project chưa có trên server,
+    app chưa cài và không tìm thấy bản build, hoặc chưa từng có thiết bị nào sau một lượt `retry -- start …`.
 11. **Lỗi không làm dừng task — tự thử lại mỗi 30 giây, tới khi qua.**
     - **Lỗi API của Claude** (`Your organization has disabled Claude subscription access for Claude Code`, rate limit,
       overloaded, 5xx, mất phiên…) giết lượt trả lời — model không còn chạy để tự thử. `start` tự bật thử lại qua hook
@@ -117,24 +120,58 @@ mà có đúng một AVD thì tự boot.
 | `auto` / `android` / `ios` / bỏ trống | Thiết bị duy nhất đang kết nối (không có máy + một AVD → tự boot) |
 
 Không rõ id → `$QA devices`. Tính năng bỏ trống → test **vòng chơi chính + mọi màn *còn sống* vào được từ màn chính**
-(smoke thăm dò; danh sách màn sống lấy từ `qa.liveness` + `QaProfile.md`). Tính năng lớn ("toàn bộ game") → chia
-theo màn/hệ thống, mỗi hệ thống một charter, làm lần lượt trong cùng phiên.
+(smoke thăm dò; danh sách màn sống lấy từ `qa.liveness` + `QaProfile.md`). Tính năng lớn ("toàn bộ game", "full game",
+"cả game") → sau STEP 0 chạy **`$QA plan`**: ghép màn sống vào feature/bucket của repo, xếp theo rủi ro (tiền/IAP/pass →
+gameplay → meta → social → onboarding → system), mỗi nhóm một charter; làm lần lượt theo thứ tự plan trong **cùng
+phiên** (`charter new` → STEP 1–5 → nhóm kế), `coverage` sau mỗi nhóm, `stop` một lần cuối. Nhóm "không có màn" test
+qua luồng gameplay; màn đánh dấu `?` (enum có nhưng không thấy code gọi) chỉ xác nhận nhanh có vào được không.
 
-## STEP 0 — Chuẩn bị: công cụ đúng, project đúng, biết autotest đã phủ gì
+### Prompt tối giản — người khác chỉ cần gõ một câu
 
-Chạy theo thứ tự; 0a–0c tuần tự, 0d song song với `start`.
+Không bắt user gõ đúng cú pháp `/auto-test-device`, không hỏi lại thiết bị khi chỉ có một máy, không hỏi "có cài X
+không" — mọi thứ thiếu trên máy mới do STEP 0 tự lo (0a → 0a' → 0b).
 
-**0a. `$QA doctor`** — công cụ (adb/xcrun, Pillow), BugHub, package (`com.ezg.qa-probe` ≥ `PROBE_MIN_VERSION`,
-`com.ezg.cheat-gate`, `com.ezg.autotest` ≥ 0.2.0 — cũ hơn chỉ cảnh báo), block `qa` + `Status` của `QaProfile.md`,
-từng convention có resolve ra file thật không, probe override / autotest settings có đồng bộ với profile không.
+| User gõ | Hiểu là |
+|---|---|
+| `chạy auto test <device id>` · `auto test trên <máy>` | device = id đó, tính năng trống → smoke thăm dò mọi màn sống |
+| `chạy auto test full game` · `test toàn bộ game` · `auto test cả game` | device `auto`, tính năng "toàn bộ game" → `plan` → từng nhóm |
+| `chạy auto test <device id> <tính năng>` · `test <tính năng> trên <máy>` | cú pháp chuẩn |
+| `tiếp tục auto test` · prompt thử lại lỗi API | không `start` lại — `shot` + `coverage` rồi làm tiếp (luật 11) |
+
+## STEP 0 — Chuẩn bị: máy mới tự onboard, project đúng, biết autotest đã phủ gì
+
+Chạy theo thứ tự; 0a → 0a' → 0b → 0c tuần tự, 0d song song với `start`. Mục tiêu: trên **máy khác, project khác**,
+một câu prompt là đủ — STEP 0 tự cài/cập nhật mọi thứ, không hỏi (trừ ngoại lệ luật 10).
+
+**0a. `$QA doctor`** — một lệnh kiểm hết: công cụ máy (adb/xcrun/Pillow), package (`com.ezg.qa-probe` ≥
+`PROBE_MIN_VERSION`, `com.ezg.cheat-gate`, `com.ezg.autotest` ≥ 0.2.0, `com.ezg.buglogger`, `com.ezg.featurehub` ≥ 0.4.0,
+scoped registry EZG), BugHub (mã + server), block `qa` + `Status` của `QaProfile.md`, từng convention có resolve ra file
+thật không, build-side có đồng bộ profile không, hook thử lại lỗi API. Cuối output là **`việc còn lại`** — danh sách
+theo thứ tự, mỗi dòng ghi ai làm:
+
+| Ai | Làm |
+|---|---|
+| `[tool]` (`probe-package`, `autotest-package`, `profile-init`, `profile-sync`, `api-retry-hook`) | **`$QA doctor --fix`** làm một lượt (idempotent): `profile init` (tự dò quy ước → block `qa` + `QaProfile.md` draft), thêm/nâng probe + autotest trong manifest, `profile sync`. Hook thử lại lỗi API thì `start` tự cài. Đọc output: key `default` ở `profile init` là tool chưa dò ra → ghi report cho dev điền |
+| `[model]` (`mcp-check`, `feature-hub-update`, `bughub-setup`) | Bạn làm theo bảng **0a'** |
+| `[dev]` (`cheat-gate`…) | Không tự làm (đụng code game) — ghi vào report cuối, test tiếp ở mức có thể |
+
+`--json` khi cần đọc máy (`actions[]`, `featureHub.items`, `mcp`). Các dòng khác của `doctor`:
 
 | `doctor` nói | Làm |
 |---|---|
-| `qa: thiếu` / `QaProfile.md: thiếu` / `Status: template` | `$QA profile init` → đọc output provenance (`auto`/`dev`/`default`) — key `default` là tool chưa dò ra, ghi report cho dev điền. Rồi `$QA profile sync` (probe + autotest đọc cùng quy ước; đổi `EzgQaProbeConfig.json` chỉ có tác dụng ở build sau — ghi report) |
 | `convention X không resolve` (vd lớp cơ sở màn không tìm thấy) | Grep nhanh xác nhận; đúng là project đặt tên khác → sửa `qa.conventions.X` trong `project-profile.json` → `profile sync`; không tìm ra → test hộp đen phần phụ thuộc, ghi report |
-| `probe override / autotest settings lệch profile` | `$QA profile sync` |
-| `autotest < 0.2.0` / không có | Vẫn chạy; `autotest-import` sẽ bỏ qua rule liveness (0.1.x báo màn chết là Critical — xem 0e) |
+| `autotest < 0.2.0` / không có | `doctor --fix` thêm; vẫn chạy được — `autotest-import` sẽ bỏ qua rule liveness (0.1.x báo màn chết là Critical — xem 0f) |
+| `manifest không có scoped registry EZG` | Project chưa nối registry → báo dev cài qua Feature Hub (Editor); phiên này probe/autotest không tải được → hộp đen |
 | Lỗi công cụ (thiếu adb, Pillow cài lỗi) | Sửa theo hướng dẫn trong lỗi; thiếu adb mà máy là Android → dừng |
+
+**0a'. Việc `[model]` — onboarding tự động, không hỏi**
+
+| Việc | Làm |
+|---|---|
+| `mcp-check` | ToolSearch `ezg` và `bughub` (+ `unity`). Repo đã khai hai server HTTP này trong `.mcp.json` (Claude Code chỉ hỏi duyệt lần đầu, rồi `/mcp` → Authenticate Google @easygoing.vn). Vẫn thiếu → **không** tự chạy `claude mcp add` (sửa config user của dev): in đúng lệnh `claude mcp add --transport http --scope user ezg <url>` / `… bughub <endpoint>/mcp` (url trong `doctor --json` → `mcp`) + "gõ `/mcp` → Authenticate → mở lại session", rồi vẫn tiếp tục phần không cần MCP (hộp đen; chống trùng bug chỉ trong máy; máy test không tự thêm được) và ghi report |
+| `feature-hub-update` | Read `Packages/manifest.json` + `ProjectSettings/EzgFeatureHub/install-record.json` (nếu có) → `check_project_updates(manifest_json, install_record_json)`. Chỉ quan tâm item QA (`doctor --json` → `featureHub.items`): UPM `com.ezg.qa-probe`, `com.ezg.autotest`, `com.ezg.cheat-gate`, `com.ezg.buglogger`; AI `Skills/auto-test-device`, `Skills/bughub-setup`, `Skills/auto-clear`, `Skills/fix-bug`, `Docs/QaProfile.template`, `Scripts/project_profile.py`, `Scripts/bootstrap.*`. Cần cài khi: `update_available`, UPM `notInstalledTemplatePackages`, hoặc **AI item không có trong record** (chưa từng cài qua Hub — tool không báo dòng nào cho nó, bạn phải tự so với danh sách). Mỗi item: `get_install_steps(kind, name)` → có Editor của project này (`unity_list_instances`, so `projectPath` với `git rev-parse --show-toplevel`) → `unity_execute_code` snippet `install`, chờ domain reload, snippet `verify` tới `INSTALLED`; **một item một lần**, UPM trước AI. Không có Editor → UPM: `$QA doctor --fix` (ghi manifest); AI item → report "cập nhật khi mở Editor". `Skills/auto-test-device` vừa cập nhật → **Read lại SKILL.md này** rồi mới đi tiếp. Không cài item ngoài danh sách (không phải việc QA); `com.ezg.cheat-gate` thêm package được nhưng còn cần code gọi `CheatGate.Initialize` → vẫn là việc `[dev]` |
+| `bughub-setup` | `doctor` ⚠ `BugHub chưa sẵn sàng` (việc `bughub-setup`) hoặc `start` thoát mã 4 → gọi Skill **`/bughub-setup`** ngay trong phiên (đừng bảo dev tự chạy). Skill đó chỉ hỏi dev khi project **chưa đăng ký** trên server: ID forum Discord (+ mã project nếu profile chưa có) — ngoại lệ luật 10. Xong → `start` lại. Tài khoản không phải admin BugHub và project chưa đăng ký → dừng, chuyển nguyên lời của skill cho dev (ai cần làm gì) |
+| `test-device` | Chỉ biết sau khi probe nối: **0c** |
 
 **0b. `$QA start <device id|auto> --feature "<tính năng>"`** — kiểm BugHub → cài Pillow nếu thiếu → thêm package
 probe vào manifest nếu thiếu → chọn máy → cài app nếu chưa có (bản build mới nhất trong repo) → mở game kèm token
@@ -142,7 +179,7 @@ probe → nối probe → project có `com.ezg.cheat-gate` thì chờ probe tự
 
 | Output | Làm |
 |---|---|
-| Mã thoát 4, `BugHub: CHƯA SẴN SÀNG` + các dòng `✗` | Dừng skill, in nguyên các dòng `✗`, bảo dev chạy **`/bughub-setup`**. Không tự sửa asset/profile/server |
+| Mã thoát 4, `BugHub: CHƯA SẴN SÀNG` + các dòng `✗` | Gọi Skill **`/bughub-setup`** ngay (0a' `bughub-setup`) — nó tự sửa asset/profile/server đúng cách, chỉ hỏi dev ID forum khi project chưa đăng ký. Xong → `start` lại. Skill báo cần người khác (không đủ quyền) → dừng, in nguyên lời |
 | Lỗi thiết bị (`unauthorized`, nhiều máy) | `$QA devices`, sửa theo hướng dẫn trong lỗi |
 | Không thấy máy / máy `offline` (cáp lỏng, AVD đang boot) | `$QA retry -- start <device> --feature "…"` (30s/lần, luật 11); hết một lượt vẫn không có máy → dừng, báo dev |
 | `thử lại lỗi API: BẬT …` | Đúng — lỗi API giữa phiên sẽ tự gõ tiếp sau 30s |
@@ -183,8 +220,9 @@ Dùng để: (1) **Δ-skip** — màn/check autotest đã pass thì trên máy c
 tính năng này → kiểm trên máy xem có thật không (0.1.x báo nhiều lỗi ở màn chết/asset mồ côi — chỉ tin khi màn đó
 có trong `qa.liveness`); (3) không có report → ghi "chưa có autotest" và test đầy đủ.
 
-Xong STEP 0 khi: `start` in ảnh đầu, `selfcheck` không còn mục fail chưa giải thích, biết probe mức nào, biết
-autotest đã phủ gì.
+Xong STEP 0 khi: `doctor` không còn việc `[tool]`/`[model]` chưa làm (việc `[dev]` đã ghi để báo), item Feature Hub
+QA đã kiểm, `start` in ảnh đầu, `selfcheck` không còn mục fail chưa giải thích, biết probe mức nào, biết autotest đã
+phủ gì. Tính năng là "toàn bộ game" → `$QA plan` ngay sau đó để có thứ tự nhóm.
 
 ## STEP 1 — Hiểu tính năng → charter có mã ca
 
@@ -435,6 +473,8 @@ vòng thăm dò tự do** (playbook §3.7) không ra phát hiện mới — ho�
      `Status: draft` → nhắc dev duyệt.
    - Đường dẫn `report.md`, thiết bị + build đã test, probe phiên bản + cổng mở bằng gì; máy chưa được thêm vào
      danh sách máy test thì kèm dòng `→ test_device_add …`; probe < 1.3 thì nhắc build lại để test đủ.
+   - Việc `[dev]` còn lại từ `doctor` (cheat-gate chưa cài, MCP thiếu, item AI chưa cập nhật vì không có Editor…) —
+     mỗi việc một dòng kèm lệnh/bước cụ thể; không có thì không nhắc.
 
 ## Lệnh nhanh
 
@@ -442,8 +482,9 @@ Cột **Probe**: `—` không cần · `có` cần probe (≥ 1.2.1) · `≥1.3`
 
 | Việc | Lệnh | Probe |
 |---|---|---|
-| Công cụ / project | `doctor [--strict]` (rc 1 khi thiếu mục bắt buộc) · `devices` · `bughub-check` · `selfcheck` | — / selfcheck: phần sâu `có` |
+| Công cụ / project | `doctor [--strict] [--json] [--fix [--dry-run]]` (kiểm hết + `việc còn lại`; `--fix` làm phần tool làm được; rc 1 khi `--strict` thiếu mục bắt buộc) · `devices` · `bughub-check` · `selfcheck` | — / selfcheck: phần sâu `có` |
 | Profile project | `profile init [--force]` · `profile sync` · `profile show` | — |
+| Toàn bộ game | `plan [--json] [--only-screens]` — nhóm theo bucket/feature xếp theo rủi ro, charter đã có/chưa (ghi `plan.md` vào phiên) | — |
 | Mở / đóng phiên | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install] [--no-api-retry] [--no-profile-init]` · `stop` (flush tri thức + viết report) · `report` (viết lại report giữa phiên) · `probe-connect [--retrigger] [--unlock]` | — |
 | Lỗi → thử lại (luật 11) | `retry [--every 30] [--max-wait 540] -- <lệnh…>` (mã 75 = vẫn lỗi, gọi lại) · `api-retry on\|off\|status` | — |
 | Autotest Editor | `autotest-import [<report.json>]` → `autotest-summary.md` | — |

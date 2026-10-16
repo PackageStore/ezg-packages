@@ -27,7 +27,14 @@
         "GITLAB_API_URL": "https://gitlab.com/api/v4",
         "GITLAB_PROJECT_ID": "YOUR_GROUP/YOUR_PROJECT"
       }
+    },
+    "ezg": {
+      "type": "http",
+      "url": "https://ezg-mcp.developer-a1f.workers.dev/mcp"
+    },
+    "bughub": {
+      "type": "http",
+      "url": "https://bug-reporter.developer-a1f.workers.dev/mcp"
     }
   }
 }
-

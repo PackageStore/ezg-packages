@@ -49,7 +49,7 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
@@ -74,6 +74,20 @@ PROBE_MIN_VERSION = "1.2.1"  # bản package skill này cần (đồng bộ vớ
 PROBE_FEATURES = {"pseudoloc": "1.3.0", "flags": "1.3.0", "screenBaseTypes": "1.3.0"}
 AUTOTEST_PACKAGE = "com.ezg.autotest"
 AUTOTEST_MIN_VERSION = "0.2.0"  # bản autotest có liveness filter + report.json chuỗi — thấp hơn chỉ cảnh báo (nhiễu)
+CHEATGATE_PACKAGE = "com.ezg.cheat-gate"
+BUGLOGGER_PACKAGE = "com.ezg.buglogger"
+FEATUREHUB_PACKAGE = "com.ezg.featurehub"
+FEATUREHUB_MIN_VERSION = "0.4.0"  # bản có FeatureHubService/FeatureHubAiInstaller mà snippet của MCP ezg gọi
+# Những item Feature Hub skill này dựa vào — `doctor` in ra để model kiểm/cập nhật qua MCP ezg
+# (check_project_updates → get_install_steps → unity_execute_code). Giá trị project KHÔNG nằm ở đây.
+QA_HUB_ITEMS = {
+    "upm": [PROBE_PACKAGE, AUTOTEST_PACKAGE, CHEATGATE_PACKAGE, BUGLOGGER_PACKAGE],
+    "ai": ["Skills/auto-test-device", "Skills/bughub-setup", "Skills/auto-clear", "Skills/fix-bug",
+           "Docs/QaProfile.template", "Scripts/project_profile.py", "Scripts/bootstrap.sh", "Scripts/bootstrap.ps1"],
+}
+INSTALL_RECORD_REL = os.path.join("ProjectSettings", "EzgFeatureHub", "install-record.json")
+# MCP server skill cần trên máy chạy (HTTP + OAuth Google @easygoing.vn). Thiếu → `claude mcp add --transport http --scope user <tên> <url>`.
+MCP_EZG_URL = "https://ezg-mcp.developer-a1f.workers.dev/mcp"
 PROBE_OVERRIDE = os.path.join("Assets", "Resources", "EzgQaProbeConfig.json")
 CAPTURE_HIDE_SECONDS = 3  # nút nổi Bug Logger ẩn tối đa chừng này quanh một lần adb/simctl chụp (probe tự hiện lại khi hết)
 LEGACY_PROBE_MARK = "FILE DO TOOL QUẢN LÝ"  # bản v1.0/1.1 chép vào Assets/EzgQaProbe/ — nay thay bằng package
@@ -2844,33 +2858,6 @@ def collect_log_excerpt(sess, max_bytes=MAX_LOG_BYTES, sig=None, probe_entries=N
 
 # ───────────────────────────────────────────────────────────── lệnh
 
-def cmd_doctor(a):
-    adb = find_adb()
-    print("qadevice %s · python %s · %s" % (VERSION, sys.version.split()[0], sys.platform))
-    print("adb:       %s" % (adb or "KHÔNG CÓ — cài Android platform-tools hoặc Unity Android module"))
-    print("emulator:  %s" % (find_emulator(adb) or "không có (chỉ cần khi muốn tự boot AVD)"))
-    print("xcrun:     %s" % ("có" if has_xcrun() else "không (chỉ macOS — iOS Simulator/iPhone)"))
-    print("idb:       %s" % (find_idb() or "không — Simulator sẽ chạm qua probe (brew install facebook/fb/idb-companion && pip3 install fb-idb)"))
-    print("Pillow:    %s" % ("có" if Image is not None else "KHÔNG — chạy `%s -m pip install --user pillow` để có ảnh xem nhỏ, lưới toạ độ, so khung hình" % ("py" if IS_WIN else "python3")))
-    root = repo_root()
-    ps = project_settings(root)
-    print("project:   %s · %s · Unity %s" % (ps.get("productName"), ps["ids"], ps.get("unityVersion")))
-    info = find_probe_in_project(root)
-    print("probe:     %s" % (("package %s %s" % (PROBE_PACKAGE, info["package"])) if info["package"]
-                             else "chưa có package %s trong Packages/manifest.json (`start` tự thêm)" % PROBE_PACKAGE))
-    if info["legacy"]:
-        print("           ⚠ còn bản chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (info["legacy"], info["legacyVersion"]))
-    if not info["registry"]:
-        print("           ⚠ manifest không có scoped registry EZG (scope com.ezg) — cài registry qua Feature Hub trước")
-    cfg = effective_probe_config(root)
-    print("config:    releaseGate=%s · cheatOn=%s · cheatOff=%s%s" % (
-        cfg["releaseGate"] or "-", cfg["cheatOn"] or "-", cfg["cheatOff"] or "-", " (có ghi đè %s)" % PROBE_OVERRIDE if cfg["override"] else ""))
-    cg_ver, cg_code = cheat_gate_info(root)
-    print("cheat:     %s" % (("com.ezg.cheat-gate %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (cg_ver, cg_code or "?"))
-                             if cg_ver else "không có com.ezg.cheat-gate — cổng release theo cờ cheat của game (releaseGate)"))
-    print("state:     %s" % state_root())
-
-
 def cmd_devices(a):
     adb = find_adb()
     rows = []
@@ -2910,7 +2897,7 @@ def cmd_bughub_check(a):
             print("  tags: %s" % ", ".join(t["name"] for t in f.get("tags", [])))
             print("  people: %s" % ", ".join(p["name"] for p in f.get("people", [])))
         if not st["ok"]:
-            print("→ chạy /bughub-setup cho project này rồi thử lại.")
+            print("→ chạy skill /bughub-setup ngay trong phiên (hỏi dev ID forum Discord/mã project chỉ khi project chưa đăng ký) rồi thử lại.")
     if not st["ok"]:
         sys.exit(4)
 
@@ -3030,7 +3017,8 @@ def cmd_start(a):
         print("BugHub: CHƯA SẴN SÀNG · mã %s · endpoint %s" % (bh["code"] or "?", bh["endpoint"]))
         for pr_ in bh["problems"]:
             print("  ✗ " + pr_)
-        print("→ chạy /bughub-setup cho project này rồi thử lại.")
+        print("→ chạy skill /bughub-setup NGAY trong phiên này (Skill tool; hỏi dev ID forum Discord/mã project chỉ khi project chưa đăng ký), "
+              "xong gọi lại `start`.")
         sys.exit(4)
     notes = [n for n in (ensure_pillow(),) if n]
     # Hồ sơ QA của project: chưa có block qa → tự dò quy ước (profile init) để lệnh ui/state/cheat/coverage có quy ước đúng.
@@ -4869,54 +4857,421 @@ def doctor_qa(root, strict=False):
     return lines, problems, warns
 
 
-def cmd_doctor(a):
-    adb = find_adb()
-    print("qadevice %s · python %s · %s" % (VERSION, sys.version.split()[0], sys.platform))
-    print("adb:       %s" % (adb or "KHÔNG CÓ — cài Android platform-tools hoặc Unity Android module"))
-    print("emulator:  %s" % (find_emulator(adb) or "không có (chỉ cần khi muốn tự boot AVD)"))
-    print("xcrun:     %s" % ("có" if has_xcrun() else "không (chỉ macOS — iOS Simulator/iPhone)"))
-    print("idb:       %s" % (find_idb() or "không — Simulator sẽ chạm qua probe (brew install facebook/fb/idb-companion && pip3 install fb-idb)"))
-    print("Pillow:    %s" % ("có" if Image is not None else "KHÔNG — chạy `%s -m pip install --user pillow` để có ảnh xem nhỏ, lưới toạ độ, so khung hình" % ("py" if IS_WIN else "python3")))
-    root = repo_root()
-    ps = project_settings(root)
-    print("project:   %s · %s · Unity %s" % (ps.get("productName"), ps["ids"], ps.get("unityVersion")))
+def ensure_autotest_in_project(root):
+    """Project chưa có com.ezg.autotest (Editor-only, không vào build) hoặc bản cũ hơn skill cần → thêm/nâng dòng manifest
+    (chỉ khi manifest đã có scoped registry EZG — không có thì Unity không tải được, chỉ báo). Trả danh sách dòng báo."""
+    notes = []
     info = find_probe_in_project(root)
-    problems, warns = [], []
-    if info["package"]:
-        old = _is_semver(info["package"]) and _ver(info["package"]) < _ver(PROBE_MIN_VERSION)
-        print("probe:     package %s %s%s" % (PROBE_PACKAGE, info["package"], " ⚠ < %s" % PROBE_MIN_VERSION if old else ""))
-        if old:
-            warns.append("probe %s < %s" % (info["package"], PROBE_MIN_VERSION))
+    ver, src = autotest_info(root)
+    if src == "embedded":
+        return notes  # bản chép trong Packages/ — không đụng
+    if ver is None or (_is_semver(ver) and _ver(ver) < _ver(AUTOTEST_MIN_VERSION)):
+        if not info["registry"]:
+            notes.append("⚠ chưa thêm %s: manifest không có scoped registry EZG — cài registry qua Feature Hub trước" % AUTOTEST_PACKAGE)
+            return notes
+        set_manifest_dependency(root, AUTOTEST_PACKAGE, AUTOTEST_MIN_VERSION)
+        notes.append("%s %s %s vào Packages/manifest.json (Editor-only — không vào build) — commit manifest (+ packages-lock.json)" % (
+            "nâng" if ver else "đã thêm", AUTOTEST_PACKAGE, AUTOTEST_MIN_VERSION))
+    return notes
+
+
+def api_retry_hook_state(root):
+    """Hook StopFailure của /auto-clear trên máy này: installed · not_installed · unsupported · missing (không có skill) · error."""
+    script = auto_clear_script()
+    if not script:
+        return "missing", "project chưa có skill /auto-clear (cài từ Feature Hub — AI item Skills/auto-clear)"
+    rc, out, err = run(auto_clear_cmd(script, "status"), timeout=30, cwd=root)
+    for line in (out or "").splitlines():
+        t = line.strip()
+        if t.startswith("HOOK installed"):
+            return "installed", t
+        if t.startswith("HOOK not-installed") or t.startswith("HOOK broken"):
+            return "not_installed", t
+        if t.startswith("UNSUPPORTED"):
+            return "unsupported", t
+    tail = [l.strip() for l in ((err or "") + "\n" + (out or "")).splitlines() if l.strip()]
+    return "error", tail[-1] if tail else "auto-clear status thoát mã %s" % rc
+
+
+def doctor_report(root, strict=False, probe_hook=True):
+    """Toàn bộ kết quả `doctor` dạng dict: công cụ máy, package, BugHub, hồ sơ QA, hook thử lại lỗi API, và `actions` —
+    danh sách việc còn phải làm theo thứ tự, ai làm (`tool` = qadevice tự làm ở `doctor --fix`/`start`; `model` = agent gọi
+    MCP/skill; `dev` = người). Không chạm mạng ngoài BugHub /form."""
+    adb = find_adb()
+    rep = {"version": VERSION, "python": sys.version.split()[0], "platform": sys.platform,
+           "tools": {"adb": adb or "", "emulator": find_emulator(adb) or "", "xcrun": has_xcrun(), "idb": find_idb() or "",
+                     "pillow": Image is not None},
+           "problems": [], "warns": [], "actions": []}
+    ps = project_settings(root)
+    rep["project"] = {"productName": ps.get("productName"), "ids": ps["ids"], "unityVersion": ps.get("unityVersion"),
+                      "root": root}
+    man = read_manifest(root)
+    deps = man.get("dependencies") or {}
+    info = find_probe_in_project(root)
+    av, asrc = autotest_info(root)
+    cg_ver, cg_code = cheat_gate_info(root)
+    fh_ver = deps.get(FEATUREHUB_PACKAGE)
+    rep["packages"] = {
+        PROBE_PACKAGE: {"version": info["package"], "min": PROBE_MIN_VERSION, "legacy": info["legacy"], "legacyVersion": info["legacyVersion"]},
+        AUTOTEST_PACKAGE: {"version": av, "min": AUTOTEST_MIN_VERSION, "source": asrc},
+        CHEATGATE_PACKAGE: {"version": cg_ver, "code": cg_code},
+        BUGLOGGER_PACKAGE: {"present": buglogger_package_present(root)},
+        FEATUREHUB_PACKAGE: {"version": fh_ver, "min": FEATUREHUB_MIN_VERSION},
+        "registry": info["registry"],
+    }
+    rep["probeConfig"] = effective_probe_config(root)
+    rep["bughub"] = bughub_status(root)
+    qa_lines, qa_problems, qa_warns = doctor_qa(root, strict=strict)
+    rep["qaLines"] = qa_lines
+    qa, prov = qaprofile.load_qa_profile(root, with_provenance=True)
+    rep["qa"] = {"block": prov.get("_block") != "missing", "status": qa.get("status"),
+                 "doc": os.path.relpath(qa_path(root, "profileDoc"), root),
+                 "docStatus": qaprofile.doc_status(read_text(qa_path(root, "profileDoc"), "")),
+                 "chartersDir": os.path.relpath(qa_path(root, "chartersDir"), root),
+                 "charters": len(qaprofile.list_charters(root, qa)) if os.path.isdir(qa_path(root, "chartersDir")) else 0}
+    if probe_hook:
+        hs, hl = api_retry_hook_state(root)
+    else:
+        hs, hl = "skipped", ""
+    rep["apiRetryHook"] = {"state": hs, "line": hl}
+    rep["featureHub"] = {"manifest": os.path.join("Packages", "manifest.json"), "installRecord": INSTALL_RECORD_REL,
+                         "installRecordExists": os.path.isfile(os.path.join(root, INSTALL_RECORD_REL)), "items": QA_HUB_ITEMS}
+    rep["mcp"] = {"ezg": {"url": MCP_EZG_URL, "why": "Feature Hub (check_project_updates/get_install_steps), danh sách máy test (test_device_*)"},
+                  "bughub": {"url": rep["bughub"]["endpoint"].rstrip("/") + "/mcp", "why": "bug đang mở (bughub_list), /bughub-setup, quyền (bughub_whoami)"},
+                  "unity": {"url": "", "why": "cài item Feature Hub (unity_execute_code), compile-check; không có → UPM tự thêm vào manifest, item AI phải cài sau"}}
+    problems, warns, actions = rep["problems"], rep["warns"], rep["actions"]
+
+    def act(aid, who, how, why):
+        actions.append({"id": aid, "who": who, "how": how, "why": why})
+
+    # --- công cụ máy
+    if not adb:
+        warns.append("không có adb — thiết bị Android/AVD không dùng được (cài Android platform-tools hoặc Unity Android module)")
+    if Image is None:
+        warns.append("không có Pillow — `start` tự cài; ảnh xem nhỏ/lưới/so khung hình cần nó")
+    # --- Feature Hub: luôn kiểm (idempotent) — model làm
+    act("feature-hub-update", "model",
+        "MCP ezg check_project_updates(manifest_json=<%s>, install_record_json=<%s>) → item QA_HUB_ITEMS nào update_available/chưa cài → "
+        "get_install_steps → unity_execute_code (Editor của project này, featurehub ≥ %s); không có Editor → UPM: `doctor --fix` tự thêm vào manifest, "
+        "item AI ghi report" % (rep["featureHub"]["manifest"], INSTALL_RECORD_REL, FEATUREHUB_MIN_VERSION),
+        "skill/probe/autotest/bughub-setup phải là bản mới nhất trước khi test")
+    if fh_ver and _is_semver(fh_ver) and _ver(fh_ver) < _ver(FEATUREHUB_MIN_VERSION):
+        warns.append("%s %s < %s — snippet cài của MCP ezg cần bản mới hơn (nâng trong Package Manager)" % (FEATUREHUB_PACKAGE, fh_ver, FEATUREHUB_MIN_VERSION))
+    if not fh_ver:
+        warns.append("không có %s trong manifest — cài item Feature Hub bằng Editor sẽ không chạy; thêm package qua Package Manager (registry EZG)" % FEATUREHUB_PACKAGE)
+    if not info["registry"]:
+        warns.append("manifest không có scoped registry EZG (scope com.ezg) — Unity không tải được com.ezg.*; cài registry qua Feature Hub")
+    # --- package
+    pv = info["package"]
+    if pv is None or (_is_semver(pv) and _ver(pv) < _ver(PROBE_MIN_VERSION)):
+        problems.append("%s %s" % (PROBE_PACKAGE, "chưa có trong manifest" if pv is None else "%s < %s" % (pv, PROBE_MIN_VERSION)))
+        act("probe-package", "tool", "`doctor --fix` hoặc `start` tự thêm/nâng vào Packages/manifest.json", "test sâu (ui/state/call/cheat) cần probe trong build")
+    if info["legacy"]:
+        warns.append("còn bản probe chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (info["legacy"], info["legacyVersion"]))
+    if av is None or (_is_semver(av) and _ver(av) < _ver(AUTOTEST_MIN_VERSION)):
+        warns.append("%s %s" % (AUTOTEST_PACKAGE, "không có — Δ-skip theo autotest không dùng được" if av is None else "%s < %s: chưa lọc feature chết" % (av, AUTOTEST_MIN_VERSION)))
+        act("autotest-package", "tool", "`doctor --fix` tự thêm/nâng (Editor-only); hoặc cài qua Feature Hub", "autotest-import cần report schema 0.2")
+    if not cg_ver:
+        warns.append("không có %s — build release chỉ mở probe khi game bật cheat (releaseGate)" % CHEATGATE_PACKAGE)
+        act("cheat-gate", "dev", "cài %s qua Feature Hub + gọi CheatGate.Initialize ở boot (template: GameSystems.InitCheatGate)" % CHEATGATE_PACKAGE,
+            "máy test trong danh sách tự mở cheat + probe trên bản release")
+    elif not cg_code:
+        warns.append("%s có nhưng không thấy mã project (GameConstant.CheatGateProject) — probe không biết hỏi server mã nào" % CHEATGATE_PACKAGE)
+    # --- BugHub
+    if not rep["bughub"]["ok"]:
+        warns.append("BugHub chưa sẵn sàng (`start` sẽ thoát mã 4): " + "; ".join(rep["bughub"]["problems"]))
+        act("bughub-setup", "model", "chạy skill /bughub-setup ngay trong phiên (Skill tool) — hỏi dev ID forum Discord/mã project CHỈ khi project chưa đăng ký; xong gọi lại `start`",
+            "`start` thoát mã 4 khi BugHub chưa sẵn sàng")
+    # --- hồ sơ QA
+    problems += qa_problems
+    warns += qa_warns
+    if any("profile init" in p for p in qa_problems) or rep["qa"]["status"] == "template":
+        act("profile-init", "tool", "`doctor --fix` hoặc `start` tự `profile init` (tự dò quy ước, QaProfile.md draft)", "lệnh ui/state/cheat/coverage cần quy ước đúng")
+    if any("profile sync" in w for w in qa_warns):
+        act("profile-sync", "tool", "`doctor --fix` hoặc `profile sync`", "probe/autotest đọc cùng quy ước với profile")
+    # --- hook thử lại lỗi API
+    if hs == "not_installed":
+        act("api-retry-hook", "tool", "`start` tự `auto-clear install` (idempotent) rồi retry-arm", "lượt trả lời chết vì lỗi API tự gõ tiếp sau 30 s")
+    elif hs == "missing":
+        warns.append(hl)
+        act("api-retry-hook", "model", "cài AI item Skills/auto-clear qua Feature Hub (bước feature-hub-update)", "không có skill thì lỗi API phải gõ tiếp tay")
+    elif hs == "unsupported":
+        warns.append("thử lại lỗi API: " + hl)
+    # --- MCP: Python không nhìn thấy MCP của Claude Code — model tự kiểm bằng ToolSearch; đây là lệnh cài khi thiếu
+    act("mcp-check", "model", "ToolSearch `ezg` + `bughub`; thiếu server nào → in cho dev: `claude mcp add --transport http --scope user <tên> <url>` "
+        "rồi /mcp → Authenticate (Google @easygoing.vn), mở lại session. Không tự chạy lệnh đó", "mọi bước Feature Hub / máy test / BugHub đi qua MCP")
+    rep["ok"] = not problems
+    return rep
+
+
+def doctor_fix(root, rep, dry_run=False):
+    """Phần `doctor --fix`: việc tool tự làm được, idempotent — profile init/sync, package probe/autotest. Trả dòng báo."""
+    done = []
+    ids = {a["id"] for a in rep["actions"]}
+    if "profile-init" in ids:
+        if dry_run:
+            done.append("(dry-run) profile init")
+        else:
+            _, _, lines = profile_init(root)
+            done.append("profile init: %d dòng quy ước → %s + QaProfile.md (draft)" % (len(lines), qaprofile.PROFILE_REL))
+            qa_profile(root, refresh=True)
+    if "probe-package" in ids:
+        done.extend(["(dry-run) " + PROBE_PACKAGE] if dry_run else ensure_probe_in_project(root))
+    if "autotest-package" in ids:
+        done.extend(["(dry-run) " + AUTOTEST_PACKAGE] if dry_run else ensure_autotest_in_project(root))
+    if "profile-sync" in ids or "profile-init" in ids:
+        ch = profile_sync(root, dry_run=dry_run)
+        done.extend(("(dry-run) " if dry_run else "") + c for c in ch)
+    return done
+
+
+def print_doctor(rep):
+    t = rep["tools"]
+    print("qadevice %s · python %s · %s" % (rep["version"], rep["python"], rep["platform"]))
+    print("adb:       %s" % (t["adb"] or "KHÔNG CÓ — cài Android platform-tools hoặc Unity Android module"))
+    print("emulator:  %s" % (t["emulator"] or "không có (chỉ cần khi muốn tự boot AVD)"))
+    print("xcrun:     %s" % ("có" if t["xcrun"] else "không (chỉ macOS — iOS Simulator/iPhone)"))
+    print("idb:       %s" % (t["idb"] or "không — Simulator sẽ chạm qua probe (brew install facebook/fb/idb-companion && pip3 install fb-idb)"))
+    print("Pillow:    %s" % ("có" if t["pillow"] else "KHÔNG — `start` tự cài (`%s -m pip install --user pillow`)" % ("py" if IS_WIN else "python3")))
+    pj = rep["project"]
+    print("project:   %s · %s · Unity %s" % (pj.get("productName"), pj["ids"], pj.get("unityVersion")))
+    pk = rep["packages"]
+    pr = pk[PROBE_PACKAGE]
+    if pr["version"]:
+        old = _is_semver(pr["version"]) and _ver(pr["version"]) < _ver(PROBE_MIN_VERSION)
+        print("probe:     package %s %s%s" % (PROBE_PACKAGE, pr["version"], " ⚠ < %s" % PROBE_MIN_VERSION if old else ""))
         print("           tính năng theo bản: %s" % " · ".join("%s ≥ %s" % kv for kv in sorted(PROBE_FEATURES.items())))
     else:
-        print("probe:     chưa có package %s trong Packages/manifest.json (`start` tự thêm)" % PROBE_PACKAGE)
-        problems.append("chưa có %s trong manifest" % PROBE_PACKAGE)
-    if info["legacy"]:
-        print("           ⚠ còn bản chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (info["legacy"], info["legacyVersion"]))
-    if not info["registry"]:
+        print("probe:     chưa có package %s trong Packages/manifest.json (`start`/`doctor --fix` tự thêm)" % PROBE_PACKAGE)
+    if pr["legacy"]:
+        print("           ⚠ còn bản chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (pr["legacy"], pr["legacyVersion"]))
+    if not pk["registry"]:
         print("           ⚠ manifest không có scoped registry EZG (scope com.ezg) — cài registry qua Feature Hub trước")
-        warns.append("thiếu scoped registry com.ezg")
-    cfg = effective_probe_config(root)
+    cfg = rep["probeConfig"]
     print("config:    releaseGate=%s · cheatOn=%s · cheatOff=%s%s" % (
         cfg["releaseGate"] or "-", cfg["cheatOn"] or "-", cfg["cheatOff"] or "-", " (có ghi đè %s)" % PROBE_OVERRIDE if cfg["override"] else ""))
-    cg_ver, cg_code = cheat_gate_info(root)
-    print("cheat:     %s" % (("com.ezg.cheat-gate %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (cg_ver, cg_code or "?"))
-                             if cg_ver else "không có com.ezg.cheat-gate — cổng release theo cờ cheat của game (releaseGate)"))
-    if not cg_ver:
-        warns.append("không có com.ezg.cheat-gate — build release chỉ mở probe khi game bật cheat")
-    lines, p2, w2 = doctor_qa(root, strict=a.strict)
-    for l in lines:
+    cg = pk[CHEATGATE_PACKAGE]
+    print("cheat:     %s" % (("%s %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (CHEATGATE_PACKAGE, cg["version"], cg["code"] or "?"))
+                             if cg["version"] else "không có %s — cổng release theo cờ cheat của game (releaseGate)" % CHEATGATE_PACKAGE))
+    fh = pk[FEATUREHUB_PACKAGE]
+    print("featurehub: %s · buglogger %s · install-record %s" % (
+        ("%s %s" % (FEATUREHUB_PACKAGE, fh["version"])) if fh["version"] else "KHÔNG CÓ %s" % FEATUREHUB_PACKAGE,
+        "có" if pk[BUGLOGGER_PACKAGE]["present"] else "KHÔNG", "có" if rep["featureHub"]["installRecordExists"] else "chưa có"))
+    bh = rep["bughub"]
+    print("bughub:    %s · mã %s · %s" % ("OK" if bh["ok"] else "CHƯA SẴN SÀNG", bh["code"] or "?", bh["endpoint"]))
+    for p_ in bh["problems"]:
+        print("           ✗ " + p_)
+    for l in rep["qaLines"]:
         print(l)
-    problems += p2
-    warns += w2
+    hk = rep["apiRetryHook"]
+    print("api-retry: %s%s" % (hk["state"], " — " + hk["line"] if hk["line"] else ""))
     print("state:     %s" % state_root())
-    for w in warns:
+    for w in rep["warns"]:
         print("  ⚠ " + w)
-    for p in problems:
-        print("  ✗ " + p)
-    if a.strict and problems:
-        print("doctor --strict: %d mục bắt buộc chưa đạt" % len(problems))
+    for p_ in rep["problems"]:
+        print("  ✗ " + p_)
+    if rep["actions"]:
+        print("việc còn lại (theo thứ tự · ai làm):")
+        for a_ in rep["actions"]:
+            print("  → [%s] %s: %s" % (a_["who"], a_["id"], a_["how"]))
+
+
+def cmd_doctor(a):
+    root = repo_root()
+    rep = doctor_report(root, strict=a.strict)
+    fixed = []
+    if a.fix:
+        fixed = doctor_fix(root, rep, dry_run=a.dry_run)
+        rep = doctor_report(root, strict=a.strict, probe_hook=False)  # đọc lại sau khi sửa
+        rep["fixed"] = fixed
+    if a.json:
+        print(json.dumps(rep, ensure_ascii=False, indent=1, default=str))
+    else:
+        print_doctor(rep)
+        if fixed:
+            print("doctor --fix đã làm:")
+            for f in fixed:
+                print("  " + f)
+    if a.strict and rep["problems"]:
+        print("doctor --strict: %d mục bắt buộc chưa đạt" % len(rep["problems"]))
         sys.exit(1)
+
+
+# ───────────────────────────────────────────────────────────── plan: chia "toàn bộ game" thành charter theo hệ thống
+
+# Thứ tự rủi ro mặc định theo bucket của template (tiền/IAP trước, gameplay, meta, social, onboarding, system sau) —
+# bucket lạ xếp sau Gameplay. Feature khớp HIGH_RISK_RE nhảy lên đầu nhóm.
+RISK_BUCKET_ORDER = ["Monetization", "Gameplay", "Events", "Meta", "Social", "Onboarding", "System"]
+HIGH_RISK_RE = re.compile(r"shop|store|iap|purchase|pack|offer|pass|gacha|boost|vip|reward|save|account|offline", re.I)
+FEATURE_MARKERS = ("Scripts", "Resources", "CsvConfig", "Visuals", "Prefabs")
+
+
+def features_root(root):
+    """Thư mục Features: profile `featuresRoot` nếu có, không thì <sourceRoot>/Features, không nữa thì Assets/_Project/Features."""
+    prof = project_profile(root)
+    cands = [prof.get("featuresRoot") or "", os.path.join(os.path.relpath(qaprofile.source_roots(root), root), "Features"),
+             os.path.join("Assets", "_Project", "Features")]
+    for c in cands:
+        if c and os.path.isdir(os.path.join(root, c)):
+            return os.path.join(root, c)
+    return ""
+
+
+def _is_feature_dir(path):
+    try:
+        names = set(os.listdir(path))
+    except OSError:
+        return False
+    return any(m in names for m in FEATURE_MARKERS) or any(n.endswith(".cs") for n in names)
+
+
+def feature_buckets(root):
+    """→ {bucket: [feature folder]} từ <Features>/<Bucket>/<Feature>/ (layout template). Layout cũ (feature nằm thẳng
+    dưới Features/, hoặc thư mục lạ như `_Gameplay`) → feature dưới bucket mang tên chính nó / "(root)". Bỏ `_Shared`."""
+    froot = features_root(root)
+    out = {}
+    if not froot:
+        return out
+    for b in sorted(os.listdir(froot)):
+        bp = os.path.join(froot, b)
+        if not os.path.isdir(bp) or b.startswith(".") or b.lower() in ("_shared", "shared"):
+            continue
+        subs = [d for d in sorted(os.listdir(bp)) if os.path.isdir(os.path.join(bp, d)) and not d.startswith(".")]
+        feats = [d for d in subs if _is_feature_dir(os.path.join(bp, d)) and d.lower() not in ("_shared", "shared")]
+        if feats and (len(feats) >= 2 or not _is_feature_dir(bp)):
+            out[b] = feats  # bucket thật (≥2 feature con, hoặc chính nó không phải feature)
+        else:
+            out.setdefault(b.lstrip("_") or b, []).append(b)  # chính nó là feature (layout cũ / bucket một feature)
+    return out
+
+
+def screen_folder_index(root, names, buckets):
+    """Màn → feature folder theo nơi code THAM CHIẾU enum (`Features.<Tên>`): quét .cs dưới Features/, mỗi tên lấy folder
+    tham chiếu nhiều nhất, bỏ `_Shared` (UIManager/EventName gọi mọi màn). Dùng cho màn không khớp tên folder
+    (HomeScreen → Meta/HomeScene, Tut1Step1… → Onboarding/Tutorial, StaffDetail → Meta/Employees…)."""
+    froot = features_root(root)
+    if not froot or not names:
+        return {}
+    folder_of = {}
+    for b, fs in buckets.items():
+        for f in fs:
+            folder_of[(b, f)] = f
+    want = set(names)
+    counts = {}
+    pat = re.compile(r"\bFeatures\.(\w+)\b")
+    for path in qaprofile.iter_cs(root, froot):
+        rel = os.path.relpath(path, froot).split(os.sep)
+        if not rel or rel[0].lower() in ("_shared", "shared"):
+            continue
+        key = (rel[0], rel[1]) if len(rel) > 2 and (rel[0], rel[1]) in folder_of else None
+        if key is None:
+            # layout cũ / bucket một feature: folder đầu chính là feature
+            key = next(((b, f) for (b, f) in folder_of if f == rel[0]), None)
+        if key is None:
+            continue
+        for m in pat.finditer(read_text(path)):
+            n = m.group(1)
+            if n in want:
+                counts.setdefault(n, {}).setdefault(key, 0)
+                counts[n][key] += 1
+    return {n: max(ks.items(), key=lambda kv: kv[1])[0] for n, ks in counts.items()}
+
+
+def _bucket_rank(bucket):
+    b = bucket.lstrip("_").lower()
+    for i, name in enumerate(RISK_BUCKET_ORDER):
+        if b == name.lower():
+            return i
+    return RISK_BUCKET_ORDER.index("Gameplay") + 0.5
+
+
+def _norm(s):
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def match_folder(name, folders, ref=None):
+    """Tên enum màn → feature folder: khớp đúng tên (bỏ dấu/khoảng trắng) → số ít/nhiều → folder code tham chiếu (`ref`
+    = (bucket, feature) từ screen_folder_index) → heuristic match_feature (tiền tố, bỏ hậu tố Popup/Screen).
+    Khớp đúng ưu tiên để 'RewardPopup' không rơi vào 'RewardAds'."""
+    by = {}
+    for f in folders:
+        by.setdefault(_norm(f), f)
+    n = _norm(name)
+    if n in by:
+        return by[n]
+    for k, f in by.items():
+        if k.rstrip("s") == n.rstrip("s"):
+            return f
+    if ref and ref[1] in folders:
+        return ref[1]
+    return qaprofile.match_feature(name, folders)
+
+
+def group_plan(classes, buckets, charters=(), ref_index=None):
+    """Ghép enum màn (classify_features) vào feature folder → nhóm theo bucket/feature, xếp theo rủi ro.
+    Thứ tự khớp: tên folder (đúng/số nhiều) → nơi code tham chiếu enum (`ref_index`, từ screen_folder_index) → heuristic
+    tiền tố. → list dict {bucket, feature, screens:[{name,state,why}], charter, risk}. Màn `dead` bỏ; không khớp → 'Khác'."""
+    folder_names = [f for fs in buckets.values() for f in fs]
+    folder_bucket = {f: b for b, fs in buckets.items() for f in fs}
+    ref_index = ref_index or {}
+    have = {c["id"]: c for c in charters}
+    groups = {}
+    for b, fs in buckets.items():
+        for f in fs:
+            groups[(b, f)] = {"bucket": b, "feature": f, "screens": [], "charter": None}
+    for name, c in classes.items():
+        if c["state"] == "dead":
+            continue
+        f = match_folder(name, folder_names, ref_index.get(name))
+        key = (folder_bucket[f], f) if f else ("Khác", "Khác")
+        groups.setdefault(key, {"bucket": key[0], "feature": key[1], "screens": [], "charter": None})
+        groups[key]["screens"].append({"name": name, "state": c["state"], "why": c.get("why", "")})
+    out = []
+    for (b, f), g in groups.items():
+        slug = qaprofile.charter_slug(f)
+        g["charter"] = have[slug]["id"] if slug in have else None
+        g["risk"] = "cao" if HIGH_RISK_RE.search(f) or any(HIGH_RISK_RE.search(s["name"]) for s in g["screens"]) else "thường"
+        g["slug"] = slug
+        out.append(g)
+    out.sort(key=lambda g: (g["bucket"] == "Khác", _bucket_rank(g["bucket"]), g["risk"] != "cao",
+                            -sum(1 for s in g["screens"] if s["state"] == "live"), g["feature"].lower()))
+    return out
+
+
+def cmd_plan(a):
+    """`plan` — kế hoạch kiểm "toàn bộ game": mỗi hệ thống/feature một charter, xếp theo rủi ro; dùng khi tính năng là
+    cả game (hoặc trống). Chỉ đọc; ghi plan.md vào phiên nếu đang mở."""
+    root = repo_root()
+    qa = qa_profile(root)
+    names, enum_file = qaprofile.feature_names(root, qa)
+    classes = qaprofile.classify_features(root, qa, names, enum_file) if names else {}
+    buckets = feature_buckets(root)
+    charters = qaprofile.list_charters(root, qa) if os.path.isdir(qa_path(root, "chartersDir")) else []
+    groups = group_plan(classes, buckets, charters, screen_folder_index(root, list(classes), buckets))
+    if a.only_screens:
+        groups = [g for g in groups if g["screens"]]
+    if a.json:
+        print(json.dumps({"enumFile": os.path.relpath(enum_file, root) if enum_file else "", "groups": groups}, ensure_ascii=False, indent=1))
+        return
+    lines = ["plan — %d nhóm · %d màn sống/đã tham chiếu · %d màn chết bỏ qua · enum %s" % (
+        len(groups), sum(len(g["screens"]) for g in groups), sum(1 for c in classes.values() if c["state"] == "dead"),
+        os.path.relpath(enum_file, root) if enum_file else "KHÔNG THẤY")]
+    for i, g in enumerate(groups, 1):
+        scr = ", ".join("%s%s" % (s["name"], {"live": "", "referenced": "", "unreferenced": "?"}.get(s["state"], "")) for s in g["screens"]) or "(không có màn — test qua gameplay/luồng)"
+        lines.append("%2d. [%s] %s/%s · rủi ro %s · charter %s" % (i, g["bucket"], g["bucket"], g["feature"], g["risk"],
+                                                                 g["charter"] or "CHƯA — `charter new \"%s\"`" % g["feature"]))
+        lines.append("    màn: %s" % scr)
+    lines.append("`?` = enum có nhưng không thấy code gọi (có thể mở qua prefab) — xác nhận nhanh trên máy, không log bug nếu không vào được.")
+    lines.append("Làm lần lượt từ 1 trong CÙNG phiên: `charter new` → STEP 1–5 → nhóm kế; `coverage` + `stop` một lần cuối.")
+    text = "\n".join(lines)
+    print(text)
+    try:
+        sess = Session.load(a.session)
+        if not sess.d.get("ended"):
+            write_text(sess.path("plan.md"), "# Plan — toàn bộ game\n\n" + text + "\n")
+            print("→ %s" % sess.path("plan.md"))
+    except QaError:
+        pass
 
 
 SAFE_TAP_WORDS = ("settings", "cài đặt", "cai dat", "setting", "close", "đóng", "dong", "back", "quay lại", "x", "✕", "×", "info", "?")
@@ -5572,9 +5927,18 @@ def build_parser():
             sp.add_argument("--allow-overlay", action="store_true",
                             help="cho chạm adb vào vùng overlay của app khác (mặc định chặn — chạm sẽ trúng app kia)")
 
-    sp = sub.add_parser("doctor", help="kiểm công cụ trên máy + hồ sơ QA của project (--strict: rc 1 khi thiếu mục bắt buộc)")
+    sp = sub.add_parser("doctor", help="kiểm công cụ trên máy, package, BugHub, hồ sơ QA, hook thử lại lỗi API + danh sách việc còn lại "
+                                        "(--json cho model đọc; --fix tự làm phần tool làm được; --strict: rc 1 khi thiếu mục bắt buộc)")
     sp.add_argument("--strict", action="store_true")
+    sp.add_argument("--json", action="store_true", help="in JSON (tools/packages/bughub/qa/apiRetryHook/featureHub/mcp/actions)")
+    sp.add_argument("--fix", action="store_true", help="tự làm việc tool làm được: profile init/sync, thêm package probe/autotest vào manifest")
+    sp.add_argument("--dry-run", action="store_true", help="--fix: chỉ in, không ghi")
     sp.set_defaults(fn=cmd_doctor)
+
+    sp = sub.add_parser("plan", help="kế hoạch kiểm TOÀN BỘ game: ghép màn sống vào feature/bucket, xếp theo rủi ro, mỗi nhóm một charter (ghi plan.md vào phiên nếu đang mở)")
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--only-screens", action="store_true", help="bỏ nhóm không có màn nào")
+    sp.set_defaults(fn=cmd_plan)
 
     sp = sub.add_parser("profile", help="hồ sơ QA của project (.claude/project-profile.json[qa] + QaProfile.md): init | sync | show")
     sp.add_argument("op", choices=("init", "sync", "show"))

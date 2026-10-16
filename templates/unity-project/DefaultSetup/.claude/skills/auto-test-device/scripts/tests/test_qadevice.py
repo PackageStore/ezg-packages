@@ -769,3 +769,124 @@ class ApiRetryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DoctorPlanTests(unittest.TestCase):
+    """`doctor` dạng report + actions (máy mới tự onboard) và `plan` (chia toàn bộ game thành charter)."""
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.mkdtemp()
+        self._rm = shutil.rmtree
+        self._saved = {k: getattr(q, k) for k in ("auto_clear_script", "find_adb", "find_emulator", "find_idb")}
+        q.auto_clear_script = lambda: None
+        q.find_adb = lambda: None
+        q.find_emulator = lambda adb: None
+        q.find_idb = lambda: None
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            setattr(q, k, v)
+        self._rm(self.tmp, ignore_errors=True)
+
+    def _mk(self, *rel):
+        os.makedirs(os.path.join(self.tmp, *rel), exist_ok=True)
+
+    def test_feature_buckets_new_and_old_layout(self):
+        self._mk("Assets", "_Project", "Features", "Monetization", "Shop", "Scripts")
+        self._mk("Assets", "_Project", "Features", "Monetization", "VipPass", "Resources")
+        self._mk("Assets", "_Project", "Features", "System", "Settings", "Scripts")
+        self._mk("Assets", "_Project", "Features", "_Shared", "UI")
+        self._mk("Assets", "_Project", "Features", "_Gameplay", "Scripts")          # bucket chỉ có một feature = chính nó
+        self._mk("Assets", "_Project", "Features", "Gameplay", "Farm", "Scripts")   # bucket có Scripts riêng + ≥2 feature con
+        self._mk("Assets", "_Project", "Features", "Gameplay", "Upgrade", "Scripts")
+        self._mk("Assets", "_Project", "Features", "Gameplay", "Scripts")
+        b = q.feature_buckets(self.tmp)
+        self.assertEqual(b["Monetization"], ["Shop", "VipPass"])
+        self.assertEqual(b["System"], ["Settings"])
+        self.assertEqual(b["Gameplay"], ["Farm", "Upgrade", "_Gameplay"])   # `_Gameplay` (một feature) gộp vào bucket Gameplay
+        self.assertNotIn("_Shared", b)
+        self.assertNotIn("_Gameplay", b)
+        self.assertEqual(q.feature_buckets(tempfile.mkdtemp()), {})
+
+    def test_screen_folder_index_from_code_refs(self):
+        self._mk("Assets", "_Project", "Features", "Meta", "HomeScene", "Scripts")
+        self._mk("Assets", "_Project", "Features", "Onboarding", "Tutorial", "Scripts")
+        self._mk("Assets", "_Project", "Features", "_Shared", "UI")
+        base = os.path.join(self.tmp, "Assets", "_Project", "Features")
+        open(os.path.join(base, "Meta", "HomeScene", "Scripts", "Home.cs"), "w").write(
+            "class H { void X() { UIManager.Instance.Show(GameEnums.Features.HomeScreen); var y = GameEnums.Features.CurrencyBar; } }")
+        open(os.path.join(base, "Onboarding", "Tutorial", "Scripts", "Tut.cs"), "w").write(
+            "class T { void X() { Show(GameEnums.Features.Tut1Step1); Show(GameEnums.Features.Tut1Step1); Show(GameEnums.Features.HomeScreen); } }")
+        open(os.path.join(base, "_Shared", "UI", "UIManager.cs"), "w").write("class U { void X() { var a = GameEnums.Features.Tut1Step1; var b = GameEnums.Features.Mystery; } }")
+        buckets = q.feature_buckets(self.tmp)
+        idx = q.screen_folder_index(self.tmp, ["HomeScreen", "CurrencyBar", "Tut1Step1", "Mystery"], buckets)
+        self.assertEqual(idx["HomeScreen"], ("Meta", "HomeScene"))        # 1 ref ở HomeScene + 1 ở Tutorial → hoà, max() lấy cái đầu gặp; cả hai đều hợp lệ
+        self.assertEqual(idx["CurrencyBar"], ("Meta", "HomeScene"))
+        self.assertEqual(idx["Tut1Step1"], ("Onboarding", "Tutorial"))     # _Shared không tính
+        self.assertNotIn("Mystery", idx)                                     # chỉ _Shared tham chiếu → không gán
+        folders = [f for fs in buckets.values() for f in fs]
+        self.assertEqual(q.match_folder("Tut1Step1", folders, idx.get("Tut1Step1")), "Tutorial")
+        self.assertEqual(q.match_folder("HomeScene", folders, None), "HomeScene")   # khớp tên thắng ref
+        g = q.group_plan({"Tut1Step1": {"state": "referenced", "why": ""}, "Mystery": {"state": "referenced", "why": ""}}, buckets, [], idx)
+        names = {x["feature"]: [s["name"] for s in x["screens"]] for x in g}
+        self.assertEqual((names["Tutorial"], names["Khác"]), (["Tut1Step1"], ["Mystery"]))
+
+    def test_group_plan_orders_by_risk_matches_exact_first_and_skips_dead(self):
+        classes = {"Shop": {"state": "live", "why": ""}, "Settings": {"state": "referenced", "why": ""},
+                   "Tut1_Retired": {"state": "dead", "why": ""}, "RewardPopup": {"state": "referenced", "why": ""},
+                   "RewardAds": {"state": "unreferenced", "why": ""}, "Mystery": {"state": "referenced", "why": ""},
+                   "OfflineEarnings": {"state": "live", "why": ""}}
+        buckets = {"System": ["Settings", "RewardPopup", "RewardAds"], "Monetization": ["Shop"], "Meta": ["OfflineEarning"]}
+        g = q.group_plan(classes, buckets, charters=[{"id": "shop"}])
+        self.assertEqual((g[0]["bucket"], g[0]["feature"], g[0]["charter"], g[0]["risk"]), ("Monetization", "Shop", "shop", "cao"))
+        names = {x["feature"]: [s["name"] for s in x["screens"]] for x in g}
+        self.assertEqual(names["RewardPopup"], ["RewardPopup"])      # khớp đúng tên, không rơi vào RewardAds theo tiền tố
+        self.assertEqual(names["RewardAds"], ["RewardAds"])
+        self.assertEqual(names["OfflineEarning"], ["OfflineEarnings"])  # số ít/nhiều
+        self.assertEqual(names["Khác"], ["Mystery"])
+        self.assertEqual(g[-1]["bucket"], "Khác")
+        self.assertNotIn("Tut1_Retired", sum(names.values(), []))
+        order = [x["bucket"] for x in g if x["bucket"] != "Khác"]
+        self.assertEqual(order.index("Monetization"), 0)
+        self.assertLess(order.index("Meta"), order.index("System"))
+
+    def test_doctor_report_on_empty_repo_lists_actions_in_order(self):
+        rep = q.doctor_report(self.tmp)
+        self.assertFalse(rep["ok"])
+        ids = [a["id"] for a in rep["actions"]]
+        self.assertEqual(ids[0], "feature-hub-update")
+        for want in ("probe-package", "autotest-package", "cheat-gate", "bughub-setup", "profile-init", "api-retry-hook", "mcp-check"):
+            self.assertIn(want, ids)
+        self.assertEqual(ids[-1], "mcp-check")
+        who = {a["id"]: a["who"] for a in rep["actions"]}
+        self.assertEqual((who["feature-hub-update"], who["bughub-setup"], who["probe-package"], who["cheat-gate"]), ("model", "model", "tool", "dev"))
+        self.assertEqual(rep["featureHub"]["items"], q.QA_HUB_ITEMS)
+        self.assertIn("Skills/auto-test-device", q.QA_HUB_ITEMS["ai"])
+        self.assertTrue(rep["mcp"]["bughub"]["url"].endswith("/mcp"))
+        self.assertEqual(rep["apiRetryHook"]["state"], "missing")
+        self.assertEqual(os.listdir(self.tmp), [])   # doctor chỉ đọc
+
+    def test_doctor_fix_dry_run_writes_nothing(self):
+        rep = q.doctor_report(self.tmp)
+        lines = q.doctor_fix(self.tmp, rep, dry_run=True)
+        self.assertTrue(any("profile init" in l for l in lines))
+        self.assertTrue(any(q.PROBE_PACKAGE in l for l in lines))
+        self.assertEqual(os.listdir(self.tmp), [])
+
+    def test_doctor_json_cli(self):
+        saved = q.repo_root
+        q.repo_root = lambda: self.tmp
+        try:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = q.main(["doctor", "--json"])
+            self.assertEqual(rc, 0)
+            d = json.loads(buf.getvalue())
+            self.assertIn("actions", d)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                self.assertRaises(SystemExit, q.main, ["doctor", "--strict"])
+            self.assertIn("việc còn lại", buf.getvalue())
+        finally:
+            q.repo_root = saved
