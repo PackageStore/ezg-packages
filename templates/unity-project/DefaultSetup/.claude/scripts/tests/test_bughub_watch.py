@@ -62,7 +62,8 @@ class WatchTestCase(unittest.TestCase):
         (self.dev / ".claude" / "project-profile.json").write_text(json.dumps(profile))
 
     def run_watch(self, cwd, *args):
-        env = dict(os.environ, PATH=os.environ["PATH"])
+        # Không ghi __pycache__ vào repo test (không có .gitignore) — `clean` sẽ coi nó là file untracked phải dọn.
+        env = dict(os.environ, PATH=os.environ["PATH"], PYTHONDONTWRITEBYTECODE="1")
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), *args],
                               cwd=cwd, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
         lines = [line for line in proc.stdout.splitlines() if line.strip()]
@@ -140,23 +141,44 @@ class CurrentCheckoutTests(WatchTestCase):
         self.assertIn("origin/develop", out["merged"])
         self.assertTrue((self.dev / "b.txt").exists())
 
-    def test_dirty_tree_is_reported_not_blocking(self):
+    def test_sync_on_bot_branch_cleans_leftovers_into_a_backup_ref(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
         (self.dev / "a.txt").write_text("changed\n")
+        (self.dev / "Editor[Sky] Lite").mkdir()
+        (self.dev / "Editor[Sky] Lite" / "noise.asset").write_text("untracked\n")
         code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (0, "OK"))
-        self.assertIn("a.txt", out["dirty"])
+        self.assertEqual((code, out["result"], out["dirty"]), (0, "OK", []))
+        self.assertEqual((out["cleaned"]["count"], out["cleaned"]["left"]), (2, []))
+        self.assertEqual(git(self.dev, "status", "--porcelain", "--untracked-files=all"), "")
+        self.assertEqual(git(self.dev, "stash", "list"), "")
+        self.assertEqual(git(self.dev, "rev-parse", out["cleaned"]["ref"]), out["cleaned"]["backup"])
+        git(self.dev, "stash", "apply", out["cleaned"]["backup"])
+        self.assertEqual((self.dev / "a.txt").read_text(), "changed\n")
+        self.assertTrue((self.dev / "Editor[Sky] Lite" / "noise.asset").exists())
 
-    def test_local_changes_blocking_base_merge_are_skipped(self):
+    def test_editor_noise_no_longer_blocks_base_merge(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
         self.push_from_other("a.txt", "dev\n")
-        (self.dev / "a.txt").write_text("wip\n")
-        head = git(self.dev, "rev-parse", "HEAD")
+        (self.dev / "a.txt").write_text("editor noise\n")
         code, out = self.run_watch(self.dev, "sync")
-        self.assertEqual((code, out["result"]), (0, "OK"))
-        self.assertEqual([(s["ref"], s["files"]) for s in out["skipped"]], [("origin/develop", ["a.txt"])])
-        self.assertEqual(git(self.dev, "rev-parse", "HEAD"), head)
-        self.assertEqual((self.dev / "a.txt").read_text(), "wip\n")
+        self.assertEqual((code, out["result"], out["skipped"]), (0, "OK", []))
+        self.assertIn("origin/develop", out["merged"])
+        self.assertEqual((self.dev / "a.txt").read_text(), "dev\n")
+        self.assertEqual(git(self.dev, "show", f"{out['cleaned']['backup']}:a.txt"), "editor noise")
+
+    def test_clean_on_bot_branch_takes_everything_and_keeps_recent_backups(self):
+        self.run_watch(self.dev, "start", "--no-launch", "--yes")
+        self.assertEqual(self.run_watch(self.dev, "clean", "--bug", "4")[1]["result"], "CLEAN")
+        for i in range(32):  # bản cất cũ hơn
+            git(self.dev, "update-ref", f"refs/bughub/cleaned/2020{i:02d}01T000000000000Z-bug{i}", "HEAD")
+        self.run_watch(self.dev, "claim", "set", "--bug", "4")
+        (self.dev / "a.txt").write_text("bot fix left over\n")
+        code, out = self.run_watch(self.dev, "clean", "--bug", "4")
+        self.assertEqual((code, out["result"], out["files"], out["kept"]), (0, "CLEANED", ["a.txt"], []))
+        refs = git(self.dev, "for-each-ref", "--format=%(refname)", "refs/bughub/cleaned").split()
+        self.assertEqual(len(refs), 30)
+        self.assertIn(out["ref"], refs)
+        self.assertEqual((self.dev / "a.txt").read_text(), "a\n")
 
     def test_publish_disabled_by_default(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
@@ -453,6 +475,37 @@ class FollowBranchTests(WatchTestCase):
         self.assertIn("bughub #7 released: compile lỗi", git(self.dev, "stash", "list"))
         code, out = self.run_watch(self.dev, "shelve", "--bug", "7", "--", "a.txt")
         self.assertEqual((code, out["result"]), (0, "NOTHING"))
+
+    def test_sync_never_cleans_a_shared_checkout(self):
+        (self.dev / "a.txt").write_text("wip\n")
+        code, out = self.run_watch(self.dev, "sync")
+        self.assertEqual((code, out["cleaned"], out["dirty"]), (0, None, ["a.txt"]))
+
+    def test_clean_keeps_dev_wip_from_claim_time_and_takes_the_rest(self):
+        (self.dev / "a.txt").write_text("dev wip\n")
+        self.run_watch(self.dev, "claim", "set", "--bug", "9")
+        self.run_watch(self.dev, "claim", "clear", "--bug", "9")  # mốc của clean sống qua claim clear
+        self.commit_local("fix.txt", "fix\n")
+        (self.dev / "noise.mat").write_text("editor\n")
+        code, out = self.run_watch(self.dev, "clean", "--bug", "9")
+        self.assertEqual((code, out["result"], out["files"], out["kept"]), (0, "CLEANED", ["noise.mat"], ["a.txt"]))
+        self.assertEqual((self.dev / "a.txt").read_text(), "dev wip\n")
+        self.assertFalse((self.dev / "noise.mat").exists())
+        self.assertEqual(self.run_watch(self.dev, "clean", "--bug", "9")[1]["result"], "CLEAN")
+
+    def test_clean_without_claim_time_baseline_is_skipped(self):
+        (self.dev / "a.txt").write_text("dev wip\n")
+        for args in (("clean",), ("clean", "--bug", "9")):
+            code, out = self.run_watch(self.dev, *args)
+            self.assertEqual((code, out["result"]), (0, "SKIPPED"), args)
+        self.run_watch(self.dev, "claim", "set", "--bug", "8")
+        self.assertEqual(self.run_watch(self.dev, "clean", "--bug", "9")[1]["result"], "SKIPPED")
+        self.assertEqual((self.dev / "a.txt").read_text(), "dev wip\n")
+
+    def test_clean_rejects_bad_args(self):
+        for args in (("clean", "--bug"), ("clean", "--bug", "0"), ("clean", "x")):
+            code, out = self.run_watch(self.dev, *args)
+            self.assertEqual((code, out["result"]), (2, "BAD_ARGS"), args)
 
     def test_shelve_rejects_paths_outside_repo(self):
         code, out = self.run_watch(self.dev, "shelve", "--bug", "7", "--", "../x.txt")

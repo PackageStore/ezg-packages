@@ -32,6 +32,8 @@ Lệnh:
         nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển nguyên cho claude
         (vd `-- --permission-mode bypassPermissions`).
   sync  TRƯỚC khi nhận mỗi bug: fetch + merge `origin/<nhánh>` (và nhánh chính ở chế độ nhánh bot).
+        Nhánh bot: thư mục dành riêng cho bot → trước khi merge tự dọn sạch như `clean` (`cleaned`) để rác
+        Unity Editor ghi ra (atlas font TMP, material, setting plugin…) không chặn merge nhánh chính.
         `OK` kèm `dirty` = file đã track đang sửa dở (bot không được đụng), `takenBase` = file merge
         nhánh chính đã tự lấy bản nhánh chính | `CONFLICT` (merge nhánh chính đang dở, `files` chờ gộp
         tay) | `WAIT`.
@@ -78,9 +80,18 @@ Lệnh:
         (2) Commit `Bug-Report: #N` của lần nhận này CHƯA push: nằm trên đỉnh HEAD thì bỏ (`git reset --keep`),
         không thì `git revert` local. Commit đã push: server BugHub đã revert trên GitLab — `sync` lần sau kéo về.
         (3) Xoá `Temp/BugHub/N`. (4) Xoá marker `claim` của bug. → `DISCARDED` | `CLEAN` (không có gì để dọn).
+  clean [--bug N]
+        SAU mỗi bug (đã chốt, đã commit + push) — dọn thư mục về đúng HEAD trước khi nhận bug sau: mọi path đang
+        khác HEAD (đã track sửa / xoá / staged + untracked chưa ignore) không nằm trong commit của bug, phần lớn
+        là file Unity Editor tự ghi. Nhánh bot (thư mục dành riêng cho bot): dọn hết. Checkout dùng chung với
+        dev (theo nhánh / chế độ một lần): giữ các path đã khác HEAD lúc nhận bug N (mốc `claim set`), không có
+        mốc thì không dọn (`SKIPPED`). Không mất gì: cất vào một commit stash giữ ở ref
+        `refs/bughub/cleaned/<thời gian>-<tag>` (không vào `git stash list`; giữ `CLEAN_KEEP` bản mới nhất) —
+        lấy lại: `git stash apply <backup>`. → `CLEANED` (`count`, `backup`, `ref`, `left` = path vẫn khác
+        HEAD sau khi dọn) | `CLEAN` | `SKIPPED`; đang merge / rebase dở → `WAIT` `BUSY`.
 
 Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log cho người đọc ra stderr.
-Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`, `CLEAN`) · 2 config / tham số sai / `start` không chuẩn bị
+Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`, `CLEAN`, `SKIPPED`) · 2 config / tham số sai / `start` không chuẩn bị
 được thư mục · 3 `WAIT` (tạm thời — pause rồi thử lại; `reason`: DETACHED, WRONG_BRANCH, BUSY, FETCH_FAILED,
 MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED, EDITOR_BUSY,
 EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 thay đổi dở chặn merge
@@ -133,6 +144,11 @@ RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart
 CLAIM_STATE = "claim.json"
 # Mốc "path đang khác HEAD" lúc nhận bug: quá chừng này path thì không lưu (discard --auto từ chối, phải liệt kê file).
 SNAPSHOT_MAX = 2000
+# Mốc lúc nhận bug cho `clean` — file riêng, sống qua `claim clear` / `discard` (hai lệnh đó xoá CLAIM_STATE).
+BASELINE_STATE = "baseline.json"
+# Bản cất của `clean`: mỗi lần một ref dưới đây, giữ chừng này bản mới nhất (ref cũ xoá đi, object để `git gc` lo).
+CLEAN_REF = "refs/bughub/cleaned"
+CLEAN_KEEP = 30
 # `start` đặt env này cho claude nó mở: mọi lệnh của loop chạm file đó để watchdog biết loop còn sống.
 HEARTBEAT_ENV = "BUGHUB_WATCH_HEARTBEAT"
 # Biến PHIÊN mà Claude Code đặt cho shell của nó. `start` gọi từ trong một session Claude (agent mở cửa sổ watch hộ
@@ -177,9 +193,12 @@ def heartbeat() -> None:
 # git
 # --------------------------------------------------------------------------------------------------
 
-def git(*args: str, cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
+def git(*args: str, cwd: Path | None = None, check: bool = True, stdin: str | None = None,
+        literal: bool = False) -> subprocess.CompletedProcess:
+    # literal: pathspec là tên file nguyên văn — path Unity hay có `[`/`*` (vd "Azure[Sky] Lite") bị hiểu thành glob.
+    env = dict(GIT_ENV, GIT_LITERAL_PATHSPECS="1") if literal else GIT_ENV
     proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", env=GIT_ENV)
+                          errors="replace", env=env, input=stdin)
     if check and proc.returncode != 0:
         raise wait("GIT_FAILED", f"git {' '.join(args)}: {proc.stderr.strip() or proc.stdout.strip()}")
     return proc
@@ -526,6 +545,14 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
     if resumed:
         merged.append(resumed["ref"])
         taken += resumed["takenBase"]
+    cleaned = None
+    if cfg["mode"] == "bot" and not operation_in_progress(cwd):
+        # Thư mục của nhánh bot không có việc dở của ai: thay đổi chưa commit lúc này chỉ là rác Editor / phần sót của
+        # session trước — để lại thì chặn merge nhánh chính ("would be overwritten") và bot cứ sửa trên code cũ.
+        cleaned = clean_tree(cwd, set(), "bughub sync cleanup", "sync")
+        if cleaned["backup"]:
+            print(f"bughub-watch: dọn {cleaned['count']} path chưa commit trước khi merge — bản cất {cleaned['backup'][:10]}",
+                  file=sys.stderr)
     remote = has_origin(cwd)
     if remote:
         fetch(cwd)
@@ -547,7 +574,8 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
     if remote and ref_exists(f"refs/remotes/origin/{branch}", cwd):
         ahead = int(out("rev-list", "--count", f"origin/{branch}..HEAD", cwd=cwd))
     return {"result": "OK", "mode": cfg["mode"], "branch": branch, "merged": merged, "skipped": skipped,
-            "takenBase": taken, "dirty": dirty_tracked(cwd)[:50], "ahead": ahead, "head": out("rev-parse", "HEAD", cwd=cwd), "remote": remote}
+            "takenBase": taken, "cleaned": cleaned, "dirty": dirty_tracked(cwd)[:50], "ahead": ahead,
+            "head": out("rev-parse", "HEAD", cwd=cwd), "remote": remote}
 
 
 def do_push(cfg: dict, cwd: Path) -> dict:
@@ -955,9 +983,11 @@ def do_claim(cwd: Path, argv: list[str]) -> dict:
     if sub == "set":
         bug = bug_option(rest, required=True)
         changed = changed_paths(cwd)
-        write_json(path, {"bug": bug, "claimedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-                          "branch": current_branch(cwd), "head": out("rev-parse", "HEAD", cwd=cwd),
-                          "dirty": changed if len(changed) <= SNAPSHOT_MAX else None})
+        state = {"bug": bug, "claimedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                 "branch": current_branch(cwd), "head": out("rev-parse", "HEAD", cwd=cwd),
+                 "dirty": changed if len(changed) <= SNAPSHOT_MAX else None}
+        write_json(path, state)
+        write_json(state_file(cwd, BASELINE_STATE), state)
         return {"result": "OK", "bug": bug}
     state = read_json(path)
     if sub == "clear":
@@ -1090,6 +1120,79 @@ def do_discard(cwd: Path, argv: list[str]) -> dict:
     return {"result": result, "bug": bug, "branch": branch, "stash": stash, "stashed": stashed, "kept": kept,
             "droppedCommits": dropped, "revertedLocally": reverted, "pushedCommits": pushed,
             "message": "; ".join(message) or "không có gì để dọn"}
+
+
+def stash_away(root: Path, paths: list[str], label: str) -> str | None:
+    """Cất `paths` (đã track sửa / xoá / staged + untracked) vào một commit stash và trả các path đó về HEAD → sha
+    commit stash; None khi git thấy không có gì để cất (vd chỉ lệch stat). Danh sách qua stdin: vài nghìn path vẫn
+    không vượt giới hạn dòng lệnh của Windows."""
+    before = git("rev-parse", "-q", "--verify", "refs/stash", cwd=root, check=False).stdout.strip()
+    git("stash", "push", "--include-untracked", "-m", label, "--pathspec-from-file=-", "--pathspec-file-nul",
+        cwd=root, stdin="\0".join(paths), literal=True)
+    after = git("rev-parse", "-q", "--verify", "refs/stash", cwd=root, check=False).stdout.strip()
+    return after if after and after != before else None
+
+
+def prune_clean_refs(root: Path) -> None:
+    refs = git("for-each-ref", "--sort=-refname", "--format=%(refname)", CLEAN_REF, cwd=root).stdout.split()
+    for ref in refs[CLEAN_KEEP:]:
+        git("update-ref", "-d", ref, cwd=root, check=False)
+
+
+def clean_tree(root: Path, protected: set[str], label: str, tag: str) -> dict:
+    """Trả mọi path đang khác HEAD (trừ `protected`) về HEAD. Bản cất giữ ở ref `CLEAN_REF/<thời gian>-<tag>` và bỏ
+    khỏi `git stash list` (mỗi bug một bản — để trong stash list thì dev không tìm nổi stash của mình)."""
+    changed = changed_paths(root)
+    targets = [name for name in changed if name not in protected]
+    kept = [name for name in changed if name in protected]
+    sha = ref = None
+    if targets:
+        sha = stash_away(root, targets, label)
+        if sha:
+            ref = f"{CLEAN_REF}/{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-{tag}"
+            git("update-ref", ref, sha, cwd=root)
+            if git("rev-parse", "-q", "--verify", "refs/stash", cwd=root, check=False).stdout.strip() == sha:
+                git("stash", "drop", "-q", cwd=root, check=False)
+            prune_clean_refs(root)
+    left = [name for name in changed_paths(root) if name not in protected] if targets else []
+    return {"count": len(targets) if sha else 0, "files": targets[:50], "kept": kept[:50], "backup": sha, "ref": ref,
+            "left": left[:50]}
+
+
+def clean_scope(cfg: dict, root: Path, bug: int | None) -> set[str] | None:
+    """Path `clean` không được đụng. Nhánh bot (thư mục dành riêng cho bot) → không có. Checkout dùng chung với dev →
+    path đã khác HEAD lúc nhận bug `bug` (mốc `claim set`); không có mốc → None (không biết đâu là việc dở của dev)."""
+    if cfg["mode"] == "bot" and current_branch(root) == cfg["branch"]:
+        return set()
+    base = read_json(state_file(root, BASELINE_STATE)) or {}
+    if bug is not None and base.get("bug") == bug and isinstance(base.get("dirty"), list):
+        return set(base["dirty"])
+    return None
+
+
+def do_clean(cfg: dict, cwd: Path, argv: list[str]) -> dict:
+    if argv and (len(argv) != 2 or argv[0] != "--bug" or not re.fullmatch(r"[1-9][0-9]*", argv[1])):
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "clean [--bug N]")
+    bug = int(argv[1]) if argv else None
+    root = repo_root(cwd)
+    busy = operation_in_progress(root)
+    if busy:
+        raise wait("BUSY", f"đang có {busy} dở trong {root} — xong nó rồi clean lại")
+    protected = clean_scope(cfg, root, bug)
+    if protected is None:
+        return {"result": "SKIPPED", "bug": bug,
+                "message": "checkout dùng chung với dev mà không có mốc lúc nhận bug này (claim set) — không phân biệt được "
+                           "việc dở của dev nên không dọn"}
+    done = clean_tree(root, protected, f"bughub #{bug} cleanup" if bug else "bughub cleanup", f"bug{bug}" if bug else "manual")
+    if not done["backup"]:
+        return {"result": "CLEAN", "bug": bug, **done,
+                "message": "không có thay đổi nào ngoài commit" + (f" (giữ {len(done['kept'])} path dở của dev)" if done["kept"] else "")}
+    message = f"đã dọn {done['count']} path chưa commit, bản cất {done['backup'][:10]} (lấy lại: git stash apply {done['backup'][:10]})"
+    if done["kept"]:
+        message += f"; giữ {len(done['kept'])} path dev đang sửa dở từ lúc nhận bug"
+    if done["left"]:
+        message += f"; {len(done['left'])} path vẫn khác HEAD sau khi dọn (thường do lệch line-ending)"
+    return {"result": "CLEANED", "bug": bug, **done, "message": message}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1447,9 +1550,11 @@ def main(argv: list[str]) -> int:
                 result = do_claim(repo_root(cwd), rest)
             elif command == "discard":
                 result = do_discard(cwd, rest)
+            elif command == "clean":
+                result = do_clean(cfg, cwd, rest)
             else:
                 raise Stop(EXIT_CONFIG, "BAD_ARGS",
-                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim | discard)")
+                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim | discard | clean)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))
