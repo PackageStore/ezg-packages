@@ -4,7 +4,7 @@ Nguồn sự thật cho mọi Unity package nội bộ (`com.ezg.*`). Mỗi thư
 
 - **Registry:** https://upm-registry-worker.developer-a1f.workers.dev
 - **Storage:** Cloudflare R2 bucket `company-upm-registry`
-- **Worker source + spec:** repo `ezg-scopedregister` (`worker/`, `upm-scoped-registry-requirements.md`)
+- **Worker source + spec:** repo `ezg-platform` (`worker/`, `upm-scoped-registry-requirements.md`)
 
 ## Layout
 
