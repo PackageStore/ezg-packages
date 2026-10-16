@@ -4,6 +4,48 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-16
+
+**Fixed** — Boot nhanh hơn, AppsFlyer đếm đủ install (`ezg.base.features` `sha256 48dd750e… → 4f367997…`: thay 7 file +
+thêm 2 file, mọi entry còn lại giữ nguyên byte, GUID giữ nguyên; file ở key riêng
+`unity-template/files/ezg.base.features-4f367997.unitypackage`, `asset-catalog.json` cố ý giữ bản cũ như lần trước)
+- **AppsFlyer start ở đầu boot, không phụ thuộc Firebase.** Trước đây `InitAppsFlyer()` đứng sau tải bundle, init ads và
+  `CheckAndFixDependenciesAsync`: Firebase chậm là AF start trễ theo (người thoát app lúc splash có trên Meta, không có
+  trên AF); callback Firebase ném lỗi là `InitForDevice` dừng giữa chừng — AF không bao giờ init, game kẹt splash; và
+  dù project đã dùng `com.ezg.tracking` 0.3.0, không chỗ nào set `IsAppsFlyerStarted` nên fix 0.3.0 chưa có tác dụng
+  (Firebase không Available là `af_first_open` bị bỏ mà cờ "đã gửi" vẫn lưu → mất vĩnh viễn).
+  Giờ `SplashSceneController.InitForDevice`: config + save → `IapBootstrap.Configure()` (chỉ wiring) →
+  `GameInitialize.InitAppsFlyer()` → bundle → ads → Firebase ‖ giờ server → phần còn lại. `InitAppsFlyer` theo đúng rule
+  `tracking-attribution`: listener conversion data là `AppsFlyerHost` (GameObject riêng, DontDestroyOnLoad; Purchase
+  Connector vẫn dùng listener của IAP vì nó implement các interface validate revenue — hai kênh callback độc lập trong
+  SDK), ATT / customer user id / Purchase Connector mỗi bước try/catch riêng, `startSDK()` trong `finally` rồi
+  `TrackingService.IsAppsFlyerStarted = true`; `af_first_open` gửi xong mới lưu cờ; gọi lại (soft-restart về Splash)
+  chỉ `setCustomerUserId`, không init lại SDK; customer user id rỗng (chưa login) thì bỏ qua thay vì ghi chuỗi rỗng.
+  Firebase init bọc try/catch riêng (`InitFirebaseAsync`) — lỗi không chặn boot.
+- **Màn loading không giữ cứng.** `OverviewCanvas.ChangeScene` giữ 3s sau khi scene load xong (mọi lần đổi scene),
+  `OpenLoading` giữ 1,5s. Giờ chờ tới khi HUD của scene dựng xong (`UIManager.HasPendingShow` — đếm số `Show()` đang tải
+  prefab) và mọi việc scene đăng ký qua `SceneReadyGate.Register(UniTask)` (prewarm pool, preload gameplay) xong, rồi
+  render thêm 2 frame dưới màn loading để layout rebuild / shader compile lần đầu không nháy ra ngoài. Trần 3s cho HUD
+  (prefab tải treo), 10s cho task đăng ký. Gameplay nào trước đây dựa vào 3s giữ cứng để che giật lúc vào scene thì
+  đăng ký việc preload vào `SceneReadyGate` trong Awake/Start của scene.
+- **Chờ remote config 15s → 1,5s** (`REMOTE_CONFIG_WAIT_MS`): scene đầu không cần remote config, giá trị về muộn vẫn tự
+  áp (`AdsController` show lại banner, `HomeScreenController.CheckUpdate` nghe `InitRemoteConfigSuccess`).
+- **Firebase init và lấy giờ server chạy song song** (`UniTask.WhenAll`) thay vì nối đuôi.
+- Bỏ `UniTask.Delay(500)` đầu `InitForDevice` — không chờ việc gì: bundle đã await hết, ads/Firebase/IAP đều bắt đầu
+  sau nó, và đổi scene lại `ClearCache` + `UnloadUnusedAssets` nên không "làm ấm" được gì cho gameplay.
+- **Hết cảm giác load hai lần.** Splash dừng bar ở 80% (`GameConstant.SPLASH_HANDOFF_PROGRESS`) rồi
+  `GameSystems.ChangeScene(scene, GameEnums.LoadingPhase.SplashHandoff)` cho màn loading đổi scene chạy nốt 80 → 100%.
+  Bar Splash chuẩn hoá 0..1, mỗi bước init = một bundle về mặt tiến trình nên tăng đều (trước đây `DownloadAssetBundle`
+  đặt `maxValue` = số bundle → tải xong bundle là bar đã 100% rồi đứng yên suốt lúc init Firebase + chờ remote config).
+- API: `GameSystems.ChangeScene(scene, phase = Full)` / `OverviewCanvas.ChangeScene(scene, phase = Full)` (tham số mặc
+  định, code gọi cũ không phải sửa); mới `UIManager.HasPendingShow`, `SceneReadyGate`, `GameEnums.LoadingPhase`,
+  `GameConstant.SPLASH_HANDOFF_PROGRESS`, `GameInitialize.UpdateAppsFlyerCustomerUserId()`, `AppsFlyerHost`.
+- `DefaultSetup/.claude/rules/tracking-attribution.md`: ghi rõ base đã làm sẵn và dấu hiệu nhận ra project còn bản cũ.
+- `scripts/patch-unitypackage.py`: thay/thêm vài entry của một `.unitypackage`, giữ nguyên byte phần còn lại (GNU tar) —
+  công cụ cho các lần cập nhật base features kiểu này (`list` / `diff` / `patch`).
+- Đã kiểm: project sinh từ template (Unity 6000.3.16f1) compile sạch sau khi thay 9 file; package mới verify từng entry
+  (9 entry khớp file nguồn, phần còn lại byte-identical với bản 48dd750e).
+
 ## 2026-10-15
 
 **Changed** — Thông báo Discord của backlog loop: gửi vào kênh, embed gọn

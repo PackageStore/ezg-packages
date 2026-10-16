@@ -23,6 +23,11 @@ bước dài thì người chơi thoát app khi splash còn chạy sẽ có trê
   try/catch riêng**; `startSDK()` đặt trong `finally`. Ngay sau đó `TrackingService.IsAppsFlyerStarted = true`.
 - Gọi lại (soft-restart về Splash) chỉ cập nhật customer user id — không init lại SDK, không bắn lại
   event một-lần-mỗi-cài-đặt.
+- Base template (`ezg.base.features` từ 2026-10-16) đã làm sẵn đúng như trên: `GameInitialize.InitAppsFlyer()`
+  + `AppsFlyerHost` (`_Shared/Analytics/Integration/`), gọi ở đầu `SplashSceneController.InitForDevice` ngay sau
+  `DataPlayer.Init()`. Project sinh trước mốc đó: đối chiếu `SplashSceneController` / `GameInitialize` của mình với
+  bản base mới rồi chuyển theo — dấu hiệu còn bản cũ là `InitAppsFlyer()` đứng sau `CheckAndFixDependenciesAsync`
+  và không có chỗ nào set `TrackingService.IsAppsFlyerStarted`.
 
 **Gửi event:**
 - Event AppsFlyer **không chờ Firebase** — `com.ezg.tracking` ≥ 0.3.0 chỉ chờ `IsAppsFlyerStarted`. Đừng tự
