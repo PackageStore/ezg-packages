@@ -539,14 +539,17 @@ namespace Ezg.AutoTest
             if (File.Exists(flag)) File.Delete(flag);
         }
 
-        /// <summary>Ghi report.json (qua file tạm rồi thay thế — crash giữa lúc ghi không làm hỏng bản cũ).</summary>
+        /// <summary>
+        ///     Ghi report.json schema 0.2 (<see cref="AutoTestReportJson" />) qua file tạm rồi thay thế — crash giữa lúc
+        ///     ghi không làm hỏng bản cũ. Editor đọc lại bằng <c>AutoTestReportJson.Deserialize</c>.
+        /// </summary>
         static void WriteReport(TestRunReport report, string outputDir)
         {
             try
             {
                 var path = Path.Combine(outputDir, DeviceProtocol.REPORT_FILE);
                 var tmp = path + ".tmp";
-                File.WriteAllText(tmp, JsonUtility.ToJson(report));
+                File.WriteAllText(tmp, AutoTestReportJson.Serialize(report, false));
                 if (File.Exists(path)) File.Delete(path);
                 File.Move(tmp, path);
             }

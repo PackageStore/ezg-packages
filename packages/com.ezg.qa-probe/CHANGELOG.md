@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.3.0] - 2026-10-16
+### Added
+- `Resources/EzgQaProbeConfig.json` thêm 5 mục (thiếu = hành vi cũ): `screenBaseTypes` (mảng tên lớp cơ sở màn hình, ngắn hoặc
+  đầy đủ, lớp generic ghi không có `` `1 ``), `cheatTypeName`, `cheatFlagMember`, `cheatEnableMethod`, `cheatDisableMethod` (type
+  / cờ / hàm cheat của game không theo quy ước `GameSystems.isCheat` …). Skill `/auto-test-device` sinh file này bằng
+  `qadevice.py profile sync` từ block `qa` của `.claude/project-profile.json`; `/ping` trả `config.screenBaseTypes` đang dùng.
+- Nhận ra màn hình theo `screenBaseTypes` thay vì danh sách viết cứng (`/ui.screens`, `layer` của từng phần tử, `/context.screen`).
+- `/pseudoloc?on=1|0&mode=expand|accent|both`: biến mọi chữ đang hiện (UI.Text, TMP) thành chữ giả localize — bọc `[ ]`, chữ
+  cái có dấu, đệm `~` ≈ 30% — để bắt khung chữ hẹp / chữ bị cắt / font thiếu glyph trước khi có bản dịch; `on=0` trả lại chữ
+  gốc; probe tắt (`/stop`) cũng tự trả lại. Chữ game set lại SAU khi bật không được theo dõi — gọi lại `on=1` để đổi tiếp
+  (trả `count` = số phần tử vừa đổi). `/ping` và `/ui` có `pseudoloc: true` khi đang bật.
+- `/ui` và `/context` trả `probeVersion`.
+- `/ui`: flag mới trên từng phần tử (port từ UiAuditSuite của com.ezg.autotest — assembly đó không có trong bản release nên
+  không link được, copy logic) kèm `flagDetail {flag: "chi tiết"}`. Toàn bộ là phép đọc thuộc tính / hình học, không raycast
+  thêm, không ép layout, nên chạy luôn trong `/ui` (không cần tham số). Flag cũ giữ nguyên tên (camelCase như trước):
+
+  | Flag | Ý nghĩa | Severity gợi ý |
+  |---|---|---|
+  | `deadButton` | Button bấm được nhưng `onClick` rỗng (Inspector lẫn `AddListener`) và không có handler chạm nào khác trên object | medium |
+  | `noRaycastTarget` | Phần tử tương tác không có Graphic nào (chính nó hoặc con) bật Raycast Target → chạm không tới | high |
+  | `overlapButton` | Hai nút cùng cha chồng nhau > 50% diện tích nút nhỏ; flag gắn trên nút vẽ trước (bị đè), detail ghi tên + id nút đè | medium |
+  | `missingSprite` | Image (đúng type Image) không sprite, hiện thành khối màu (không trắng); detail `#RRGGBBAA W×Hpx` | low |
+  | `solidBackground` | Image không sprite phủ ≥ 50% màn — nền phẳng, thường cố ý | info |
+  | `noSprite` | (mở rộng) ô trắng đục ≥ 6 px không sprite, nay bắt cả ô có con (nền nút trắng thiếu art) | medium |
+
+### Changed
+- `ProbeAutoConfig.Detect` có overload nhận tên type / cờ / hàm từ config; hàm bật do dev chỉ đích danh được nhận cả bản không
+  tham số (quy ước template vẫn chỉ nhận `TryEnableCheat(Action<bool>)`). Cache lớp màn hình được xoá mỗi lần kích hoạt.
+- Test PlayMode thêm: parse config mới, dò cheat type riêng, lớp màn hình từ config (ngắn / đầy đủ / generic), pseudoloc
+  đổi–trả qua endpoint + tự trả khi tắt, `/ui` có `probeVersion` và các flag mới.
+
 ## [1.2.1] - 2026-10-15
 ### Fixed
 - Ảnh chụp (`/shot`, ảnh tự chụp của `/bug`) dính nút nổi báo lỗi của Bug Logger → ảnh gửi BugHub có cả nút. Giờ probe

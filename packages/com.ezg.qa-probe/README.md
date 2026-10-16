@@ -10,7 +10,7 @@ reflection, lấy log Unity kèm stack và gửi bug qua Bug Logger của game. 
 Template EZG đã có sẵn. Project cũ: Feature Hub (tab UPM) hoặc để `qadevice.py start` tự thêm vào `Packages/manifest.json`:
 
 ```json
-"com.ezg.qa-probe": "1.2.1"
+"com.ezg.qa-probe": "1.3.0"
 ```
 
 Không cần code hay asset nào trong `Assets/`. Build mới sẽ có probe.
@@ -40,8 +40,11 @@ lệnh thêm máy (ezg MCP `test_device_add`), rồi `qadevice.py probe-connect 
 ## Ghi đè cấu hình (tuỳ chọn)
 
 Mặc định probe tự dò theo quy ước template EZG: static class `GameSystems` có `static bool isCheat`,
-`TryEnableCheat(Action<bool>)`, `DisableCheat(...)`. Game khác quy ước → tạo TextAsset `Resources/EzgQaProbeConfig.json`
-ở bất kỳ thư mục `Resources` nào, chỉ khai mục cần đổi:
+`TryEnableCheat(Action<bool>)`, `DisableCheat(...)`; màn hình là MonoBehaviour kế thừa `FeatureBaseController` (hoặc
+`UIScreenBase` / `ScreenBase` / `PopupBase` / `UIPanel`). Game khác quy ước → TextAsset `Resources/EzgQaProbeConfig.json` ở
+bất kỳ thư mục `Resources` nào, chỉ khai mục cần đổi. **Đừng viết tay khi project có skill `/auto-test-device`**: khai trong
+block `qa.conventions` của `.claude/project-profile.json` rồi chạy `python3 .claude/skills/auto-test-device/scripts/qadevice.py
+profile sync` — tool sinh/merge file này (giữ nguyên các mục khác).
 
 ```json
 {
@@ -49,18 +52,43 @@ Mặc định probe tự dò theo quy ước template EZG: static class `GameSys
   "cheatOn": "MyGame.Debug.CheatFlags.Enable",
   "cheatOff": "none",
   "autoCheat": true,
-  "port": 7531
+  "port": 7531,
+  "screenBaseTypes": ["MyGame.UI.ScreenBase", "PopupBase"],
+  "cheatTypeName": "DebugFlags",
+  "cheatFlagMember": "cheatsEnabled",
+  "cheatEnableMethod": "EnableCheats",
+  "cheatDisableMethod": "DisableCheats"
 }
 ```
 
 | Mục | Ý nghĩa | Trống | `"none"` |
 |---|---|---|---|
-| `releaseGate` | bool static mở probe ở bản release | tự dò `GameSystems.isCheat` | không dùng cờ (chỉ CheatGate / dev build) |
-| `cheatOn` | hàm static bật cheat game (0 tham số hoặc một `Action<bool>`) | tự dò `TryEnableCheat(Action<bool>)` | gán `releaseGate = true` |
-| `cheatOff` | hàm static tắt cheat game | tự dò `DisableCheat` | gán `releaseGate = false` |
+| `releaseGate` | bool static mở probe ở bản release | tự dò `<cheatTypeName>.<cheatFlagMember>` | không dùng cờ (chỉ CheatGate / dev build) |
+| `cheatOn` | hàm static bật cheat game (0 tham số hoặc một `Action<bool>`) | tự dò `<cheatTypeName>.<cheatEnableMethod>` | gán `releaseGate = true` |
+| `cheatOff` | hàm static tắt cheat game | tự dò `<cheatTypeName>.<cheatDisableMethod>` | gán `releaseGate = false` |
 | `autoCheat` | máy có quyền CheatGate thì tự bật cheat game | `true` | — |
+| `screenBaseTypes` | lớp cơ sở màn hình (tên ngắn hoặc đầy đủ; lớp generic ghi không có `` `1 ``) — `/ui.screens`, `layer` | danh sách template ở trên | — |
+| `cheatTypeName` | type chứa cờ / hàm cheat để tự dò (tên ngắn hoặc đầy đủ) | `GameSystems` | — |
+| `cheatFlagMember` | tên cờ `static bool` trên type đó | `isCheat` | — |
+| `cheatEnableMethod` | tên hàm bật — dev tự đặt thì nhận cả bản không tham số | `TryEnableCheat` (chỉ bản `Action<bool>`) | — |
+| `cheatDisableMethod` | tên hàm tắt | `DisableCheat` | — |
 
-`/ping` trả config đang dùng (`config`), log khi kích hoạt có dòng `[EzgQaProbe] config …`.
+`releaseGate` / `cheatOn` / `cheatOff` khai thẳng đường dẫn đầy đủ luôn thắng 4 mục `cheat*` (4 mục đó chỉ đổi cách tự dò).
+`/ping` trả config đang dùng (`config`, kèm `screenBaseTypes` hiệu lực), log khi kích hoạt có dòng `[EzgQaProbe] config …`.
+
+## Chữ giả localize (`/pseudoloc`)
+
+`GET /pseudoloc?on=1&mode=both` biến mọi chữ đang hiện (UI.Text, TMP_Text) thành `[Ĥéļļö Ŵöřļđ~~~]`: bọc ngoặc vuông để thấy
+chữ bị cắt hai đầu, chữ cái có dấu để lộ font thiếu glyph, đệm `~` ≈ 30% để lộ khung chữ hẹp trước khi có bản dịch dài
+(Đức, Nga…). `mode=expand` chỉ đệm, `mode=accent` chỉ dấu. `on=0` trả lại chữ gốc; probe tắt (`/stop`, tool thoát) cũng tự
+trả lại. Giới hạn: chỉ đổi chữ đang có lúc gọi — chữ game set lại sau đó (đổi màn, cập nhật số) giữ nguyên bản thật; gọi lại
+`on=1` để đổi tiếp, response `count` là số phần tử vừa đổi. Thẻ rich text (`<b>`, `<color>`, `<sprite>`) giữ nguyên.
+
+## Flag trong `/ui`
+
+Mỗi phần tử có `flags[]` (và `flagDetail {flag: "chi tiết"}` khi có): `overflow`, `truncated`, `missingGlyph` (+`missing`),
+`noSprite`, `missingSprite`, `solidBackground`, `missingMaterial`, `outsideContainer` (+`container`), `deadButton`,
+`noRaycastTarget`, `overlapButton`. `blockedBy` / `occluded` là thuộc tính riêng. Ý nghĩa + severity gợi ý: xem CHANGELOG 1.3.0.
 
 ## Test
 

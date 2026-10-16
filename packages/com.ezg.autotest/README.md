@@ -15,14 +15,14 @@ cho QA và CI.
 
 | Suite (id) | Kiểm tra gì | Chạy ở đâu | Sửa dữ liệu người chơi |
 |------------|-------------|------------|:----------------------:|
-| **Kiểm tra tĩnh** (`static`) | Missing script / reference trong prefab + scene, material hỏng (magenta) / shader lỗi, texture & audio quá nặng, asset quá lớn, CSV lệch cột / id trùng, localize thiếu key hoặc lệch placeholder, Player Settings cho release (target/min API Android, iOS min version, define cấm), GUID trùng, luật quét code (DateTime.Now, async void, secret hardcode…). | Edit mode (không vào Play) | Không |
+| **Kiểm tra tĩnh** (`static`) | Missing script / reference trong prefab + scene (severity theo **phạm vi load**: asset build dùng tới ⇒ Major, asset mồ côi ⇒ Info `Asset.Unreferenced`), material hỏng (magenta) / shader lỗi, texture & audio quá nặng, asset quá lớn, CSV lệch cột / id trùng, localize thiếu key hoặc lệch placeholder, Player Settings cho release (target/min API Android, iOS min version, define cấm), GUID trùng, luật quét code (DateTime.Now, async void, secret hardcode…), **feature không còn dùng** (`Feature.Dead`). | Edit mode (không vào Play) | Không |
 | **Smoke PlayMode** (`smoke`) | Game boot được (thời gian boot, lỗi log khi boot), từng màn hình mở + đóng được không lỗi, màn mở chậm, load được mọi scene trong Build Settings, ngân sách error/exception log. | Play mode (Editor + device) | Có (sandbox) |
-| **UI Audit** (`ui-audit`) | Mở từng màn và soi: vùng chạm quá nhỏ, text tràn khung, Image thiếu sprite, object nằm ngoài màn hình, lấn safe area, nút bị object khác che raycast, lộ key localize (`txt_buy`…), nút "chết" không có listener. | Play mode (Editor + device) | Có (sandbox) |
+| **UI Audit** (`ui-audit`) | Mở từng màn và soi: vùng chạm quá nhỏ, text tràn khung, Image thiếu sprite, object nằm ngoài màn hình, lấn safe area, nút bị object khác che raycast (kết luận sau khi UI đứng yên; lớp popup/overlay phủ ≥ 35 % màn chỉ ghi Info `UI.Occluded`), lộ key localize (`txt_buy`…), nút "chết" không có listener. | Play mode (Editor + device) | Có (sandbox) |
 | **Button Sweep** (`button-sweep`) | Mở từng màn và bấm lần lượt từng nút (trừ blacklist mua thật / xoá data / mở link), bắt exception + error log sau mỗi lần bấm, đóng màn mới mở ra để quay về. | Play mode | Có (sandbox) |
 | **Monkey / Stress** (`monkey`) | Bấm / kéo ngẫu nhiên trong N giây (seed ghi lại để tái hiện), bắt crash, exception, treo frame. | Play mode | Có (sandbox) |
 | **Logic / Economy** (`economy`) | Cộng / trừ tiền khứ hồi, trừ quá số dư, tràn số, save → load giữ số dư, phát thưởng, mua bằng tiền mềm, config CSV không âm / id không trùng. | Play mode (Editor + device) | Có (sandbox) |
 | **Performance** (`performance`) | FPS (theo FPS mục tiêu của game), frame time P50/P95/P99, số lần giật (hitch), GC alloc mỗi frame, bộ nhớ, draw call / SetPass ở màn chính; chi phí mở từng màn (ms, GC, frame spike); mở/đóng lặp để phát hiện rò object/bộ nhớ. | Play mode (Editor + device) | Có (sandbox) |
-| **Visual Regression** (`visual`) | Chụp từng màn và so pixel với ảnh baseline trong `AutoTestBaselines/` (bỏ qua vùng đồng hồ / số nhảy liên tục), vượt ngưỡng % pixel khác ⇒ lỗi kèm ảnh diff. | Play mode | Có (sandbox) |
+| **Visual Regression** (`visual`) | Chụp từng màn và so pixel với ảnh baseline theo độ phân giải trong `AutoTestBaselines/<WxH>/` — tự mask vùng/text đổi giữa 2 khung chụp cách 1 s + object khớp `maskObjectPatterns`, vượt ngưỡng % pixel khác ⇒ lỗi kèm ảnh diff và % đã mask. | Play mode | Có (sandbox) |
 | **Device / E2E** (`device`) | Build APK test (define `EZG_AUTOTEST`), cài qua adb, khởi động, chạy các suite runtime trên máy thật, kéo report + logcat về, đo cold start. | Editor điều phối device thật | Trên device |
 | **Kịch bản riêng** (`scenarios`) | Kịch bản gameplay đặc thù từng game (mua gói, nâng cấp trạm, nhận thưởng…) do dev/AI viết trong `Assets/_Project/AutoTests/`. | Play mode (Editor + device) | Có (sandbox) |
 
@@ -130,6 +130,18 @@ Không sửa code test — thêm vào danh sách loại trừ trong Project Sett
 `uiAudit.ignoredObjectPatterns`, `buttonSweep.blacklistPatterns`, `visual.maskObjectPatterns`,
 `staticCheck.excludeFolders`, hoặc tắt riêng case (`disabledCases`). Project cần logic loại trừ riêng ⇒ project
 hooks `ExtraExcludedFeatures()`.
+
+**Repo kế thừa nhiều màn / asset cũ không dùng, report ngập lỗi nặng?**
+Từ 0.2.0 hệ thống tự lọc **liveness**: feature không ai tham chiếu (code ngoài map bundle, prefab/scene/asset, chuỗi
+tên) bị coi là "chết" — Smoke / UI Audit / Button Sweep / Visual bỏ qua, luật tĩnh `Feature.Dead` liệt kê (Info) để
+dọn. Missing reference chấm severity theo **phạm vi load**: chỉ asset bản build thật sự load (Resources, AssetBundle,
+scene build kéo theo) mới Major; asset mồ côi là Info `Asset.Unreferenced`. Chỉnh ở khối `liveness` của Settings
+(`forceLive` / `forceDead` / `observedLive`); tool QA `/auto-test-device` ghi `observedLive` từ những màn nó đã thấy
+mở thật. Xem `Documentation~/index.md` § 10.
+
+**Tool bên ngoài đọc `report.json` thế nào?**
+Schema 0.2: enum dạng chuỗi (`severity: "Major"`, `status: "Failed"`), `issues[]` phẳng ở gốc có `screen`,
+`summary.bySeverity / bySuite`, `generatedAt`, `version`. Xem `Documentation~/index.md` § 7.
 
 **Có cần Unity Test Framework (NUnit) không?**
 Không. Hệ thống độc lập với Test Runner; dùng song song được.

@@ -112,7 +112,8 @@ namespace Ezg.AutoTest.Editor
             if (!File.Exists(path)) return null;
             try
             {
-                var report = JsonUtility.FromJson<TestRunReport>(File.ReadAllText(path));
+                // Schema 0.2 ghi enum dạng chuỗi; Deserialize đọc được cả report 0.1 (enum số).
+                var report = AutoTestReportJson.Deserialize(File.ReadAllText(path));
                 if (report == null) return null;
                 F.EnsureNotNull(report);
                 report.outputDir = Path.GetFullPath(folder);

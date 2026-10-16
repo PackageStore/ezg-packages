@@ -55,6 +55,15 @@ namespace Ezg.AutoTest.Editor
         public static void Save()
         {
             if (_config == null) return;
+            // Kết quả quét liveness là dữ liệu máy sinh theo từng lượt — không bao giờ ghi vào file commit chung.
+            if (_config.liveness != null)
+            {
+                _config.liveness.resolvedDead.Clear();
+                _config.liveness.resolvedSerializedOnly.Clear();
+                _config.liveness.resolvedAt = "";
+                _config.liveness.resolvedSource = "";
+            }
+
             var path = AbsolutePath();
             File.WriteAllText(path, JsonUtility.ToJson(_config, true));
             _loadedWriteTime = File.GetLastWriteTimeUtc(path);

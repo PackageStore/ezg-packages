@@ -97,8 +97,23 @@ namespace Ezg.AutoTest
             const float OVERLAP_MIN_RATIO = 0.5f;
             const int MAX_OVERLAP_GROUP = 100;
 
-            /// <summary>Kiểm lại nút bị che sau khoảng này để bỏ qua che tạm thời (animation, toast).</summary>
-            const float BLOCKED_RECHECK_SECONDS = 0.4f;
+            /// <summary>
+            ///     Nút bị che được kiểm lại sau khi UI "đứng yên": blocker / rect / alpha của các nút nghi bị che không đổi
+            ///     liên tục <see cref="SETTLE_STABLE_SECONDS" /> (poll mỗi <see cref="SETTLE_POLL_SECONDS" />), tối đa
+            ///     <see cref="SETTLE_MAX_SECONDS" /> — thay cho một nhịp chờ cố định dễ bắt nhầm popup đang animate.
+            /// </summary>
+            const float SETTLE_POLL_SECONDS = 0.1f;
+
+            const float SETTLE_STABLE_SECONDS = 0.3f;
+            const float SETTLE_MAX_SECONDS = 2f;
+
+            /// <summary>
+            ///     Blocker thuộc lớp KHÁC (popup / toast / overlay) phủ từ ngần này diện tích màn trở lên ⇒ "bị lớp trên che"
+            ///     (UI.Occluded, Info — khớp cách EZG QA Probe báo "occluded"), không phải nút hỏng.
+            /// </summary>
+            const float OCCLUDER_SCREEN_FRACTION = 0.35f;
+
+            const int RECT_ROUNDING_PX = 2;
 
             /// <summary>Nút phủ từ ngần này diện tích màn trở lên là lớp nền (chạm ra ngoài để đóng), không phải nút thật.</summary>
             const float BACKDROP_SCREEN_FRACTION = 0.5f;
@@ -137,6 +152,7 @@ namespace Ezg.AutoTest
             readonly List<string> _smallTargets = new();
             float _smallestDp = float.MaxValue;
             readonly List<Button> _overlapCandidates = new();
+            readonly List<GameObject> _roots = new();
             int _index;
 
             public ScreenAudit(AutoTestContext ctx)
@@ -160,6 +176,8 @@ namespace Ezg.AutoTest
 
             public async Task Run(List<GameObject> roots)
             {
+                _roots.Clear();
+                _roots.AddRange(roots);
                 foreach (var root in roots)
                 {
                     if (root == null) continue;
@@ -517,10 +535,12 @@ namespace Ezg.AutoTest
                         pending.Add(s);
                 if (pending.Count == 0) return;
 
-                // Kiểm lại sau một nhịp: bỏ qua che tạm thời (animation mở màn, toast…).
-                await _ctx.WaitSeconds(BLOCKED_RECHECK_SECONDS);
+                // Chờ UI đứng yên rồi mới kết luận: popup đang trượt vào, toast đang mờ dần, list đang cuộn… là che tạm.
+                var settleMs = await WaitSettled(pending);
+                _ctx.Log($"Nút nghi bị che: {pending.Count}, UI đứng yên sau {settleMs:0} ms.");
+
                 var byBlocker = new Dictionary<string, List<Selectable>>();
-                var blockerNames = new Dictionary<string, string>();
+                var blockerObjects = new Dictionary<string, GameObject>();
                 foreach (var s in pending)
                 {
                     if (!EvaluateBlocked(s, out var blocker, out var noRaycastTarget)) continue;
@@ -538,7 +558,7 @@ namespace Ezg.AutoTest
                     {
                         list = new List<Selectable>();
                         byBlocker[blockerPath] = list;
-                        blockerNames[blockerPath] = blocker.name;
+                        blockerObjects[blockerPath] = blocker;
                     }
 
                     list.Add(s);
@@ -547,8 +567,23 @@ namespace Ezg.AutoTest
                 foreach (var pair in byBlocker)
                 {
                     var blockerPath = pair.Key;
-                    var blockerName = blockerNames[blockerPath];
+                    var blocker = blockerObjects[blockerPath];
+                    var blockerName = blocker != null ? blocker.name : blockerPath;
                     var list = pair.Value;
+                    var first = list.Count > 0 ? list[0] : null;
+
+                    // Blocker nằm ở lớp khác (popup / toast / overlay) và phủ rộng ⇒ lớp trên đang che màn, không phải nút hỏng.
+                    if (first != null && IsForeignLayer(first, blocker) && LayerCoverage(blocker) >= OCCLUDER_SCREEN_FRACTION)
+                    {
+                        var percent = UiAuditUtil.Num(LayerCoverage(blocker) * PERCENT, "0");
+                        Collector.Add(Severity.Info, "UI.Occluded",
+                            $"{list.Count} nút bị lớp trên che — '{LayerRootName(blocker)}' phủ {percent}% màn",
+                            $"'{blockerPath}' thuộc lớp khác (popup / overlay / toast) đang phủ lên màn, chạm không tới: " +
+                            $"{ListNames(list)}. Là hành vi bình thường nếu lớp đó cố ý chặn (popup modal); kiểm tra lại nếu nó " +
+                            "lẽ ra đã đóng.", blockerPath, "Lớp trên đã đóng khi màn hoạt động", $"phủ {percent}% màn");
+                        continue;
+                    }
+
                     if (list.Count >= BLOCKED_GROUP_MIN)
                     {
                         Collector.Add(Severity.Major, "UI.Blocked", $"{list.Count} nút bị che bởi '{blockerName}'",
@@ -565,6 +600,116 @@ namespace Ezg.AutoTest
                             "Bấm được", $"bị che bởi '{blockerName}'");
                     }
                 }
+            }
+
+            /// <summary>Poll tới khi snapshot (blocker, rect, alpha) của các nút nghi bị che không đổi đủ lâu. Trả ms đã chờ.</summary>
+            async Task<double> WaitSettled(List<Selectable> pending)
+            {
+                var elapsed = 0f;
+                var stable = 0f;
+                var last = Snapshot(pending);
+                while (elapsed < SETTLE_MAX_SECONDS)
+                {
+                    await _ctx.WaitSeconds(SETTLE_POLL_SECONDS);
+                    elapsed += SETTLE_POLL_SECONDS;
+                    var now = Snapshot(pending);
+                    if (now == last)
+                    {
+                        stable += SETTLE_POLL_SECONDS;
+                        if (stable >= SETTLE_STABLE_SECONDS) break;
+                        continue;
+                    }
+
+                    stable = 0f;
+                    last = now;
+                }
+
+                return elapsed * 1000.0;
+            }
+
+            string Snapshot(List<Selectable> pending)
+            {
+                var sb = new StringBuilder();
+                foreach (var s in pending)
+                {
+                    if (s == null)
+                    {
+                        sb.Append("x;");
+                        continue;
+                    }
+
+                    var blocked = EvaluateBlocked(s, out var blocker, out var noRaycast);
+                    sb.Append(blocked ? '1' : '0').Append(noRaycast ? '1' : '0');
+                    if (blocker != null)
+                    {
+                        sb.Append(blocker.GetInstanceID());
+                        if (blocker.transform is RectTransform brt) AppendRect(sb, _ui.GetScreenRect(brt));
+                        sb.Append(Mathf.RoundToInt(UiDriver.EffectiveAlpha(blocker.transform) * 100f));
+                    }
+
+                    if (s.transform is RectTransform rt) AppendRect(sb, _ui.GetScreenRect(rt));
+                    sb.Append(';');
+                }
+
+                return sb.ToString();
+            }
+
+            static void AppendRect(StringBuilder sb, Rect r)
+            {
+                sb.Append('[').Append(Mathf.RoundToInt(r.xMin / RECT_ROUNDING_PX)).Append(',')
+                    .Append(Mathf.RoundToInt(r.yMin / RECT_ROUNDING_PX)).Append(',')
+                    .Append(Mathf.RoundToInt(r.width / RECT_ROUNDING_PX)).Append(',')
+                    .Append(Mathf.RoundToInt(r.height / RECT_ROUNDING_PX)).Append(']');
+            }
+
+            /// <summary>Blocker không nằm cùng gốc quét (root của màn / cùng root canvas) với nút ⇒ thuộc lớp khác.</summary>
+            bool IsForeignLayer(Selectable s, GameObject blocker)
+            {
+                if (s == null || blocker == null) return false;
+                var own = OwnRoot(s.transform);
+                if (own != null) return !blocker.transform.IsChildOf(own);
+                var a = s.GetComponentInParent<Canvas>();
+                var b = blocker.GetComponentInParent<Canvas>();
+                return a != null && b != null && a.rootCanvas != b.rootCanvas;
+            }
+
+            Transform OwnRoot(Transform t)
+            {
+                foreach (var root in _roots)
+                    if (root != null && t.IsChildOf(root.transform))
+                        return root.transform;
+                return null;
+            }
+
+            /// <summary>Tỉ lệ màn mà "lớp" của blocker phủ: rect lớn nhất trong các cha của nó (dưới root canvas).</summary>
+            float LayerCoverage(GameObject blocker)
+            {
+                var screenArea = Mathf.Max(1f, _screen.width * _screen.height);
+                var best = 0f;
+                for (var t = blocker.transform; t != null; t = t.parent)
+                {
+                    var canvas = t.GetComponent<Canvas>();
+                    if (canvas != null && canvas.isRootCanvas) break;
+                    if (!(t is RectTransform rt)) continue;
+                    var area = UiAuditUtil.Area(UiAuditUtil.Intersect(_ui.GetScreenRect(rt), _screen));
+                    if (area > best) best = area;
+                }
+
+                return Mathf.Clamp01(best / screenArea);
+            }
+
+            /// <summary>Tên object "gốc lớp" của blocker: con trực tiếp của root canvas (hoặc chính blocker).</summary>
+            static string LayerRootName(GameObject blocker)
+            {
+                var t = blocker.transform;
+                while (t.parent != null)
+                {
+                    var canvas = t.parent.GetComponent<Canvas>();
+                    if (canvas != null && canvas.isRootCanvas) break;
+                    t = t.parent;
+                }
+
+                return t.name;
             }
 
             bool EvaluateBlocked(Selectable s, out GameObject blocker, out bool noRaycastTarget)

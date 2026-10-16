@@ -3,8 +3,9 @@
 // gọi hàm cheat bằng reflection, log Unity kèm stack, context + gửi bug qua Bug Logger.
 //
 // Package com.ezg.qa-probe (monorepo ezg-packages). Project không cần cấu hình gì: mặc định tự dò theo quy ước template
-// EZG (GameSystems.isCheat / TryEnableCheat / DisableCheat, com.ezg.cheat-gate); muốn ghi đè thì đặt TextAsset
-// Resources/EzgQaProbeConfig.json — xem README của package.
+// EZG (GameSystems.isCheat / TryEnableCheat / DisableCheat, com.ezg.cheat-gate, màn hình kế thừa FeatureBaseController…);
+// muốn ghi đè thì đặt TextAsset Resources/EzgQaProbeConfig.json (skill sinh file này bằng `qadevice.py profile sync` từ
+// block `qa` của .claude/project-profile.json) — xem README của package.
 //
 // An toàn:
 //  * Không làm gì cho tới khi được kích hoạt bằng trigger mang token ngẫu nhiên: intent extra `ezg_qa_probe` (Android),
@@ -55,7 +56,7 @@ namespace Ezg.QaProbe
         #region Fields
 
         /// <summary>Phiên bản probe — qadevice.py so để biết bản trong project có cũ không.</summary>
-        public const string VERSION = "1.2.1";
+        public const string VERSION = "1.3.0";
 
         public const int DEFAULT_PORT = 7531;
         public const string LOG_TAG = "[EzgQaProbe]";
@@ -134,6 +135,7 @@ namespace Ezg.QaProbe
             }
 
             LoadConfig();
+            ProbeHandlers.ResetCaches(); // screenBaseTypes có thể đổi giữa hai lần kích hoạt (test / config mới)
             _token = token;
             StartTime = Time.realtimeSinceStartup;
             EnsureHost();
@@ -184,6 +186,7 @@ namespace Ezg.QaProbe
             Port = 0;
             _token = null;
             ProbeCheat.Disarm();
+            ProbePseudoLoc.RestoreAll(); // tool tắt giữa chừng thì chữ giả localize không được ở lại trên máy QA
             while (Jobs.TryDequeue(out var job)) job.Finish(ProbeResponse.Error(503, "stopped", "probe đã tắt"));
         }
 
@@ -353,7 +356,8 @@ namespace Ezg.QaProbe
 
             Config = config;
             Debug.Log(LOG_TAG + " config releaseGate=" + Or(config.releaseGate) + " cheatOn=" + Or(config.cheatOn) + " cheatOff=" +
-                      Or(config.cheatOff) + " autoCheat=" + config.autoCheat);
+                      Or(config.cheatOff) + " autoCheat=" + config.autoCheat + " screenBaseTypes=" +
+                      (config.HasScreenBaseTypes ? string.Join(",", config.screenBaseTypes) : "(mặc định)"));
         }
 
         private static string Or(string s) => string.IsNullOrEmpty(s) ? "-" : s;
@@ -418,12 +422,40 @@ namespace Ezg.QaProbe
 
         public int port = EzgQaProbe.DEFAULT_PORT;
 
+        /// <summary>
+        ///     Tên lớp cơ sở của màn hình (tên ngắn hoặc đầy đủ) — /ui dùng để nhận ra màn đang mở và lớp hiển thị của từng
+        ///     phần tử. Trống = danh sách mặc định của template EZG (<see cref="DEFAULT_SCREEN_BASE_TYPES" />).
+        /// </summary>
+        public string[] screenBaseTypes = new string[0];
+
+        /// <summary>Type chứa cờ / hàm cheat của game (tên ngắn hoặc đầy đủ) để tự dò. Trống = "GameSystems".</summary>
+        public string cheatTypeName = "";
+
+        /// <summary>Tên cờ cheat (static bool) trên <see cref="cheatTypeName" />. Trống = "isCheat".</summary>
+        public string cheatFlagMember = "";
+
+        /// <summary>Tên hàm static bật cheat trên <see cref="cheatTypeName" />. Trống = "TryEnableCheat(Action&lt;bool&gt;)".</summary>
+        public string cheatEnableMethod = "";
+
+        /// <summary>Tên hàm static tắt cheat trên <see cref="cheatTypeName" />. Trống = "DisableCheat".</summary>
+        public string cheatDisableMethod = "";
+
+        /// <summary>Lớp cơ sở màn hình của template EZG và vài tên hay gặp ở project khác.</summary>
+        public static readonly string[] DEFAULT_SCREEN_BASE_TYPES = { "FeatureBaseController", "UIScreenBase", "ScreenBase", "PopupBase", "UIPanel" };
+
+        /// <summary>Config có khai danh sách lớp màn hình riêng (ít nhất một tên không rỗng).</summary>
+        public bool HasScreenBaseTypes => screenBaseTypes != null && screenBaseTypes.Any(s => !string.IsNullOrWhiteSpace(s));
+
+        /// <summary>Danh sách lớp màn hình đang dùng: của config nếu có, không thì mặc định.</summary>
+        public string[] EffectiveScreenBaseTypes =>
+            HasScreenBaseTypes ? screenBaseTypes.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToArray() : DEFAULT_SCREEN_BASE_TYPES;
+
         /// <summary>Điền mục trống bằng giá trị dò từ code game, đổi "none" thành trống (tắt).</summary>
         public void ResolveDefaults(IEnumerable<Type> gameTypes)
         {
             if (string.IsNullOrEmpty(releaseGate) || string.IsNullOrEmpty(cheatOn) || string.IsNullOrEmpty(cheatOff))
             {
-                var detected = ProbeAutoConfig.Detect(gameTypes);
+                var detected = ProbeAutoConfig.Detect(gameTypes, cheatTypeName, cheatFlagMember, cheatEnableMethod, cheatDisableMethod);
                 if (string.IsNullOrEmpty(releaseGate)) releaseGate = detected.releaseGate;
                 if (string.IsNullOrEmpty(cheatOn)) cheatOn = detected.cheatOn;
                 if (string.IsNullOrEmpty(cheatOff)) cheatOff = detected.cheatOff;
@@ -433,6 +465,11 @@ namespace Ezg.QaProbe
             if (cheatOn == NONE) cheatOn = "";
             if (cheatOff == NONE) cheatOff = "";
             if (port <= 0) port = EzgQaProbe.DEFAULT_PORT;
+            screenBaseTypes ??= new string[0];
+            cheatTypeName ??= "";
+            cheatFlagMember ??= "";
+            cheatEnableMethod ??= "";
+            cheatDisableMethod ??= "";
         }
     }
 
@@ -447,39 +484,68 @@ namespace Ezg.QaProbe
         private const BindingFlags STATIC = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         private const string TYPE_NAME = "GameSystems";
         private const string FLAG = "isCheat";
+        private const string ENABLE = "TryEnableCheat";
+        private const string DISABLE = "DisableCheat";
 
-        public static ProbeConfig Detect(IEnumerable<Type> types)
+        /// <summary>Dò theo quy ước template EZG (GameSystems.isCheat / TryEnableCheat(Action&lt;bool&gt;) / DisableCheat).</summary>
+        public static ProbeConfig Detect(IEnumerable<Type> types) => Detect(types, "", "", "", "");
+
+        /// <summary>
+        ///     Dò theo tên project khai trong EzgQaProbeConfig (mục trống = quy ước template). <paramref name="typeName" /> nhận
+        ///     tên ngắn hoặc đầy đủ. Khi dev tự đặt tên hàm bật thì chấp nhận cả hàm không tham số (quy ước template chỉ nhận
+        ///     bản có Action&lt;bool&gt; vì TryEnableCheat() đời cũ có thể tắt cheat đang bật).
+        /// </summary>
+        public static ProbeConfig Detect(IEnumerable<Type> types, string typeName, string flagMember, string enableMethod, string disableMethod)
         {
+            var custom = !string.IsNullOrWhiteSpace(typeName);
+            typeName = custom ? typeName.Trim() : TYPE_NAME;
+            flagMember = string.IsNullOrWhiteSpace(flagMember) ? FLAG : flagMember.Trim();
+            var customEnable = !string.IsNullOrWhiteSpace(enableMethod);
+            enableMethod = customEnable ? enableMethod.Trim() : ENABLE;
+            disableMethod = string.IsNullOrWhiteSpace(disableMethod) ? DISABLE : disableMethod.Trim();
+            var fullName = typeName.IndexOf('.') >= 0;
+
             var result = new ProbeConfig();
             Type best = null;
             foreach (var t in types)
             {
-                if (t == null || t.Name != TYPE_NAME || t.IsNested || !HasFlag(t)) continue;
-                // Nhiều type cùng tên (hiếm): ưu tiên namespace Ezg.* của template.
-                if (best == null || (IsEzg(t) && !IsEzg(best))) best = t;
+                if (t == null) continue;
+                if (fullName ? t.FullName != typeName : t.Name != typeName) continue;
+                if (!custom && t.IsNested) continue;
+                // Type dev chỉ đích danh: chấp nhận cả khi không có cờ (chỉ dùng hàm bật/tắt); quy ước template thì cờ là bắt buộc.
+                if (!custom && !HasFlag(t, flagMember)) continue;
+                // Nhiều type cùng tên (hiếm): ưu tiên namespace Ezg.* của template, rồi type có cờ.
+                if (best == null || (IsEzg(t) && !IsEzg(best)) || (HasFlag(t, flagMember) && !HasFlag(best, flagMember))) best = t;
             }
 
             if (best == null) return result;
-            result.releaseGate = best.FullName + "." + FLAG;
+            if (HasFlag(best, flagMember)) result.releaseGate = best.FullName + "." + flagMember;
             foreach (var m in best.GetMethods(STATIC))
             {
                 var ps = m.GetParameters();
-                if (m.Name == "TryEnableCheat" && ps.Length == 1 && ps[0].ParameterType == typeof(Action<bool>))
-                    result.cheatOn = best.FullName + ".TryEnableCheat";
-                else if (m.Name == "DisableCheat" && ps.All(p => p.HasDefaultValue))
-                    result.cheatOff = best.FullName + ".DisableCheat";
+                if (m.Name == enableMethod && (TakesCallback(ps) || (customEnable && ps.All(p => p.HasDefaultValue))))
+                {
+                    // Có cả hai bản: ưu tiên bản nhận callback (hỏi quyền, không tắt cheat đang bật).
+                    if (string.IsNullOrEmpty(result.cheatOn) || TakesCallback(ps)) result.cheatOn = best.FullName + "." + enableMethod;
+                }
+                else if (m.Name == disableMethod && ps.All(p => p.HasDefaultValue))
+                {
+                    result.cheatOff = best.FullName + "." + disableMethod;
+                }
             }
 
             return result;
         }
 
+        private static bool TakesCallback(ParameterInfo[] ps) => ps.Length == 1 && ps[0].ParameterType == typeof(Action<bool>);
+
         private static bool IsEzg(Type t) => (t.Namespace ?? "").StartsWith("Ezg.", StringComparison.Ordinal);
 
-        private static bool HasFlag(Type t)
+        private static bool HasFlag(Type t, string flag)
         {
-            var f = t.GetField(FLAG, STATIC);
+            var f = t.GetField(flag, STATIC);
             if (f != null) return f.FieldType == typeof(bool) && !f.IsLiteral && !f.IsInitOnly;
-            var p = t.GetProperty(FLAG, STATIC);
+            var p = t.GetProperty(flag, STATIC);
             return p != null && p.PropertyType == typeof(bool) && p.CanRead;
         }
     }
@@ -1048,6 +1114,7 @@ namespace Ezg.QaProbe
                 case "/context": return await Context(r.GetInt("save", 0) == 1);
                 case "/bug": return await Bug(r);
                 case "/cheat": return Cheat(r.Get("on"));
+                case "/pseudoloc": return PseudoLoc(r.Get("on"), r.Get("mode"));
                 case "/unlock": return Unlock();
                 case "/stop":
                     ProbeHost.StopRequested = true; // tắt ở frame sau, sau khi đã trả lời
@@ -1066,17 +1133,37 @@ namespace Ezg.QaProbe
                 .Prop("scene", SceneManager.GetActiveScene().name)
                 .Prop("timeScale", Time.timeScale).Prop("fps", Math.Round(ProbeHost.Fps, 1))
                 .Prop("uptime", Math.Round(Time.realtimeSinceStartup - EzgQaProbe.StartTime, 1))
-                .Prop("bugLogger", ProbeReflect.FindType("Ezg.BugLogger.BugLogger") != null);
+                .Prop("bugLogger", ProbeReflect.FindType("Ezg.BugLogger.BugLogger") != null)
+                .Prop("pseudoloc", ProbePseudoLoc.IsOn);
             ProbeGameCheat.WriteFlag(w);
             ProbeCheat.Write(w);
             var c = EzgQaProbe.Config;
             w.BeginObject("config").Prop("releaseGate", c.releaseGate).Prop("cheatOn", c.cheatOn).Prop("cheatOff", c.cheatOff)
-                .Prop("autoCheat", c.autoCheat).EndObject();
+                .Prop("autoCheat", c.autoCheat).Prop("cheatTypeName", c.cheatTypeName ?? "").Prop("cheatFlagMember", c.cheatFlagMember ?? "")
+                .Prop("cheatEnableMethod", c.cheatEnableMethod ?? "").Prop("cheatDisableMethod", c.cheatDisableMethod ?? "")
+                .Prop("screenBaseTypesCustom", c.HasScreenBaseTypes);
+            w.BeginArray("screenBaseTypes");
+            foreach (var s in c.EffectiveScreenBaseTypes) w.Value(s);
+            w.EndArray().EndObject();
             w.BeginObject("app").Prop("name", Application.productName).Prop("version", Application.version)
                 .Prop("id", Application.identifier).Prop("unity", Application.unityVersion)
                 .Prop("platform", Application.platform.ToString()).Prop("debug", Debug.isDebugBuild).EndObject();
             WriteScreen(w);
             return ProbeResponse.Json(200, w.EndObject().ToString());
+        }
+
+        // GET /pseudoloc?on=1|0&mode=expand|accent|both — biến chữ đang hiện thành chữ giả localize (dài hơn, có dấu, trong
+        // ngoặc vuông) để bắt khung chữ hẹp / font thiếu glyph trước khi có bản dịch thật; on=0 trả lại chữ gốc. Cần cổng mở.
+        private static ProbeResponse PseudoLoc(string on, string mode)
+        {
+            mode = ProbePseudoLoc.NormalizeMode(mode);
+            if (mode == null) return ProbeResponse.Error(400, "bad_mode", "mode phải là expand | accent | both");
+            int count;
+            if (on == "1") count = ProbePseudoLoc.Apply(mode);
+            else if (on == "0") count = ProbePseudoLoc.RestoreAll();
+            else return ProbeResponse.Error(400, "bad_param", "cần on=1 (bật) hoặc on=0 (tắt)");
+            return ProbeResponse.Json(200, new ProbeJson().BeginObject().Prop("ok", true).Prop("on", ProbePseudoLoc.IsOn)
+                .Prop("mode", ProbePseudoLoc.Mode).Prop("count", count).EndObject().ToString());
         }
 
         // GET /cheat?on=1|0 — bật/tắt chế độ cheat của game (không tham số: chỉ đọc). Cần cổng mở.
@@ -1138,7 +1225,7 @@ namespace Ezg.QaProbe
 
         #region UI scan
 
-        private sealed class UiItem
+        internal sealed class UiItem
         {
             public int Id;
             public GameObject Go;
@@ -1157,12 +1244,16 @@ namespace Ezg.QaProbe
             public Rect? Ink;
             public string Container;
             public bool Interesting;
+            public Dictionary<string, string> FlagDetail;
+            public Transform Parent;
+            public int SiblingIndex;
         }
 
         private static ProbeResponse Ui(bool includeAll)
         {
             var items = ScanUi(includeAll);
-            var w = new ProbeJson().BeginObject().Prop("scene", SceneManager.GetActiveScene().name);
+            var w = new ProbeJson().BeginObject().Prop("scene", SceneManager.GetActiveScene().name).Prop("probeVersion", EzgQaProbe.VERSION);
+            if (ProbePseudoLoc.IsOn) w.Prop("pseudoloc", true);
             WriteScreen(w);
             w.BeginArray("screens");
             foreach (var s in ActiveScreens()) w.Value(s);
@@ -1215,6 +1306,13 @@ namespace Ezg.QaProbe
                 w.EndArray();
             }
 
+            if (it.FlagDetail != null && it.FlagDetail.Count > 0)
+            {
+                w.BeginObject("flagDetail");
+                foreach (var kv in it.FlagDetail) w.Prop(kv.Key, kv.Value ?? "");
+                w.EndObject();
+            }
+
             if (!string.IsNullOrEmpty(it.Missing)) w.Prop("missing", it.Missing);
             if (it.Layer != null) w.Prop("layer", it.Layer);
             if (it.Occluded) w.Prop("occluded", true);
@@ -1240,12 +1338,19 @@ namespace Ezg.QaProbe
                 .ThenByDescending(c => c.sortingOrder)
                 .ToList();
             var screen = new Rect(0, 0, Screen.width, Screen.height);
+            var full = false;
             foreach (var canvas in canvases)
             {
+                if (full) break;
                 var cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
                 foreach (var rt in canvas.GetComponentsInChildren<RectTransform>(false))
                 {
-                    if (result.Count >= cap) return result;
+                    if (result.Count >= cap)
+                    {
+                        full = true;
+                        break;
+                    }
+
                     // Đánh số trên toàn bộ phần tử nhìn thấy (kể cả khi không trả về) để id ổn định giữa /ui và /ui?all=1.
                     var item = Inspect(rt, cam, screen);
                     if (item == null) continue;
@@ -1254,6 +1359,7 @@ namespace Ezg.QaProbe
                 }
             }
 
+            ProbeUiChecks.FlagOverlappingButtons(result, screen);
             return result;
         }
 
@@ -1287,12 +1393,14 @@ namespace Ezg.QaProbe
             if (rect.width * rect.height < 4f) return null;
 
             List<string> flags = null;
+            Dictionary<string, string> detail = null;
             string missing = null;
             if (isText) ProbeText.Audit(graphic, text, ref flags, ref missing);
             if (graphic is Image img && img.sprite == null && img.color.a * alpha > 0.5f && img.color.r > 0.95f && img.color.g > 0.95f &&
                 img.color.b > 0.95f && rect.width > 24f && rect.height > 24f && !go.TryGetComponent(out Mask _) &&
                 rt.childCount == 0 && !go.TryGetComponent(out IMeshModifier _) && img.material == img.defaultMaterial)
                 AddFlag(ref flags, "noSprite");
+            if (graphic is Image img2) ProbeUiChecks.AuditMissingSprite(img2, rect, screen, groupAlpha, flags != null && flags.Contains("noSprite"), ref flags, ref detail);
             if (graphic != null)
             {
                 var mat = graphic.materialForRendering;
@@ -1305,11 +1413,22 @@ namespace Ezg.QaProbe
             {
                 Interesting = interesting,
                 Go = go, Path = PathOf(rt), Kind = kind, Text = isText ? Clip(text, 300) : null, Rect = rect, Flags = flags, Missing = missing,
-                Interactable = selectable != null ? selectable.IsInteractable() && selectable.isActiveAndEnabled : clickable
+                Interactable = selectable != null ? selectable.IsInteractable() && selectable.isActiveAndEnabled : clickable,
+                FlagDetail = detail, Parent = rt.parent, SiblingIndex = rt.GetSiblingIndex()
             };
             if (selectable != null || clickable) item.Label = ChildLabel(rt);
             item.Layer = LayerOf(rt);
-            if (item.Interactable) HitTest(item, screen);
+            if (item.Interactable)
+            {
+                HitTest(item, screen);
+                // Nút không có Graphic nào nhận raycast (chính nó hay con) → người chơi bấm không tới dù không bị gì che.
+                if (!ProbeUiChecks.HasRaycastTarget(go)) AddFlag(ref item.Flags, "noRaycastTarget");
+                if (selectable is Button button && ProbeUiChecks.IsDeadButton(button))
+                {
+                    AddFlag(ref item.Flags, "deadButton");
+                    SetDetail(ref item.FlagDetail, "deadButton", "onClick rỗng (Inspector lẫn code), không có handler chạm khác");
+                }
+            }
             if (isText && ProbeText.TryInk(graphic, rt, cam, out var ink))
             {
                 item.Ink = ink;
@@ -1515,7 +1634,7 @@ namespace Ezg.QaProbe
             return rect;
         }
 
-        private static Rect Intersect(Rect a, Rect b)
+        internal static Rect Intersect(Rect a, Rect b)
         {
             var x1 = Mathf.Max(a.xMin, b.xMin);
             var y1 = Mathf.Max(a.yMin, b.yMin);
@@ -1535,10 +1654,23 @@ namespace Ezg.QaProbe
             return false;
         }
 
-        private static void AddFlag(ref List<string> flags, string flag)
+        internal static void AddFlag(ref List<string> flags, string flag)
         {
             flags ??= new List<string>();
             if (!flags.Contains(flag)) flags.Add(flag);
+        }
+
+        internal static void SetDetail(ref Dictionary<string, string> detail, string flag, string text)
+        {
+            detail ??= new Dictionary<string, string>();
+            detail[flag] = text;
+        }
+
+        /// <summary>Xoá cache theo type (lớp màn hình đọc từ config) — gọi khi kích hoạt lại với config khác.</summary>
+        internal static void ResetCaches()
+        {
+            _screenTypes.Clear();
+            _clickTypes.Clear();
         }
 
         internal static string PathOf(Transform t)
@@ -1597,20 +1729,33 @@ namespace Ezg.QaProbe
             return found.OrderBy(k => k.Key).Select(k => k.Value).Distinct().ToList();
         }
 
-        private static bool IsScreenType(Type t)
+        /// <summary>
+        ///     Type là màn hình khi một lớp cha của nó (không tính chính nó) có tên — ngắn hoặc đầy đủ — nằm trong
+        ///     <c>screenBaseTypes</c> của config (mặc định: FeatureBaseController, UIScreenBase, ScreenBase, PopupBase, UIPanel).
+        /// </summary>
+        internal static bool IsScreenType(Type t)
         {
             if (_screenTypes.TryGetValue(t, out var v)) return v;
+            var names = EzgQaProbe.Config?.EffectiveScreenBaseTypes ?? ProbeConfig.DEFAULT_SCREEN_BASE_TYPES;
             var cur = t.BaseType;
             v = false;
             while (cur != null && cur != typeof(MonoBehaviour))
             {
-                var n = cur.Name;
-                if (n == "FeatureBaseController" || n == "UIScreenBase" || n == "ScreenBase" || n == "PopupBase" || n == "UIPanel")
+                var shortName = cur.Name;
+                var full = cur.FullName ?? shortName;
+                // Lớp cơ sở generic (ScreenBase<T>) khai bằng tên không có `1.
+                var tick = shortName.IndexOf('`');
+                var bare = tick > 0 ? shortName.Substring(0, tick) : shortName;
+                foreach (var n in names)
                 {
-                    v = true;
-                    break;
+                    if (n == shortName || n == bare || n == full)
+                    {
+                        v = true;
+                        break;
+                    }
                 }
 
+                if (v) break;
                 cur = cur.BaseType;
             }
 
@@ -2015,7 +2160,8 @@ namespace Ezg.QaProbe
 
         private static async Awaitable<ProbeResponse> Context(bool includeSave)
         {
-            var w = new ProbeJson().BeginObject().Prop("scene", SceneManager.GetActiveScene().name).Prop("unityVersion", Application.unityVersion);
+            var w = new ProbeJson().BeginObject().Prop("scene", SceneManager.GetActiveScene().name).Prop("unityVersion", Application.unityVersion)
+                .Prop("probeVersion", EzgQaProbe.VERSION);
             var screens = ActiveScreens();
             w.Prop("screen", screens.Count > 0 ? screens[screens.Count - 1] : SceneManager.GetActiveScene().name);
             w.BeginArray("screens");
@@ -2132,6 +2278,337 @@ namespace Ezg.QaProbe
         #endregion
     }
 
+    /// <summary>
+    ///     Các check UI port từ UiAuditSuite của com.ezg.autotest (không link được vì assembly đó chỉ có trong Editor /
+    ///     EZG_AUTOTEST): nút không gắn hành động, nút không nhận raycast, Image thiếu sprite (màu / nền phẳng), hai nút
+    ///     chồng nhau. Tất cả là phép đọc thuộc tính / hình học O(1) mỗi phần tử — không raycast, không layout — nên
+    ///     chạy luôn trong /ui.
+    /// </summary>
+    [Preserve]
+    internal static class ProbeUiChecks
+    {
+        private const float MIN_VISIBLE_ALPHA = 0.02f;
+        private const float WHITE_CHANNEL_MIN = 0.92f;
+        private const float WHITE_BOX_MIN_ALPHA = 0.5f;
+        private const float THIN_LINE_PX = 6f;
+        private const float BACKDROP_SCREEN_FRACTION = 0.5f;
+        private const float OVERLAP_MIN_RATIO = 0.5f;
+        private const int MAX_OVERLAP_GROUP = 100;
+
+        private static readonly System.Text.RegularExpressions.Regex DECORATIVE_NAME = new System.Text.RegularExpressions.Regex(
+            "bg|background|overlay|dim|mask|fade|blocker|line|divider",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        private static readonly List<Graphic> _graphics = new List<Graphic>();
+        private static readonly List<MonoBehaviour> _behaviours = new List<MonoBehaviour>();
+        private static FieldInfo _callsField;
+        private static bool _callsResolved;
+        private static Type _callListType;
+        private static FieldInfo _runtimeCallsField;
+        private static PropertyInfo _callCountProperty;
+
+        /// <summary>
+        ///     Image (đúng type Image, không phải subclass tự vẽ) không có sprite mà vẫn hiện: phủ ≥ nửa màn → <c>solidBackground</c>
+        ///     (nền phẳng, thường cố ý); ô trắng đục → <c>noSprite</c> (bổ sung cho check sẵn có vốn chỉ bắt ô không có con);
+        ///     màu khác → <c>missingSprite</c>. Đường kẻ mảnh, lớp trắng mờ, object tên kiểu bg/overlay/divider bỏ qua.
+        /// </summary>
+        public static void AuditMissingSprite(Image image, Rect rect, Rect screen, float groupAlpha, bool alreadyNoSprite,
+            ref List<string> flags, ref Dictionary<string, string> detail)
+        {
+            if (image == null || image.GetType() != typeof(Image)) return;
+            if (image.sprite != null || image.overrideSprite != null) return;
+            var color = image.color;
+            var alpha = color.a * groupAlpha * (image.canvasRenderer != null ? image.canvasRenderer.GetAlpha() : 1f);
+            if (alpha <= MIN_VISIBLE_ALPHA) return;
+            if (image.TryGetComponent(out Mask _) || image.TryGetComponent(out RectMask2D _) || image.TryGetComponent(out IMeshModifier _)) return;
+            var material = image.material;
+            if (material != null && material != image.defaultMaterial) return;
+
+            var size = rect.width.ToString("0", CultureInfo.InvariantCulture) + "×" + rect.height.ToString("0", CultureInfo.InvariantCulture) + "px";
+            var hex = "#" + ColorUtility.ToHtmlStringRGBA(color);
+            var screenArea = Mathf.Max(1f, screen.width * screen.height);
+            if (rect.width * rect.height >= screenArea * BACKDROP_SCREEN_FRACTION)
+            {
+                ProbeHandlers.AddFlag(ref flags, "solidBackground");
+                ProbeHandlers.SetDetail(ref detail, "solidBackground", "nền phẳng " + hex + " phủ " + size + ", không sprite");
+                return;
+            }
+
+            if (alreadyNoSprite) return;
+            if (Mathf.Min(rect.width, rect.height) < THIN_LINE_PX) return;
+            var isWhite = color.r >= WHITE_CHANNEL_MIN && color.g >= WHITE_CHANNEL_MIN && color.b >= WHITE_CHANNEL_MIN;
+            if (isWhite)
+            {
+                if (alpha < WHITE_BOX_MIN_ALPHA) return;
+                ProbeHandlers.AddFlag(ref flags, "noSprite");
+                ProbeHandlers.SetDetail(ref detail, "noSprite", "ô trắng " + size + " không sprite");
+                return;
+            }
+
+            if (DECORATIVE_NAME.IsMatch(image.name ?? "")) return;
+            ProbeHandlers.AddFlag(ref flags, "missingSprite");
+            ProbeHandlers.SetDetail(ref detail, "missingSprite", "khối màu " + hex + " " + size + " không sprite");
+        }
+
+        /// <summary>Có Graphic nào (chính nó hoặc con, đang bật) nhận raycast không.</summary>
+        public static bool HasRaycastTarget(GameObject go)
+        {
+            if (go == null) return false;
+            go.GetComponentsInChildren(false, _graphics);
+            try
+            {
+                foreach (var g in _graphics)
+                    if (g != null && g.raycastTarget && g.isActiveAndEnabled)
+                        return true;
+                return false;
+            }
+            finally
+            {
+                _graphics.Clear();
+            }
+        }
+
+        /// <summary>Button không có listener onClick (Inspector lẫn code) và không có component xử lý chạm nào khác.</summary>
+        public static bool IsDeadButton(Button button)
+        {
+            if (button == null || button.onClick == null) return false;
+            if (button.onClick.GetPersistentEventCount() > 0) return false;
+            if (RuntimeListenerCount(button.onClick) != 0) return false; // > 0 có listener; < 0 không đọc được → không báo nhầm
+            return !HasOtherPointerHandlers(button.gameObject, button);
+        }
+
+        /// <summary>Số listener thêm bằng AddListener. -1 = không đọc được (reflection đổi theo bản Unity).</summary>
+        public static int RuntimeListenerCount(UnityEngine.Events.UnityEventBase evt)
+        {
+            if (evt == null) return -1;
+            try
+            {
+                if (!_callsResolved)
+                {
+                    _callsResolved = true;
+                    _callsField = typeof(UnityEngine.Events.UnityEventBase).GetField("m_Calls", BindingFlags.Instance | BindingFlags.NonPublic);
+                }
+
+                if (_callsField == null) return -1;
+                var calls = _callsField.GetValue(evt);
+                if (calls == null) return 0;
+                var type = calls.GetType();
+                if (_callListType != type)
+                {
+                    _callListType = type;
+                    const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+                    _runtimeCallsField = type.GetField("m_RuntimeCalls", flags);
+                    _callCountProperty = type.GetProperty("Count", flags);
+                }
+
+                if (_runtimeCallsField != null && _runtimeCallsField.GetValue(calls) is ICollection runtime) return runtime.Count;
+                if (_callCountProperty != null && _callCountProperty.GetValue(calls) is int count) return count;
+            }
+            catch (Exception)
+            {
+                // Reflection hỏng → coi như không biết.
+            }
+
+            return -1;
+        }
+
+        /// <summary>GameObject có component xử lý chạm khác ngoài chính Selectable (EventTrigger, script nhấn giữ…).</summary>
+        public static bool HasOtherPointerHandlers(GameObject go, Component self)
+        {
+            if (go == null) return false;
+            go.GetComponents(_behaviours);
+            try
+            {
+                foreach (var mb in _behaviours)
+                {
+                    if (mb == null || mb == self || !mb.enabled) continue;
+                    if (mb is IPointerClickHandler || mb is IPointerDownHandler || mb is IPointerUpHandler || mb is ISubmitHandler) return true;
+                }
+
+                return false;
+            }
+            finally
+            {
+                _behaviours.Clear();
+            }
+        }
+
+        /// <summary>
+        ///     Hai nút cùng cha chồng lên nhau quá nửa diện tích nút nhỏ → flag <c>overlapButton</c> trên nút vẽ trước (bị đè),
+        ///     kèm tên nút đè. Chỉ xét nút đang bấm được, tâm nằm trong màn.
+        /// </summary>
+        public static void FlagOverlappingButtons(List<ProbeHandlers.UiItem> items, Rect screen)
+        {
+            Dictionary<Transform, List<ProbeHandlers.UiItem>> groups = null;
+            foreach (var it in items)
+            {
+                if (it.Kind != "Button" || !it.Interactable || it.Parent == null || !screen.Contains(it.Rect.center)) continue;
+                groups ??= new Dictionary<Transform, List<ProbeHandlers.UiItem>>();
+                if (!groups.TryGetValue(it.Parent, out var list)) groups[it.Parent] = list = new List<ProbeHandlers.UiItem>();
+                if (list.Count < MAX_OVERLAP_GROUP) list.Add(it);
+            }
+
+            if (groups == null) return;
+            foreach (var list in groups.Values)
+            {
+                if (list.Count < 2) continue;
+                for (var i = 0; i < list.Count; i++)
+                for (var j = i + 1; j < list.Count; j++)
+                {
+                    var a = list[i];
+                    var b = list[j];
+                    var smaller = Mathf.Min(a.Rect.width * a.Rect.height, b.Rect.width * b.Rect.height);
+                    if (smaller <= 0f) continue;
+                    var inter = ProbeHandlers.Intersect(a.Rect, b.Rect);
+                    var ratio = inter.width * inter.height / smaller;
+                    if (ratio <= OVERLAP_MIN_RATIO) continue;
+                    var under = a.SiblingIndex < b.SiblingIndex ? a : b;
+                    var over = under == a ? b : a;
+                    ProbeHandlers.AddFlag(ref under.Flags, "overlapButton");
+                    ProbeHandlers.SetDetail(ref under.FlagDetail, "overlapButton",
+                        "bị '" + over.Go.name + "' [" + over.Id + "] đè " + Mathf.RoundToInt(ratio * 100f) + "% diện tích");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Chữ giả localize (/pseudoloc): biến mọi chữ đang hiện thành bản dài hơn ~30%, có dấu, bọc trong [ ] để bắt khung
+    ///     chữ hẹp, chữ bị cắt, font thiếu glyph trước khi có bản dịch thật. Lưu chữ gốc theo instance để trả lại; chữ game
+    ///     set lại sau khi bật không được theo dõi (gọi lại on=1 để đổi tiếp).
+    /// </summary>
+    [Preserve]
+    internal static class ProbePseudoLoc
+    {
+        private sealed class Entry
+        {
+            public Graphic Target;
+            public string Original;
+            public string Transformed;
+        }
+
+        private const float EXPAND_RATIO = 0.3f;
+        private const string LOWER = "abcdefghijklmnopqrstuvwxyz";
+        private const string LOWER_ACCENT = "åƀçđéƒğĥíĵķļɱñöþǫřšŧüṽŵẋýž";
+        private const string UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        private const string UPPER_ACCENT = "ÅƁÇĐÉƑĞĤÍĴĶĻṀÑÖÞǪŘŠŦÜṼŴẊÝŽ";
+        private static readonly Dictionary<int, Entry> _saved = new Dictionary<int, Entry>();
+
+        public static bool IsOn { get; private set; }
+        public static string Mode { get; private set; } = "both";
+
+        /// <summary>expand | accent | both (trống = both); sai → null.</summary>
+        public static string NormalizeMode(string mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode)) return "both";
+            mode = mode.Trim().ToLowerInvariant();
+            return mode == "expand" || mode == "accent" || mode == "both" ? mode : null;
+        }
+
+        /// <summary>Đổi chữ của mọi Text / TMP_Text đang bật; trả số phần tử vừa đổi (phần tử đã đổi từ trước không tính).</summary>
+        public static int Apply(string mode)
+        {
+            mode = NormalizeMode(mode) ?? "both";
+            if (IsOn && Mode != mode) RestoreAll();
+            Mode = mode;
+            IsOn = true;
+            var count = 0;
+            foreach (var g in Object.FindObjectsByType<Graphic>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                var current = ProbeText.Get(g);
+                if (string.IsNullOrWhiteSpace(current)) continue;
+                var id = g.GetInstanceID();
+                if (_saved.TryGetValue(id, out var entry) && entry.Transformed == current) continue; // đã là chữ giả
+                var transformed = Transform(current, mode);
+                if (transformed == current || !ProbeText.TrySet(g, transformed)) continue;
+                _saved[id] = new Entry { Target = g, Original = current, Transformed = transformed };
+                count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>Trả lại chữ gốc cho mọi phần tử còn sống; trả số phần tử đã khôi phục.</summary>
+        public static int RestoreAll()
+        {
+            var count = 0;
+            foreach (var e in _saved.Values)
+            {
+                try
+                {
+                    if (e.Target != null && ProbeText.TrySet(e.Target, e.Original)) count++;
+                }
+                catch (Exception)
+                {
+                    // object vừa bị huỷ giữa chừng
+                }
+            }
+
+            _saved.Clear();
+            IsOn = false;
+            return count;
+        }
+
+        /// <summary>
+        ///     Biến đổi thuần: giữ nguyên thẻ rich text (&lt;b&gt;, &lt;color&gt;, &lt;sprite&gt;…), thay chữ cái bằng bản có dấu
+        ///     (accent/both), thêm đệm "~" ≈ 30% số ký tự chữ (expand/both), bọc trong [ ]. Chuỗi trống trả nguyên.
+        /// </summary>
+        public static string Transform(string s, string mode)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return s;
+            mode = NormalizeMode(mode) ?? "both";
+            var accent = mode != "expand";
+            var expand = mode != "accent";
+            var sb = new StringBuilder(s.Length + 8);
+            sb.Append('[');
+            var depth = 0;
+            var letters = 0;
+            foreach (var c in s)
+            {
+                if (c == '<')
+                {
+                    depth++;
+                    sb.Append(c);
+                    continue;
+                }
+
+                if (c == '>' && depth > 0)
+                {
+                    depth--;
+                    sb.Append(c);
+                    continue;
+                }
+
+                if (depth > 0)
+                {
+                    sb.Append(c);
+                    continue;
+                }
+
+                if (char.IsLetterOrDigit(c)) letters++;
+                if (!accent)
+                {
+                    sb.Append(c);
+                    continue;
+                }
+
+                var i = LOWER.IndexOf(c);
+                if (i >= 0)
+                {
+                    sb.Append(LOWER_ACCENT[i]);
+                    continue;
+                }
+
+                i = UPPER.IndexOf(c);
+                sb.Append(i >= 0 ? UPPER_ACCENT[i] : c);
+            }
+
+            if (expand && letters > 0) sb.Append('~', Mathf.Max(1, Mathf.CeilToInt(letters * EXPAND_RATIO)));
+            sb.Append(']');
+            return sb.ToString();
+        }
+    }
+
     /// <summary>Đọc chữ của UI.Text / TMP_Text (TMP qua reflection) + kiểm tràn chữ, thiếu glyph.</summary>
     [Preserve]
     internal static class ProbeText
@@ -2152,6 +2629,22 @@ namespace Ezg.QaProbe
             Resolve();
             if (_tmpText != null && _tmpText.IsInstanceOfType(g)) return _tmpTextProp?.GetValue(g) as string;
             return null;
+        }
+
+        /// <summary>Gán chữ cho UI.Text / TMP_Text; false khi graphic không phải chữ hoặc TMP không có setter.</summary>
+        public static bool TrySet(Graphic g, string value)
+        {
+            if (g == null) return false;
+            if (g is Text t)
+            {
+                t.text = value;
+                return true;
+            }
+
+            Resolve();
+            if (_tmpText == null || !_tmpText.IsInstanceOfType(g) || _tmpTextProp == null || !_tmpTextProp.CanWrite) return false;
+            _tmpTextProp.SetValue(g, value);
+            return true;
         }
 
         public static void Audit(Graphic g, string text, ref List<string> flags, ref string missing)

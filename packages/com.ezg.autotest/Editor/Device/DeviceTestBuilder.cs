@@ -223,6 +223,8 @@ namespace Ezg.AutoTest.Editor
         /// </summary>
         public static void WriteBakedRequest(AutoTestConfig config, bool autoRunOnLaunch = false)
         {
+            // Device không có Assets để quét → bake sẵn kết quả liveness vào config.
+            if (config != null) FeatureLivenessScanner.EnsureResolved(config);
             var request = new DeviceRunRequest
             {
                 runId = "",

@@ -62,6 +62,57 @@ namespace Ezg.QaProbe.Tests.WrongFlag
     }
 }
 
+namespace Ezg.QaProbe.Tests.Custom
+{
+    /// <summary>Game ngoài quy ước template: tên type / cờ / hàm khác, khai trong EzgQaProbeConfig (cheatTypeName…).</summary>
+    public static class DebugFlags
+    {
+        public static bool cheatsEnabled;
+        public static int EnableCalls;
+
+        public static void EnableCheats()
+        {
+            EnableCalls++;
+            cheatsEnabled = true;
+        }
+
+        public static void DisableCheats()
+        {
+            cheatsEnabled = false;
+        }
+    }
+}
+
+namespace Ezg.QaProbe.Tests.Screens
+{
+    /// <summary>Lớp cơ sở màn hình của một project không theo template — khai qua config screenBaseTypes.</summary>
+    public abstract class FakeScreenBase : UnityEngine.MonoBehaviour
+    {
+    }
+
+    public sealed class FakeHomeScreen : FakeScreenBase
+    {
+    }
+
+    /// <summary>Lớp cơ sở generic: khai bằng tên không có `1.</summary>
+    public abstract class FakeGenericScreen<T> : UnityEngine.MonoBehaviour
+    {
+    }
+
+    public sealed class FakeShopScreen : FakeGenericScreen<int>
+    {
+    }
+
+    /// <summary>Theo quy ước template EZG — nhận ra với config mặc định.</summary>
+    public abstract class FeatureBaseController : UnityEngine.MonoBehaviour
+    {
+    }
+
+    public sealed class FakeTemplateScreen : FeatureBaseController
+    {
+    }
+}
+
 namespace Ezg.QaProbe.Tests.BugLogger
 {
     /// <summary>Thay <c>Ezg.BugLogger.UI.BugLoggerUI</c>: ghi lại các lần probe ẩn/hiện UI Bug Logger quanh lúc chụp.</summary>

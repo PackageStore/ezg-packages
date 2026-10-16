@@ -27,11 +27,12 @@ namespace Ezg.AutoTest
             return false;
         }
 
-        /// <summary>Feature có bị loại khỏi smoke/UI audit/button sweep không (settings + hooks project).</summary>
+        /// <summary>Feature có bị loại khỏi smoke/UI audit/button sweep không (settings + liveness + hooks project).</summary>
         public static bool IsFeatureExcluded(AutoTestConfig config, string featureName,
             IAutoTestProjectHooks hooks = null)
         {
             if (MatchesAny(featureName, config.smoke.excludedFeatures)) return true;
+            if (IsDeadFeature(config, featureName, out _)) return true;
             if (hooks == null) return false;
             try
             {
@@ -46,6 +47,47 @@ namespace Ezg.AutoTest
                 AutoTestLog.Warn("Hooks.ExtraExcludedFeatures lỗi: " + ex.Message);
             }
 
+            return false;
+        }
+
+        /// <summary>
+        ///     Feature "chết" theo <see cref="LivenessConfig" /> (xem mô tả ở đó). <paramref name="reason" /> là lý do
+        ///     máy đọc được: "forceDead", "deadFeaturePatterns", "no-reference". forceLive / observedLive thắng tất cả.
+        /// </summary>
+        public static bool IsDeadFeature(AutoTestConfig config, string featureName, out string reason)
+        {
+            reason = null;
+            var l = config?.liveness;
+            if (l == null || !l.enabled || string.IsNullOrEmpty(featureName)) return false;
+            if (ContainsName(l.forceLive, featureName) || ContainsName(l.observedLive, featureName)) return false;
+            if (ContainsName(l.forceDead, featureName))
+            {
+                reason = "forceDead";
+                return true;
+            }
+
+            if (MatchesAny(featureName, l.deadFeaturePatterns))
+            {
+                reason = "deadFeaturePatterns";
+                return true;
+            }
+
+            if (ContainsName(l.resolvedDead, featureName))
+            {
+                reason = "no-reference";
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Có tên (không phân biệt hoa thường) trong danh sách không.</summary>
+        public static bool ContainsName(IEnumerable<string> names, string name)
+        {
+            if (names == null || string.IsNullOrEmpty(name)) return false;
+            foreach (var n in names)
+                if (string.Equals(n?.Trim(), name, StringComparison.OrdinalIgnoreCase))
+                    return true;
             return false;
         }
 

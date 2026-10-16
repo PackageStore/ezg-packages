@@ -12,12 +12,21 @@ namespace Ezg.AutoTest.Editor
     ///     Tham chiếu hỏng: (b) prefab — field object reference hiện "Missing" (có instanceID nhưng không load được),
     ///     báo theo object; (a) mọi asset YAML — GUID trỏ tới asset không còn trong project, báo theo asset. Prefab
     ///     đã có lỗi theo object thì danh sách GUID của (a) được gộp vào lỗi đó thay vì tạo thêm dòng.
+    ///     <para>
+    ///         Severity theo PHẠM VI LOAD (<see cref="LoadScopeIndex" />): asset trong Resources/, trong AssetBundle hoặc
+    ///         được scene build kéo theo ⇒ Major (người chơi gặp); asset có nơi khác tham chiếu nhưng cả cụm không load
+    ///         được trong build ⇒ Minor; asset không ai tham chiếu ⇒ Info, nhóm <c>Asset.Unreferenced</c> (mồ côi — dọn
+    ///         đi là hết). Repo kế thừa nhiều asset cũ không còn bị 500 dòng Major cho thứ game không đụng tới.
+    ///     </para>
     /// </summary>
     public sealed class MissingReferencesRule : IStaticRule
     {
         const string ISSUE_CATEGORY = "Asset.MissingReference";
+        const string CATEGORY_UNREFERENCED = "Asset.Unreferenced";
         const string TITLE_OBJECT = "Tham chiếu bị mất (Missing) trong component";
         const string TITLE_GUID = "Tham chiếu tới asset đã bị xoá";
+        const string TITLE_SUFFIX_OUT_OF_BUILD = " — asset ngoài phạm vi load của build";
+        const string TITLE_PREFIX_ORPHAN = "Asset mồ côi: ";
         const string KEY_SCRIPT = "m_Script";
         const string KEY_OBJECT_REFERENCE = "objectReference";
         const string KEY_PROPERTY_PATH = "propertyPath:";
@@ -54,11 +63,21 @@ namespace Ezg.AutoTest.Editor
         public string Category => "Asset";
         public int Order => 20;
 
+        /// <summary>Issue chờ chấm severity theo phạm vi load (sau khi quét xong toàn bộ để biết ai tham chiếu ai).</summary>
+        struct PendingIssue
+        {
+            public TestIssue Issue;
+            public string Path;
+        }
+
         public async Task Run(AutoTestContext ctx)
         {
             var cfg = ctx.Config.staticCheck;
             var sink = new AssetIssueSink(ctx, ISSUE_CATEGORY);
             var prefabIssues = new Dictionary<string, TestIssue>(StringComparer.OrdinalIgnoreCase);
+            var pending = new List<PendingIssue>();
+            // Mọi GUID được asset trong phạm vi quét trỏ tới — để biết asset có lỗi còn ai dùng không.
+            var referencedGuids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // (b) Chi tiết theo object trong prefab.
             var prefabs = AssetRuleUtil.FindPrefabs(cfg);
@@ -68,7 +87,7 @@ namespace Ezg.AutoTest.Editor
                 await StaticCheckUtil.Yield(ctx, i, prefabs.Count, "Quét tham chiếu prefab");
                 try
                 {
-                    objectHits += ScanPrefabObjects(prefabs[i], cfg, sink, prefabIssues);
+                    objectHits += ScanPrefabObjects(prefabs[i], cfg, sink, prefabIssues, pending);
                 }
                 catch (Exception e)
                 {
@@ -88,7 +107,7 @@ namespace Ezg.AutoTest.Editor
                 var path = files[i].Path;
                 try
                 {
-                    var result = ScanYaml(path, guids, sink, prefabIssues);
+                    var result = ScanYaml(path, guids, sink, prefabIssues, pending, referencedGuids);
                     if (result < 0) binarySkipped++;
                     else if (result > 0) assetsWithMissing++;
                 }
@@ -103,14 +122,86 @@ namespace Ezg.AutoTest.Editor
             ctx.Metric("File binary bỏ qua", binarySkipped);
             ctx.Metric("Object có tham chiếu Missing", objectHits);
             ctx.Metric("Asset có GUID treo", assetsWithMissing);
+            await GradeByLoadScope(ctx, pending, referencedGuids);
             sink.Flush();
             EditorUtility.UnloadUnusedAssetsImmediate();
         }
 
+        #region Severity theo phạm vi load
+
+        /// <summary>
+        ///     Chấm lại severity từng issue theo phạm vi load của asset chứa lỗi: load được trong build ⇒ giữ Major; chỉ
+        ///     được asset khác (không load được) tham chiếu ⇒ Minor; mồ côi ⇒ Info nhóm Asset.Unreferenced.
+        /// </summary>
+        static async Task GradeByLoadScope(AutoTestContext ctx, List<PendingIssue> pending, HashSet<string> referencedGuids)
+        {
+            if (pending.Count == 0) return;
+            LoadScopeIndex index;
+            using (ctx.Step("Dựng phạm vi load của build"))
+            {
+                try
+                {
+                    index = LoadScopeIndex.Build();
+                }
+                catch (Exception e)
+                {
+                    ctx.Log("Không dựng được phạm vi load (giữ Major cho mọi lỗi): " + e.Message);
+                    return;
+                }
+            }
+
+            ctx.Log($"Phạm vi load: {index.RootCount} root (scene build + Resources + bundle), {index.ReachableCount} asset kéo theo.");
+            var counts = new Dictionary<LoadScope, int>();
+            var scopeCache = new Dictionary<string, LoadScope>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < pending.Count; i++)
+            {
+                await StaticCheckUtil.Yield(ctx, i, pending.Count, "Chấm severity theo phạm vi load");
+                var p = pending[i];
+                if (p.Issue == null || string.IsNullOrEmpty(p.Path)) continue;
+                if (!scopeCache.TryGetValue(p.Path, out var scope))
+                    scopeCache[p.Path] = scope = index.Classify(p.Path, referencedGuids);
+                counts[scope] = counts.TryGetValue(scope, out var n) ? n + 1 : 1;
+                Grade(p.Issue, scope);
+            }
+
+            foreach (var pair in counts)
+                ctx.Metric("Lỗi ở asset " + LoadScopeIndex.Label(pair.Key), pair.Value);
+        }
+
+        static void Grade(TestIssue issue, LoadScope scope)
+        {
+            var note = "\n\nPhạm vi load: " + LoadScopeIndex.Label(scope) + ".";
+            if (LoadScopeIndex.IsLoadable(scope))
+            {
+                issue.message += note + " Người chơi có thể gặp lỗi này trong bản build.";
+                return;
+            }
+
+            if (scope == LoadScope.Referenced)
+            {
+                issue.severity = Severity.Minor;
+                issue.title += TITLE_SUFFIX_OUT_OF_BUILD;
+                issue.message += note + " Bản build không load tới asset này nên người chơi không gặp — sửa khi dọn asset hoặc khi đưa lại vào game.";
+                return;
+            }
+
+            issue.severity = Severity.Info;
+            issue.category = CATEGORY_UNREFERENCED;
+            issue.title = TITLE_PREFIX_ORPHAN + issue.title;
+            issue.message += note + " Không asset nào trong phạm vi quét tham chiếu tới nó — có thể xoá (kèm .meta) để dọn project.";
+        }
+
+        static void Track(List<PendingIssue> pending, TestIssue issue, string path)
+        {
+            if (issue != null) pending.Add(new PendingIssue { Issue = issue, Path = path });
+        }
+
+        #endregion
+
         #region (b) Prefab — SerializedProperty
 
         static int ScanPrefabObjects(string path, StaticCheckConfig cfg, AssetIssueSink sink,
-            Dictionary<string, TestIssue> prefabIssues)
+            Dictionary<string, TestIssue> prefabIssues, List<PendingIssue> pending)
         {
             var root = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (root == null) return 0;
@@ -150,6 +241,7 @@ namespace Ezg.AutoTest.Editor
                     "Gán lại hoặc để trống có chủ đích (None)." + AssetRuleUtil.BulletList(list, MAX_PROPS_IN_MESSAGE);
                 var issue = sink.Report(Severity.Major, TITLE_OBJECT, message, path,
                     StaticCheckUtil.HierarchyPath(go.transform), "Không field nào Missing", $"{list.Count} field Missing");
+                Track(pending, issue, path);
                 if (issue != null && !prefabIssues.ContainsKey(path)) prefabIssues[path] = issue;
             }
 
@@ -188,9 +280,9 @@ namespace Ezg.AutoTest.Editor
 
         #region (a) YAML — GUID treo
 
-        /// <summary>-1 = file binary (bỏ qua), 0 = sạch, &gt;0 = số GUID treo.</summary>
+        /// <summary>-1 = file binary (bỏ qua), 0 = sạch, &gt;0 = số GUID treo. Mọi GUID gặp được thêm vào <paramref name="referencedGuids" />.</summary>
         static int ScanYaml(string path, GuidResolver guids, AssetIssueSink sink,
-            Dictionary<string, TestIssue> prefabIssues)
+            Dictionary<string, TestIssue> prefabIssues, List<PendingIssue> pending, HashSet<string> referencedGuids)
         {
             var abs = StaticCheckUtil.AbsolutePath(path);
             if (!AssetRuleUtil.IsYamlFile(abs)) return -1;
@@ -204,6 +296,7 @@ namespace Ezg.AutoTest.Editor
             foreach (Match m in GUID_REF.Matches(text))
             {
                 var g = m.Groups[1].Value;
+                referencedGuids.Add(g);
                 if (missing.ContainsKey(g) || !guids.IsMissing(g)) continue;
                 var key = PropertyKeyAt(text, m.Index);
                 // m_Script mất trong prefab/scene đã có luật missing-scripts báo theo object.
@@ -224,10 +317,10 @@ namespace Ezg.AutoTest.Editor
                 return order.Count;
             }
 
-            sink.Report(Severity.Major, TITLE_GUID,
+            Track(pending, sink.Report(Severity.Major, TITLE_GUID,
                 $"File tham chiếu {order.Count} asset không còn trong project (GUID không tồn tại). Khôi phục asset " +
                 "bị xoá (kèm đúng file .meta) hoặc mở asset và gán lại tham chiếu." + list,
-                path, null, "Mọi GUID đều tồn tại", $"{order.Count} GUID không tồn tại");
+                path, null, "Mọi GUID đều tồn tại", $"{order.Count} GUID không tồn tại"), path);
             return order.Count;
         }
 

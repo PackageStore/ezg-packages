@@ -67,12 +67,16 @@ namespace Ezg.AutoTest.Editor
             return html ?? Path.Combine(dir, HTML_FILE);
         }
 
-        /// <summary>report.json — <c>JsonUtility.ToJson(report, true)</c>, nguồn dữ liệu cho lịch sử + so sánh lần sau.</summary>
+        /// <summary>
+        ///     report.json schema 0.2 (<see cref="AutoTestReportJson" />: enum dạng chuỗi, <c>issues[]</c> phẳng,
+        ///     <c>summary.bySeverity/bySuite</c>, <c>generatedAt</c>, <c>version</c>) — nguồn dữ liệu cho lịch sử, so sánh
+        ///     lần sau và tool QA bên ngoài. Đọc lại bằng <see cref="AutoTestReportHistory.Load" />.
+        /// </summary>
         public static string WriteJson(TestRunReport report, string outputDir)
         {
             if (report == null) throw new ArgumentNullException(nameof(report));
             var path = Path.Combine(PrepareDir(outputDir), JSON_FILE);
-            File.WriteAllText(path, JsonUtility.ToJson(report, true), Utf8NoBom);
+            File.WriteAllText(path, AutoTestReportJson.Serialize(report, true), Utf8NoBom);
             return path;
         }
 

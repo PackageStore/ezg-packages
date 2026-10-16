@@ -168,7 +168,8 @@ Firebase Test Lab chạy APK trên máy thật của Google theo chế độ **G
 - Khi được mở bằng intent Game Loop, runner trong app tự chạy các suite ở **Settings > Device > suites**
   (`device.suites`), ghi kết quả tóm tắt (runId, scenario, device, `summary` gồm số case theo trạng thái +
   `healthScore`, danh sách case Lỗi/Crash) vào file kết quả Game Loop mà Test Lab truyền qua intent, rồi tự đóng game.
-- `report.json` + ảnh chụp đầy đủ nằm ở `Application.persistentDataPath/EZGAutoTest/<runId>/` — trên Android là
+- `report.json` (schema 0.2: enum dạng chuỗi, `issues[]` phẳng, `summary.bySeverity/bySuite` — xem index.md § 7)
+  + ảnh chụp đầy đủ nằm ở `Application.persistentDataPath/EZGAutoTest/<runId>/` — trên Android là
   `/sdcard/Android/data/<package>/files/EZGAutoTest/`, kéo về bằng `--directories-to-pull`.
 - Case **firebase-test-lab** của suite `device` sinh sẵn lệnh `gcloud` (file đính kèm `ftl-command.txt`, model /
   API lấy theo máy đang cắm). Lệnh không tự chạy — copy ra Terminal hoặc vào job CI.

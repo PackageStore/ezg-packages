@@ -44,7 +44,7 @@ namespace Ezg.AutoTest.Editor
                     return null;
                 }
 
-                var report = JsonUtility.FromJson<TestRunReport>(json);
+                var report = AutoTestReportJson.Deserialize(json);
                 if (report == null) error = "Không parse được report.json";
                 return report;
             }

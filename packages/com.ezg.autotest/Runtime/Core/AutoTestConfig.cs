@@ -21,6 +21,7 @@ namespace Ezg.AutoTest
         public PerformanceConfig performance = new();
         public VisualRegressionConfig visual = new();
         public DeviceConfig device = new();
+        public LivenessConfig liveness = new();
 
         /// <summary>Id các suite bị tắt hẳn (không hiện "chạy tất cả").</summary>
         public List<string> disabledSuites = new();
@@ -348,6 +349,56 @@ namespace Ezg.AutoTest
 
         /// <summary>Object khớp regex bị ẩn trước khi chụp (text đồng hồ, số tiền nhảy liên tục…).</summary>
         public List<string> maskObjectPatterns = new() { "time", "timer", "countdown", "clock", "fps" };
+    }
+
+    /// <summary>
+    ///     "Liveness" của feature: repo kế thừa từ project cũ hay còn nguyên màn hình/enum không ai mở tới. Smoke, UI
+    ///     Audit, Button Sweep, Visual bỏ qua feature "chết" để không báo lỗi nặng cho thứ game không dùng; luật tĩnh
+    ///     <c>Feature.Dead</c> liệt kê chúng (Info). Feature chết = khớp <see cref="deadFeaturePatterns" />, nằm trong
+    ///     <see cref="forceDead" />, hoặc (không trong <see cref="forceLive" /> / <see cref="observedLive" /> VÀ quét tĩnh
+    ///     không thấy tham chiếu: code (ngoài map bundle), giá trị enum serialize trong prefab / scene / asset, chuỗi
+    ///     tên feature). Khối <c>liveness</c> của <c>ProjectSettings/EZGAutoTestSettings.json</c> được tool QA
+    ///     (<c>qadevice.py profile sync</c>) ghi từ <c>.claude/project-profile.json</c>; nghi ngờ thì coi là sống.
+    /// </summary>
+    [Serializable]
+    public class LivenessConfig
+    {
+        public bool enabled = true;
+
+        /// <summary>Regex tên feature coi là chết luôn (không cần quét), vd hậu tố _Retired.</summary>
+        public List<string> deadFeaturePatterns = new() { "_Retired$" };
+
+        /// <summary>Tên feature luôn coi là sống (thắng mọi luật khác).</summary>
+        public List<string> forceLive = new();
+
+        /// <summary>Tên feature luôn coi là chết.</summary>
+        public List<string> forceDead = new();
+
+        /// <summary>Feature tool QA đã thấy mở thật trên máy (qadevice ghi) — sống dù quét tĩnh không thấy ref.</summary>
+        public List<string> observedLive = new();
+
+        /// <summary>Tên file .cs KHÔNG tính là tham chiếu code (map bundle, bảng tra tên…).</summary>
+        public List<string> codeRefExcludeFiles = new() { "AssetBundleName.cs", "AssetRefs.cs" };
+
+        /// <summary>Regex tên field YAML (prefab/scene/asset) có thể chứa giá trị enum feature.</summary>
+        public string serializedKeyPattern = "(?i)featu|screen|popup";
+
+        /// <summary>Regex tên field YAML bỏ qua dù khớp pattern trên (field bool/int nội bộ của Unity).</summary>
+        public string serializedKeyIgnorePattern = "(?i)^(is|has|use|enable|show|should|can|m_)";
+
+        /// <summary>Chuỗi "TênFeature" trong code (Enum.Parse, event "Open"+tên…) cũng tính là tham chiếu.</summary>
+        public bool countStringLiterals = true;
+
+        /// <summary>Kết quả quét — Editor điền vào bản snapshot trước khi chạy (không sửa tay, không commit).</summary>
+        [UnityEngine.HideInInspector] public List<string> resolvedDead = new();
+
+        /// <summary>Feature sống chỉ nhờ prefab/scene/asset (code không gọi tới) — để Feature.Dead ghi chú.</summary>
+        [UnityEngine.HideInInspector] public List<string> resolvedSerializedOnly = new();
+
+        [UnityEngine.HideInInspector] public string resolvedAt = "";
+
+        /// <summary>"scan" / "cache" / "" (chưa quét — chỉ áp pattern + forceDead).</summary>
+        [UnityEngine.HideInInspector] public string resolvedSource = "";
     }
 
     [Serializable]

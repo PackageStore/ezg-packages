@@ -132,7 +132,7 @@ một case:
 | Nhóm | Kiểm tra | Cấu hình liên quan |
 |------|----------|-------------------|
 | Asset | Missing Script trong prefab và scene (script đã xoá, đổi GUID, class lỗi compile). | — |
-| Asset | Missing reference (field trỏ tới object đã mất). | — |
+| Asset | Missing reference (field trỏ tới object đã mất; GUID trỏ tới asset đã xoá). **Severity theo phạm vi load**: asset trong `Resources/`, trong AssetBundle hoặc được scene build kéo theo ⇒ Major; asset chỉ được cụm không load được tham chiếu ⇒ Minor; asset không ai tham chiếu ⇒ Info nhóm `Asset.Unreferenced` (mồ côi, dọn là hết). | — |
 | Asset | Material hỏng: shader lỗi / không tồn tại / không hợp render pipeline (hiện magenta). | — |
 | Asset | Texture quá lớn (cạnh > `maxTextureSize`) hoặc tốn bộ nhớ (> `maxTextureMemoryMb`). | `maxTextureSize`, `maxTextureMemoryMb` |
 | Asset | File audio quá nặng; asset bất kỳ quá lớn. | `maxAudioFileMb`, `maxAssetFileMb` |
@@ -141,6 +141,7 @@ một case:
 | Dữ liệu | Localize: key thiếu ở một ngôn ngữ, placeholder (`{0}`…) lệch giữa các ngôn ngữ, text rỗng. | `localizationFolder` |
 | Cấu hình | Player Settings cho release: Android target API ≥ `androidTargetApiMin`, min API ≥ `androidMinApiMin`, iOS min ≥ `iosMinVersion`, bundle id, define cấm trong release (`forbiddenReleaseDefines`). | các field tương ứng |
 | Cấu hình | Feature thiếu prefab màn hình (adapter biết quy ước tên, vd template EZG `screen_<snake_case>`). | — |
+| Cấu hình | **Feature không còn dùng** (`Feature.Dead`, Info): enum màn hình không ai tham chiếu — code (ngoài map bundle), prefab/scene/asset (ngoài prefab của chính nó), chuỗi tên — hoặc khớp `liveness.deadFeaturePatterns` / `forceDead`. Các suite Play bỏ qua những màn này. | `liveness` (§ 10) |
 | Code | Luật regex trên `.cs`: `DateTime.Now`, `async void`, `GameObject.Find`, secret hardcode… | `codeRules` |
 
 Mỗi issue có `location` = asset path (bấm được trong report) và `objectPath` = đường dẫn hierarchy trong
@@ -172,7 +173,7 @@ Mở từng màn (như smoke) rồi soi cây UI đang hiển thị. Object khớ
 | Sprite thiếu | `checkMissingSprite` | Image đang hiện nhưng không có sprite (ô trắng) hoặc sprite mất reference. |
 | Ngoài màn hình | `checkOffScreen` | Phần tử tương tác nằm (một phần) ngoài màn hình. |
 | Safe area | `checkSafeArea` | Nút / text quan trọng lấn vào vùng tai thỏ / thanh home. |
-| Raycast bị chặn | `checkRaycastBlocked` | Nút hiển thị nhưng raycast tại tâm trúng object khác (bị che). |
+| Raycast bị chặn | `checkRaycastBlocked` | Nút hiển thị nhưng raycast tại tâm trúng object khác (bị che). Kết luận sau khi UI **đứng yên** (blocker/rect/alpha không đổi 0,3 s liên tục, tối đa chờ 2 s) để không bắt nhầm popup đang animate. Blocker thuộc **lớp khác** (popup / overlay / toast) phủ ≥ 35 % màn ⇒ `UI.Occluded` Info (lớp trên đang che, không phải nút hỏng); blocker cùng màn ⇒ `UI.Blocked` Major. |
 | Lộ key localize | `checkLocalizationLeak` | Text hiển thị khớp `localizationKeyPattern` (vd `txt_buy_now`). |
 | Nút chết | `checkDeadButtons` | Button không có listener nào (bấm không làm gì). |
 
@@ -250,13 +251,17 @@ Chỉ so **vùng so sánh**, để gameplay chạy phía sau popup không gây l
 - **Vùng UI của chính màn đang test**: hợp các hình chữ nhật Graphic đang hiển thị của màn đó. Không tính
   Graphic phủ từ nửa màn trở lên (lớp nền mờ, nền toàn màn làm lộ gameplay phía sau). HUD, overlay debug và
   gameplay nằm ngoài vùng này.
-- **Bỏ pixel động**: chụp 2 khung cách nhau 0,4 giây, pixel đổi màu giữa 2 khung (animation, particle, số
-  nhảy) không tính.
+- **Bỏ vùng động (tự động)**: chụp 2 khung cách nhau **1 giây**; pixel đổi màu giữa 2 khung (animation, particle,
+  số nhảy, đồng hồ) không tính, nở ra theo ô 8 px (viền anti-alias), và **text** (TMP / Text) có pixel đổi thì
+  mask trọn khung chữ — chữ đổi độ dài không để lại pixel "cũ" khác baseline.
 
-Ảnh diff tô xanh tối phần bị bỏ qua. Report có thêm số đo "Vùng so sánh" và "Pixel động bỏ qua" (% ảnh).
-Không đụng camera hay object nào của game.
+Ảnh diff tô xanh tối phần bị bỏ qua. Report có số đo "Vùng so sánh" (% ảnh), "Vùng động bị mask" (% vùng UI) và
+"Text động bị mask"; issue `Visual.Diff` ghi kèm % đã mask để QA biết ảnh so được bao nhiêu. Không đụng camera hay
+object nào của game.
 
-Baseline phụ thuộc độ phân giải Game view và GPU: luôn chạy cùng độ phân giải (vd 1080×1920) và cùng loại máy.
+Baseline lưu **theo độ phân giải chụp**: `<baselineFolder>/<rộng>x<cao>/<Màn>.png` — Editor 441×882 và device
+1080×2400 là hai bộ riêng, không so chéo (khác độ phân giải ⇒ Minor `Visual.Resolution`, bỏ qua so sánh). GPU khác
+cũng cho pixel khác nhẹ ⇒ cùng loại máy cho cùng bộ baseline.
 
 **Cập nhật baseline**: chạy suite → mở report, xem ảnh diff từng màn → nếu thay đổi là **cố ý** (UI mới) bấm
 **Chấp nhận ảnh hiện tại làm baseline** (trong cửa sổ Auto Test, ở từng case của suite Visual) → commit thư mục baseline cùng commit đổi UI. Nếu thay đổi
@@ -326,10 +331,20 @@ Mỗi dòng một issue với các cột chính: fingerprint, severity, nhóm, t
 actual, các bước tái hiện, ảnh, suite, case, cờ mới. Lọc cột "mới" để chỉ log bug chưa từng thấy; dùng
 fingerprint làm khoá để không log trùng.
 
-### Trạng thái trong report.json
+### report.json (schema 0.2)
 
-`status` theo enum `TestStatus` và `severity` theo enum `Severity` (xem § 3–4). Trường `summary` chứa các con số
-tổng + `healthScore`; `diff` chứa kết quả so sánh với lượt trước.
+Từ 0.2.0 `report.json` viết cho tool bên ngoài đọc thẳng (qadevice.py của skill `/auto-test-device`, CI,
+dashboard), không cần biết số enum C#:
+
+- `status` (case / suite / bước) là **chuỗi** `Pending | Running | Passed | Warning | Failed | Error | Skipped |
+  Cancelled`; `severity` là `Blocker | Critical | Major | Minor | Info`; `mode` của suite là `Edit | Play | Device`.
+- `issues[]` ở gốc: danh sách phẳng mọi issue `{id, suite, case, group, severity, title, message, location,
+  objectPath, screen, screenshot, isNew}` — `screen` = tên feature khi case là `screen-<Feature>`, rỗng nếu không.
+- `summary` giữ các số case như cũ (`total`, `passed`, …, `healthScore`) và thêm `issuesTotal`, `bySeverity{}`,
+  `bySuite{}` (đếm issue).
+- `generatedAt` (ISO 8601) và `version` (phiên bản package).
+- Phần còn lại (`suites[].cases[]`, `env`, `diff`) y hệt 0.1 — chỉ **thêm** field, không xoá. Report 0.1 (enum số)
+  vẫn đọc lại được; trong Editor dùng `AutoTestReportJson.Deserialize` thay vì `JsonUtility.FromJson`.
 
 ---
 
@@ -526,6 +541,29 @@ Mỗi `codeRules` có: `id`, `pattern` (regex tìm), `excludePattern` (regex tr�
 | `pixelTolerance` | `16` | Sai khác mỗi kênh màu (0–255) dưới ngưỡng coi như giống. |
 | `maxDiffPercent` | `1.5` | % pixel khác vượt ngưỡng ⇒ lỗi. |
 | `maskObjectPatterns` | `time, timer, countdown, clock, fps` | Regex tên object bị ẩn trước khi chụp. |
+
+### Liveness — feature còn dùng hay đã chết (`liveness`)
+
+Repo kế thừa từ project cũ hay còn nguyên enum màn hình + prefab + asset không ai mở tới; không lọc thì Smoke /
+UI Audit / Button Sweep / Visual báo Critical cho thứ game không dùng. Feature **chết** khi: khớp
+`deadFeaturePatterns`, nằm trong `forceDead`, hoặc (không trong `forceLive` / `observedLive` **và** quét tĩnh không
+thấy tham chiếu nào: code `Features.X` ngoài `codeRefExcludeFiles`, giá trị enum ở field YAML prefab/scene/asset khớp
+`serializedKeyPattern` ngoài prefab màn của chính nó, chuỗi `"X"` trong code). Nghi ngờ ⇒ sống. Kết quả quét được
+cache theo hash project ở `Library/EzgAutoTest/liveness-cache.json`; luật tĩnh `Feature.Dead` liệt kê kèm lý do.
+Khối này được tool QA (`qadevice.py profile sync`) ghi từ `.claude/project-profile.json["qa"].liveness` — `observedLive`
+là màn tool đã thấy mở thật trên máy.
+
+| Field | Mặc định | Ý nghĩa |
+|-------|----------|---------|
+| `enabled` | `true` | Tắt ⇒ chỉ còn `smoke.excludedFeatures` như 0.1. |
+| `deadFeaturePatterns` | `_Retired$` | Regex tên feature coi là chết luôn. |
+| `forceLive` | `[]` | Luôn sống (thắng mọi luật). |
+| `forceDead` | `[]` | Luôn chết. |
+| `observedLive` | `[]` | Màn tool QA đã quan sát mở — sống dù quét tĩnh không thấy. |
+| `codeRefExcludeFiles` | `AssetBundleName.cs, AssetRefs.cs` | File .cs không tính là tham chiếu (map bundle, bảng tra). |
+| `serializedKeyPattern` | `(?i)featu\|screen\|popup` | Field YAML có thể chứa giá trị enum feature. |
+| `serializedKeyIgnorePattern` | `(?i)^(is\|has\|use\|enable\|show\|should\|can\|m_)` | Field bỏ qua dù khớp (bool/int nội bộ). |
+| `countStringLiterals` | `true` | `"TênFeature"` trong code (Enum.Parse, event "Open"+tên) cũng tính. |
 
 ### Device (`device`)
 

@@ -113,6 +113,9 @@ namespace Ezg.AutoTest.Editor
 
             options ??= new AutoTestRunOptions();
             var config = AutoTestSettings.Snapshot();
+            // Quét liveness một lần cho cả lượt (bản snapshot — không ghi vào ProjectSettings) để Smoke / UI Audit /
+            // Button Sweep / Visual bỏ qua feature chết và config bake lên device cũng mang kết quả này.
+            FeatureLivenessScanner.EnsureResolved(config);
             var all = AutoTestRegistry.CreateSuites();
             var wanted = new HashSet<string>(suiteIds ?? all.Select(s => s.Id), StringComparer.OrdinalIgnoreCase);
             var suites = all.Where(s => wanted.Contains(s.Id)).ToList();
@@ -847,6 +850,7 @@ namespace Ezg.AutoTest.Editor
 
         static int EstimateCases(List<AutoTestSuite> suites, AutoTestConfig config)
         {
+            config = ResolvedListingConfig(config);
             var adapter = AutoTestRegistry.CreateAdapter(config);
             var total = 0;
             foreach (var s in suites)
@@ -881,6 +885,7 @@ namespace Ezg.AutoTest.Editor
         {
             try
             {
+                config = ResolvedListingConfig(config);
                 return suite.BuildCases(new AutoTestBuildContext
                     { Config = config, Game = AutoTestRegistry.CreateAdapter(config), ForListing = true }).ToList();
             }
@@ -888,6 +893,19 @@ namespace Ezg.AutoTest.Editor
             {
                 return Array.Empty<AutoTestCase>();
             }
+        }
+
+        /// <summary>
+        ///     Config dùng để liệt kê case: đã quét liveness (cache + memo nên rẻ) trên BẢN SAO — không đụng object
+        ///     Settings đang mở để resolvedDead không bao giờ bị ghi vào ProjectSettings/EZGAutoTestSettings.json.
+        /// </summary>
+        static AutoTestConfig ResolvedListingConfig(AutoTestConfig config)
+        {
+            if (config?.liveness == null || !config.liveness.enabled) return config;
+            if (!string.IsNullOrEmpty(config.liveness.resolvedSource)) return config;
+            var copy = JsonUtility.FromJson<AutoTestConfig>(JsonUtility.ToJson(config));
+            FeatureLivenessScanner.EnsureResolved(copy);
+            return copy;
         }
 
         static TestCaseResult ErrorCase(AutoTestSuite suite, string id, string name, Exception e)
