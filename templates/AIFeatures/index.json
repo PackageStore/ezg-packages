@@ -721,8 +721,8 @@
       "source": "defaultsetup",
       "fileName": "mcp.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/mcp.json.zip",
-      "sha256": "e41e7fa763c89d0c1a5abdfadf02b6e5ef00845504b358b46601264ca2cc6d46",
-      "size": 378
+      "sha256": "acbaf19f77565db9fa7aca046e48652e63853df9ad46f9cd61ecfdad91b38451",
+      "size": 445
     },
     {
       "id": "Config/CLAUDE.md",
@@ -2247,7 +2247,7 @@
       "id": "Skills/auto-test-device",
       "name": "auto-test-device",
       "category": "Skills",
-      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json[\"qa\"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe. Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
+      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json[\"qa\"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Máy mới / project mới chỉ cần gõ MỘT câu: `doctor` + STEP 0 tự lo hết — kiểm và cập nhật item Feature Hub liên quan (skill này, probe, autotest, cheat-gate, buglogger) qua MCP ezg, BugHub chưa cài thì tự chạy /bughub-setup trong phiên (chỉ hỏi ID forum Discord khi project chưa đăng ký), hook thử lại lỗi API tự cài, probe tự thêm vào manifest, cài app, mở game; bản release có com.ezg.cheat-gate mà máy chưa trong danh sách máy test thì tự thêm bằng test_device_add (tài khoản Lead/QA). Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. \"Toàn bộ game\" → `plan` chia theo bucket/feature xếp theo rủi ro, mỗi nhóm một charter, làm lần lượt. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", \"chạy auto test <device id>\", \"chạy auto test full game\", \"auto test toàn bộ game\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → tự chạy /bughub-setup, không dừng. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
       "installPath": ".claude/skills/auto-test-device",
       "isDirectory": true,
       "files": [
@@ -2266,8 +2266,8 @@
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "b6b9267ade7c2651f18aef06a55b7b1b71bf6580a41a1e1166c48a0d1a681b93",
-      "size": 167198
+      "sha256": "a7cd7c3663cfa7edb5de029d509d77c4639ae2387b07d00c09d5bd178846cfd0",
+      "size": 178564
     },
     {
       "id": "Skills/backend-communication",
