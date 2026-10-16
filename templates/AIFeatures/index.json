@@ -24,7 +24,7 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 16
+      "count": 17
     },
     {
       "id": "Rules",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "7c2a65d945fb193924fbf71ee1fbf7f895435a84afc9c6cbdd34b9e1d7a94b6b",
-      "size": 7944
+      "sha256": "709f4098c0f43329cbf0731cc37e0109f6fb3858b5504f4ba41e3f65d00d5d0a",
+      "size": 8077
     },
     {
       "id": "Config/project-profile.json",
@@ -982,6 +982,24 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip",
       "sha256": "ac31d04b7ad78c2e59ebd3602003081fbd1f1b6c8c0aaccc21ea056d1cd6db46",
       "size": 20743
+    },
+    {
+      "id": "Docs/QaProfile.template",
+      "name": "QaProfile.template",
+      "category": "Docs",
+      "description": "Khung hồ sơ QA của game (quy ước type/màn/cheat, màn sống/chết, cheat + state path đã kiểm, luật bỏ nhiễu, ma trận môi trường) mà skill /auto-test-device đọc cùng .claude/project-profile.json[\"qa\"]. bootstrap copy thành .claude/docs/QaProfile.md của project rồi `qadevice.py profile init` tự dò điền — file đó (+ .claude/docs/qa/charters/) project tự duyệt và commit, Feature Hub không bao giờ ghi đè. Cài kèm Skills/auto-test-device + Scripts/project_profile.py.",
+      "installPath": ".claude/docs/QaProfile.template.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/QaProfile.template.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "QaProfile.template.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/QaProfile.template.zip",
+      "sha256": "b9aee96b68997a2bb2c30b65ece36b9c5c074c332cf852c65ce023b2d159c07d",
+      "size": 3342
     },
     {
       "id": "Docs/run-backlog-flow.html",
@@ -1358,8 +1376,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
-      "sha256": "accedaf3a0c595dc4b9f06ed4427e4ece1c33b97c54d39693c2ec8f73cf01ef7",
-      "size": 4315
+      "sha256": "631bec19d6693cfaa7b08ac8b13f4be9b16247bb634d98147ba19b512854b8ea",
+      "size": 4736
     },
     {
       "id": "Scripts/bootstrap.sh",
@@ -1376,8 +1394,8 @@
       "source": "defaultsetup",
       "fileName": "bootstrap.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
-      "sha256": "fa7d41950c6324b81ca499468389eaf832ab6c0dd1a4548056143d160784743d",
-      "size": 3787
+      "sha256": "679dccc24308099bb09d61b8b18e38e4635095c3834034c7ccb3ea8d682d5fce",
+      "size": 4147
     },
     {
       "id": "Scripts/bughub-wait.ps1",
@@ -1646,8 +1664,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "34b9116a3385e77e94e915d7ebff9a085342686047f9a3d36dba31c6ad53860e",
-      "size": 5407
+      "sha256": "1f6c07464872173f1b1e85d5ffcb5f12345f3d21b4415ef9e57343cd2a12956b",
+      "size": 7043
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1954,19 +1972,20 @@
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_discord_notify.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
+        ".claude/scripts/tests/test_project_profile.py",
         ".claude/scripts/tests/test_run_backlog_refs.py",
         ".claude/scripts/tests/test_ui_kit_sync.py",
         ".claude/scripts/tests/test_ui_layout_lock.py",
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 14,
+      "fileCount": 15,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "46b6bd281c468881f250c929ddfb38d2f494a6221b5166d6c38ae6ea8b5ed8dd",
-      "size": 78546
+      "sha256": "d1376a593d0d5f87d88bf3b320a694cdf140d68a2430bbbb53900c459181815c",
+      "size": 80947
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2228,22 +2247,27 @@
       "id": "Skills/auto-test-device",
       "name": "auto-test-device",
       "category": "Skills",
-      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe, không cần tap. Quy trình - kiểm BugHub đã setup → mở phiên trên máy → lập test charter từ GDD/TechSpec/code/CSV → chơi theo ca (happy path, biên, sai luồng, gián đoạn back/nền/kill/mất mạng/spam tap, lưu trữ sau restart) → soi từng màn theo checklist visual + audit tự động (tràn chữ, thiếu glyph, key localize lộ, nút bị che, màn đen/shader hồng) → đối chiếu số liệu với config → bắt crash/ANR/exception từ log → log bug → report. Lỗi không làm dừng task: lỗi API của Claude (org tắt quyền, rate limit, overloaded…) tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry` mỗi 30s. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
+      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json[\"qa\"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Một lệnh `start` lo hết preflight (BugHub, probe, cài app, mở game); bản release có com.ezg.cheat-gate thì máy nằm trong danh sách máy test tự mở cheat + probe. Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → dừng, trỏ /bughub-setup. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
       "installPath": ".claude/skills/auto-test-device",
       "isDirectory": true,
       "files": [
         ".claude/skills/auto-test-device/SKILL.md",
+        ".claude/skills/auto-test-device/references/charter.template.md",
+        ".claude/skills/auto-test-device/references/env-matrix.md",
+        ".claude/skills/auto-test-device/references/oracles.md",
         ".claude/skills/auto-test-device/references/qa-playbook.md",
         ".claude/skills/auto-test-device/scripts/qadevice.py",
-        ".claude/skills/auto-test-device/scripts/tests/test_qadevice.py"
+        ".claude/skills/auto-test-device/scripts/qaprofile.py",
+        ".claude/skills/auto-test-device/scripts/tests/test_qadevice.py",
+        ".claude/skills/auto-test-device/scripts/tests/test_qaprofile.py"
       ],
-      "fileCount": 4,
+      "fileCount": 9,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "6f22269af56531b846fe3da7da81824ddeafeee7bc66c11268ae61f6198fc436",
-      "size": 94258
+      "sha256": "b6b9267ade7c2651f18aef06a55b7b1b71bf6580a41a1e1166c48a0d1a681b93",
+      "size": 167198
     },
     {
       "id": "Skills/backend-communication",
