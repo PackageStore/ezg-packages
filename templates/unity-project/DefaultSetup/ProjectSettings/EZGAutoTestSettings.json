@@ -1,0 +1,15 @@
+{
+    "liveness": {
+        "enabled": true,
+        "deadFeaturePatterns": [
+            "_Retired$"
+        ],
+        "forceLive": [],
+        "forceDead": [],
+        "observedLive": []
+    },
+    "economy": {
+        "rewardSkipCurrencies": [],
+        "skipCurrencies": []
+    }
+}

@@ -49,7 +49,7 @@ try:  # Pillow là tuỳ chọn — thiếu thì vẫn chạy, chỉ mất phầ
 except Exception:  # pragma: no cover - phụ thuộc máy
     Image = None
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 PROBE_PORT = 7531
 PROBE_PORT_SPAN = 5
 PROBE_TRIGGER_FILE = "ezg_qa_probe.txt"
@@ -70,6 +70,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
 PROBE_PACKAGE = "com.ezg.qa-probe"
 PROBE_MIN_VERSION = "1.2.1"  # bản package skill này cần (đồng bộ với EzgQaProbe.VERSION)
+# Tính năng probe mới hơn PROBE_MIN_VERSION: build có probe cũ thì lệnh báo `unsupported`, không lỗi.
+PROBE_FEATURES = {"pseudoloc": "1.3.0", "flags": "1.3.0", "screenBaseTypes": "1.3.0"}
+AUTOTEST_PACKAGE = "com.ezg.autotest"
+AUTOTEST_MIN_VERSION = "0.2.0"  # bản autotest có liveness filter + report.json chuỗi — thấp hơn chỉ cảnh báo (nhiễu)
 PROBE_OVERRIDE = os.path.join("Assets", "Resources", "EzgQaProbeConfig.json")
 CAPTURE_HIDE_SECONDS = 3  # nút nổi Bug Logger ẩn tối đa chừng này quanh một lần adb/simctl chụp (probe tự hiện lại khi hết)
 LEGACY_PROBE_MARK = "FILE DO TOOL QUẢN LÝ"  # bản v1.0/1.1 chép vào Assets/EzgQaProbe/ — nay thay bằng package
@@ -90,6 +94,24 @@ RETRY_EVERY_S = 30       # `retry`: chạy lại lệnh lỗi mỗi chừng này
 RETRY_MAX_WAIT_S = 540   # `retry`: một lần gọi thử tối đa chừng này giây (vừa timeout 600 s của Bash tool)
 RETRY_PENDING_RC = 75    # `retry` hết giờ mà lệnh vẫn lỗi — gọi lại `retry`, không dừng phiên
 RETRY_FATAL_RC = (2, 4, 130)  # sai cú pháp · BugHub chưa setup · Ctrl-C: thử lại vô ích
+EXPECT_TIMEOUT_S = 6.0     # `tap --expect`: chờ kỳ vọng xuất hiện tối đa chừng này giây
+AUTO_AUDIT = True          # tự audit khi màn đổi sau thao tác (flag toàn cục --no-auto-audit tắt)
+# Cờ `flags[]` (camelCase) của probe ≥1.3 — check port từ UiAuditUtil của com.ezg.autotest: cờ → (kind, mức, thông điệp).
+# Cờ lạ (probe mới hơn skill) → kind kebab-case cùng tên, mức medium. flagDetail{cờ: chi tiết} được nối vào thông điệp.
+PROBE_FLAGS_13 = {
+    "deadButton": ("dead-button", "medium", "nút bấm được nhưng onClick rỗng và không có handler chạm (nút chết?)"),
+    "noRaycastTarget": ("no-raycast-target", "high", "phần tử tương tác không có Graphic nào bật Raycast Target — không bấm được"),
+    "overlapButton": ("overlap-button", "medium", "hai nút cùng cha chồng lên nhau >50% — bấm trúng nút khác"),
+    "missingSprite": ("sprite-missing-colored", "low", "Image không có sprite, đang hiện khối màu (thiếu art hay cố ý?)"),
+    "solidBackground": ("solid-background", "info", "Image không sprite phủ ≥50% màn (nền trơn/backdrop)"),
+}
+# Cờ probe 1.2.1 đã có nhánh xử lý riêng trong audit_elements (không map qua PROBE_FLAGS_13).
+PROBE_FLAG_ALIASES = {"overflow", "truncated", "missingGlyph", "noSprite", "missingMaterial", "outsideContainer", "interactable"}
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import qaprofile  # noqa: E402  — phần thuần của hồ sơ QA (schema qa, tự dò quy ước, charter, coverage, CSV, autotest)
+
+QA_DEFAULTS = qaprofile.QA_DEFAULTS
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -1306,6 +1328,92 @@ class Android(Device):
             self.sh("svc power stayon %s" % ("true" if on else "false"), timeout=10)
         return prev
 
+    # ── môi trường (ma trận env / aspect) — mỗi hàm trả giá trị TRƯỚC để close_session hoàn nguyên ──
+    def _setting(self, ns, key, value=None):
+        rc, out, _ = self.sh("settings get %s %s" % (ns, key), timeout=10)
+        prev = out.strip()
+        if value is not None:
+            rc, out, err = self.sh("settings put %s %s %s" % (ns, key, value), timeout=10)
+            if rc != 0 or "Exception" in out + err:
+                raise NotSupported("settings put %s %s lỗi: %s" % (ns, key, (err or out).strip()[:120]))
+        return prev if prev not in ("null", "") else None
+
+    def font_scale(self, value):
+        """value: số (1.0 = mặc định, 1.3 = Lớn) hoặc None để đọc. Trả giá trị trước."""
+        return self._setting("system", "font_scale", None if value is None else ("%.2f" % float(value)).rstrip("0").rstrip("."))
+
+    def dark_mode(self, on):
+        rc, out, _ = self.sh("cmd uimode night", timeout=10)
+        prev = "yes" if "yes" in out.lower() else "no"
+        rc, out, err = self.sh("cmd uimode night %s" % ("yes" if on else "no"), timeout=15)
+        if rc != 0 or "Error" in out + err or "unknown command" in (out + err).lower():
+            raise NotSupported("máy không hỗ trợ `cmd uimode night` (Android < 10)")
+        return prev
+
+    def animator_scale(self, value):
+        prev = self._setting("global", "animator_duration_scale")
+        for key in ("animator_duration_scale", "transition_animation_scale", "window_animation_scale"):
+            self._setting("global", key, str(value))
+        return prev
+
+    def always_finish(self, on):
+        return self._setting("global", "always_finish_activities", "1" if on else "0")
+
+    def trim_memory(self, pkg, level="RUNNING_CRITICAL"):
+        rc, out, err = self.sh("am send-trim-memory %s %s" % (pkg, level), timeout=15)
+        if rc != 0 or "Error" in out + err or "Unknown" in out + err:
+            raise NotSupported("am send-trim-memory lỗi: %s" % (err or out).strip()[:120])
+        return level
+
+    def wm_size(self, spec):
+        """spec 'WxH' | 'reset'. Trả 'Override size' trước (None = chưa override)."""
+        rc, out, _ = self.sh("wm size", timeout=10)
+        m = re.search(r"Override size:\s*(\d+x\d+)", out)
+        prev = m.group(1) if m else None
+        rc, out, err = self.sh("wm size %s" % spec, timeout=15)
+        if rc != 0 or "Error" in out + err or "Exception" in out + err:
+            raise NotSupported("wm size %s lỗi: %s" % (spec, (err or out).strip()[:120]))
+        return prev
+
+    def wm_density(self, spec):
+        rc, out, _ = self.sh("wm density", timeout=10)
+        m = re.search(r"Override density:\s*(\d+)", out)
+        prev = m.group(1) if m else None
+        self.sh("wm density %s" % spec, timeout=15)
+        return prev
+
+    def set_clock(self, delta_s):
+        """Dời đồng hồ máy (emulator/máy root): tắt auto_time rồi `date -s`. delta_s=None → bật lại auto_time."""
+        if delta_s is None:
+            self._setting("global", "auto_time", "1")
+            self.sh("su 0 cmd alarm set-time $(( $(date +%s) * 1000 )) 2>/dev/null; true", timeout=10)
+            return "auto"
+        self._setting("global", "auto_time", "0")
+        rc, out, _ = self.sh("date +%s", timeout=10)
+        try:
+            now = int(out.strip())
+        except ValueError:
+            raise NotSupported("không đọc được giờ máy")
+        target = now + int(delta_s)
+        for cmd in ("su 0 date -s @%d" % target, "date -s @%d" % target,
+                    "su 0 date %s" % dt.datetime.fromtimestamp(target).strftime("%m%d%H%M%Y.%S"),
+                    "date %s" % dt.datetime.fromtimestamp(target).strftime("%m%d%H%M%Y.%S")):
+            rc, out, err = self.sh(cmd, timeout=10)
+            if rc == 0 and "denied" not in (out + err).lower() and "not found" not in (out + err).lower() and "cannot" not in (out + err).lower():
+                return "%+ds" % int(delta_s)
+        raise NotSupported("không đổi được giờ máy (cần emulator hoặc máy root) — thay bằng cheat tua thời gian của game")
+
+    def set_locale(self, tag):
+        """Đổi ngôn ngữ hệ thống: emulator/root (persist.sys.locale + khởi động lại framework ~20 s). Trả locale trước."""
+        prev = self.getprop("persist.sys.locale") or self.getprop("ro.product.locale") or ""
+        rc, out, err = self.sh("su 0 setprop persist.sys.locale %s || setprop persist.sys.locale %s" % (tag, tag), timeout=10)
+        if rc != 0 or "denied" in (out + err).lower():
+            raise NotSupported("không đổi được locale (cần emulator/root) — đổi tay trong Settings máy")
+        self.sh("su 0 sh -c 'stop; start' || (stop; start)", timeout=20)
+        time.sleep(15)
+        self.adb("wait-for-device", timeout=60)
+        return prev
+
     def build_info_from_apk(self, pkg):
         """Đọc StreamingAssets/BugLogger/buglogger_build.json trong APK (commit/branch bake lúc build)."""
         rc, out, _ = self.sh("pm path %s" % pkg, timeout=15)
@@ -1484,6 +1592,30 @@ class IosSim(Device):
             return None
         return ["xcrun", "simctl", "spawn", self.id, "log", "stream", "--style", "compact", "--level", "debug",
                 "--predicate", 'process == "%s"' % exe]
+
+    # ── môi trường: Simulator chỉ đổi được giao diện tối/sáng + cỡ chữ (Dynamic Type) ──
+    IOS_CONTENT_SIZE = {1.0: "medium", 1.15: "large", 1.3: "extra-large", 1.5: "extra-extra-large", 1.7: "extra-extra-extra-large",
+                        2.0: "accessibility-medium"}
+
+    def dark_mode(self, on):
+        rc, out, _ = self.simctl("ui", self.id, "appearance", timeout=10)
+        prev = out.strip() or "light"
+        rc, out, err = self.simctl("ui", self.id, "appearance", "dark" if on else "light", timeout=10)
+        if rc != 0:
+            raise NotSupported("simctl ui appearance lỗi: %s" % (err or out).strip()[:120])
+        return prev
+
+    def font_scale(self, value):
+        rc, out, _ = self.simctl("ui", self.id, "content_size", timeout=10)
+        prev = out.strip() or "medium"
+        if value is None:
+            return prev
+        v = float(value)
+        name = min(self.IOS_CONTENT_SIZE.items(), key=lambda kv: abs(kv[0] - v))[1] if v != 1.0 else "medium"
+        rc, out, err = self.simctl("ui", self.id, "content_size", name, timeout=10)
+        if rc != 0:
+            raise NotSupported("simctl ui content_size lỗi (cần Xcode ≥ 15): %s" % (err or out).strip()[:120])
+        return prev
 
 
 class IosDevice(Device):
@@ -2116,6 +2248,7 @@ def probe_ui(sess, dev, include_all=False):
     pr = need_probe(dev, "Đọc cây UI")
     j = pr.get("/ui", all=1 if include_all else 0, timeout=20)
     sess.d.setdefault("probe", {}).update({"screen_w": j.get("screen", {}).get("w"), "screen_h": j.get("screen", {}).get("h")})
+    sess.d["screens"] = {"scene": j.get("scene"), "stack": list(j.get("screens") or []), "at": now_iso()}
     sx, sy = unity_scale(sess)
     els = j.get("elements", [])
     for e in els:
@@ -2163,6 +2296,7 @@ def draw_ui_marks(sess, dev, view, base, findings=None, ui=None):
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,}$")
 UKEY_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,}$")
+HASHKEY_RE = re.compile(r"^#[A-Za-z_][\w.]*$")  # key localize lộ dạng #shop_title
 PLACEHOLDER_RE = re.compile(r"^(new text|text|button|label|textmeshpro|text \(tmp\)|lorem.*|placeholder|todo|tbd|xxx+|\?\?+|-|abc|test)$", re.I)
 BAD_VALUE_RE = re.compile(r"\b(NaN|Infinity|-Infinity|null|undefined)\b|System\.\w+|UnityEngine\.\w+|\{\d\}|%[sd]\b|<color=[^>]*>[^<]*$")
 
@@ -2177,7 +2311,7 @@ def audit_text(text):
         return ("high", "chữ chứa giá trị lỗi/format chưa thay (%s)" % clip(plain, 60))
     if PLACEHOLDER_RE.match(plain):
         return ("medium", "chữ placeholder chưa thay: \"%s\"" % clip(plain, 40))
-    if len(plain) >= 5 and " " not in plain and (KEY_RE.match(plain) or UKEY_RE.match(plain)):
+    if len(plain) >= 5 and " " not in plain and (KEY_RE.match(plain) or UKEY_RE.match(plain) or HASHKEY_RE.match(plain)):
         return ("medium", "có vẻ lộ KEY localize thay vì chữ đã dịch: \"%s\"" % clip(plain, 50))
     return None
 
@@ -2192,8 +2326,42 @@ def _is_ancestor(p, q):
     return bool(p and q) and (q.startswith(p + "/") or p.startswith(q + "/"))
 
 
-def audit_elements(ui):
-    """Audit visual trên dữ liệu probe → findings [{id, severity, kind, msg}]."""
+def noise_match(rule, finding, screens=()):
+    """Luật nhiễu qa.noise khớp finding? flag bằng tên (hoặc '*'); match = regex trên path hoặc 'screen:<tên>'."""
+    flag = rule.get("flag") or "*"
+    if flag not in ("*", finding.get("kind")):
+        return False
+    m = rule.get("match") or ""
+    if not m:
+        return True
+    if m.startswith("screen:"):
+        want = m[len("screen:"):].strip().lower()
+        return any(want and want in (s or "").lower() for s in screens)
+    try:
+        return bool(re.search(m, finding.get("path") or "", re.I)) or bool(re.search(m, finding.get("text") or "", re.I))
+    except re.error:
+        return False
+
+
+def apply_noise(findings, noise, screens=()):
+    """Đánh dấu finding khớp luật nhiễu: thêm "suppressed": "<lý do>" (giữ trong file, không in mặc định)."""
+    for f in findings:
+        for r in noise or []:
+            if noise_match(r, f, screens):
+                f["suppressed"] = r.get("reason") or r.get("match") or r.get("flag") or "noise"
+                break
+    return findings
+
+
+def _flag_kind(flag):
+    """Cờ của probe ≥1.3 (kebab-case hoặc camelCase) → tên finding kebab-case."""
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "-", flag or "").lower()
+    return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+
+
+def audit_elements(ui, noise=None):
+    """Audit visual trên dữ liệu probe → findings [{id, severity, kind, msg, path, text[, detail][, suppressed]}].
+    noise: qa.noise của project — finding khớp được gắn `suppressed` (vẫn trả về để report đếm)."""
     els = ui.get("elements", [])
     scr = ui.get("screen", {})
     sw, sh = scr.get("w", 0), scr.get("h", 0)
@@ -2201,13 +2369,24 @@ def audit_elements(ui):
     dpi = scr.get("dpi") or 0
     out = []
 
-    def add(e, sev, kind, msg):
-        out.append({"id": e["id"], "severity": sev, "kind": kind, "msg": msg, "path": e.get("path", ""), "text": e.get("text", "")})
+    def add(e, sev, kind, msg, detail=None):
+        f = {"id": e["id"], "severity": sev, "kind": kind, "msg": msg, "path": e.get("path", ""), "text": e.get("text", "")}
+        if detail:
+            f["detail"] = detail
+        out.append(f)
 
     texts = []
     for e in els:
         flags = e.get("flags", [])
         r = e.get("rect", [0, 0, 0, 0])
+        # Cờ mới của probe ≥1.3 (check port từ UiAuditUtil của com.ezg.autotest): mỗi cờ = một finding.
+        details = e.get("flagDetail") or {}
+        for fl in flags:
+            if fl in PROBE_FLAG_ALIASES:
+                continue
+            kind, sev, msg = PROBE_FLAGS_13.get(fl) or (_flag_kind(fl), "medium", "probe báo cờ %s" % fl)
+            det = details.get(fl) or ""
+            add(e, sev, kind, (msg + (" — " + det if det else "")), det or None)
         if "overflow" in flags or "truncated" in flags:
             add(e, "medium", "text-overflow", "chữ bị tràn/cắt khỏi khung: \"%s\"" % clip(e.get("text", ""), 50))
         if "missingGlyph" in flags:
@@ -2250,7 +2429,7 @@ def audit_elements(ui):
                 add(a, "medium", "text-overlap", "chữ chồng lên chữ khác [%d] \"%s\"" % (b["id"], clip(b.get("text", ""), 30)))
     order = {s: i for i, s in enumerate(("critical", "high", "medium", "low", "info"))}
     out.sort(key=lambda f: order.get(f["severity"], 9))
-    return out
+    return apply_noise(out, noise, ui.get("screens") or []) if noise else out
 
 
 def find_element(sess, dev, ref=None, text=None, name=None):
@@ -2283,6 +2462,111 @@ def find_element(sess, dev, ref=None, text=None, name=None):
         raise QaError("không tìm thấy phần tử %s trên màn hiện tại" % ("text=%r" % text if text is not None else "name=%r" % name))
     cands.sort(key=lambda c: c[0])
     return cands[0][1]
+
+
+# ───────────────────────────────────────────────────────────── hồ sơ QA theo project (qa trong project-profile.json)
+
+_QA_CACHE = {}
+
+
+def qa_profile(root=None, refresh=False):
+    """Block `qa` đã merge (QA_DEFAULTS ← template ← project). Cache theo process."""
+    root = root or repo_root()
+    if refresh or root not in _QA_CACHE:
+        _QA_CACHE[root] = qaprofile.load_qa_profile(root)
+    return _QA_CACHE[root]
+
+
+def qa_path(root, key):
+    return os.path.join(root, (qa_profile(root).get("paths") or {}).get(key) or QA_DEFAULTS["paths"][key])
+
+
+def probe_supports(sess, feature):
+    """Probe trong build có tính năng `feature` (PROBE_FEATURES) không — theo version /ping đã lưu."""
+    v = (sess.d.get("probe") or {}).get("version") or ""
+    need = PROBE_FEATURES.get(feature)
+    return bool(need) and _is_semver(v) and _ver(v) >= _ver(need)
+
+
+def unsupported_probe(sess, feature):
+    v = (sess.d.get("probe") or {}).get("version") or "?"
+    return "unsupported (probe v%s < %s — build lại với %s ≥ %s để có `%s`)" % (v, PROBE_FEATURES.get(feature), PROBE_PACKAGE,
+                                                                          PROBE_FEATURES.get(feature), feature)
+
+
+def screens_key(j):
+    return "%s|%s" % (j.get("scene") or "", ">".join(j.get("screens") or []))
+
+
+def record_observed(sess, j, names=None):
+    """Màn đang mở (tên GameObject từ probe) → ghi vào sess.d["observed"] theo tên Feature khớp (hoặc tên thô)."""
+    obs = sess.d.setdefault("observed", {})
+    if names is None:
+        names = sess.d.get("feature_names")
+        if names is None:
+            names, _ = qaprofile.feature_names(repo_root(), qa_profile())
+            sess.d["feature_names"] = names
+    for s in j.get("screens") or []:
+        key = qaprofile.match_feature(s, names or []) or re.sub(r"\(Clone\)$", "", s)
+        obs.setdefault(key, qaprofile.today())
+    return obs
+
+
+def run_audit(sess, dev, label="audit", view=None, show_all=False, include_suppressed=False, quiet=False, tag=None):
+    """Chụp (nếu chưa) + /ui đầy đủ + audit_elements với luật nhiễu của project. Ghi audit-<tag>.json. Trả (findings, j)."""
+    v = view or observe(sess, dev, label, logs=True)
+    j = probe_ui(sess, dev, include_all=True)
+    record_observed(sess, j)
+    findings = audit_elements(j, noise=qa_profile().get("noise"))
+    shown = [f for f in findings if (show_all or f["severity"] != "info") and (include_suppressed or not f.get("suppressed"))]
+    sup = sum(1 for f in findings if f.get("suppressed"))
+    if not quiet:
+        print("AUDIT màn %s: %d phát hiện (%d info ẩn — `--all` để xem%s)" % (
+            " > ".join(j.get("screens", [])) or j.get("scene"), len(shown), sum(1 for f in findings if f["severity"] == "info" and not f.get("suppressed")),
+            (" · %d bị luật nhiễu của project ẩn — `--include-suppressed`" % sup) if sup and not include_suppressed else ""))
+        for f in shown:
+            print("  [%s] [%d] %s — %s (%s)%s" % (f["severity"], f["id"], f["kind"], f["msg"], clip(f["path"], 70),
+                                               (" ⟂ nhiễu: %s" % f["suppressed"]) if f.get("suppressed") else ""))
+    if shown and Image is not None and not quiet:
+        out = draw_ui_marks(sess, dev, v["path"], "%03d" % v["n"], findings=shown, ui=j)
+        if out:
+            print("ảnh khoanh lỗi: %s" % out)
+    write_json(sess.path("audit-%s.json" % (tag or "%03d" % v["n"])), {"screens": j.get("screens"), "scene": j.get("scene"),
+                                                                     "shot": v["n"], "findings": findings})
+    sess.save()
+    return findings, j
+
+
+def maybe_auto_audit(sess, dev, label=""):
+    """Sau thao tác: màn đổi (so stack màn từ /ui) → audit tự động, ghi audit-auto-<n>.json + một bước. Không có probe → bỏ qua."""
+    if not AUTO_AUDIT or not dev.probe or not (sess.d.get("probe") or {}).get("ok"):
+        return None
+    try:
+        j = probe_ui(sess, dev, include_all=False)
+    except QaError:
+        return None
+    key = screens_key(j)
+    record_observed(sess, j)
+    if key == sess.d.get("screens_key"):
+        sess.save()
+        return None
+    sess.d["screens_key"] = key
+    n = sess.d.get("auto_audit_n", 0) + 1
+    sess.d["auto_audit_n"] = n
+    try:
+        findings, j2 = run_audit(sess, dev, view=sess.d.get("view"), quiet=True, tag="auto-%03d" % n)
+    except QaError as e:
+        sess.save()
+        print("  auto-audit bỏ qua: %s" % e)
+        return None
+    real = [f for f in findings if f["severity"] != "info" and not f.get("suppressed")]
+    sup = sum(1 for f in findings if f.get("suppressed"))
+    sess.step("auto-audit", "", screens=j2.get("screens"), findings=len(real), suppressed=sup or None, file="audit-auto-%03d.json" % n)
+    worst = real[0] if real else None
+    print("  ⚑ audit tự động #%d: %d phát hiện (%d suppressed) · màn %s%s · audit-auto-%03d.json" % (
+        n, len(real), sup, " > ".join(j2.get("screens") or []) or j2.get("scene"),
+        (" · nặng nhất [%s] %s" % (worst["severity"], worst["kind"])) if worst else "", n))
+    return findings
 
 
 # ───────────────────────────────────────────────────────────── BugHub
@@ -2749,6 +3033,20 @@ def cmd_start(a):
         print("→ chạy /bughub-setup cho project này rồi thử lại.")
         sys.exit(4)
     notes = [n for n in (ensure_pillow(),) if n]
+    # Hồ sơ QA của project: chưa có block qa → tự dò quy ước (profile init) để lệnh ui/state/cheat/coverage có quy ước đúng.
+    qa_line = ""
+    try:
+        qa0, prov0 = qaprofile.load_qa_profile(root, with_provenance=True)
+        if prov0.get("_block") == "missing" and not a.no_profile_init:
+            _, det0, _ = profile_init(root)
+            qa0 = qa_profile(root, refresh=True)
+            notes.append("chưa có hồ sơ QA → đã `profile init` (status draft): quy ước tự dò ghi vào %s + QaProfile.md — dev đọc lại rồi đổi `reviewed`" % qaprofile.PROFILE_REL)
+        lv0 = qa0.get("liveness") or {}
+        qa_line = "status %s · enum %s · %d màn đã quan sát · %d luật nhiễu%s" % (
+            qa0.get("status"), (qa0.get("conventions") or {}).get("featuresEnum"), len(lv0.get("observed") or {}), len(qa0.get("noise") or []),
+            " · doc: %s" % os.path.relpath(qa_path(root, "profileDoc"), root) if os.path.isfile(qa_path(root, "profileDoc")) else " · CHƯA CÓ QaProfile.md")
+    except Exception as e:  # hồ sơ hỏng không được chặn phiên test
+        qa_line = "lỗi đọc hồ sơ QA: %s" % e
     if a.probe != "off" and not a.no_probe_install:
         try:
             notes.extend(ensure_probe_in_project(root))
@@ -2855,6 +3153,7 @@ def cmd_start(a):
     if a.probe == "require" and not (sess.d.get("probe") or {}).get("ok"):
         raise QaError("--probe require nhưng không nối được probe (xem dòng probe ở trên)")
     print("bughub: %s" % ("OK (%s)" % bh["code"] if bh["ok"] else "CHƯA SẴN SÀNG — " + "; ".join(bh["problems"])))
+    print("hồ sơ QA: %s" % qa_line)
     print("thử lại lỗi API: %s" % describe_api_retry(sess.d.get("api_retry")))
     for n in notes:
         print("ghi chú: " + n)
@@ -3126,14 +3425,83 @@ def after_action(a, sess, dev, label):
     if getattr(a, "no_shot", False):
         fresh, rep = check_logs(sess, dev)
         print_issues(fresh, rep)
+        maybe_auto_audit(sess, dev, label)
         return
     time.sleep(max(0.0, getattr(a, "wait", 0.8)))
     observe(sess, dev, label, grid=getattr(a, "grid", False), marks=getattr(a, "marks", False), after_action=True)
+    maybe_auto_audit(sess, dev, label)
+
+
+def parse_expect(spec):
+    """'text:Nhận' | '@12' | 'screen:Shop' | 'Nhận' (mặc định text) → (kiểu, giá trị)."""
+    s = (spec or "").strip()
+    if s.startswith("@") and s[1:].isdigit():
+        return "id", int(s[1:])
+    for k in ("text", "screen", "name"):
+        if s.lower().startswith(k + ":"):
+            return k, s[len(k) + 1:].strip()
+    return "text", s
+
+
+def expect_met(j, kind, value):
+    els = j.get("elements") or []
+    v = str(value).lower()
+    if kind == "screen":
+        return any(v in (s or "").lower() for s in j.get("screens") or []) or v in (j.get("scene") or "").lower()
+    if kind == "id":
+        return any(e.get("id") == value for e in els)
+    if kind == "name":
+        return any(v == (e.get("name") or "").lower() or (e.get("path") or "").lower().endswith("/" + v) for e in els)
+    return any(v in ((e.get("text") or "") + " " + (e.get("label") or "")).lower() for e in els)
+
+
+def expect_pre_met(a, dev):
+    """Kỳ vọng `--expect` đã đúng TRƯỚC khi thao tác chưa? (gọi trước tap/key) — None khi không có probe/không kiểm được."""
+    spec = getattr(a, "expect", None)
+    if not spec:
+        return None
+    try:
+        kind, value = parse_expect(spec)
+        return expect_met(need_probe(dev, "--expect").get("/ui", all=1, timeout=15), kind, value)
+    except Exception:
+        return None
+
+
+def check_expect(a, sess, dev, spec, pre_met=None):
+    """`--expect`: chờ kỳ vọng xuất hiện (probe) tới timeout; không thấy → ghi finding expectation-failed (KHÔNG tự tạo bug).
+    `pre_met=True` (kỳ vọng đã đúng trước thao tác, vd `screen:` của màn đang mở sẵn) → vẫn pass nhưng cảnh báo: không chứng minh phản hồi."""
+    kind, value = parse_expect(spec)
+    pr = need_probe(dev, "Kiểm kỳ vọng sau thao tác (--expect)")
+    timeout = max(0.5, float(getattr(a, "timeout", None) or EXPECT_TIMEOUT_S))
+    t0 = time.time()
+    last = None
+    while True:
+        try:
+            last = pr.get("/ui", all=1, timeout=15)
+        except QaError as e:
+            last = {"error": str(e)}
+        if expect_met(last, kind, value):
+            warn = " — ⚠ đã đúng TRƯỚC khi thao tác nên không chứng minh được phản hồi; dùng text/@id chỉ có ở màn mới" if pre_met else ""
+            print("  ✓ kỳ vọng %s:%s đã thấy sau %.1fs%s" % (kind, value, time.time() - t0, warn))
+            sess.step("check", "Kỳ vọng %s:%s — đạt%s" % (kind, value, " (đã đúng trước thao tác)" if pre_met else ""), result="pass")
+            return True
+        if time.time() - t0 >= timeout:
+            break
+        time.sleep(0.5)
+    scr = " > ".join(last.get("screens") or []) if isinstance(last, dict) else "?"
+    print("  ✗ KỲ VỌNG KHÔNG ĐẠT: %s:%s không xuất hiện sau %.0fs (màn hiện tại: %s) — xác nhận bằng ảnh rồi quyết định log bug" % (
+        kind, value, timeout, scr or last.get("scene") if isinstance(last, dict) else "?"))
+    sess.step("check", "Kỳ vọng %s:%s — KHÔNG đạt (màn: %s)" % (kind, value, scr), result="fail", kind="expectation-failed")
+    sess.d.setdefault("expect_failed", []).append({"expect": spec, "screens": last.get("screens") if isinstance(last, dict) else None,
+                                                   "step": _last_step_n(sess), "t": now_iso()})
+    sess.save()
+    return False
 
 
 def cmd_tap(a):
     sess = Session.load(a.session)
     dev = sess.device()
+    pre_met = expect_pre_met(a, dev)
     x, y, el = act_point(a, sess, dev)
     guard_overlay(a, sess, dev, [(x, y)])
     if a.times > 1 and not (a.inject or not dev.native_input) and isinstance(dev, Android):
@@ -3152,6 +3520,8 @@ def cmd_tap(a):
     print("tap%s (%d,%d) ảnh → (%d,%d) máy%s%s" % ("×%d" % a.times if a.times > 1 else "", vx, vy, x, y,
                                                (" · " + el) if el else "", (" · \"%s\"" % a.desc) if a.desc else ""))
     after_action(a, sess, dev, a.label or "tap")
+    if getattr(a, "expect", None):
+        check_expect(a, sess, dev, a.expect, pre_met=pre_met)
 
 
 def cmd_longpress(a):
@@ -3259,6 +3629,7 @@ def cmd_wait(a):
         print_issues(fresh, rep)
     else:
         observe(sess, dev, a.label or "wait")
+    maybe_auto_audit(sess, dev, "wait")
 
 
 def cmd_burst(a):
@@ -3336,6 +3707,7 @@ def cmd_app(a):
         return
     time.sleep(a.wait)
     observe(sess, dev, op)
+    maybe_auto_audit(sess, dev, op)
 
 
 def relaunch(sess, dev):
@@ -3538,18 +3910,11 @@ def cmd_audit(a):
     if not dev.probe:
         print("audit sâu (tràn chữ/thiếu glyph/nút bị che…) cần probe — chỉ có kiểm ảnh + log ở trên. Soi ảnh bằng mắt theo checklist visual.")
         return
-    j = probe_ui(sess, dev, include_all=True)
-    findings = audit_elements(j)
-    shown = [f for f in findings if a.all or f["severity"] != "info"]
-    print("AUDIT màn %s: %d phát hiện (%d info ẩn — `--all` để xem)" % (" > ".join(j.get("screens", [])) or j.get("scene"),
-                                                                       len(shown), len(findings) - len(shown)))
-    for f in shown:
-        print("  [%s] [%d] %s — %s (%s)" % (f["severity"], f["id"], f["kind"], f["msg"], clip(f["path"], 70)))
-    if shown and Image is not None:
-        out = draw_ui_marks(sess, dev, v["path"], "%03d" % v["n"], findings=shown, ui=j)
-        if out:
-            print("ảnh khoanh lỗi: %s" % out)
-    write_json(sess.path("audit-%03d.json" % v["n"]), findings)
+    findings, j = run_audit(sess, dev, view=v, show_all=a.all, include_suppressed=a.include_suppressed)
+    if not probe_supports(sess, "flags"):
+        print("  (probe v%s chưa có flags[] của 1.3 — thiếu các check port từ UiAuditUtil; build mới để đủ)" % ((sess.d.get("probe") or {}).get("version") or "?"))
+    sess.d["screens_key"] = screens_key(j)
+    sess.save()
 
 
 def cmd_state(a):
@@ -3563,8 +3928,10 @@ def cmd_state(a):
             dump[p] = j.get("value")
             if not a.out:
                 print(format_value(p, j.get("value"), full=a.full).replace(" → ", " = ", 1))
+            sess.d.setdefault("verified_state", {})[p] = qaprofile.today()  # flush vào qa.verified.statePaths lúc stop
         except ProbeError as e:
             print("%s → lỗi: %s" % (p, e))
+    sess.save()
     if a.out and dump:
         write_text(os.path.abspath(a.out), json.dumps(dump if len(a.paths) > 1 else next(iter(dump.values())),
                                                       ensure_ascii=False, indent=2))
@@ -3578,6 +3945,10 @@ def cmd_call(a):
     j = pr.post("/call", method=a.method, args=a.args)
     sess.step("call", a.desc or "", method="%s(%s)" % (a.method, ", ".join(a.args)))
     head = "%s(%s)" % (a.method, ", ".join(a.args))
+    prefix = (qa_profile().get("conventions") or {}).get("cheatMethodPrefix") or "Cheat_"
+    if a.method.split(".")[-1].startswith(prefix):
+        sess.d.setdefault("verified_cheats", {})[a.method] = qaprofile.today()  # flush vào qa.verified.cheats lúc stop
+        sess.save()
     if a.out:
         write_text(os.path.abspath(a.out), json.dumps(j.get("value"), ensure_ascii=False, indent=2))
         print("%s → đã ghi kết quả vào %s" % (head, os.path.abspath(a.out)))
@@ -3586,6 +3957,7 @@ def cmd_call(a):
     if not a.no_shot:
         time.sleep(a.wait)
         observe(sess, dev, "call")
+    maybe_auto_audit(sess, dev, "call")
 
 
 def cmd_types(a):
@@ -3635,12 +4007,34 @@ def cmd_mark(a):
 
 def cmd_note(a):
     sess = Session.load(a.session)
-    sess.step("note", a.text)
+    text = a.text or ""
+    if a.case:
+        # Ca có mã trong charter (<FEATURE>-NN): bookkeeping riêng → coverage/charter diff đọc được.
+        if not a.result:
+            raise QaError("note --case cần --result pass|fail|blocked|skip")
+        sc = qaprofile.split_case(a.case, sess.d.get("charter") or "")
+        if not sc:
+            raise QaError("--case dạng <tên-file-charter>/<P0-01> (vd offline-earning/P0-01); chỉ P0-01 khi phiên đã gắn charter (`charter new`/`charter diff --charter`)")
+        charter, cid = sc
+        if not charter:
+            raise QaError("--case %s thiếu tên charter — ghi <charter>/%s (xem `charter list`)" % (a.case, cid))
+        case = qaprofile.full_case(charter, cid)
+        rec = sess.step("note", "[%s] %s: %s" % (case, a.result, text) if text else "[%s] %s" % (case, a.result), case=case, result=a.result,
+                        bug=a.bug)
+        append_jsonl(sess.path("cases.jsonl"), {"case": case, "charter": charter, "id": cid, "result": a.result, "bug": a.bug,
+                                                "text": text, "step": rec["n"], "t": rec["t"], "mark": sess.d.get("mark", 0)})
+        sess.d["charter"] = charter
+        sess.save()
+        print("ca %s → %s%s" % (case, a.result, (" (bug #%s)" % a.bug) if a.bug else ""))
+        return
+    if not text:
+        raise QaError("note cần nội dung (hoặc --case <MÃ> --result …)")
+    sess.step("note", text)
     if a.result:
         cases = sess.d.setdefault("cases", [])
         if cases:
             cases[-1]["result"] = a.result
-            cases[-1]["note"] = a.text
+            cases[-1]["note"] = text
         sess.save()
     print("đã ghi chú")
 
@@ -3882,9 +4276,70 @@ def build_session_report(sess):
             vals = [p[k] for p in perf if isinstance(p.get(k), (int, float))]
             if vals:
                 out.append("- %s: min %s · max %s · cuối %s" % (k, min(vals), max(vals), vals[-1]))
+    out += report_extra_sections(sess)
     out.append("")
     out.append("Thư mục phiên: `%s`" % sess.dir)
     return "\n".join(out) + "\n"
+
+
+def report_extra_sections(sess):
+    """Mục mới của report 1.5: ca theo charter + coverage, audit tự động/nhiễu, kỳ vọng không đạt, ma trận môi trường,
+    selfcheck, autotest-import, hồ sơ QA học được."""
+    d = sess.d
+    out = []
+    cases = read_jsonl(sess.path("cases.jsonl"))
+    if cases:
+        out += ["", "## Ca theo charter (%d)" % len(cases)]
+        for c in cases:
+            out.append("- `%s` — **%s**%s%s" % (c["case"], c["result"], (" → bug #%s" % c["bug"]) if c.get("bug") else "", (": " + c["text"]) if c.get("text") else ""))
+    cov = read_text(sess.path("coverage.md"))
+    if cov:
+        out += [""] + cov.rstrip("\n").splitlines()
+    audits = sorted(glob.glob(sess.path("audit-*.json")))
+    if audits:
+        tot, sup, auto = 0, 0, 0
+        kinds = {}
+        for p in audits:
+            j = read_json(p, {}) or {}
+            fs = j.get("findings") if isinstance(j, dict) else j
+            auto += 1 if "auto-" in os.path.basename(p) else 0
+            for f in fs or []:
+                if f.get("severity") == "info":
+                    continue
+                if f.get("suppressed"):
+                    sup += 1
+                    continue
+                tot += 1
+                kinds[f["kind"]] = kinds.get(f["kind"], 0) + 1
+        out += ["", "## Audit visual: %d lần (%d tự động khi đổi màn) · %d phát hiện · %d ẩn theo luật nhiễu" % (len(audits), auto, tot, sup)]
+        for k, n in sorted(kinds.items(), key=lambda kv: -kv[1])[:12]:
+            out.append("- %s ×%d" % (k, n))
+    ef = d.get("expect_failed") or []
+    if ef:
+        out += ["", "## Kỳ vọng không đạt (%d)" % len(ef)]
+        for e in ef:
+            out.append("- bước #%s: `%s` (màn: %s)" % (e.get("step"), e.get("expect"), " > ".join(e.get("screens") or []) or "?"))
+    em = read_text(sess.path("env-matrix.md"))
+    if em:
+        out += [""] + em.rstrip("\n").splitlines()
+    sc = d.get("selfcheck")
+    if sc:
+        out += ["", "## Selfcheck công cụ: %s (%d mục%s)" % ("OK" if not sc.get("fail") else "%d FAIL" % sc["fail"], sc.get("n", 0), ", kết quả phiên kém tin cậy" if sc.get("fail") else "")]
+    at = d.get("autotest")
+    if at:
+        out += ["", "## Autotest Editor đã nhập: %s (%s) · %s · màn OK %d · màn lỗi %d" % (
+            at.get("runId"), at.get("version"), " ".join("%s %d" % kv for kv in (at.get("bySeverity") or {}).items()),
+            len(at.get("coveredScreens") or []), len(at.get("failedScreens") or []))]
+    obs = d.get("observed") or {}
+    if obs or d.get("verified_cheats") or d.get("verified_state"):
+        out += ["", "## Hồ sơ QA học được (đã ghi vào project-profile.json lúc stop)",
+                "- Màn đã mở: %d — %s" % (len(obs), ", ".join(sorted(obs))),
+                "- Cheat đã gọi OK: %s" % (", ".join(sorted(d.get("verified_cheats") or {})) or "—"),
+                "- State path đã đọc OK: %s" % (", ".join(sorted(d.get("verified_state") or {})) or "—")]
+    mig = read_text(sess.path("migration.md"))
+    if mig:
+        out += [""] + mig.rstrip("\n").splitlines()
+    return out
 
 
 def cmd_stop(a):
@@ -3986,6 +4441,13 @@ def close_session(sess, quiet=False):
                 dev.probe.post("/stop", timeout=5)  # probe thôi nghe; phiên sau (kể cả --attach) dùng token mới
             except QaError:
                 pass
+        for n in revert_env(sess, dev):
+            print("dọn dẹp môi trường: %s" % n)
+        if sess.d.get("pseudoloc") and dev.probe:
+            try:
+                dev.probe.get("/pseudoloc", on=0, timeout=5)
+            except QaError:
+                pass
         if hasattr(dev, "remove_trigger"):
             dev.remove_trigger(sess.d["package"])
         if isinstance(dev, Android):
@@ -3995,6 +4457,10 @@ def close_session(sess, quiet=False):
     log_stop(sess)
     sess.d["ended"] = now_iso()
     sess.save()
+    try:
+        flush_profile(sess, quiet=quiet)
+    except Exception as e:  # không để lỗi ghi hồ sơ làm mất report
+        print("hồ sơ QA: không ghi được (%s)" % e)
     write_text(sess.path("report.md"), build_session_report(sess))
 
 
@@ -4143,11 +4609,954 @@ def cmd_probe_install(a):
         else "không có — build release luôn đóng, chỉ development build mở"))
 
 
+# ───────────────────────────────────────────────────────────── hồ sơ QA: profile init | sync | show
+
+def _game_name(root):
+    ps = project_settings(root)
+    prof = project_profile(root)
+    return ps.get("productName") or prof.get("displayName") or prof.get("projectName") or os.path.basename(root)
+
+
+def refresh_profile_doc(root, qa=None, det=None, create=False, status=None):
+    """Điền các vùng <!-- auto:… --> của .claude/docs/QaProfile.md từ qa + kết quả dò; tạo từ template nếu thiếu (create).
+    Chữ dev ngoài vùng auto giữ nguyên. Trả đường dẫn hoặc None."""
+    qa = qa or qa_profile(root, refresh=True)
+    doc_path = qa_path(root, "profileDoc")
+    tpl_path = os.path.join(root, qaprofile.TEMPLATE_REL)
+    doc = read_text(doc_path, "")
+    if not doc:
+        if not create:
+            return None
+        doc = read_text(tpl_path, "")
+        if not doc:  # repo chưa nhận Docs/QaProfile.template từ Feature Hub → khung tối thiểu, cập nhật template sau vẫn giữ chữ dev
+            doc = qaprofile.MINIMAL_QA_DOC
+            print("  ⚠ thiếu %s — dùng khung tối thiểu; cập nhật bộ AI của template (agents-update) để có khung đầy đủ" % qaprofile.TEMPLATE_REL)
+        doc = doc.replace("<Tên game>", _game_name(root))
+    det = det or {}
+    names, enum_file = qaprofile.feature_names(root, qa)
+    classes = qaprofile.classify_features(root, qa, names, enum_file)
+    sections = qaprofile.render_sections(root, qa, det, classes)
+    doc = qaprofile.fill_auto_sections(doc, sections)
+    cur = qaprofile.doc_status(doc)
+    new_status = status or ("draft" if cur in ("", "template") else cur)
+    doc = qaprofile.set_status(doc, new_status, qaprofile.today())
+    write_text(doc_path, doc)
+    return doc_path
+
+
+def profile_init(root, force=False, dry_run=False):
+    """Tự dò quy ước → ghi block qa (chỉ key chưa có, trừ --force) + QaProfile.md + charters/README. Trả (patch, det, lines)."""
+    det = qaprofile.detect_conventions(root)
+    prof = project_profile(root)
+    existing = prof.get("qa") if isinstance(prof.get("qa"), dict) else {}
+    ex_conv = existing.get("conventions") or {}
+    conv = {}
+    lines = []
+    for k in QA_DEFAULTS["conventions"]:
+        info = det.get(k) or {"value": QA_DEFAULTS["conventions"][k], "source": "default", "evidence": ""}
+        if k in ex_conv and not force:
+            lines.append("  %-22s %-40s dev      (giữ: %s)" % (k, clip(json.dumps(ex_conv[k], ensure_ascii=False), 40), info.get("evidence", "")))
+            continue
+        if info["source"] == "auto":
+            conv[k] = info["value"]
+        lines.append("  %-22s %-40s %-8s %s" % (k, clip(json.dumps(info["value"], ensure_ascii=False), 40), info["source"], info.get("evidence", "")))
+    patch = {"schemaVersion": qaprofile.QA_SCHEMA_VERSION}
+    if conv:
+        patch["conventions"] = conv
+    st = existing.get("status")
+    patch["status"] = st if (st in ("draft", "reviewed") and not force) else "draft"
+    lv = existing.get("liveness") or {}
+    if "deadFeaturePatterns" not in lv or force:
+        patch["liveness"] = {"deadFeaturePatterns": det["_deadFeaturePatterns"]["value"]}
+    feats = det.get("_features", {}).get("value") or []
+    dead = [n for n in feats if any(re.search(p, n) for p in det["_deadFeaturePatterns"]["value"])]
+    lines.append("  features: %d giá trị enum · %d khớp mẫu chết %s · nguồn code: %s" % (
+        len(feats), len(dead), det["_deadFeaturePatterns"]["value"], det.get("_sourceRoot", {}).get("value", "")))
+    if dry_run:
+        return patch, det, lines
+    qa_new = qaprofile.save_qa_patch(root, patch)
+    _QA_CACHE.pop(root, None)
+    qa = qa_profile(root, refresh=True)
+    doc = refresh_profile_doc(root, qa, det, create=True, status=None if qaprofile.doc_status(read_text(qa_path(root, "profileDoc"))) in ("draft", "reviewed") else "draft")
+    cdir = qa_path(root, "chartersDir")
+    readme = os.path.join(cdir, "README.md")
+    if not os.path.isfile(readme):
+        write_text(readme, CHARTERS_README)
+        lines.append("  tạo %s" % os.path.relpath(readme, root))
+    lines.append("  ghi qa (status=%s) → %s" % (qa_new.get("status"), qaprofile.PROFILE_REL))
+    if doc:
+        lines.append("  QaProfile.md → %s (Status: %s — dev đọc lại rồi đổi `reviewed`)" % (os.path.relpath(doc, root), qaprofile.doc_status(read_text(doc))))
+    return patch, det, lines
+
+
+CHARTERS_README = """# Charter QA của project
+
+Mỗi file `<feature>.md` là một **test charter** của skill `/auto-test-device`: oracle (giá trị kỳ vọng kèm nguồn) và
+danh sách ca có **mã** dạng `<FEATURE>-NN` (vd `SHOP-03`). Agent ghi kết quả từng ca bằng
+`qadevice.py note --case SHOP-03 --result pass|fail|blocked|skip`, `coverage` đối chiếu ca đã chạy / chưa chạy,
+`charter diff` liệt kê ca còn thiếu trong phiên.
+
+- Tạo charter mới: `python3 .claude/skills/auto-test-device/scripts/qadevice.py charter new "<tên feature>"`.
+- Chỉ ghi **ca test + oracle**, không ghi kết quả từng phiên (kết quả nằm trong `.git/auto-test-device/sessions/`).
+- Commit cùng feature; dev sửa thoải mái (thêm ca, sửa oracle khi GDD đổi). Giữ nguyên mã ca đã có — thêm số mới.
+"""
+
+
+def profile_sync(root, dry_run=False):
+    """Đẩy quy ước xuống hai file build-side: EzgQaProbeConfig.json (5 key probe) + EZGAutoTestSettings.json (block liveness).
+    Merge: giữ nguyên key khác. Trả danh sách dòng thay đổi."""
+    qa = qa_profile(root, refresh=True)
+    conv = qa.get("conventions") or {}
+    changes = []
+    # probe override
+    p_path = qa_path(root, "probeOverride")
+    cur = read_json(p_path, {}) or {}
+    new = dict(cur)
+    for k in qaprofile.PROBE_OVERRIDE_KEYS:
+        v = conv.get(k)
+        if v in ("", None, []):
+            if k in new:
+                del new[k]
+                changes.append("probe: bỏ %s" % k)
+        elif new.get(k) != v:
+            changes.append("probe: %s %s → %s" % (k, json.dumps(cur.get(k), ensure_ascii=False) if k in cur else "(chưa có)", json.dumps(v, ensure_ascii=False)))
+            new[k] = v
+    if new != cur and not dry_run:
+        os.makedirs(os.path.dirname(p_path), exist_ok=True)
+        with open(p_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(new, ensure_ascii=False, indent=2) + "\n")
+    # autotest settings
+    a_path = qa_path(root, "autotestSettings")
+    cur_a = read_json(a_path, {}) or {}
+    lv = qa.get("liveness") or {}
+    want = {"enabled": (cur_a.get("liveness") or {}).get("enabled", True),
+            "deadFeaturePatterns": list(lv.get("deadFeaturePatterns") or []),
+            "forceLive": list(lv.get("forceLive") or []), "forceDead": list(lv.get("forceDead") or []),
+            "observedLive": sorted((lv.get("observed") or {}).keys())}
+    if (cur_a.get("liveness") or {}) != want:
+        for k, v in want.items():
+            if (cur_a.get("liveness") or {}).get(k) != v:
+                changes.append("autotest: liveness.%s → %s" % (k, clip(json.dumps(v, ensure_ascii=False), 80)))
+        if not dry_run:
+            new_a = dict(cur_a)
+            new_a["liveness"] = want
+            os.makedirs(os.path.dirname(a_path), exist_ok=True)
+            with open(a_path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(json.dumps(new_a, ensure_ascii=False, indent=2) + "\n")
+    return changes
+
+
+def cmd_profile(a):
+    root = repo_root()
+    if a.op == "init":
+        patch, det, lines = profile_init(root, force=a.force, dry_run=a.dry_run)
+        print("profile init%s — quy ước tự dò (nguồn: auto = dò từ code · dev = đã khai trong profile · default = mặc định template):" % (
+            " (dry-run, không ghi)" if a.dry_run else ""))
+        for l in lines:
+            print(l)
+        if a.dry_run:
+            print("patch sẽ ghi vào qa: %s" % json.dumps(patch, ensure_ascii=False))
+        else:
+            print("→ `profile sync` để đẩy xuống EzgQaProbeConfig.json + EZGAutoTestSettings.json; `doctor` để kiểm.")
+        return
+    if a.op == "sync":
+        changes = profile_sync(root, dry_run=a.dry_run)
+        for c in changes or ["không có gì đổi — hai file build-side đã khớp profile"]:
+            print(("  " if changes else "") + c)
+        if changes and not a.dry_run:
+            print("đã ghi %s + %s (commit cùng repo; Unity sinh .meta khi import)" % (
+                os.path.relpath(qa_path(root, "probeOverride"), root), os.path.relpath(qa_path(root, "autotestSettings"), root)))
+        return
+    qa, prov = qaprofile.load_qa_profile(root, with_provenance=True)
+    if a.json:
+        print(json.dumps({"qa": qa, "provenance": prov}, ensure_ascii=False, indent=1))
+        return
+    print("qa (schema %s · status %s%s):" % (qa.get("schemaVersion"), qa.get("status"), " · CHƯA CÓ block qa — chạy `profile init`" if prov.get("_block") == "missing" else ""))
+    for k, v in (qa.get("conventions") or {}).items():
+        print("  conventions.%-22s %-44s %s" % (k, clip(json.dumps(v, ensure_ascii=False), 44), prov.get("conventions." + k, "?")))
+    lv = qa.get("liveness") or {}
+    print("  liveness: mẫu chết %s · forceLive %d · forceDead %d · quan sát %d" % (lv.get("deadFeaturePatterns"), len(lv.get("forceLive") or []),
+                                                                             len(lv.get("forceDead") or []), len(lv.get("observed") or {})))
+    ver = qa.get("verified") or {}
+    print("  verified: cheat %d · state path %d · noise %d luật" % (len(ver.get("cheats") or {}), len(ver.get("statePaths") or {}), len(qa.get("noise") or [])))
+    print("  environments: %s" % json.dumps(qa.get("environments"), ensure_ascii=False))
+    for k, v in (qa.get("paths") or {}).items():
+        print("  paths.%-16s %s%s" % (k, v, "" if os.path.exists(os.path.join(root, v)) else "  (chưa có)"))
+
+
+# ───────────────────────────────────────────────────────────── doctor (mở rộng) + selfcheck
+
+def autotest_info(root):
+    """(phiên bản com.ezg.autotest | None, nguồn 'manifest'|'embedded'|'')."""
+    man = read_manifest(root)
+    ver = (man.get("dependencies") or {}).get(AUTOTEST_PACKAGE)
+    if ver:
+        emb = read_json(os.path.join(root, "Packages", AUTOTEST_PACKAGE, "package.json"), {}) or {}
+        return (emb.get("version") or ver), ("embedded" if emb else "manifest")
+    emb = read_json(os.path.join(root, "Packages", AUTOTEST_PACKAGE, "package.json"), {}) or {}
+    return (emb.get("version"), "embedded") if emb else (None, "")
+
+
+def doctor_qa(root, strict=False):
+    """Phần hồ sơ QA của `doctor`: trả (dòng in, vấn đề bắt buộc, cảnh báo)."""
+    lines, problems, warns = [], [], []
+    qa, prov = qaprofile.load_qa_profile(root, with_provenance=True)
+    conv = qa.get("conventions") or {}
+    if prov.get("_block") == "missing":
+        problems.append("chưa có block qa trong %s — chạy `profile init`" % qaprofile.PROFILE_REL)
+        lines.append("qa:        CHƯA CÓ (mọi quy ước đang là mặc định template) → `profile init`")
+    else:
+        lines.append("qa:        schema %s · status %s · %d key dev khai" % (qa.get("schemaVersion"), qa.get("status"),
+                                                                         sum(1 for k, v in prov.items() if v == "dev" and k.startswith("conventions."))))
+        if qa.get("status") == "template":
+            warns.append("qa.status còn `template` — `profile init` để tự dò")
+    classes = set()
+    for p in qaprofile.iter_cs(root):
+        t = read_text(p)
+        for m in re.finditer(r"\b(?:class|struct|enum)\s+(\w+)", t):
+            classes.add(m.group(1))
+    names, enum_file = qaprofile.feature_names(root, qa)
+    if names:
+        cls = qaprofile.classify_features(root, qa, names, enum_file)
+        dead = sum(1 for c in cls.values() if c["state"] == "dead")
+        unref = sum(1 for c in cls.values() if c["state"] == "unreferenced")
+        lines.append("features:  %s — %d giá trị · %d chết · %d không thấy code gọi · %d đã quan sát (%s)" % (
+            conv.get("featuresEnum"), len(names), dead, unref, len((qa.get("liveness") or {}).get("observed") or {}), os.path.relpath(enum_file, root)))
+    else:
+        problems.append("không thấy enum %s trong code — sửa qa.conventions.featuresEnum" % conv.get("featuresEnum"))
+        lines.append("features:  KHÔNG THẤY enum %s" % conv.get("featuresEnum"))
+    bases = [b for b in conv.get("screenBaseTypes") or [] if b in classes]
+    if bases:
+        lines.append("screens:   lớp cơ sở có trong code: %s" % ", ".join(bases))
+    else:
+        problems.append("không lớp cơ sở màn nào trong qa.conventions.screenBaseTypes tồn tại trong code")
+        lines.append("screens:   KHÔNG lớp cơ sở nào tồn tại (%s)" % conv.get("screenBaseTypes"))
+    for k in ("uiManagerType", "cheatTypeName", "playerDataFacade", "timeProvider", "trackingEventNameType"):
+        v = conv.get(k)
+        if v and v not in classes:
+            warns.append("%s=%s không thấy trong code" % (k, v))
+    csv_files = glob.glob(os.path.join(root, conv.get("csvConfigGlob") or ""), recursive=True) if conv.get("csvConfigGlob") else []
+    lines.append("csv:       %d file khớp %s" % (len(csv_files), conv.get("csvConfigGlob")))
+    if not csv_files:
+        warns.append("csvConfigGlob không khớp file nào — oracle `csv` không dùng được")
+    # build-side files đồng bộ?
+    ov = read_json(qa_path(root, "probeOverride"), {}) or {}
+    drift = [k for k in qaprofile.PROBE_OVERRIDE_KEYS if conv.get(k) not in ("", None, []) and ov.get(k) != conv.get(k)]
+    at = (read_json(qa_path(root, "autotestSettings"), {}) or {}).get("liveness") or {}
+    lv = qa.get("liveness") or {}
+    at_drift = at.get("deadFeaturePatterns") != list(lv.get("deadFeaturePatterns") or []) or sorted(at.get("observedLive") or []) != sorted((lv.get("observed") or {}).keys())
+    lines.append("sync:      probe override %s · autotest liveness %s" % ("khớp" if not drift else "LỆCH (%s)" % ", ".join(drift), "khớp" if not at_drift else "LỆCH"))
+    if drift or at_drift:
+        warns.append("file build-side lệch profile — chạy `profile sync`")
+    av, asrc = autotest_info(root)
+    if av:
+        old = _is_semver(av) and _ver(av) < _ver(AUTOTEST_MIN_VERSION)
+        lines.append("autotest:  %s %s (%s)%s" % (AUTOTEST_PACKAGE, av, asrc, " ⚠ < %s: chưa lọc feature chết, báo cáo nhiễu" % AUTOTEST_MIN_VERSION if old else ""))
+        if old:
+            warns.append("com.ezg.autotest %s < %s" % (av, AUTOTEST_MIN_VERSION))
+        rep = qaprofile.latest_report(root, qa)
+        lines.append("           report mới nhất: %s" % (os.path.relpath(rep, root) if rep else "chưa có — chạy Ezg > Auto test system rồi `autotest-import`"))
+    else:
+        lines.append("autotest:  không có %s — Δ-skip theo autotest không dùng được" % AUTOTEST_PACKAGE)
+    doc = qa_path(root, "profileDoc")
+    st = qaprofile.doc_status(read_text(doc, ""))
+    lines.append("docs:      %s %s · charters: %s" % (os.path.relpath(doc, root), ("Status " + st) if st else "CHƯA CÓ", (
+        "%d file" % len(qaprofile.list_charters(root, qa))) if os.path.isdir(qa_path(root, "chartersDir")) else "CHƯA CÓ thư mục"))
+    if not st:
+        problems.append("chưa có %s — `profile init`" % os.path.relpath(doc, root))
+    if not os.path.isdir(qa_path(root, "chartersDir")):
+        problems.append("chưa có thư mục charter %s — `profile init`" % os.path.relpath(qa_path(root, "chartersDir"), root))
+    return lines, problems, warns
+
+
+def cmd_doctor(a):
+    adb = find_adb()
+    print("qadevice %s · python %s · %s" % (VERSION, sys.version.split()[0], sys.platform))
+    print("adb:       %s" % (adb or "KHÔNG CÓ — cài Android platform-tools hoặc Unity Android module"))
+    print("emulator:  %s" % (find_emulator(adb) or "không có (chỉ cần khi muốn tự boot AVD)"))
+    print("xcrun:     %s" % ("có" if has_xcrun() else "không (chỉ macOS — iOS Simulator/iPhone)"))
+    print("idb:       %s" % (find_idb() or "không — Simulator sẽ chạm qua probe (brew install facebook/fb/idb-companion && pip3 install fb-idb)"))
+    print("Pillow:    %s" % ("có" if Image is not None else "KHÔNG — chạy `%s -m pip install --user pillow` để có ảnh xem nhỏ, lưới toạ độ, so khung hình" % ("py" if IS_WIN else "python3")))
+    root = repo_root()
+    ps = project_settings(root)
+    print("project:   %s · %s · Unity %s" % (ps.get("productName"), ps["ids"], ps.get("unityVersion")))
+    info = find_probe_in_project(root)
+    problems, warns = [], []
+    if info["package"]:
+        old = _is_semver(info["package"]) and _ver(info["package"]) < _ver(PROBE_MIN_VERSION)
+        print("probe:     package %s %s%s" % (PROBE_PACKAGE, info["package"], " ⚠ < %s" % PROBE_MIN_VERSION if old else ""))
+        if old:
+            warns.append("probe %s < %s" % (info["package"], PROBE_MIN_VERSION))
+        print("           tính năng theo bản: %s" % " · ".join("%s ≥ %s" % kv for kv in sorted(PROBE_FEATURES.items())))
+    else:
+        print("probe:     chưa có package %s trong Packages/manifest.json (`start` tự thêm)" % PROBE_PACKAGE)
+        problems.append("chưa có %s trong manifest" % PROBE_PACKAGE)
+    if info["legacy"]:
+        print("           ⚠ còn bản chép cũ %s (v%s) — `start`/`probe-install` sẽ gỡ" % (info["legacy"], info["legacyVersion"]))
+    if not info["registry"]:
+        print("           ⚠ manifest không có scoped registry EZG (scope com.ezg) — cài registry qua Feature Hub trước")
+        warns.append("thiếu scoped registry com.ezg")
+    cfg = effective_probe_config(root)
+    print("config:    releaseGate=%s · cheatOn=%s · cheatOff=%s%s" % (
+        cfg["releaseGate"] or "-", cfg["cheatOn"] or "-", cfg["cheatOff"] or "-", " (có ghi đè %s)" % PROBE_OVERRIDE if cfg["override"] else ""))
+    cg_ver, cg_code = cheat_gate_info(root)
+    print("cheat:     %s" % (("com.ezg.cheat-gate %s · mã %s — probe tự mở cổng cho máy có trong danh sách test" % (cg_ver, cg_code or "?"))
+                             if cg_ver else "không có com.ezg.cheat-gate — cổng release theo cờ cheat của game (releaseGate)"))
+    if not cg_ver:
+        warns.append("không có com.ezg.cheat-gate — build release chỉ mở probe khi game bật cheat")
+    lines, p2, w2 = doctor_qa(root, strict=a.strict)
+    for l in lines:
+        print(l)
+    problems += p2
+    warns += w2
+    print("state:     %s" % state_root())
+    for w in warns:
+        print("  ⚠ " + w)
+    for p in problems:
+        print("  ✗ " + p)
+    if a.strict and problems:
+        print("doctor --strict: %d mục bắt buộc chưa đạt" % len(problems))
+        sys.exit(1)
+
+
+SAFE_TAP_WORDS = ("settings", "cài đặt", "cai dat", "setting", "close", "đóng", "dong", "back", "quay lại", "x", "✕", "×", "info", "?")
+
+
+def cmd_selfcheck(a):
+    """Tự kiểm công cụ trên máy đang nối (phiên đang mở): probe trả lời, /ui có element, tap --text trúng rồi quay lại, shot không đen, logs đọc được."""
+    sess = Session.load(a.session)
+    dev = sess.device()
+    results = []
+
+    def rec(name, ok, note=""):
+        results.append({"check": name, "status": "pass" if ok is True else ("skip" if ok is None else "fail"), "note": note})
+        print("  %s %-10s %s" % ({"pass": "✓", "fail": "✗", "skip": "–"}[results[-1]["status"]], name, note))
+
+    print("selfcheck phiên %s trên %s:" % (sess.id, dev.id))
+    pr = dev.probe
+    if pr:
+        try:
+            j = pr.get("/ping", timeout=6)
+            rec("probe", True, "v%s gate=%s cheat=%s" % (j.get("version"), j.get("gate"), j.get("cheat")))
+        except QaError as e:
+            rec("probe", False, str(e))
+            pr = None
+    else:
+        rec("probe", None, "không có probe — hộp đen (ui/tap --text/state/call không dùng được)")
+    try:
+        v = observe(sess, dev, "selfcheck", logs=False, compare=False)
+        warns = analyze_image(v["path"])
+        rec("shot", not warns, "%dx%d %s" % (v["shot_w"], v["shot_h"], "; ".join(warns) if warns else "có nội dung"))
+    except QaError as e:
+        rec("shot", False, str(e))
+    try:
+        fresh, rep = check_logs(sess, dev)
+        lg = sess.d.get("log") or {}
+        has = bool(lg.get("file") and os.path.isfile(lg["file"]) and os.path.getsize(lg["file"]) > 0) or bool(pr and sess.d["device"]["kind"] != "android")
+        rec("logs", has, "%s · %d lỗi mới" % (os.path.basename(lg.get("file") or "") or "qua probe", len(fresh)))
+    except QaError as e:
+        rec("logs", False, str(e))
+    if pr:
+        try:
+            j = probe_ui(sess, dev, include_all=False)
+            els = j.get("elements") or []
+            rec("ui", len(els) > 0, "%d phần tử · màn %s" % (len(els), " > ".join(j.get("screens") or []) or j.get("scene")))
+            cand = None
+            for e in els:
+                lbl = ((e.get("label") or e.get("text") or "")).strip().lower()
+                if e.get("interactable") and not e.get("occluded") and not e.get("blockedBy") and lbl in SAFE_TAP_WORDS:
+                    cand = e
+                    break
+            if cand and not a.no_tap:
+                key0 = screens_key(j)
+                x, y, w, h = cand["dev"]
+                cx, cy = int(x + w / 2), int(y + h / 2)
+                if dev.native_input:
+                    dev.tap(cx, cy)
+                else:
+                    inject(sess, dev, "/tap", x=cx, y=cy)
+                time.sleep(1.2)
+                j2 = probe_ui(sess, dev, include_all=False)
+                changed = screens_key(j2) != key0 or len(j2.get("elements") or []) != len(els)
+                rec("tap", changed, "bấm \"%s\" → %s" % (cand.get("label") or cand.get("text"), "UI đổi" if changed else "UI KHÔNG đổi (input không tới game?)"))
+                try:
+                    dev.key("back")
+                    time.sleep(0.8)
+                except (QaError, NotSupported):
+                    pass
+                sess.step("note", "(selfcheck) bấm \"%s\" rồi Back" % (cand.get("label") or cand.get("text")))
+            else:
+                rec("tap", None, "không có nút an toàn (%s) trên màn này để thử — dùng `tap --text` ở bước đầu của ca để kiểm" % "/".join(SAFE_TAP_WORDS[:4]))
+        except QaError as e:
+            rec("ui", False, str(e))
+    write_json(sess.path("selfcheck.json"), {"t": now_iso(), "results": results})
+    sess.d["selfcheck"] = {"t": now_iso(), "fail": sum(1 for r in results if r["status"] == "fail"), "n": len(results)}
+    sess.save()
+    bad = [r for r in results if r["status"] == "fail"]
+    if bad:
+        print("selfcheck: %d mục FAIL — sửa công cụ trước khi test (kết quả phiên sẽ không tin được)" % len(bad))
+        sys.exit(1)
+    print("selfcheck: OK")
+
+
+# ───────────────────────────────────────────────────────────── coverage · charter
+
+def cmd_coverage(a):
+    root = repo_root()
+    sess = Session.load(a.session)
+    qa = qa_profile(root)
+    cases_run = read_jsonl(sess.path("cases.jsonl"))
+    planned = qaprofile.charter_cases(root, qa, a.charter)
+    names, enum_file = qaprofile.feature_names(root, qa)
+    classes = qaprofile.classify_features(root, qa, names, enum_file)
+    cov = qaprofile.coverage_summary(cases_run, planned, classes, sess.d.get("observed") or {})
+    at = sess.d.get("autotest") or {}
+    if at.get("coveredScreens"):
+        cov["unvisited_autotest_ok"] = [n for n in cov["unvisited"] if n in at["coveredScreens"]]
+    md = qaprofile.coverage_markdown(cov, sess.d.get("feature") or "")
+    if cov.get("unvisited_autotest_ok"):
+        md += "- Trong số chưa mở, autotest Editor đã mở OK (ưu tiên thấp): %s\n" % ", ".join(cov["unvisited_autotest_ok"])
+    write_text(sess.path("coverage.md"), md)
+    print(md if not a.quiet else "coverage: %s" % sess.path("coverage.md"))
+
+
+def cmd_charter(a):
+    root = repo_root()
+    qa = qa_profile(root)
+    cdir = qa_path(root, "chartersDir")
+    if a.op == "list":
+        chs = qaprofile.list_charters(root, qa)
+        if not chs:
+            print("chưa có charter nào trong %s — `charter new \"<feature>\"`" % os.path.relpath(cdir, root))
+        for ch in chs:
+            print("%-28s %-6s %3d ca  %s" % (ch["id"], ch["status"] or "-", len(ch["cases"]), ch["title"]))
+        return
+    if a.op == "new":
+        if not a.feature:
+            raise QaError("charter new \"<tên feature>\" [--sources \"GDD/..., file.cs\"]")
+        tpl = read_text(os.path.join(SKILL_DIR, "references", "charter.template.md"))
+        if not tpl:
+            raise QaError("thiếu references/charter.template.md trong skill")
+        cid = a.id or qaprofile.charter_slug(a.feature)
+        path = os.path.join(cdir, cid + ".md")
+        if os.path.isfile(path) and not a.force:
+            raise QaError("đã có %s — sửa file đó, hoặc --force để ghi đè" % os.path.relpath(path, root))
+        write_text(path, qaprofile.new_charter_text(tpl, a.feature, qa, a.sources or ""))
+        if not os.path.isfile(os.path.join(cdir, "README.md")):
+            write_text(os.path.join(cdir, "README.md"), CHARTERS_README)
+        try:
+            sess = Session.load(a.session)
+            if not sess.d.get("ended"):
+                sess.d["charter"] = cid
+                sess.save()
+                print("phiên %s gắn charter %s — `note --case %s/P0-01 --result …` (hoặc chỉ P0-01)" % (sess.id, cid, cid))
+        except QaError:
+            pass
+        print("charter mới: %s (mã ca P0-01, P1-01… — tham chiếu %s/P0-01) — điền oracle + ca rồi commit cùng feature" % (os.path.relpath(path, root), cid))
+        return
+    # diff
+    sess = Session.load(a.session)
+    if a.charter:
+        sess.d["charter"] = a.charter
+        sess.save()
+    planned = qaprofile.charter_cases(root, qa, a.charter or sess.d.get("charter") or None)
+    run = {}
+    for c in read_jsonl(sess.path("cases.jsonl")):
+        run[c["case"]] = c.get("result")
+    missing = [cid for cid in planned if cid not in run]
+    extra = [cid for cid in run if cid not in planned]
+    by_pri = {}
+    for cid in missing:
+        by_pri.setdefault(planned[cid].get("priority") or "P?", []).append(cid)
+    print("charter diff — phiên %s: %d ca planned · %d đã chạy · %d CHƯA chạy" % (sess.id, len(planned), len([c for c in planned if c in run]), len(missing)))
+    for pri in sorted(by_pri):
+        print("  %s chưa chạy: %s" % (pri, ", ".join("%s %s" % (c, clip(planned[c].get("title", ""), 40)) for c in by_pri[pri])))
+    if extra:
+        print("  ca ghi ngoài charter: %s" % ", ".join(extra))
+    fails = [c for c, r in run.items() if r == "fail"]
+    if fails:
+        print("  ca FAIL: %s" % ", ".join(fails))
+
+
+# ───────────────────────────────────────────────────────────── môi trường: aspect · env · env matrix
+
+ASPECT_PRESETS = {"tall": "720x1600", "tablet": "1600x2560", "short": "720x1280", "square": "1080x1080"}
+ENV_NAMES = ("font-scale", "dark", "animator", "kill-activities", "trim-memory", "clock", "locale")
+
+
+def _remember(sess, key, prev):
+    ch = sess.d.setdefault("changed", {}).setdefault("env", {})
+    if key not in ch:
+        ch[key] = prev
+    sess.save()
+
+
+def apply_env(sess, dev, name, value):
+    """Áp một biến môi trường trên máy; nhớ giá trị trước để close_session trả. Trả mô tả; NotSupported nếu máy không làm được."""
+    pkg = sess.d["package"]
+    name = name.lower()
+    if name == "font-scale":
+        if not hasattr(dev, "font_scale"):
+            raise NotSupported("đổi cỡ chữ hệ thống không hỗ trợ trên %s" % dev.kind)
+        v = None if str(value).lower() in ("reset", "default", "1", "1.0") else float(value)
+        prev = dev.font_scale(1.0 if v is None else v)
+        _remember(sess, "font-scale", prev)
+        return "cỡ chữ hệ thống %s (trước: %s)" % ("mặc định" if v is None else v, prev or "mặc định")
+    if name == "dark":
+        if not hasattr(dev, "dark_mode"):
+            raise NotSupported("dark mode không hỗ trợ trên %s" % dev.kind)
+        on = str(value).lower() in ("on", "1", "yes", "true", "dark")
+        prev = dev.dark_mode(on)
+        _remember(sess, "dark", prev)
+        return "dark mode %s (trước: %s)" % ("BẬT" if on else "tắt", prev)
+    if name == "animator":
+        if not isinstance(dev, Android):
+            raise NotSupported("animator scale chỉ có trên Android")
+        try:
+            scale = ("%g" % float(value))
+        except ValueError:
+            raise QaError("animator 0 | 0.5 | 1")
+        prev = dev.animator_scale(scale)
+        _remember(sess, "animator", prev)
+        return "animator/transition/window scale = %s (trước: %s)" % (scale, prev or "1")
+    if name == "kill-activities":
+        if not isinstance(dev, Android):
+            raise NotSupported("always_finish_activities chỉ có trên Android")
+        on = str(value).lower() in ("on", "1", "yes", "true")
+        prev = dev.always_finish(on)
+        _remember(sess, "kill-activities", prev)
+        return "Don't keep activities %s (trước: %s) — nền rồi quay lại sẽ tạo lại Activity" % ("BẬT" if on else "tắt", prev or "0")
+    if name == "trim-memory":
+        if not isinstance(dev, Android):
+            raise NotSupported("send-trim-memory chỉ có trên Android")
+        lvl = (value or "RUNNING_CRITICAL").upper()
+        dev.trim_memory(pkg, lvl)
+        return "đã gửi trim-memory %s cho %s (game nhận OnLowMemory/onTrimMemory)" % (lvl, pkg)
+    if name == "clock":
+        if not isinstance(dev, Android):
+            raise NotSupported("đổi giờ máy chỉ hỗ trợ Android emulator/root — dùng cheat tua thời gian của game")
+        if str(value).lower() in ("reset", "auto"):
+            dev.set_clock(None)
+            _remember(sess, "clock", "auto")
+            return "đồng hồ máy về tự động"
+        m = re.match(r"^([+-]?\d+)([smhd])$", str(value))
+        if not m:
+            raise QaError("clock +1d | +3h | -30m | +90s | reset")
+        secs = int(m.group(1)) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
+        _remember(sess, "clock", "auto")  # nhớ TRƯỚC: set_clock đã tắt auto_time dù đổi giờ có thể thất bại → stop vẫn bật lại
+        prev = dev.set_clock(secs)
+        return "đồng hồ máy dời %s (auto_time tắt tới khi stop)" % prev
+    if name == "locale":
+        if not isinstance(dev, Android):
+            raise NotSupported("đổi locale chỉ hỗ trợ Android emulator/root")
+        if str(value).lower() == "reset":
+            prev = ((sess.d.get("changed") or {}).get("env") or {}).get("locale")
+            if not prev:
+                raise QaError("chưa đổi locale trong phiên này")
+            dev.set_locale(prev)
+            return "locale về %s" % prev
+        prev = dev.set_locale(value)
+        _remember(sess, "locale", prev)
+        return "locale %s (trước: %s) — framework đã khởi động lại, mở lại game" % (value, prev or "?")
+    raise QaError("env <%s> <giá trị> — hoặc `env matrix`" % "|".join(ENV_NAMES))
+
+
+def revert_env(sess, dev):
+    """Trả mọi thay đổi môi trường + aspect của phiên (gọi lúc stop)."""
+    ch = sess.d.get("changed") or {}
+    env = ch.get("env") or {}
+    notes = []
+    for key, prev in list(env.items()):
+        try:
+            if key == "font-scale" and hasattr(dev, "font_scale"):
+                dev.font_scale(float(prev) if prev and re.match(r"^[\d.]+$", str(prev)) else 1.0)
+            elif key == "dark" and hasattr(dev, "dark_mode"):
+                dev.dark_mode(str(prev).lower() in ("yes", "dark"))
+            elif key == "animator" and isinstance(dev, Android):
+                dev.animator_scale(prev if prev else 1)
+            elif key == "kill-activities" and isinstance(dev, Android):
+                dev.always_finish(str(prev) == "1")
+            elif key == "clock" and isinstance(dev, Android):
+                dev.set_clock(None)
+            elif key == "locale" and isinstance(dev, Android) and prev:
+                dev.set_locale(prev)
+        except (QaError, NotSupported) as e:
+            notes.append("%s: %s" % (key, e))
+    if ch.get("wm_size") and isinstance(dev, Android):
+        try:
+            dev.wm_size("reset")
+            if ch.get("wm_density"):
+                dev.wm_density("reset")
+        except (QaError, NotSupported) as e:
+            notes.append("wm size: %s" % e)
+    ch["env"] = {}
+    ch["wm_size"] = False
+    sess.save()
+    return notes
+
+
+def cmd_aspect(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    spec = ASPECT_PRESETS.get(a.spec.lower(), a.spec)
+    if not isinstance(dev, Android):
+        raise NotSupported("đổi tỉ lệ màn chỉ có trên Android (wm size). iOS: chọn Simulator khác (`devices`), vd iPhone SE / iPad, rồi `start` lại")
+    if spec.lower() == "reset":
+        dev.wm_size("reset")
+        if (sess.d.get("changed") or {}).get("wm_density"):
+            dev.wm_density("reset")
+        sess.d["changed"]["wm_size"] = False
+        sess.step("note", "(môi trường) tỉ lệ màn về mặc định")
+        desc = "màn về kích thước thật"
+    else:
+        if not re.match(r"^\d+x\d+$", spec):
+            raise QaError("aspect WxH | %s | reset" % "|".join(sorted(ASPECT_PRESETS)))
+        dev.wm_size(spec)
+        sess.d.setdefault("changed", {})["wm_size"] = True
+        if a.density:
+            dev.wm_density(str(a.density))
+            sess.d["changed"]["wm_density"] = True
+        sess.step("note", "(môi trường) giả lập màn %s%s" % (spec, " dpi %s" % a.density if a.density else ""))
+        desc = "màn giả lập %s%s" % (spec, " dpi %s" % a.density if a.density else "")
+    sess.save()
+    print("aspect: %s — game nhận cấu hình mới sau 1-2 s (có thể cần `app restart` nếu game chỉ đọc Screen lúc mở)" % desc)
+    time.sleep(a.wait)
+    observe(sess, dev, "aspect-" + slug(spec, 12))
+    sess.d["screens_key"] = None  # ép auto-audit ở lần kế / audit ngay nếu --audit
+    if a.audit and dev.probe:
+        run_audit(sess, dev, view=sess.d.get("view"), tag="aspect-%s" % slug(spec, 12))
+
+
+def cmd_env(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    if a.name.lower() == "matrix":
+        return env_matrix(a, sess, dev)
+    if a.value is None:
+        raise QaError("env %s <giá trị>" % a.name)
+    try:
+        desc = apply_env(sess, dev, a.name, a.value)
+    except NotSupported as e:
+        print("env %s: unsupported — %s" % (a.name, e))
+        return
+    sess.step("note", "(môi trường) " + desc)
+    print("env: " + desc)
+    time.sleep(a.wait)
+    if a.name.lower() != "locale":
+        observe(sess, dev, "env-" + slug(a.name, 14))
+        if a.audit and dev.probe:
+            run_audit(sess, dev, view=sess.d.get("view"), tag="env-%s" % slug(a.name + "-" + str(a.value), 20))
+
+
+def env_matrix(a, sess, dev):
+    """Ma trận môi trường từ qa.environments: áp → chụp → audit → hoàn nguyên từng bước; tổng hợp env-matrix.md."""
+    env = qa_profile().get("environments") or {}
+    steps = []
+    for fs in env.get("fontScales") or []:
+        steps.append(("font-scale", str(fs)))
+    for sz in env.get("screenSizes") or []:
+        steps.append(("aspect", sz))
+    if env.get("darkMode"):
+        steps.append(("dark", "on"))
+    if env.get("animatorScale") is not None and isinstance(dev, Android):
+        steps.append(("animator", str(env.get("animatorScale"))))
+    if a.quick:
+        seen, q = set(), []
+        for s in steps:
+            if s[0] not in seen:
+                seen.add(s[0])
+                q.append(s)
+        steps = q
+    if not steps:
+        raise QaError("qa.environments trống — khai fontScales/screenSizes/darkMode trong project-profile.json")
+    rows = []
+    print("env matrix: %d bước trên %s" % (len(steps), dev.id))
+    for name, value in steps:
+        label = "%s=%s" % (name, value)
+        try:
+            if name == "aspect":
+                if not isinstance(dev, Android):
+                    raise NotSupported("wm size chỉ có trên Android")
+                dev.wm_size(value)
+                sess.d.setdefault("changed", {})["wm_size"] = True
+                desc = "màn %s" % value
+            else:
+                desc = apply_env(sess, dev, name, value)
+        except (NotSupported, QaError) as e:
+            rows.append({"step": label, "status": "unsupported", "note": str(e)})
+            print("  – %-22s unsupported: %s" % (label, e))
+            continue
+        time.sleep(max(1.5, a.wait))
+        v = observe(sess, dev, "env-" + slug(label, 18), logs=True)
+        n_f, worst = 0, ""
+        if dev.probe:
+            try:
+                findings, j = run_audit(sess, dev, view=v, quiet=True, tag="env-%s" % slug(label, 18))
+                real = [f for f in findings if f["severity"] != "info" and not f.get("suppressed")]
+                n_f = len(real)
+                worst = "[%s] %s" % (real[0]["severity"], real[0]["kind"]) if real else ""
+            except QaError as e:
+                worst = "audit lỗi: %s" % e
+        img_w = analyze_image(v["path"])
+        rows.append({"step": label, "status": "ok", "findings": n_f, "worst": worst, "shot": v["n"], "image": "; ".join(img_w)})
+        print("  ✓ %-22s %s → %d phát hiện %s %s" % (label, desc, n_f, worst, ("· ẢNH: " + "; ".join(img_w)) if img_w else ""))
+        sess.step("env", "(môi trường) %s: %d phát hiện" % (desc, n_f), env=label, findings=n_f, shot=v["n"])
+        # hoàn nguyên bước này ngay để bước sau sạch
+        try:
+            if name == "aspect":
+                dev.wm_size("reset")
+                sess.d["changed"]["wm_size"] = False
+            elif name == "font-scale":
+                apply_env(sess, dev, "font-scale", "reset")
+            elif name == "dark":
+                apply_env(sess, dev, "dark", "off")
+            elif name == "animator":
+                apply_env(sess, dev, "animator", "1")
+        except (NotSupported, QaError):
+            pass
+        time.sleep(1.0)
+    md = ["## Ma trận môi trường — %s" % (sess.d.get("feature") or ""), "", "| Bước | Kết quả | Phát hiện | Nặng nhất | Ảnh |", "|---|---|---|---|---|"]
+    for r in rows:
+        md.append("| %s | %s | %s | %s | %s |" % (r["step"], r["status"], r.get("findings", ""), r.get("worst") or r.get("note", ""), ("#%03d" % r["shot"]) if r.get("shot") else ""))
+    write_text(sess.path("env-matrix.md"), "\n".join(md) + "\n")
+    sess.d["env_matrix"] = rows
+    sess.d["screens_key"] = None
+    sess.save()
+    print("env-matrix.md: %s" % sess.path("env-matrix.md"))
+
+
+# ───────────────────────────────────────────────────────────── oracle: csv · pseudoloc · track
+
+def cmd_csv(a):
+    root = repo_root()
+    qa = qa_profile(root)
+    if a.list or not a.name:
+        pat = (qa.get("conventions") or {}).get("csvConfigGlob")
+        files = sorted(glob.glob(os.path.join(root, pat), recursive=True))
+        print("%d file CSV khớp %s:" % (len(files), pat))
+        for f in files:
+            print("  %-34s %s" % (os.path.splitext(os.path.basename(f))[0], os.path.relpath(f, root)))
+        return
+    path, cands = qaprofile.find_csv(root, qa, a.name)
+    if not path:
+        raise QaError("không thấy CSV '%s'%s — `csv --list`" % (a.name, (" (gần giống: %s)" % ", ".join(os.path.basename(c) for c in cands[:6])) if cands else ""))
+    header, rows = qaprofile.read_csv_rows(path)
+    rows = qaprofile.filter_rows(rows, a.where)
+    cols = a.col or header
+    if a.json:
+        print(json.dumps([{c: r.get(c, "") for c in cols} for r in rows], ensure_ascii=False, indent=1))
+        return
+    print("%s · %d dòng%s · cột: %s" % (os.path.relpath(path, root), len(rows), " (lọc %s)" % " ".join(a.where) if a.where else "", ", ".join(header)))
+    widths = {c: min(28, max(len(c), *(len(str(r.get(c, ""))) for r in rows[:a.limit])) if rows else len(c)) for c in cols}
+    print("  " + " | ".join(c.ljust(widths[c]) for c in cols))
+    for r in rows[:a.limit]:
+        print("  " + " | ".join(clip(str(r.get(c, "")), widths[c]).ljust(widths[c]) for c in cols))
+    if len(rows) > a.limit:
+        print("  … %d dòng nữa (--limit N)" % (len(rows) - a.limit))
+
+
+def cmd_pseudoloc(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    pr = need_probe(dev, "Pseudo-localization")
+    if not probe_supports(sess, "pseudoloc"):
+        print("pseudoloc: " + unsupported_probe(sess, "pseudoloc"))
+        print("  thay thế: đổi ngôn ngữ game sang bản dài nhất (vd Đức/Nga) trong Settings rồi `audit` từng màn")
+        return
+    on = a.mode_onoff == "on"
+    j = pr.get("/pseudoloc", on=1 if on else 0, mode=a.mode, timeout=20)
+    sess.d["pseudoloc"] = on
+    sess.step("note", "(môi trường) pseudo-loc %s (%s) — %s chữ" % ("BẬT" if on else "tắt", a.mode, j.get("count")))
+    print("pseudoloc %s · mode %s · %s phần tử chữ đổi" % ("BẬT" if j.get("on") else "tắt", j.get("mode", a.mode), j.get("count")))
+    time.sleep(a.wait)
+    v = observe(sess, dev, "pseudoloc-" + ("on" if on else "off"))
+    if on:
+        run_audit(sess, dev, view=v, tag="pseudoloc-%03d" % v["n"])
+        print("→ đi qua các màn của charter với pseudo-loc đang bật: auto-audit bắt tràn/cắt chữ; `pseudoloc off` khi xong")
+
+
+def _lines_since(sess, mark_name=None):
+    """Dòng log của app từ mốc (tên mark / 'last' / None = cả phiên)."""
+    lg = sess.d.get("log") or {}
+    path = lg.get("file")
+    lines = read_text(path).splitlines() if path else []
+    if sess.d["device"]["kind"] == "android":
+        pids = set(str(p) for p in sess.d.get("pids") or [])
+        lines = [l for l in lines if (LOGCAT_RE.match(l) and LOGCAT_RE.match(l).group(2) in pids) or sess.d["package"] in l]
+    if mark_name:
+        steps = read_jsonl(sess.path("steps.jsonl"))
+        marks = [s for s in steps if s["action"] == "mark" and (mark_name == "last" or (s.get("desc") or "").lower().startswith(mark_name.lower()))]
+        if marks:
+            t = marks[-1]["t"]  # ISO UTC; logcat không có năm/UTC → cắt theo vị trí dòng thay vì giờ
+            # dùng số dòng tại thời điểm mark nếu đã ghi, không thì lấy 60% cuối
+            cut = marks[-1].get("log_lines")
+            lines = lines[cut:] if isinstance(cut, int) else lines[int(len(lines) * 0.4):]
+    return lines
+
+
+def cmd_track(a):
+    sess = Session.load(a.session)
+    dev = sess.device()
+    pat = (qa_profile().get("conventions") or {}).get("trackingLogPattern") or "Tracking"
+    rg = re.compile(a.pattern or pat, re.I)
+    lines = [l for l in _lines_since(sess, a.since) if rg.search(l)]
+    if dev.probe and sess.d["device"]["kind"] != "android":
+        try:
+            ents = dev.probe.get("/logs", since=0, timeout=10).get("entries") or []
+            lines += [e.get("msg", "") for e in ents if rg.search(e.get("msg", ""))]
+        except QaError:
+            pass
+    print("tracking: %d dòng khớp /%s/%s" % (len(lines), a.pattern or pat, (" từ mark %s" % a.since) if a.since else ""))
+    for l in lines[-a.tail:]:
+        m = LOGCAT_RE.match(l)
+        print("  " + clip(m.group(6) if m else l, 220))
+    if a.expect:
+        hit = [l for l in lines if re.search(a.expect, l, re.I)]
+        if hit:
+            print("  ✓ có event /%s/ (%d lần)" % (a.expect, len(hit)))
+            sess.step("check", "Tracking: có event %s" % a.expect, result="pass")
+        else:
+            print("  ✗ THIẾU event /%s/ — kiểm tra lại code tracking của luồng vừa chơi" % a.expect)
+            sess.step("check", "Tracking: THIẾU event %s" % a.expect, result="fail", kind="tracking-missing")
+            sys.exit(1)
+
+
+# ───────────────────────────────────────────────────────────── autotest-import · build update
+
+def cmd_autotest_import(a):
+    root = repo_root()
+    qa = qa_profile(root)
+    path = a.path or qaprofile.latest_report(root, qa)
+    if not path or not os.path.isfile(path):
+        raise QaError("không có report.json của com.ezg.autotest (%s) — chạy Ezg > Auto test system trong Editor trước, hoặc truyền đường dẫn" % qa_path(root, "autotestReports"))
+    rep = qaprofile.parse_autotest_report(path)
+    md = qaprofile.autotest_markdown(rep)
+    if rep["version"] == "0.1.1":
+        md += "\n> ⚠ report của autotest < %s: chưa lọc feature chết, MissingReference chưa theo phạm vi load — số Major/Critical ở suite static/smoke có nhiễu; chỉ dùng danh sách màn mở OK/LỖI và Blocker/Critical có exception.\n" % AUTOTEST_MIN_VERSION
+    try:
+        sess = Session.load(a.session)
+        if sess.d.get("ended"):
+            sess = None
+    except QaError:
+        sess = None
+    if sess:
+        write_text(sess.path("autotest-summary.md"), md)
+        sess.d["autotest"] = {"runId": rep["runId"], "path": path, "version": rep["version"], "bySeverity": rep["bySeverity"],
+                              "coveredScreens": rep["coveredScreens"], "failedScreens": rep["failedScreens"]}
+        sess.step("note", "(autotest-import) %s: %s · màn OK %d · màn lỗi %d" % (
+            rep["runId"], " ".join("%s%d" % (k[0], v) for k, v in rep["bySeverity"].items()), len(rep["coveredScreens"]), len(rep["failedScreens"])))
+        sess.save()
+    print(md if not a.quiet else "autotest-import: %s" % (sess.path("autotest-summary.md") if sess else path))
+    if a.json:
+        print(json.dumps({k: v for k, v in rep.items() if k not in ("issues", "cases")}, ensure_ascii=False, indent=1))
+
+
+def cmd_build_update(a):
+    """Cài build mới đè bản đang test (giữ data) → kiểm save migration: state trước/sau theo qa.verified.statePaths."""
+    root = repo_root()
+    sess = Session.load(a.session)
+    dev = sess.device()
+    pkg = sess.d["package"]
+    path = a.path
+    if path in ("latest", "auto"):
+        path = find_artifact(root, dev.platform)
+        if not path:
+            raise QaError("không thấy bản build trong repo — truyền đường dẫn apk/app")
+    if not os.path.exists(path):
+        raise QaError("không có file %s" % path)
+    qa = qa_profile(root)
+    paths = [v.get("path") for v in ((qa.get("verified") or {}).get("statePaths") or {}).values() if v.get("path")] + list(a.state or [])
+    before = {"version": dev.app_version(pkg), "state": {}}
+
+    def snapshot():
+        out = {}
+        if dev.probe and (sess.d.get("probe") or {}).get("ok"):
+            for p in paths:
+                try:
+                    out[p] = dev.probe.get("/get", path=p, timeout=10).get("value")
+                except QaError as e:
+                    out[p] = "<lỗi: %s>" % e
+        return out
+    before["state"] = snapshot()
+    print("build update: %s v%s → cài %s%s" % (pkg, before["version"][0], os.path.basename(path), " (giữ data)" if not a.wipe else " (XOÁ data)"))
+    sess.d["expect_exit"] = sess.d.get("expect_exit", 0) + 1
+    sess.save()
+    dev.stop(pkg)
+    dev.install(path)
+    if a.wipe:
+        dev.clear_data(pkg)
+    relaunch(sess, dev)
+    time.sleep(a.settle)
+    after = {"version": dev.app_version(pkg), "state": snapshot()}
+    diff = []
+    for p in paths:
+        b, c = before["state"].get(p), after["state"].get(p)
+        if b != c:
+            diff.append((p, b, c))
+    md = ["## Cập nhật build — save migration", "",
+          "- Trước: v%s (%s) · Sau: v%s (%s) · file `%s`" % (before["version"][0], before["version"][1], after["version"][0], after["version"][1], path),
+          "- State so sánh: %d đường dẫn · %d khác" % (len(paths), len(diff)), ""]
+    if diff:
+        md += ["| Đường dẫn | Trước | Sau |", "|---|---|---|"]
+        for p, b, c in diff:
+            md.append("| `%s` | %s | %s |" % (p, clip(json.dumps(b, ensure_ascii=False), 60), clip(json.dumps(c, ensure_ascii=False), 60)))
+    elif not paths:
+        md.append("- (chưa có qa.verified.statePaths — `state <path>` vài giá trị quan trọng trước khi `build update`, hoặc --state <path>)")
+    write_text(sess.path("migration.md"), "\n".join(md) + "\n")
+    sess.step("build-update", "Cập nhật game lên bản mới%s rồi mở lại" % (" (xoá data)" if a.wipe else " giữ nguyên dữ liệu"),
+              before=before["version"], after=after["version"], changed=len(diff))
+    sess.d["app"].update({"version": after["version"][0], "build": after["version"][1]})
+    sess.save()
+    print("\n".join(md))
+    observe(sess, dev, "build-update")
+    if diff:
+        print("⚠ %d state đổi sau khi cập nhật — xem migration.md; mất tiền/tiến độ = bug save migration (critical)" % len(diff))
+
+
+# ───────────────────────────────────────────────────────────── flush tri thức về profile
+
+def flush_profile(sess, quiet=False):
+    """Lúc stop: màn đã quan sát → qa.liveness.observed; cheat/state đã gọi OK → qa.verified. Làm mới vùng auto của QaProfile.md."""
+    root = repo_root()
+    qa = qa_profile(root, refresh=True)
+    names, _ = qaprofile.feature_names(root, qa)
+    name_set = set(names)
+    obs = {k: v for k, v in (sess.d.get("observed") or {}).items() if k in name_set}
+    cheats = sess.d.get("verified_cheats") or {}
+    states = {}
+    for p, d in (sess.d.get("verified_state") or {}).items():
+        alias = ".".join(p.split(".")[-2:])
+        states[alias] = {"path": p, "lastOk": d}
+    patch = {}
+    if obs:
+        patch["liveness"] = {"observed": obs}
+    if cheats or states:
+        patch["verified"] = {}
+        if cheats:
+            patch["verified"]["cheats"] = cheats
+        if states:
+            patch["verified"]["statePaths"] = states
+    if not patch:
+        return None
+    if not os.path.isfile(os.path.join(root, qaprofile.PROFILE_REL)):
+        return None
+    qaprofile.save_qa_patch(root, patch)
+    _QA_CACHE.pop(root, None)
+    doc = refresh_profile_doc(root, qa_profile(root, refresh=True))
+    line = "hồ sơ QA: +%d màn quan sát · +%d cheat · +%d state path → %s%s" % (
+        len(obs), len(cheats), len(states), qaprofile.PROFILE_REL, (" + %s" % os.path.relpath(doc, root)) if doc else "")
+    if not quiet:
+        print(line)
+        print("  → `profile sync` để autotest Editor nhận observedLive; dev duyệt QaProfile.md (Status → reviewed); commit cùng repo")
+    return line
+
+
 # ───────────────────────────────────────────────────────────── argparse
 
 def build_parser():
     p = argparse.ArgumentParser(prog="qadevice", description="Driver thiết bị cho /auto-test-device (EZG).")
     p.add_argument("--session", help="id phiên (mặc định: phiên hiện tại)")
+    p.add_argument("--no-auto-audit", action="store_true", help="không tự audit khi màn đổi sau thao tác (mặc định: có, cần probe)")
     sub = p.add_subparsers(dest="cmd")
 
     def act(sp, coords=True):
@@ -4163,8 +5572,87 @@ def build_parser():
             sp.add_argument("--allow-overlay", action="store_true",
                             help="cho chạm adb vào vùng overlay của app khác (mặc định chặn — chạm sẽ trúng app kia)")
 
-    sp = sub.add_parser("doctor", help="kiểm công cụ trên máy")
+    sp = sub.add_parser("doctor", help="kiểm công cụ trên máy + hồ sơ QA của project (--strict: rc 1 khi thiếu mục bắt buộc)")
+    sp.add_argument("--strict", action="store_true")
     sp.set_defaults(fn=cmd_doctor)
+
+    sp = sub.add_parser("profile", help="hồ sơ QA của project (.claude/project-profile.json[qa] + QaProfile.md): init | sync | show")
+    sp.add_argument("op", choices=("init", "sync", "show"))
+    sp.add_argument("--force", action="store_true", help="init: ghi đè cả key dev đã khai")
+    sp.add_argument("--dry-run", action="store_true", help="init/sync: chỉ in, không ghi")
+    sp.add_argument("--json", action="store_true", help="show: in JSON kèm nguồn từng key")
+    sp.set_defaults(fn=cmd_profile)
+
+    sp = sub.add_parser("selfcheck", help="tự kiểm công cụ trên máy đang nối: probe, /ui, tap --text, shot, logs (ghi selfcheck.json; rc 1 nếu fail)")
+    sp.add_argument("--no-tap", action="store_true", help="không thử bấm nút an toàn")
+    sp.set_defaults(fn=cmd_selfcheck)
+
+    sp = sub.add_parser("coverage", help="ca planned/run/pass/fail theo charter + màn sống chưa mở → coverage.md")
+    sp.add_argument("--charter", help="chỉ một charter (tên file không đuôi)")
+    sp.add_argument("--quiet", action="store_true")
+    sp.set_defaults(fn=cmd_coverage)
+
+    sp = sub.add_parser("charter", help="charter trong repo (.claude/docs/qa/charters): list | new \"<feature>\" | diff")
+    sp.add_argument("op", choices=("list", "new", "diff"))
+    sp.add_argument("feature", nargs="?", help="new: tên feature")
+    sp.add_argument("--id", help="new: tên file charter (mặc định slug của feature)")
+    sp.add_argument("--sources", help="new: nguồn đã đọc (GDD/TechSpec/file)")
+    sp.add_argument("--charter", help="diff: tên charter (mặc định charter đang gắn với phiên)")
+    sp.add_argument("--force", action="store_true")
+    sp.set_defaults(fn=cmd_charter)
+
+    sp = sub.add_parser("aspect", help="(Android) giả lập kích thước màn: WxH | tall | tablet | short | square | reset")
+    sp.add_argument("spec")
+    sp.add_argument("--density", type=int, help="wm density kèm theo")
+    sp.add_argument("--wait", type=float, default=2.0)
+    sp.add_argument("--audit", action="store_true", help="audit ngay sau khi đổi")
+    sp.set_defaults(fn=cmd_aspect)
+
+    sp = sub.add_parser("env", help="môi trường máy: font-scale 1.3|reset · dark on|off · animator 0|0.5|1 · kill-activities on|off · "
+                                    "trim-memory [LEVEL] · clock +1d|reset · locale vi-VN — hoặc `env matrix [--quick]`")
+    sp.add_argument("name")
+    sp.add_argument("value", nargs="?")
+    sp.add_argument("--wait", type=float, default=2.0)
+    sp.add_argument("--audit", action="store_true", help="audit ngay sau khi đổi")
+    sp.add_argument("--quick", action="store_true", help="matrix: mỗi loại một bước")
+    sp.set_defaults(fn=cmd_env)
+
+    sp = sub.add_parser("csv", help="oracle: đọc CSV cấu hình theo tên (qa.conventions.csvConfigGlob): csv CoinPack --where id=2 --col price")
+    sp.add_argument("name", nargs="?")
+    sp.add_argument("--where", action="append", help="col=val | col~regex | col>=3 (lặp được)")
+    sp.add_argument("--col", action="append", help="chỉ in cột này (lặp được)")
+    sp.add_argument("--limit", type=int, default=40)
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--list", action="store_true", help="liệt kê file CSV")
+    sp.set_defaults(fn=cmd_csv)
+
+    sp = sub.add_parser("pseudoloc", help="(probe ≥1.3) pseudo-localization: on | off [--mode expand|accent|both]")
+    sp.add_argument("mode_onoff", choices=("on", "off"))
+    sp.add_argument("--mode", choices=("expand", "accent", "both"), default="both")
+    sp.add_argument("--wait", type=float, default=1.0)
+    sp.set_defaults(fn=cmd_pseudoloc)
+
+    sp = sub.add_parser("track", help="event tracking trong log (qa.conventions.trackingLogPattern): track [--since MARK] [--expect REGEX]")
+    sp.add_argument("--since", help="tên mark (hoặc `last`)")
+    sp.add_argument("--expect", help="regex event phải có; thiếu → rc 1")
+    sp.add_argument("--pattern", help="regex lọc thay cho trackingLogPattern")
+    sp.add_argument("--tail", type=int, default=40)
+    sp.set_defaults(fn=cmd_track)
+
+    sp = sub.add_parser("autotest-import", help="đọc report.json mới nhất của com.ezg.autotest → autotest-summary.md + danh sách màn đã/không mở được (Δ-skip)")
+    sp.add_argument("path", nargs="?")
+    sp.add_argument("--quiet", action="store_true")
+    sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=cmd_autotest_import)
+
+    sp = sub.add_parser("build", help="build update <apk|app|latest>: cài đè giữ data rồi so state (save migration)")
+    sp.add_argument("op", choices=("update",))
+    sp.add_argument("path", nargs="?", default="latest")
+    sp.add_argument("--keep-data", action="store_true", help="(mặc định) giữ dữ liệu game")
+    sp.add_argument("--wipe", action="store_true", help="xoá dữ liệu sau khi cài (người chơi mới trên bản mới)")
+    sp.add_argument("--state", action="append", help="thêm đường dẫn state để so (ngoài qa.verified.statePaths)")
+    sp.add_argument("--settle", type=float, default=6.0)
+    sp.set_defaults(fn=cmd_build_update)
     sp = sub.add_parser("devices", help="liệt kê thiết bị/AVD/Simulator")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=cmd_devices)
@@ -4190,6 +5678,7 @@ def build_parser():
     sp.add_argument("--no-probe-install", action="store_true", help="không tự cài/cập nhật probe vào project")
     sp.add_argument("--no-api-retry", action="store_true",
                     help="không bật thử lại lỗi API (mặc định: /auto-clear retry-arm --max 0 — lượt chết vì lỗi API tự gõ tiếp sau 30 s)")
+    sp.add_argument("--no-profile-init", action="store_true", help="không tự `profile init` khi project chưa có block qa")
     sp.add_argument("--skip-bughub", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(fn=cmd_start)
 
@@ -4229,6 +5718,8 @@ def build_parser():
     sp.add_argument("--world")
     sp.add_argument("--times", type=int, default=1, help="chạm liên tiếp N lần (test spam/double tap)")
     sp.add_argument("--interval", type=float, default=0.08, help="giây giữa các lần chạm (tối thiểu 0.07 trên Android)")
+    sp.add_argument("--expect", help="(probe) kỳ vọng sau chạm: text:<chữ> | @id | screen:<tên màn> | name:<tên> (mặc định text) — không đạt → ghi expectation-failed")
+    sp.add_argument("--timeout", type=float, default=EXPECT_TIMEOUT_S, help="chờ kỳ vọng tối đa (s)")
     act(sp)
     sp.set_defaults(fn=cmd_tap)
 
@@ -4331,8 +5822,9 @@ def build_parser():
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=cmd_ui)
 
-    sp = sub.add_parser("audit", help="chụp + audit visual màn hiện tại (sâu nếu có probe)")
+    sp = sub.add_parser("audit", help="chụp + audit visual màn hiện tại (sâu nếu có probe; áp luật nhiễu qa.noise)")
     sp.add_argument("--all", action="store_true")
+    sp.add_argument("--include-suppressed", action="store_true", help="in cả finding bị luật nhiễu của project ẩn")
     sp.set_defaults(fn=cmd_audit)
 
     sp = sub.add_parser("state", help="(probe) đọc giá trị static: Namespace.Type.Member.Member…")
@@ -4363,9 +5855,11 @@ def build_parser():
     sp.add_argument("name", nargs="?")
     sp.set_defaults(fn=cmd_mark)
 
-    sp = sub.add_parser("note", help="ghi chú / kết quả ca test")
-    sp.add_argument("text")
+    sp = sub.add_parser("note", help="ghi chú / kết quả ca test; --case <charter>/<P0-01> --result … ghi ca theo charter (coverage đọc)")
+    sp.add_argument("text", nargs="?")
+    sp.add_argument("--case", help="mã ca trong charter, vd offline-earning/P0-01")
     sp.add_argument("--result", choices=("pass", "fail", "blocked", "skip"))
+    sp.add_argument("--bug", type=int, help="số bug BugHub liên quan (ca fail)")
     sp.set_defaults(fn=cmd_note)
 
     sp = sub.add_parser("steps", help="xem bước tái hiện từ mark gần nhất")
@@ -4416,11 +5910,14 @@ def build_parser():
 
 
 def main(argv=None):
+    global AUTO_AUDIT
     p = build_parser()
     a = p.parse_args(argv)
     if not getattr(a, "fn", None):
         p.print_help()
         return 2
+    if getattr(a, "no_auto_audit", False):
+        AUTO_AUDIT = False
     try:
         a.fn(a)
         return 0

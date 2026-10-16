@@ -56,7 +56,7 @@ if [ -z "$PY" ]; then
 fi
 
 # --- 1. link view -----------------------------------------------------------
-note "[1/6] Link view"
+note "[1/7] Link view"
 sync_script=""
 for candidate in "$SCRIPT_DIR"/sync-to-*.sh; do
   [ -f "$candidate" ] && { sync_script="$candidate"; break; }   # first match wins
@@ -73,7 +73,7 @@ note ""
 # `git init`-ed yet cannot have one. A project generated from the base template is
 # exactly that case, and initialising is the only sensible answer — an empty repo
 # with no commits and no remote is trivially undone (`rm -rf .git`).
-note "[2/6] Git repository"
+note "[2/7] Git repository"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   note "  OK  already a git repository"
 else
@@ -83,7 +83,7 @@ fi
 note ""
 
 # --- 3. backlog -------------------------------------------------------------
-note "[3/6] Backlog"
+note "[3/7] Backlog"
 if [ -n "$PY" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   "$PY" "$SCRIPT_DIR/backlog-ops.py" init >/dev/null || fail "backlog-ops.py init failed"
   BACKLOG_ROOT="$(git rev-parse --git-common-dir)/backlog"
@@ -99,7 +99,7 @@ note ""
 # the developer should produce and review deliberately. Neither case is fatal —
 # a project without UI prefabs is a perfectly good state, and bootstrap that
 # reports INCOMPLETE for it would train everyone to ignore the exit code.
-note "[4/6] UI kit"
+note "[4/7] UI kit"
 KIT_STATE=""
 if [ -n "$PY" ]; then
   KIT_STATE="$("$PY" "$SCRIPT_DIR/ui-kit-sync.py" --check 2>/dev/null \
@@ -125,7 +125,7 @@ note ""
 # never shipped by the template — only ArtStyle.template.md is, so a template update
 # can never overwrite a filled-in style guide. Copy the frame when the project has
 # none; an unfilled one is a next-step note, not a failure.
-note "[5/6] Art style"
+note "[5/7] Art style"
 DOCS_DIR="$(cd "$SCRIPT_DIR/../docs" 2>/dev/null && pwd)"
 ART_STATE=""
 if [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/ArtStyle.md" ]; then
@@ -143,13 +143,41 @@ else
 fi
 note ""
 
-# --- 6. Project instructions ------------------------------------------------
+# --- 6. QA profile ----------------------------------------------------------
+# QaProfile.md (+ docs/qa/charters/) is OWNED BY THE PROJECT: the conventions, live/dead
+# screens, verified cheats and test charters that /auto-test-device reads. The template
+# ships only QaProfile.template.md, so a template update can never overwrite it. Copy the
+# frame when the project has none; the real values come from
+# `qadevice.py profile init` (it scans the repo), which is a next-step note, not a failure.
+note "[6/7] QA profile"
+QA_STATE=""
+if [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/QaProfile.md" ]; then
+  if grep -q '^\*\*Status:\*\* template' "$DOCS_DIR/QaProfile.md"; then
+    QA_STATE="template"; note "  WARN QaProfile.md is still the empty frame (see next steps)"
+  else
+    note "  OK  QaProfile.md present"
+  fi
+elif [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/QaProfile.template.md" ]; then
+  cp "$DOCS_DIR/QaProfile.template.md" "$DOCS_DIR/QaProfile.md" \
+    && { QA_STATE="template"; note "  NEW QaProfile.md created from the template"; } \
+    || fail "could not create QaProfile.md"
+else
+  note "  --  no QaProfile.template.md in this setup — skipped"
+fi
+if [ -n "$DOCS_DIR" ] && [ -f "$DOCS_DIR/QaProfile.md" ] && [ ! -d "$DOCS_DIR/qa/charters" ]; then
+  mkdir -p "$DOCS_DIR/qa/charters" \
+    && note "  NEW docs/qa/charters/ created (test charters live here, committed with the repo)" \
+    || fail "could not create docs/qa/charters"
+fi
+note ""
+
+# --- 7. Project instructions ------------------------------------------------
 # CLAUDE.md is OWNED BY THE TEMPLATE (Feature Hub / agents-update overwrite it) and
 # imports CLAUDE_PROJECT.md, which is OWNED BY THE PROJECT and never shipped — only
 # docs/CLAUDE_PROJECT.template.md is. Copy the frame to the repo root when there is
 # none, so the import always resolves; an unfilled one is a next-step note, not a
 # failure. An existing file is never touched.
-note "[6/6] Project instructions"
+note "[7/7] Project instructions"
 PROJ_DOC="$REPO_ROOT/CLAUDE_PROJECT.md"
 PROJ_STATE=""
 if [ -f "$PROJ_DOC" ]; then
@@ -201,6 +229,11 @@ esac
 if [ "$ART_STATE" = "template" ]; then
   note "  - [ACTION] Fill in .claude/docs/ArtStyle.md (palette, UI kit, layout, fonts) — every visual"
   note "    skill reads it. Its § Bootstrap says how to draft it from the project's own art."
+fi
+
+if [ "$QA_STATE" = "template" ]; then
+  note "  - [ACTION] Draft the QA profile: python3 .claude/skills/auto-test-device/scripts/qadevice.py profile init"
+  note "    (scans the repo, fills .claude/project-profile.json[\"qa\"] + .claude/docs/QaProfile.md — review, then commit)."
 fi
 
 if [ "$PROJ_STATE" = "template" ]; then

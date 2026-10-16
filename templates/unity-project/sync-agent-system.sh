@@ -240,6 +240,7 @@ NEVER_GLOBS=(
   "docs/blaze-survivor-*.json"      # Google service-account credential
   "skills/_shared"                  # blaze-art-style.md — upstream game's art bible
   "docs/ArtStyle.md" "docs/ArtStyle" # per-game art direction — template ships docs/ArtStyle.template.md
+  "docs/QaProfile.md" "docs/qa"      # per-game QA profile + charters — template ships docs/QaProfile.template.md
   "skills/balance-*" "skills/generate-*" "skills/enemy-*" "skills/feature-cheat"
   "skills/skill-csv-localize" "skills/play-console-api" "skills/notebooklm-query"
   "skills/project-doc-design" "skills/progress-thread" "skills/core-extensions"

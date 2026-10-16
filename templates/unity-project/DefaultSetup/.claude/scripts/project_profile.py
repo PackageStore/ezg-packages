@@ -134,9 +134,89 @@ DEFAULTS = {
             "worktreePath": "",
         },
     },
+
+    # --- QA (skill /auto-test-device, com.ezg.qa-probe, com.ezg.autotest) -----
+    # Quy ước + tri thức QA riêng của project, để skill dùng chung giữa mọi repo mà
+    # không ghi cứng giá trị. Tool `qadevice.py profile init` tự dò rồi ghi vào
+    # profile (status template → draft); dev duyệt thì đổi thành reviewed.
+    # Merge ĐỆ QUY: dict theo key, list THAY THẾ nguyên list, scalar ghi đè.
+    #   conventions  — tên type/thành viên theo template EZG; probe + autotest đọc qua
+    #                  `profile sync` (Assets/Resources/EzgQaProbeConfig.json,
+    #                  ProjectSettings/EZGAutoTestSettings.json).
+    #   liveness     — màn "chết" (asset/feature cũ chưa dọn) để autotest không báo
+    #                  lỗi nặng oan; `observed` do tool ghi lúc `stop` (màn đã thấy mở).
+    #   verified     — cheat / state path đã gọi thành công (tool ghi, kèm ngày).
+    #   noise        — rule bỏ qua finding audit theo flag + regex path/screen.
+    #   environments — ma trận môi trường `env matrix` chạy mặc định.
+    #   paths        — file project sở hữu mà tool đọc/ghi.
+    "qa": {
+        "schemaVersion": 1,
+        "status": "template",
+        "conventions": {
+            "screenBaseTypes": ["FeatureBaseController", "UIScreenBase", "ScreenBase", "PopupBase", "UIPanel"],
+            "featuresEnum": "GameEnums+Features",
+            "uiManagerType": "UIManager",
+            "screenPrefabPrefix": "screen_",
+            "cheatTypeName": "GameSystems",
+            "cheatFlagMember": "isCheat",
+            "cheatEnableMethod": "TryEnableCheat",
+            "cheatDisableMethod": "DisableCheat",
+            "cheatMethodPrefix": "Cheat_",
+            "playerDataFacade": "PlayerDataManager",
+            "timeProvider": "TimeManager",
+            "trackingEventNameType": "TrackingEventName",
+            "trackingLogPattern": "Tracking|Firebase|AppsFlyer",
+            "csvConfigGlob": "Assets/_Project/Features/**/CsvConfig/*.csv",
+        },
+        "liveness": {
+            "deadFeaturePatterns": ["_Retired$"],
+            "forceLive": [],
+            "forceDead": [],
+            "observed": {},
+        },
+        "verified": {"cheats": {}, "statePaths": {}},
+        "noise": [],
+        "environments": {"fontScales": [1.3], "screenSizes": ["720x1280"], "darkMode": True, "animatorScale": 0},
+        "paths": {
+            "profileDoc": ".claude/docs/QaProfile.md",
+            "chartersDir": ".claude/docs/qa/charters",
+            "autotestSettings": "ProjectSettings/EZGAutoTestSettings.json",
+            "autotestReports": "AutoTestReports",
+            "probeOverride": "Assets/Resources/EzgQaProbeConfig.json",
+        },
+    },
 }
 
+# Top-level keys merged per sub-key (recursively) instead of replaced wholesale, so a
+# project overriding one leaf keeps every sibling default. Everything else is shallow.
+DEEP_MERGE_KEYS = ("backend", "bugHub", "qa")
+
 _PROFILE_FILENAME = "project-profile.json"
+
+
+def deep_merge(base, override):
+    """Recursive merge: dicts merge per key, lists REPLACE (never append), scalars override.
+
+    Returns a new structure — neither argument is mutated, so DEFAULTS stays pristine
+    across calls. Lists replace on purpose: a project that trims `screenBaseTypes` to
+    one class must not get the template's five back.
+    """
+    if isinstance(base, dict) and isinstance(override, dict):
+        merged = {k: deep_merge(v, None) for k, v in base.items()}
+        for k, v in override.items():
+            merged[k] = deep_merge(base.get(k), v) if k in base else deep_merge(v, None)
+        return merged
+    if override is None:
+        if isinstance(base, dict):
+            return {k: deep_merge(v, None) for k, v in base.items()}
+        if isinstance(base, list):
+            return list(base)
+        return base
+    if isinstance(override, dict):
+        return {k: deep_merge(v, None) for k, v in override.items()}
+    if isinstance(override, list):
+        return list(override)
+    return override
 
 
 def _repo_root() -> Path:
@@ -157,9 +237,10 @@ def _repo_root() -> Path:
 class Profile:
     """Read-only view over the merged profile.
 
-    Merge is shallow per top-level key, except `backend` and `bugHub`, which
-    merge per sub-key. That way a project overriding only `backend.kind` keeps
-    the default write-pattern instead of silently losing the rule.
+    Merge is shallow per top-level key, except the DEEP_MERGE_KEYS (`backend`,
+    `bugHub`, `qa`), which merge recursively per sub-key. That way a project
+    overriding only `backend.kind` keeps the default write-pattern instead of
+    silently losing the rule.
     """
 
     def __init__(self, data: dict, source: Path | None = None):
@@ -168,6 +249,8 @@ class Profile:
 
     # -- raw access ---------------------------------------------------------
     def get(self, key, default=None):
+        if key in DEEP_MERGE_KEYS:
+            return deep_merge(DEFAULTS[key], self._data.get(key) or {})
         return self._data.get(key, DEFAULTS.get(key, default))
 
     # -- identity -----------------------------------------------------------
@@ -243,9 +326,7 @@ class Profile:
     # -- backend ------------------------------------------------------------
     @property
     def backend(self) -> dict:
-        merged = dict(DEFAULTS["backend"])
-        merged.update(self._data.get("backend") or {})
-        return merged
+        return self.get("backend")
 
     @property
     def backend_direct_write_banned(self) -> bool:
@@ -262,20 +343,33 @@ class Profile:
     # -- BugHub -------------------------------------------------------------
     @property
     def bug_hub(self) -> dict:
-        merged = dict(DEFAULTS["bugHub"])
-        merged.update(self._data.get("bugHub") or {})
-        merged["watch"] = self.bug_hub_watch
-        return merged
+        return self.get("bugHub")
 
     @property
     def bug_hub_watch(self) -> dict:
-        merged = dict(DEFAULTS["bugHub"]["watch"])
-        merged.update((self._data.get("bugHub") or {}).get("watch") or {})
-        return merged
+        return self.bug_hub["watch"]
 
     @property
     def bug_hub_project_code(self) -> str:
         return self.bug_hub.get("projectCode") or ""
+
+    # -- QA (auto-test-device) ----------------------------------------------
+    @property
+    def qa(self) -> dict:
+        """Block `qa` đã merge đệ quy với DEFAULTS — skill /auto-test-device đọc."""
+        return self.get("qa")
+
+    @property
+    def qa_conventions(self) -> dict:
+        return self.qa["conventions"]
+
+    @property
+    def qa_paths(self) -> dict:
+        return self.qa["paths"]
+
+    @property
+    def qa_status(self) -> str:
+        return str(self.qa.get("status") or "template")
 
 
 _cached: Profile | None = None
@@ -325,10 +419,9 @@ if __name__ == "__main__":
     p = profile()
     if len(sys.argv) > 1:
         # `project_profile.py sourceRoot` — for shell callers.
-        # Key merge theo sub-key thì in bản đã merge, để thiếu sub-key vẫn ra default.
-        if sys.argv[1] == "bugHub":
-            value = p.bug_hub
-        elif sys.argv[1] == "displayName":
+        # Key merge theo sub-key (backend/bugHub/qa) thì p.get() đã trả bản merge, để thiếu
+        # sub-key vẫn ra default. `project_profile.py qa` in nguyên block QA đã merge.
+        if sys.argv[1] == "displayName":
             value = p.display_name
         else:
             value = p.get(sys.argv[1])
@@ -358,4 +451,5 @@ if __name__ == "__main__":
             "playerPrefsAllowedFiles": p.player_prefs_allowed_files,
             "backend": p.backend,
             "bugHub": p.bug_hub,
+            "qa": p.qa,
         }, indent=2))

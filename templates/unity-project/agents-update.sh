@@ -12,6 +12,8 @@
 #     here, so the two can never disagree about what is seed-once.
 #   - .claude/docs/ArtStyle.md (+ docs/ArtStyle/) — the project's own art direction; the
 #     template ships only the empty frame docs/ArtStyle.template.md, which bootstrap copies once.
+#   - .claude/docs/QaProfile.md (+ docs/qa/) — the project's own QA profile and test charters
+#     (/auto-test-device); the template ships only docs/QaProfile.template.md, copied once by bootstrap.
 #   - CLAUDE_PROJECT.md — the project's own half of CLAUDE.md (frame:
 #     docs/CLAUDE_PROJECT.template.md, copied once by bootstrap).
 #   - anything outside `.claude/`, the `.agents/` link view and CLAUDE.md. CLAUDE.md is
@@ -150,6 +152,9 @@ while IFS= read -r -d '' dst_file; do
     # Project-owned art direction: the template ships only docs/ArtStyle.template.md, so the
     # filled-in copy (and its generated reference boards) always looks orphaned — never prune it.
     docs/ArtStyle.md|docs/ArtStyle/*) continue ;;
+    # Project-owned QA profile + charters: the template ships only docs/QaProfile.template.md;
+    # the filled-in copy and the charters /auto-test-device writes always look orphaned — never prune.
+    docs/QaProfile.md|docs/qa/*) continue ;;
   esac
   if [ "$PRUNE" = "1" ]; then
     run rm -f "$dst_file"

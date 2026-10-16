@@ -39,10 +39,12 @@ powershell -ExecutionPolicy Bypass -File .claude/scripts/bootstrap.ps1     # Win
 ```
 
 Script này idempotent — chạy lại luôn an toàn. Nó tạo link view, `git init` nếu repo chưa có,
-`backlog-ops.py init`, sinh UI kit nếu project chưa có, rồi tạo `.claude/docs/ArtStyle.md` và
-`CLAUDE_PROJECT.md` từ khung nếu thiếu (không bao giờ ghi đè bản đã có). Chi tiết + việc còn phải làm tay (tinh
-chỉnh `.claude/project-profile.json` cho khớp layout/threat surface, tạo remote nếu muốn push):
-[.claude/docs/GETTING-STARTED.md](.claude/docs/GETTING-STARTED.md).
+`backlog-ops.py init`, sinh UI kit nếu project chưa có, rồi tạo `.claude/docs/ArtStyle.md`, `.claude/docs/QaProfile.md`
+và `CLAUDE_PROJECT.md` từ khung nếu thiếu (không bao giờ ghi đè bản đã có). Hồ sơ QA (`QaProfile.md` +
+`.claude/project-profile.json["qa"]` + `.claude/docs/qa/charters/`) là của project — skill `/auto-test-device` đọc
+nó thay vì ghi cứng quy ước; điền lần đầu bằng `python3 .claude/skills/auto-test-device/scripts/qadevice.py profile init`.
+Chi tiết + việc còn phải làm tay (tinh chỉnh `.claude/project-profile.json` cho khớp layout/threat surface, tạo remote
+nếu muốn push): [.claude/docs/GETTING-STARTED.md](.claude/docs/GETTING-STARTED.md).
 
 **Sau bootstrap: chạy `/setup-project`.** Mở project trong Unity rồi gõ `/setup-project` — skill mở cửa sổ
 `Ezg > EzgKit` (package `com.ezg.ezgkit` ≥ 1.0): menu trái là các mục setup kèm trạng thái, form bên phải để
