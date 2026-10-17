@@ -463,7 +463,8 @@ Once a bug is confirmed (rules 2–3):
      `Feature:` prefix, else the session's `--feature` without its `(…)` part. Never a charter-wide description like
      `Full game Map 1-3 (…)`.
    - `--mention`: the exact full name (as BugHub people lists it — `bughub_people`) of the ONE person who must act; usually
-     omit it — the server notifies the right people. A partial name that matches several people (a shared family name,
+     omit it — a bug nobody is tagged for pings the project's `dev` role (BugHub default for `new`; with `--mention`
+     only that person is pinged). A partial name that matches several people (a shared family name,
      "Anh") is an error, never a ping to all of them.
    - `--steps` defaults to the `--as` steps since the latest `mark` (preview with `$QA steps`). Steps missing meaning →
      write `--steps "1. …\n2. …"` yourself.

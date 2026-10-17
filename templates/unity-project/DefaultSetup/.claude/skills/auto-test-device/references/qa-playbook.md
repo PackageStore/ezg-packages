@@ -204,7 +204,8 @@ One bug = one problem. Two symptoms with different causes → two bugs. One caus
 the screens.
 
 `--mention` only when ONE specific person must act: give their exact full name as BugHub people lists it; usually omit it —
-the server notifies the right people. A partial name matching several people (a shared family name, "Anh") is an error,
+a bug nobody is tagged for pings the project's `dev` role (with `--mention` only that person is pinged). A partial name
+matching several people (a shared family name, "Anh") is an error,
 never a ping to all of them.
 
 ## 8. Not a bug (do not log)
