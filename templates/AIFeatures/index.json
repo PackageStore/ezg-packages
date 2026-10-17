@@ -987,7 +987,7 @@
       "id": "Docs/QaProfile.template",
       "name": "QaProfile.template",
       "category": "Docs",
-      "description": "Khung hồ sơ QA của game (quy ước type/màn/cheat, màn sống/chết, cheat + state path đã kiểm, luật bỏ nhiễu, ma trận môi trường) mà skill /auto-test-device đọc cùng .claude/project-profile.json[\"qa\"]. bootstrap copy thành .claude/docs/QaProfile.md của project rồi `qadevice.py profile init` tự dò điền — file đó (+ .claude/docs/qa/charters/) project tự duyệt và commit, Feature Hub không bao giờ ghi đè. Cài kèm Skills/auto-test-device + Scripts/project_profile.py.",
+      "description": "QA profile frame of a game (type/screen/cheat conventions, live/dead screens, verified cheat + state paths, noise rules, environment matrix) that the /auto-test-device skill reads together with .claude/project-profile.json[\"qa\"]. bootstrap copies it to the project's .claude/docs/QaProfile.md, then `qadevice.py profile init` fills it in — that file (+ .claude/docs/qa/charters/) is reviewed and committed by the project, Feature Hub never overwrites it. Installed with Skills/auto-test-device + Scripts/project_profile.py.",
       "installPath": ".claude/docs/QaProfile.template.md",
       "isDirectory": false,
       "files": [
@@ -998,8 +998,8 @@
       "source": "defaultsetup",
       "fileName": "QaProfile.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/QaProfile.template.zip",
-      "sha256": "b9aee96b68997a2bb2c30b65ece36b9c5c074c332cf852c65ce023b2d159c07d",
-      "size": 3342
+      "sha256": "9be8d05b6ad33740e7022d0e7ac3523bb2d12c618acba5e1cb41851c4235c27f",
+      "size": 3262
     },
     {
       "id": "Docs/run-backlog-flow.html",
@@ -1412,8 +1412,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-wait.ps1.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.ps1.zip",
-      "sha256": "22bb68af26ed62b4cc4dd29d7c94cb088d023438e83dccd33814ffdd12aa55dd",
-      "size": 2704
+      "sha256": "13dc8f022dc9660999d6528b748bc084b48fcc67a6aba298daf025e90e458e03",
+      "size": 2578
     },
     {
       "id": "Scripts/bughub-wait.sh",
@@ -1430,8 +1430,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-wait.sh.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip",
-      "sha256": "1cde2b40ddcaf30daddd86e28c6707d4a540b55954a2a2ec74e9efd0d345b1cc",
-      "size": 3033
+      "sha256": "f7c84bb54d165189b84c3a5d3f1875fbd4044e8ed710566854f5bd3ce059e7d6",
+      "size": 2927
     },
     {
       "id": "Scripts/bughub-watch.py",
@@ -1448,8 +1448,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
-      "sha256": "02ec7dc764981b8b376d3939d46ffaec06860afb6102d8dbffc71d3499018528",
-      "size": 25173
+      "sha256": "af262c7341e893c9194eaed4777cac952b6fe314c49a1a37441032d2eb2a4dcf",
+      "size": 25062
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1984,8 +1984,8 @@
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "d1376a593d0d5f87d88bf3b320a694cdf140d68a2430bbbb53900c459181815c",
-      "size": 80947
+      "sha256": "21d175e96524668da98c4b2b47ee5489fbdd3e3f56ba5b92fe685ceac72f6578",
+      "size": 80476
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2227,7 +2227,7 @@
       "id": "Skills/auto-clear",
       "name": "auto-clear",
       "category": "Skills",
-      "description": "Push phần việc của session qua /push-in-session rồi tự /clear chính session Claude Code đang chạy ngay sau khi lượt trả lời kết thúc — push xong mới bật cờ cho đúng pane iTerm2 (macOS) / console Windows Terminal (Windows, thử nghiệm), Stop hook đọc cờ và gõ \"/clear\" + Enter vào đúng pane đó. Dùng khi user nói \"/auto-clear\", \"xong việc thì tự clear\", \"clear sau khi xong\", hoặc prompt/goal có bước \"/clear\" sau khi hoàn thành. \"/auto-clear # UI:\" để chỉ định prefix + tag commit, \"/auto-clear off\" để hủy, \"/auto-clear install\" để đăng ký hook trên máy mới.",
+      "description": "Push the session's work via /push-in-session, then automatically /clear the very Claude Code session that is running right after the turn ends — only after the push is the flag set for the exact iTerm2 pane (macOS) / Windows Terminal console (Windows, experimental); a Stop hook reads the flag and types \"/clear\" + Enter into that exact pane. Use when the user says \"/auto-clear\", \"xong việc thì tự clear\", \"clear sau khi xong\", \"auto clear when done\", \"clear after finishing\", or the prompt/goal has a \"/clear\" step after completion. \"/auto-clear # UI:\" to set the commit prefix + tag, \"/auto-clear off\" to cancel, \"/auto-clear install\" to register the hook on a new machine.",
       "installPath": ".claude/skills/auto-clear",
       "isDirectory": true,
       "files": [
@@ -2240,14 +2240,14 @@
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
-      "sha256": "fd476ac530c57c51037f34748f77569965c7f845d8d3bbf5cf497c269ab1da3d",
-      "size": 23823
+      "sha256": "934948b9a0f0d0cbe1d96dd486b12e03f968e7be0f64a4de1d8ef466aed1853a",
+      "size": 23825
     },
     {
       "id": "Skills/auto-test-device",
       "name": "auto-test-device",
       "category": "Skills",
-      "description": "Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json[\"qa\"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Máy mới / project mới chỉ cần gõ MỘT câu: `doctor` + STEP 0 tự lo hết — kiểm và cập nhật item Feature Hub liên quan (skill này, probe, autotest, cheat-gate, buglogger) qua MCP ezg, BugHub chưa cài thì tự chạy /bughub-setup trong phiên (chỉ hỏi ID forum Discord khi project chưa đăng ký), hook thử lại lỗi API tự cài, probe tự thêm vào manifest, cài app, mở game; bản release có com.ezg.cheat-gate mà máy chưa trong danh sách máy test thì tự thêm bằng test_device_add (tài khoản Lead/QA). Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. \"Toàn bộ game\" → `plan` chia theo bucket/feature xếp theo rủi ro, mỗi nhóm một charter, làm lần lượt. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ \"/auto-test-device <device id> <tính năng>\", \"chạy auto test <device id>\", \"chạy auto test full game\", \"auto test toàn bộ game\", nói \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\". Thiếu BugHub → tự chạy /bughub-setup, không dừng. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).",
+      "description": "QA agent that plays the game on a device like a normal player to test ONE feature in depth — visuals and logic — then LOGS BUGS ITSELF to BugHub via the Bug Logger contract (screenshot + log + auto-generated repro steps, de-duplicated). Works on ANY repo from the EZG template - project conventions (screen enum, UI base class, cheats, PlayerData, CSV) come from `.claude/project-profile.json[\"qa\"]` + `.claude/docs/QaProfile.md`, auto-detected by `profile init` when missing; knowledge learned each session (live screens, verified cheat/state paths, noise rules) is written back there. Devices - Android via adb (USB or emulator, AVD booted by name), iOS Simulator, real iPhone, Unity Editor (EZG QA Probe in the build). A new machine / project needs ONE sentence - `doctor` + STEP 0 handle the rest - update the related Feature Hub items (this skill, probe, autotest, cheat-gate, buglogger) via MCP ezg, run /bughub-setup in-session when BugHub is missing (asks only for the Discord forum ID if the project is unregistered), install the API-retry hook, add the probe to the manifest, install the app, open the game; a release build with com.ezg.cheat-gate on a device not in the test list gets added via test_device_add (Lead/QA account). Flow - doctor/selfcheck → import Editor autotest results → charter with case IDs (in the repo, `.claude/docs/qa/charters/`) → play case by case with explicit expectations (`tap --expect`), auto audit on each screen change → logic oracles from CSV/state/tracking/save-migration → environment matrix (font size, dark mode, aspect, pseudo-loc, interruptions) → log bugs → coverage + report. \"Whole game\" → `plan` groups by bucket/feature ordered by risk, one charter per group, in turn. Errors never stop the task - Claude API errors auto-resume every 30s via the /auto-clear hook, transient device/network errors rerun via `retry`. Use when the user types \"/auto-test-device <device id> <tính năng>\", \"chạy auto test <device id>\", \"chạy auto test full game\", \"auto test toàn bộ game\", says \"auto test trên máy\", \"test tính năng X trên device/điện thoại/emulator\", \"chơi thử rồi log bug\", \"QA tự động trên thiết bị\", \"run auto test on <device>\", \"auto test the whole game\", \"play it and log bugs\". Missing BugHub → run /bughub-setup, do not stop. Does NOT write C# autotest scenarios (→ ezg-autotest-scenario), does NOT fix bugs (→ /fix-bug).",
       "installPath": ".claude/skills/auto-test-device",
       "isDirectory": true,
       "files": [
@@ -2266,8 +2266,8 @@
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "a7cd7c3663cfa7edb5de029d509d77c4639ae2387b07d00c09d5bd178846cfd0",
-      "size": 178564
+      "sha256": "0e982dda7bdadb529c3f9595e5a19367098ec3df8b9288a2a83233f949177b04",
+      "size": 180971
     },
     {
       "id": "Skills/backend-communication",
@@ -2353,7 +2353,7 @@
       "id": "Skills/bughub-setup",
       "name": "bughub-setup",
       "category": "Skills",
-      "description": "Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert` (kèm gán thành viên `members` khi dev nêu \"A làm lead, B QA…\"), (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"cài bug logger cho project\", \"đăng ký project lên BugHub\", \"gắn project vào BugHub\". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.",
+      "description": "Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says \"A làm lead, B QA…\" / \"A is lead, B QA…\"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"install bughub\", \"cài bug logger cho project\", \"install bug logger for the project\", \"đăng ký project lên BugHub\", \"register the project on BugHub\", \"gắn project vào BugHub\". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ `/auto-build-setup`), does NOT change server config beyond `bughub_admin_project_upsert`.",
       "installPath": ".claude/skills/bughub-setup",
       "isDirectory": true,
       "files": [
@@ -2364,8 +2364,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "2e2726b17f9c72aa94bf4efefdabcc322a991915f7329e9ab62c4e990ebfa12a",
-      "size": 10753
+      "sha256": "8ce35ed05ec56b494ff6697709391c692ef602deabd3b6896363c2ff3dfe9622",
+      "size": 10844
     },
     {
       "id": "Skills/compile-check",
@@ -2726,7 +2726,7 @@
       "id": "Skills/fix-bug",
       "name": "fix-bug",
       "category": "Skills",
-      "description": "Kéo bug QA log qua Bug Logger (server BugHub → GitLab Issue + thread Discord) về sửa — mọi thao tác vòng đời bug CHỈ qua tool MCP `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), không gọi GitLab/Discord trực tiếp. Tự mở Unity Editor trước khi nhận bug, sửa, /compile-check bắt buộc (không push mù), /push-in-session # kèm dòng `Bug-Report: #N`, bughub_resolve kèm tóm tắt tiếng Việt + ảnh trước / sau khi sửa khi lỗi nhìn thấy được trên màn (issue VẪN OPEN chờ QA verify — không bao giờ đóng), rồi dọn sạch thư mục (mọi thay đổi không nằm trong commit của bug — rác Unity Editor tự ghi như atlas font TMP, material… — cất vào ref backup rồi trả về HEAD; nhánh bot dọn hết, checkout dùng chung với dev giữ việc dở có từ lúc nhận bug) trước khi nhận bug sau, rồi /auto-clear. Người bấm \"Huỷ & hoàn tác\" giữa chừng → bot dừng ở mốc kiểm kế tiếp, dọn sạch thư mục về như lúc nhận bug (server đã revert commit đã push). Mỗi bug một commit, mỗi bug một session sạch. \"/fix-bug 12\" sửa đúng bug #12, \"/fix-bug\" lấy bug kế tiếp (cả hai commit lên nhánh đang mở), \"/fix-bug --watch\" chờ bug mới (script poll không tốn token) → merge origin của nhánh vào (nhánh bot: merge cả nhánh chính, conflict thì tự gộp hai bên — buộc phải ghi đè thì lấy nhánh chính) → mở Editor → sửa → push → hết bug retry thì tắt Editor do bot mở → clear → chờ tiếp, KHÔNG BAO GIỜ tự dừng (lỗi nào cũng pause 30 giây rồi thử lại, không giới hạn số lần; mở bằng `bughub-watch.py start` thì claude crash hoặc đứng im quá 20 phút (watchdog) cũng tự mở lại, bug đang giữ dở được session mới làm tiếp); mọi chế độ: lỗi server BugHub / mạng và lỗi API của chính Claude (vd \"organization has disabled Claude subscription access\") tự thử lại mỗi 30 giây, không giới hạn số lần (macOS iTerm2 + Windows Terminal); chạy watch ở nhánh nào thì sửa + push lên nhánh đó, trừ khi project khai nhánh bot `bugHub.watch.branch` trong project-profile.json. Dùng khi user nói \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\".",
+      "description": "Pull bugs QA logged through Bug Logger (BugHub server → GitLab Issue + Discord thread) and fix them — every bug-lifecycle action goes ONLY through the MCP tools `bughub_*` (get/next/claim/resolve/needs_info/block/release/people), never GitLab/Discord directly. Opens the Unity Editor before claiming, fixes, mandatory /compile-check (no blind push), /push-in-session # with a `Bug-Report: #N` line, bughub_resolve with a Vietnamese summary + before / after screenshots when the bug is visible on screen (the issue STAYS OPEN for QA to verify — never closed), then cleans the working tree (every change not in the bug's commit — junk the Unity Editor writes such as TMP font atlases, materials… — goes to a backup ref and returns to HEAD; the bot branch cleans everything, a checkout shared with the dev keeps the WIP that existed at claim time) before the next bug, then /auto-clear. Someone presses \"Huỷ & hoàn tác\" mid-way → the bot stops at the next checkpoint and restores the folder to its claim-time state (the server already reverted pushed commits). One commit per bug, one clean session per bug. \"/fix-bug 12\" fixes exactly bug #12, \"/fix-bug\" takes the next bug (both commit to the current branch), \"/fix-bug --watch\" waits for new bugs (token-free polling script) → merges the branch's origin (bot branch: also the main branch, conflicts merged keeping both sides — when one side must win, the main branch wins) → opens the Editor → fixes → pushes → closes the bot-opened Editor once no retry bug is left → clears → waits again, NEVER stops by itself (any error pauses 30 seconds then retries, unlimited; started via `bughub-watch.py start`, a claude crash or a stall over 20 minutes (watchdog) also relaunches it and the new session resumes the bug in progress); all modes: BugHub server / network errors and Claude's own API errors (e.g. \"organization has disabled Claude subscription access\") retry every 30 seconds, unlimited (macOS iTerm2 + Windows Terminal); watch fixes + pushes to the branch it runs on, unless the project declares a bot branch `bugHub.watch.branch` in project-profile.json. Use when the user says \"fix bug 12\", \"fix bug #12\", \"/fix-bug\", \"fix bug QA log\", \"sửa bug tester log\", \"chờ bug mới rồi fix\", \"watch bug\", \"fix the bugs testers logged\", \"wait for new bugs and fix them\".",
       "installPath": ".claude/skills/fix-bug",
       "isDirectory": true,
       "files": [
@@ -2737,8 +2737,8 @@
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
-      "sha256": "83e64c9f5e87920609804fdc68f7359efe65cc03e3f190661a0d9caf90308c50",
-      "size": 25616
+      "sha256": "d22cfb35123aeb90ea9750e059431292e9c324910df1fe8645d6d6089ab427cb",
+      "size": 26821
     },
     {
       "id": "Skills/game-animation",
