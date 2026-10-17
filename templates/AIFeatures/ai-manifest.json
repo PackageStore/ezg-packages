@@ -41,7 +41,7 @@
       "description": "Khung art style của game (palette token, kit UI, bố cục, chữ, icon/hero art, motion, màn mẫu, hướng đã bị loại). bootstrap copy thành .claude/docs/ArtStyle.md của project — file đó project tự điền, Feature Hub không bao giờ ghi đè. Cài kèm rule art-style + script art-style-board.py."
     },
     "Docs/QaProfile.template": {
-      "description": "Khung hồ sơ QA của game (quy ước type/màn/cheat, màn sống/chết, cheat + state path đã kiểm, luật bỏ nhiễu, ma trận môi trường) mà skill /auto-test-device đọc cùng .claude/project-profile.json[\"qa\"]. bootstrap copy thành .claude/docs/QaProfile.md của project rồi `qadevice.py profile init` tự dò điền — file đó (+ .claude/docs/qa/charters/) project tự duyệt và commit, Feature Hub không bao giờ ghi đè. Cài kèm Skills/auto-test-device + Scripts/project_profile.py."
+      "description": "QA profile frame of a game (type/screen/cheat conventions, live/dead screens, verified cheat + state paths, noise rules, environment matrix) that the /auto-test-device skill reads together with .claude/project-profile.json[\"qa\"]. bootstrap copies it to the project's .claude/docs/QaProfile.md, then `qadevice.py profile init` fills it in — that file (+ .claude/docs/qa/charters/) is reviewed and committed by the project, Feature Hub never overwrites it. Installed with Skills/auto-test-device + Scripts/project_profile.py."
     },
     "Rules/art-style": {
       "description": "Mọi quyết định hình ảnh (màu, sprite, bố cục, icon/art AI, mockup, review visual) bám .claude/docs/ArtStyle.md của project; phản hồi visual của dev được ghi lại vào đó thay vì memory riêng."

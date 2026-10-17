@@ -1,8 +1,8 @@
-"""End-to-end tests for bughub-watch.py (đồng bộ nhánh cho cửa sổ /fix-bug --watch).
+"""End-to-end tests for bughub-watch.py (branch sync for the /fix-bug --watch window).
 
-Mỗi test dựng một bare repo làm `origin` + một clone `dev` mang bản copy của script và
-project_profile.py (script đọc profile nằm cạnh nó), rồi chạy CLI thật qua subprocess — không
-monkeypatch. Không đụng repo thật, không mạng.
+Each test sets up a bare repo as `origin` + a `dev` clone carrying copies of the script and
+project_profile.py (the script reads the profile next to it), then runs the real CLI through subprocess — no
+monkeypatching. Never touches the real repo, no network.
 
 Run from the repo root:
     python3 -m unittest discover -s .claude/scripts/tests -v
@@ -22,7 +22,7 @@ SCRIPTS = REPO / ".claude" / "scripts"
 
 
 def git(cwd, *args):
-    # UTF-8 tường minh: text=True giải mã theo locale (cp1252 trên Windows) → message tiếng Việt thành chữ rác.
+    # Explicit UTF-8: text=True decodes with the locale (cp1252 on Windows) → non-ASCII messages turn into garbage.
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8").stdout.strip()
 
 
@@ -47,7 +47,7 @@ class WatchTestCase(unittest.TestCase):
         git(self.dev, "add", "-A")
         git(self.dev, "commit", "-qm", "init")
         git(self.dev, "push", "-q", "-u", "origin", "develop")
-        # Một clone thứ hai đóng vai dev khác đẩy lên develop.
+        # A second clone plays another dev pushing to develop.
         self.other = self.tmp / "other"
         git(self.tmp, "clone", "-q", "-b", "develop", str(self.origin), str(self.other))
         self._identity(self.other)
@@ -62,7 +62,7 @@ class WatchTestCase(unittest.TestCase):
         (self.dev / ".claude" / "project-profile.json").write_text(json.dumps(profile))
 
     def run_watch(self, cwd, *args):
-        # Không ghi __pycache__ vào repo test (không có .gitignore) — `clean` sẽ coi nó là file untracked phải dọn.
+        # Do not write __pycache__ into the test repo (no .gitignore) — `clean` would treat it as untracked files to clean up.
         env = dict(os.environ, PATH=os.environ["PATH"], PYTHONDONTWRITEBYTECODE="1")
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"), *args],
                               cwd=cwd, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
@@ -169,7 +169,7 @@ class CurrentCheckoutTests(WatchTestCase):
     def test_clean_on_bot_branch_takes_everything_and_keeps_recent_backups(self):
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
         self.assertEqual(self.run_watch(self.dev, "clean", "--bug", "4")[1]["result"], "CLEAN")
-        for i in range(32):  # bản cất cũ hơn
+        for i in range(32):  # older backups
             git(self.dev, "update-ref", f"refs/bughub/cleaned/2020{i:02d}01T000000000000Z-bug{i}", "HEAD")
         self.run_watch(self.dev, "claim", "set", "--bug", "4")
         (self.dev / "a.txt").write_text("bot fix left over\n")
@@ -187,7 +187,7 @@ class CurrentCheckoutTests(WatchTestCase):
 
     def test_publish_fast_forwards_then_merges_when_base_moved(self):
         self.write_profile({**self.WATCH, "mergeToBase": True})
-        # Nhánh bot tạo từ origin/develop — config phải nằm trên nhánh chính mới có hiệu lực.
+        # The bot branch is created from origin/develop — the config only takes effect once it is on the main branch.
         git(self.dev, "commit", "-qam", "profile")
         git(self.dev, "push", "-q")
         self.run_watch(self.dev, "start", "--no-launch", "--yes")
@@ -209,7 +209,7 @@ class CurrentCheckoutTests(WatchTestCase):
 
 
 class BaseMergeConflictTests(WatchTestCase):
-    """Merge nhánh chính vào nhánh bot mà conflict: gộp cả hai bên, buộc phải chọn thì lấy nhánh chính."""
+    """Merging the main branch into the bot branch with conflicts: merge both sides, take the main branch when forced to choose."""
 
     def setUp(self):
         super().setUp()
@@ -231,7 +231,7 @@ class BaseMergeConflictTests(WatchTestCase):
         code, out = self.run_watch(self.dev, "sync")
         self.assertEqual((code, out["result"], out["files"], out["op"]), (6, "CONFLICT", ["a.txt"], "sync"))
         text = (self.dev / "a.txt").read_text()
-        self.assertIn("|||||||", text)  # diff3: skill thấy cả gốc chung
+        self.assertIn("|||||||", text)  # diff3: the skill also sees the common ancestor
 
         code, out = self.run_watch(self.dev, "resolve")
         self.assertEqual((code, out["result"], out["files"]), (6, "CONFLICT", ["a.txt"]))
@@ -254,7 +254,7 @@ class BaseMergeConflictTests(WatchTestCase):
         self.assertEqual((code, out["result"], out["files"]), (6, "CONFLICT", ["a.txt"]))
         code, out = self.run_watch(self.dev, "push")
         self.assertEqual((code, out["reason"]), (3, "BUSY"))
-        # Gộp xong mà lượt chết trước khi `resolve` → sync sau tự chốt.
+        # Merged, but the turn died before `resolve` → the next sync finishes it.
         (self.dev / "a.txt").write_text("bot\ndev\n")
         git(self.dev, "add", "a.txt")
         code, out = self.run_watch(self.dev, "sync")
@@ -365,7 +365,7 @@ class WorktreeTests(WatchTestCase):
         claude.write_text('#!/bin/sh\necho "{\\"cwd\\": \\"$(pwd)\\", \\"args\\": \\"$*\\"}"\n')
         claude.chmod(0o755)
         if os.name == "nt":
-            self.skipTest("fake claude là shell script")
+            self.skipTest("fake claude is a shell script")
         env = dict(os.environ, PATH=f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
         proc = subprocess.run([sys.executable, str(self.dev / ".claude" / "scripts" / "bughub-watch.py"),
                                "start", "--", "--permission-mode", "bypassPermissions"],
@@ -376,12 +376,12 @@ class WorktreeTests(WatchTestCase):
 
     def test_launch_reopens_claude_after_crash_until_clean_exit(self):
         if os.name == "nt":
-            self.skipTest("fake claude là shell script")
+            self.skipTest("fake claude is a shell script")
         fake_bin = self.tmp / "bin"
         fake_bin.mkdir()
         runs = self.tmp / "runs"
         claude = fake_bin / "claude"
-        # Lần 1, 2 crash (exit 1 / bị kill), lần 3 thoát bình thường.
+        # Runs 1, 2 crash (exit 1 / killed), run 3 exits normally.
         claude.write_text(f'#!/bin/sh\necho x >> "{runs}"\nn=$(wc -l < "{runs}")\n'
                           '[ "$n" -eq 1 ] && exit 1\n[ "$n" -eq 2 ] && kill -9 $$\nexit 0\n')
         claude.chmod(0o755)
@@ -390,11 +390,11 @@ class WorktreeTests(WatchTestCase):
                               cwd=self.dev, capture_output=True, encoding="utf-8", env=env, stdin=subprocess.DEVNULL)
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(len(runs.read_text().splitlines()), 3)
-        self.assertIn("mở lại sau 0s", proc.stderr)
+        self.assertIn("relaunching in 0s", proc.stderr)
 
 
 class FollowBranchTests(WatchTestCase):
-    """branch rỗng: chạy watch ở nhánh nào thì sửa + push lên nhánh đó."""
+    """Empty branch: whatever branch the watch runs on is the branch it fixes + pushes on."""
     WATCH = {}
 
     def test_start_keeps_checkout_on_current_branch(self):
@@ -484,7 +484,7 @@ class FollowBranchTests(WatchTestCase):
     def test_clean_keeps_dev_wip_from_claim_time_and_takes_the_rest(self):
         (self.dev / "a.txt").write_text("dev wip\n")
         self.run_watch(self.dev, "claim", "set", "--bug", "9")
-        self.run_watch(self.dev, "claim", "clear", "--bug", "9")  # mốc của clean sống qua claim clear
+        self.run_watch(self.dev, "claim", "clear", "--bug", "9")  # clean's baseline survives claim clear
         self.commit_local("fix.txt", "fix\n")
         (self.dev / "noise.mat").write_text("editor\n")
         code, out = self.run_watch(self.dev, "clean", "--bug", "9")
@@ -518,7 +518,7 @@ class FollowBranchTests(WatchTestCase):
 
 
 class ClaimTests(WatchTestCase):
-    """`claim`: nhớ bug loop đang giữ để session sau (sau lỗi API / crash / watchdog) làm tiếp."""
+    """`claim`: remember the bug the loop holds so a later session (after an API error / crash / watchdog) can continue."""
     WATCH = {}
 
     def commit_bug(self, name, bug, date=None):
@@ -530,7 +530,7 @@ class ClaimTests(WatchTestCase):
 
     def test_claim_finds_only_the_commit_made_after_claiming(self):
         self.assertEqual(self.run_watch(self.dev, "claim", "get"), (0, {"result": "NONE"}))
-        self.commit_bug("old.txt", 7, date="2020-01-01T00:00:00Z")  # lần sửa trước của cùng bug
+        self.commit_bug("old.txt", 7, date="2020-01-01T00:00:00Z")  # an earlier fix of the same bug
         self.commit_bug("other.txt", 70)
         self.assertEqual(self.run_watch(self.dev, "claim", "set", "--bug", "7"), (0, {"result": "OK", "bug": 7}))
         code, out = self.run_watch(self.dev, "claim", "get")
@@ -554,7 +554,7 @@ class ClaimTests(WatchTestCase):
 
 
 class WatchdogTests(WatchTestCase):
-    """Watchdog của `start`: claude còn sống mà đứng im (lỗi API không ai gõ tiếp…) → tắt rồi mở session mới."""
+    """`start`'s watchdog: claude alive but idle (API error with nobody to type on…) → stop it, then open a fresh session."""
     WATCH = {}
 
     def setUp(self):
@@ -565,9 +565,9 @@ class WatchdogTests(WatchTestCase):
         self.bin.mkdir()
 
     def fake_claude(self, body):
-        """`claude` giả: ghi số lần chạy vào `runs`, rồi chạy `body` (python) với `n` = lần chạy thứ mấy.
-        Windows không chạy được shebang → `claude.cmd` gọi Python (đúng dạng `claude.cmd` của bản cài npm), nên
-        watchdog được kiểm cả đường `taskkill /T` tắt cây process cmd → python."""
+        """Fake `claude`: appends the run count to `runs`, then runs `body` (python) with `n` = the run number.
+        Windows cannot run a shebang → `claude.cmd` calls Python (same shape as the `claude.cmd` of an npm install),
+        so the watchdog is also tested on the `taskkill /T` path that stops the cmd → python process tree."""
         claude = self.bin / ("claude.py" if os.name == "nt" else "claude")
         if os.name == "nt":
             (self.bin / "claude.cmd").write_text(f'@"{sys.executable}" "%~dp0claude.py" %*\r\n', encoding="utf-8")
@@ -595,16 +595,16 @@ class WatchdogTests(WatchTestCase):
         return proc, len(self.runs.read_text().splitlines()), log.read_text(encoding="utf-8") if log.exists() else ""
 
     def test_idle_claude_is_restarted(self):
-        # Lần 1: một lượt rồi đứng im mãi (như lượt chết vì lỗi API). Lần 2: thoát bình thường.
+        # Run 1: one turn, then idle forever (like a turn that died on an API error). Run 2: exits normally.
         self.fake_claude("if n == 1:\n    transcript()\n    time.sleep(60)\n")
         proc, runs, log = self.start()
         self.assertEqual((proc.returncode, runs), (0, 2), proc.stderr)
         self.assertIn("watchdog", log)
-        self.assertIn("đứng im", proc.stderr)
+        self.assertIn("idle for more than", proc.stderr)
         self.assertFalse(list((self.dev / ".git" / "bughub-watch").glob("heartbeat-*")))
 
     def test_heartbeat_keeps_a_waiting_claude_alive(self):
-        # Đang chờ bug: transcript không đổi, nhưng lệnh nền chạm heartbeat đều đặn → không bị tắt.
+        # Waiting for bugs: the transcript does not change, but a background command touches the heartbeat regularly → not stopped.
         self.fake_claude("transcript()\nbeat = pathlib.Path(os.environ['BUGHUB_WATCH_HEARTBEAT'])\n"
                          "end = time.time() + 5\nwhile time.time() < end:\n    beat.touch()\n    time.sleep(0.3)\n")
         proc, runs, log = self.start()
@@ -620,7 +620,7 @@ class WatchdogTests(WatchTestCase):
         self.fake_claude("time.sleep(5)\n")
         proc, runs, log = self.start()
         self.assertEqual((proc.returncode, runs), (0, 1), proc.stderr)
-        self.assertIn("không thấy transcript", log)
+        self.assertIn("no claude transcript found", log)
 
     def test_transcript_found_by_cwd_when_folder_name_differs(self):
         self.fake_claude("if n == 1:\n    transcript('renamed-by-claude')\n    time.sleep(60)\n")
@@ -628,7 +628,7 @@ class WatchdogTests(WatchTestCase):
         self.assertEqual((proc.returncode, runs), (0, 2), proc.stderr)
 
     def test_parent_claude_session_env_is_not_inherited(self):
-        # `start` gọi từ trong một session Claude: claude con không được thừa hưởng biến phiên của session cha.
+        # `start` called from inside a Claude session: the child claude must not inherit the parent session's variables.
         self.fake_claude("(runs.parent / 'env.json').write_text(json.dumps(dict(os.environ)))\n")
         proc, runs, _ = self.start(CLAUDECODE="1", CLAUDE_CODE_CHILD_SESSION="1", CLAUDE_CODE_SESSION_ID="parent",
                                    CLAUDE_PID="4242")

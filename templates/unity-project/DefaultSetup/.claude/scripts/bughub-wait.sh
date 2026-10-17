@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-# bughub-wait.sh — chờ tới khi project có bug BugHub đã giao cho AI (retry > 0) rồi thoát, KHÔNG tốn
-# token: /fix-bug --watch chạy script này ở background, model chỉ thức dậy khi nó kết thúc.
-# Twin Windows: bughub-wait.ps1 — giữ cùng tham số, cùng env, cùng exit code, cùng dòng JSON.
+# bughub-wait.sh — wait until the project has a BugHub bug handed to the AI (retry > 0), then exit, spending NO
+# tokens: /fix-bug --watch runs this script in the background and the model only wakes up when it ends.
+# Windows twin: bughub-wait.ps1 — keep the same arguments, env, exit codes and JSON line.
 #
-# Poll GET <endpoint>/v1/projects/<code>/pending (public, không token, chỉ trả số đếm
-# {"new":N,"retry":M,…}) mỗi BUGHUB_POLL_INTERVAL giây. Chỉ `retry` (người đã bấm "Giao lại cho AI")
-# đánh thức — bug `new` chờ người duyệt, server không giao cho AI (TechSpec BugHub D13).
+# Polls GET <endpoint>/v1/projects/<code>/pending (public, no token, returns counts only
+# {"new":N,"retry":M,…}) every BUGHUB_POLL_INTERVAL seconds. Only `retry` (someone pressed "Giao lại cho AI",
+# i.e. hand back to the AI) wakes it up — `new` bugs wait for human triage, the server does not hand them to the AI
+# (TechSpec BugHub D13).
 #
-#   Env:  BUGHUB_ENDPOINT        gốc URL Worker (mặc định DEFAULT_ENDPOINT bên dưới)
-#         BUGHUB_POLL_INTERVAL   giây giữa hai lần poll, số nguyên ≥ 1 (mặc định 60)
-#         BUGHUB_WATCH_HEARTBEAT file chạm mỗi lần poll (do `bughub-watch.py start` đặt) — watchdog của nó biết
-#                                loop đang chờ bug chứ không phải đứng im
+#   Env:  BUGHUB_ENDPOINT        Worker base URL (default DEFAULT_ENDPOINT below)
+#         BUGHUB_POLL_INTERVAL   seconds between two polls, integer ≥ 1 (default 60)
+#         BUGHUB_WATCH_HEARTBEAT file touched on every poll (set by `bughub-watch.py start`) — so its watchdog knows
+#                                the loop is waiting for bugs, not idle
 #
-#   Exit: 0  có bug — stdout đúng một dòng JSON {"new":N,"retry":M}
-#         1  thiếu curl / Python chạy được (python3, python, py -3 — thử theo thứ tự), hoặc Python hỏng giữa
-#            chừng. Lỗi công cụ không tự hết nên phải thoát cho model biết, KHÔNG poll tiếp: `python3` có thể chỉ
-#            là stub (Windows: alias Microsoft Store "Python was not found"; macOS chưa cài Command Line Tools)
-#            — `command -v` vẫn thấy, chạy thì lỗi, và poll tiếp ở đây là treo im lặng tới khi có người dừng.
-#         2  sai tham số (thiếu code, thừa tham số, code lệch ^[A-Za-z0-9_-]+$, interval hoặc endpoint không hợp lệ)
-#         3  project không tồn tại trên server (404)
-#   Lỗi mạng / timeout / 5xx / payload hỏng → poll tiếp (chỉ log stderr khi loại lỗi đổi, tránh spam).
+#   Exit: 0  bug found — stdout is exactly one JSON line {"new":N,"retry":M}
+#         1  curl / a working Python (python3, python, py -3 — tried in that order) missing, or Python broke
+#            midway. A tool error does not go away by itself, so exit to tell the model, do NOT keep polling:
+#            `python3` may be only a stub (Windows: the Microsoft Store alias "Python was not found"; macOS without
+#            Command Line Tools) — `command -v` still finds it, running it fails, and polling on here would hang
+#            silently until someone stops it.
+#         2  bad arguments (missing code, extra arguments, code not matching ^[A-Za-z0-9_-]+$, invalid interval or
+#            endpoint)
+#         3  project does not exist on the server (404)
+#   Network error / timeout / 5xx / bad payload → keep polling (stderr is logged only when the error kind changes,
+#   to avoid spam).
 #
 # Usage:  bash .claude/scripts/bughub-wait.sh <projectCode>
 
@@ -40,25 +44,25 @@ if [ "$#" -ne 1 ]; then
   exit 2
 fi
 code="$1"
-# =~ của bash neo cả chuỗi (POSIX ERE), nên code có xuống dòng/khoảng trắng đều trượt.
+# bash's =~ anchors the whole string (POSIX ERE), so a code containing newlines/spaces never matches.
 if ! [[ "$code" =~ ^[A-Za-z0-9_-]+$ ]]; then
-  echo "bughub-wait: projectCode không hợp lệ: '$code'" >&2
+  echo "bughub-wait: invalid projectCode: '$code'" >&2
   usage
   exit 2
 fi
 
 interval="${BUGHUB_POLL_INTERVAL:-$DEFAULT_INTERVAL}"
 if ! [[ "$interval" =~ ^[1-9][0-9]*$ ]]; then
-  echo "bughub-wait: BUGHUB_POLL_INTERVAL phải là số nguyên ≥ 1, nhận '$interval'" >&2
+  echo "bughub-wait: BUGHUB_POLL_INTERVAL must be an integer >= 1, got '$interval'" >&2
   exit 2
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
-  echo "bughub-wait: thiếu 'curl'" >&2
+  echo "bughub-wait: 'curl' is missing" >&2
   exit 1
 fi
 
-# Chọn Python bằng cách CHẠY THẬT, không chỉ `command -v`: stub vẫn nằm trên PATH (xem Exit 1 ở trên).
+# Pick Python by ACTUALLY RUNNING it, not just `command -v`: stubs are still on PATH (see Exit 1 above).
 PY=()
 for cand in python3 python "py -3"; do
   read -r -a argv <<<"$cand"
@@ -68,22 +72,22 @@ for cand in python3 python "py -3"; do
   fi
 done
 if [ "${#PY[@]}" -eq 0 ]; then
-  echo "bughub-wait: không có Python chạy được (đã thử python3, python, py -3 — python3 có thể chỉ là stub của Microsoft Store / Xcode Command Line Tools). Windows: dùng bughub-wait.ps1" >&2
+  echo "bughub-wait: no working Python (tried python3, python, py -3 — python3 may be only a Microsoft Store / Xcode Command Line Tools stub). Windows: use bughub-wait.ps1" >&2
   exit 1
 fi
 
 endpoint="${BUGHUB_ENDPOINT:-$DEFAULT_ENDPOINT}"
 endpoint="${endpoint%/}"
-# Chỉ nhận gốc URL thuần: https, hoặc http cho localhost (mock server khi test). Chặn path/query lạ
-# và giá trị bắt đầu bằng '-' (curl hiểu nhầm thành option).
+# Only a bare base URL is accepted: https, or http for localhost (mock server in tests). Rejects stray path/query
+# and values starting with '-' (curl would take them for an option).
 if ! [[ "$endpoint" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ || "$endpoint" =~ ^http://(127\.0\.0\.1|localhost)(:[0-9]+)?$ ]]; then
-  echo "bughub-wait: BUGHUB_ENDPOINT phải là https://<host>[:port] (http chỉ cho localhost), nhận '$endpoint'" >&2
+  echo "bughub-wait: BUGHUB_ENDPOINT must be https://<host>[:port] (http only for localhost), got '$endpoint'" >&2
   exit 2
 fi
 url="$endpoint/v1/projects/$code/pending"
 
-# Parse bằng Python (không phụ thuộc jq). Exit 0 = có bug (in JSON), 5 = chưa có, 4 = payload hỏng.
-# Body đi qua stdin, không qua đường dẫn: Python Windows chạy từ Git Bash không mở được path kiểu /tmp/….
+# Parsed with Python (no jq dependency). Exit 0 = bug found (prints JSON), 5 = none yet, 4 = bad payload.
+# The body goes through stdin, not a path: Windows Python run from Git Bash cannot open paths like /tmp/….
 PARSE_PY='
 import json, sys
 try:
@@ -101,12 +105,12 @@ sys.exit(5)
 body_file="$(mktemp)"
 trap 'rm -f "$body_file"' EXIT
 
-echo "bughub-wait: chờ bug của $code ($url, mỗi ${interval}s)" >&2
+echo "bughub-wait: waiting for bugs of $code ($url, every ${interval}s)" >&2
 last_err=""
 
 while :; do
   [ -z "${BUGHUB_WATCH_HEARTBEAT:-}" ] || touch "$BUGHUB_WATCH_HEARTBEAT" 2>/dev/null || true
-  # -f để không coi trang lỗi là payload; -w vẫn in mã HTTP kể cả khi -f làm curl trả lỗi.
+  # -f so an error page is not taken as payload; -w still prints the HTTP code even when -f makes curl fail.
   status="$(curl -fsS --max-time "$CURL_TIMEOUT" -o "$body_file" -w '%{http_code}' --proto '=http,https' -- "$url" 2>/dev/null)" || true
   err=""
   case "$status" in
@@ -114,28 +118,28 @@ while :; do
       rc=0
       out="$("${PY[@]}" -c "$PARSE_PY" <"$body_file")" || rc=$?
       case "$rc" in
-        0) printf '%s\n' "${out%$'\r'}"; exit 0 ;;   # Python Windows in \r\n
+        0) printf '%s\n' "${out%$'\r'}"; exit 0 ;;   # Windows Python prints \r\n
         5) ;;
-        4) err="payload không phải JSON {new,retry}" ;;
+        4) err="payload is not JSON {new,retry}" ;;
         *)
-          echo "bughub-wait: ${PY[*]} lỗi khi đọc payload (exit $rc) — dừng, không poll tiếp" >&2
+          echo "bughub-wait: ${PY[*]} failed reading the payload (exit $rc) — stopping, no more polling" >&2
           exit 1
           ;;
       esac
       ;;
     404)
-      echo "bughub-wait: project '$code' không tồn tại trên server (404) — kiểm bugHub.projectCode / chạy /bughub-setup" >&2
+      echo "bughub-wait: project '$code' does not exist on the server (404) — check bugHub.projectCode / run /bughub-setup" >&2
       exit 3
       ;;
-    000|"") err="không kết nối được server" ;;
+    000|"") err="cannot connect to the server" ;;
     *) err="HTTP $status" ;;
   esac
 
   if [ "$err" != "$last_err" ]; then
     if [ -n "$err" ]; then
-      echo "bughub-wait: $err — vẫn poll tiếp" >&2
+      echo "bughub-wait: $err — still polling" >&2
     else
-      echo "bughub-wait: server trả lời bình thường trở lại" >&2
+      echo "bughub-wait: server responding normally again" >&2
     fi
     last_err="$err"
   fi

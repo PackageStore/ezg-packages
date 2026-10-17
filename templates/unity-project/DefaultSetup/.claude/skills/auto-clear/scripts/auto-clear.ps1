@@ -1,6 +1,6 @@
 # Windows twin of auto-clear.sh - keep the two in lockstep (same subcommands, same
 # ~/.claude/auto-clear/ layout, same ARMED / NOT_ARMED / RETRY_ARMED / UNSUPPORTED / NOT_INSTALLED markers).
-# Run `probe` then `type-test` once on a new machine (see SKILL.md "Cai tren may moi").
+# Run `probe` then `type-test` once on a new machine (see the SKILL.md section on installing on a new machine).
 #
 # KEEP THIS FILE PURE ASCII: Windows PowerShell 5.1 reads a script without BOM in the ANSI code page,
 # so any non-ASCII character (Vietnamese, em dash, infinity sign...) turns into garbage or breaks parsing.

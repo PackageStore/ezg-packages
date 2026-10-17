@@ -1,10 +1,11 @@
 """Tests for the Windows twin of auto-clear (.claude/skills/auto-clear/scripts/auto-clear.ps1).
 
-Chạy script THẬT bằng PowerShell (`pwsh`, hoặc `powershell` trên Windows) với HOME tạm. Cây process được giả
-lập trên MỌI nền tảng (kể cả Windows — không thì test bám vào process claude thật đang chạy test): hàm
-`Get-CimInstance` / `Get-Process` định nghĩa trước khi gọi script (hàm thắng cmdlet cùng tên) cho cha của shell
-test là `claude.exe` pid 777. Phần gõ phím (AttachConsole + WriteConsoleInput) vì vậy dừng ở attach pid 777 —
-test chỉ kiểm tới bước gọi nó. Không có PowerShell → skip.
+Runs the REAL script with PowerShell (`pwsh`, or `powershell` on Windows) with a temporary HOME. The process tree is
+faked on EVERY platform (Windows included — otherwise the tests would latch onto the real claude process running
+them): `Get-CimInstance` / `Get-Process` functions are defined before calling the script (a function beats the
+cmdlet of the same name) so the test shell's parent is `claude.exe` pid 777. The typing part (AttachConsole +
+WriteConsoleInput) therefore stops at attaching pid 777 — the tests only check up to the step that calls it. No
+PowerShell → skipped.
 
 Run from the repo root:
     python3 -m unittest discover -s .claude/scripts/tests -v
@@ -25,7 +26,7 @@ SCRIPT = REPO / ".claude" / "skills" / "auto-clear" / "scripts" / "auto-clear.ps
 PWSH = os.environ.get("PWSH") or shutil.which("pwsh") or shutil.which("powershell")
 CLAUDE_PID = 777
 
-# Cây process giả: shell test ($PID) → bash.exe 4242 → claude.exe 777. Process 777 còn sống, mọi pid khác đã chết.
+# Fake process tree: test shell ($PID) → bash.exe 4242 → claude.exe 777. Process 777 is alive, every other pid is dead.
 MOCKS = r"""
 function Get-CimInstance {
     [CmdletBinding()] param([Parameter(Position = 0)] $ClassName, $Filter)
@@ -44,7 +45,7 @@ function Get-Process {
 """
 
 
-@unittest.skipUnless(PWSH, "cần PowerShell (pwsh) để chạy auto-clear.ps1")
+@unittest.skipUnless(PWSH, "needs PowerShell (pwsh) to run auto-clear.ps1")
 class AutoClearPs1Tests(unittest.TestCase):
     def setUp(self):
         self.home = Path(tempfile.mkdtemp(prefix="auto-clear-ps1-"))
@@ -59,7 +60,7 @@ class AutoClearPs1Tests(unittest.TestCase):
                     AUTO_CLEAR_THEN_DELAY="0", AUTO_CLEAR_RETRY_DELAY="0", **extra)
 
     def wrapper(self, *args):
-        """File .ps1 gọi script thật (kèm mock cây process) — stdin của process đi thẳng vào script."""
+        """.ps1 file that calls the real script (with the process-tree mock) — the process's stdin goes straight to the script."""
         quoted = " ".join("'" + a.replace("'", "''") + "'" for a in args)
         wrapper = self.home / "run.ps1"
         wrapper.write_text(MOCKS + f"\n& '{SCRIPT}' {quoted}\nexit $LASTEXITCODE\n",
@@ -73,7 +74,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         return proc.returncode, proc.stdout + proc.stderr
 
     def run_hook(self, sub, payload):
-        """Chạy hook như Claude Code: JSON qua stdin của process."""
+        """Run the hook the way Claude Code does: JSON on the process's stdin."""
         text = payload if isinstance(payload, str) else json.dumps(payload)
         return self.run_ps(sub, stdin=text)
 
@@ -95,7 +96,7 @@ class AutoClearPs1Tests(unittest.TestCase):
     # --- install ---------------------------------------------------------------------------------
 
     def test_script_is_pure_ascii(self):
-        # PowerShell 5.1 đọc .ps1 không BOM theo ANSI: một ký tự ngoài ASCII là vỡ chuỗi / vỡ cú pháp.
+        # PowerShell 5.1 reads a .ps1 without BOM as ANSI: a single non-ASCII character breaks strings / syntax.
         SCRIPT.read_bytes().decode("ascii")
 
     def test_install_keeps_other_hooks_and_is_idempotent(self):
@@ -128,11 +129,11 @@ class AutoClearPs1Tests(unittest.TestCase):
         marker = re.compile(r"^# auto-clear-version: (\d+)\s*$", re.M)
         ps1 = marker.search(SCRIPT.read_text(encoding="ascii"))
         sh = marker.search(SCRIPT.with_suffix(".sh").read_text(encoding="utf-8"))
-        self.assertTrue(ps1 and sh, "cả hai bản phải có dòng auto-clear-version")
-        self.assertEqual(ps1.group(1), sh.group(1), "auto-clear.ps1 và auto-clear.sh phải cùng version")
+        self.assertTrue(ps1 and sh, "both versions must have an auto-clear-version line")
+        self.assertEqual(ps1.group(1), sh.group(1), "auto-clear.ps1 and auto-clear.sh must have the same version")
 
     def test_install_and_arm_never_downgrade_a_newer_hook_copy(self):
-        # Project khác trên cùng máy đã cài bản mới hơn: install / retry-arm của bản này không được chép đè.
+        # Another project on the same machine installed a newer version: this version's install / retry-arm must not overwrite it.
         self.install()
         copy = self.state / "auto-clear.ps1"
         newer = re.sub(r"(?m)^# auto-clear-version: \d+", "# auto-clear-version: 99", SCRIPT.read_text(encoding="ascii"))
@@ -146,7 +147,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         self.assertIn("keep hook copy v99", self.log())
 
     def test_install_and_arm_replace_an_older_hook_copy(self):
-        # Bản copy cũ không có dòng version (= v0, failhook không làm gì) → arm chép đè bằng bản này.
+        # An old copy without a version line (= v0, failhook does nothing) → arm overwrites it with this version.
         self.install()
         copy = self.state / "auto-clear.ps1"
         copy.write_text("# auto-clear cũ\n'failhook' { exit 0 }\n", encoding="utf-8")
@@ -155,7 +156,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         self.assertEqual(copy.read_bytes(), SCRIPT.read_bytes())
 
     def test_arm_repairs_prompt_rewritten_by_git_bash(self):
-        # Git Bash đổi "/fix-bug --watch" thành "C:/Program Files/Git/fix-bug --watch" trước khi powershell nhận.
+        # Git Bash rewrites "/fix-bug --watch" into "C:/Program Files/Git/fix-bug --watch" before powershell gets it.
         self.install()
         git_bash = {"MSYSTEM": "MINGW64", "EXEPATH": r"C:\Program Files\Git\bin"}
         code, out = self.run_ps("retry-arm", "--prompt", "C:/Program Files/Git/fix-bug --watch", env=git_bash)
@@ -165,7 +166,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         code, out = self.run_ps("arm", "--then", "C:/Program Files/Git/fix-bug --watch", env=git_bash)
         self.assertEqual(code, 0, out)
         self.assertIn("then=/fix-bug --watch", out)
-        # Không có MSYSTEM (không chạy từ Git Bash) → giữ nguyên chữ.
+        # No MSYSTEM (not run from Git Bash) → the text is kept as is.
         code, out = self.run_ps("arm", "--then", "C:/Program Files/Git/x", env={"MSYSTEM": ""})
         self.assertIn("then=C:/Program Files/Git/x", out)
 
@@ -198,7 +199,7 @@ class AutoClearPs1Tests(unittest.TestCase):
     def test_retry_arm_writes_flag_and_drops_stale_ones(self):
         self.install()
         self.state.mkdir(exist_ok=True)
-        for name in ("pid-999.retry", "pid-999.flag", "pid-888.retry"):  # 999 đã chết, 888 không phải claude
+        for name in ("pid-999.retry", "pid-999.flag", "pid-888.retry"):  # 999 is dead, 888 is not claude
             (self.state / name).write_text("pid=x\n")
         code, out = self.run_ps("retry-arm", "--max", "0", "--prompt", "Continue /fix-bug --watch")
         self.assertEqual(code, 0, out)
@@ -224,7 +225,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         log = self.log()
         self.assertIn(f"failhook pid={CLAUDE_PID} error=rate_limit try 1/unlimited", log)
         if os.name != "nt":
-            # Không có console Windows để attach: phải tới đúng bước gõ phím rồi mới hỏng, và hook vẫn exit 0.
+            # No Windows console to attach to: it must reach the typing step before failing, and the hook still exits 0.
             self.assertIn("failhook error:", log)
 
     def test_failhook_gives_up_after_max_and_stop_hook_resets(self):
@@ -278,7 +279,7 @@ class AutoClearPs1Tests(unittest.TestCase):
         self.assertIn("retry-arm", out)
 
     def test_inject_source_compiles(self):
-        # C# P/Invoke phải biên dịch được (Add-Type) — lỗi ở đây chỉ lộ ra trên Windows lúc hook chạy thật.
+        # The C# P/Invoke must compile (Add-Type) — an error here only shows up on Windows when the hook really runs.
         command = (f"$src = (Get-Content -Raw '{SCRIPT}');"
                    "$start = $src.IndexOf(\"@'\") + 3; $end = $src.IndexOf(\"'@\");"
                    "Add-Type -TypeDefinition $src.Substring($start, $end - $start);"

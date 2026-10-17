@@ -1,102 +1,113 @@
 #!/usr/bin/env python3
-"""bughub-watch.py — đồng bộ nhánh cho cửa sổ `/fix-bug --watch` (macOS / Linux / Windows).
+"""bughub-watch.py — branch sync for the `/fix-bug --watch` window (macOS / Linux / Windows).
 
-Hai chế độ, chọn bằng `bugHub.watch.branch` trong `.claude/project-profile.json`:
+Two modes, chosen by `bugHub.watch.branch` in `.claude/project-profile.json`:
 
-- **Theo nhánh đang mở** (`branch` rỗng — mặc định): chạy watch ở nhánh nào thì sửa bug + push lên đúng
-  nhánh đó, ngay trong checkout đó. Trước mỗi bug merge `origin/<nhánh>` vào để sửa trên code mới nhất và
-  push không bị từ chối. Dev đổi nhánh của checkout giữa chừng → bug sau đi theo nhánh mới.
-- **Nhánh bot** (`branch` có giá trị, vd `AutoFixBug`): nhánh riêng cho bot. Trước mỗi bug merge bản mới
-  nhất của nhánh chính (`bugHub.watch.baseBranch`, rỗng = `defaultBaseBranch`) vào; sửa xong push lên chính
-  nhánh bot; chỉ đưa lên nhánh chính khi bật `bugHub.watch.mergeToBase`. Chạy ngay trong checkout này hay
-  trong một `git worktree` riêng do `bugHub.watch.worktree` quyết định.
+- **Follow the checked-out branch** (`branch` empty — default): whatever branch the watch runs on is the branch bugs
+  are fixed and pushed on, right in that checkout. Before each bug it merges `origin/<branch>` so the fix is made on
+  the latest code and the push is not rejected. If the dev switches the checkout's branch midway, the next bug
+  follows the new branch.
+- **Bot branch** (`branch` set, e.g. `AutoFixBug`): a dedicated branch for the bot. Before each bug it merges the
+  latest main branch (`bugHub.watch.baseBranch`, empty = `defaultBaseBranch`); after the fix it pushes to the bot
+  branch itself; it only lands on the main branch when `bugHub.watch.mergeToBase` is on. Whether it runs in this
+  checkout or in a separate `git worktree` is decided by `bugHub.watch.worktree`.
 
-Merge nhánh chính vào nhánh bot mà conflict thì KHÔNG abort: script tự lấy bản nhánh chính cho file không gộp tay
-được (binary, asset Unity serialize, `.meta`, một bên xoá file), để merge dở với các file text còn marker (kiểu
-diff3) và trả `CONFLICT` — skill gộp cả hai bên, chỗ buộc phải chọn thì lấy nhánh chính, rồi gọi `resolve`.
+A conflict while merging the main branch into the bot branch is NOT aborted: the script takes the main-branch version
+for files that cannot be merged by hand (binary, serialized Unity assets, `.meta`, deleted on one side), leaves the
+merge in progress with the remaining text files carrying (diff3-style) markers and returns `CONFLICT` — the skill
+merges both sides, takes the main branch where it is forced to choose, then calls `resolve`.
 
-Loop watch KHÔNG BAO GIỜ dừng vì script này: trạng thái tạm thời (mất mạng, conflict, đang merge/rebase
-dở, sai nhánh, git bị khoá…) trả `WAIT` + `reason`, skill chạy `pause` (30 giây) rồi thử lại, không giới hạn số lần.
+The watch loop NEVER stops because of this script: transient states (network down, conflict, merge/rebase in
+progress, wrong branch, git locked…) return `WAIT` + `reason`; the skill runs `pause` (30 seconds) and retries, with no
+limit on attempts.
 
-Lệnh:
-  start [--yes] [--no-launch] [-- <tham số claude>]
-        Chuẩn bị thư mục (nhánh bot: tạo worktree / chuyển nhánh; theo nhánh: giữ nguyên checkout), chạy
-        `sync`, rồi mở `claude "/fix-bug --watch"` ngay trong cửa sổ terminal này và GIÁM SÁT nó: claude
-        thoát với mã ≠ 0 (crash, bị kill) → chờ `BUGHUB_PAUSE_SECONDS` rồi mở lại, mãi mãi; thoát mã 0
-        (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại → dừng. WATCHDOG: claude còn sống mà
-        đứng im quá `BUGHUB_WATCHDOG_MINUTES` phút (mặc định 20; 0 = tắt) — transcript của session không
-        ghi thêm gì và không lệnh nào của loop (`bughub-wait`, lệnh của script này) báo heartbeat, tức là
-        lượt chết vì lỗi API mà không ai gõ tiếp, hoặc model kết thúc lượt mà không để lại việc chờ nào →
-        tắt claude (cả cây process) rồi mở lại session mới. Heartbeat: file trong env
-        `BUGHUB_WATCH_HEARTBEAT` (mỗi lần mở claude một file mới). `--yes`: không hỏi lại khi phải chuyển
-        nhánh của checkout này. `--no-launch`: chỉ chuẩn bị. Tham số sau `--` chuyển nguyên cho claude
-        (vd `-- --permission-mode bypassPermissions`).
-  sync  TRƯỚC khi nhận mỗi bug: fetch + merge `origin/<nhánh>` (và nhánh chính ở chế độ nhánh bot).
-        Nhánh bot: thư mục dành riêng cho bot → trước khi merge tự dọn sạch như `clean` (`cleaned`) để rác
-        Unity Editor ghi ra (atlas font TMP, material, setting plugin…) không chặn merge nhánh chính.
-        `OK` kèm `dirty` = file đã track đang sửa dở (bot không được đụng), `takenBase` = file merge
-        nhánh chính đã tự lấy bản nhánh chính | `CONFLICT` (merge nhánh chính đang dở, `files` chờ gộp
-        tay) | `WAIT`.
+Commands:
+  start [--yes] [--no-launch] [-- <claude args>]
+        Prepare the directory (bot branch: create the worktree / switch branch; follow mode: keep the checkout as is),
+        run `sync`, then launch `claude "/fix-bug --watch"` right in this terminal window and SUPERVISE it: claude
+        exits with code ≠ 0 (crash, killed) → wait `BUGHUB_PAUSE_SECONDS` and relaunch, forever; exit code 0
+        (`/exit`, Ctrl+C twice) or Ctrl+C while waiting to relaunch → stop. WATCHDOG: claude is alive but idle for
+        more than `BUGHUB_WATCHDOG_MINUTES` minutes (default 20; 0 = off) — the session transcript has not grown and
+        no loop command (`bughub-wait`, this script's commands) reported a heartbeat, i.e. a turn died on an API
+        error with nobody to type on, or the model ended its turn without leaving anything waiting →
+        stop claude (whole process tree) and launch a fresh session. Heartbeat: the file in env
+        `BUGHUB_WATCH_HEARTBEAT` (a new file for each claude launch). `--yes`: do not ask again when this checkout's
+        branch has to be switched. `--no-launch`: prepare only. Arguments after `--` are passed verbatim to claude
+        (e.g. `-- --permission-mode bypassPermissions`).
+  sync  BEFORE taking each bug: fetch + merge `origin/<branch>` (and the main branch in bot-branch mode).
+        Bot branch: the directory belongs to the bot → before merging it cleans up like `clean` (`cleaned`) so junk
+        written by Unity Editor (TMP font atlases, materials, plugin settings…) does not block merging the main
+        branch. `OK` with `dirty` = tracked files with uncommitted edits (the bot must not touch them), `takenBase` =
+        files for which the main-branch merge took the main-branch version | `CONFLICT` (main-branch merge in
+        progress, `files` waiting for a hand merge) | `WAIT`.
   resolve [--prefer-base -- <file>...]
-        (nhánh bot) Chốt merge nhánh chính đang dở sau khi skill gộp tay: `--prefer-base` cho file skill
-        không gộp được (phần không đụng nhau giữ cả hai bên, khối đụng nhau lấy nhánh chính — `git
-        merge-file --theirs`); file còn lại phải hết marker → `git add` + commit merge → `MERGED`. Còn
-        marker → `CONFLICT` kèm `files`. Không có merge dở → `NOTHING`.
-  push  Sau khi commit mà `git_push` lỗi: merge `origin/<nhánh>` nếu remote vừa chạy tiếp rồi push lại
-        (tối đa 3 lần, không bao giờ force).
-  shelve --bug N --reason "<lý do>" -- <file>...
-        Bug bị release: cất phần sửa dở (đúng các file bot đã sửa / tạo) vào `git stash` để thư mục sạch
-        cho bug sau mà không mất việc — dev lấy lại bằng `git stash list` / `git stash apply`.
+        (bot branch) Finish the in-progress main-branch merge after the skill merged by hand: `--prefer-base` for files
+        the skill could not merge (non-overlapping parts keep both sides, overlapping hunks take the main branch — `git
+        merge-file --theirs`); the other files must be marker-free → `git add` + merge commit → `MERGED`. Markers
+        left → `CONFLICT` with `files`. No merge in progress → `NOTHING`.
+  push  After a commit when `git_push` failed: merge `origin/<branch>` if the remote moved on, then push again
+        (at most 3 attempts, never force).
+  shelve --bug N --reason "<reason>" -- <file>...
+        Bug released: put the unfinished fix (exactly the files the bot edited / created) into `git stash` so the
+        directory is clean for the next bug without losing work — the dev gets it back with `git stash list` /
+        `git stash apply`.
   publish
-        (nhánh bot) Gọi sau khi fix đã commit + push: mergeToBase=false (hoặc chế độ theo nhánh) →
-        `DISABLED`; true → đưa HEAD lên nhánh chính (fast-forward, merge nhánh chính vào trước nếu nó đã
-        chạy tiếp — conflict thì `CONFLICT` như `sync`; không bao giờ force).
+        (bot branch) Call after the fix is committed + pushed: mergeToBase=false (or follow mode) →
+        `DISABLED`; true → move HEAD onto the main branch (fast-forward, merging the main branch first if it moved
+        on — a conflict gives `CONFLICT` as in `sync`; never force).
   pause [--attempt K] [--seconds S]
-        Ngủ `--seconds` (mặc định env `BUGHUB_PAUSE_SECONDS`, 30 giây — mọi lần như nhau, không backoff,
-        không giới hạn số lần; `--attempt` chỉ để ghi log) rồi in `RESUME` — skill chạy nền rồi kết thúc
-        lượt, lượt sau thử lại bước vừa lỗi.
+        Sleep `--seconds` (default env `BUGHUB_PAUSE_SECONDS`, 30 seconds — same every time, no backoff, no
+        attempt limit; `--attempt` is only logged) then print `RESUME` — the skill runs it in the background and
+        ends its turn; the next turn retries the step that failed.
   config
-        In config đã gộp + nhánh hiện tại (skill đọc ở preflight).
+        Print the merged config + current branch (read by the skill at preflight).
   editor status | open [--timeout S] | close [--wait S]
-        Unity Editor của thư mục này cho bug — compile-check là bắt buộc nên bot không sửa khi chưa có Editor.
-        `status`: {running, pid, owned}. `open`: Editor chưa mở thì mở (restart-unity --open-only) và ghi
-        nhận "bot mở" (owned); rồi chờ tới khi plugin Unity MCP của đúng process đó đăng ký vào registry
-        (Editor đã load + compile xong) → `READY`. `close`: chỉ tắt Editor do bot mở — skill đã kiểm hết bug
-        `retry`, không có thay đổi chưa save, rồi xin Editor tự thoát qua MCP; lệnh này chờ process thoát,
-        quá `--wait` giây thì kill (`CLOSED` / `KILLED`); Editor không do bot mở → `NOT_OWNED`, không đụng.
+        The Unity Editor of this directory for bugs — compile-check is mandatory, so the bot does not fix without an
+        Editor. `status`: {running, pid, owned}. `open`: no Editor open → open one (restart-unity --open-only) and
+        record "opened by the bot" (owned); then wait until the Unity MCP plugin of that very process registers in
+        the registry (Editor loaded + compiled) → `READY`. `close`: only closes an Editor the bot opened — the skill
+        has already checked every `retry` bug, there are no unsaved changes, and it asked the Editor to quit via MCP;
+        this command waits for the process to exit and kills it after `--wait` seconds (`CLOSED` / `KILLED`); an
+        Editor the bot did not open → `NOT_OWNED`, left alone.
   notice check|mark --reason KEY -- N... | notice clear
-        Chống gửi lặp `bughub_note` khi loop pause vì Editor chưa dùng được: `check` trả các bug CHƯA được
-        nhắn với lý do KEY, `mark` ghi nhận đã nhắn, `clear` (Editor dùng được lại) xoá để lần lỗi sau nhắn tiếp.
+        Prevents repeated `bughub_note` posts while the loop pauses because the Editor is unusable: `check` returns
+        the bugs NOT yet notified with reason KEY, `mark` records them as notified, `clear` (Editor usable again)
+        resets so the next failure notifies again.
   claim set --bug N | claim clear [--bug N] | claim get
-        Nhớ bug ĐANG GIỮ (đã nhận, chưa resolve / needs-info / block / release) để session sau làm tiếp nếu
-        session này chết giữa chừng (lỗi API, crash, watchdog mở lại), kèm mốc lúc nhận cho `discard`: HEAD và
-        các path đang khác HEAD (thay đổi dở của dev — `discard` không bao giờ đụng). `get` → `NONE` hoặc
-        `CLAIMED` kèm `commit` (commit `Bug-Report: #N` tạo SAU lúc nhận, trên HEAD) + `pushed`.
+        Remember the bug CURRENTLY HELD (claimed, not yet resolve / needs-info / block / release) so a later session
+        can continue if this one dies midway (API error, crash, watchdog relaunch), plus a claim-time baseline for
+        `discard`: HEAD and the paths differing from HEAD (the dev's unfinished changes — `discard` never touches
+        them). `get` → `NONE` or `CLAIMED` with `commit` (the `Bug-Report: #N` commit made AFTER the claim, on HEAD)
+        + `pushed`.
   discard --bug N [--auto] [-- <file>...]
-        Bug bị người bấm "Huỷ & hoàn tác" (hoặc người khác đã nhận lại) trong lúc bot đang sửa: trả thư mục về
-        như lúc nhận bug. (1) Cất các file bot đã sửa / tạo (danh sách sau `--`; `--auto` = thêm mọi path đang
-        khác HEAD mà lúc nhận chưa khác — dùng khi session trước chết, không biết nó đã sửa gì) vào `git stash`
-        "bughub #N cancelled" — thư mục sạch mà không mất gì, file dở của dev lúc nhận bug không bao giờ bị cất.
-        (2) Commit `Bug-Report: #N` của lần nhận này CHƯA push: nằm trên đỉnh HEAD thì bỏ (`git reset --keep`),
-        không thì `git revert` local. Commit đã push: server BugHub đã revert trên GitLab — `sync` lần sau kéo về.
-        (3) Xoá `Temp/BugHub/N`. (4) Xoá marker `claim` của bug. → `DISCARDED` | `CLEAN` (không có gì để dọn).
+        Someone pressed "Huỷ & hoàn tác" (cancel & revert) on the bug (or someone else re-claimed it) while the bot
+        was fixing it: return the directory to its state at claim time. (1) Stash the files the bot edited / created
+        (the list after `--`; `--auto` = add every path now differing from HEAD that did not differ at claim time — for
+        when the previous session died and what it edited is unknown) into `git stash` "bughub #N cancelled" — the
+        directory gets clean without losing anything; the dev's unfinished files at claim time are never stashed.
+        (2) This claim's `Bug-Report: #N` commit NOT yet pushed: on top of HEAD → drop it (`git reset --keep`),
+        otherwise `git revert` locally. Already pushed: the BugHub server reverted it on GitLab — the next `sync`
+        pulls that in. (3) Delete `Temp/BugHub/N`. (4) Delete the bug's `claim` marker. → `DISCARDED` | `CLEAN`
+        (nothing to clean up).
   clean [--bug N]
-        SAU mỗi bug (đã chốt, đã commit + push) — dọn thư mục về đúng HEAD trước khi nhận bug sau: mọi path đang
-        khác HEAD (đã track sửa / xoá / staged + untracked chưa ignore) không nằm trong commit của bug, phần lớn
-        là file Unity Editor tự ghi. Nhánh bot (thư mục dành riêng cho bot): dọn hết. Checkout dùng chung với
-        dev (theo nhánh / chế độ một lần): giữ các path đã khác HEAD lúc nhận bug N (mốc `claim set`), không có
-        mốc thì không dọn (`SKIPPED`). Không mất gì: cất vào một commit stash giữ ở ref
-        `refs/bughub/cleaned/<thời gian>-<tag>` (không vào `git stash list`; giữ `CLEAN_KEEP` bản mới nhất) —
-        lấy lại: `git stash apply <backup>`. → `CLEANED` (`count`, `backup`, `ref`, `left` = path vẫn khác
-        HEAD sau khi dọn) | `CLEAN` | `SKIPPED`; đang merge / rebase dở → `WAIT` `BUSY`.
+        AFTER each bug (finalized, committed + pushed) — reset the directory to HEAD before taking the next bug: every
+        path differing from HEAD (tracked modified / deleted / staged + untracked not ignored) that is not in the
+        bug's commit, mostly files Unity Editor writes on its own. Bot branch (directory dedicated to the bot): clean
+        everything. Checkout shared with the dev (follow mode / one-shot mode): keep the paths that already differed
+        from HEAD when bug N was claimed (the `claim set` baseline); without a baseline nothing is cleaned
+        (`SKIPPED`). Nothing is lost: it is stashed into a stash commit kept at ref
+        `refs/bughub/cleaned/<time>-<tag>` (not in `git stash list`; the newest `CLEAN_KEEP` are kept) —
+        restore: `git stash apply <backup>`. → `CLEANED` (`count`, `backup`, `ref`, `left` = paths still differing
+        from HEAD after cleaning) | `CLEAN` | `SKIPPED`; merge / rebase in progress → `WAIT` `BUSY`.
 
-Dòng cuối stdout luôn là đúng một JSON `{"result": "...", ...}`; log cho người đọc ra stderr.
-Exit: 0 xong (kể cả `DISABLED`, `UP_TO_DATE`, `NOTHING`, `CLEAN`, `SKIPPED`) · 2 config / tham số sai / `start` không chuẩn bị
-được thư mục · 3 `WAIT` (tạm thời — pause rồi thử lại; `reason`: DETACHED, WRONG_BRANCH, BUSY, FETCH_FAILED,
-MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED, EDITOR_BUSY,
-EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4 thay đổi dở chặn merge
-nhánh chính khi `publish` (`LOCAL_CHANGES`, merge chưa bắt đầu) · 5 push khi `publish` bị từ chối · 6 `CONFLICT` (merge
-nhánh chính vào nhánh bot đang dở, chờ skill gộp tay rồi `resolve`).
+The last stdout line is always exactly one JSON `{"result": "...", ...}`; human-readable logs go to stderr.
+Exit: 0 done (including `DISABLED`, `UP_TO_DATE`, `NOTHING`, `CLEAN`, `SKIPPED`) · 2 bad config / arguments / `start`
+could not prepare the directory · 3 `WAIT` (transient — pause and retry; `reason`: DETACHED, WRONG_BRANCH, BUSY,
+FETCH_FAILED, MERGE_CONFLICT, LOCAL_CHANGES, DIVERGED_DIRTY, PUSH_REJECTED, GIT_FAILED; `editor`: EDITOR_NOT_INSTALLED,
+EDITOR_BUSY, EDITOR_LAUNCH_FAILED, EDITOR_EXITED, EDITOR_NOT_READY, EDITOR_STATUS_FAILED, EDITOR_KILL_FAILED) · 4
+uncommitted changes block merging the main branch during `publish` (`LOCAL_CHANGES`, merge not started) · 5 push
+rejected during `publish` · 6 `CONFLICT` (main-branch merge into the bot branch in progress, waiting for the skill to
+merge by hand and then `resolve`).
 """
 
 from __future__ import annotations
@@ -123,50 +134,51 @@ EXIT_NETWORK = 5
 EXIT_MERGE = 6
 
 WATCH_PROMPT = "/fix-bug --watch"
-# Giây chờ giữa các lần fetch lại trong MỘT lệnh. Ngắn có chủ đích: mất mạng lâu hơn thì trả WAIT để
-# loop pause theo backoff (lệnh chạy foreground trong Bash tool, timeout mặc định 2 phút).
+# Seconds between fetch retries within ONE command. Short on purpose: a longer outage returns WAIT so the
+# loop pauses with backoff (the command runs in the foreground of the Bash tool, default timeout 2 minutes).
 FETCH_RETRY_DELAYS = (5, 20)
 PUSH_ATTEMPTS = 3
-# Mọi lần pause / mở lại claude đều nghỉ đúng chừng này (env BUGHUB_PAUSE_SECONDS) — không backoff, không giới hạn.
+# Every pause / claude relaunch sleeps exactly this long (env BUGHUB_PAUSE_SECONDS) — no backoff, no limit.
 PAUSE_SECONDS = 30
 MERGE_STATE = "merge.json"
-# Đầu dòng marker conflict (merge.conflictStyle=diff3). "=======" một mình không tính — Markdown dùng làm gạch chân.
+# Conflict marker line prefixes (merge.conflictStyle=diff3). A lone "=======" does not count — Markdown uses it as an underline.
 CONFLICT_MARKERS = (b"<<<<<<<", b"|||||||", b">>>>>>>")
-# Không bao giờ để git đứng chờ nhập mật khẩu trong loop không người trông.
+# Never let git block on a password prompt in an unattended loop.
 GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
-# Chờ Editor sẵn sàng trong MỘT lệnh: vừa timeout tối đa 10 phút của Bash tool; lâu hơn thì WAIT → pause → thử lại.
+# Wait for the Editor to be ready within ONE command: fits the Bash tool's 10-minute max timeout; longer → WAIT → pause → retry.
 EDITOR_READY_TIMEOUT = 540
 EDITOR_CLOSE_WAIT = 60
 EDITOR_POLL_SECONDS = 5
-# Entry registry của Unity MCP cũ hơn mức này là của Editor đã chết (= registryStalenessTimeoutMs mặc định của MCP).
+# A Unity MCP registry entry older than this belongs to a dead Editor (= the MCP's default registryStalenessTimeoutMs).
 REGISTRY_FRESH_SECONDS = 300
 RESTART_UNITY_DIR = Path(__file__).resolve().parent.parent / "skills" / "restart-unity" / "scripts"
 CLAIM_STATE = "claim.json"
-# Mốc "path đang khác HEAD" lúc nhận bug: quá chừng này path thì không lưu (discard --auto từ chối, phải liệt kê file).
+# Claim-time baseline of "paths differing from HEAD": above this many paths it is not stored (discard --auto refuses, files must be listed).
 SNAPSHOT_MAX = 2000
-# Mốc lúc nhận bug cho `clean` — file riêng, sống qua `claim clear` / `discard` (hai lệnh đó xoá CLAIM_STATE).
+# Claim-time baseline for `clean` — a separate file that survives `claim clear` / `discard` (both delete CLAIM_STATE).
 BASELINE_STATE = "baseline.json"
-# Bản cất của `clean`: mỗi lần một ref dưới đây, giữ chừng này bản mới nhất (ref cũ xoá đi, object để `git gc` lo).
+# `clean` backups: one ref under this prefix per run, keeping this many newest (older refs are deleted, objects left to `git gc`).
 CLEAN_REF = "refs/bughub/cleaned"
 CLEAN_KEEP = 30
-# `start` đặt env này cho claude nó mở: mọi lệnh của loop chạm file đó để watchdog biết loop còn sống.
+# `start` sets this env for the claude it launches: every loop command touches that file so the watchdog knows the loop is alive.
 HEARTBEAT_ENV = "BUGHUB_WATCH_HEARTBEAT"
-# Biến PHIÊN mà Claude Code đặt cho shell của nó. `start` gọi từ trong một session Claude (agent mở cửa sổ watch hộ
-# dev) mà để claude con thừa hưởng chúng thì claude con tự coi là session con của session đó: không ghi transcript
-# riêng (watchdog mù — tưởng đứng im giữa lúc đang sửa bug) và bám vào socket nhắn tin của session cha. Chỉ bỏ khi
-# thật sự đang ở trong session Claude (có CLAUDECODE); biến cấu hình của user (CLAUDE_CONFIG_DIR…) giữ nguyên.
+# SESSION variables Claude Code sets for its shell. If `start` is called from inside a Claude session (an agent opening
+# the watch window for the dev) and the child claude inherits them, the child treats itself as a sub-session of that
+# session: it writes no transcript of its own (the watchdog goes blind — it thinks claude is idle while it is fixing a
+# bug) and attaches to the parent session's messaging socket. Only dropped when really inside a Claude session
+# (CLAUDECODE set); the user's config variables (CLAUDE_CONFIG_DIR…) are kept.
 PARENT_SESSION_ENV = ("CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT", "CLAUDE_CODE_CHILD_SESSION",
                       "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_ENTRYPOINT",
                       "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
                       "CLAUDE_CODE_SSE_PORT")
-# Claude đứng im lâu hơn chừng này (phút, env BUGHUB_WATCHDOG_MINUTES; 0 = tắt) → watchdog của `start` mở lại.
-# Phải dài hơn mọi lượt làm việc bình thường không ghi transcript (một lệnh / một lượt suy nghĩ dài).
+# Claude idle longer than this (minutes, env BUGHUB_WATCHDOG_MINUTES; 0 = off) → `start`'s watchdog relaunches it.
+# Must be longer than any normal stretch of work that writes no transcript (a long command / a long thinking turn).
 WATCHDOG_MINUTES = 20
 WATCHDOG_POLL_SECONDS = 15
 
 
 class Stop(Exception):
-    """Dừng lệnh với một exit code + JSON kết quả."""
+    """Stop the command with an exit code + result JSON."""
 
     def __init__(self, code: int, result: str, message: str, **extra):
         super().__init__(message)
@@ -175,12 +187,12 @@ class Stop(Exception):
 
 
 def wait(reason: str, message: str, **extra) -> Stop:
-    """Trạng thái tạm thời — skill pause rồi thử lại, không dừng loop."""
+    """Transient state — the skill pauses and retries; the loop does not stop."""
     return Stop(EXIT_WAIT, "WAIT", message, reason=reason, **extra)
 
 
 def heartbeat() -> None:
-    """Báo watchdog của `start` rằng loop còn sống (đang chờ / đang làm). Không chạy dưới `start` → không làm gì."""
+    """Tell `start`'s watchdog the loop is alive (waiting / working). Not running under `start` → no-op."""
     path = os.environ.get(HEARTBEAT_ENV)
     if path:
         try:
@@ -195,7 +207,7 @@ def heartbeat() -> None:
 
 def git(*args: str, cwd: Path | None = None, check: bool = True, stdin: str | None = None,
         literal: bool = False) -> subprocess.CompletedProcess:
-    # literal: pathspec là tên file nguyên văn — path Unity hay có `[`/`*` (vd "Azure[Sky] Lite") bị hiểu thành glob.
+    # literal: pathspecs are verbatim file names — Unity paths often contain `[`/`*` (e.g. "Azure[Sky] Lite") that would be read as globs.
     env = dict(GIT_ENV, GIT_LITERAL_PATHSPECS="1") if literal else GIT_ENV
     proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
                           errors="replace", env=env, input=stdin)
@@ -230,14 +242,14 @@ def current_branch(cwd: Path) -> str:
 
 
 def fetch(cwd: Path) -> None:
-    """fetch origin; lỗi thì thử lại vài giây rồi trả WAIT (loop pause theo backoff, không dừng)."""
+    """fetch origin; on failure retry for a few seconds, then return WAIT (the loop pauses with backoff, never stops)."""
     for delay in (*FETCH_RETRY_DELAYS, None):
         proc = git("fetch", "--quiet", "--prune", "origin", cwd=cwd, check=False)
         if proc.returncode == 0:
             return
         if delay is None:
-            raise wait("FETCH_FAILED", f"git fetch origin lỗi: {proc.stderr.strip()}")
-        print(f"bughub-watch: fetch lỗi, thử lại sau {delay}s — {proc.stderr.strip()}", file=sys.stderr)
+            raise wait("FETCH_FAILED", f"git fetch origin failed: {proc.stderr.strip()}")
+        print(f"bughub-watch: fetch failed, retrying in {delay}s — {proc.stderr.strip()}", file=sys.stderr)
         time.sleep(delay)
         heartbeat()
 
@@ -265,8 +277,8 @@ def checked_out_at(branch: str, cwd: Path) -> str | None:
 
 
 def dirty_tracked(cwd: Path) -> list[str]:
-    """File đã track còn thay đổi chưa commit (untracked bỏ qua — commit của skill chỉ lấy file của bug)."""
-    # Không qua out(): strip() ăn mất cột trạng thái đầu dòng (" M a.txt") nên tên file lệch 1 ký tự.
+    """Tracked files with uncommitted changes (untracked ignored — the skill's commit only takes the bug's files)."""
+    # Not via out(): strip() eats the leading status column (" M a.txt"), shifting file names by 1 character.
     lines = git("status", "--porcelain", "--untracked-files=no", cwd=cwd).stdout.splitlines()
     return [line[3:] for line in lines if line.strip()]
 
@@ -277,7 +289,7 @@ def git_path_exists(name: str, cwd: Path) -> bool:
 
 
 def operation_in_progress(cwd: Path) -> str:
-    """Tên thao tác git đang dở (merge / rebase / cherry-pick / revert) — rỗng nếu không có."""
+    """Name of the git operation in progress (merge / rebase / cherry-pick / revert) — empty if none."""
     for name, label in (("MERGE_HEAD", "merge"), ("rebase-merge", "rebase"), ("rebase-apply", "rebase"),
                         ("CHERRY_PICK_HEAD", "cherry-pick"), ("REVERT_HEAD", "revert")):
         if git_path_exists(name, cwd):
@@ -286,7 +298,7 @@ def operation_in_progress(cwd: Path) -> str:
 
 
 def try_merge(ref: str, cwd: Path, ff_only: bool = False) -> dict | None:
-    """Merge `ref` vào HEAD. Xong → None. Không xong (conflict / bị thay đổi dở chặn) → abort, trả chi tiết."""
+    """Merge `ref` into HEAD. Done → None. Not done (conflict / blocked by uncommitted changes) → abort, return details."""
     args = ["merge", "--ff-only", ref] if ff_only else ["merge", "--no-edit", ref]
     proc = git(*args, cwd=cwd, check=False)
     if proc.returncode == 0:
@@ -295,18 +307,18 @@ def try_merge(ref: str, cwd: Path, ff_only: bool = False) -> dict | None:
     if git_path_exists("MERGE_HEAD", cwd):
         git("merge", "--abort", cwd=cwd, check=False)
     detail = proc.stderr.strip() or proc.stdout.strip()
-    # "would be overwritten by merge" liệt kê file chặn ở các dòng thụt bằng tab.
+    # "would be overwritten by merge" lists the blocking files on tab-indented lines.
     blocking = [line.strip() for line in detail.splitlines() if line.startswith("\t")]
     return {"ref": ref, "detail": detail, "files": (conflicted or blocking)[:20],
             "kind": "conflict" if conflicted else "blocked"}
 
 
 # --------------------------------------------------------------------------------------------------
-# merge nhánh chính vào nhánh bot — conflict: gộp, buộc phải chọn thì lấy nhánh chính
+# merging the main branch into the bot branch — conflict: merge both sides, take the main branch when forced to choose
 # --------------------------------------------------------------------------------------------------
 
 def unmerged(cwd: Path) -> dict[str, dict[int, str]]:
-    """Path đang conflict → {stage: blob} (1 = gốc chung, 2 = nhánh bot / HEAD, 3 = nhánh chính đang merge vào)."""
+    """Conflicted path → {stage: blob} (1 = common ancestor, 2 = bot branch / HEAD, 3 = main branch being merged in)."""
     items: dict[str, dict[int, str]] = {}
     for entry in git("ls-files", "-u", "-z", cwd=cwd).stdout.split("\0"):
         if entry:
@@ -324,8 +336,9 @@ def blob(sha: str, cwd: Path) -> bytes:
 
 
 def hand_mergeable(path: str, stages: dict[int, str], cwd: Path) -> bool:
-    """File text hai bên cùng sửa — gộp tay được. Binary, asset Unity serialize (YAML fileID) và `.meta` thì không:
-    trộn khối của hai bên dễ ra tham chiếu treo / GUID lệch, nên lấy nguyên bản nhánh chính."""
+    """A text file edited on both sides — can be merged by hand. Binaries, serialized Unity assets (YAML fileID) and
+    `.meta` cannot: mixing hunks from both sides easily yields dangling references / mismatched GUIDs, so the
+    main-branch version is taken as is."""
     if 2 not in stages or 3 not in stages or path.endswith(".meta"):
         return False
     for stage in (2, 3):
@@ -336,8 +349,9 @@ def hand_mergeable(path: str, stages: dict[int, str], cwd: Path) -> bool:
 
 
 def take_base(path: str, stages: dict[int, str], cwd: Path) -> bool:
-    """Giải conflict bằng bản nhánh chính: có bản (stage 3) → lấy; nhánh chính đã xoá → xoá; chỉ nhánh bot có
-    (nhánh chính chưa từng có path này) → giữ. Trả True khi bản nhánh chính đè lên thay đổi của bot."""
+    """Resolve the conflict with the main-branch version: present (stage 3) → take it; deleted on the main branch →
+    delete; only the bot branch has it (the main branch never had this path) → keep. Returns True when the
+    main-branch version overrides the bot's change."""
     if 3 in stages:
         git("checkout", "--theirs", "--", path, cwd=cwd)
         git("add", "-A", "--", path, cwd=cwd)
@@ -351,7 +365,7 @@ def take_base(path: str, stages: dict[int, str], cwd: Path) -> bool:
 
 
 def prefer_base(path: str, stages: dict[int, str], cwd: Path) -> None:
-    """Gộp lại file từ 3 bản: phần không đụng nhau giữ của cả hai bên, khối đụng nhau lấy nhánh chính."""
+    """Re-merge the file from its 3 versions: non-overlapping parts keep both sides, overlapping hunks take the main branch."""
     if not hand_mergeable(path, stages, cwd):
         take_base(path, stages, cwd)
         return
@@ -363,7 +377,7 @@ def prefer_base(path: str, stages: dict[int, str], cwd: Path) -> None:
             files.append(str(file))
         proc = subprocess.run(["git", "merge-file", "-p", "--theirs", *files], cwd=cwd, capture_output=True, env=GIT_ENV)
     if proc.returncode != 0:
-        print(f"bughub-watch: merge-file {path} lỗi — lấy nguyên bản nhánh chính", file=sys.stderr)
+        print(f"bughub-watch: merge-file {path} failed — taking the main-branch version as is", file=sys.stderr)
         take_base(path, stages, cwd)
         return
     (cwd / path).write_bytes(proc.stdout)
@@ -374,12 +388,13 @@ def has_markers(path: Path) -> bool:
     try:
         data = path.read_bytes()
     except OSError:
-        return False  # skill xoá file → `git add -A` ghi nhận xoá
+        return False  # the skill deleted the file → `git add -A` records the deletion
     return any(line.startswith(CONFLICT_MARKERS) for line in data.splitlines())
 
 
 def bot_merge(cwd: Path) -> dict | None:
-    """Merge nhánh chính do script mở và còn dở (MERGE_HEAD khớp state). State cũ (merge đã xong / dev abort) → xoá."""
+    """The main-branch merge this script started that is still in progress (MERGE_HEAD matches the state). Stale state
+    (merge finished / dev aborted) → deleted."""
     path = state_file(cwd, MERGE_STATE)
     state = read_json(path)
     if not state:
@@ -400,12 +415,12 @@ def commit_merge(state: dict, cwd: Path) -> dict:
 
 def conflict(state: dict, files: list[str]) -> Stop:
     return Stop(EXIT_MERGE, "CONFLICT",
-                f"merge {state['ref']} vào nhánh bot còn conflict ở {len(files)} file — gộp tay (fix-bug mục 3.6) rồi chạy `resolve`",
+                f"merge of {state['ref']} into the bot branch still has conflicts in {len(files)} file(s) — merge by hand (fix-bug section 3.6), then run `resolve`",
                 ref=state["ref"], op=state.get("op"), files=files, takenBase=state.get("takenBase", []))
 
 
 def resume_bot_merge(cwd: Path) -> dict | None:
-    """Merge nhánh chính của bot còn dở từ lượt trước: còn file conflict → CONFLICT; hết rồi → commit nốt."""
+    """The bot's main-branch merge left in progress by an earlier turn: conflicted files left → CONFLICT; none → commit it."""
     state = bot_merge(cwd)
     if not state:
         return None
@@ -416,15 +431,16 @@ def resume_bot_merge(cwd: Path) -> dict | None:
 
 
 def merge_base(ref: str, cwd: Path, op: str) -> dict:
-    """Merge nhánh chính `ref` vào nhánh bot. Xong (kể cả khi đã tự lấy bản nhánh chính cho file không gộp tay được)
-    → {"ref", "takenBase", …}. Thay đổi dở chặn merge (merge chưa bắt đầu) → {"blocked": {...}}. Còn file text
-    conflict → để merge dở, ghi state, raise CONFLICT."""
+    """Merge the main branch `ref` into the bot branch. Done (including when the main-branch version was taken for
+    files that cannot be merged by hand) → {"ref", "takenBase", …}. Uncommitted changes block the merge (merge not
+    started) → {"blocked": {...}}. Text files still conflicted → leave the merge in progress, write the state, raise
+    CONFLICT."""
     proc = git("-c", "merge.conflictStyle=diff3", "merge", "--no-edit", ref, cwd=cwd, check=False)
     if proc.returncode == 0:
         return {"ref": ref, "takenBase": []}
     detail = proc.stderr.strip() or proc.stdout.strip()
     if not git_path_exists("MERGE_HEAD", cwd):
-        # "would be overwritten by merge" liệt kê file chặn ở các dòng thụt bằng tab.
+        # "would be overwritten by merge" lists the blocking files on tab-indented lines.
         blocking = [line.strip() for line in detail.splitlines() if line.startswith("\t")]
         return {"blocked": {"ref": ref, "detail": detail, "files": blocking[:20], "kind": "blocked"}}
     taken = [path for path, stages in unmerged(cwd).items()
@@ -435,7 +451,7 @@ def merge_base(ref: str, cwd: Path, op: str) -> dict:
     if not left:
         return commit_merge(state, cwd)
     write_json(state_file(cwd, MERGE_STATE), state)
-    print(f"bughub-watch: merge {ref} conflict ở {len(left)} file text — chờ gộp tay", file=sys.stderr)
+    print(f"bughub-watch: merge {ref}: conflict in {len(left)} text file(s) — waiting for a hand merge", file=sys.stderr)
     raise conflict(state, left)
 
 
@@ -443,7 +459,7 @@ def merge_base_or_stop(ref: str, cwd: Path, op: str) -> dict:
     outcome = merge_base(ref, cwd, op)
     if "blocked" in outcome:
         blocked = outcome["blocked"]
-        raise Stop(EXIT_CONFLICT, "LOCAL_CHANGES", f"thay đổi chưa commit chặn merge {ref} — {blocked['detail']}",
+        raise Stop(EXIT_CONFLICT, "LOCAL_CHANGES", f"uncommitted changes block merging {ref} — {blocked['detail']}",
                    ref=ref, files=blocked["files"])
     return outcome
 
@@ -457,7 +473,7 @@ def repo_root(cwd: Path) -> Path:
 
 
 def main_checkout(cwd: Path) -> Path:
-    """Thư mục checkout chính của clone (worktree đầu tiên trong danh sách)."""
+    """The clone's main checkout directory (first worktree in the list)."""
     return Path(worktrees(cwd)[0]["path"]).resolve()
 
 
@@ -478,9 +494,9 @@ def load_config(cwd: Path) -> dict:
     if branch:
         for name, value in (("branch", branch), ("baseBranch", base)):
             if not ok("check-ref-format", "--branch", value, cwd=cwd):
-                raise Stop(EXIT_CONFIG, "BAD_CONFIG", f"bugHub.watch.{name} không phải tên nhánh hợp lệ: '{value}'")
+                raise Stop(EXIT_CONFIG, "BAD_CONFIG", f"bugHub.watch.{name} is not a valid branch name: '{value}'")
         if branch == base:
-            raise Stop(EXIT_CONFIG, "BAD_CONFIG", "bugHub.watch.branch phải khác nhánh chính — bot không commit thẳng lên nhánh chính")
+            raise Stop(EXIT_CONFIG, "BAD_CONFIG", "bugHub.watch.branch must differ from the main branch — the bot never commits straight to the main branch")
         if cfg["worktree"]:
             custom = (watch.get("worktreePath") or "").strip()
             main = main_checkout(cwd)
@@ -497,7 +513,7 @@ def base_ref(cfg: dict, cwd: Path, remote: bool) -> str:
         return f"origin/{base}"
     if ref_exists(f"refs/heads/{base}", cwd):
         return base
-    raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"không thấy nhánh chính '{base}' (cả local lẫn origin) — kiểm bugHub.watch.baseBranch")
+    raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"main branch '{base}' not found (neither local nor on origin) — check bugHub.watch.baseBranch")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -505,35 +521,36 @@ def base_ref(cfg: dict, cwd: Path, remote: bool) -> str:
 # --------------------------------------------------------------------------------------------------
 
 def check_ready(cfg: dict, cwd: Path, allow_bot_merge: bool = False) -> str:
-    """Nhánh bot sẽ commit lên; trạng thái chưa làm được (detached, sai nhánh, đang merge dở) → WAIT.
-    `allow_bot_merge`: merge nhánh chính do chính script mở còn dở không tính là bận (sync / publish làm tiếp)."""
+    """The branch the bot will commit to; a state it cannot work in yet (detached, wrong branch, merge in progress) → WAIT.
+    `allow_bot_merge`: a main-branch merge started by this script and still in progress does not count as busy
+    (sync / publish carry it on)."""
     branch = current_branch(cwd)
     if not branch:
-        raise wait("DETACHED", "HEAD đang detached — chờ checkout về một nhánh")
+        raise wait("DETACHED", "HEAD is detached — waiting for a branch to be checked out")
     if cfg["mode"] == "bot" and branch != cfg["branch"]:
         raise wait("WRONG_BRANCH",
-                   f"đang ở '{branch}', không phải nhánh bot '{cfg['branch']}' — mở cửa sổ bằng `python3 .claude/scripts/bughub-watch.py start`",
+                   f"on '{branch}', not the bot branch '{cfg['branch']}' — open the window with `python3 .claude/scripts/bughub-watch.py start`",
                    branch=branch)
     busy = operation_in_progress(cwd)
     if busy and not (allow_bot_merge and busy == "merge" and bot_merge(cwd)):
-        raise wait("BUSY", f"đang có {busy} dở trong {cwd} — chờ dev xử lý xong", branch=branch)
+        raise wait("BUSY", f"{busy} in progress in {cwd} — waiting for the dev to finish it", branch=branch)
     return branch
 
 
 def integrate_own(branch: str, cwd: Path) -> str | None:
-    """Đưa `origin/<branch>` vào HEAD để push được. Trả ref đã merge (None nếu không cần); không được → WAIT."""
+    """Bring `origin/<branch>` into HEAD so the push can go through. Returns the merged ref (None if not needed); cannot → WAIT."""
     own = f"origin/{branch}"
     if not ref_exists(f"refs/remotes/{own}", cwd) or is_ancestor(own, "HEAD", cwd):
         return None
     fast_forward = is_ancestor("HEAD", own, cwd)
     if not fast_forward and dirty_tracked(cwd):
-        # Merge thật mà conflict thì `merge --abort` có thể làm hỏng thay đổi dở của dev — chờ dev commit/push.
-        raise wait("DIVERGED_DIRTY", f"'{branch}' có commit local chưa push trong khi {own} đã chạy tiếp, và thư mục "
-                   "còn thay đổi dở — chờ dev push / commit rồi thử lại", ref=own)
+        # A real merge that conflicts could have `merge --abort` damage the dev's uncommitted changes — wait for the dev to commit/push.
+        raise wait("DIVERGED_DIRTY", f"'{branch}' has unpushed local commits while {own} has moved on, and the directory "
+                   "has uncommitted changes — waiting for the dev to push / commit, then retrying", ref=own)
     failed = try_merge(own, cwd, ff_only=fast_forward)
     if failed:
         reason = "MERGE_CONFLICT" if failed["kind"] == "conflict" else "LOCAL_CHANGES"
-        raise wait(reason, f"chưa merge được {own} vào '{branch}' (push sẽ bị từ chối) — chờ dev xử lý. {failed['detail']}",
+        raise wait(reason, f"could not merge {own} into '{branch}' (the push would be rejected) — waiting for the dev. {failed['detail']}",
                    ref=own, files=failed["files"])
     return own
 
@@ -547,11 +564,12 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
         taken += resumed["takenBase"]
     cleaned = None
     if cfg["mode"] == "bot" and not operation_in_progress(cwd):
-        # Thư mục của nhánh bot không có việc dở của ai: thay đổi chưa commit lúc này chỉ là rác Editor / phần sót của
-        # session trước — để lại thì chặn merge nhánh chính ("would be overwritten") và bot cứ sửa trên code cũ.
+        # The bot branch's directory holds nobody's unfinished work: uncommitted changes here are only Editor junk /
+        # leftovers of an earlier session — left in place they block the main-branch merge ("would be overwritten")
+        # and the bot keeps fixing on stale code.
         cleaned = clean_tree(cwd, set(), "bughub sync cleanup", "sync")
         if cleaned["backup"]:
-            print(f"bughub-watch: dọn {cleaned['count']} path chưa commit trước khi merge — bản cất {cleaned['backup'][:10]}",
+            print(f"bughub-watch: cleaned {cleaned['count']} uncommitted path(s) before merging — backup {cleaned['backup'][:10]}",
                   file=sys.stderr)
     remote = has_origin(cwd)
     if remote:
@@ -564,8 +582,8 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
         if not is_ancestor(base, "HEAD", cwd):
             outcome = merge_base(base, cwd, "sync")
             if "blocked" in outcome:
-                # Thay đổi dở chặn merge — nhánh bot vẫn push được, sửa trên code cũ hơn nhánh chính, không chặn loop.
-                print(f"bughub-watch: bỏ qua merge {base} — {outcome['blocked']['detail']}", file=sys.stderr)
+                # Uncommitted changes block the merge — the bot branch can still push (fixing on code older than the main branch); the loop is not blocked.
+                print(f"bughub-watch: skipping merge of {base} — {outcome['blocked']['detail']}", file=sys.stderr)
                 skipped.append(outcome["blocked"])
             else:
                 merged.append(base)
@@ -581,7 +599,7 @@ def do_sync(cfg: dict, cwd: Path) -> dict:
 def do_push(cfg: dict, cwd: Path) -> dict:
     branch = check_ready(cfg, cwd)
     if not has_origin(cwd):
-        raise Stop(EXIT_CONFIG, "NO_ORIGIN", "repo chưa có remote origin")
+        raise Stop(EXIT_CONFIG, "NO_ORIGIN", "repo has no origin remote")
     upstream = ok("rev-parse", "--abbrev-ref", "--symbolic-full-name", f"{branch}@{{upstream}}", cwd=cwd)
     last = ""
     for attempt in range(1, PUSH_ATTEMPTS + 1):
@@ -596,25 +614,25 @@ def do_push(cfg: dict, cwd: Path) -> dict:
             return {"result": "PUSHED", "branch": branch, "merged": [merged] if merged else [],
                     "head": out("rev-parse", "HEAD", cwd=cwd)}
         last = proc.stderr.strip()
-        print(f"bughub-watch: push lần {attempt} lỗi — {last}", file=sys.stderr)
-    raise wait("PUSH_REJECTED", f"push '{branch}' lỗi sau {PUSH_ATTEMPTS} lần (không force): {last}", branch=branch)
+        print(f"bughub-watch: push attempt {attempt} failed — {last}", file=sys.stderr)
+    raise wait("PUSH_REJECTED", f"push of '{branch}' failed after {PUSH_ATTEMPTS} attempts (no force): {last}", branch=branch)
 
 
 def parse_shelve_args(argv: list[str]) -> tuple[str, str, list[str]]:
     if "--" not in argv:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "shelve cần `-- <file>...`")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "shelve needs `-- <file>...`")
     head, files = argv[:argv.index("--")], argv[argv.index("--") + 1:]
     opts = {}
     it = iter(head)
     for arg in it:
         if arg not in ("--bug", "--reason"):
-            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {arg}")
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"unknown argument: {arg}")
         opts[arg] = next(it, "")
     bug, reason = opts.get("--bug", ""), " ".join(opts.get("--reason", "").split())
     if not re.fullmatch(r"[1-9][0-9]*", bug):
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--bug phải là số bug nguyên dương")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--bug must be a positive integer bug number")
     if not files:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "shelve cần ít nhất một file")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "shelve needs at least one file")
     return bug, reason[:120], files
 
 
@@ -625,9 +643,9 @@ def do_shelve(cwd: Path, argv: list[str]) -> dict:
     for name in files:
         path = (root / name).resolve()
         if root not in path.parents or ".git" in path.relative_to(root).parts:
-            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"file nằm ngoài repo: {name}")
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"file outside the repo: {name}")
         paths.append(path.relative_to(root).as_posix())
-    # Chỉ cất path thật sự đổi (đã track hoặc mới tạo) — pathspec không khớp gì làm stash báo lỗi.
+    # Only stash paths that really changed (tracked or newly created) — a pathspec matching nothing makes stash fail.
     status = git("status", "--porcelain", "-z", "--untracked-files=all", "--", *paths, cwd=root).stdout.split("\0")
     changed, skip_next = [], False
     for entry in status:
@@ -635,13 +653,13 @@ def do_shelve(cwd: Path, argv: list[str]) -> dict:
             skip_next = False
             continue
         changed.append(entry[3:])
-        skip_next = entry[0] in "RC"  # rename/copy: entry kế là path cũ
+        skip_next = entry[0] in "RC"  # rename/copy: the next entry is the old path
     if not changed:
-        return {"result": "NOTHING", "bug": int(bug), "message": "không còn thay đổi nào để cất"}
+        return {"result": "NOTHING", "bug": int(bug), "message": "no changes left to stash"}
     message = f"bughub #{bug} released" + (f": {reason}" if reason else "")
     git("stash", "push", "--include-untracked", "-m", message, "--", *changed, cwd=root)
     return {"result": "SHELVED", "bug": int(bug), "stash": out("rev-parse", "stash@{0}", cwd=root),
-            "files": changed, "message": f"đã cất vào git stash \"{message}\" — lấy lại: git stash apply <stash>"}
+            "files": changed, "message": f"stashed into git stash \"{message}\" — restore: git stash apply <stash>"}
 
 
 def do_resolve(cwd: Path, argv: list[str]) -> dict:
@@ -652,11 +670,11 @@ def do_resolve(cwd: Path, argv: list[str]) -> dict:
         prefer = [name.removeprefix("./") for name in argv[2:]]
     state = bot_merge(cwd)
     if not state:
-        return {"result": "NOTHING", "message": "không có merge nhánh chính nào của bot đang dở"}
+        return {"result": "NOTHING", "message": "no main-branch merge of the bot in progress"}
     pending = unmerged(cwd)
     unknown = [name for name in prefer if name not in pending]
     if unknown:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"không phải file đang conflict: {', '.join(unknown)}", files=sorted(pending))
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"not a conflicted file: {', '.join(unknown)}", files=sorted(pending))
     for name in prefer:
         prefer_base(name, pending.pop(name), cwd)
     state["preferBase"] = sorted(set(state.get("preferBase", []) + prefer))
@@ -680,8 +698,8 @@ def do_resolve(cwd: Path, argv: list[str]) -> dict:
 def do_publish(cfg: dict, cwd: Path) -> dict:
     if cfg["mode"] != "bot" or not cfg["mergeToBase"]:
         return {"result": "DISABLED", "branch": cfg["branch"] or current_branch(cwd),
-                "message": "fix đã nằm trên nhánh đích" if cfg["mode"] != "bot" else
-                           "mergeToBase=false — fix chỉ nằm trên nhánh bot, dev tự merge"}
+                "message": "the fix is already on the target branch" if cfg["mode"] != "bot" else
+                           "mergeToBase=false — the fix stays on the bot branch only, the dev merges it"}
     check_ready(cfg, cwd, allow_bot_merge=True)
     resume_bot_merge(cwd)
     base = cfg["baseBranch"]
@@ -689,9 +707,9 @@ def do_publish(cfg: dict, cwd: Path) -> dict:
         holder = checked_out_at(base, cwd)
         if holder:
             raise Stop(EXIT_WAIT, "BASE_CHECKED_OUT",
-                       f"không có remote và '{base}' đang mở ở {holder} — không dời được nhánh đó an toàn, dev merge tay")
+                       f"no remote and '{base}' is checked out at {holder} — that branch cannot be moved safely, the dev merges by hand")
         if not ref_exists(f"refs/heads/{base}", cwd):
-            raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"không thấy nhánh chính '{base}'")
+            raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"main branch '{base}' not found")
         if not is_ancestor(base, "HEAD", cwd):
             merge_base_or_stop(base, cwd, "publish")
         old = out("rev-parse", base, cwd=cwd)
@@ -702,21 +720,21 @@ def do_publish(cfg: dict, cwd: Path) -> dict:
         fetch(cwd)
         remote_base = f"origin/{base}"
         if not ref_exists(f"refs/remotes/{remote_base}", cwd):
-            raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"origin không có nhánh '{base}'")
+            raise Stop(EXIT_CONFIG, "BASE_UNKNOWN", f"origin has no branch '{base}'")
         if not is_ancestor(remote_base, "HEAD", cwd):
             merge_base_or_stop(remote_base, cwd, "publish")
         own = f"origin/{cfg['branch']}"
         if not (ref_exists(f"refs/remotes/{own}", cwd) and is_ancestor("HEAD", own, cwd)):
-            # Merge nhánh chính (lần này hoặc lần `resolve` trước) chỉ mới nằm local — nhánh bot phải lên trước.
+            # The main-branch merge (this one or an earlier `resolve`) only exists locally — the bot branch must go up first.
             push = git("push", "--quiet", "origin", f"HEAD:refs/heads/{cfg['branch']}", cwd=cwd, check=False)
             if push.returncode != 0:
-                raise Stop(EXIT_NETWORK, "PUSH_FAILED", f"push nhánh bot lỗi: {push.stderr.strip()}")
+                raise Stop(EXIT_NETWORK, "PUSH_FAILED", f"pushing the bot branch failed: {push.stderr.strip()}")
         push = git("push", "--quiet", "origin", f"HEAD:refs/heads/{base}", cwd=cwd, check=False)
         if push.returncode == 0:
             return {"result": "PUBLISHED", "base": base, "head": out("rev-parse", "HEAD", cwd=cwd), "remote": True}
         if attempt == 2:
-            raise Stop(EXIT_NETWORK, "PUSH_FAILED", f"push lên '{base}' bị từ chối (không force): {push.stderr.strip()}")
-        print(f"bughub-watch: '{base}' vừa chạy tiếp trên origin, merge lại rồi thử lần nữa", file=sys.stderr)
+            raise Stop(EXIT_NETWORK, "PUSH_FAILED", f"push to '{base}' rejected (no force): {push.stderr.strip()}")
+        print(f"bughub-watch: '{base}' just moved on at origin, merging again and retrying", file=sys.stderr)
     raise AssertionError("unreachable")
 
 
@@ -735,9 +753,9 @@ def do_pause(argv: list[str]) -> dict:
         attempt = max(1, int(opts.get("--attempt", "1")))
         seconds = int(opts["--seconds"]) if "--seconds" in opts else pause_seconds()
     except ValueError:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--attempt / --seconds phải là số nguyên") from None
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--attempt / --seconds must be integers") from None
     seconds = max(0, seconds)
-    print(f"bughub-watch: nghỉ {seconds}s (lần lỗi thứ {attempt}) rồi thử lại", file=sys.stderr)
+    print(f"bughub-watch: sleeping {seconds}s (failure #{attempt}), then retrying", file=sys.stderr)
     time.sleep(seconds)
     heartbeat()
     return {"result": "RESUME", "attempt": attempt, "slept": seconds}
@@ -748,7 +766,7 @@ def do_pause(argv: list[str]) -> dict:
 # --------------------------------------------------------------------------------------------------
 
 def state_file(cwd: Path, name: str) -> Path:
-    """File trạng thái của watch trong git dir của worktree này (không bao giờ bị commit, sống qua /clear)."""
+    """Watch state file in this worktree's git dir (never committed, survives /clear)."""
     return Path(out("rev-parse", "--absolute-git-dir", cwd=cwd)) / "bughub-watch" / name
 
 
@@ -768,7 +786,7 @@ def write_json(path: Path, data: dict) -> None:
 
 
 def restart_unity(flag: str, root: Path) -> str:
-    """Chạy restart-unity (sh / ps1) với đúng một cờ, trả dòng status cuối của nó."""
+    """Run restart-unity (sh / ps1) with exactly one flag, return its last status line."""
     if os.name == "nt":
         ps_flag = {"--status": "-Status", "--open-only": "-OpenOnly", "--no-launch": "-NoLaunch"}[flag]
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
@@ -778,9 +796,9 @@ def restart_unity(flag: str, root: Path) -> str:
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     except (OSError, subprocess.TimeoutExpired) as err:
-        return f"ERROR không chạy được restart-unity: {err}"
+        return f"ERROR could not run restart-unity: {err}"
     lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    return lines[-1] if lines else f"ERROR restart-unity không in gì (exit {proc.returncode}): {proc.stderr.strip()[:200]}"
+    return lines[-1] if lines else f"ERROR restart-unity printed nothing (exit {proc.returncode}): {proc.stderr.strip()[:200]}"
 
 
 def pid_alive(pid: int) -> bool:
@@ -798,7 +816,7 @@ def pid_alive(pid: int) -> bool:
 
 
 def editor_status(root: Path) -> dict:
-    """Editor GUI của project này + có phải bot mở không. Marker của Editor đã tắt / bị thay thì xoá."""
+    """This project's GUI Editor + whether the bot opened it. A marker of an Editor that has exited / been replaced is deleted."""
     line = restart_unity("--status", root)
     match = re.fullmatch(r"RUNNING gui=(\S+) pids=\[([^\]]*)\]", line)
     if line == "NOT_RUNNING":
@@ -807,7 +825,7 @@ def editor_status(root: Path) -> dict:
         gui = int(match.group(1)) if match.group(1).isdigit() else None
         pids = [int(x) for x in match.group(2).split() if x.isdigit()]
     else:
-        raise wait("EDITOR_STATUS_FAILED", f"không đọc được trạng thái Unity Editor: {line}")
+        raise wait("EDITOR_STATUS_FAILED", f"could not read the Unity Editor status: {line}")
     marker_path = state_file(root, "editor.json")
     marker = read_json(marker_path)
     owned = bool(marker and gui and marker.get("pid") == gui)
@@ -817,7 +835,7 @@ def editor_status(root: Path) -> dict:
 
 
 def registry_path() -> Path:
-    """Registry instance của plugin Unity MCP (cùng đường dẫn MCP server đọc)."""
+    """Instance registry of the Unity MCP plugin (the same path the MCP server reads)."""
     override = os.environ.get("UNITY_INSTANCE_REGISTRY")
     if override:
         return Path(override)
@@ -827,7 +845,7 @@ def registry_path() -> Path:
 
 
 def parse_utc(value: object) -> datetime | None:
-    """'2026-10-09T02:38:06.8293400Z' (C# ghi 7 chữ số thập phân — fromisoformat không nhận)."""
+    """'2026-10-09T02:38:06.8293400Z' (C# writes 7 fractional digits — fromisoformat rejects that)."""
     match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?(?:Z|\+00:00)?", str(value or ""))
     if not match:
         return None
@@ -840,7 +858,7 @@ def same_path(a: object, b: Path) -> bool:
 
 
 def registry_entry(root: Path, pid: int) -> dict | None:
-    """Entry còn sống của đúng process Editor này — có nghĩa plugin MCP đã chạy (Editor load + compile xong)."""
+    """Live entry of exactly this Editor process — meaning the MCP plugin is running (Editor loaded + compiled)."""
     try:
         data = json.loads(registry_path().read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
@@ -865,12 +883,12 @@ def editor_open(root: Path, timeout: int) -> dict:
             detail = line.removeprefix("ERROR").strip()
             reason = "EDITOR_NOT_INSTALLED" if "VERSION_NOT_INSTALLED" in line else \
                 "EDITOR_BUSY" if detail.startswith("BUSY") else "EDITOR_LAUNCH_FAILED"
-            raise wait(reason, f"không mở được Unity Editor: {detail}")
+            raise wait(reason, f"could not open Unity Editor: {detail}")
         pid, opened = int(match.group(2)), match.group(1) == "OPENED"
         if opened:
             write_json(state_file(root, "editor.json"),
                        {"pid": pid, "projectPath": str(root), "openedAt": datetime.now(timezone.utc).isoformat()})
-            print(f"bughub-watch: đã mở Unity Editor pid {pid} — chờ load xong (tối đa {timeout}s)", file=sys.stderr)
+            print(f"bughub-watch: opened Unity Editor pid {pid} — waiting for it to load (up to {timeout}s)", file=sys.stderr)
     owned = opened or status["owned"]
     started, last_log = time.monotonic(), time.monotonic()
     while True:
@@ -881,14 +899,14 @@ def editor_open(root: Path, timeout: int) -> dict:
         if not pid_alive(pid):
             if owned:
                 state_file(root, "editor.json").unlink(missing_ok=True)
-            raise wait("EDITOR_EXITED", f"Unity Editor pid {pid} đã thoát trước khi sẵn sàng (crash, hỏi license, hoặc bị tắt tay)",
+            raise wait("EDITOR_EXITED", f"Unity Editor pid {pid} exited before becoming ready (crash, license prompt, or closed by hand)",
                        pid=pid)
         if time.monotonic() - started >= timeout:
             raise wait("EDITOR_NOT_READY",
-                       f"Unity Editor pid {pid} chưa sẵn sàng sau {timeout // 60} phút — đang import/compile lâu, kẹt một dialog "
-                       "(license, nâng version…) cần người bấm, hoặc project thiếu plugin Unity MCP", pid=pid, owned=owned)
+                       f"Unity Editor pid {pid} not ready after {timeout // 60} min — a long import/compile, stuck on a dialog "
+                       "(license, version upgrade…) that needs someone to click, or the project lacks the Unity MCP plugin", pid=pid, owned=owned)
         if time.monotonic() - last_log >= 60:
-            print(f"bughub-watch: Editor pid {pid} vẫn đang load ({int(time.monotonic() - started)}s)…", file=sys.stderr)
+            print(f"bughub-watch: Editor pid {pid} still loading ({int(time.monotonic() - started)}s)…", file=sys.stderr)
             last_log = time.monotonic()
         time.sleep(EDITOR_POLL_SECONDS)
         heartbeat()
@@ -899,10 +917,10 @@ def editor_close(root: Path, wait_s: int) -> dict:
     status = editor_status(root)
     if not status["owned"]:
         if marker and not status["running"]:
-            # Editor bot mở đã tự thoát (lệnh thoát qua MCP chạy xong trước khi gọi close) — marker đã được dọn.
+            # The Editor the bot opened already quit (the MCP quit command finished before close was called) — its marker was cleaned up.
             return {"result": "CLOSED", "pid": marker.get("pid")}
         return {"result": "NOT_OWNED", "running": status["running"], "pid": status["pid"],
-                "message": "Editor không do bot mở (hoặc đã tắt) — để nguyên"}
+                "message": "Editor not opened by the bot (or already closed) — left alone"}
     pid = status["pid"]
     deadline = time.monotonic() + max(0, wait_s)
     while pid_alive(pid) and time.monotonic() < deadline:
@@ -910,10 +928,10 @@ def editor_close(root: Path, wait_s: int) -> dict:
         heartbeat()
     graceful = not pid_alive(pid)
     if not graceful or restart_unity("--status", root) != "NOT_RUNNING":
-        # Editor không tự thoát (hoặc còn import worker mồ côi) → kill cả cụm của project.
+        # The Editor did not quit by itself (or orphaned import workers remain) → kill the project's whole process group.
         line = restart_unity("--no-launch", root)
         if line != "KILLED":
-            raise wait("EDITOR_KILL_FAILED", f"không tắt được Unity Editor pid {pid}: {line}", pid=pid)
+            raise wait("EDITOR_KILL_FAILED", f"could not close Unity Editor pid {pid}: {line}", pid=pid)
     state_file(root, "editor.json").unlink(missing_ok=True)
     return {"result": "CLOSED" if graceful else "KILLED", "pid": pid}
 
@@ -922,7 +940,7 @@ def int_option(argv: list[str], name: str, default: int) -> int:
     if not argv:
         return default
     if len(argv) != 2 or argv[0] != name or not re.fullmatch(r"[0-9]+", argv[1]):
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {' '.join(argv)} (chỉ nhận {name} <giây>)")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"unknown arguments: {' '.join(argv)} (only {name} <seconds> is accepted)")
     return int(argv[1])
 
 
@@ -948,9 +966,9 @@ def do_notice(cwd: Path, argv: list[str]) -> dict:
         raise Stop(EXIT_CONFIG, "BAD_ARGS", "notice check|mark --reason KEY -- N... | notice clear")
     head, numbers = argv[1:argv.index("--")], argv[argv.index("--") + 1:]
     if len(head) != 2 or head[0] != "--reason" or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", head[1]):
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--reason phải là mã IN_HOA (vd EDITOR_NOT_READY)")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "--reason must be an UPPER_CASE code (e.g. EDITOR_NOT_READY)")
     if not numbers or any(not re.fullmatch(r"[1-9][0-9]*", n) for n in numbers):
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "sau -- là số bug nguyên dương")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "-- must be followed by positive integer bug numbers")
     reason, bugs = head[1], [int(n) for n in numbers]
     state = read_json(path) or {}
     posted = [int(n) for n in state.get("posted", []) if isinstance(n, int)] if state.get("reason") == reason else []
@@ -969,8 +987,8 @@ def bug_option(argv: list[str], required: bool) -> int | None:
 
 
 def bug_commit(bug: int, since: str, cwd: Path) -> str | None:
-    """Commit sửa bug #N (dòng `Bug-Report: #N`) tạo từ lúc nhận bug trở đi, trên HEAD — None nếu chưa có.
-    Lọc theo thời gian để không nhầm commit của lần sửa trước (bug bị QA giao lại)."""
+    """The commit fixing bug #N (line `Bug-Report: #N`) made since the claim, on HEAD — None if there is none yet.
+    Filtered by time so a commit of an earlier fix (bug reassigned by QA) is not mistaken for it."""
     proc = git("log", "-n", "1", "--format=%H", f"--since={since}", "-E", f"--grep=^Bug-Report: #{bug}$", "HEAD",
                cwd=cwd, check=False)
     sha = proc.stdout.strip()
@@ -1009,7 +1027,7 @@ def do_claim(cwd: Path, argv: list[str]) -> dict:
 
 
 def changed_paths(cwd: Path, paths: list[str] | None = None) -> list[str]:
-    """Path đang khác HEAD: đã track sửa / xoá / staged và untracked chưa ignore (rename: cả hai tên)."""
+    """Paths differing from HEAD: tracked modified / deleted / staged and untracked not ignored (rename: both names)."""
     args = ["status", "--porcelain", "-z", "--untracked-files=all"]
     if paths is not None:
         if not paths:
@@ -1019,7 +1037,7 @@ def changed_paths(cwd: Path, paths: list[str] | None = None) -> list[str]:
     changed, rename_source = [], False
     for entry in entries:
         if rename_source:
-            changed.append(entry)  # rename/copy: entry kế là path cũ
+            changed.append(entry)  # rename/copy: the next entry is the old path
             rename_source = False
             continue
         if not entry:
@@ -1036,14 +1054,14 @@ def parse_discard_args(argv: list[str]) -> tuple[int, bool, list[str]]:
         if arg == "--bug":
             value = next(it, "")
             if not re.fullmatch(r"[1-9][0-9]*", value):
-                raise Stop(EXIT_CONFIG, "BAD_ARGS", "--bug phải là số bug nguyên dương")
+                raise Stop(EXIT_CONFIG, "BAD_ARGS", "--bug must be a positive integer bug number")
             bug = int(value)
         elif arg == "--auto":
             auto = True
         else:
-            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {arg} — discard --bug N [--auto] [-- <file>...]")
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"unknown argument: {arg} — discard --bug N [--auto] [-- <file>...]")
     if bug is None:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "discard cần --bug N")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "discard needs --bug N")
     return bug, auto, files
 
 
@@ -1052,22 +1070,22 @@ def do_discard(cwd: Path, argv: list[str]) -> dict:
     root = repo_root(cwd)
     busy = operation_in_progress(root)
     if busy:
-        raise wait("BUSY", f"đang có {busy} dở trong {root} — xong nó rồi discard lại")
+        raise wait("BUSY", f"{busy} in progress in {root} — finish it, then discard again")
     path = state_file(root, CLAIM_STATE)
     state = read_json(path) or {}
     state = state if state.get("bug") == bug else {}
     since = str(state.get("claimedAt") or "")
     before = state.get("dirty")
     if auto and not isinstance(before, list):
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", "không có mốc lúc nhận bug (claim set) — liệt kê file sau `--` thay cho --auto")
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", "no claim-time baseline (claim set) — list the files after `--` instead of --auto")
     protected = set(before or [])
 
-    # 1. Working tree: chỉ file của bot, không bao giờ file dev đang sửa dở lúc nhận bug.
+    # 1. Working tree: only the bot's files, never files the dev had in progress at claim time.
     wanted = []
     for name in files:
         target = (root / name).resolve()
         if root not in target.parents or ".git" in target.relative_to(root).parts:
-            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"file nằm ngoài repo: {name}")
+            raise Stop(EXIT_CONFIG, "BAD_ARGS", f"file outside the repo: {name}")
         wanted.append(target.relative_to(root).as_posix())
     if auto:
         wanted += [name for name in changed_paths(root) if name not in protected]
@@ -1078,13 +1096,13 @@ def do_discard(cwd: Path, argv: list[str]) -> dict:
         git("stash", "push", "--include-untracked", "-m", f"bughub #{bug} cancelled", "--", *stashed, cwd=root)
         stash = out("rev-parse", "stash@{0}", cwd=root)
 
-    # 2. Commit `Bug-Report: #N` của lần nhận này: đã push thì server đã revert; chưa push thì bỏ / revert local.
+    # 2. This claim's `Bug-Report: #N` commit: pushed → the server already reverted it; not pushed → drop / revert locally.
     branch = current_branch(root)
     upstream = f"refs/remotes/origin/{branch}" if branch and ref_exists(f"refs/remotes/origin/{branch}", root) else None
-    scope = [f"--since={since}", "HEAD"] if since else [f"{upstream}..HEAD"] if upstream else []  # không mốc: chỉ commit chưa push
+    scope = [f"--since={since}", "HEAD"] if since else [f"{upstream}..HEAD"] if upstream else []  # no baseline: only unpushed commits
     shas = git("log", "--no-merges", "--format=%H", "-E", f"--grep=^Bug-Report: #{bug}$", *scope, cwd=root).stdout.split() if scope else []
     if shas:
-        # Đã có commit "This reverts commit <sha>" (lần discard trước, hoặc dev revert tay) → không đụng lại.
+        # A "This reverts commit <sha>" commit already exists (an earlier discard, or the dev reverted by hand) → leave it alone.
         undone = set(re.findall(r"This reverts commit ([0-9a-f]{40})", git("log", "--format=%B", *scope, cwd=root).stdout))
         shas = [sha for sha in shas if sha not in undone]
     pushed = [sha for sha in shas if upstream and is_ancestor(sha, upstream, root)]
@@ -1095,37 +1113,37 @@ def do_discard(cwd: Path, argv: list[str]) -> dict:
         if top == local and git("reset", "--keep", f"{local[-1]}^", cwd=root, check=False).returncode == 0:
             dropped = local
         else:
-            for sha in local:  # mới nhất trước
+            for sha in local:  # newest first
                 proc = git("revert", "--no-edit", sha, cwd=root, check=False)
                 if proc.returncode != 0:
                     git("revert", "--abort", cwd=root, check=False)
-                    raise wait("REVERT_FAILED", f"không revert được commit local {sha[:10]}: {proc.stderr.strip()} — dev xử lý tay",
+                    raise wait("REVERT_FAILED", f"could not revert local commit {sha[:10]}: {proc.stderr.strip()} — the dev must handle it by hand",
                                stash=stash, reverted=reverted)
                 reverted.append(sha)
 
-    # 3. File tải về của bug, 4. marker.
+    # 3. The bug's downloaded files, 4. marker.
     shutil.rmtree(root / "Temp" / "BugHub" / str(bug), ignore_errors=True)
     if state:
         path.unlink(missing_ok=True)
     result = "DISCARDED" if stashed or dropped or reverted else "CLEAN"
     message = []
     if stash:
-        message.append(f"đã cất {len(stashed)} file vào git stash \"bughub #{bug} cancelled\" (lấy lại: git stash apply {stash[:10]})")
+        message.append(f"stashed {len(stashed)} file(s) into git stash \"bughub #{bug} cancelled\" (restore: git stash apply {stash[:10]})")
     if dropped:
-        message.append(f"bỏ {len(dropped)} commit chưa push")
+        message.append(f"dropped {len(dropped)} unpushed commit(s)")
     if reverted:
-        message.append(f"revert local {len(reverted)} commit chưa push (đi theo lần push sau)")
+        message.append(f"reverted {len(reverted)} unpushed commit(s) locally (they go out with the next push)")
     if pushed:
-        message.append(f"{len(pushed)} commit đã push — server BugHub revert trên GitLab, sync lần sau kéo về")
+        message.append(f"{len(pushed)} commit(s) already pushed — the BugHub server reverts them on GitLab, the next sync pulls that in")
     return {"result": result, "bug": bug, "branch": branch, "stash": stash, "stashed": stashed, "kept": kept,
             "droppedCommits": dropped, "revertedLocally": reverted, "pushedCommits": pushed,
-            "message": "; ".join(message) or "không có gì để dọn"}
+            "message": "; ".join(message) or "nothing to clean up"}
 
 
 def stash_away(root: Path, paths: list[str], label: str) -> str | None:
-    """Cất `paths` (đã track sửa / xoá / staged + untracked) vào một commit stash và trả các path đó về HEAD → sha
-    commit stash; None khi git thấy không có gì để cất (vd chỉ lệch stat). Danh sách qua stdin: vài nghìn path vẫn
-    không vượt giới hạn dòng lệnh của Windows."""
+    """Stash `paths` (tracked modified / deleted / staged + untracked) into a stash commit and reset those paths to
+    HEAD → the stash commit sha; None when git finds nothing to stash (e.g. only stat differences). The list goes
+    through stdin: a few thousand paths still stay under the Windows command-line limit."""
     before = git("rev-parse", "-q", "--verify", "refs/stash", cwd=root, check=False).stdout.strip()
     git("stash", "push", "--include-untracked", "-m", label, "--pathspec-from-file=-", "--pathspec-file-nul",
         cwd=root, stdin="\0".join(paths), literal=True)
@@ -1140,8 +1158,9 @@ def prune_clean_refs(root: Path) -> None:
 
 
 def clean_tree(root: Path, protected: set[str], label: str, tag: str) -> dict:
-    """Trả mọi path đang khác HEAD (trừ `protected`) về HEAD. Bản cất giữ ở ref `CLEAN_REF/<thời gian>-<tag>` và bỏ
-    khỏi `git stash list` (mỗi bug một bản — để trong stash list thì dev không tìm nổi stash của mình)."""
+    """Reset every path differing from HEAD (except `protected`) to HEAD. The backup is kept at ref
+    `CLEAN_REF/<time>-<tag>` and removed from `git stash list` (one per bug — left in the stash list, the dev could
+    not find their own stashes)."""
     changed = changed_paths(root)
     targets = [name for name in changed if name not in protected]
     kept = [name for name in changed if name in protected]
@@ -1160,8 +1179,9 @@ def clean_tree(root: Path, protected: set[str], label: str, tag: str) -> dict:
 
 
 def clean_scope(cfg: dict, root: Path, bug: int | None) -> set[str] | None:
-    """Path `clean` không được đụng. Nhánh bot (thư mục dành riêng cho bot) → không có. Checkout dùng chung với dev →
-    path đã khác HEAD lúc nhận bug `bug` (mốc `claim set`); không có mốc → None (không biết đâu là việc dở của dev)."""
+    """Paths `clean` must not touch. Bot branch (directory dedicated to the bot) → none. Checkout shared with the dev →
+    the paths that already differed from HEAD when bug `bug` was claimed (the `claim set` baseline); no baseline →
+    None (no way to tell which changes are the dev's unfinished work)."""
     if cfg["mode"] == "bot" and current_branch(root) == cfg["branch"]:
         return set()
     base = read_json(state_file(root, BASELINE_STATE)) or {}
@@ -1177,21 +1197,21 @@ def do_clean(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     root = repo_root(cwd)
     busy = operation_in_progress(root)
     if busy:
-        raise wait("BUSY", f"đang có {busy} dở trong {root} — xong nó rồi clean lại")
+        raise wait("BUSY", f"{busy} in progress in {root} — finish it, then clean again")
     protected = clean_scope(cfg, root, bug)
     if protected is None:
         return {"result": "SKIPPED", "bug": bug,
-                "message": "checkout dùng chung với dev mà không có mốc lúc nhận bug này (claim set) — không phân biệt được "
-                           "việc dở của dev nên không dọn"}
+                "message": "checkout shared with the dev and no claim-time baseline for this bug (claim set) — the dev's unfinished "
+                           "work cannot be told apart, so nothing is cleaned"}
     done = clean_tree(root, protected, f"bughub #{bug} cleanup" if bug else "bughub cleanup", f"bug{bug}" if bug else "manual")
     if not done["backup"]:
         return {"result": "CLEAN", "bug": bug, **done,
-                "message": "không có thay đổi nào ngoài commit" + (f" (giữ {len(done['kept'])} path dở của dev)" if done["kept"] else "")}
-    message = f"đã dọn {done['count']} path chưa commit, bản cất {done['backup'][:10]} (lấy lại: git stash apply {done['backup'][:10]})"
+                "message": "no changes outside the commit" + (f" (kept {len(done['kept'])} path(s) of the dev's unfinished work)" if done["kept"] else "")}
+    message = f"cleaned {done['count']} uncommitted path(s), backup {done['backup'][:10]} (restore: git stash apply {done['backup'][:10]})"
     if done["kept"]:
-        message += f"; giữ {len(done['kept'])} path dev đang sửa dở từ lúc nhận bug"
+        message += f"; kept {len(done['kept'])} path(s) the dev had in progress since the claim"
     if done["left"]:
-        message += f"; {len(done['left'])} path vẫn khác HEAD sau khi dọn (thường do lệch line-ending)"
+        message += f"; {len(done['left'])} path(s) still differ from HEAD after cleaning (usually line-ending differences)"
     return {"result": "CLEANED", "bug": bug, **done, "message": message}
 
 
@@ -1205,11 +1225,11 @@ def ensure_branch(cfg: dict, cwd: Path, remote: bool) -> None:
         return
     if remote and ref_exists(f"refs/remotes/origin/{branch}", cwd):
         git("branch", "--track", branch, f"origin/{branch}", cwd=cwd)
-        print(f"bughub-watch: tạo nhánh {branch} theo origin/{branch}", file=sys.stderr)
+        print(f"bughub-watch: created branch {branch} tracking origin/{branch}", file=sys.stderr)
         return
     start_point = base_ref(cfg, cwd, remote)
     git("branch", "--no-track", branch, start_point, cwd=cwd)
-    print(f"bughub-watch: tạo nhánh {branch} từ {start_point} (push lần đầu khi sửa xong bug đầu tiên)", file=sys.stderr)
+    print(f"bughub-watch: created branch {branch} from {start_point} (first push once the first bug is fixed)", file=sys.stderr)
 
 
 def confirm(question: str, assume_yes: bool) -> bool:
@@ -1217,8 +1237,8 @@ def confirm(question: str, assume_yes: bool) -> bool:
         return True
     if not sys.stdin.isatty():
         return False
-    # Câu hỏi ra stderr: stdout chỉ dành cho dòng JSON kết quả. Windows coi NUL là tty nên tới được đây cả khi
-    # stdin rỗng — in ra stdout thì câu hỏi dính vào đầu dòng JSON.
+    # The question goes to stderr: stdout is reserved for the result JSON line. Windows treats NUL as a tty, so this
+    # is reached even with empty stdin — printed to stdout, the question would stick to the start of the JSON line.
     print(f"{question} [y/N] ", end="", file=sys.stderr, flush=True)
     try:
         return input().strip().lower() in ("y", "yes")
@@ -1228,7 +1248,7 @@ def confirm(question: str, assume_yes: bool) -> bool:
 
 
 def prepare_workdir(cfg: dict, cwd: Path, assume_yes: bool) -> Path:
-    """Thư mục chạy cửa sổ watch. Theo nhánh: chính checkout này. Nhánh bot: worktree riêng / chuyển nhánh."""
+    """Directory the watch window runs in. Follow mode: this checkout itself. Bot branch: a dedicated worktree / branch switch."""
     if cfg["mode"] == "follow":
         return repo_root(cwd)
     remote = has_origin(cwd)
@@ -1240,16 +1260,16 @@ def prepare_workdir(cfg: dict, cwd: Path, assume_yes: bool) -> Path:
         path = Path(cfg["worktreePath"])
         if path.exists():
             if not (path / ".git").exists():
-                raise Stop(EXIT_CONFIG, "WORKTREE_PATH_TAKEN", f"{path} đã tồn tại nhưng không phải worktree — đổi bugHub.watch.worktreePath")
-            print(f"bughub-watch: dùng lại worktree {path}", file=sys.stderr)
+                raise Stop(EXIT_CONFIG, "WORKTREE_PATH_TAKEN", f"{path} exists but is not a worktree — change bugHub.watch.worktreePath")
+            print(f"bughub-watch: reusing worktree {path}", file=sys.stderr)
             return path
         holder = checked_out_at(branch, cwd)
         if holder:
-            raise Stop(EXIT_CONFIG, "BRANCH_CHECKED_OUT", f"nhánh {branch} đang mở ở {holder} — đóng/đổi nhánh ở đó trước", path=holder)
+            raise Stop(EXIT_CONFIG, "BRANCH_CHECKED_OUT", f"branch {branch} is checked out at {holder} — close it / switch branches there first", path=holder)
         ensure_branch(cfg, cwd, remote)
         git("worktree", "add", str(path), branch, cwd=cwd)
-        print(f"bughub-watch: tạo worktree {path} trên {branch}. Đây là một project Unity riêng — muốn có "
-              "compile-check thì mở Unity Editor cho đúng thư mục này (lần đầu import Library lâu).", file=sys.stderr)
+        print(f"bughub-watch: created worktree {path} on {branch}. It is a separate Unity project — for "
+              "compile-check, open Unity Editor on exactly this directory (the first Library import takes a while).", file=sys.stderr)
         return path
 
     root = repo_root(cwd)
@@ -1258,13 +1278,13 @@ def prepare_workdir(cfg: dict, cwd: Path, assume_yes: bool) -> Path:
         return root
     holder = checked_out_at(branch, cwd)
     if holder:
-        raise Stop(EXIT_CONFIG, "BRANCH_CHECKED_OUT", f"nhánh {branch} đang mở ở {holder} — chạy watch ở đó, hoặc bật bugHub.watch.worktree", path=holder)
+        raise Stop(EXIT_CONFIG, "BRANCH_CHECKED_OUT", f"branch {branch} is checked out at {holder} — run the watch there, or enable bugHub.watch.worktree", path=holder)
     dirty = dirty_tracked(root)
     if dirty:
-        raise Stop(EXIT_CONFIG, "DIRTY", f"checkout {root} đang có thay đổi chưa commit — commit/stash trước khi chuyển sang {branch}", files=dirty[:20])
-    if not confirm(f"Checkout {root} sẽ chuyển từ '{here or '(detached)'}' sang nhánh bot '{branch}' và dành cho cửa sổ watch "
-                   f"(Unity Editor mở thư mục này sẽ import lại). Tiếp tục?", assume_yes):
-        raise Stop(EXIT_CONFIG, "NOT_CONFIRMED", "chưa chuyển nhánh — chạy lại với --yes, hoặc bật bugHub.watch.worktree để dùng thư mục riêng")
+        raise Stop(EXIT_CONFIG, "DIRTY", f"checkout {root} has uncommitted changes — commit/stash them before switching to {branch}", files=dirty[:20])
+    if not confirm(f"Checkout {root} will switch from '{here or '(detached)'}' to the bot branch '{branch}' and be dedicated to the watch window "
+                   f"(a Unity Editor open on this directory will reimport). Continue?", assume_yes):
+        raise Stop(EXIT_CONFIG, "NOT_CONFIRMED", "branch not switched — rerun with --yes, or enable bugHub.watch.worktree to use a separate directory")
     ensure_branch(cfg, root, remote)
     git("checkout", "--quiet", branch, cwd=root)
     return root
@@ -1278,18 +1298,18 @@ def set_title(text: str) -> None:
 
 def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     if not cfg["projectCode"]:
-        raise Stop(EXIT_CONFIG, "NOT_CONFIGURED", "bugHub.projectCode rỗng — chạy /bughub-setup trước")
+        raise Stop(EXIT_CONFIG, "NOT_CONFIGURED", "bugHub.projectCode is empty — run /bughub-setup first")
     assume_yes = "--yes" in argv
     launch = "--no-launch" not in argv
     extra = argv[argv.index("--") + 1:] if "--" in argv else []
     unknown = [a for a in (argv[:argv.index("--")] if "--" in argv else argv) if a not in ("--yes", "--no-launch")]
     if unknown:
-        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"tham số lạ: {' '.join(unknown)}")
-    # Đường dẫn thật (vd `claude.cmd` của bản cài qua npm trên Windows): CreateProcess không tự thêm đuôi .cmd,
-    # nên Popen(["claude"]) ném FileNotFoundError dù `which` thấy lệnh.
+        raise Stop(EXIT_CONFIG, "BAD_ARGS", f"unknown arguments: {' '.join(unknown)}")
+    # Real path (e.g. `claude.cmd` of an npm install on Windows): CreateProcess does not append .cmd by itself,
+    # so Popen(["claude"]) raises FileNotFoundError even though `which` finds the command.
     claude = shutil.which("claude") if launch else None
     if launch and not claude:
-        raise Stop(EXIT_CONFIG, "NO_CLAUDE", "không thấy lệnh `claude` trong PATH")
+        raise Stop(EXIT_CONFIG, "NO_CLAUDE", "`claude` command not found in PATH")
 
     workdir = prepare_workdir(cfg, cwd, assume_yes)
     try:
@@ -1297,14 +1317,14 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
     except Stop as stop:
         if stop.code not in (EXIT_WAIT, EXIT_MERGE):
             raise
-        # Loop tự pause + sync lại trước mỗi bug — chưa đồng bộ được lúc mở cửa sổ không phải lý do để không mở.
+        # The loop pauses + re-syncs before every bug by itself — failing to sync when opening the window is no reason not to open it.
         reason = stop.payload.get("reason") or stop.payload["result"]
-        print(f"bughub-watch: chưa sync được ({reason}) — loop sẽ thử lại: {stop.payload['message']}", file=sys.stderr)
+        print(f"bughub-watch: could not sync yet ({reason}) — the loop will retry: {stop.payload['message']}", file=sys.stderr)
         synced = {**stop.payload, "branch": stop.payload.get("branch") or current_branch(workdir)}
     branch = synced.get("branch") or cfg["branch"]
     result = {**synced, "result": "READY", "mode": cfg["mode"], "workdir": str(workdir), "mergeToBase": cfg["mergeToBase"]}
-    target = f"nhánh bot {branch} (nhánh chính {cfg['baseBranch']}, merge vào nhánh chính: {'có' if cfg['mergeToBase'] else 'không'})" \
-        if cfg["mode"] == "bot" else f"theo nhánh đang mở: {branch or '(detached)'}"
+    target = f"bot branch {branch} (main branch {cfg['baseBranch']}, merge into main branch: {'yes' if cfg['mergeToBase'] else 'no'})" \
+        if cfg["mode"] == "bot" else f"following the checked-out branch: {branch or '(detached)'}"
     print(f"bughub-watch: {cfg['projectCode']} · {target} · {workdir}", file=sys.stderr)
     if not launch:
         return result
@@ -1317,7 +1337,7 @@ def do_start(cfg: dict, cwd: Path, argv: list[str]) -> dict:
 
 
 def watchdog_limit() -> float:
-    """Giây đứng im tối đa trước khi watchdog mở lại claude (0 = tắt watchdog)."""
+    """Max idle seconds before the watchdog relaunches claude (0 = watchdog off)."""
     try:
         minutes = float(os.environ.get("BUGHUB_WATCHDOG_MINUTES", WATCHDOG_MINUTES))
     except ValueError:
@@ -1326,7 +1346,7 @@ def watchdog_limit() -> float:
 
 
 def watch_log(workdir: Path, message: str) -> None:
-    """Nhật ký của lớp giám sát (`.git/bughub-watch/watch.log`) — in ra terminal lúc claude đang chạy là vỡ TUI."""
+    """Supervisor log (`.git/bughub-watch/watch.log`) — printing to the terminal while claude runs would break its TUI."""
     try:
         path = state_file(workdir, "watch.log")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1361,7 +1381,7 @@ def transcript_cwd(file: Path) -> str | None:
 
 
 def find_transcript_dir(workdir: Path, since: float) -> Path | None:
-    """Thư mục transcript của Claude Code cho thư mục làm việc này (~/.claude/projects/<cwd, ký tự lạ thành ->)."""
+    """Claude Code's transcript directory for this working directory (~/.claude/projects/<cwd, odd characters become ->)."""
     root = claude_projects_dir()
     try:
         folders = [d for d in root.iterdir() if d.is_dir()]
@@ -1371,7 +1391,7 @@ def find_transcript_dir(workdir: Path, since: float) -> Path | None:
     for folder in folders:
         if folder.name.lower() == want:
             return folder
-    # Tên thư mục là quy ước nội bộ của Claude Code (có thể đổi / bị cắt ngắn) → dò theo `cwd` ghi trong transcript mới.
+    # The folder name is an internal Claude Code convention (may change / be truncated) → match on the `cwd` recorded in fresh transcripts.
     for folder in folders:
         for file in folder.glob("*.jsonl"):
             try:
@@ -1384,7 +1404,7 @@ def find_transcript_dir(workdir: Path, since: float) -> Path | None:
 
 
 def last_activity(started: float, beat: Path, folder: Path) -> float:
-    """Mốc gần nhất loop còn làm gì: transcript ghi thêm (lượt đang chạy) hoặc heartbeat (đang chờ / lệnh dài)."""
+    """Latest sign of loop activity: the transcript grew (a turn is running) or a heartbeat (waiting / long command)."""
     stamps = [started]
     for file in [beat, *transcript_files(folder)]:
         try:
@@ -1395,7 +1415,7 @@ def last_activity(started: float, beat: Path, folder: Path) -> float:
 
 
 def descendants(pid: int) -> list[int]:
-    """PID con cháu của `pid` (POSIX) — để tắt cả background task của claude, không chỉ process chính."""
+    """Descendant PIDs of `pid` (POSIX) — to stop claude's background tasks too, not just the main process."""
     proc = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True)
     children: dict[int, list[int]] = {}
     for line in proc.stdout.splitlines():
@@ -1412,7 +1432,7 @@ def descendants(pid: int) -> list[int]:
 
 
 def stop_claude(proc: subprocess.Popen) -> None:
-    """Tắt claude kèm cả cây process của nó (MCP server, shell nền đang chờ bug)."""
+    """Stop claude together with its whole process tree (MCP servers, background shells waiting for bugs)."""
     if os.name == "nt":
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
     else:
@@ -1432,11 +1452,11 @@ def stop_claude(proc: subprocess.Popen) -> None:
     except subprocess.TimeoutExpired:
         pass
     if os.name != "nt" and sys.stdin.isatty():
-        subprocess.run(["stty", "sane"], check=False)  # claude bị tắt giữa chừng có thể để terminal ở raw mode
+        subprocess.run(["stty", "sane"], check=False)  # claude killed midway may leave the terminal in raw mode
 
 
 def wait_claude(proc: subprocess.Popen, workdir: Path, beat: Path, limit: float) -> tuple[int, bool]:
-    """Chờ claude thoát → (mã thoát, False). Watchdog: đứng im quá `limit` giây → tắt claude → (mã, True)."""
+    """Wait for claude to exit → (exit code, False). Watchdog: idle longer than `limit` seconds → stop claude → (code, True)."""
     if limit <= 0:
         return proc.wait(), False
     started = time.time()
@@ -1449,22 +1469,22 @@ def wait_claude(proc: subprocess.Popen, workdir: Path, beat: Path, limit: float)
             pass
         folder = folder or find_transcript_dir(workdir, started)
         if folder is None:
-            # Không đọc được transcript thì không phân biệt được "đang làm" với "đứng im" — không bao giờ tắt mù.
+            # Without a readable transcript "working" cannot be told from "idle" — never stop it blindly.
             if not warned and time.time() - started >= limit:
-                watch_log(workdir, f"watchdog: không thấy transcript của claude trong {claude_projects_dir()} — tắt watchdog cho lần chạy này")
+                watch_log(workdir, f"watchdog: no claude transcript found in {claude_projects_dir()} — watchdog disabled for this run")
                 warned = True
             continue
         idle = time.time() - last_activity(started, beat, folder)
         if idle >= limit:
-            watch_log(workdir, f"watchdog: claude pid {proc.pid} đứng im {int(idle)}s (giới hạn {int(limit)}s) — tắt để mở lại")
+            watch_log(workdir, f"watchdog: claude pid {proc.pid} idle for {int(idle)}s (limit {int(limit)}s) — stopping it to relaunch")
             stop_claude(proc)
             return (proc.returncode if proc.returncode is not None else -1), True
 
 
 def supervise(cmd: list[str], workdir: Path) -> int:
-    """Chạy claude và mở lại mỗi khi nó chết (mã ≠ 0: crash, bị kill) hoặc đứng im quá lâu (watchdog) — loop
-    watch không chết theo process. Thoát mã 0 (`/exit`, Ctrl+C hai lần) hoặc Ctrl+C lúc đang chờ mở lại = dev
-    dừng → trả mã đó."""
+    """Run claude and relaunch it whenever it dies (code ≠ 0: crash, killed) or stays idle too long (watchdog) — the
+    watch loop does not die with the process. Exit code 0 (`/exit`, Ctrl+C twice) or Ctrl+C while waiting to
+    relaunch = the dev stopped it → return that code."""
     interrupted: list[bool] = []
 
     def on_sigint(_sig, _frame):
@@ -1478,15 +1498,15 @@ def supervise(cmd: list[str], workdir: Path) -> int:
     launch = 0
     while True:
         launch += 1
-        # File heartbeat riêng cho mỗi lần mở: process nền sót lại của lần trước không làm lần này "còn sống" giả.
+        # A separate heartbeat file per launch: background processes left over from the previous launch cannot fake "alive" for this one.
         beat = beat_dir / f"heartbeat-{os.getpid()}-{launch}"
         beat.touch()
         env = dict(os.environ, **{HEARTBEAT_ENV: beat.as_posix()})
         if "CLAUDECODE" in env:
             for key in PARENT_SESSION_ENV:
                 env.pop(key, None)
-        # Handler Python không truyền sang process con qua exec (SIG_IGN thì có) → claude vẫn nhận Ctrl+C bình
-        # thường, còn script không bị KeyboardInterrupt giết process con giữa chừng.
+        # A Python handler is not inherited by the child across exec (SIG_IGN would be) → claude still receives Ctrl+C
+        # normally, while the script is not killed by KeyboardInterrupt in the middle of the child's run.
         previous = signal.signal(signal.SIGINT, on_sigint)
         try:
             proc = subprocess.Popen(cmd, env=env)
@@ -1497,9 +1517,9 @@ def supervise(cmd: list[str], workdir: Path) -> int:
         if not stalled and (code == 0 or interrupted):
             return code
         delay = pause_seconds()
-        reason = f"đứng im quá {limit / 60:g} phút (watchdog)" if stalled else f"thoát (exit {code})"
-        watch_log(workdir, f"claude {reason} — mở lại sau {delay}s")
-        print(f"bughub-watch: claude {reason} — mở lại sau {delay}s, Ctrl+C để dừng hẳn", file=sys.stderr)
+        reason = f"idle for more than {limit / 60:g} min (watchdog)" if stalled else f"exited (exit {code})"
+        watch_log(workdir, f"claude {reason} — relaunching in {delay}s")
+        print(f"bughub-watch: claude {reason} — relaunching in {delay}s, Ctrl+C to stop for good", file=sys.stderr)
         try:
             time.sleep(delay)
         except KeyboardInterrupt:
@@ -1509,7 +1529,8 @@ def supervise(cmd: list[str], workdir: Path) -> int:
 # --------------------------------------------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
-    # Windows: stdio bị pipe (Bash tool, subprocess) mặc định là cp1252 strict → in tiếng Việt là crash, mất JSON.
+    # Windows: piped stdio (Bash tool, subprocess) defaults to strict cp1252 → printing non-ASCII text (Vietnamese
+    # file names, stash reasons…) crashes and the JSON is lost.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
@@ -1519,11 +1540,11 @@ def main(argv: list[str]) -> int:
     heartbeat()
     try:
         if command == "pause":
-            # Không cần repo / config — chính lúc config hỏng skill cũng phải pause được.
+            # Needs no repo / config — the skill must be able to pause precisely when the config is broken.
             result = do_pause(rest)
         else:
             if not ok("rev-parse", "--git-dir", cwd=cwd):
-                raise Stop(EXIT_CONFIG, "NOT_A_REPO", "không đứng trong một repo git")
+                raise Stop(EXIT_CONFIG, "NOT_A_REPO", "not inside a git repo")
             cfg = load_config(cwd)
             if command == "config":
                 here = current_branch(cwd)
@@ -1554,7 +1575,7 @@ def main(argv: list[str]) -> int:
                 result = do_clean(cfg, cwd, rest)
             else:
                 raise Stop(EXIT_CONFIG, "BAD_ARGS",
-                           f"lệnh lạ: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim | discard | clean)")
+                           f"unknown command: {command} (start | sync | push | shelve | resolve | publish | pause | config | editor | notice | claim | discard | clean)")
     except Stop as stop:
         print(f"bughub-watch: {stop.payload['result']} — {stop.payload['message']}", file=sys.stderr)
         print(json.dumps(stop.payload, ensure_ascii=False))

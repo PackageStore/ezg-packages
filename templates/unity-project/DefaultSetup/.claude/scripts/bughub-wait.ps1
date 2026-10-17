@@ -1,31 +1,35 @@
-﻿# bughub-wait.ps1 — chờ tới khi project có bug BugHub đã giao cho AI (retry > 0) rồi thoát, KHÔNG tốn
-# token: /fix-bug --watch chạy script này ở background, model chỉ thức dậy khi nó kết thúc.
-# Twin macOS/Linux: bughub-wait.sh — giữ cùng tham số, cùng env, cùng exit code, cùng dòng JSON.
+﻿# bughub-wait.ps1 - wait until the project has a BugHub bug handed to the AI (retry > 0), then exit, spending NO
+# tokens: /fix-bug --watch runs this script in the background and the model only wakes up when it ends.
+# macOS/Linux twin: bughub-wait.sh - keep the same arguments, env, exit codes and JSON line.
 #
-# Poll GET <endpoint>/v1/projects/<code>/pending (public, không token, chỉ trả số đếm
-# {"new":N,"retry":M,…}) mỗi BUGHUB_POLL_INTERVAL giây. Chỉ `retry` (người đã bấm "Giao lại cho AI")
-# đánh thức — bug `new` chờ người duyệt, server không giao cho AI (TechSpec BugHub D13).
+# Polls GET <endpoint>/v1/projects/<code>/pending (public, no token, returns counts only
+# {"new":N,"retry":M,...}) every BUGHUB_POLL_INTERVAL seconds. Only `retry` (someone pressed the
+# "hand back to the AI" button) wakes it up - `new` bugs wait for human triage, the server does not hand them to the
+# AI (TechSpec BugHub D13).
 #
-#   Env:  BUGHUB_ENDPOINT        gốc URL Worker (mặc định $DefaultEndpoint bên dưới)
-#         BUGHUB_POLL_INTERVAL   giây giữa hai lần poll, số nguyên ≥ 1 (mặc định 60)
-#         BUGHUB_WATCH_HEARTBEAT file chạm mỗi lần poll (do `bughub-watch.py start` đặt) — watchdog của nó biết
-#                                loop đang chờ bug chứ không phải đứng im
+#   Env:  BUGHUB_ENDPOINT        Worker base URL (default $DefaultEndpoint below)
+#         BUGHUB_POLL_INTERVAL   seconds between two polls, integer >= 1 (default 60)
+#         BUGHUB_WATCH_HEARTBEAT file touched on every poll (set by `bughub-watch.py start`) - so its watchdog knows
+#                                the loop is waiting for bugs, not idle
 #
-#   Exit: 0  có bug — stdout đúng một dòng JSON {"new":N,"retry":M}
-#         1  (dành cho thiếu công cụ ở bản .sh; bản này dùng cmdlet có sẵn)
-#         2  sai tham số (thiếu code, thừa tham số, code lệch ^[A-Za-z0-9_-]+$, interval hoặc endpoint không hợp lệ)
-#         3  project không tồn tại trên server (404)
-#   Lỗi mạng / timeout / 5xx / payload hỏng → poll tiếp (chỉ log stderr khi loại lỗi đổi, tránh spam).
+#   Exit: 0  bug found - stdout is exactly one JSON line {"new":N,"retry":M}
+#         1  (reserved for missing tools in the .sh version; this one uses built-in cmdlets)
+#         2  bad arguments (missing code, extra arguments, code not matching ^[A-Za-z0-9_-]+$, invalid interval or
+#            endpoint)
+#         3  project does not exist on the server (404)
+#   Network error / timeout / 5xx / bad payload -> keep polling (stderr is logged only when the error kind changes,
+#   to avoid spam).
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File .claude/scripts/bughub-wait.ps1 <projectCode>
 #
-# File lưu UTF-8 CÓ BOM: PowerShell 5.1 đọc file không BOM theo ANSI → chuỗi tiếng Việt thành ký tự
-# rác, có byte còn bị hiểu thành dấu nháy cong và làm vỡ cú pháp.
+# Saved as UTF-8 WITH BOM, and kept pure ASCII: Windows PowerShell 5.1 reads a file without BOM in the ANSI code
+# page, so any non-ASCII character turns into garbage, and some bytes are even read as curly quotes that break the
+# syntax.
 
 param(
     [Parameter(Position = 0)]
     [string]$Code,
-    # Không dùng Mandatory: PowerShell sẽ hỏi tham số thay vì thoát 2 như bản .sh.
+    # Not Mandatory: PowerShell would prompt for the argument instead of exiting 2 like the .sh version.
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Rest
 )
@@ -45,30 +49,30 @@ if ([string]::IsNullOrEmpty($Code) -or ($Rest -and $Rest.Count -gt 0)) {
     Write-Usage
     exit 2
 }
-# \z thay cho $: $ của .NET còn khớp trước một ký tự xuống dòng cuối chuỗi.
+# \z instead of $: .NET's $ also matches before a trailing newline.
 if ($Code -cnotmatch '^[A-Za-z0-9_-]+\z') {
-    Write-Err "bughub-wait: projectCode không hợp lệ: '$Code'"
+    Write-Err "bughub-wait: invalid projectCode: '$Code'"
     Write-Usage
     exit 2
 }
 
 $intervalRaw = if ($env:BUGHUB_POLL_INTERVAL) { $env:BUGHUB_POLL_INTERVAL } else { "$DefaultInterval" }
 if ($intervalRaw -cnotmatch '^[1-9][0-9]*\z') {
-    Write-Err "bughub-wait: BUGHUB_POLL_INTERVAL phải là số nguyên ≥ 1, nhận '$intervalRaw'"
+    Write-Err "bughub-wait: BUGHUB_POLL_INTERVAL must be an integer >= 1, got '$intervalRaw'"
     exit 2
 }
 $interval = [int]$intervalRaw
 
 $endpoint = if ($env:BUGHUB_ENDPOINT) { $env:BUGHUB_ENDPOINT } else { $DefaultEndpoint }
 $endpoint = $endpoint.TrimEnd('/')
-# Chỉ nhận gốc URL thuần: https, hoặc http cho localhost (mock server khi test).
+# Only a bare base URL is accepted: https, or http for localhost (mock server in tests).
 if ($endpoint -cnotmatch '^https://[A-Za-z0-9.-]+(:[0-9]+)?\z' -and $endpoint -cnotmatch '^http://(127\.0\.0\.1|localhost)(:[0-9]+)?\z') {
-    Write-Err "bughub-wait: BUGHUB_ENDPOINT phải là https://<host>[:port] (http chỉ cho localhost), nhận '$endpoint'"
+    Write-Err "bughub-wait: BUGHUB_ENDPOINT must be https://<host>[:port] (http only for localhost), got '$endpoint'"
     exit 2
 }
 $url = "$endpoint/v1/projects/$Code/pending"
 
-Write-Err "bughub-wait: chờ bug của $Code ($url, mỗi ${interval}s)"
+Write-Err "bughub-wait: waiting for bugs of $Code ($url, every ${interval}s)"
 $lastErr = ''
 
 while ($true) {
@@ -78,7 +82,7 @@ while ($true) {
     $err = ''
     try {
         $resp = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec $RequestTimeoutSec -UseBasicParsing
-        # Server trả application/json thì đã được parse sẵn; content-type khác (mock server) ra chuỗi.
+        # An application/json response is already parsed; other content types (mock server) come back as a string.
         if ($resp -is [string]) { $resp = $resp | ConvertFrom-Json }
         try {
             $new = [int]$resp.new
@@ -87,7 +91,7 @@ while ($true) {
             $new = $null
         }
         if ($null -eq $new -or $null -eq $resp) {
-            $err = 'payload không phải JSON {new,retry}'
+            $err = 'payload is not JSON {new,retry}'
         } elseif ($retry -gt 0) {
             [Console]::Out.WriteLine((([ordered]@{ new = $new; retry = $retry }) | ConvertTo-Json -Compress))
             exit 0
@@ -99,20 +103,20 @@ while ($true) {
             try { $statusCode = [int]$response.StatusCode } catch { $statusCode = $null }
         }
         if ($statusCode -eq 404) {
-            Write-Err "bughub-wait: project '$Code' không tồn tại trên server (404) — kiểm bugHub.projectCode / chạy /bughub-setup"
+            Write-Err "bughub-wait: project '$Code' does not exist on the server (404) - check bugHub.projectCode / run /bughub-setup"
             exit 3
         } elseif ($null -ne $statusCode) {
             $err = "HTTP $statusCode"
         } elseif ($_.Exception -is [System.ArgumentException] -or $_.FullyQualifiedErrorId -like '*ConvertFrom*') {
-            $err = 'payload không phải JSON {new,retry}'
+            $err = 'payload is not JSON {new,retry}'
         } else {
-            $err = 'không kết nối được server'
+            $err = 'cannot connect to the server'
         }
     }
 
     if ($err -ne $lastErr) {
-        if ($err) { Write-Err "bughub-wait: $err — vẫn poll tiếp" }
-        else { Write-Err 'bughub-wait: server trả lời bình thường trở lại' }
+        if ($err) { Write-Err "bughub-wait: $err - still polling" }
+        else { Write-Err 'bughub-wait: server responding normally again' }
         $lastErr = $err
     }
     Start-Sleep -Seconds $interval

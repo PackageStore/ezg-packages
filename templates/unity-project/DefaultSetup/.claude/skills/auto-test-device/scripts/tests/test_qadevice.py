@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Test các phần thuần (không cần thiết bị) của qadevice.py.
+"""Tests for the pure parts (no device needed) of qadevice.py.
 
-Chạy: python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests
+Run: python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests
 """
 import contextlib
 import io
@@ -49,7 +49,7 @@ class LogTests(unittest.TestCase):
         events, probe = q.classify_android(self.records, PKG, [1234])
         kinds = [e["kind"] for e in events]
         self.assertIn("exception", kinds)
-        self.assertIn("error", kinds)            # [Ads] lỗi thường — medium
+        self.assertIn("error", kinds)            # [Ads] plain error — medium
         self.assertIn("missing-glyph", kinds)
         self.assertIn("crash-java", kinds)
         self.assertIn("app-died", kinds)
@@ -107,7 +107,7 @@ class AuditTests(unittest.TestCase):
         found = {(f["id"], f["kind"]) for f in q.audit_elements(ui)}
         self.assertIn((1, "text-overflow"), found)
         self.assertIn((1, "text-overlap"), found)
-        self.assertNotIn((3, "text-overlap"), found)       # khác lớp → không tính
+        self.assertNotIn((3, "text-overlap"), found)       # different layer → not counted
         self.assertIn((4, "offscreen"), found)
         self.assertIn((5, "unsafe-area"), found)
         self.assertIn((6, "tiny-target"), found)
@@ -143,6 +143,28 @@ class BugTests(unittest.TestCase):
         self.assertEqual(q.pick_tags(self.FORM, "perf", "critical"), ["3", "4"])
         self.assertEqual(q.pick_tags(self.FORM, "ux", "low"), ["7", "6"])
         self.assertEqual(q.pick_people(self.FORM, ["van an"]), ["p1"])
+
+    TEAM = {"people": [{"id": "1", "name": "Nguyễn Diệu Hoài Anh"}, {"id": "2", "name": "Nguyễn Tuấn Anh"},
+                       {"id": "3", "name": "Nguyễn Đức Trung"}]}
+
+    def test_pick_people_never_pings_everyone_with_a_shared_name(self):
+        self.assertEqual(q.pick_people(self.TEAM, ["Nguyễn Tuấn Anh"]), ["2"])
+        self.assertEqual(q.pick_people(self.TEAM, ["nguyen duc trung", "3"]), ["3"])
+        self.assertEqual(q.pick_people(self.TEAM, ["Tuấn Anh"]), ["2"])
+        for shared in ("Nguyễn", "Anh"):
+            with self.assertRaises(q.QaError) as err:
+                q.pick_people(self.TEAM, [shared])
+            self.assertIn("matches", str(err.exception))
+        with self.assertRaises(q.QaError):
+            q.pick_people(self.TEAM, ["Nobody"])
+
+    def test_tidy_title_and_feature(self):
+        self.assertEqual(q.tidy_title("[0.0.114][Android]  Crash khi out game"), "Crash khi out game")
+        with self.assertRaises(q.QaError):
+            q.tidy_title("Shop: " + "rất dài " * 10)
+        self.assertEqual(q.bug_feature("", "Shop: trừ gem 2 lần", "Full game Map 1-3 (mọi màn)", "s"), "Shop")
+        self.assertEqual(q.bug_feature("", "Nút Back không đóng", "Full game Map 1-3 (mọi màn)", "s"), "Full game Map 1-3")
+        self.assertEqual(q.bug_feature("Upgrade", "Shop: x", "y", "s"), "Upgrade")
 
     def test_report_schema_and_limits(self):
         r = q.build_report({"title": "x" * 150, "actual": "a", "steps": "1. b", "tagIds": ["1"] * 9},
@@ -288,7 +310,7 @@ class CheatGateTests(unittest.TestCase):
         self.assertEqual(q.cheat_gate_info(root), ("0.1.1", "DEMO01"))
 
     def test_remote_config_try_enable_is_not_cheat_on(self):
-        # TryEnableCheat() kiểu cũ hỏi Remote Config và có thể TẮT cheat — không được dùng làm cheatOn.
+        # The old TryEnableCheat() asks Remote Config and can turn cheats OFF — must not be used as cheatOn.
         root = make_project(GAMESYSTEMS_REMOTECONFIG)
         cfg = q.detect_cheat_config(root)
         self.assertEqual(cfg["cheatOn"], "")
@@ -309,16 +331,16 @@ class CheatGateTests(unittest.TestCase):
         self.assertEqual((info["package"], info["legacy"], info["legacyVersion"], info["registry"]),
                          (None, os.path.join("Assets", "EzgQaProbe"), "1.1.0", True))
         notes = q.ensure_probe_in_project(root)
-        self.assertEqual(len(notes), 3, notes)  # thêm package · giữ cấu hình tự đặt · gỡ bản cũ
+        self.assertEqual(len(notes), 3, notes)  # add package · keep custom settings · remove the old copy
         man = q.read_manifest(root)
         self.assertEqual(man["dependencies"][q.PROBE_PACKAGE], q.PROBE_MIN_VERSION)
-        self.assertEqual(list(man["dependencies"]), sorted(man["dependencies"]))  # chèn đúng thứ tự
+        self.assertEqual(list(man["dependencies"]), sorted(man["dependencies"]))  # inserted in the right order
         self.assertEqual(man["scopedRegistries"][0]["scopes"], ["com.ezg"])
         self.assertFalse(os.path.exists(legacy) or os.path.exists(legacy + ".meta"))
         self.assertEqual(q.read_json(os.path.join(root, q.PROBE_OVERRIDE)), {"releaseGate": "My.Flags.qa"})
         cfg = q.effective_probe_config(root)
         self.assertEqual((cfg["releaseGate"], cfg["cheatOn"], cfg["override"]), ("My.Flags.qa", "", True))
-        self.assertEqual(q.ensure_probe_in_project(root), [])  # chạy lại: không đổi gì
+        self.assertEqual(q.ensure_probe_in_project(root), [])  # re-run: nothing changes
 
     def test_ensure_probe_version_rules(self):
         root = make_project(GAMESYSTEMS_CHEATGATE, "0.1.1", "DEMO01")
@@ -327,14 +349,14 @@ class CheatGateTests(unittest.TestCase):
             notes = q.ensure_probe_in_project(root)
             self.assertEqual(q.read_manifest(root)["dependencies"][q.PROBE_PACKAGE], expected)
             self.assertEqual(bool(notes), current == "1.0.0")
-        # giữ kiểu kết thúc file của Unity (không newline cuối)
+        # keep Unity's file ending (no trailing newline)
         mp = os.path.join(root, "Packages", "manifest.json")
         with open(mp, "w") as f:
             f.write(json.dumps(q.read_manifest(root), indent=2))
         q.set_manifest_dependency(root, "com.ezg.zz", "1.0.0")
         with open(mp) as f:
             self.assertTrue(f.read().endswith("}"))
-        # không có registry EZG → vẫn thêm nhưng cảnh báo
+        # no EZG registry → still added, but with a warning
         root = make_project(GAMESYSTEMS_CHEATGATE)
         notes = q.ensure_probe_in_project(root)
         self.assertTrue(any("scoped registry" in n for n in notes), notes)
@@ -352,15 +374,15 @@ class CheatGateTests(unittest.TestCase):
         self.assertIn("probe-connect --unlock", hint)
         j = {"gate": "open", "cheat": True, "cheatGate": dict(base["cheatGate"], state="unlocked", unlocked=True)}
         status, hint = q.describe_probe(j)
-        self.assertIn("danh sách test DEMO01", status)
-        self.assertIn("cheat game BẬT", status)
+        self.assertIn("test list DEMO01", status)
+        self.assertIn("game cheats ON", status)
         self.assertEqual(hint, "")
         status, hint = q.describe_probe({"gate": "closed", "gateReason": "X.isCheat=false", "cheatGate": {"present": False}})
         self.assertIn("X.isCheat=false", status)
         self.assertIn("probe-connect", hint)
         for st in ("offline", "not_configured", "off", "checking"):
             status, hint = q.describe_probe(dict(base, cheatGate=dict(base["cheatGate"], state=st)))
-            self.assertTrue(status.startswith("CỔNG ĐÓNG") and hint, st)
+            self.assertTrue(status.startswith("GATE CLOSED") and hint, st)
 
     def test_wait_cheat_gate_polls_until_final(self):
         seq = [{"gate": "closed", "cheatGate": {"present": True, "state": "checking"}},
@@ -518,7 +540,7 @@ class OverlayAndAdTests(unittest.TestCase):
         ovs = [{"package": "x", "rect": [1092, 152, 188, 188]}]
         self.assertIsNotNone(q.point_in_rects(1186, 200, ovs))
         self.assertIsNone(q.point_in_rects(1186, 148, ovs))
-        # nút X bị che gần kín (chỉ hở mép trên, mép đó nằm ngoài vùng lõi của nút) → None
+        # X button almost fully covered (only the top edge is free, and it lies outside the button's core area) → None
         self.assertIsNone(q.uncovered_point([1134, 146, 104, 107], ovs))
         pt = q.uncovered_point([1000, 146, 200, 100], ovs)
         self.assertIsNotNone(pt)
@@ -580,19 +602,19 @@ class KillDedupValueTests(unittest.TestCase):
                  "type": "visual", "screen": "screen_upgrade"},
                 {"code": "OTHER", "number": 9, "title": "Shop: mua gói trừ tiền 2 lần", "type": "logic"}]
         dup, why = q.find_duplicate(rows, "game01", "Khởi động: lỗi IAP khác hẳn tiêu đề", "1c4945d57f")
-        self.assertEqual((dup["number"], "chữ ký log" in why), (54, True))
+        self.assertEqual((dup["number"], "same log signature" in why), (54, True))
         dup, _ = q.find_duplicate(rows, "GAME01", "Upgrade: thời gian thập phân theo locale máy!")
         self.assertEqual(dup["number"], 55)
         dup, why = q.find_duplicate(rows, "GAME01", "Upgrade: số thập phân theo locale lệch với tiền", "", "screen_upgrade", "visual")
-        self.assertEqual((dup["number"], "cùng màn" in why), (55, True))
+        self.assertEqual((dup["number"], "same screen" in why), (55, True))
         self.assertEqual(q.find_duplicate(rows, "GAME01", "Upgrade: số thập phân theo locale lệch với tiền", "", "screen_shop", "visual"), (None, ""))
         self.assertEqual(q.find_duplicate(rows, "GAME01", "Shop: mua gói trừ tiền 2 lần"), (None, ""))
 
     def test_format_value_truncates_loudly(self):
         self.assertEqual(q.format_value("f()", [1, 2]), "f() → [1, 2]")
         line = q.format_value("f()", ["x" * 50] * 100, limit=40)
-        self.assertIn("[đã cắt 40/", line)
-        self.assertNotIn("đã cắt", q.format_value("f()", ["x" * 50] * 100, limit=40, full=True))
+        self.assertIn("[cut 40/", line)
+        self.assertNotIn("[cut ", q.format_value("f()", ["x" * 50] * 100, limit=40, full=True))
 
     def test_guard_overlay_blocks_native_tap_only(self):
         dev = object.__new__(q.Android)
@@ -603,7 +625,7 @@ class KillDedupValueTests(unittest.TestCase):
         with self.assertRaises(q.QaError) as cm:
             q.guard_overlay(args, sess, dev, [(1186, 200)])
         self.assertIn("com.example.voicebubble", str(cm.exception))
-        q.guard_overlay(args, sess, dev, [(600, 1200)])  # ngoài overlay — không chặn
+        q.guard_overlay(args, sess, dev, [(600, 1200)])  # outside the overlay — not blocked
         for flags in (["--inject"], ["--allow-overlay"]):
             q.guard_overlay(q.build_parser().parse_args(["tap", "546", "92"] + flags), sess, dev, [(1186, 200)])
 
@@ -622,7 +644,7 @@ class KillDedupValueTests(unittest.TestCase):
 
 
 class ApiRetryTests(unittest.TestCase):
-    """Thử lại khi lượt trả lời chết vì lỗi API (start bật qua /auto-clear retry-arm, stop gỡ) + lệnh `retry`."""
+    """Retry when a turn dies on an API error (start arms it via /auto-clear retry-arm, stop disarms it) + the `retry` command."""
 
     def setUp(self):
         self._saved = {k: getattr(q, k) for k in ("run", "auto_clear_script", "api_retry", "close_session", "repo_root")}
@@ -639,7 +661,7 @@ class ApiRetryTests(unittest.TestCase):
         p = q.API_RETRY_PROMPT
         self.assertLessEqual(len(p), 200)
         self.assertNotIn("\n", p)
-        self.assertTrue(all(32 <= ord(c) < 127 for c in p))  # ASCII: bản Windows gõ từng ký tự vào console
+        self.assertTrue(all(32 <= ord(c) < 127 for c in p))  # ASCII: the Windows version types it char by char into the console
         self.assertIn("/auto-test-device", p)
 
     def test_parse_retry_result(self):
@@ -678,17 +700,17 @@ class ApiRetryTests(unittest.TestCase):
         q.run = lambda cmd, **kw: calls.append(cmd[2]) or (0, outs.pop(0) + "\n", "")
         st, line = q.api_retry("/repo", "arm")
         self.assertEqual((st, calls), ("armed", ["retry-arm", "install", "retry-arm"]))
-        self.assertIn("đã tự cài hook", q.describe_api_retry({"state": st, "line": line}))
+        self.assertIn("hook auto-installed", q.describe_api_retry({"state": st, "line": line}))
         calls[:], outs[:] = [], ["UNSUPPORTED: không có ITERM_SESSION_ID"]
         self.assertEqual(q.api_retry("/repo", "arm")[0], "unsupported")
-        self.assertEqual(calls, ["retry-arm"])  # không phải lỗi thiếu hook → không install
+        self.assertEqual(calls, ["retry-arm"])  # not a missing-hook error → no install
 
     def test_describe_api_retry(self):
-        self.assertIn("BẬT", q.describe_api_retry({"state": "armed"}))
+        self.assertTrue(q.describe_api_retry({"state": "armed"}).startswith("ON — "))
         self.assertIn("/auto-clear install", q.describe_api_retry({"state": "not_installed"}))
         self.assertIn("iTerm2", q.describe_api_retry({"state": "unsupported", "line": "UNSUPPORTED: x"}))
         self.assertIn("--no-api-retry", q.describe_api_retry(None))
-        self.assertIn("TẮT", q.describe_api_retry({"state": "missing", "line": "project chưa có skill /auto-clear"}))
+        self.assertTrue(q.describe_api_retry({"state": "missing", "line": "project has no /auto-clear skill"}).startswith("OFF — "))
 
     def _fake_session(self, state):
         class S(object):
@@ -727,7 +749,7 @@ class ApiRetryTests(unittest.TestCase):
         self.assertEqual(len(cmds), 3)
         self.assertEqual(cmds[0][-4:], ["--session", "S9", "bug-resend", "r1"])
         self.assertEqual(sleeps, [5.0, 5.0])
-        self.assertIn("qua ở lần 3", buf.getvalue())
+        self.assertIn("passed on attempt 3", buf.getvalue())
 
     def test_retry_fatal_and_deadline(self):
         q.time.sleep = lambda s: None
@@ -739,7 +761,7 @@ class ApiRetryTests(unittest.TestCase):
         with contextlib.redirect_stdout(buf), self.assertRaises(SystemExit) as cm:
             q.cmd_retry(q.build_parser().parse_args(["retry", "--max-wait", "0", "shot"]))
         self.assertEqual(cm.exception.code, q.RETRY_PENDING_RC)
-        self.assertIn("không dừng phiên", buf.getvalue())
+        self.assertIn("do not stop the session", buf.getvalue())
         for bad in (["retry"], ["retry", "--", "retry", "shot"]):
             with self.assertRaises(q.QaError):
                 q.cmd_retry(q.build_parser().parse_args(bad))
@@ -772,7 +794,7 @@ if __name__ == "__main__":
 
 
 class DoctorPlanTests(unittest.TestCase):
-    """`doctor` dạng report + actions (máy mới tự onboard) và `plan` (chia toàn bộ game thành charter)."""
+    """`doctor` as a report + actions (new machines onboard themselves) and `plan` (splits the whole game into charters)."""
 
     def setUp(self):
         import shutil
@@ -797,14 +819,14 @@ class DoctorPlanTests(unittest.TestCase):
         self._mk("Assets", "_Project", "Features", "Monetization", "VipPass", "Resources")
         self._mk("Assets", "_Project", "Features", "System", "Settings", "Scripts")
         self._mk("Assets", "_Project", "Features", "_Shared", "UI")
-        self._mk("Assets", "_Project", "Features", "_Gameplay", "Scripts")          # bucket chỉ có một feature = chính nó
-        self._mk("Assets", "_Project", "Features", "Gameplay", "Farm", "Scripts")   # bucket có Scripts riêng + ≥2 feature con
+        self._mk("Assets", "_Project", "Features", "_Gameplay", "Scripts")          # bucket with a single feature = itself
+        self._mk("Assets", "_Project", "Features", "Gameplay", "Farm", "Scripts")   # bucket with its own Scripts + ≥2 child features
         self._mk("Assets", "_Project", "Features", "Gameplay", "Upgrade", "Scripts")
         self._mk("Assets", "_Project", "Features", "Gameplay", "Scripts")
         b = q.feature_buckets(self.tmp)
         self.assertEqual(b["Monetization"], ["Shop", "VipPass"])
         self.assertEqual(b["System"], ["Settings"])
-        self.assertEqual(b["Gameplay"], ["Farm", "Upgrade", "_Gameplay"])   # `_Gameplay` (một feature) gộp vào bucket Gameplay
+        self.assertEqual(b["Gameplay"], ["Farm", "Upgrade", "_Gameplay"])   # `_Gameplay` (one feature) merged into the Gameplay bucket
         self.assertNotIn("_Shared", b)
         self.assertNotIn("_Gameplay", b)
         self.assertEqual(q.feature_buckets(tempfile.mkdtemp()), {})
@@ -821,13 +843,13 @@ class DoctorPlanTests(unittest.TestCase):
         open(os.path.join(base, "_Shared", "UI", "UIManager.cs"), "w").write("class U { void X() { var a = GameEnums.Features.Tut1Step1; var b = GameEnums.Features.Mystery; } }")
         buckets = q.feature_buckets(self.tmp)
         idx = q.screen_folder_index(self.tmp, ["HomeScreen", "CurrencyBar", "Tut1Step1", "Mystery"], buckets)
-        self.assertEqual(idx["HomeScreen"], ("Meta", "HomeScene"))        # 1 ref ở HomeScene + 1 ở Tutorial → hoà, max() lấy cái đầu gặp; cả hai đều hợp lệ
+        self.assertEqual(idx["HomeScreen"], ("Meta", "HomeScene"))        # 1 ref in HomeScene + 1 in Tutorial → tie, max() takes the first seen; both are valid
         self.assertEqual(idx["CurrencyBar"], ("Meta", "HomeScene"))
-        self.assertEqual(idx["Tut1Step1"], ("Onboarding", "Tutorial"))     # _Shared không tính
-        self.assertNotIn("Mystery", idx)                                     # chỉ _Shared tham chiếu → không gán
+        self.assertEqual(idx["Tut1Step1"], ("Onboarding", "Tutorial"))     # _Shared not counted
+        self.assertNotIn("Mystery", idx)                                     # referenced only from _Shared → not assigned
         folders = [f for fs in buckets.values() for f in fs]
         self.assertEqual(q.match_folder("Tut1Step1", folders, idx.get("Tut1Step1")), "Tutorial")
-        self.assertEqual(q.match_folder("HomeScene", folders, None), "HomeScene")   # khớp tên thắng ref
+        self.assertEqual(q.match_folder("HomeScene", folders, None), "HomeScene")   # name match beats ref
         g = q.group_plan({"Tut1Step1": {"state": "referenced", "why": ""}, "Mystery": {"state": "referenced", "why": ""}}, buckets, [], idx)
         names = {x["feature"]: [s["name"] for s in x["screens"]] for x in g}
         self.assertEqual((names["Tutorial"], names["Khác"]), (["Tut1Step1"], ["Mystery"]))
@@ -841,9 +863,9 @@ class DoctorPlanTests(unittest.TestCase):
         g = q.group_plan(classes, buckets, charters=[{"id": "shop"}])
         self.assertEqual((g[0]["bucket"], g[0]["feature"], g[0]["charter"], g[0]["risk"]), ("Monetization", "Shop", "shop", "cao"))
         names = {x["feature"]: [s["name"] for s in x["screens"]] for x in g}
-        self.assertEqual(names["RewardPopup"], ["RewardPopup"])      # khớp đúng tên, không rơi vào RewardAds theo tiền tố
+        self.assertEqual(names["RewardPopup"], ["RewardPopup"])      # exact name match, not RewardAds by prefix
         self.assertEqual(names["RewardAds"], ["RewardAds"])
-        self.assertEqual(names["OfflineEarning"], ["OfflineEarnings"])  # số ít/nhiều
+        self.assertEqual(names["OfflineEarning"], ["OfflineEarnings"])  # singular/plural
         self.assertEqual(names["Khác"], ["Mystery"])
         self.assertEqual(g[-1]["bucket"], "Khác")
         self.assertNotIn("Tut1_Retired", sum(names.values(), []))
@@ -865,7 +887,7 @@ class DoctorPlanTests(unittest.TestCase):
         self.assertIn("Skills/auto-test-device", q.QA_HUB_ITEMS["ai"])
         self.assertTrue(rep["mcp"]["bughub"]["url"].endswith("/mcp"))
         self.assertEqual(rep["apiRetryHook"]["state"], "missing")
-        self.assertEqual(os.listdir(self.tmp), [])   # doctor chỉ đọc
+        self.assertEqual(os.listdir(self.tmp), [])   # doctor is read-only
 
     def test_doctor_fix_dry_run_writes_nothing(self):
         rep = q.doctor_report(self.tmp)
@@ -887,6 +909,6 @@ class DoctorPlanTests(unittest.TestCase):
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 self.assertRaises(SystemExit, q.main, ["doctor", "--strict"])
-            self.assertIn("việc còn lại", buf.getvalue())
+            self.assertIn("remaining tasks", buf.getvalue())
         finally:
             q.repo_root = saved

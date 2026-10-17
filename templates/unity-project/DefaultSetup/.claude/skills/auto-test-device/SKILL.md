@@ -1,535 +1,575 @@
 ---
 name: auto-test-device
-description: Agent QA tự chơi game trên thiết bị như một người chơi bình thường để test MỘT tính năng thật kỹ — cả visual lẫn logic — rồi TỰ LOG BUG lên BugHub qua đúng contract Bug Logger (ảnh + log + bước tái hiện tự sinh, chống trùng). Chạy được trên MỌI repo từ template EZG - quy ước riêng của project (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV) đọc từ `.claude/project-profile.json["qa"]` + `.claude/docs/QaProfile.md`, thiếu thì `profile init` tự dò; tri thức học được mỗi phiên (màn còn sống, cheat/state path đã kiểm, luật nhiễu) ghi ngược vào đó. Thiết bị - Android qua adb (máy cắm USB hoặc emulator, tự boot AVD theo tên), iOS Simulator, iPhone thật, Unity Editor (cần EZG QA Probe trong build). Máy mới / project mới chỉ cần gõ MỘT câu: `doctor` + STEP 0 tự lo hết — kiểm và cập nhật item Feature Hub liên quan (skill này, probe, autotest, cheat-gate, buglogger) qua MCP ezg, BugHub chưa cài thì tự chạy /bughub-setup trong phiên (chỉ hỏi ID forum Discord khi project chưa đăng ký), hook thử lại lỗi API tự cài, probe tự thêm vào manifest, cài app, mở game; bản release có com.ezg.cheat-gate mà máy chưa trong danh sách máy test thì tự thêm bằng test_device_add (tài khoản Lead/QA). Quy trình - doctor/selfcheck công cụ → nhập kết quả autotest Editor để khỏi lặp → charter có mã ca (lưu trong repo, `.claude/docs/qa/charters/`) → chơi theo ca với kỳ vọng tường minh (`tap --expect`), audit tự động mỗi lần đổi màn → oracle logic từ CSV/state/tracking/save-migration → ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc, gián đoạn) → log bug → coverage + report. "Toàn bộ game" → `plan` chia theo bucket/feature xếp theo rủi ro, mỗi nhóm một charter, làm lần lượt. Lỗi không làm dừng task: lỗi API của Claude tự gõ tiếp mỗi 30s qua hook /auto-clear, lỗi thiết bị/mạng tạm thời chạy lại bằng `retry`. Dùng khi user gõ "/auto-test-device <device id> <tính năng>", "chạy auto test <device id>", "chạy auto test full game", "auto test toàn bộ game", nói "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị". Thiếu BugHub → tự chạy /bughub-setup, không dừng. KHÔNG viết kịch bản autotest C# (→ ezg-autotest-scenario), KHÔNG sửa bug (→ /fix-bug).
+description: QA agent that plays the game on a device like a normal player to test ONE feature in depth — visuals and logic — then LOGS BUGS ITSELF to BugHub via the Bug Logger contract (screenshot + log + auto-generated repro steps, de-duplicated). Works on ANY repo from the EZG template - project conventions (screen enum, UI base class, cheats, PlayerData, CSV) come from `.claude/project-profile.json["qa"]` + `.claude/docs/QaProfile.md`, auto-detected by `profile init` when missing; knowledge learned each session (live screens, verified cheat/state paths, noise rules) is written back there. Devices - Android via adb (USB or emulator, AVD booted by name), iOS Simulator, real iPhone, Unity Editor (EZG QA Probe in the build). A new machine / project needs ONE sentence - `doctor` + STEP 0 handle the rest - update the related Feature Hub items (this skill, probe, autotest, cheat-gate, buglogger) via MCP ezg, run /bughub-setup in-session when BugHub is missing (asks only for the Discord forum ID if the project is unregistered), install the API-retry hook, add the probe to the manifest, install the app, open the game; a release build with com.ezg.cheat-gate on a device not in the test list gets added via test_device_add (Lead/QA account). Flow - doctor/selfcheck → import Editor autotest results → charter with case IDs (in the repo, `.claude/docs/qa/charters/`) → play case by case with explicit expectations (`tap --expect`), auto audit on each screen change → logic oracles from CSV/state/tracking/save-migration → environment matrix (font size, dark mode, aspect, pseudo-loc, interruptions) → log bugs → coverage + report. "Whole game" → `plan` groups by bucket/feature ordered by risk, one charter per group, in turn. Errors never stop the task - Claude API errors auto-resume every 30s via the /auto-clear hook, transient device/network errors rerun via `retry`. Use when the user types "/auto-test-device <device id> <tính năng>", "chạy auto test <device id>", "chạy auto test full game", "auto test toàn bộ game", says "auto test trên máy", "test tính năng X trên device/điện thoại/emulator", "chơi thử rồi log bug", "QA tự động trên thiết bị", "run auto test on <device>", "auto test the whole game", "play it and log bugs". Missing BugHub → run /bughub-setup, do not stop. Does NOT write C# autotest scenarios (→ ezg-autotest-scenario), does NOT fix bugs (→ /fix-bug).
 ---
 
-# Auto Test Device — QA tự động chơi game trên thiết bị và log bug
+# Auto Test Device — automated QA that plays the game on a device and logs bugs
 
-Bạn là **QA chuyên nghiệp**: chơi game bằng input thật như người chơi, nghi ngờ mọi thứ, viết kỳ vọng ra trước
-rồi mới làm, đo trước/sau mỗi hành động, tái hiện trước khi kết luận, và viết bug đủ để dev sửa không cần hỏi lại.
-Công cụ là `scripts/qadevice.py` (driver thiết bị) + **EZG QA Probe** (tuỳ chọn, nằm trong build — nhìn được cây
-UI, đọc state, gọi cheat). Tài liệu nghề:
+You are a **professional QA**: play the game with real input like a player, distrust everything, write the expectation
+down before acting, measure before/after every action, reproduce before concluding, and write bugs complete enough for a
+dev to fix without asking back. The tools are `scripts/qadevice.py` (device driver) + **EZG QA Probe** (optional, inside
+the build — sees the UI tree, reads state, calls cheats). Craft docs:
 
-| File | Đọc khi |
+| File | Read when |
 |---|---|
-| [references/qa-playbook.md](references/qa-playbook.md) | một lần mỗi phiên ở STEP 1 — tư duy QA, thiết kế ca, checklist visual/logic, rubric, chuẩn bug, nhiễu, ghi tri thức |
-| [references/oracles.md](references/oracles.md) | STEP 3 — oracle vs invariant, bảng invariant chuẩn template, `csv`/`state`/`call`/`track`, save-migration |
-| [references/env-matrix.md](references/env-matrix.md) | STEP 4 — từng bước môi trường lộ lỗi gì, pseudo-loc, tỉ lệ màn, gián đoạn |
-| [references/charter.template.md](references/charter.template.md) | STEP 1 — khung charter (`charter new` dùng khung này) |
+| [references/qa-playbook.md](references/qa-playbook.md) | once per session at STEP 1 — QA mindset, case design, visual/logic checklists, rubric, bug standard, noise, recording knowledge |
+| [references/oracles.md](references/oracles.md) | STEP 3 — oracle vs invariant, standard template invariant table, `csv`/`state`/`call`/`track`, save-migration |
+| [references/env-matrix.md](references/env-matrix.md) | STEP 4 — what each environment step exposes, pseudo-loc, aspect ratios, interruptions |
+| [references/charter.template.md](references/charter.template.md) | STEP 1 — charter skeleton (`charter new` uses it) |
 
-Trong tài liệu này `$QA <lệnh>` là **cách viết tắt** của:
+In this document `$QA <command>` is **shorthand** for:
 
 ```bash
-python3 .claude/skills/auto-test-device/scripts/qadevice.py <lệnh>     # Windows: py .claude/skills/auto-test-device/scripts/qadevice.py <lệnh>
+python3 .claude/skills/auto-test-device/scripts/qadevice.py <command>     # Windows: py .claude/skills/auto-test-device/scripts/qadevice.py <command>
 ```
 
-Mỗi lệnh Bash là shell mới — gõ đầy đủ đường dẫn mỗi lần. **Không** gán `QA="python3 …"` rồi gọi `$QA`: zsh (shell mặc
-định macOS) không tách chuỗi thành từ ⇒ lỗi `no such file or directory: python3 .claude/…`. Muốn gọn trong MỘT lệnh Bash
-nhiều bước thì dùng hàm: `qa() { python3 .claude/skills/auto-test-device/scripts/qadevice.py "$@"; }; qa tap --text "Mua" --as "…"; qa state X.Y`.
+Every Bash call is a new shell — type the full path each time. **Do not** assign `QA="python3 …"` and then call `$QA`: zsh
+(the macOS default shell) does not split the string into words ⇒ error `no such file or directory: python3 .claude/…`. To
+keep a multi-step Bash call short, use a function: `qa() { python3 .claude/skills/auto-test-device/scripts/qadevice.py "$@"; }; qa tap --text "Mua" --as "…"; qa state X.Y`.
 
-## Nguồn sự thật của project — skill này dùng chung cho mọi repo
+## Project sources of truth — this skill is shared by every repo
 
-Skill (thư mục này) là **logic + quy trình**, được Feature Hub ghi đè nguyên thư mục mỗi lần cập nhật. Mọi thứ
-**riêng của project** nằm ngoài skill và do project sở hữu:
+The skill (this folder) is **logic + process**; Feature Hub overwrites the whole folder on every update. Everything
+**project-specific** lives outside the skill and is owned by the project:
 
-| Tầng | Vị trí | Ai ghi |
+| Layer | Location | Who writes |
 |---|---|---|
-| Máy đọc | `.claude/project-profile.json` → block `qa` (quy ước: enum màn, lớp cơ sở UI, cheat type/method, PlayerData facade, CSV glob, tracking; `liveness`, `verified`, `noise`, `environments`, `paths`) | `profile init` tạo; tool ghi ngược ở `stop`; dev sửa tay |
-| Model đọc | `.claude/docs/QaProfile.md` (sinh từ `QaProfile.template.md`) — quy ước giải thích bằng lời, màn còn sống, cheat/state path đã kiểm, vùng rủi ro, hướng hay hỏng của game này, luật nhiễu | `profile init` tạo `Status: draft`; **bạn cập nhật cuối mỗi phiên**; dev duyệt → `reviewed` |
-| Charter | `.claude/docs/qa/charters/<feature>.md` — ca test có mã, oracle có nguồn; **không** chứa kết quả | `charter new`; bạn bổ sung ca; dev commit cùng feature |
-| Build-side | `Assets/Resources/EzgQaProbeConfig.json` (probe đọc), `ProjectSettings/EZGAutoTestSettings.json` block `liveness` (autotest đọc) | **chỉ** `profile sync` sinh từ profile — không sửa tay |
-| Kết quả phiên | `<git-common-dir>/auto-test-device/<phiên>/` (ảnh, steps, cases, audit, coverage, report) | tool — không bao giờ commit |
+| Machine-read | `.claude/project-profile.json` → `qa` block (conventions: screen enum, UI base class, cheat type/method, PlayerData facade, CSV glob, tracking; `liveness`, `verified`, `noise`, `environments`, `paths`) | `profile init` creates it; the tool writes back at `stop`; devs edit by hand |
+| Model-read | `.claude/docs/QaProfile.md` (generated from `QaProfile.template.md`) — conventions explained in words, live screens, verified cheat/state paths, risk areas, this game's typical failure modes, noise rules | `profile init` creates it with `Status: draft`; **you update it at the end of every session**; dev approves → `reviewed` |
+| Charter | `.claude/docs/qa/charters/<feature>.md` — test cases with IDs, oracles with sources; **no** results | `charter new`; you add cases; dev commits it with the feature |
+| Build-side | `Assets/Resources/EzgQaProbeConfig.json` (read by the probe), `ProjectSettings/EZGAutoTestSettings.json` block `liveness` (read by autotest) | **only** `profile sync` generates them from the profile — never edit by hand |
+| Session results | `<git-common-dir>/auto-test-device/<session>/` (screenshots, steps, cases, audit, coverage, report) | the tool — never commit |
 
-Thứ tự ưu tiên khi cần một giá trị của project: **lời dev trong task → `qa` trong profile → tự dò theo quy ước
-template (`profile init`) → mặc định của tool**. Tên quy ước template EZG xuất hiện trong skill này (`GameEnums+Features`,
-`FeatureBaseController`, `GameSystems`, `screen_*`, `Cheat_*`, `PlayerDataManager`…) chỉ là **giá trị mặc định minh
-hoạ** — giá trị thật luôn đọc từ profile.
+Priority when you need a project value: **the dev's words in the task → `qa` in the profile → auto-detection by template
+conventions (`profile init`) → the tool's default**. EZG template convention names in this skill (`GameEnums+Features`,
+`FeatureBaseController`, `GameSystems`, `screen_*`, `Cheat_*`, `PlayerDataManager`…) are only **illustrative
+defaults** — real values are always read from the profile.
 
-## Luật cứng
+## Hard rules
 
-1. **Chơi như người dùng.** Mọi thao tác kiểm tra tính năng đi qua input thật (`tap`/`swipe`/`drag`/`key`/`text`).
-   Cheat/`call`/`timescale` CHỈ để dựng điều kiện tiên quyết hoặc tua thời gian chờ — ghi vào `--precondition`
-   của bug, không bao giờ dùng để "chứng minh" tính năng chạy đúng.
-2. **Có kỳ vọng rồi mới làm; có bằng chứng mới log.** Tap vào nút có hệ quả luôn kèm `--expect` (chữ/`@id`/
-   `screen:<Màn>`). Bug visual: ảnh chỉ đúng chỗ sai. Bug logic: giá trị trước/sau + giá trị kỳ vọng lấy từ
-   config/GDD (lệnh `csv`, `state`). Crash/exception: chữ ký log. **Tái hiện lại ít nhất một lần** trước khi log
-   (crash/ANR một lần là đủ — `--rate 1/1`). Không log điều mình đoán.
-3. **Tool fail ≠ game bug.** Chạy `selfcheck` trước khi tin bất kỳ phát hiện nào; `expectation-failed` của
-   `tap --expect` chỉ là nghi vấn — phải tái hiện **2 lần** (lần 2 sau `shot` nhìn màn) mới thành bug. Thao tác không
-   phản hồi → nghi tool trước (toạ độ cũ, overlay, probe mất) rồi mới nghi game.
-4. **Không hardcode project vào skill.** Không sửa file trong thư mục skill để "cho hợp game này". Giá trị project
-   → block `qa`/`QaProfile.md`/charter (bảng trên). Thấy quy ước lệch (tên lớp cơ sở khác, cheat khác tên…) → sửa
-   `qa.conventions` + `profile sync`, không chế đường tắt trong phiên.
-5. **`QaProfile.md` thiếu hoặc `Status: template` → `profile init` ngay, không dừng.** Báo trong report là file
-   cần dev duyệt. `doctor` báo convention không resolve → vẫn test (hộp đen ở phần phụ thuộc), ghi vào report.
-6. **Tri thức học được ghi vào repo trong lượt, không chỉ memory.** Màn thấy mở (liveness), cheat/state path chạy
-   OK, luật nhiễu (finding sai lặp lại), hướng dễ lỗi của game, ca mới nghĩ ra → `stop` tự flush phần máy đọc;
-   bạn tự cập nhật `QaProfile.md` + charter ở STEP 6. Memory cá nhân không đi theo repo — profile thì có.
-7. **Không trùng.** Trước mỗi bug: so với bug đang mở trên BugHub (STEP 0d) và để tool chặn trùng trong máy (cùng
-   chữ ký log · tiêu đề giống · cùng màn + cùng loại). Trùng → không log, ghi vào report "đã có #N". Phần
-   autotest Editor đã bắt (`autotest-import`) → **Δ-skip**: xác nhận nhanh trên máy, không test lại từ đầu, không log
-   lại bug autotest đã liệt kê (ghi "autotest đã có").
-8. **Không phá máy QA.** Không `--fresh` / `app clear` trừ khi tính năng là luồng người chơi mới (tutorial,
-   onboarding, lần đầu mở). Không hoàn tất giao dịch IAP thật — mở sheet thanh toán, kiểm giá, huỷ. Mọi thay đổi
-   môi trường (`env`, `aspect`, `net`, `rotate`, `pseudoloc`, `timescale`) được `stop` trả lại; `env matrix` tự hoàn
-   nguyên từng bước. Overlay của app khác che nút → không đổi density, quyền hệ thống hay force-stop app đó để
-   lách — ghi ca `blocked` (môi trường), không phải bug game.
-9. **Không sửa code game, không commit.** Ngoại lệ: `start` tự thêm/nâng `com.ezg.qa-probe` trong
-   `Packages/manifest.json` (và gỡ bản probe chép cũ `Assets/EzgQaProbe/` nếu còn); `profile init`/`sync` ghi
-   `project-profile.json`, `QaProfile.md`, `charters/`, `EzgQaProbeConfig.json`, block `liveness` của autotest settings;
-   `stop` flush tri thức vào profile. Tất cả báo dev commit — bạn không `git add`.
-10. **Không hỏi user giữa chừng.** Tự quyết theo skill này và tự xử lý vướng mắc (máy chưa trong danh sách test →
-    tự thêm bằng `test_device_add` nếu MCP cho; không cho → hộp đen + ghi report; BugHub chưa cài → tự chạy
-    `/bughub-setup`; skill/package cũ → tự cập nhật từ Feature Hub). **Ngoại lệ duy nhất được hỏi:** `/bughub-setup`
-    thấy project chưa đăng ký trên server → hỏi dev ID forum Discord (+ mã project nếu profile chưa có) — chỉ dev biết.
-    Chỉ dừng hẳn khi: không có MCP `bughub` / tài khoản không đủ quyền đăng ký project và project chưa có trên server,
-    app chưa cài và không tìm thấy bản build, hoặc chưa từng có thiết bị nào sau một lượt `retry -- start …`.
-11. **Lỗi không làm dừng task — tự thử lại mỗi 30 giây, tới khi qua.**
-    - **Lỗi API của Claude** (`Your organization has disabled Claude subscription access for Claude Code`, rate limit,
-      overloaded, 5xx, mất phiên…) giết lượt trả lời — model không còn chạy để tự thử. `start` tự bật thử lại qua hook
-      `StopFailure` của skill `/auto-clear` (`retry-arm --max 0`; máy chưa đăng ký hook thì `start` tự `install`): hook
-      chờ 30s rồi gõ vào đúng pane `Continue /auto-test-device: the previous turn stopped on an API error - resume the
-      exact step in progress (QA session still open).`, không giới hạn số lần. `stop` tự gỡ. Nhận prompt đó → **không**
-      `start` lại: `$QA shot` xem máy đang ở đâu, `$QA coverage` xem ca nào dở, rồi làm tiếp (phiên, `mark`, `cases.jsonl`,
-      bug đã gửi vẫn nguyên trên đĩa). Dòng `thử lại lỗi API: TẮT — …` ở `start` → ghi vào report, vẫn test tiếp. Dev đã
-      `/auto-clear off` giữa phiên → `$QA api-retry on`.
-    - **Lỗi tạm thời của công cụ** (máy rút cáp / `offline` / `not found`, adb treo, chụp màn lỗi, probe mất, BugHub
-      lỗi mạng / 5xx / 429) → không dừng, không bỏ ca: bọc lệnh **không gây tác dụng phụ** trong `$QA retry -- <lệnh…>`
-      (chạy lại mỗi 30s, tối đa ~9 phút mỗi lần gọi — gọi Bash với `timeout: 600000`; thoát mã 75 = vẫn lỗi → gọi lại
-      đúng lệnh đó). Thao tác chạm/vuốt/phím **không** bọc `retry` (lặp thao tác = chạm hai lần): chờ máy về bằng
-      `$QA retry -- shot`, nhìn ảnh rồi mới làm lại thao tác. Gửi bug lỗi mạng → `$QA retry -- bug-resend <id>`. Probe mất
-      → `$QA retry -- probe-connect`. Không có máy lúc `start` → `$QA retry -- start <device> --feature "…"` một lượt.
-    - Lỗi cần người (mã 4 BugHub chưa setup, sai cú pháp) `retry` dừng ngay — xử lý theo luật 10.
-12. **Luôn `stop` cuối phiên** (kể cả khi lỗi giữa chừng) — tắt log nền, trả cài đặt máy, xoá trigger probe, gỡ thử
-    lại lỗi API, flush tri thức vào profile, viết report.
-13. Không nhắc tên game/studio khác trong bug, ghi chú, charter, QaProfile.md, report (rule `no-external-game-refs`).
+1. **Play like a user.** Every action that checks the feature goes through real input (`tap`/`swipe`/`drag`/`key`/`text`).
+   Cheats/`call`/`timescale` are ONLY for setting up preconditions or fast-forwarding waits — record them in the bug's
+   `--precondition`, never use them to "prove" the feature works.
+2. **Expectation first; evidence before logging.** A tap on a button with consequences always carries `--expect` (text/`@id`/
+   `screen:<Screen>`). Visual bug: a screenshot pointing exactly at what is wrong. Logic bug: before/after values + the
+   expected value from config/GDD (`csv`, `state` commands). Crash/exception: the log signature. **Reproduce at least once
+   more** before logging (a crash/ANR once is enough — `--rate 1/1`). Never log a guess.
+3. **Tool failure ≠ game bug.** Run `selfcheck` before trusting any finding; `expectation-failed` from
+   `tap --expect` is only a suspicion — it must reproduce **2 times** (the second after a `shot` to look at the screen) to
+   become a bug. An action with no response → suspect the tool first (stale coordinates, overlay, lost probe), then the game.
+4. **Do not hardcode the project into the skill.** Do not edit files in the skill folder "to fit this game". Project values
+   → `qa` block/`QaProfile.md`/charter (table above). A convention mismatch (different base class name, differently named
+   cheat…) → fix `qa.conventions` + `profile sync`, do not invent shortcuts within the session.
+5. **`QaProfile.md` missing or `Status: template` → `profile init` immediately, do not stop.** Say in the report that the
+   file needs dev review. `doctor` reports a convention that does not resolve → still test (black-box for the dependent
+   parts), note it in the report.
+6. **Learned knowledge goes into the repo within the turn, not only into memory.** Screens seen open (liveness),
+   cheat/state paths that worked, noise rules (recurring false findings), this game's failure-prone areas, new cases you
+   thought of → `stop` flushes the machine-read part itself; you update `QaProfile.md` + the charter at STEP 6. Personal
+   memory does not travel with the repo — the profile does.
+7. **No duplicates.** Before each bug: compare with the open bugs on BugHub (STEP 0d) and let the tool block local
+   duplicates (same log signature · similar title · same screen + same type). Duplicate → do not log, write "đã có #N" in
+   the report. What Editor autotest already caught (`autotest-import`) → **Δ-skip**: confirm quickly on the device, do not
+   retest from scratch, do not re-log bugs autotest already listed (write "autotest đã có").
+8. **Do not break the QA device.** No `--fresh` / `app clear` unless the feature is a new-player flow (tutorial,
+   onboarding, first launch). Never complete a real IAP transaction — open the payment sheet, check the price, cancel. Every
+   environment change (`env`, `aspect`, `net`, `rotate`, `pseudoloc`, `timescale`) is reverted by `stop`; `env matrix`
+   reverts each step itself. Another app's overlay covers a button → do not change density, system permissions or
+   force-stop that app to get around it — mark the case `blocked` (environment), not a game bug.
+9. **Do not edit game code, do not commit.** Exceptions: `start` adds/upgrades `com.ezg.qa-probe` in
+   `Packages/manifest.json` (and removes the old copied probe `Assets/EzgQaProbe/` if still there); `profile init`/`sync`
+   write `project-profile.json`, `QaProfile.md`, `charters/`, `EzgQaProbeConfig.json`, the `liveness` block of the autotest
+   settings; `stop` flushes knowledge into the profile. Tell the dev to commit all of them — you do not `git add`.
+10. **Do not ask the user mid-way.** Decide by this skill and resolve blockers yourself (device not in the test list →
+    add it with `test_device_add` if the MCP allows; if not → black-box + note in the report; BugHub not installed → run
+    `/bughub-setup`; outdated skill/package → update from Feature Hub). **The only allowed question:** `/bughub-setup`
+    finds the project is not registered on the server → ask the dev for the Discord forum ID (+ the project code if the
+    profile has none) — only the dev knows it. Stop completely only when: there is no `bughub` MCP / the account lacks the
+    right to register the project and the project is not on the server, the app is not installed and no build is found, or
+    there was never any device after one round of `retry -- start …`.
+11. **Errors do not stop the task — retry every 30 seconds until it passes.**
+    - **Claude API errors** (`Your organization has disabled Claude subscription access for Claude Code`, rate limit,
+      overloaded, 5xx, lost session…) kill the turn — the model is no longer running to retry by itself. `start` arms
+      retry through the `StopFailure` hook of the `/auto-clear` skill (`retry-arm --max 0`; if the machine has not
+      registered the hook, `start` runs `install` itself): the hook waits 30s then types into the right pane `Continue /auto-test-device: the previous turn stopped on an API error - resume the
+      exact step in progress (QA session still open).`, with no limit on attempts. `stop` removes it. When you receive that
+      prompt → do **not** `start` again: `$QA shot` to see where the device is, `$QA coverage` to see which case is
+      unfinished, then carry on (the session, `mark`, `cases.jsonl`, bugs already sent are all still on disk). Line
+      `API-error retry: OFF — …` at `start` → note it in the report, keep testing. Dev ran `/auto-clear off` mid-session
+      → `$QA api-retry on`.
+    - **Transient tool errors** (device unplugged / `offline` / `not found`, adb hang, screenshot failure, lost probe,
+      BugHub network error / 5xx / 429) → do not stop, do not drop the case: wrap **side-effect-free** commands in
+      `$QA retry -- <command…>` (reruns every 30s, at most ~9 minutes per call — call Bash with `timeout: 600000`; exit
+      code 75 = still failing → call the same command again). Tap/swipe/key actions are **not** wrapped in `retry`
+      (repeating an action = tapping twice): wait for the device with `$QA retry -- shot`, look at the screenshot, then redo
+      the action. Bug send failed on the network → `$QA retry -- bug-resend <id>`. Lost probe → `$QA retry -- probe-connect`.
+      No device at `start` → `$QA retry -- start <device> --feature "…"` for one round.
+    - Errors that need a person (exit code 4 BugHub not set up, bad syntax) make `retry` stop at once — handle per rule 10.
+12. **Always `stop` at the end of the session** (even after a mid-way error) — stops background logging, restores device
+    settings, removes the probe trigger, disarms API retry, flushes knowledge into the profile, writes the report.
+13. Never mention other games/studios in bugs, notes, charters, QaProfile.md, the report (rule `no-external-game-refs`).
 
-## Đọc argument
+## Reading the arguments
 
-`/auto-test-device [device id] <tính năng…>` — từ đầu tiên là thiết bị **nếu** nó giống id thiết bị (bảng dưới),
-phần còn lại là tính năng (tiếng Việt tự do). Không có id → `auto`: đúng một máy đang cắm thì dùng luôn; không máy nào
-mà có đúng một AVD thì tự boot.
+`/auto-test-device [device id] <feature…>` — the first word is the device **if** it looks like a device id (table below),
+the rest is the feature (free text, usually Vietnamese). No id → `auto`: exactly one device connected → use it; no device
+but exactly one AVD → boot it.
 
-| `<device id>` | Ý nghĩa |
+| `<device id>` | Meaning |
 |---|---|
-| serial adb (`R58N…`, `emulator-5554`, `192.168.1.5:5555`) | Android đang cắm / emulator đang chạy |
-| tên AVD (`Pixel_8_API_35`, `avd:Pixel_8`) | Emulator — tự boot headless nếu đang tắt |
-| UDID hoặc tên Simulator (`iPhone 17 Pro`) | iOS Simulator — tự boot |
-| identifier/UDID/tên iPhone | iPhone thật qua `devicectl` (bắt buộc build có probe) |
-| `editor` | Unity Editor của project ở Play mode (qua probe) — khi không có máy nào; vào Play bằng Unity MCP `unity_play_mode` rồi `probe-connect` |
-| `auto` / `android` / `ios` / bỏ trống | Thiết bị duy nhất đang kết nối (không có máy + một AVD → tự boot) |
+| adb serial (`R58N…`, `emulator-5554`, `192.168.1.5:5555`) | Android device connected / emulator running |
+| AVD name (`Pixel_8_API_35`, `avd:Pixel_8`) | Emulator — booted headless if it is off |
+| Simulator UDID or name (`iPhone 17 Pro`) | iOS Simulator — booted automatically |
+| iPhone identifier/UDID/name | Real iPhone via `devicectl` (the build must contain the probe) |
+| `editor` | The project's Unity Editor in Play mode (via the probe) — when there is no device; enter Play with Unity MCP `unity_play_mode` then `probe-connect` |
+| `auto` / `android` / `ios` / empty | The only connected device (no device + one AVD → boot it) |
 
-Không rõ id → `$QA devices`. Tính năng bỏ trống → test **vòng chơi chính + mọi màn *còn sống* vào được từ màn chính**
-(smoke thăm dò; danh sách màn sống lấy từ `qa.liveness` + `QaProfile.md`). Tính năng lớn ("toàn bộ game", "full game",
-"cả game") → sau STEP 0 chạy **`$QA plan`**: ghép màn sống vào feature/bucket của repo, xếp theo rủi ro (tiền/IAP/pass →
-gameplay → meta → social → onboarding → system), mỗi nhóm một charter; làm lần lượt theo thứ tự plan trong **cùng
-phiên** (`charter new` → STEP 1–5 → nhóm kế), `coverage` sau mỗi nhóm, `stop` một lần cuối. Nhóm "không có màn" test
-qua luồng gameplay; màn đánh dấu `?` (enum có nhưng không thấy code gọi) chỉ xác nhận nhanh có vào được không.
+Unsure about the id → `$QA devices`. Empty feature → test **the main loop + every *live* screen reachable from the main
+screen** (exploratory smoke; the live screen list comes from `qa.liveness` + `QaProfile.md`). Large feature ("toàn bộ game",
+"full game", "cả game") → after STEP 0 run **`$QA plan`**: it maps live screens onto the repo's features/buckets, orders them
+by risk (money/IAP/pass → gameplay → meta → social → onboarding → system), one charter per group; work through them in plan
+order in the **same session** (`charter new` → STEP 1–5 → next group), `coverage` after each group, `stop` once at the end.
+A group "without screens" is tested through the gameplay flow; screens marked `?` (in the enum but no code opens them) only
+get a quick check that they can be opened.
 
-### Prompt tối giản — người khác chỉ cần gõ một câu
+### Minimal prompts — anyone just types one sentence
 
-Không bắt user gõ đúng cú pháp `/auto-test-device`, không hỏi lại thiết bị khi chỉ có một máy, không hỏi "có cài X
-không" — mọi thứ thiếu trên máy mới do STEP 0 tự lo (0a → 0a' → 0b).
+Do not require the exact `/auto-test-device` syntax, do not ask for the device when there is only one, do not ask "should I
+install X" — everything missing on a new machine is handled by STEP 0 (0a → 0a' → 0b).
 
-| User gõ | Hiểu là |
+| User types | Meaning |
 |---|---|
-| `chạy auto test <device id>` · `auto test trên <máy>` | device = id đó, tính năng trống → smoke thăm dò mọi màn sống |
-| `chạy auto test full game` · `test toàn bộ game` · `auto test cả game` | device `auto`, tính năng "toàn bộ game" → `plan` → từng nhóm |
-| `chạy auto test <device id> <tính năng>` · `test <tính năng> trên <máy>` | cú pháp chuẩn |
-| `tiếp tục auto test` · prompt thử lại lỗi API | không `start` lại — `shot` + `coverage` rồi làm tiếp (luật 11) |
+| `chạy auto test <device id>` · `auto test trên <máy>` · `run auto test on <device>` | device = that id, empty feature → exploratory smoke of every live screen |
+| `chạy auto test full game` · `test toàn bộ game` · `auto test cả game` · `auto test the whole game` | device `auto`, feature = whole game → `plan` → group by group |
+| `chạy auto test <device id> <tính năng>` · `test <tính năng> trên <máy>` · `test <feature> on <device>` | standard syntax |
+| `tiếp tục auto test` · `continue auto test` · the API-retry prompt | do not `start` again — `shot` + `coverage` then carry on (rule 11) |
 
-## STEP 0 — Chuẩn bị: máy mới tự onboard, project đúng, biết autotest đã phủ gì
+## STEP 0 — Preparation: a new machine onboards itself, right project, know what autotest covered
 
-Chạy theo thứ tự; 0a → 0a' → 0b → 0c tuần tự, 0d song song với `start`. Mục tiêu: trên **máy khác, project khác**,
-một câu prompt là đủ — STEP 0 tự cài/cập nhật mọi thứ, không hỏi (trừ ngoại lệ luật 10).
+Run in order; 0a → 0a' → 0b → 0c sequentially, 0d in parallel with `start`. Goal: on **another machine, another project**,
+a one-sentence prompt is enough — STEP 0 installs/updates everything itself, without asking (except the rule 10 exception).
 
-**0a. `$QA doctor`** — một lệnh kiểm hết: công cụ máy (adb/xcrun/Pillow), package (`com.ezg.qa-probe` ≥
+**0a. `$QA doctor`** — one command checks everything: machine tools (adb/xcrun/Pillow), packages (`com.ezg.qa-probe` ≥
 `PROBE_MIN_VERSION`, `com.ezg.cheat-gate`, `com.ezg.autotest` ≥ 0.2.0, `com.ezg.buglogger`, `com.ezg.featurehub` ≥ 0.4.0,
-scoped registry EZG), BugHub (mã + server), block `qa` + `Status` của `QaProfile.md`, từng convention có resolve ra file
-thật không, build-side có đồng bộ profile không, hook thử lại lỗi API. Cuối output là **`việc còn lại`** — danh sách
-theo thứ tự, mỗi dòng ghi ai làm:
+EZG scoped registry), BugHub (code + server), the `qa` block + `Status` of `QaProfile.md`, whether each convention resolves
+to a real file, whether the build-side is in sync with the profile, the API-retry hook. The output ends with
+**`remaining tasks`** — an ordered list, each line says who does it:
 
-| Ai | Làm |
+| Who | Does |
 |---|---|
-| `[tool]` (`probe-package`, `autotest-package`, `profile-init`, `profile-sync`, `api-retry-hook`) | **`$QA doctor --fix`** làm một lượt (idempotent): `profile init` (tự dò quy ước → block `qa` + `QaProfile.md` draft), thêm/nâng probe + autotest trong manifest, `profile sync`. Hook thử lại lỗi API thì `start` tự cài. Đọc output: key `default` ở `profile init` là tool chưa dò ra → ghi report cho dev điền |
-| `[model]` (`mcp-check`, `feature-hub-update`, `bughub-setup`) | Bạn làm theo bảng **0a'** |
-| `[dev]` (`cheat-gate`…) | Không tự làm (đụng code game) — ghi vào report cuối, test tiếp ở mức có thể |
+| `[tool]` (`probe-package`, `autotest-package`, `profile-init`, `profile-sync`, `api-retry-hook`) | **`$QA doctor --fix`** does them in one pass (idempotent): `profile init` (auto-detects conventions → `qa` block + draft `QaProfile.md`), adds/upgrades probe + autotest in the manifest, `profile sync`. `start` installs the API-retry hook itself. Read the output: a `default` key in `profile init` means the tool could not detect it → note it in the report for the dev to fill in |
+| `[model]` (`mcp-check`, `feature-hub-update`, `bughub-setup`) | You do them per table **0a'** |
+| `[dev]` (`cheat-gate`…) | Do not do them yourself (they touch game code) — note them in the final report, keep testing as far as possible |
 
-`--json` khi cần đọc máy (`actions[]`, `featureHub.items`, `mcp`). Các dòng khác của `doctor`:
+`--json` for machine reading (`actions[]`, `featureHub.items`, `mcp`). Other `doctor` lines:
 
-| `doctor` nói | Làm |
+| `doctor` says | Do |
 |---|---|
-| `convention X không resolve` (vd lớp cơ sở màn không tìm thấy) | Grep nhanh xác nhận; đúng là project đặt tên khác → sửa `qa.conventions.X` trong `project-profile.json` → `profile sync`; không tìm ra → test hộp đen phần phụ thuộc, ghi report |
-| `autotest < 0.2.0` / không có | `doctor --fix` thêm; vẫn chạy được — `autotest-import` sẽ bỏ qua rule liveness (0.1.x báo màn chết là Critical — xem 0f) |
-| `manifest không có scoped registry EZG` | Project chưa nối registry → báo dev cài qua Feature Hub (Editor); phiên này probe/autotest không tải được → hộp đen |
-| Lỗi công cụ (thiếu adb, Pillow cài lỗi) | Sửa theo hướng dẫn trong lỗi; thiếu adb mà máy là Android → dừng |
+| `convention X` does not resolve (e.g. the screen base class is not found) | Quick grep to confirm; the project really uses another name → fix `qa.conventions.X` in `project-profile.json` → `profile sync`; nothing found → black-box test the dependent part, note it in the report |
+| `autotest < 0.2.0` / missing | `doctor --fix` adds it; still workable — `autotest-import` will skip the liveness rule (0.1.x reports dead screens as Critical — see 0f) |
+| `manifest has no EZG scoped registry` | The project is not connected to the registry → tell the dev to install it through Feature Hub (Editor); this session cannot download probe/autotest → black-box |
+| Tool errors (adb missing, Pillow install failed) | Fix per the instructions in the error; adb missing and the device is Android → stop |
 
-**0a'. Việc `[model]` — onboarding tự động, không hỏi**
+**0a'. `[model]` work — automatic onboarding, no questions**
 
-| Việc | Làm |
+| Task | Do |
 |---|---|
-| `mcp-check` | ToolSearch `ezg` và `bughub` (+ `unity`). Repo đã khai hai server HTTP này trong `.mcp.json` (Claude Code chỉ hỏi duyệt lần đầu, rồi `/mcp` → Authenticate Google @easygoing.vn). Vẫn thiếu → **không** tự chạy `claude mcp add` (sửa config user của dev): in đúng lệnh `claude mcp add --transport http --scope user ezg <url>` / `… bughub <endpoint>/mcp` (url trong `doctor --json` → `mcp`) + "gõ `/mcp` → Authenticate → mở lại session", rồi vẫn tiếp tục phần không cần MCP (hộp đen; chống trùng bug chỉ trong máy; máy test không tự thêm được) và ghi report |
-| `feature-hub-update` | Read `Packages/manifest.json` + `ProjectSettings/EzgFeatureHub/install-record.json` (nếu có) → `check_project_updates(manifest_json, install_record_json)`. Chỉ quan tâm item QA (`doctor --json` → `featureHub.items`): UPM `com.ezg.qa-probe`, `com.ezg.autotest`, `com.ezg.cheat-gate`, `com.ezg.buglogger`; AI `Skills/auto-test-device`, `Skills/bughub-setup`, `Skills/auto-clear`, `Skills/fix-bug`, `Docs/QaProfile.template`, `Scripts/project_profile.py`, `Scripts/bootstrap.*`. Cần cài khi: `update_available`, UPM `notInstalledTemplatePackages`, hoặc **AI item không có trong record** (chưa từng cài qua Hub — tool không báo dòng nào cho nó, bạn phải tự so với danh sách). Mỗi item: `get_install_steps(kind, name)` → có Editor của project này (`unity_list_instances`, so `projectPath` với `git rev-parse --show-toplevel`) → `unity_execute_code` snippet `install`, chờ domain reload, snippet `verify` tới `INSTALLED`; **một item một lần**, UPM trước AI. Không có Editor → UPM: `$QA doctor --fix` (ghi manifest); AI item → report "cập nhật khi mở Editor". `Skills/auto-test-device` vừa cập nhật → **Read lại SKILL.md này** rồi mới đi tiếp. Không cài item ngoài danh sách (không phải việc QA); `com.ezg.cheat-gate` thêm package được nhưng còn cần code gọi `CheatGate.Initialize` → vẫn là việc `[dev]` |
-| `bughub-setup` | `doctor` ⚠ `BugHub chưa sẵn sàng` (việc `bughub-setup`) hoặc `start` thoát mã 4 → gọi Skill **`/bughub-setup`** ngay trong phiên (đừng bảo dev tự chạy). Skill đó chỉ hỏi dev khi project **chưa đăng ký** trên server: ID forum Discord (+ mã project nếu profile chưa có) — ngoại lệ luật 10. Xong → `start` lại. Tài khoản không phải admin BugHub và project chưa đăng ký → dừng, chuyển nguyên lời của skill cho dev (ai cần làm gì) |
-| `test-device` | Chỉ biết sau khi probe nối: **0c** |
+| `mcp-check` | ToolSearch `ezg` and `bughub` (+ `unity`). The repo already declares these two HTTP servers in `.mcp.json` (Claude Code asks for approval only the first time, then `/mcp` → Authenticate with Google @easygoing.vn). Still missing → do **not** run `claude mcp add` yourself (it edits the dev's user config): print the exact command `claude mcp add --transport http --scope user ezg <url>` / `… bughub <endpoint>/mcp` (url in `doctor --json` → `mcp`) + "type `/mcp` → Authenticate → reopen the session", then still carry on with the parts that need no MCP (black-box; bug de-dup only on the local machine; the test device cannot be added automatically) and note it in the report |
+| `feature-hub-update` | Read `Packages/manifest.json` + `ProjectSettings/EzgFeatureHub/install-record.json` (if present) → `check_project_updates(manifest_json, install_record_json)`. Only QA items matter (`doctor --json` → `featureHub.items`): UPM `com.ezg.qa-probe`, `com.ezg.autotest`, `com.ezg.cheat-gate`, `com.ezg.buglogger`; AI `Skills/auto-test-device`, `Skills/bughub-setup`, `Skills/auto-clear`, `Skills/fix-bug`, `Docs/QaProfile.template`, `Scripts/project_profile.py`, `Scripts/bootstrap.*`. Install when: `update_available`, UPM `notInstalledTemplatePackages`, or **an AI item missing from the record** (never installed through the Hub — the tool reports no line for it, you must compare against the list yourself). Each item: `get_install_steps(kind, name)` → this project's Editor is open (`unity_list_instances`, compare `projectPath` with `git rev-parse --show-toplevel`) → `unity_execute_code` the `install` snippet, wait for the domain reload, the `verify` snippet until `INSTALLED`; **one item at a time**, UPM before AI. No Editor → UPM: `$QA doctor --fix` (writes the manifest); AI item → report "cập nhật khi mở Editor" (update when the Editor is open). `Skills/auto-test-device` was just updated → **Read this SKILL.md again** before going on. Do not install items outside the list (not QA work); `com.ezg.cheat-gate` can be added as a package but still needs code that calls `CheatGate.Initialize` → still `[dev]` work |
+| `bughub-setup` | `doctor` ⚠ `BugHub not ready` (task `bughub-setup`) or `start` exits with code 4 → call the Skill **`/bughub-setup`** right in the session (do not tell the dev to run it). That skill asks the dev only when the project is **not registered** on the server: the Discord forum ID (+ the project code if the profile has none) — the rule 10 exception. Done → `start` again. The account is not a BugHub admin and the project is not registered → stop, relay the skill's message to the dev verbatim (who has to do what) |
+| `test-device` | Only known after the probe connects: **0c** |
 
-**0b. `$QA start <device id|auto> --feature "<tính năng>"`** — kiểm BugHub → cài Pillow nếu thiếu → thêm package
-probe vào manifest nếu thiếu → chọn máy → cài app nếu chưa có (bản build mới nhất trong repo) → mở game kèm token
-probe → nối probe → project có `com.ezg.cheat-gate` thì chờ probe tự xin quyền cheat → chụp ảnh đầu. Đọc output:
+**0b. `$QA start <device id|auto> --feature "<feature>"`** — checks BugHub → installs Pillow if missing → adds the probe
+package to the manifest if missing → picks the device → installs the app if absent (the latest build in the repo) → launches
+the game with the probe token → connects the probe → if the project has `com.ezg.cheat-gate`, waits for the probe to request
+cheat access itself → takes the first screenshot. Read the output:
 
-| Output | Làm |
+| Output | Do |
 |---|---|
-| Mã thoát 4, `BugHub: CHƯA SẴN SÀNG` + các dòng `✗` | Gọi Skill **`/bughub-setup`** ngay (0a' `bughub-setup`) — nó tự sửa asset/profile/server đúng cách, chỉ hỏi dev ID forum khi project chưa đăng ký. Xong → `start` lại. Skill báo cần người khác (không đủ quyền) → dừng, in nguyên lời |
-| Lỗi thiết bị (`unauthorized`, nhiều máy) | `$QA devices`, sửa theo hướng dẫn trong lỗi |
-| Không thấy máy / máy `offline` (cáp lỏng, AVD đang boot) | `$QA retry -- start <device> --feature "…"` (30s/lần, luật 11); hết một lượt vẫn không có máy → dừng, báo dev |
-| `thử lại lỗi API: BẬT …` | Đúng — lỗi API giữa phiên sẽ tự gõ tiếp sau 30s |
-| `thử lại lỗi API: TẮT — …` | Ngoài iTerm2 / console Windows, hoặc `install` hook lỗi → ghi vào report, vẫn test tiếp |
-| `app … chưa cài … không tìm thấy bản build` | Dừng, báo dev cài build |
-| `probe: OK … cổng mở` | Test sâu: `ui`, `audit` sâu, `state`, `call`, `cheat`, `tap --text`, `pseudoloc` (probe ≥ 1.3) |
-| `probe: OK … CỔNG ĐÓNG — máy XXXX-XXXX-XXXX chưa có trong danh sách máy test của <mã>` | **0c** |
-| `probe: OK … CỔNG ĐÓNG — máy không có mạng` | `$QA net on` nếu mạng do tool tắt → `$QA probe-connect --unlock` |
-| `probe: OK … CỔNG ĐÓNG — game chưa CheatGate.Initialize…` | Lỗi cấu hình project (mã CheatGate trống) → hộp đen, ghi report cho dev |
-| `probe: OK … CỔNG ĐÓNG (<cờ cheat>=false)` (project chưa dùng cheat-gate) | Tự bật cheat như QA nếu game cho bật bằng thao tác (đường bật ghi ở `QaProfile.md`; chưa có → mở Settings, `$QA tap <dòng version> --times 10 --interval 0.15`) rồi `$QA probe-connect`; không được → hộp đen |
-| `probe: không có` | Build trên máy chưa có probe → hộp đen: ảnh + toạ độ, log, perf; `selfcheck` chạy phần không cần probe |
-| `probe: … 1.2.x` | Lệnh cần ≥ 1.3 (`pseudoloc`, flag audit mới, `screenBaseTypes`) báo `unsupported` — ghi report "build lại với probe ≥ 1.3 để test đủ" |
-| `ghi chú: đã thêm/nâng com.ezg.qa-probe …` / `đã gỡ bản probe chép cũ …` | Build trên máy là bản cũ; ghi report "đã thêm package probe — commit manifest + build" |
-| `ghi chú: ⚠ manifest chưa có scoped registry EZG` | Project chưa nối registry EZG → báo dev cài qua Feature Hub; phiên này hộp đen |
-| `⚠ overlay app khác: <package> … che vùng ảnh (x,y)-(x,y)` | Nút game nằm dưới → `--inject`; nút quảng cáo/hệ thống nằm dưới → ghi report cho user tắt/dời overlay; ca phụ thuộc `blocked` |
+| Exit code 4, `BugHub: NOT READY` + the `✗` lines | Call the Skill **`/bughub-setup`** at once (0a' `bughub-setup`) — it fixes asset/profile/server the right way and asks the dev for the forum ID only when the project is not registered. Done → `start` again. The skill says someone else is needed (insufficient rights) → stop, print its message verbatim |
+| Device errors (`unauthorized`, several devices) | `$QA devices`, fix per the instructions in the error |
+| No device found / device `offline` (loose cable, AVD still booting) | `$QA retry -- start <device> --feature "…"` (every 30s, rule 11); still no device after one round → stop, tell the dev |
+| `API-error retry: ON …` | Correct — an API error mid-session will be resumed automatically after 30s |
+| `API-error retry: OFF — …` | Outside iTerm2 / Windows console, or the hook `install` failed → note it in the report, keep testing |
+| `app … is not installed on … no build was found` | Stop, tell the dev to install a build |
+| `probe: OK … gate open` | Deep testing: `ui`, deep `audit`, `state`, `call`, `cheat`, `tap --text`, `pseudoloc` (probe ≥ 1.3) |
+| `probe: OK … GATE CLOSED — device XXXX-XXXX-XXXX is not in the test list of <code>` | **0c** |
+| `probe: OK … GATE CLOSED — device has no network` | `$QA net on` if the tool turned the network off → `$QA probe-connect --unlock` |
+| `probe: OK … GATE CLOSED — game has not called CheatGate.Initialize…` | Project configuration error (empty CheatGate code) → black-box, note it in the report for the dev |
+| `probe: OK … GATE CLOSED (<cheat flag>=false)` (project does not use cheat-gate yet) | Turn cheats on like a QA would if the game allows it by an in-game action (the path is noted in `QaProfile.md`; none yet → open Settings, `$QA tap <version line> --times 10 --interval 0.15`) then `$QA probe-connect`; does not work → black-box |
+| `probe: none` | The build on the device has no probe → black-box: screenshots + coordinates, logs, perf; `selfcheck` runs the parts that need no probe |
+| `probe: … 1.2.x` | Commands that need ≥ 1.3 (`pseudoloc`, new audit flags, `screenBaseTypes`) report `unsupported` — write "build lại với probe ≥ 1.3 để test đủ" in the report |
+| `note: added/bumped com.ezg.qa-probe …` / `note: removed the old copied probe …` | The build on the device is old; write "đã thêm package probe — commit manifest + build" in the report |
+| `note: ⚠ manifest has no EZG scoped registry` | The project is not connected to the EZG registry → tell the dev to install it through Feature Hub; this session is black-box |
+| `⚠ other-app overlay: <package> … covers view (x,y)-(x,y)` | A game button underneath → `--inject`; an ad/system button underneath → note in the report for the user to close/move the overlay; dependent cases `blocked` |
 
-Dòng `→ …` dưới output là việc cần làm tiếp — làm đúng như nó. Ảnh `shot #001` → **Read** để biết game đang ở đâu.
-Tiếp tục đúng trạng thái QA đang chơi dở trên máy → `--attach` (không khởi động lại game).
+A `→ …` line under the output is the next thing to do — do exactly that. Screenshot `shot #001` → **Read** it to know where
+the game is. To carry on from exactly the state QA left the device in → `--attach` (does not restart the game).
 
-**0c. Máy chưa có trong danh sách máy test** (project dùng `com.ezg.cheat-gate`): gọi ngay tool MCP `ezg`
-`test_device_add` (deferred → ToolSearch `test_device`) với đúng `project` + `device_id` mà dòng `→` in ra, `label` =
-`<git user.name> - <model>` → `$QA probe-connect --unlock` (tự hỏi lại server tới khi nhận, ≤ 3 phút). MCP từ chối
-(tài khoản không phải Lead/QA) hoặc không có MCP `ezg` → chuyển nguyên lời từ chối / dòng `→` cho user ở report cuối,
-phiên này hộp đen. Không bao giờ tự đoán Device ID, không hỏi user.
+**0c. Device not in the test-device list** (project uses `com.ezg.cheat-gate`): immediately call the `ezg` MCP tool
+`test_device_add` (deferred → ToolSearch `test_device`) with exactly the `project` + `device_id` that the `→` line printed,
+`label` = `<git user.name> - <model>` → `$QA probe-connect --unlock` (keeps asking the server until accepted, ≤ 3 minutes).
+The MCP refuses (account is not Lead/QA) or there is no `ezg` MCP → pass the refusal / `→` line verbatim to the user in the
+final report, this session is black-box. Never guess a Device ID, never ask the user.
 
-**0d. Bug đang mở (chống trùng):** có tool MCP `bughub_list` (deferred → ToolSearch `bughub`) → `bughub_list(project:
-<mã>)`, giữ tiêu đề + số issue để so ở STEP 5. Không có MCP → ghi "không đối chiếu được bug server" vào report,
-tiếp tục (tool vẫn chặn trùng trong máy).
+**0d. Open bugs (de-dup):** if the MCP tool `bughub_list` exists (deferred → ToolSearch `bughub`) → `bughub_list(project:
+<code>)`, keep titles + issue numbers to compare at STEP 5. No MCP → write "không đối chiếu được bug server" in the report,
+carry on (the tool still blocks duplicates locally).
 
-**0e. `$QA selfcheck`** — tool tự kiểm trên máy vừa nối: probe trả lời, `/ui` có element, `tap --text` trúng một nút
-rồi quay lại được, `shot` không đen, `logs` đọc được. Ghi `selfcheck.json`. Mục nào fail → sửa công cụ trước (probe
-`probe-connect`, chụp màn `retry -- shot`), **không** bắt đầu test khi `tap --text` fail mà probe báo OK (đó là lỗi
-tool/overlay, mọi `expectation-failed` sau đó sẽ là rác). Không sửa được → ghi report, test hộp đen phần đó.
+**0e. `$QA selfcheck`** — the tool checks itself on the device just connected: the probe answers, `/ui` has elements,
+`tap --text` hits a button and can go back, `shot` is not black, `logs` is readable. Writes `selfcheck.json`. Any item fails
+→ fix the tool first (probe `probe-connect`, screenshot `retry -- shot`); do **not** start testing when `tap --text` fails
+while the probe reports OK (that is a tool/overlay fault, every `expectation-failed` after it would be garbage). Cannot fix
+it → note it in the report, black-box test that part.
 
-**0f. `$QA autotest-import`** — đọc report mới nhất của `com.ezg.autotest` (`AutoTestReports/`, đường dẫn từ
-`qa.paths.autotestReports`) → `autotest-summary.md`: lỗi theo suite/severity, màn/case `covered-by-autotest`.
-Dùng để: (1) **Δ-skip** — màn/check autotest đã pass thì trên máy chỉ xác nhận nhanh; (2) lỗi autotest báo trong
-tính năng này → kiểm trên máy xem có thật không (0.1.x báo nhiều lỗi ở màn chết/asset mồ côi — chỉ tin khi màn đó
-có trong `qa.liveness`); (3) không có report → ghi "chưa có autotest" và test đầy đủ.
+**0f. `$QA autotest-import`** — reads the latest report of `com.ezg.autotest` (`AutoTestReports/`, path from
+`qa.paths.autotestReports`) → `autotest-summary.md`: errors by suite/severity, screens/cases `covered-by-autotest`.
+Use it to: (1) **Δ-skip** — screens/checks autotest already passed only get a quick confirmation on the device; (2) autotest
+errors in this feature → check on the device whether they are real (0.1.x reports many errors on dead screens/orphan
+assets — trust them only when that screen is in `qa.liveness`); (3) no report → write "chưa có autotest" and test fully.
 
-Xong STEP 0 khi: `doctor` không còn việc `[tool]`/`[model]` chưa làm (việc `[dev]` đã ghi để báo), item Feature Hub
-QA đã kiểm, `start` in ảnh đầu, `selfcheck` không còn mục fail chưa giải thích, biết probe mức nào, biết autotest đã
-phủ gì. Tính năng là "toàn bộ game" → `$QA plan` ngay sau đó để có thứ tự nhóm.
+STEP 0 is done when: `doctor` has no unfinished `[tool]`/`[model]` work (`[dev]` work has been noted for the report), QA
+Feature Hub items are checked, `start` printed the first screenshot, `selfcheck` has no unexplained failures, you know the
+probe level and what autotest covered. Feature is "whole game" → `$QA plan` right after, to get the group order.
 
-## STEP 1 — Hiểu tính năng → charter có mã ca
+## STEP 1 — Understand the feature → charter with case IDs
 
-Đừng chạm vào máy trước khi biết "đúng" trông như thế nào. Đọc theo thứ tự (dừng khi đủ):
+Do not touch the device before you know what "correct" looks like. Read in this order (stop when you have enough):
 
-1. [references/qa-playbook.md](references/qa-playbook.md) — một lần mỗi phiên.
-2. **`.claude/docs/QaProfile.md`** — quy ước của game này, màn còn sống/chết, cheat + state path đã kiểm (dùng luôn,
-   khỏi dò lại), vùng rủi ro, hướng hay hỏng, luật nhiễu đã ghi. `Status: draft` → vẫn dùng, ghi report.
-3. **Charter có sẵn:** `$QA charter list` — tính năng này đã có `charters/<feature>.md`? Có → đọc, bổ sung ca mới
-   (không xoá ca cũ, không ghi kết quả vào charter); chưa → `$QA charter new <feature>` (khung từ
-   `charter.template.md`, điền tiếp).
-4. **Tài liệu thiết kế:** `GDD/`, `TechSpec/`, `Docs/` của repo (grep tên tính năng, cả tiếng Việt lẫn tên code).
-   GDD trên Google Sheets → skill `read-gdd` nếu project có. `CLAUDE_PROJECT.md` cho bức tranh game.
-5. **Code:** `codegraph_explore` (có `.codegraph/`) hoặc Grep/Read theo quy ước trong profile: controller màn (lớp
-   cơ sở `qa.conventions.screenBaseTypes`, prefab theo `screenPrefabPrefix`), static Service (luật nghiệp vụ, công thức),
-   PlayerData module (state lưu), CSV config (`csvConfigGlob` — **giá trị kỳ vọng**: giá, thưởng, thời gian, điều
-   kiện mở khoá — đọc bằng `$QA csv <tên> [--where col=val]`), localize key, cheat (`cheatMethodPrefix`) để dựng
-   điều kiện. **Liveness:** enum màn có entry nhưng không ai mở (`qa.liveness.deadFeaturePatterns`/`forceDead`, không
-   có trong `observed`, autotest báo `Feature.Dead`) → không test, không log bug cho màn chết.
-6. **Visual chuẩn:** `.claude/docs/ArtStyle.md` (nếu có) + mockup/ảnh duyệt — để biết màn nào "đúng style".
-7. **Bug cũ** của tính năng (STEP 0d) + lỗi autotest (0f) — vùng hay hỏng, đừng log lại.
+1. [references/qa-playbook.md](references/qa-playbook.md) — once per session.
+2. **`.claude/docs/QaProfile.md`** — this game's conventions, live/dead screens, verified cheat + state paths (use them
+   directly, no need to rediscover), risk areas, typical failure modes, recorded noise rules. `Status: draft` → still use
+   it, note it in the report.
+3. **Existing charter:** `$QA charter list` — does this feature already have `charters/<feature>.md`? Yes → read it, add new
+   cases (never delete old cases, never write results into the charter); no → `$QA charter new <feature>` (skeleton from
+   `charter.template.md`, then fill it in).
+4. **Design docs:** the repo's `GDD/`, `TechSpec/`, `Docs/` (grep the feature name, in Vietnamese as well as the code
+   name). GDD on Google Sheets → the `read-gdd` skill if the project has it. `CLAUDE_PROJECT.md` for the big picture.
+5. **Code:** `codegraph_explore` (if `.codegraph/` exists) or Grep/Read following the profile's conventions: screen
+   controller (base classes `qa.conventions.screenBaseTypes`, prefab by `screenPrefabPrefix`), static Service (business
+   rules, formulas), PlayerData module (persisted state), CSV config (`csvConfigGlob` — the **expected values**: prices,
+   rewards, durations, unlock conditions — read with `$QA csv <name> [--where col=val]`), localize keys, cheats
+   (`cheatMethodPrefix`) to set up conditions. **Liveness:** a screen enum entry nobody opens
+   (`qa.liveness.deadFeaturePatterns`/`forceDead`, not in `observed`, autotest reports `Feature.Dead`) → do not test it,
+   do not log bugs for dead screens.
+6. **Visual reference:** `.claude/docs/ArtStyle.md` (if present) + approved mockups/screenshots — to know which screens are
+   "on style".
+7. **Past bugs** of the feature (STEP 0d) + autotest errors (0f) — failure-prone areas, do not log them again.
 
-Viết charter theo khung `charter.template.md`: mục tiêu, đường vào, trạng thái/điều kiện, **oracle** (bảng kỳ vọng
-có trích nguồn `file:dòng` hoặc `csv <tên>:<dòng>`; suy luận ghi rõ "suy luận"), **invariant** phải đúng mọi lúc
-(oracles.md §1), danh sách ca có **mã** (cột `#`, vd `P0-01`) và ưu tiên:
+Write the charter with the `charter.template.md` skeleton: goal, entry path, state/conditions, **oracles** (a table of
+expectations citing `file:line` or `csv <name>:<line>`; inferences marked "inferred"), **invariants** that must
+hold at all times (oracles.md §1), a list of cases with **IDs** (column `#`, e.g. `P0-01`) and priorities:
 
-| Ưu tiên | Nhóm ca (chi tiết + ví dụ ở playbook §3) |
+| Priority | Case group (details + examples in playbook §3) |
 |---|---|
-| P0 | Happy path đầy đủ của tính năng (vào → dùng → nhận kết quả → thoát), lặp lần 2 |
-| P1 | Biên & âm: thiếu tiền/thiếu điều kiện, đúng bằng ngưỡng, max level/max stack, khoá/mở khoá, rỗng/đầy danh sách; chuyển trạng thái không hợp lệ |
-| P2 | Gián đoạn: Back (Android) ở mỗi popup, nền 5–30s, kill + mở lại giữa luồng, mất mạng lúc gọi mạng/quảng cáo/IAP, spam/double tap nút thưởng/mua, bấm trong animation |
-| P3 | Lưu trữ & đồng bộ: restart sau mỗi thay đổi state quan trọng; số hiển thị khớp ở mọi màn; cập nhật build giữ data (`build update`) nếu có bản cũ |
-| P4 | Visual sweep mọi màn/popup/trạng thái của tính năng + ma trận môi trường (STEP 4): cỡ chữ lớn, dark mode, tỉ lệ màn, pseudo-loc / ngôn ngữ dài |
-| P5 | Ổn định & hiệu năng: lặp luồng chính 5–10 lần, RAM/FPS trước-sau, thao tác nhanh liên tục (monkey có kiểm soát) |
+| P0 | Full happy path of the feature (enter → use → get the result → exit), repeated a second time |
+| P1 | Boundaries & negatives: not enough money/conditions, exactly at the threshold, max level/max stack, locked/unlocked, empty/full lists; invalid state transitions |
+| P2 | Interruptions: Back (Android) on every popup, background 5–30s, kill + reopen mid-flow, network loss during network/ad/IAP calls, spam/double tap on reward/buy buttons, taps during animations |
+| P3 | Persistence & sync: restart after every important state change; numbers match across screens; build update keeps data (`build update`) if an older build exists |
+| P4 | Visual sweep of every screen/popup/state of the feature + environment matrix (STEP 4): large font, dark mode, aspect ratios, pseudo-loc / long languages |
+| P5 | Stability & performance: repeat the main flow 5–10 times, RAM/FPS before-after, rapid continuous input (controlled monkey) |
 
-Thời gian hạn chế → chọn ca theo rủi ro (playbook §10): tiền/IAP/save trước, màn mới sửa (git log) trước, vùng
-`QaProfile.md` ghi "hay hỏng" trước. Ca bỏ qua ghi `skip` kèm lý do, không im lặng.
+Limited time → choose cases by risk (playbook §10): money/IAP/save first, recently changed screens (git log) first, areas
+`QaProfile.md` marks as "failure-prone" first. Skipped cases are recorded as `skip` with a reason, never silently.
 
-`$QA charter diff` lúc này = toàn bộ ca chưa chạy — dùng làm danh sách việc. Xong STEP 1 khi charter có ≥ 1 ca mỗi
-nhóm P0–P3 (P4/P5 có thể gộp), mọi oracle có nguồn.
+`$QA charter diff` at this point = every case not yet run — use it as the to-do list. STEP 1 is done when the charter has
+≥ 1 case in each group P0–P3 (P4/P5 may be merged) and every oracle has a source.
 
-## STEP 2 — Khám phá: chơi theo ca, kỳ vọng tường minh, audit tự động
+## STEP 2 — Exploration: play case by case, explicit expectations, automatic audit
 
-Mỗi ca test:
+For each test case:
 
 ```bash
-$QA mark "P1-03 - mua nâng cấp khi thiếu tiền"            # bước tái hiện của bug tính từ đây
-… các thao tác …
-$QA note --case shop/P1-03 --result pass "Nút mua xám, toast 'Không đủ tiền' đúng"   # fail/blocked/skip; fail đã log → --bug N
+$QA mark "P1-03 - mua nâng cấp khi thiếu tiền"            # the bug's repro steps are counted from here
+… actions …
+$QA note --case shop/P1-03 --result pass "Nút mua xám, toast 'Không đủ tiền' đúng"   # fail/blocked/skip; a fail that was logged → --bug N
 ```
 
-`--case <charter>/<case>` = tên file charter không đuôi + mã ca (cột `#`). `note` không `--case` vẫn dùng cho ghi chú
-rời, nhưng **kết quả ca luôn qua `--case`** — `coverage`/`charter diff` chỉ đếm `cases.jsonl`.
+`--case <charter>/<case>` = the charter file name without extension + the case ID (column `#`). `note` without `--case` is
+still fine for loose notes, but **case results always go through `--case`** — `coverage`/`charter diff` only count
+`cases.jsonl`.
 
-Mỗi thao tác — **quan sát → kỳ vọng → làm → kiểm**:
+Every action — **observe → expect → act → check**:
 
-1. **Quan sát:** Read ảnh xem (`*.view.jpg`) mà lệnh trước in ra. Không bao giờ thao tác hai lần liên tiếp mà
-   không nhìn màn hình (trừ spam tap cố ý). Có probe → `$QA ui --marks` (ảnh đánh số từng nút) thay cho đoán toạ độ.
-2. **Làm — ưu tiên theo thứ tự:** `tap --text "<chữ trên nút>"` → `tap @<id>` (số trong `ui`) → `tap --name` →
-   toạ độ (chỉ khi không có probe hoặc object không có text/tên; toạ độ là **px của ảnh xem gần nhất**, tool đổi sang px
-   máy). Nút có hệ quả **luôn** kèm `--expect`:
+1. **Observe:** Read the view image (`*.view.jpg`) the previous command printed. Never act twice in a row without looking
+   at the screen (except deliberate spam taps). With the probe → `$QA ui --marks` (image with every button numbered)
+   instead of guessing coordinates.
+2. **Act — in this order of preference:** `tap --text "<text on the button>"` → `tap @<id>` (number from `ui`) → `tap --name` →
+   coordinates (only without the probe or when the object has no text/name; coordinates are **px of the latest view
+   image**, the tool converts them to device px). Buttons with consequences **always** carry `--expect`:
    ```bash
-   $QA tap --text "Mua" --expect "Đã mua" --as "Bấm Mua ở gói đầu tiên"          # chờ chữ xuất hiện
-   $QA tap @12 --expect screen:Shop --as "Mở Shop từ HUD"                        # chờ màn (tên enum Features) lên stack
-   $QA tap --text "Nhận" --expect @30 --timeout 5 --as "Nhận thưởng nhiệm vụ"   # chờ element id
+   $QA tap --text "Mua" --expect "Đã mua" --as "Bấm Mua ở gói đầu tiên"          # wait for the text to appear
+   $QA tap @12 --expect screen:Shop --as "Mở Shop từ HUD"                        # wait for the screen (Features enum name) on the stack
+   $QA tap --text "Nhận" --expect @30 --timeout 5 --as "Nhận thưởng nhiệm vụ"   # wait for an element id
    $QA swipe --dir up --as "Cuộn danh sách nhiệm vụ"
    $QA drag 120 900 420 900 --as "Kéo vật phẩm vào ô trống"
    $QA key back --as "Bấm Back hệ thống để đóng popup"
    ```
-   `--as` = hành động **như người chơi kể lại** (thành bước tái hiện của bug) — luôn có. Không chắc toạ độ →
-   `$QA shot --grid`.
-3. **Kiểm** output tự động sau mỗi thao tác:
-   - `expectation-failed` → **chưa phải bug**: `$QA shot`, nhìn; lặp lại thao tác đúng một lần; vẫn fail và màn
-     cho thấy game sai → ca `fail`, đi STEP 5. Màn cho thấy kỳ vọng của mình sai (chữ khác, màn khác tên) → sửa
-     kỳ vọng, ghi vào charter.
-   - `Δ … GẦN NHƯ KHÔNG ĐỔI` → thao tác không có phản hồi: chụp lại sau 1–2s; vẫn không đổi và đây là nút →
-     nghi "nút không phản hồi"/"bị overlay vô hình che" (probe: `ui` xem `✗che:`) — kiểm `selfcheck` còn OK rồi mới log.
-   - `⚠ LOG: … lỗi MỚI` → **dừng lại xử lý ngay**: lỗi xuất hiện ở bước nào, tái hiện, log bug với `--log-sig`.
-   - `⚠ ẢNH:` (màn đen/trắng trơn, mảng hồng magenta) → bug visual/render — tái hiện rồi log.
-   - `⚑ audit tự động #n: <k> phát hiện (<m> suppressed)` → màn vừa đổi, tool đã `audit` (ảnh `*.audit.jpg`). Đọc
-     ảnh, xử lý theo STEP 2.1 ngay khi còn ở màn đó. Tắt auto-audit (màn lặp nhiều, cuộn dài) bằng flag toàn cục
-     `--no-auto-audit` cho lệnh đó.
-   - `⚠ app đang ở foreground: …` → quảng cáo/trình duyệt/store đã mở: xử lý như người chơi rồi kiểm game quay về
-     đúng chỗ. Quảng cáo (Android) → `$QA ad-close` (chờ đếm ngược, tìm nút X/Skip trong cây view native, bấm như
-     người chơi). Không thấy nút → `$QA ad-close --list` / `key back`. Trình duyệt/store → `key back`.
-   - `LỖI: điểm chạm … nằm dưới overlay của app khác` → làm theo hướng dẫn trong lỗi, đừng thử toạ độ quanh đó.
-   - So kết quả với oracle trong charter (STEP 3).
-4. **Chờ:** `$QA wait 3` · `$QA wait 20 --settle` (tới khi màn đứng yên) · animation/hiệu ứng → `$QA burst 6` (dải
-   nhiều khung để soi nhấp nháy, nhảy layout). Chờ dài (sản xuất, hồi chiêu, offline) → probe `$QA timescale 10`,
-   xong `$QA timescale 1`; hoặc cheat tua thời gian của game (đường cheat đã kiểm ở `QaProfile.md`).
+   `--as` = the action **as the player would tell it**, written in Vietnamese (it becomes a repro step of the bug) —
+   always present. Unsure about coordinates → `$QA shot --grid`.
+3. **Check** the automatic output after every action:
+   - `expectation-failed` → **not a bug yet**: `$QA shot`, look; repeat the action exactly once; still failing and the
+     screen shows the game is wrong → case `fail`, go to STEP 5. The screen shows your expectation was wrong (different
+     text, differently named screen) → fix the expectation, record it in the charter.
+   - `Δ … ALMOST UNCHANGED` → the action got no response: shoot again after 1–2s; still unchanged and it
+     is a button → suspect "button not responding"/"covered by an invisible overlay" (probe: `ui` shows `✗covered:`) — check
+     `selfcheck` is still OK before logging.
+   - `⚠ LOG: … NEW errors` → **stop and handle it now**: at which step the error appeared, reproduce, log a bug with
+     `--log-sig`.
+   - `⚠ SCREENSHOT:` (plain black/white screen, magenta patches) → visual/render bug — reproduce then log.
+   - `⚑ auto audit #n: <k> findings (<m> suppressed)` → the screen just changed and the tool ran `audit` (image
+     `*.audit.jpg`). Read the image, handle it per STEP 2.1 while still on that screen. Turn auto-audit off (heavily repeated
+     screens, long scrolling) with the global flag `--no-auto-audit` for that command.
+   - `⚠ foreground app: …` → an ad/browser/store opened: deal with it like a player, then check the game returns to
+     the right place. Ad (Android) → `$QA ad-close` (waits for the countdown, finds the X/Skip button in the native view
+     tree, taps it like a player). No button found → `$QA ad-close --list` / `key back`. Browser/store → `key back`.
+   - `ERROR: touch point … is under another app's overlay` → follow the instructions in the error, do not try nearby coordinates.
+   - Compare the result with the charter's oracle (STEP 3).
+4. **Wait:** `$QA wait 3` · `$QA wait 20 --settle` (until the screen stands still) · animations/effects → `$QA burst 6`
+   (a strip of frames to spot flicker, layout jumps). Long waits (production, cooldowns, offline) → probe `$QA timescale 10`,
+   then `$QA timescale 1`; or the game's time-skip cheat (verified cheat path in `QaProfile.md`).
 
-Điều hướng theo cảm nhận người chơi: tìm nút bằng mắt như user mới; nếu một người chơi bình thường **không tìm ra
-cách** làm việc mà tính năng yêu cầu → đó cũng là phát hiện (UX, `--type ux`).
+Navigate by player intuition: look for buttons by eye like a new user; if an ordinary player **cannot find a way** to do
+what the feature requires → that is a finding too (UX, `--type ux`).
 
-### 2.1 Visual — mỗi màn/popup/trạng thái MỚI
+### 2.1 Visual — every NEW screen/popup/state
 
-Auto-audit đã chạy khi màn đổi; trạng thái mới **trong cùng màn** (sau mua, hết tiền, danh sách rỗng, max level)
-→ `$QA audit` tay. Audit = chụp + kiểm ảnh + log; có probe thêm audit sâu (tràn/cắt chữ, thiếu glyph, chữ là key
-localize / `{0}` / NaN / null, nút ngoài màn hoặc ngoài safe area, nút bị che, vùng chạm < 6 mm, Image trắng thiếu
-sprite, material lỗi, chữ chồng chữ; **probe ≥ 1.3** thêm flag port từ UiAuditUtil, tool in thành finding cùng
-tên: `deadButton` (nút bấm được nhưng không gắn handler), `noRaycastTarget` (phần tử tương tác không có Graphic nhận
-raycast — bấm không ăn), `overlapButton` (hai nút cùng cha chồng nhau > 50%), `missingSprite` (Image không sprite,
-hiện khối màu), `solidBackground` (Image không sprite phủ ≥ 50% màn — thường backdrop cố ý, Info), `noSprite` mở
-rộng cho ô trắng đục có con; mỗi flag kèm `flagDetail`) và ảnh `*.audit.jpg` khoanh từng lỗi.
+Auto-audit already ran when the screen changed; a new state **within the same screen** (after buying, out of money, empty
+list, max level) → run `$QA audit` by hand. Audit = screenshot + image check + log; with the probe it adds a deep audit
+(text overflow/clipping, missing glyphs, text that is a localize key / `{0}` / NaN / null, buttons offscreen or outside the
+safe area, covered buttons, touch targets < 6 mm, white Images missing a sprite, broken materials, overlapping text;
+**probe ≥ 1.3** adds flags ported from UiAuditUtil, printed by the tool as findings of the same name: `deadButton` (button is
+clickable but has no handler), `noRaycastTarget` (interactive element has no Graphic receiving raycasts — taps do not land),
+`overlapButton` (two sibling buttons overlap > 50%), `missingSprite` (Image without a sprite, shows a solid block),
+`solidBackground` (sprite-less Image covering ≥ 50% of the screen — usually an intentional backdrop, Info), `noSprite`
+extended to opaque white cells with children; each flag carries `flagDetail`) and an `*.audit.jpg` image circling each issue.
 
-- **Mỗi phát hiện vẫn phải nhìn ảnh xác nhận** (popup đang mở thì "bị che" là đúng; panel trắng có chủ đích không
-  phải thiếu sprite; element cố ý nằm ngoài màn để trượt vào không phải offscreen).
-- Finding sai **lặp lại** (cùng flag, cùng element/màn, ≥ 2 lần) → thêm luật nhiễu vào `qa.noise` (playbook §11:
-  `flag` + `match` regex + `reason` + `addedBy` + `date`) — finding sau đó thành `suppressed`, report vẫn đếm. Không thêm
-  luật cho finding chỉ mới thấy một lần, không thêm luật rộng hơn element đang sai (`match` khớp cả màn chỉ khi lý do
-  đúng cho cả màn). `$QA audit --include-suppressed` để soi lại.
-- UI cheat/debug (nút cheat, overlay FPS, nút Bug Logger) không phải bug — cần màn sạch thì `$QA cheat off`, soi
-  xong `$QA cheat on`.
-- Sau đó soi bằng mắt theo checklist playbook §4 (bố cục, chữ, ảnh/icon, trạng thái, nhất quán style ArtStyle.md,
-  animation, safe area). Ma trận môi trường (cỡ chữ, dark mode, tỉ lệ màn, pseudo-loc) làm gộp ở STEP 4.
+- **Every finding still needs a look at the image to confirm** (with a popup open, "covered" is correct; an intentional
+  white panel is not a missing sprite; an element deliberately offscreen to slide in is not offscreen).
+- A false finding that **recurs** (same flag, same element/screen, ≥ 2 times) → add a noise rule to `qa.noise` (playbook
+  §11: `flag` + `match` regex + `reason` + `addedBy` + `date`) — later findings become `suppressed`, the report still counts
+  them. Do not add a rule for a finding seen only once, do not add a rule broader than the wrong element (`match` covering
+  the whole screen only when the reason holds for the whole screen). `$QA audit --include-suppressed` to review them again.
+- Cheat/debug UI (cheat buttons, FPS overlay, Bug Logger button) is not a bug — need a clean screen → `$QA cheat off`, then
+  `$QA cheat on` when done.
+- Then inspect by eye with the playbook §4 checklist (layout, text, images/icons, states, ArtStyle.md style consistency,
+  animation, safe area). The environment matrix (font size, dark mode, aspect ratios, pseudo-loc) is done together at STEP 4.
 
-Xong STEP 2 khi `$QA charter diff` chỉ còn ca P4/P5 (gộp ở STEP 4–5) hoặc ca `blocked` có lý do.
+STEP 2 is done when `$QA charter diff` only has P4/P5 cases left (merged into STEP 4–5) or `blocked` cases with a reason.
 
-## STEP 3 — Oracle logic: mọi con số có nguồn
+## STEP 3 — Logic oracles: every number has a source
 
-Đọc [references/oracles.md](references/oracles.md). Nguyên tắc: **oracle** (giá trị đúng cho một hành động, từ
-CSV/GDD) kiểm **từng ca**; **invariant** (điều luôn đúng: tiền không âm, tổng vào = tổng ra, timer dùng
-`TimeManager`…) kiểm **sau mỗi nhóm ca** và lúc kết thúc.
+Read [references/oracles.md](references/oracles.md). Principle: an **oracle** (the correct value for one action, from
+CSV/GDD) is checked **per case**; an **invariant** (something always true: money never negative, total in = total out,
+timers use `TimeManager`…) is checked **after each group of cases** and at the end.
 
-- **Đo trước/sau** mọi hành động có hệ quả: tiền tệ, item, level, timer, tiến độ nhiệm vụ, red dot. Có probe:
-  `$QA state <đường dẫn>` — path đã kiểm có sẵn ở `qa.verified.statePaths` / `QaProfile.md` (vd mặc định template
-  `PlayerDataManager.PlayerResource` — đọc code để biết đúng member nếu profile chưa có); không có probe: đọc số trên
-  ảnh gốc `.png`. Path mới chạy OK → `stop` tự ghi vào `verified`.
-- **Giá trị kỳ vọng từ CSV:** `$QA csv <tên collection> --where id=3 --col price` (tên file không đuôi, tìm theo
-  `csvConfigGlob`) — trích vào charter dạng `csv CoinPack:3`. Không tin số trong GDD nếu CSV khác → bug `--type gd`
-  nêu cả hai nguồn.
-- **So với oracle:** giá trừ đúng một lần, thưởng cộng đúng một lần, thời gian đúng, mở khoá đúng điều kiện, số
-  hiển thị khớp giữa HUD/popup/màn chi tiết, format số (1.2K, dấu phẩy) nhất quán.
-- **Invariant qua `call`:** game có hàm kiểm tra/tổng hợp (Service static) → `$QA call Type.Method` để đọc kết quả
-  tổng, không để sửa state. Bảng invariant chuẩn template + cách kiểm: oracles.md §2.
-- **Tracking:** hành động có event analytics (mua, nhận thưởng, mở màn, xem ads) → `$QA mark` trước, hành động, rồi
-  `$QA track --since <mark> --expect <tên event>` (lọc log theo `qa.conventions.trackingLogPattern`; tên event từ
-  `trackingEventNameType` trong code). Thiếu event / event đúp khi spam → bug `--type logic` mức medium (oracles.md §4).
-- **Lưu trữ:** sau thay đổi state quan trọng → `$QA app restart` → state còn nguyên? Nền 30s → timer/offline đúng?
-  `app restart` mặc định tắt **như người chơi** (về Home → chờ 2s → tắt: game kịp `OnApplicationPause` để lưu);
-  `app restart --hard` = kill thẳng như crash (game KHÔNG kịp lưu). Bug mất dữ liệu **phải tái hiện bằng `app restart`
-  mặc định** mới log như bug lưu trữ thường; chỉ ra với `--hard` → ghi rõ "chỉ khi app bị giết đột ngột" và hạ một mức.
-- **Save-migration (khi repo có bản build cũ hơn bản đang test):** `$QA build update <apk|aab|path> --keep-data` —
-  tool ghi version trước/sau, snapshot `verified.statePaths` trước/sau → `migration.md`. Mất/đổi giá trị không giải
-  thích được bằng changelog → bug critical (mất tiến trình) (oracles.md §5).
-- **Gián đoạn & lặp:** P2 ở charter — Back trên mọi popup (Android), `$QA tap … --times 5 --interval 0.05` cho nút
-  nhận thưởng/mua (thưởng nhân đôi = bug high), `$QA net off` giữa luồng mạng (báo lỗi tử tế, không treo, không
-  mất/nhân đôi thưởng), `$QA app background --secs 10`.
-- **Softlock:** màn không còn đường thoát, nút không phản hồi, loading vô tận (`wait 30 --settle` vẫn quay) → bug high.
+- **Measure before/after** every action with consequences: currencies, items, levels, timers, quest progress, red dots.
+  With the probe: `$QA state <path>` — verified paths are in `qa.verified.statePaths` / `QaProfile.md` (e.g. the template
+  default `PlayerDataManager.PlayerResource` — read the code for the right member if the profile has none yet); without the
+  probe: read the numbers off the original `.png`. A new path that works → `stop` writes it into `verified`.
+- **Expected values from CSV:** `$QA csv <collection name> --where id=3 --col price` (file name without extension, found via
+  `csvConfigGlob`) — cite it in the charter as `csv CoinPack:3`. Do not trust a number in the GDD when the CSV differs → bug
+  `--type gd` quoting both sources.
+- **Compare with the oracle:** price deducted exactly once, reward added exactly once, correct duration, unlock at the right
+  condition, displayed numbers match across HUD/popup/detail screen, consistent number format (1.2K, separators).
+- **Invariants via `call`:** the game has check/aggregate functions (static Service) → `$QA call Type.Method` to read the
+  aggregate, never to change state. Standard template invariant table + how to check: oracles.md §2.
+- **Tracking:** actions with an analytics event (purchase, reward claim, screen open, ad view) → `$QA mark` first, act, then
+  `$QA track --since <mark> --expect <event name>` (filters logs by `qa.conventions.trackingLogPattern`; event names from
+  `trackingEventNameType` in code). Missing event / duplicate event on spam → bug `--type logic` severity medium (oracles.md §4).
+- **Persistence:** after an important state change → `$QA app restart` → is the state intact? Background 30s → timer/offline
+  correct? `app restart` by default closes the app **like a player** (to Home → wait 2s → close: the game gets
+  `OnApplicationPause` to save); `app restart --hard` = a straight kill like a crash (the game does NOT get to save). A
+  data-loss bug **must reproduce with the default `app restart`** to be logged as an ordinary persistence bug; only with
+  `--hard` → state clearly "chỉ khi app bị giết đột ngột" (only when the app is killed abruptly) and lower it one level.
+- **Save-migration (when the repo has a build older than the one under test):** `$QA build update <apk|aab|path> --keep-data`
+  — the tool records the version before/after, snapshots `verified.statePaths` before/after → `migration.md`. A value lost or
+  changed that the changelog cannot explain → critical bug (lost progress) (oracles.md §5).
+- **Interruptions & repetition:** P2 in the charter — Back on every popup (Android), `$QA tap … --times 5 --interval 0.05` on
+  reward/buy buttons (doubled reward = high bug), `$QA net off` mid network flow (a decent error, no hang, no lost/doubled
+  reward), `$QA app background --secs 10`.
+- **Softlock:** a screen with no way out, a button that does not respond, endless loading (`wait 30 --settle` still
+  spinning) → high bug.
 
-### 3.1 Ổn định & hiệu năng
+### 3.1 Stability & performance
 
-- Log tự kiểm sau mỗi thao tác; `$QA logs --all` xem toàn phiên (chữ ký, số lần lặp, bước xảy ra).
-- `$QA perf` lúc bắt đầu, sau mỗi nhóm ca, lúc kết thúc: RAM tăng > 150 MB không hồi, FPS < 25 ở màn tĩnh, máy
-  > 43°C → bug `--type perf`.
-- Noise log: lỗi SDK quảng cáo/Play Services trên emulator, warning thường → không log; lỗi lặp không liên quan →
-  `$QA logs --ignore "<regex>"` (ghi lý do vào note). Exception trong code game luôn là bug dù không thấy hậu quả.
+- Logs are checked automatically after every action; `$QA logs --all` shows the whole session (signatures, repeat counts,
+  the step where they occurred).
+- `$QA perf` at the start, after each case group, at the end: RAM up > 150 MB without recovering, FPS < 25 on a static
+  screen, device > 43°C → bug `--type perf`.
+- Log noise: ad SDK/Play Services errors on emulators, ordinary warnings → do not log; an unrelated recurring error →
+  `$QA logs --ignore "<regex>"` (write the reason in a note). An exception in game code is always a bug even without a
+  visible consequence.
 
-Xong STEP 3 khi mọi ca P0–P1 có số đo trước/sau ghi trong `note`, invariant kiểm ≥ 1 lần sau nhóm ca kinh tế.
+STEP 3 is done when every P0–P1 case has before/after measurements recorded in its `note`, and invariants were checked ≥ 1
+time after the economy case group.
 
-## STEP 4 — Ma trận môi trường: cùng tính năng, điều kiện khác
+## STEP 4 — Environment matrix: same feature, different conditions
 
-Đọc [references/env-matrix.md](references/env-matrix.md) để biết từng bước lộ lỗi gì. Làm **sau** khi P0–P3 xong
-(để không lẫn bug logic với bug môi trường), trên 2–3 màn chính của tính năng.
+Read [references/env-matrix.md](references/env-matrix.md) to know what each step exposes. Do it **after** P0–P3 are done (so
+logic bugs do not mix with environment bugs), on the feature's 2–3 main screens.
 
-1. **Tự động:** `$QA env matrix` — với từng bước khai trong `qa.environments` (cỡ chữ `fontScales`, kích thước
-   `screenSizes`, `darkMode`, `animatorScale`): áp → `shot` → `audit` → hoàn nguyên; tổng hợp `env-matrix.md`.
-   `--quick` chỉ chạy một bước mỗi nhóm. Target không hỗ trợ (iOS) → từng bước báo `unsupported`, không lỗi.
-2. **Tay, khi tính năng có vùng nhạy:**
-   - `$QA aspect tall|short|tablet|<WxH>` (Android `wm size`) → đi lại màn chính → `$QA aspect reset`. Phần tử
-     neo sai, khoảng trống lạ, nút rơi khỏi safe area.
-   - `$QA env font-scale 1.3` → màn nhiều chữ → `env font-scale reset`. Tràn/cắt chữ, nút giãn đè nhau.
-   - `$QA env dark on` → `env dark off` (game dùng theme hệ thống hoặc WebView/popup native).
-   - `$QA env animator 0` → bấm nhanh qua luồng → `env animator 1` (logic phụ thuộc animation hoàn tất: nhận thưởng
-     không hiện, nút kẹt disabled).
-   - `$QA env kill-activities on` → `app background --secs 5` → quay lại → `env kill-activities off` (Android giết
-     activity khi nền: state tạm, popup đang mở, ads đang xem).
-   - `$QA env trim-memory` (áp lực bộ nhớ) → chơi tiếp 1 phút → `logs` (LMK, texture mất, crash native).
-   - `$QA env clock +1d` (emulator/root) → daily reward / timer / event hết hạn → `env clock reset`.
-   - **Pseudo-loc** (probe ≥ 1.3): `$QA pseudoloc on` → đi qua mọi màn/popup của tính năng → `audit` → `$QA pseudoloc off`.
-     Chữ giãn ~30% + dấu + `[…]`: tràn khung, cắt, xuống dòng xấu, chữ cứng không qua localize (không đổi) — bắt lỗi
-     localize **không cần** đổi ngôn ngữ. Probe cũ → đổi ngôn ngữ chữ dài của game nếu có, đổi lại khi xong.
-   - Gián đoạn (P2) nếu chưa làm ở STEP 3: bảng playbook §3.4.
-3. Mỗi phát hiện: xác nhận bằng ảnh, tái hiện (bật lại điều kiện), rồi STEP 5. Lỗi chỉ xảy ra ở điều kiện môi
-   trường → ghi điều kiện vào `--precondition` + tiêu đề (`… khi cỡ chữ hệ thống 130%`), mức theo rubric (thường medium).
+1. **Automatic:** `$QA env matrix` — for each step declared in `qa.environments` (font scales `fontScales`, sizes
+   `screenSizes`, `darkMode`, `animatorScale`): apply → `shot` → `audit` → revert; summarized in `env-matrix.md`.
+   `--quick` runs only one step per group. Unsupported target (iOS) → each step reports `unsupported`, not an error.
+2. **By hand, when the feature has sensitive areas:**
+   - `$QA aspect tall|short|tablet|<WxH>` (Android `wm size`) → walk the main screens again → `$QA aspect reset`. Badly
+     anchored elements, odd gaps, buttons falling outside the safe area.
+   - `$QA env font-scale 1.3` → text-heavy screens → `env font-scale reset`. Text overflow/clipping, stretched buttons
+     overlapping.
+   - `$QA env dark on` → `env dark off` (the game uses the system theme or a WebView/native popup).
+   - `$QA env animator 0` → tap quickly through the flow → `env animator 1` (logic that depends on animations finishing:
+     reward not shown, button stuck disabled).
+   - `$QA env kill-activities on` → `app background --secs 5` → come back → `env kill-activities off` (Android kills the
+     activity in the background: temporary state, open popups, ads being watched).
+   - `$QA env trim-memory` (memory pressure) → keep playing 1 minute → `logs` (LMK, lost textures, native crash).
+   - `$QA env clock +1d` (emulator/root) → daily reward / timers / expiring events → `env clock reset`.
+   - **Pseudo-loc** (probe ≥ 1.3): `$QA pseudoloc on` → go through every screen/popup of the feature → `audit` →
+     `$QA pseudoloc off`. Text expanded ~30% + accents + `[…]`: overflow, clipping, ugly wrapping, hardcoded text that does
+     not go through localize (unchanged) — catches localize bugs **without** switching languages. Older probe → switch to
+     the game's longest-text language if there is one, switch back when done.
+   - Interruptions (P2) if not done at STEP 3: table in playbook §3.4.
+3. Each finding: confirm with a screenshot, reproduce (turn the condition on again), then STEP 5. A bug that only happens
+   under an environment condition → put the condition in `--precondition` + the title (`… khi cỡ chữ hệ thống 130%`, still
+   within the 70-character title limit), severity per rubric (usually medium).
 
-Xong STEP 4 khi `env-matrix.md` có kết quả mọi bước (hoặc `unsupported`) và pseudo-loc đã qua mọi màn của tính năng
-(hoặc ghi lý do bỏ).
+STEP 4 is done when `env-matrix.md` has a result for every step (or `unsupported`) and pseudo-loc went through every screen of
+the feature (or the reason for skipping is recorded).
 
-## STEP 5 — Log bug
+## STEP 5 — Log bugs
 
-Khi một lỗi đã xác nhận (luật 2–3):
+Once a bug is confirmed (rules 2–3):
 
-1. **Trùng?** So với danh sách bug mở (STEP 0d) và `autotest-summary.md` (0f): cùng màn + cùng triệu chứng → không
-   log, ghi "trùng #N" / "autotest đã có" vào `note --case … --result fail`.
-2. **Nhiễu?** Finding audit khớp luật trong `qa.noise` đã bị `suppressed`; finding mới mà bạn thấy không phải bug
-   → thêm luật nhiễu (STEP 2.1), không log.
-3. **Ảnh bằng chứng:** đưa game về đúng trạng thái lỗi rồi `$QA shot`, hoặc dùng ảnh cũ: `--shot <tên file trong
-   shots/>`. Bug không thấy được trên màn (logic thuần) → ảnh màn liên quan nhất + số đo trong actual.
-4. **Gửi:**
+1. **Duplicate?** Compare with the open bug list (STEP 0d) and `autotest-summary.md` (0f): same screen + same symptom → do
+   not log, write "trùng #N" / "autotest đã có" in `note --case … --result fail`.
+2. **Noise?** Audit findings matching a `qa.noise` rule are already `suppressed`; a new finding you see is not a bug → add a
+   noise rule (STEP 2.1), do not log.
+3. **Screenshot evidence:** bring the game back to the faulty state then `$QA shot`, or reuse an old image: `--shot <file name
+   in shots/>`. A bug invisible on screen (pure logic) → the most relevant screen + the measurements in actual.
+4. **Send** — all bug text (title, `--actual`, `--expected`, `--precondition`, `--steps`) is written in Vietnamese:
    ```bash
    $QA bug --title "Shop: mua gói vàng đầu tiên trừ kim cương 2 lần khi bấm nhanh" \
      --actual "Bấm Mua 2 lần liên tiếp: kim cương 500 → 300 (trừ 2×100), vàng chỉ +1.000 một lần" \
      --expected "Trừ 100 kim cương một lần, +1.000 vàng, lần bấm thứ hai bị chặn (csv CoinPack:2 price=100)" \
      --precondition "Đã qua tutorial, có 500 kim cương (cheat cộng kim cương)" \
      --type logic --severity high --rate 3/3 --evidence "ảnh #014 (trước) #015 (sau); state PlayerResource trước/sau" \
-     --log-sig <sig nếu có> [--shot 015-tap.png] [--save] [--mention "<tên dev>"]
+     --log-sig <sig if any> [--shot 015-tap.png] [--save] [--feature Shop] [--mention "<exact full name>"]
    ```
-   - `--steps` mặc định = các bước `--as` từ `mark` gần nhất (xem trước bằng `$QA steps`). Bước thiếu ý → tự viết
-     `--steps "1. …\n2. …"`.
-   - `--type`: crash · logic · visual · ux · perf · gd. `--severity` theo rubric playbook §6 (crash/mất tiến trình/
-     mất tiền thật = critical; chặn tính năng/sai kinh tế = high; sai hiển thị rõ/luồng phụ = medium; lỗi nhỏ = low).
-   - Tool tự điền category + forum tag theo form BugHub, thiết bị, build, commit (nếu build bake), log app (+ đoạn
-     log của `--log-sig`), extra `reporter=auto-test-device`. Có probe: thêm màn hiện tại, player id, context game,
-     `--save` đính kèm save snapshot.
-   - `--via ingame` (cần probe + Bug Logger trong build): gửi bằng chính Bug Logger trong game. Mặc định `http`.
-   - Trước bug đầu tiên của phiên có thể `--dry-run` để xem report.
-5. Output `BUG #N → url` = xong → `$QA note --case <charter>/<case> --result fail --bug N "…"`. `BugHub từ chối …` →
-   sửa tham số, `$QA bug-resend <id>`; lỗi mạng / 5xx / 429 → `$QA retry -- bug-resend <id>` rồi chơi tiếp. `trùng bug
-   đã log … (<lý do>)` → đúng là trùng thì bỏ; khác thật → thêm chi tiết vào tiêu đề hoặc `--force`.
-6. `$QA mark "<ca tiếp theo>"` rồi chơi tiếp — một bug không chặn phần còn lại của charter (bug chặn hẳn tính năng
-   → ca phụ thuộc `blocked`). **Một lỗi → tìm anh em của nó** (playbook §1) trước khi sang ca khác.
+   - `--title`: Vietnamese, **at most 70 characters**, shaped `<Feature>: <what is wrong>`; no leading `[tags]` — version,
+     platform, map and device are attached automatically. The tool strips leading `[tags]` and **rejects** a title over 70
+     characters (it does not cut it) → rewrite it shorter; numbers and details go in `--actual`. The Discord thread name is
+     built as `#N [version] category · feature · title` (≤ 100 characters).
+   - `--feature`: the short name of the feature/screen (e.g. `Shop`, `Upgrade`, `Tutorial`). Default: the title's
+     `Feature:` prefix, else the session's `--feature` without its `(…)` part. Never a charter-wide description like
+     `Full game Map 1-3 (…)`.
+   - `--mention`: the exact full name (as BugHub people lists it — `bughub_people`) of the ONE person who must act; usually
+     omit it — the server notifies the right people. A partial name that matches several people (a shared family name,
+     "Anh") is an error, never a ping to all of them.
+   - `--steps` defaults to the `--as` steps since the latest `mark` (preview with `$QA steps`). Steps missing meaning →
+     write `--steps "1. …\n2. …"` yourself.
+   - `--type`: crash · logic · visual · ux · perf · gd. `--severity` per the playbook §6 rubric (crash/lost progress/lost
+     real money = critical; feature blocked/wrong economy = high; clearly wrong display/secondary flow = medium; minor = low).
+   - The tool fills in category + forum tag per the BugHub form, device, build, commit (if the build bakes it in), app log
+     (+ the log excerpt for `--log-sig`), extra `reporter=auto-test-device`. With the probe: adds the current screen, player
+     id, game context; `--save` attaches a save snapshot.
+   - `--via ingame` (needs the probe + Bug Logger in the build): sends through the game's own Bug Logger. Default `http`.
+   - Before the first bug of the session you may `--dry-run` to preview the report.
+5. Output `BUG #N logged → url` = done → `$QA note --case <charter>/<case> --result fail --bug N "…"`.
+   `BugHub rejected …` → fix the parameters, `$QA bug-resend <id>`; network error / 5xx / 429 → `$QA retry -- bug-resend
+   <id>` then keep playing. `duplicate of logged bug … (<reason>)` → genuinely a duplicate → drop it; genuinely different
+   → add detail to the title (still ≤ 70 characters) or `--force`.
+6. `$QA mark "<next case>"` and keep playing — one bug does not block the rest of the charter (a bug that fully blocks the
+   feature → dependent cases `blocked`). **One bug → look for its siblings** (playbook §1) before moving to another case.
 
-Mẫu tiêu đề, actual/expected tốt/xấu: playbook §7.
+Good/bad title, actual and expected examples: playbook §7.
 
-## STEP 6 — Kết thúc: coverage, report, ghi tri thức
+## STEP 6 — Wrap-up: coverage, report, record knowledge
 
-Dừng khi `$QA charter diff` rỗng (hoặc còn lại chỉ `blocked`/`skip` có lý do), ma trận môi trường xong, và thêm **2
-vòng thăm dò tự do** (playbook §3.7) không ra phát hiện mới — hoặc thiết bị/app hỏng không cứu được.
+Stop when `$QA charter diff` is empty (or only `blocked`/`skip` with reasons remain), the environment matrix is done, and **2
+more free exploration rounds** (playbook §3.7) found nothing new — or the device/app is broken beyond rescue.
 
-1. `$QA perf` lần cuối, `$QA logs --all` — lỗi log nào là bug chưa log → STEP 5.
-2. `$QA coverage` — case planned/run/pass/fail/not-run theo charter; màn sống chưa visit (`liveness` − `observed`)
-   → nếu thuộc tính năng này thì quay lại test, không thì ghi report "ngoài phạm vi".
-3. **Cập nhật tri thức vào repo (luật 6)** — trước `stop`, bằng Edit:
-   - `charters/<feature>.md`: ca mới nghĩ ra trong phiên, oracle sửa, ca bỏ vì không còn đúng (không ghi kết quả).
-   - `.claude/docs/QaProfile.md`: cheat/đường bật cheat dùng được, màn chết phát hiện thêm, hướng hay hỏng của game
-     (vd "nút nhận thưởng hay nhân đôi khi spam"), luật nhiễu mới + lý do, quy ước lệch đã sửa trong `qa.conventions`.
-     Mẫu ở playbook §12. Giữ `Status: draft` nếu dev chưa duyệt.
-4. `$QA stop` → trả cài đặt máy, gỡ thử lại lỗi API, **flush** `liveness.observed` + `verified.cheats/statePaths` vào
-   `project-profile.json`, viết `report.md` (bug, kết quả ca, coverage, env matrix, selfcheck, suppressed,
-   autotest-import). Output có gợi ý dòng cần thêm vào `QaProfile.md` nếu bạn chưa ghi.
-5. Trả lời user (tiếng Việt), ngắn:
-   - Bảng bug đã log: `#N` + tiêu đề + mức độ + link (hoặc "trùng #N" / "autotest đã có" / "gửi lỗi").
-   - Coverage: số ca pass/fail/blocked/skip theo charter, ca fail chưa thành bug (vì sao), màn sống chưa visit.
-   - Phát hiện không log (nghi vấn chưa tái hiện được, góp ý UX nhỏ, `expectation-failed` chỉ ra 1 lần) — một dòng mỗi cái.
-   - File project đã đổi cần dev commit: `project-profile.json` (`qa`), `QaProfile.md`, `charters/*.md`,
-     `EzgQaProbeConfig.json`/autotest settings (nếu `profile sync`), `Packages/manifest.json` (nếu `start` thêm probe).
-     `Status: draft` → nhắc dev duyệt.
-   - Đường dẫn `report.md`, thiết bị + build đã test, probe phiên bản + cổng mở bằng gì; máy chưa được thêm vào
-     danh sách máy test thì kèm dòng `→ test_device_add …`; probe < 1.3 thì nhắc build lại để test đủ.
-   - Việc `[dev]` còn lại từ `doctor` (cheat-gate chưa cài, MCP thiếu, item AI chưa cập nhật vì không có Editor…) —
-     mỗi việc một dòng kèm lệnh/bước cụ thể; không có thì không nhắc.
+1. `$QA perf` one last time, `$QA logs --all` — any log error that is a bug not yet logged → STEP 5.
+2. `$QA coverage` — cases planned/run/pass/fail/not-run per charter; live screens not visited (`liveness` − `observed`)
+   → if they belong to this feature, go back and test them; otherwise write "ngoài phạm vi" (out of scope) in the report.
+3. **Record knowledge in the repo (rule 6)** — before `stop`, with Edit:
+   - `charters/<feature>.md`: new cases thought of during the session, corrected oracles, cases dropped because they no longer
+     apply (no results).
+   - `.claude/docs/QaProfile.md`: working cheats/cheat-enabling paths, newly found dead screens, this game's failure-prone
+     areas (e.g. "reward buttons tend to double on spam"), new noise rules + reasons, convention mismatches fixed in
+     `qa.conventions`. Templates in playbook §12. Keep `Status: draft` if the dev has not approved it.
+4. `$QA stop` → restores device settings, disarms API retry, **flushes** `liveness.observed` + `verified.cheats/statePaths`
+   into `project-profile.json`, writes `report.md` (bugs, case results, coverage, env matrix, selfcheck, suppressed,
+   autotest-import). The output suggests lines to add to `QaProfile.md` if you have not written them yet.
+5. Reply to the user (in Vietnamese), briefly:
+   - Table of logged bugs: `#N` + title + severity + link (or "trùng #N" / "autotest đã có" / "gửi lỗi").
+   - Coverage: pass/fail/blocked/skip counts per charter, failed cases that did not become bugs (and why), live screens not
+     visited.
+   - Findings not logged (suspicions not reproduced, small UX suggestions, `expectation-failed` seen only once) — one line each.
+   - Project files changed that the dev needs to commit: `project-profile.json` (`qa`), `QaProfile.md`, `charters/*.md`,
+     `EzgQaProbeConfig.json`/autotest settings (if `profile sync` ran), `Packages/manifest.json` (if `start` added the probe).
+     `Status: draft` → remind the dev to review.
+   - Path to `report.md`, device + build tested, probe version + how the gate was opened; a device not yet added to the
+     test-device list → include the `→ test_device_add …` line; probe < 1.3 → remind them to rebuild to test fully.
+   - Remaining `[dev]` work from `doctor` (cheat-gate not installed, MCP missing, AI item not updated for lack of an Editor…)
+     — one line each with the concrete command/step; none → do not mention it.
 
-## Lệnh nhanh
+## Quick commands
 
-Cột **Probe**: `—` không cần · `có` cần probe (≥ 1.2.1) · `≥1.3` cần probe 1.3.0 (cũ hơn → `unsupported`).
+**Probe** column: `—` not needed · `yes` needs the probe (≥ 1.2.1) · `≥1.3` needs probe 1.3.0 (older → `unsupported`).
 
-| Việc | Lệnh | Probe |
+| Task | Command | Probe |
 |---|---|---|
-| Công cụ / project | `doctor [--strict] [--json] [--fix [--dry-run]]` (kiểm hết + `việc còn lại`; `--fix` làm phần tool làm được; rc 1 khi `--strict` thiếu mục bắt buộc) · `devices` · `bughub-check` · `selfcheck` | — / selfcheck: phần sâu `có` |
-| Profile project | `profile init [--force]` · `profile sync` · `profile show` | — |
-| Toàn bộ game | `plan [--json] [--only-screens]` — nhóm theo bucket/feature xếp theo rủi ro, charter đã có/chưa (ghi `plan.md` vào phiên) | — |
-| Mở / đóng phiên | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install] [--no-api-retry] [--no-profile-init]` · `stop` (flush tri thức + viết report) · `report` (viết lại report giữa phiên) · `probe-connect [--retrigger] [--unlock]` | — |
-| Lỗi → thử lại (luật 11) | `retry [--every 30] [--max-wait 540] -- <lệnh…>` (mã 75 = vẫn lỗi, gọi lại) · `api-retry on\|off\|status` | — |
-| Autotest Editor | `autotest-import [<report.json>]` → `autotest-summary.md` | — |
-| Charter / ca | `charter list\|new <feature>\|diff` · `mark "<ca>"` · `note --case <charter>/<case> --result pass\|fail\|blocked\|skip [--bug N] ["…"]` · `note "…"` · `steps` · `coverage [--charter <id>]` | — |
-| Nhìn | `shot [--grid] [--marks]` · `burst N` · `wait S [--settle]` · `audit [--include-suppressed]` · `ui [--find x] [--marks]` | audit sâu/ui: `có`; flags mới: `≥1.3` |
-| Chạm | `tap --text "…"` · `tap @id` · `tap --name` · `tap --world` · `tap X Y` · `tap 50% 80%` · `tap … --times 5 --interval 0.05` · `tap … --expect <text\|@id\|screen:<Màn>> [--timeout S]` · `longpress` | --text/@id/--name/--world/--expect: `có` |
-| Vuốt/kéo | `swipe X1 Y1 X2 Y2` · `swipe --dir up` · `drag X1 Y1 X2 Y2 [--hold ms]` | — |
-| Phím / chữ | `key back\|home\|enter\|app_switch` · `text "abc" [--submit]` · `text "Tiếng Việt" --probe` | --probe: `có` |
-| App / build | `app restart\|stop [--hard] [--settle S]` · `app launch\|background --secs N\|clear\|info\|install x.apk` · `build update <apk\|aab\|path> [--keep-data (mặc định) \| --wipe]` → `migration.md` | migration snapshot: `có` |
-| Quảng cáo / overlay (Android) | `ad-close [--timeout S] [--list]` · `overlays` | — |
-| Môi trường | `net off\|on\|wifi-off\|data-off` · `rotate portrait\|landscape\|auto` · `aspect <WxH>\|tall\|short\|tablet\|reset` · `env font-scale 1.3\|reset` · `env dark on\|off` · `env animator 0\|0.5\|1` · `env kill-activities on\|off` · `env trim-memory [level]` · `env clock +1d\|reset` · `env locale <tag>` · `env matrix [--quick]` | — |
+| Tools / project | `doctor [--strict] [--json] [--fix [--dry-run]]` (checks everything + `remaining tasks`; `--fix` does what the tool can; rc 1 when `--strict` and a required item is missing) · `devices` · `bughub-check` · `selfcheck` | — / selfcheck: deep part `yes` |
+| Project profile | `profile init [--force]` · `profile sync` · `profile show` | — |
+| Whole game | `plan [--json] [--only-screens]` — groups by bucket/feature ordered by risk, charter present/missing (writes `plan.md` into the session) | — |
+| Open / close session | `start [device] --feature "…" [--attach] [--fresh] [--install x.apk] [--no-probe-install] [--no-api-retry] [--no-profile-init]` · `stop` (flushes knowledge + writes the report) · `report` (rewrites the report mid-session) · `probe-connect [--retrigger] [--unlock]` | — |
+| Error → retry (rule 11) | `retry [--every 30] [--max-wait 540] -- <command…>` (code 75 = still failing, call again) · `api-retry on\|off\|status` | — |
+| Editor autotest | `autotest-import [<report.json>]` → `autotest-summary.md` | — |
+| Charter / cases | `charter list\|new <feature>\|diff` · `mark "<case>"` · `note --case <charter>/<case> --result pass\|fail\|blocked\|skip [--bug N] ["…"]` · `note "…"` · `steps` · `coverage [--charter <id>]` | — |
+| Look | `shot [--grid] [--marks]` · `burst N` · `wait S [--settle]` · `audit [--include-suppressed]` · `ui [--find x] [--marks]` | deep audit/ui: `yes`; new flags: `≥1.3` |
+| Touch | `tap --text "…"` · `tap @id` · `tap --name` · `tap --world` · `tap X Y` · `tap 50% 80%` · `tap … --times 5 --interval 0.05` · `tap … --expect <text\|@id\|screen:<Screen>> [--timeout S]` · `longpress` | --text/@id/--name/--world/--expect: `yes` |
+| Swipe/drag | `swipe X1 Y1 X2 Y2` · `swipe --dir up` · `drag X1 Y1 X2 Y2 [--hold ms]` | — |
+| Keys / text | `key back\|home\|enter\|app_switch` · `text "abc" [--submit]` · `text "Tiếng Việt" --probe` | --probe: `yes` |
+| App / build | `app restart\|stop [--hard] [--settle S]` · `app launch\|background --secs N\|clear\|info\|install x.apk` · `build update <apk\|aab\|path> [--keep-data (default) \| --wipe]` → `migration.md` | migration snapshot: `yes` |
+| Ads / overlays (Android) | `ad-close [--timeout S] [--list]` · `overlays` | — |
+| Environment | `net off\|on\|wifi-off\|data-off` · `rotate portrait\|landscape\|auto` · `aspect <WxH>\|tall\|short\|tablet\|reset` · `env font-scale 1.3\|reset` · `env dark on\|off` · `env animator 0\|0.5\|1` · `env kill-activities on\|off` · `env trim-memory [level]` · `env clock +1d\|reset` · `env locale <tag>` · `env matrix [--quick]` | — |
 | Localize | `pseudoloc on\|off [--mode expand\|accent\|both]` | `≥1.3` |
-| Log / hiệu năng / tracking | `logs [--all] [--tail N] [--grep re] [--ignore re]` · `perf` · `track [--since <mark>] [--expect <event>]` | — |
-| Dữ liệu kỳ vọng | `csv <tên> [--where col=val] [--col c]` | — |
-| Game | `state Type.Member… [--full\|--out f.json]` · `call Type.Method args [--full\|--out f.json]` · `types <từ khoá>` · `timescale 10` · `cheat on\|off\|status` | `có` |
-| Bug | `bug --title … --actual … --expected … --type … --severity … [--log-sig] [--shot] [--save] [--dry-run] [--force]` · `bug-resend <id>` | — |
+| Logs / performance / tracking | `logs [--all] [--tail N] [--grep re] [--ignore re]` · `perf` · `track [--since <mark>] [--expect <event>]` | — |
+| Expected data | `csv <name> [--where col=val] [--col c]` | — |
+| Game | `state Type.Member… [--full\|--out f.json]` · `call Type.Method args [--full\|--out f.json]` · `types <keyword>` · `timescale 10` · `cheat on\|off\|status` | `yes` |
+| Bug | `bug --title … --actual … --expected … --type … --severity … [--feature F] [--mention "<full name>"] [--log-sig] [--shot] [--save] [--dry-run] [--force]` · `bug-resend <id>` | — |
 | Probe | `probe-install [--gate none\|Ns.Type.member]` | — |
 
-Mọi lệnh thao tác nhận `--as "<mô tả>"`, `--wait S`, `--no-shot`, `--grid`, `--marks`, `--inject` (chạm qua probe),
-`--allow-overlay` (cố ý chạm vào overlay app khác — mặc định tool chặn). Flag toàn cục `--no-auto-audit` tắt audit tự
-động khi màn đổi cho lệnh đó. `call`/`state` cắt kết quả dài và ghi rõ `[đã cắt …]` — cần trọn (danh sách id, JSON
-để parse) thì `--out <file>` rồi Read file đó.
+Every action command accepts `--as "<description>"`, `--wait S`, `--no-shot`, `--grid`, `--marks`, `--inject` (touch through
+the probe), `--allow-overlay` (deliberately touch another app's overlay — blocked by default). The global flag
+`--no-auto-audit` turns off the automatic audit on screen change for that command. `call`/`state` truncate long results and
+say `[cut …]` — need the whole thing (id lists, JSON to parse) → `--out <file>` then Read that file.
 
-## Phụ lục — nền tảng & giới hạn
+## Appendix — platforms & limits
 
-| | Android (adb) | iOS Simulator | iPhone thật | Unity Editor |
+| | Android (adb) | iOS Simulator | Real iPhone | Unity Editor |
 |---|---|---|---|---|
-| Chạm/vuốt/giữ | input hệ thống (thật) | `idb` nếu có, không thì probe | chỉ probe | chỉ probe |
-| Chụp màn | screencap | simctl | probe | probe |
-| Log | logcat (crash Java/native, ANR, LMK, exception Unity) | log stream + probe | `devicectl --console` + probe | probe |
-| Back / mạng / xoay | có | không có Back; không mạng/xoay | không | không |
-| `aspect` / `env` | có (`wm`, `settings`, `am`) | `unsupported` (đổi device simulator) | `unsupported` | `unsupported` |
-| Nhập chữ Unicode | probe (`text --probe`) | idb/probe | probe | probe |
+| Tap/swipe/hold | system input (real) | `idb` if available, otherwise probe | probe only | probe only |
+| Screenshot | screencap | simctl | probe | probe |
+| Logs | logcat (Java/native crash, ANR, LMK, Unity exception) | log stream + probe | `devicectl --console` + probe | probe |
+| Back / network / rotation | yes | no Back; no network/rotation | no | no |
+| `aspect` / `env` | yes (`wm`, `settings`, `am`) | `unsupported` (switch simulator device) | `unsupported` | `unsupported` |
+| Unicode text input | probe (`text --probe`) | idb/probe | probe | probe |
 
-- **Probe** = package `com.ezg.qa-probe` (template EZG có sẵn; project cũ thì `start` tự thêm vào manifest): kích
-  hoạt bằng token ngẫu nhiên mỗi phiên (intent extra / argument / file trigger), chỉ nghe localhost trên Android.
-  Build release chỉ mở cổng khi: máy có trong danh sách máy test của `com.ezg.cheat-gate` (probe được kích hoạt là tự
-  hỏi server một lần), hoặc cờ cheat của game đang true. Mở bằng cheat-gate thì probe bật luôn cheat của game. Probe
-  đọc quy ước (lớp cơ sở màn, type/member cheat) từ `Assets/Resources/EzgQaProbeConfig.json` do `profile sync` sinh;
-  thiếu file → tự dò theo quy ước template. Chạm qua probe đi qua EventSystem — UI chạy tốt; object 3D chỉ nhận nếu
-  game dùng EventSystem/PhysicsRaycaster hoặc `OnMouse*` (Android dùng input thật nên không bị giới hạn này).
-- Đa chạm (pinch zoom) không giả lập được bằng adb — test zoom bằng nút/cuộn nếu game có, ghi `skip` cho ca pinch.
-- Overlay app khác (Android): `start` và `overlays` dò cửa sổ nổi của app bên thứ ba; chạm adb vào vùng đó bị chặn.
-- `env clock`/`env locale` cần emulator hoặc máy root; máy thật thường → `unsupported`, ghi `skip`.
-- Trạng thái phiên ở `<git-common-dir>/auto-test-device/` (ảnh, log, `cases.jsonl`, audit, `coverage.md`,
-  `env-matrix.md`, `migration.md`, `report.md`) — không bao giờ commit. Tri thức đi theo repo nằm ở
+- **Probe** = package `com.ezg.qa-probe` (shipped with the EZG template; on older projects `start` adds it to the manifest):
+  activated by a random token per session (intent extra / argument / trigger file), listens only on localhost on Android.
+  A release build opens the gate only when: the device is in the `com.ezg.cheat-gate` test-device list (an activated probe
+  asks the server once by itself), or the game's cheat flag is true. Opened via cheat-gate → the probe also turns the game's
+  cheats on. The probe reads conventions (screen base class, cheat type/member) from `Assets/Resources/EzgQaProbeConfig.json`
+  generated by `profile sync`; file missing → it auto-detects by template conventions. Touches through the probe go through
+  the EventSystem — UI works well; 3D objects only receive them if the game uses EventSystem/PhysicsRaycaster or `OnMouse*`
+  (Android uses real input, so it has no such limit).
+- Multi-touch (pinch zoom) cannot be simulated with adb — test zoom with buttons/scrolling if the game has them, mark pinch
+  cases `skip`.
+- Other apps' overlays (Android): `start` and `overlays` detect third-party floating windows; adb taps into those areas are
+  blocked.
+- `env clock`/`env locale` need an emulator or a rooted device; ordinary real devices → `unsupported`, mark `skip`.
+- Session state lives in `<git-common-dir>/auto-test-device/` (screenshots, logs, `cases.jsonl`, audit, `coverage.md`,
+  `env-matrix.md`, `migration.md`, `report.md`) — never commit it. Knowledge that travels with the repo lives in
   `project-profile.json["qa"]`, `QaProfile.md`, `charters/`.
-- `qadevice.py` chỉ dùng thư viện chuẩn Python 3.8+ (Pillow tuỳ chọn); test: `python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests`.
+- `qadevice.py` uses only the Python 3.8+ standard library (Pillow optional); tests: `python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests`.

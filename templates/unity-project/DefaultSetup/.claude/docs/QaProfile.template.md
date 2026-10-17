@@ -1,127 +1,131 @@
 <!--
-QaProfile.template.md — KHUNG dùng chung, đi theo bộ AI của template (Feature Hub cập nhật được file này).
-KHÔNG điền giá trị của game vào đây. File thật của project là `.claude/docs/QaProfile.md`:
-  - bootstrap.sh / bootstrap.ps1 copy khung này thành QaProfile.md khi project chưa có;
-  - `qadevice.py profile init` (skill /auto-test-device) cũng tạo nó, tự dò quy ước code rồi điền các vùng
-    <!-- auto:…:start/end --> — chữ NGOÀI vùng auto là của dev/agent, tool không bao giờ ghi đè.
-QaProfile.md là file CỦA PROJECT: Feature Hub không ghi đè, commit cùng repo. Bản máy đọc của cùng nội dung là
-block "qa" trong `.claude/project-profile.json` (`profile show`); hai bên lệch → `profile init` làm mới vùng auto.
-Giữ nguyên tên + SỐ của các mục (§0 … §11): skill dùng chung tham chiếu theo số.
+QaProfile.template.md — shared FRAME, shipped with the template's AI kit (Feature Hub can update this file).
+Do NOT put game values here. The project's real file is `.claude/docs/QaProfile.md`:
+  - bootstrap.sh / bootstrap.ps1 copy this frame to QaProfile.md when the project has none;
+  - `qadevice.py profile init` (skill /auto-test-device) also creates it, auto-detects the code conventions and fills the
+    <!-- auto:…:start/end --> regions — text OUTSIDE the auto regions belongs to the dev/agent; the tool never overwrites it.
+QaProfile.md is a PROJECT file: Feature Hub does not overwrite it; commit it with the repo. The machine-readable copy of
+the same content is the "qa" block in `.claude/project-profile.json` (`profile show`); if they drift → `profile init`
+refreshes the auto regions.
+Keep the section names + NUMBERS (§0 … §11): the shared skill refers to sections by number.
+`<Tên game>` in the H1 is a placeholder token the tool replaces with the product name — keep it verbatim.
 -->
 # QA Profile — <Tên game>
 
 **Status:** template
-<!-- template = chưa điền (skill QA phải chạy § Bootstrap / `profile init` trước) · draft = tool tự dò, dev chưa
-     duyệt (dùng được, nhưng report phải báo dev) · reviewed = dev đã đọc và sửa (nguồn chuẩn) -->
-**Cập nhật:** <YYYY-MM-DD> · **Người duyệt:** <dev>
+<!-- template = not filled in (the QA skill must run § Bootstrap / `profile init` first) · draft = auto-detected by the
+     tool, not yet reviewed by a dev (usable, but the report must flag it) · reviewed = read and fixed by a dev (source of truth) -->
+**Updated:** <YYYY-MM-DD> · **Reviewer:** <dev>
 
-## 0. File này là gì
+## 0. What this file is
 
-Nguồn chuẩn **duy nhất** về cách test game này cho agent QA (`/auto-test-device`) và dev: quy ước code mà tool bám
-vào (enum màn, lớp cơ sở UI, cheat, PlayerData, CSV, tracking), màn nào còn sống / đã bỏ, cheat và state path đã
-kiểm, luật nhiễu đã xác nhận, môi trường cần thử, hướng test riêng của thể loại, lịch sử phiên.
+The **single** source of truth on how to test this game, for the QA agent (`/auto-test-device`) and devs: the code
+conventions the tool relies on (screen enum, UI base class, cheat, PlayerData, CSV, tracking), which screens are live /
+retired, verified cheats and state paths, confirmed noise rules, environments to try, genre-specific test focus, and
+session history.
 
-**Thứ tự ưu tiên khi mâu thuẫn:** lời dev trong task → file này (`reviewed`) → block `qa` trong
-`project-profile.json` → tự dò theo quy ước template EZG → mặc định của skill. Skill **không** chứa giá trị riêng
-của game; thiếu gì ở đây thì thêm vào đây, không sửa skill.
+**Precedence on conflict:** the dev's words in the task → this file (`reviewed`) → the `qa` block in
+`project-profile.json` → auto-detection per EZG template conventions → the skill's defaults. The skill holds **no**
+game-specific values; anything missing goes here, not into the skill.
 
-## 1. Bootstrap (khi Status còn `template`)
+## 1. Bootstrap (while Status is still `template`)
 
-1. `python3 .claude/skills/auto-test-device/scripts/qadevice.py profile init` — tự dò quy ước, điền §2/§3/§5/§7/§8/§10,
-   đổi Status → `draft`, tạo `.claude/docs/qa/charters/README.md`.
-2. `… profile sync` — đẩy quy ước xuống `Assets/Resources/EzgQaProbeConfig.json` (probe trong build) và block
-   `liveness` của `ProjectSettings/EZGAutoTestSettings.json` (autotest Editor bỏ qua màn chết).
-3. `… doctor --strict` — mọi quy ước phải resolve ra file thật trong code.
-4. Dev đọc §2 (dò sai → sửa trong `project-profile.json["qa"].conventions` rồi `profile init` lại), điền §4, §6, §9,
-   đổi Status → `reviewed`.
+1. `python3 .claude/skills/auto-test-device/scripts/qadevice.py profile init` — auto-detects conventions, fills
+   §2/§3/§5/§7/§8/§10, sets Status → `draft`, creates `.claude/docs/qa/charters/README.md`.
+2. `… profile sync` — pushes the conventions to `Assets/Resources/EzgQaProbeConfig.json` (the probe in the build) and to
+   the `liveness` block of `ProjectSettings/EZGAutoTestSettings.json` (Editor autotest skips dead screens).
+3. `… doctor --strict` — every convention must resolve to a real file in the code.
+4. A dev reads §2 (wrong detection → fix in `project-profile.json["qa"].conventions`, then rerun `profile init`), fills
+   §4, §6, §9 and sets Status → `reviewed`.
 
-## 2. Quy ước code (tool tự dò — sửa ở `project-profile.json["qa"].conventions`, không sửa bảng này)
+## 2. Code conventions (auto-detected — edit `project-profile.json["qa"].conventions`, not this table)
 
 <!-- auto:conventions:start -->
-| Key | Giá trị | Nguồn | Bằng chứng |
+| Key | Value | Source | Evidence |
 |---|---|---|---|
-| (chưa chạy `profile init`) | | | |
+| (`profile init` not run yet) | | | |
 <!-- auto:conventions:end -->
 
-Ghi chú của dev về quy ước (chỗ dò sai, ngoại lệ, màn không theo chuẩn):
-- <vd: màn Battle không kế thừa FeatureBaseController, mở bằng scene riêng>
+Dev notes on conventions (wrong detections, exceptions, screens that don't follow the standard):
+- <e.g.: the Battle screen does not inherit FeatureBaseController; it opens via its own scene>
 
-## 3. Màn / feature: sống – chết – đã quan sát
+## 3. Screens / features: live – dead – observed
 
-Tool phân loại từ enum Features + tham chiếu tĩnh + màn đã thấy mở lúc chạy. **Chết** = khớp mẫu
-(`liveness.deadFeaturePatterns`) hoặc `forceDead` → autotest và skill bỏ qua. **Không thấy code gọi** chưa chắc chết
-(có thể mở qua prefab/enum serialize) — xác nhận bằng quan sát hoặc `forceLive`/`forceDead`.
+The tool classifies from the Features enum + static references + screens seen open at runtime. **Dead** = matches a
+pattern (`liveness.deadFeaturePatterns`) or `forceDead` → autotest and the skill skip it. **No code reference found** is
+not necessarily dead (it may open via a prefab / serialized enum) — confirm by observation or with `forceLive`/`forceDead`.
 
 <!-- auto:features:start -->
-- (chưa chạy `profile init`)
+- (`profile init` not run yet)
 <!-- auto:features:end -->
 
-Lý do dev đặt `forceLive` / `forceDead` (để người sau không hỏi lại):
-- <Feature> → <live|dead> vì <lý do, ngày>
+Why the dev set `forceLive` / `forceDead` (so the next person doesn't ask again):
+- <Feature> → <live|dead> because <reason, date>
 
-## 4. Đường vào & điều kiện mở khoá của các màn chính (dev/agent điền)
+## 4. Entry paths & unlock conditions of the main screens (filled by dev/agent)
 
-| Màn / feature | Đường vào từ Home | Điều kiện mở khoá | Ghi chú |
+| Screen / feature | Entry path from Home | Unlock condition | Notes |
 |---|---|---|---|
-| <Shop> | <nút góc dưới phải> | <không> | |
-| <Feature X> | <…> | <level ≥ N / xong tutorial> | <cheat mở nhanh: …> |
+| <Shop> | <bottom-right button> | <none> | |
+| <Feature X> | <…> | <level ≥ N / tutorial done> | <quick-open cheat: …> |
 
-## 5. Cheat & state path đã kiểm (tool ghi lúc `stop`)
+## 5. Verified cheats & state paths (written by the tool on `stop`)
 
 <!-- auto:verified:start -->
-| Loại | Tên / đường dẫn | Lần cuối OK |
+| Kind | Name / path | Last OK |
 |---|---|---|
-| — | chưa có | |
+| — | none yet | |
 <!-- auto:verified:end -->
 
-Cheat hay dùng khi test (dev gợi ý — tên hàm static, tham số):
-- <`Cheat_AddGold(long)`> — <ghi chú>
-- <`Cheat_SetLevel(int)`> — <ghi chú>
+Cheats commonly used in testing (dev suggestions — static method name, parameters):
+- <`Cheat_AddGold(long)`> — <note>
+- <`Cheat_SetLevel(int)`> — <note>
 
-## 6. Oracle & nguồn số liệu
+## 6. Oracles & data sources
 
-- GDD: <link / đường dẫn bản đọc-hiểu>; TechSpec: <đường dẫn>
-- CSV quyết định số liệu: <`CoinPack.csv` → giá/gói gem; `UnlockFeature.csv` → mốc mở màn; …> (`qadevice.py csv <tên>`)
-- Công thức cần kiểm tay (không có trong CSV): <vd: thu nhập offline = rate × giây × 0.2, trần 8h>
-- Tracking event bắt buộc theo luồng (`qadevice.py track --expect <event>`): <mua gói → `iap_success`; …>
+- GDD: <link / path to the readable spec>; TechSpec: <path>
+- CSVs that define the numbers: <`CoinPack.csv` → gem pack prices; `UnlockFeature.csv` → screen unlock milestones; …> (`qadevice.py csv <name>`)
+- Formulas to check by hand (not in any CSV): <e.g.: offline income = rate × seconds × 0.2, capped at 8h>
+- Tracking events required per flow (`qadevice.py track --expect <event>`): <buy a pack → `iap_success`; …>
 
-## 7. Luật nhiễu đã xác nhận (finding audit bỏ qua)
+## 7. Confirmed noise rules (audit findings to skip)
 
-Mỗi luật: `flag` (tên finding hoặc `*`), `match` (regex trên path/text của phần tử, hoặc `screen:<tên màn>`), lý do,
-ai thêm, ngày. Thêm vào `project-profile.json["qa"].noise` rồi `profile init` để làm mới bảng. Chỉ thêm khi đã
-**nhìn ảnh xác nhận không phải bug** (vd nút nền toàn màn bị popup đè là thiết kế).
+Each rule: `flag` (finding name or `*`), `match` (regex on the element's path/text, or `screen:<screen name>`), reason,
+who added it, date. Add it to `project-profile.json["qa"].noise`, then run `profile init` to refresh the table. Only add
+one after **looking at the screenshot and confirming it is not a bug** (e.g. a full-screen backdrop button covered by a
+popup is by design).
 
 <!-- auto:noise:start -->
-| Flag | Khớp | Lý do | Ai / ngày |
+| Flag | Match | Reason | By / date |
 |---|---|---|---|
-| — | chưa có luật nào | | |
+| — | no rules yet | | |
 <!-- auto:noise:end -->
 
-## 8. Môi trường & thiết bị
+## 8. Environments & devices
 
 <!-- auto:environments:start -->
-- (chưa chạy `profile init`)
+- (`profile init` not run yet)
 <!-- auto:environments:end -->
 
-- Máy test đang có (serial/AVD, ai cầm, đã vào danh sách cheat-gate chưa): <…>
-- Lấy build ở đâu (CI/AAB/APK, cài qua Play hay adb): <…>
-- Lưu ý khi chạy trên emulator (ads test không đóng, GPU…): <…>
+- Available test devices (serial/AVD, who holds it, already on the cheat-gate list?): <…>
+- Where to get builds (CI/AAB/APK, install via Play or adb): <…>
+- Emulator caveats (test ads won't close, GPU…): <…>
 
-## 9. Hướng test riêng của game này
+## 9. Game-specific test focus
 
-- Thể loại / vòng lặp cốt lõi → ca P0 bắt buộc mỗi phiên: <…>
-- Vùng rủi ro cao (hay hỏng khi đổi): <…>
-- Không phải bug (thiết kế, đã chốt với GD): <…>
-- Lỗi đã biết đang chờ sửa (không log lại — dedup theo BugHub): <#id — mô tả ngắn>
+- Genre / core loop → mandatory P0 cases every session: <…>
+- High-risk areas (often break on change): <…>
+- Not a bug (by design, agreed with GD): <…>
+- Known bugs awaiting a fix (don't log again — dedup via BugHub): <#id — short description>
 
-## 10. Đường dẫn
+## 10. Paths
 
 <!-- auto:paths:start -->
-- (chưa chạy `profile init`)
+- (`profile init` not run yet)
 <!-- auto:paths:end -->
 
-## 11. Lịch sử phiên (agent ghi 1 dòng cuối mỗi phiên)
+## 11. Session history (agent appends 1 row at the end of each session)
 
-| Ngày | Tính năng | Máy | Bug | Coverage | Ghi chú |
+| Date | Feature | Device | Bug | Coverage | Notes |
 |---|---|---|---|---|---|
-| <YYYY-MM-DD> | <feature> | <máy> | <#…> | <n/m ca · k màn> | <điều học được / cần dev quyết> |
+| <YYYY-MM-DD> | <feature> | <device> | <#…> | <n/m cases · k screens> | <lessons learned / needs a dev decision> |

@@ -1,81 +1,81 @@
 ---
 name: auto-clear
-description: Push phần việc của session qua /push-in-session rồi tự /clear chính session Claude Code đang chạy ngay sau khi lượt trả lời kết thúc — push xong mới bật cờ cho đúng pane iTerm2 (macOS) / console Windows Terminal (Windows, thử nghiệm), Stop hook đọc cờ và gõ "/clear" + Enter vào đúng pane đó. Dùng khi user nói "/auto-clear", "xong việc thì tự clear", "clear sau khi xong", hoặc prompt/goal có bước "/clear" sau khi hoàn thành. "/auto-clear # UI:" để chỉ định prefix + tag commit, "/auto-clear off" để hủy, "/auto-clear install" để đăng ký hook trên máy mới.
+description: Push the session's work via /push-in-session, then automatically /clear the very Claude Code session that is running right after the turn ends — only after the push is the flag set for the exact iTerm2 pane (macOS) / Windows Terminal console (Windows, experimental); a Stop hook reads the flag and types "/clear" + Enter into that exact pane. Use when the user says "/auto-clear", "xong việc thì tự clear", "clear sau khi xong", "auto clear when done", "clear after finishing", or the prompt/goal has a "/clear" step after completion. "/auto-clear # UI:" to set the commit prefix + tag, "/auto-clear off" to cancel, "/auto-clear install" to register the hook on a new machine.
 ---
 
 # Auto Clear
 
-**Push rồi mới clear:** chạy `/push-in-session` để commit + push đúng những file session này sửa, push
-xong mới tự `/clear` session Claude Code **đang chạy** ngay sau khi lượt trả lời kết thúc — dev không
-phải gõ tay, không mở session mới, không mất việc chưa push. Claude Code không có cơ chế clear có sẵn
-(skill/hook không gọi được lệnh built-in), nên skill này chỉ **bật cờ**; Stop hook (đăng ký một lần mỗi
-máy) đọc cờ rồi **gõ `/clear` + Enter vào đúng pane** đang chạy Claude.
+**Push first, then clear:** run `/push-in-session` to commit + push exactly the files this session changed, and
+only after the push automatically `/clear` the **running** Claude Code session right after the turn ends — the dev
+doesn't type it, doesn't open a new session, and loses no unpushed work. Claude Code has no built-in way to clear
+(skills/hooks cannot invoke built-in commands), so this skill only **sets a flag**; a Stop hook (registered once per
+machine) reads the flag and then **types `/clear` + Enter into the exact pane** running Claude.
 
-| | macOS (iTerm2) | Windows (Windows Terminal / console) — **THỬ NGHIỆM** |
+| | macOS (iTerm2) | Windows (Windows Terminal / console) — **EXPERIMENTAL** |
 |---|---|---|
 | Script | `bash .claude/skills/auto-clear/scripts/auto-clear.sh <sub>` | `powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 <sub>` |
-| Nhắm pane bằng | UUID trong `ITERM_SESSION_ID` + so tty với process `claude` | PID process `claude` → `AttachConsole` + `WriteConsoleInput` |
-| Cờ | `~/.claude/auto-clear/<uuid>.flag` (+ `<uuid>.retry`) | `~/.claude/auto-clear/pid-<pid>.flag` (+ `pid-<pid>.retry`) |
+| Targets the pane by | UUID in `ITERM_SESSION_ID` + tty match with the `claude` process | PID of the `claude` process → `AttachConsole` + `WriteConsoleInput` |
+| Flag | `~/.claude/auto-clear/<uuid>.flag` (+ `<uuid>.retry`) | `~/.claude/auto-clear/pid-<pid>.flag` (+ `pid-<pid>.retry`) |
 
-Cả hai nhắm theo pane/process, **không** theo cửa sổ đang focus — dev đang đứng ở pane khác cũng không
-bị gõ nhầm. Dưới đây `<script>` là dòng "Script" đúng OS trong bảng trên.
+Both target by pane/process, **not** by the focused window — a dev standing in another pane won't get keystrokes
+by mistake. Below, `<script>` is the "Script" row for the right OS in the table above.
 
-## 0. Đọc argument
+## 0. Read the argument
 
-| Arg | Làm gì |
+| Arg | What to do |
 |---|---|
-| (trống) | Push rồi bật cờ — theo mục 1–4 |
-| prefix và/hoặc `Tag:` (vd `# UI:`, `* Play:`, `Bal:`) | Như (trống); prefix (`+`/`*`/`#`) + tag chuyển nguyên văn cho `/push-in-session` (mục 3.6 bên đó). Tag không nằm trong bảng tag của push-in-session → dừng hỏi, không tự chế |
-| `--then "<prompt>"` (kết hợp được với prefix/tag, vd `/auto-clear # Play: --then "/fix-bug --watch"`) | Như (trống), nhưng bật cờ kèm `--then` (mục 3): sau `/clear` hook chờ rồi gõ tiếp `<prompt>` + Enter vào **cùng pane**. Prompt phải một dòng, không ký tự điều khiển, ≤ 200 ký tự — sai thì script trả `INVALID_THEN …`, cờ **không** bật → báo dev, không tự sửa prompt |
-| `off` | `<script> off` — gỡ cờ (cả prompt `--then` đang chờ) **và** cờ thử lại lỗi API (`retry-arm`), báo lại. **Không** push |
-| `status` | `<script> status` — in thêm dòng `THEN <prompt>` khi cờ có prompt chờ, `FAILHOOK` + `RETRY_ARMED count=k/<max>` (`∞` = không giới hạn) |
-| `probe` | `<script> probe` — dò pane/console, **không** gõ gì (kiểm tra cài đặt) |
-| `type-test` | `<script> type-test` — gõ thật `auto-clear type-test ok` + Enter vào pane/console của claude đang chạy lệnh này. Chạy từ một lệnh Bash của Claude Code: chữ đó phải hiện thành tin nhắn user xếp hàng ở lượt sau — bằng chứng gõ phím chạy được trên máy này. **Không** push |
-| `retry-arm [--prompt "<prompt>"] [--max N]` | **Thử lại lỗi API** (mục 5) cho pane hiện tại — skill chạy lâu không người trông (vd `/fix-bug`) gọi. `--max 0` = thử lại không giới hạn. **Không** push. macOS + Windows |
-| `retry-off` | Gỡ cờ thử lại lỗi API của pane hiện tại. **Không** push |
-| `install` | `<script> install` — đăng ký Stop + StopFailure hook vào `~/.claude/settings.json`. Sửa settings user-level nên **hỏi dev trước** nếu dev chưa yêu cầu rõ |
-| `uninstall` | `<script> uninstall` — gỡ cả hai hook |
+| (empty) | Push, then set the flag — per sections 1–4 |
+| prefix and/or `Tag:` (e.g. `# UI:`, `* Play:`, `Bal:`) | Same as (empty); the prefix (`+`/`*`/`#`) + tag are passed verbatim to `/push-in-session` (its section 3.6). Tag not in push-in-session's tag table → stop and ask, don't invent one |
+| `--then "<prompt>"` (combinable with prefix/tag, e.g. `/auto-clear # Play: --then "/fix-bug --watch"`) | Same as (empty), but set the flag with `--then` (section 3): after `/clear` the hook waits, then types `<prompt>` + Enter into the **same pane**. The prompt must be one line, no control characters, ≤ 200 characters — otherwise the script returns `INVALID_THEN …` and the flag is **not** set → tell the dev, don't fix the prompt yourself |
+| `off` | `<script> off` — removes the flag (including a pending `--then` prompt) **and** the API-error retry flag (`retry-arm`), reports back. **No** push |
+| `status` | `<script> status` — also prints a `THEN <prompt>` line when the flag has a pending prompt, plus `FAILHOOK` + `RETRY_ARMED count=k/<max>` (`∞` = unlimited) |
+| `probe` | `<script> probe` — detects the pane/console, types **nothing** (installation check) |
+| `type-test` | `<script> type-test` — really types `auto-clear type-test ok` + Enter into the pane/console of the claude running this command. Run it from a Claude Code Bash command: the text must show up as a queued user message on the next turn — proof that keystroke injection works on this machine. **No** push |
+| `retry-arm [--prompt "<prompt>"] [--max N]` | **API-error retry** (section 5) for the current pane — called by long-running unattended skills (e.g. `/fix-bug`). `--max 0` = retry without limit. **No** push. macOS + Windows |
+| `retry-off` | Removes the current pane's API-error retry flag. **No** push |
+| `install` | `<script> install` — registers the Stop + StopFailure hooks in `~/.claude/settings.json`. It edits user-level settings, so **ask the dev first** unless they explicitly asked for it |
+| `uninstall` | `<script> uninstall` — removes both hooks |
 
-Chỉ nhánh (trống) / prefix-tag mới push; các sub-command còn lại chỉ chạy script.
+Only the (empty) / prefix-tag branches push; the other sub-commands only run the script.
 
-## 1. Thứ tự: việc khác → push → bật cờ
+## 1. Order: other work → push → set the flag
 
-- `/auto-clear` đi kèm việc khác trong prompt/goal → làm hết việc khác trước (code, compile-check
-  theo `.claude/rules/compile-validation.md`, report). Sau đó `/push-in-session` (mục 2). Bật cờ
-  (mục 3) là **tool call cuối cùng** của lượt; sau đó chỉ viết câu trả lời cuối rồi dừng — không gọi
-  thêm tool nào.
-- Dưới `/goal`: chỉ push + bật cờ khi điều kiện goal **đã đạt trọn vẹn**. Bật sớm mà goal chặn dừng thì
-  `/clear` bị gõ vào lúc đang làm tiếp.
-- Task còn dở / bị block / compile hoặc test fail (`COMPILE_BLOCKED`…) → **không** push, **không** bật
-  cờ; báo dev như bình thường (dev cần đọc lỗi trước khi mất context). Ngoại lệ: `/fix-bug --watch` với bug
-  `released` — skill đó đã cất phần sửa dở vào stash và ghi lỗi vào report, nên vẫn push (ra `NO_CHANGES`) +
-  bật cờ `--then "/fix-bug --watch"` để loop chạy tiếp (fix-bug mục 5).
-- Prompt đã yêu cầu `/push-in-session` riêng và lượt này đã push xong → không push lần hai; chạy lại
-  chỉ ra `NO_CHANGES` nếu từ đó tới giờ không sửa thêm file nào.
-- Đang trong `/run-backlog` → **không** dùng skill này: loop tự commit (STEP 9) và tự mở session mới
-  cho mỗi task.
+- `/auto-clear` comes with other work in the prompt/goal → finish all the other work first (code, compile-check
+  per `.claude/rules/compile-validation.md`, report). Then `/push-in-session` (section 2). Setting the flag
+  (section 3) is the **last tool call** of the turn; after it only write the final answer and stop — no more
+  tool calls.
+- Under `/goal`: only push + set the flag when the goal condition is **fully met**. Set it too early while the goal
+  blocks stopping, and `/clear` gets typed while work is still going on.
+- Task unfinished / blocked / compile or test failure (`COMPILE_BLOCKED`…) → **don't** push, **don't** set the
+  flag; report to the dev as usual (the dev needs to read the error before the context is lost). Exception: `/fix-bug --watch` with a
+  `released` bug — that skill has already stashed the half-done fix and written the error into the report, so still push (yields
+  `NO_CHANGES`) + set the flag with `--then "/fix-bug --watch"` so the loop keeps running (fix-bug section 5).
+- The prompt already asked for a separate `/push-in-session` and this turn has already pushed → don't push a second time; re-running
+  only yields `NO_CHANGES` if no file has been changed since.
+- Inside `/run-backlog` → do **not** use this skill: the loop commits by itself (STEP 9) and opens a new session
+  for each task by itself.
 
-## 2. `/push-in-session` TRƯỚC khi bật cờ (bắt buộc)
+## 2. `/push-in-session` BEFORE setting the flag (mandatory)
 
-Đọc và làm đúng [`push-in-session`](../push-in-session/SKILL.md) — danh sách file dựng từ transcript,
-`git_prepare_scoped` → message `<prefix> Tag: <subject>` → `git_push`. Không tự `git add` / commit /
-push bằng cách khác, không thêm `git status` / `git diff` ngoài ngân sách lệnh của skill đó. File Unity
-tự dirty (scene/SO bị tool sync lại sau `Assets/Refresh`) không thuộc session thì để nguyên — push-in-session
-đã liệt kê chúng ở `--- DIRTY OUTSIDE SESSION ---`.
+Read and follow [`push-in-session`](../push-in-session/SKILL.md) exactly — file list built from the transcript,
+`git_prepare_scoped` → message `<prefix> Tag: <subject>` → `git_push`. Don't `git add` / commit /
+push any other way, don't add `git status` / `git diff` beyond that skill's command budget. Unity files that
+dirty themselves (scenes/SOs re-synced by tools after `Assets/Refresh`) and don't belong to the session stay as they are — push-in-session
+already lists them under `--- DIRTY OUTSIDE SESSION ---`.
 
-| Kết quả push-in-session | Bật cờ? |
+| push-in-session result | Set the flag? |
 |---|---|
-| Push thành công (kể cả sau `git push -u origin HEAD` khi nhánh chưa có upstream) | **Có** |
-| `NO_CHANGES` (session chỉ đọc/phân tích, hoặc đã push hết trước đó) | **Có** — report ghi "không có gì để push" |
-| Không có `origin` — đã commit local, bỏ push | **Có** — report ghi rõ commit chưa push |
-| Push lỗi (nhánh tụt hậu, auth, network, hook reject) / commit lỗi | **Không** — báo lỗi nguyên văn, dừng |
-| Phải dừng hỏi dev (tag không nằm trong bảng, không chắc file nào thuộc session…) | **Không** — hỏi dev, chờ trả lời rồi mới làm tiếp |
+| Push succeeded (including after `git push -u origin HEAD` when the branch has no upstream yet) | **Yes** |
+| `NO_CHANGES` (session only read/analyzed, or everything was pushed earlier) | **Yes** — the report says "nothing to push" |
+| No `origin` — committed locally, push skipped | **Yes** — the report states clearly that the commit is not pushed |
+| Push error (branch behind, auth, network, hook reject) / commit error | **No** — report the error verbatim, stop |
+| Had to stop and ask the dev (tag not in the table, unsure which files belong to the session…) | **No** — ask the dev, wait for the answer before continuing |
 
-## 3. Bật cờ kèm report
+## 3. Set the flag with the report
 
-Report = đúng nội dung câu trả lời cuối: danh sách file (theo `.claude/rules/output-format.md`), report
-của push-in-session (message commit, file đã commit, file dirty ngoài session, trạng thái push), việc
-dev cần làm. Truyền qua stdin để lưu lại — sau `/clear` report trên màn hình có thể mất.
+Report = exactly the content of the final answer: the file list (per `.claude/rules/output-format.md`), push-in-session's
+report (commit message, committed files, dirty files outside the session, push status), dev to-dos.
+Pass it via stdin so it is saved — after `/clear` the on-screen report may be gone.
 
 macOS:
 ```bash
@@ -91,85 +91,87 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-
 EOF
 ```
 
-Có `--then "<prompt>"` trong argument → thêm vào lệnh arm, cùng `--stdin` (thứ tự tự do), bọc prompt bằng
-**nháy đơn** để shell không bung `$`/backtick (`'` trong prompt → `'\''`):
-`<script> arm --stdin --then '<prompt>' <<'EOF' …`. Script validate prompt **trước** khi lưu report hay bật cờ.
+`--then "<prompt>"` in the argument → add it to the arm command alongside `--stdin` (any order), wrapping the prompt in
+**single quotes** so the shell doesn't expand `$`/backticks (`'` inside the prompt → `'\''`):
+`<script> arm --stdin --then '<prompt>' <<'EOF' …`. The script validates the prompt **before** saving the report or setting the flag.
 
-## 4. Đọc output
+## 4. Read the output
 
-| Output | Làm gì |
+| Output | What to do |
 |---|---|
-| `ARMED ...` | Câu trả lời cuối = report + đúng 1 dòng: "Session sẽ tự /clear sau khi mình dừng — report lưu ở `~/.claude/auto-clear/last-report.md`." (có `then=<prompt>` → thêm "rồi tự chạy `<prompt>`"). **Không** nói "đã clear" — clear xảy ra sau khi lượt kết thúc. |
-| `INVALID_THEN ...` | Prompt `--then` không hợp lệ, cờ **không** bật (push đã xong) → báo dev lý do nguyên văn, nhắc tự gõ `/clear`. |
-| `NOT_INSTALLED ...` | Hook chưa đăng ký trên máy này (hoặc trỏ tới script đã bị xoá/dời) → hỏi dev có cho chạy `install` không. Đồng ý → `install` rồi `arm` lại (**không** push lại); không → nhắc dev tự gõ `/clear`. |
-| `UNSUPPORTED ...` | Không chạy trong iTerm2 (macOS) / không tìm thấy process `claude` → nhắc dev tự gõ `/clear` (push đã xong). |
+| `ARMED ...` | Final answer = report + exactly 1 line: "The session will /clear itself after I stop — report saved at `~/.claude/auto-clear/last-report.md`." (with `then=<prompt>` → add "and then run `<prompt>` automatically"). Do **not** say "cleared" — the clear happens after the turn ends. |
+| `INVALID_THEN ...` | The `--then` prompt is invalid, the flag was **not** set (push already done) → give the dev the verbatim reason, remind them to type `/clear` themselves. |
+| `NOT_INSTALLED ...` | The hook is not registered on this machine (or points at a script that was deleted/moved) → ask the dev whether to run `install`. Yes → `install` then `arm` again (**don't** push again); no → remind the dev to type `/clear` themselves. |
+| `UNSUPPORTED ...` | Not running in iTerm2 (macOS) / no `claude` process found → remind the dev to type `/clear` themselves (push already done). |
 
-## 5. Thử lại khi lượt trả lời chết vì lỗi API (macOS + Windows)
+## 5. Retry when the turn dies from an API error (macOS + Windows)
 
-Lỗi API của Claude (`Your organization has disabled Claude subscription access`, rate limit, overloaded,
-5xx, mất phiên…) giết lượt trả lời — model không còn chạy nên **skill không tự thử lại được**. Claude Code
-bắn hook `StopFailure` (kèm `error`: `oauth_org_not_allowed`, `authentication_failed`, `rate_limit`,
-`overloaded`, `server_error`…) thay cho `Stop`, và `install` đăng ký hook đó.
+Claude API errors (`Your organization has disabled Claude subscription access`, rate limit, overloaded,
+5xx, session lost…) kill the turn — the model is no longer running, so **the skill cannot retry by itself**. Claude Code
+fires the `StopFailure` hook (with `error`: `oauth_org_not_allowed`, `authentication_failed`, `rate_limit`,
+`overloaded`, `server_error`…) instead of `Stop`, and `install` registers that hook.
 
-- `<script> retry-arm [--prompt "<prompt>"] [--max N]` bật cờ `~/.claude/auto-clear/<uuid>.retry` (Windows:
-  `pid-<pid>.retry`; pid + tty + prompt + `max`, `count=0`). Prompt mặc định: "Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang
-  dở." (Windows: bản tiếng Anh ASCII) — luật prompt như `--then`. Gọi lại là bật lại từ `count=0`. Prompt truyền vào
-  nên giữ ASCII: bản Windows gõ từng ký tự vào console, ký tự ngoài bàn phím là chỗ dễ hỏng nhất.
-- Mỗi `StopFailure`: đúng pane + đúng process `claude` đã arm (Windows: cờ theo pid của process `claude`) → `count+1`, chờ `AUTO_CLEAR_RETRY_DELAY`
-  (mặc định **30 giây**) rồi gõ prompt + Enter. Quá `max` lần liên tiếp → thôi gõ, log `failhook give-up` — dev
-  xử lý tay (vd đăng nhập lại / chờ org bật lại quyền). `max` = `--max N` lúc arm, không có thì
-  `AUTO_CLEAR_RETRY_MAX` (mặc định **5**); `--max 0` = **không giới hạn** — dành cho loop không bao giờ được
-  dừng (vd `/fix-bug`): gõ lại mỗi 30 giây tới khi API trả lời được hoặc dev `retry-off` / `off`.
-- Lượt kết thúc bình thường (`Stop`) đưa `count` về 0. Cờ sống qua `/clear`; gỡ bằng `retry-off` hoặc `off`.
-- Kết quả `retry-arm`: `RETRY_ARMED …` · `NOT_INSTALLED` (máy cài bản cũ chỉ có Stop hook → `install` lại, hỏi
-  dev nếu chưa yêu cầu rõ) · `UNSUPPORTED` (macOS ngoài iTerm2 / không thấy process `claude`) — không chặn việc của skill
-  gọi nó.
-- Cờ Windows theo PID, mà Windows dùng lại PID: `arm` / `retry-arm` xoá cờ của process `claude` đã tắt (log
+- `<script> retry-arm [--prompt "<prompt>"] [--max N]` sets the flag `~/.claude/auto-clear/<uuid>.retry` (Windows:
+  `pid-<pid>.retry`; pid + tty + prompt + `max`, `count=0`). Default prompt:
+  "Tiếp tục: lượt trước dừng vì lỗi API — làm tiếp đúng bước đang dở."
+  (Windows: the ASCII English version "Continue: the previous turn stopped on an API error - resume the exact step in progress.")
+  — same prompt rules as `--then`. Calling it again re-arms from `count=0`. Keep a passed-in prompt
+  ASCII: the Windows version types it character by character into the console, and characters outside the keyboard are the most fragile part.
+- On each `StopFailure`: the right pane + the right armed `claude` process (Windows: flag keyed by the `claude` process pid) → `count+1`, wait `AUTO_CLEAR_RETRY_DELAY`
+  (default **30 seconds**), then type the prompt + Enter. More than `max` consecutive times → stop typing, log `failhook give-up` — the dev
+  handles it by hand (e.g. sign in again / wait for the org to re-enable access). `max` = `--max N` at arm time, otherwise
+  `AUTO_CLEAR_RETRY_MAX` (default **5**); `--max 0` = **unlimited** — for loops that must never
+  stop (e.g. `/fix-bug`): retype every 30 seconds until the API answers or the dev runs `retry-off` / `off`.
+- A turn that ends normally (`Stop`) resets `count` to 0. The flag survives `/clear`; remove it with `retry-off` or `off`.
+- `retry-arm` results: `RETRY_ARMED …` · `NOT_INSTALLED` (the machine has an old install with only the Stop hook → `install` again, ask
+  the dev unless they explicitly asked) · `UNSUPPORTED` (macOS outside iTerm2 / no `claude` process found) — none of them block the work of the skill
+  that calls it.
+- Windows flags are keyed by PID, and Windows reuses PIDs: `arm` / `retry-arm` delete flags of `claude` processes that have exited (log
   `stale-flag removed`).
 
-## Cài trên máy mới
+## Installing on a new machine
 
-1. `<script> install` — idempotent, backup `~/.claude/settings.json.bak-auto-clear`, giữ nguyên mọi hook
-   khác. Hook nằm ở settings **user-level**: `.claude/settings.json` của project được commit cho cả team,
-   còn hook gõ phím vào pane là chuyện của từng máy. Một hook phục vụ **mọi project** trên máy — cài ở
-   project nào cũng được, không cần cài lại cho từng project.
-2. `<script> probe` — macOS phải ra `ok-dry tty=/dev/ttysN`; Windows phải ra `ok-dry attached pid=N`.
-   Lần đầu trên macOS hệ điều hành hỏi quyền điều khiển iTerm2 → Allow.
-   Rồi `<script> type-test` từ một lệnh Bash **trong Claude Code**: ra `-> ok` và lượt sau nhận được tin nhắn
-   `auto-clear type-test ok` = gõ phím chạy thật (Windows: đây là bước duy nhất kiểm được `WriteConsoleInput` trên máy
-   đó — `/clear`, `--then` và thử lại lỗi API đều dùng đúng đường gõ này).
-3. Hook mới thường có hiệu lực ngay; lượt đầu không clear → mở `/hooks` một lần hoặc khởi động lại
+1. `<script> install` — idempotent, backs up to `~/.claude/settings.json.bak-auto-clear`, keeps every other hook
+   intact. The hook lives in **user-level** settings: the project's `.claude/settings.json` is committed for the whole team,
+   while a hook that types into a pane is each machine's own business. One hook serves **every project** on the machine — install it
+   from any project, no need to reinstall per project.
+2. `<script> probe` — macOS must print `ok-dry tty=/dev/ttysN`; Windows must print `ok-dry attached pid=N`.
+   The first time on macOS the OS asks for permission to control iTerm2 → Allow.
+   Then `<script> type-test` from a Bash command **inside Claude Code**: it prints `-> ok` and the next turn receives the message
+   `auto-clear type-test ok` = keystroke injection really works (Windows: this is the only step that can verify `WriteConsoleInput` on that
+   machine — `/clear`, `--then` and API-error retry all use this same typing path).
+3. A new hook usually takes effect immediately; if the first turn doesn't clear → open `/hooks` once or restart
    Claude Code.
 
-`install` copy script sang `~/.claude/auto-clear/auto-clear.sh` (Windows: `.ps1`) và cho hook chạy bản
-copy đó, **không** trỏ vào repo — xoá/dời/copy project sang chỗ khác không làm hook chết. Mỗi lần `arm`
-script tự đồng bộ lại bản copy, nên update skill qua Feature Hub là hook dùng bản mới luôn. Máy đã cài
-bản cũ (hook trỏ thẳng vào repo, vd `.agents/scripts/auto-clear.sh` của project khác) vẫn chạy được;
-chạy `install` một lần để chuyển sang bản copy.
+`install` copies the script to `~/.claude/auto-clear/auto-clear.sh` (Windows: `.ps1`) and makes the hook run that
+copy, **not** something inside the repo — deleting/moving/copying the project elsewhere doesn't kill the hook. Every `arm`
+re-syncs the copy, so updating the skill via the Feature Hub makes the hook use the new version right away. Machines with
+an old install (hook pointing straight into a repo, e.g. another project's `.agents/scripts/auto-clear.sh`) still work;
+run `install` once to switch to the copy.
 
-**Nhiều project trên một máy dùng chung một bản copy.** Script mang dòng `# auto-clear-version: N`; `arm` /
-`retry-arm` / `install` **không** chép đè bản copy có số lớn hơn (`install` in `KEPT_NEWER: …` và vẫn đăng ký hook
-trên bản copy mới hơn; log `keep hook copy vN`). Script **chưa có** dòng đó (bản trước cơ chế này) thì vẫn chép đè
-vô điều kiện → mỗi project trên máy phải update skill này, không thì project cũ hạ cấp hook của cả máy mỗi lần
-`arm` (Windows: bản cũ có `failhook` không làm gì → thử lại lỗi API chết âm thầm cho mọi project). Sửa phía hook →
-tăng N ở **cả** `.sh` lẫn `.ps1`.
+**Several projects on one machine share one copy.** The script carries a `# auto-clear-version: N` line; `arm` /
+`retry-arm` / `install` do **not** overwrite a copy with a higher number (`install` prints `KEPT_NEWER: …` and still registers the hooks
+on the newer copy; log `keep hook copy vN`). A script **without** that line (from before this mechanism) still overwrites
+unconditionally → every project on the machine must update this skill, otherwise an old project downgrades the whole machine's hook on every
+`arm` (Windows: the old version has a `failhook` that does nothing → API-error retry silently dies for every project). Changing the hook side →
+bump N in **both** `.sh` and `.ps1`.
 
 Log: `~/.claude/auto-clear/auto-clear.log` — `hook ... -> ok` / `tty-mismatch` / `pane-not-found` /
-`attach-failed`; có `--then` thì thêm một dòng `hook-then ... prompt=<prompt> -> ok` (hoặc `skip: …` khi
-`/clear` không gõ được — prompt không bao giờ gõ một mình). Thử lại lỗi API: `failhook … error=<mã> lần k/<max>` (`∞` khi không giới hạn; Windows:
-`try k/<max|unlimited>`), `failhook give-up`, `retry-reset`; `type-test … -> ok`; Windows thêm `stale-flag removed`.
+`attach-failed`; with `--then` there is an extra line `hook-then ... prompt=<prompt> -> ok` (or `skip: …` when
+`/clear` could not be typed — the prompt is never typed on its own). API-error retry: `failhook … error=<code> try k/<max>` (`∞` when unlimited; Windows:
+`try k/<max|unlimited>`), `failhook give-up`, `retry-reset`; `type-test … -> ok`; Windows adds `stale-flag removed`.
 
-## Giới hạn
+## Limitations
 
-- macOS: chỉ iTerm2. Claude chạy trong tmux/ssh bên trong iTerm → tty lệch → hook bỏ qua (không clear,
-  không gõ nhầm). Terminal.app / VS Code / app desktop → `UNSUPPORTED`.
-- Windows: logic cờ / hook / settings được test bằng PowerShell (kiểm tương thích Windows PowerShell 5.1); riêng
-  phần gõ phím (`AttachConsole` + `WriteConsoleInput`) chỉ kiểm được trên máy Windows thật → sau `install` chạy
-  `probe` + `type-test` một lần. Claude chạy trong WSL không được hỗ trợ. `auto-clear.ps1` phải giữ **thuần ASCII**
-  (PowerShell 5.1 đọc file không BOM theo ANSI).
-- Dev gõ phím đúng lúc hook chờ (~1 giây) → chữ có thể lẫn với `/clear`. Đổi độ trễ bằng env
+- macOS: iTerm2 only. Claude running in tmux/ssh inside iTerm → tty mismatch → the hook skips (no clear,
+  no mistyping). Terminal.app / VS Code / desktop app → `UNSUPPORTED`.
+- Windows: the flag / hook / settings logic is tested with PowerShell (checked for Windows PowerShell 5.1 compatibility); only
+  the typing part (`AttachConsole` + `WriteConsoleInput`) can be verified only on a real Windows machine → after `install` run
+  `probe` + `type-test` once. Claude running in WSL is not supported. `auto-clear.ps1` must stay **pure ASCII**
+  (PowerShell 5.1 reads BOM-less files as ANSI).
+- The dev typing exactly while the hook waits (~1 second) → the text may get mixed with `/clear`. Change the delay with env
   `AUTO_CLEAR_DELAY`.
-- `--then`: prompt một dòng, không ký tự điều khiển, ≤ 200 ký tự; chỉ gõ vào đúng pane/process đã arm
-  (so tty / attach lại theo pid như `/clear`). Chờ giữa `/clear` và prompt = env `AUTO_CLEAR_THEN_DELAY`
-  (mặc định 3 giây); `AUTO_CLEAR_DRY` áp cho cả hai lần gõ. Hook có `timeout` 30 giây — đừng đặt
-  `AUTO_CLEAR_DELAY` + `AUTO_CLEAR_THEN_DELAY` quá ~20 giây, hook bị kill giữa chừng thì prompt không được gõ.
+- `--then`: one-line prompt, no control characters, ≤ 200 characters; only typed into the exact armed pane/process
+  (tty match / re-attach by pid, as for `/clear`). Wait between `/clear` and the prompt = env `AUTO_CLEAR_THEN_DELAY`
+  (default 3 seconds); `AUTO_CLEAR_DRY` applies to both typings. The hook has a 30-second `timeout` — don't set
+  `AUTO_CLEAR_DELAY` + `AUTO_CLEAR_THEN_DELAY` above ~20 seconds, or the hook gets killed midway and the prompt is not typed.

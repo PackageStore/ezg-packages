@@ -1,9 +1,9 @@
-"""Tests for bughub-wait.sh / bughub-wait.ps1 (chờ bug BugHub cho /fix-bug --watch) với server giả trên localhost.
+"""Tests for bughub-wait.sh / bughub-wait.ps1 (waiting for BugHub bugs for /fix-bug --watch) against a fake server on localhost.
 
-Hai bản phải giữ cùng hợp đồng: exit 0 + đúng một dòng JSON khi có bug `retry`, exit 3 khi 404, poll tiếp khi
-server lỗi, và chạm file `BUGHUB_WATCH_HEARTBEAT` mỗi lần poll (watchdog của `bughub-watch.py start`). Bản .sh
-thêm: không có Python chạy được (python3 chỉ là stub) → exit 1 ngay, không poll tiếp im lặng.
-Bản .ps1 chạy bằng pwsh/powershell nếu có, không thì skip.
+Both versions must keep the same contract: exit 0 + exactly one JSON line when there is a `retry` bug, exit 3 on 404,
+keep polling on server errors, and touch the `BUGHUB_WATCH_HEARTBEAT` file on every poll (the watchdog of
+`bughub-watch.py start`). The .sh version also: no working Python (python3 is only a stub) → exit 1 right away,
+instead of silently polling on. The .ps1 version runs with pwsh/powershell if available, otherwise it is skipped.
 
 Run from the repo root:
     python3 -m unittest discover -s .claude/scripts/tests -v
@@ -26,7 +26,7 @@ BASH = shutil.which("bash")
 
 
 class FakeBugHub:
-    """Trả lần lượt các (status, body) trong `replies`; hết danh sách thì lặp lại phần tử cuối."""
+    """Returns the (status, body) pairs of `replies` in turn; once the list runs out, repeats the last one."""
 
     def __init__(self, replies):
         self.replies, self.hits = list(replies), 0
@@ -56,7 +56,7 @@ class FakeBugHub:
 
 
 class WaitContract:
-    """Test dùng chung cho hai bản — lớp con đặt `command(code)`."""
+    """Tests shared by both versions — subclasses define `command(code)`."""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="bughub-wait-"))
@@ -81,7 +81,7 @@ class WaitContract:
         self.assertEqual([json.loads(line) for line in proc.stdout.splitlines() if line.strip()],
                          [{"new": 2, "retry": 1}])
         self.assertGreaterEqual(server.hits, 3)
-        self.assertTrue(self.beat.exists(), "bughub-wait phải chạm file heartbeat mỗi lần poll")
+        self.assertTrue(self.beat.exists(), "bughub-wait must touch the heartbeat file on every poll")
 
     def test_unknown_project_exits_3(self):
         proc, _ = self.run_wait([(404, {"error": "unknown_project"})])
@@ -97,13 +97,13 @@ class WaitContract:
         self.assertFalse(self.beat.exists())
 
 
-@unittest.skipUnless(BASH, "cần bash")
+@unittest.skipUnless(BASH, "needs bash")
 class WaitShTests(WaitContract, unittest.TestCase):
     def command(self, code):
         return [BASH, str(SCRIPTS / "bughub-wait.sh"), code]
 
     def stub_python(self, body):
-        """Đặt python3 / python / py giả lên đầu PATH — mô phỏng stub của Microsoft Store / Xcode CLT."""
+        """Put fake python3 / python / py first on PATH — simulates the Microsoft Store / Xcode CLT stubs."""
         stub_dir = self.tmp / "stub-bin"
         stub_dir.mkdir()
         for name in ("python3", "python", "py"):
@@ -115,29 +115,29 @@ class WaitShTests(WaitContract, unittest.TestCase):
         self.addCleanup(os.environ.__setitem__, "PATH", old_path)
 
     def test_python_stub_exits_1_instead_of_polling_forever(self):
-        # `command -v python3` thấy stub nhưng chạy thì lỗi: phải thoát 1 để model biết, không treo im lặng.
+        # `command -v python3` finds the stub but running it fails: must exit 1 so the model knows, not hang silently.
         self.stub_python('echo "Python was not found" >&2\nexit 49\n')
         proc, server = self.run_wait([(200, {"new": 0, "retry": 1})], timeout=20)
         self.assertEqual(proc.returncode, 1, proc.stderr)
         self.assertEqual(proc.stdout, "")
-        self.assertEqual(server.hits, 0, "chưa có Python chạy được thì không poll")
+        self.assertEqual(server.hits, 0, "no polling until a working Python exists")
 
     def test_python_breaking_mid_run_exits_1(self):
-        # Qua được bước dò (import json, sys) nhưng lỗi khi parse: lỗi công cụ, không phải payload hỏng.
+        # Passes the probe (import json, sys) but fails while parsing: a tool error, not a bad payload.
         self.stub_python('[ "$2" = "import json, sys" ] && exit 0\nexit 49\n')
         proc, server = self.run_wait([(200, {"new": 0, "retry": 1})], timeout=20)
         self.assertEqual(proc.returncode, 1, proc.stderr)
         self.assertEqual(server.hits, 1)
 
 
-@unittest.skipUnless(PWSH, "cần PowerShell (pwsh) để chạy bughub-wait.ps1")
+@unittest.skipUnless(PWSH, "needs PowerShell (pwsh) to run bughub-wait.ps1")
 class WaitPs1Tests(WaitContract, unittest.TestCase):
     def command(self, code):
         return [PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
                 str(SCRIPTS / "bughub-wait.ps1"), code]
 
     def test_script_keeps_utf8_bom(self):
-        # PowerShell 5.1 đọc file không BOM theo ANSI → chuỗi tiếng Việt vỡ cú pháp.
+        # PowerShell 5.1 reads a file without BOM as ANSI → non-ASCII strings break the syntax.
         self.assertTrue((SCRIPTS / "bughub-wait.ps1").read_bytes().startswith(b"\xef\xbb\xbf"))
 
 

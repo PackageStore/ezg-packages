@@ -1,96 +1,101 @@
-# Oracle & invariant — làm sao biết "đúng" là gì
+# Oracles & invariants — how to know what "correct" is
 
-Đọc ở STEP 3 của SKILL.md. Mục tiêu: mọi kết luận logic có **số đo** và **nguồn**. Tên quy ước template EZG ở đây
-(`PlayerDataManager`, `TimeManager`, `UnlockFeature`, `CoinPack`…) là ví dụ mặc định — tên thật của project đọc từ
-`qa.conventions` / `QaProfile.md` / code.
+Read at STEP 3 of SKILL.md. Goal: every logic conclusion has a **measurement** and a **source**. EZG template convention
+names here (`PlayerDataManager`, `TimeManager`, `UnlockFeature`, `CoinPack`…) are default examples — the project's real names
+are read from `qa.conventions` / `QaProfile.md` / the code.
 
 ## 1. Oracle vs invariant
 
 | | Oracle | Invariant |
 |---|---|---|
-| Là gì | Giá trị đúng cho **một hành động cụ thể** ("mua gói 1 → −100 kim cương, +1.000 vàng") | Điều **luôn đúng** bất kể hành động ("tiền không âm", "tổng tiền vào − ra = số dư") |
-| Nguồn | CSV (`csv`), GDD, TechSpec, công thức trong Service | Thiết kế hệ thống template + lẽ thường kinh tế game |
-| Kiểm khi | Từng ca, ngay sau hành động | Sau mỗi **nhóm** ca (kinh tế, nâng cấp…), đầu và cuối phiên |
-| Sai → | Bug logic của hành động đó | Bug nghiêm trọng hơn: có hành động nào đó phá luật mà ca riêng lẻ không bắt được |
+| What | The correct value for **one specific action** ("buy pack 1 → −100 diamonds, +1,000 gold") | Something **always true** regardless of the action ("money never negative", "total money in − out = balance") |
+| Source | CSV (`csv`), GDD, TechSpec, a formula in a Service | The template's system design + common sense of game economies |
+| Checked | Per case, right after the action | After each **group** of cases (economy, upgrades…), at the start and end of the session |
+| Wrong → | Logic bug of that action | A more serious bug: some action breaks a rule that individual cases did not catch |
 
-Charter liệt kê **cả hai**: bảng oracle theo ca, danh sách invariant của tính năng.
+The charter lists **both**: the oracle table per case, the feature's list of invariants.
 
-## 2. Bảng invariant chuẩn cho game trên template EZG
+## 2. Standard invariant table for games on the EZG template
 
-| Invariant | Cách kiểm (có probe) | Không probe | Sai = |
+| Invariant | How to check (with probe) | Without probe | Wrong = |
 |---|---|---|---|
-| **Tiền tệ không âm, không NaN** | `state PlayerDataManager.PlayerResource` (hoặc path trong `qa.verified.statePaths`) sau mỗi nhóm ca | số trên HUD | high (exploit/underflow) |
-| **Giá hiển thị = giá trừ = giá CSV** | `csv <PackCsv> --where id=<n> --col price` ↔ chữ trên nút ↔ Δ `state` | chữ trên nút ↔ Δ số HUD | high |
-| **Thưởng nhận = thưởng CSV, đúng một lần** | `csv <RewardCsv>` ↔ Δ `state` trước/sau; spam `--times 5` Δ vẫn bằng 1 phần | Δ số HUD | high |
-| **Giá IAP trên sheet = CSV pack** | `csv <IapPackCsv>` (productId, giá tham chiếu) ↔ sheet store (mở, đọc, **huỷ**) | nt. | high (sai gói) / medium (sai tên) |
-| **Mở khoá đúng điều kiện** | `csv UnlockFeature` (hoặc bảng tương đương) ↔ `state <PlayerData unlock module>` ↔ nút khoá/mở trên màn | nút khoá/mở + level hiện tại | high |
-| **Thời gian dùng đồng hồ game (`TimeManager`), không `DateTime.Now`** | `env clock +1d` (emulator) → timer/daily không nhảy nếu game chống; `app background --secs 60` → timer tiến đúng 60s | nt. | medium (gd nếu thiết kế cho phép) |
-| **Save round-trip** | `state` X → `app restart` → `state` X không đổi; `build update --keep-data` giữ nguyên | số HUD trước/sau | critical (mất) / high (lệch) |
-| **Số hiển thị nhất quán giữa màn** | cùng một giá trị ở HUD/popup/chi tiết sau một hành động — `ui --find <text>` | ảnh các màn | medium |
-| **Red dot = có việc** | red dot hiện ↔ `state` module tương ứng có mục chưa nhận; làm xong → tắt | nt. | low/medium |
-| **Tracking 1 hành động = 1 event** | `track --since <mark> --expect <event>`; spam → vẫn 1 | — | medium |
-| **Không exception trong code game** | `logs --all` cuối nhóm ca | logcat | high |
+| **Currencies never negative, never NaN** | `state PlayerDataManager.PlayerResource` (or a path in `qa.verified.statePaths`) after each case group | numbers on the HUD | high (exploit/underflow) |
+| **Displayed price = deducted price = CSV price** | `csv <PackCsv> --where id=<n> --col price` ↔ text on the button ↔ Δ `state` | text on the button ↔ Δ HUD number | high |
+| **Received reward = CSV reward, exactly once** | `csv <RewardCsv>` ↔ Δ `state` before/after; spam `--times 5` Δ still equals one share | Δ HUD number | high |
+| **IAP price on the sheet = CSV pack** | `csv <IapPackCsv>` (productId, reference price) ↔ store sheet (open, read, **cancel**) | same | high (wrong pack) / medium (wrong name) |
+| **Unlocks at the right condition** | `csv UnlockFeature` (or equivalent table) ↔ `state <PlayerData unlock module>` ↔ locked/unlocked button on screen | locked/unlocked button + current level | high |
+| **Time uses the game clock (`TimeManager`), not `DateTime.Now`** | `env clock +1d` (emulator) → timer/daily does not jump if the game guards against it; `app background --secs 60` → timer advances exactly 60s | same | medium (gd if the design allows it) |
+| **Save round-trip** | `state` X → `app restart` → `state` X unchanged; `build update --keep-data` keeps it intact | HUD numbers before/after | critical (lost) / high (drifted) |
+| **Displayed numbers consistent across screens** | the same value on HUD/popup/detail after an action — `ui --find <text>` | screenshots of the screens | medium |
+| **Red dot = something to do** | red dot shown ↔ the matching `state` module has an unclaimed item; done → it disappears | same | low/medium |
+| **Tracking: 1 action = 1 event** | `track --since <mark> --expect <event>`; spam → still 1 | — | medium |
+| **No exceptions in game code** | `logs --all` at the end of each case group | logcat | high |
 
-Game thêm invariant riêng (năng lượng ≤ max, kho ≤ sức chứa, sao của map ≤ tổng trạm…) → ghi vào charter +
-`QaProfile.md` để phiên sau dùng lại.
+The game adds its own invariants (energy ≤ max, storage ≤ capacity, map stars ≤ total stations…) → write them into the
+charter + `QaProfile.md` so later sessions can reuse them.
 
-## 3. Lấy giá trị kỳ vọng — `csv`, `state`, `call`
+## 3. Getting expected values — `csv`, `state`, `call`
 
-**`csv`** — đọc đúng file CSV mà game import (theo `qa.conventions.csvConfigGlob`), không đọc GDD thay thế:
-
-```bash
-$QA csv CoinPack                              # cả bảng (tên file không đuôi, không phân biệt hoa thường)
-$QA csv CoinPack --where id=2 --col price     # một ô — trích vào charter dạng "csv CoinPack:2"
-$QA csv UnlockFeature --where feature=Shop    # điều kiện mở khoá
-```
-
-GDD khác CSV → không tự chọn bên nào: bug `--type gd` nêu cả hai nguồn, tính năng kiểm theo CSV (đó là thứ game chạy).
-
-**`state`** — đọc state thật, trước và sau:
+**`csv`** — reads exactly the CSV file the game imports (per `qa.conventions.csvConfigGlob`), never the GDD instead:
 
 ```bash
-$QA state PlayerDataManager.PlayerResource                       # snapshot module (tool cắt dài — --out f.json nếu cần parse)
-$QA state PlayerDataManager.PlayerResource.Gold                  # một giá trị
+$QA csv CoinPack                              # whole table (file name without extension, case-insensitive)
+$QA csv CoinPack --where id=2 --col price     # one cell — cite it in the charter as "csv CoinPack:2"
+$QA csv UnlockFeature --where feature=Shop    # unlock condition
 ```
 
-- Path đã kiểm ở phiên trước: `qa.verified.statePaths` / `QaProfile.md` — dùng luôn. Path mới chạy OK → `stop` ghi vào.
-- Đọc code module PlayerData (`Scripts/Data/Player*.cs`) để biết đúng member; đừng đoán.
-- Snapshot trước hành động → hành động → snapshot sau → Δ chỉ đúng những trường hành động đó phải đổi. Trường khác
-  đổi theo = phát hiện (side effect).
+GDD differs from CSV → do not pick a side yourself: bug `--type gd` quoting both sources, and check the feature against the
+CSV (that is what the game runs).
 
-**`call`** — chỉ gọi hàm **đọc**/tổng hợp (Service static: `GetTotalX`, `CanAffordY`, `IsUnlocked`) để kiểm invariant;
-hàm ghi (cộng tiền, mở khoá) chỉ dùng dựng điều kiện (luật 1 SKILL.md) và ghi vào `--precondition`.
+**`state`** — reads the real state, before and after:
+
+```bash
+$QA state PlayerDataManager.PlayerResource                       # module snapshot (the tool truncates long output — --out f.json if you need to parse it)
+$QA state PlayerDataManager.PlayerResource.Gold                  # a single value
+```
+
+- Paths verified in earlier sessions: `qa.verified.statePaths` / `QaProfile.md` — use them directly. A new path that works →
+  `stop` records it.
+- Read the PlayerData module code (`Scripts/Data/Player*.cs`) to know the right member; do not guess.
+- Snapshot before the action → action → snapshot after → Δ only in the fields that action must change. Other fields changing
+  too = a finding (side effect).
+
+**`call`** — only call **read**/aggregate functions (static Service: `GetTotalX`, `CanAffordY`, `IsUnlocked`) to check
+invariants; write functions (add money, unlock) are only for setting up conditions (SKILL.md rule 1) and go into
+`--precondition`.
 
 ## 4. Tracking / analytics
 
-Hành động quan trọng (mua, nhận thưởng, mở màn, xem ads, hoàn thành level) phải phát event đúng tên, đúng số lần:
+Important actions (purchase, reward claim, screen open, ad view, level complete) must emit the right event name, the right
+number of times:
 
 ```bash
 $QA mark "P0-02 - mua gói 1"
 $QA tap --text "Mua" --expect "Đã mua" --as "Bấm Mua gói 1"
-$QA track --since "P0-02 - mua gói 1" --expect purchase_pack       # tên event lấy từ TrackingEventName (hoặc type trong qa.conventions.trackingEventNameType)
+$QA track --since "P0-02 - mua gói 1" --expect purchase_pack       # event name from TrackingEventName (or the type in qa.conventions.trackingEventNameType)
 ```
 
-- `track` lọc log theo `qa.conventions.trackingLogPattern` (mặc định `Tracking|Firebase|AppsFlyer`); game log tracking
-  kiểu khác → sửa pattern trong profile, ghi `QaProfile.md`.
-- Thiếu event → medium. Event đúp khi spam → medium (ảnh hưởng số liệu). Tham số chính sai (pack id, giá) → medium.
-- Build release tắt log tracking → `track` không thấy gì: ghi "không kiểm được tracking (build release)", không phải bug.
+- `track` filters logs by `qa.conventions.trackingLogPattern` (default `Tracking|Firebase|AppsFlyer`); the game logs tracking
+  differently → fix the pattern in the profile, note it in `QaProfile.md`.
+- Missing event → medium. Duplicate event on spam → medium (skews the data). Wrong main parameter (pack id, price) → medium.
+- A release build with tracking logs off → `track` sees nothing: write "không kiểm được tracking (build release)", not a bug.
 
-## 5. Save-migration — cập nhật build giữ data
+## 5. Save-migration — a build update keeps the data
 
-Khi repo/máy có bản build **cũ hơn** bản đang test (artifact cũ, bản store đang cài):
+When the repo/device has a build **older** than the one under test (an old artifact, the store version installed):
 
 ```bash
-# đang chạy bản cũ với save đã có tiến trình (hoặc dựng bằng cheat)
-$QA build update <apk|aab|path> --keep-data      # cài đè, ghi version trước/sau, snapshot verified.statePaths trước/sau → migration.md
+# running the old build with a save that has progress (or set it up with cheats)
+$QA build update <apk|aab|path> --keep-data      # installs over it, records version before/after, snapshots verified.statePaths before/after → migration.md
 ```
 
-Đọc `migration.md`: mọi trường trong snapshot phải **bằng** hoặc **đổi có giải thích** (changelog/CSV mới đổi
-công thức → giá trị suy ra đổi). Mất tiến trình, về mặc định, mất item/currency → **critical**. Màn đầu sau cập
-nhật (popup "có gì mới", tutorial lặp lại, loading dài) → kiểm bằng mắt. Không có bản cũ → ghi `skip` ca migration,
-nhắc dev giữ artifact bản trước trong repo/CI.
+Read `migration.md`: every field in the snapshot must be **equal** or **changed with an explanation** (changelog/new CSV
+changed a formula → derived values change). Lost progress, reset to defaults, lost items/currency → **critical**. The first
+screen after the update ("what's new" popup, tutorial repeating, long loading) → check by eye. No old build → mark the
+migration case `skip`, remind the dev to keep the previous build's artifact in the repo/CI.
 
-## 6. Khi không có probe
+## 6. Without the probe
 
-Vẫn có oracle: `csv` đọc từ repo, số trên ảnh gốc `.png` (Read ảnh gốc, không ảnh xem thu nhỏ), `logs` cho
-exception/tracking. Mất: `state` chính xác, `call`, `tap --text`. Ghi "hộp đen" trong report để dev build lại có probe.
+You still have oracles: `csv` reads from the repo, numbers off the original `.png` (Read the original image, not the
+downscaled view), `logs` for exceptions/tracking. Lost: exact `state`, `call`, `tap --text`. Write "hộp đen" (black-box) in
+the report so the dev rebuilds with the probe.

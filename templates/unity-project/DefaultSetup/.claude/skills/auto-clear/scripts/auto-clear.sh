@@ -1,45 +1,47 @@
 #!/usr/bin/env bash
-# auto-clear.sh — tự gõ "/clear" vào ĐÚNG pane iTerm2 đang chạy Claude Code ngay sau khi lượt
-# trả lời kết thúc. Skill /auto-clear bật cờ; Stop hook (đăng ký bằng `install`) đọc cờ rồi gõ.
-# Twin Windows: auto-clear.ps1 (THỬ NGHIỆM) — giữ cùng subcommand, cùng layout ~/.claude/auto-clear/.
+# auto-clear.sh — types "/clear" into the EXACT iTerm2 pane running Claude Code right after the turn
+# ends. The /auto-clear skill arms the flag; the Stop hook (registered by `install`) reads the flag and types.
+# Windows twin: auto-clear.ps1 (EXPERIMENTAL) — keep the same subcommands and the same ~/.claude/auto-clear/ layout.
 #
 #   arm [--stdin] [--then "<prompt>"]
-#                   bật cờ cho pane hiện tại; --stdin: lưu report cuối (đọc từ stdin) trước khi clear;
-#                   --then: sau "/clear" chờ AUTO_CLEAR_THEN_DELAY giây rồi gõ tiếp <prompt> + Enter
-#                   (một dòng, không ký tự điều khiển, ≤ 200 ký tự — sai thì không bật cờ)
-#   off             gỡ cờ của pane hiện tại
-#   status          cờ của pane hiện tại đang bật hay không (kèm prompt --then đang chờ, nếu có)
-#   probe           dò pane + so tty, KHÔNG gõ gì — kiểm tra cài đặt / quyền Automation
-#   type-test       gõ "auto-clear type-test ok" + Enter vào pane của claude hiện tại — chạy từ một lệnh
-#                   Bash của Claude Code, chữ đó phải hiện thành tin nhắn user đang xếp hàng (kiểm gõ thật)
-#   hook            Stop hook: có cờ → gỡ cờ → chờ AUTO_CLEAR_DELAY giây → gõ "/clear" + Enter
-#                   (+ prompt --then nếu cờ có, sau AUTO_CLEAR_THEN_DELAY giây)
-#   inject <uuid> [tty]   gõ "/clear" + Enter vào pane <uuid> (nội bộ / test)
+#                   arm the current pane; --stdin: save the final report (read from stdin) before clearing;
+#                   --then: after "/clear" wait AUTO_CLEAR_THEN_DELAY seconds, then type <prompt> + Enter
+#                   (one line, no control characters, <= 200 characters — otherwise the flag is NOT armed)
+#   off             disarm the current pane
+#   status          whether the current pane is armed (plus the pending --then prompt, if any)
+#   probe           find the pane + compare ttys, WITHOUT typing anything — checks the setup / Automation permission
+#   type-test       type "auto-clear type-test ok" + Enter into the current claude's pane — run it from a Claude
+#                   Code Bash call; the text must show up as a queued user message (checks real typing)
+#   hook            Stop hook: armed → disarm → wait AUTO_CLEAR_DELAY seconds → type "/clear" + Enter
+#                   (+ the --then prompt when the flag carries one, after AUTO_CLEAR_THEN_DELAY seconds)
+#   inject <uuid> [tty]   type "/clear" + Enter into pane <uuid> (internal / testing)
 #   retry-arm [--prompt "<prompt>"] [--max N]
-#                   bật THỬ LẠI LỖI API cho pane hiện tại: lượt trả lời chết vì lỗi API của Claude (mất
-#                   quyền org, rate limit, overloaded, 5xx…) → StopFailure hook chờ AUTO_CLEAR_RETRY_DELAY
-#                   giây rồi gõ <prompt> + Enter, tối đa N lần liên tiếp (mặc định AUTO_CLEAR_RETRY_MAX;
-#                   0 = không giới hạn); một lượt kết thúc bình thường (Stop hook) đưa bộ đếm về 0. Cờ
-#                   sống tới khi retry-off / off
-#   retry-off       gỡ cờ thử lại lỗi API của pane hiện tại
-#   failhook        StopFailure hook (nội bộ) — xem retry-arm
-#   install         copy script sang ~/.claude/auto-clear/auto-clear.sh rồi đăng ký Stop + StopFailure
-#                   hook (async) trỏ vào bản copy đó trong ~/.claude/settings.json — idempotent, có backup
-#   uninstall       gỡ cả hai hook khỏi ~/.claude/settings.json + xoá bản copy
+#                   arm API-ERROR RETRY for the current pane: when a turn dies on a Claude API error (org access
+#                   lost, rate limit, overloaded, 5xx…) the StopFailure hook waits AUTO_CLEAR_RETRY_DELAY
+#                   seconds, then types <prompt> + Enter, at most N times in a row (default AUTO_CLEAR_RETRY_MAX;
+#                   0 = unlimited); a turn that ends normally (Stop hook) resets the counter to 0. The flag
+#                   lives until retry-off / off
+#   retry-off       disarm the current pane's API-error retry
+#   failhook        StopFailure hook (internal) — see retry-arm
+#   install         copy the script to ~/.claude/auto-clear/auto-clear.sh and register the Stop + StopFailure
+#                   hooks (async) on that copy in ~/.claude/settings.json — idempotent, with backup
+#   uninstall       remove both hooks from ~/.claude/settings.json + delete the copy
 #
-# Hook là của MÁY (settings user-level), không của repo: một hook phục vụ mọi project cài skill này.
-# Vì vậy nó chạy bản copy ở ~/.claude/auto-clear/ chứ không trỏ vào repo — xoá/dời repo không làm hook
-# chết âm thầm. `arm` đồng bộ lại bản copy mỗi lần chạy, nên update skill là hook dùng bản mới luôn.
+# The hook belongs to the MACHINE (user-level settings), not to a repo: one hook serves every project that
+# installs this skill. It therefore runs the copy under ~/.claude/auto-clear/ instead of pointing into a repo, so
+# deleting/moving a repo cannot silently kill it. `arm` re-syncs the copy on every run, so a skill update reaches
+# the hook right away.
 #
 # auto-clear-version: 1
-#   Tăng số này (cùng số với auto-clear.ps1) mỗi khi phía hook đổi. `arm` / `retry-arm` / `install` KHÔNG
-#   chép đè bản copy mang số LỚN HƠN: nhiều project trên một máy, project còn skill cũ sẽ hạ cấp hook dùng
-#   chung mỗi lần arm (bản copy cũ có failhook không làm gì = thử lại lỗi API chết âm thầm cho mọi project).
-#   Script không có dòng này tính là version 0.
+#   Bump this number (same number in auto-clear.ps1) whenever the hook side changes. `arm` / `retry-arm` /
+#   `install` NEVER overwrite a copy carrying a HIGHER number: with several projects on one machine, a project
+#   still on an old skill would downgrade the shared hook on every arm (an old copy whose failhook does nothing =
+#   API-error retry silently dead for every project). Scripts without this line count as version 0.
 #
-# Nhắm pane theo UUID trong ITERM_SESSION_ID ("w0t0p3:<UUID>") qua AppleScript `write text` — ghi
-# thẳng vào input của pane đó, KHÔNG gửi phím vào cửa sổ đang focus. Trước khi gõ còn so tty của pane
-# với tty của process `claude` đã bật cờ: lệch (tmux/ssh, Claude đã thoát) → bỏ qua, không gõ nhầm.
+# Targets the pane by the UUID in ITERM_SESSION_ID ("w0t0p3:<UUID>") through AppleScript `write text` — writes
+# straight into that pane's input, does NOT send keys to the focused window. Before typing it also compares the
+# pane's tty with the tty of the `claude` process that armed the flag: mismatch (tmux/ssh, Claude exited) → skip,
+# never type into the wrong pane.
 set -u
 
 STATE_DIR="${HOME}/.claude/auto-clear"
@@ -63,8 +65,8 @@ flag_path() { printf '%s/%s.flag' "$STATE_DIR" "$1"; }
 
 retry_path() { printf '%s/%s.retry' "$STATE_DIR" "$1"; }
 
-# PID của process Claude Code tổ tiên gần nhất: comm "claude" (bản native) hoặc node chạy claude (npm).
-# Shell của Bash tool và của hook đều KHÔNG có tty riêng ("??") nên phải leo lên tới claude.
+# PID of the nearest ancestor Claude Code process: comm "claude" (native build) or node running claude (npm).
+# The Bash tool's shell and the hook's shell both have NO tty of their own ("??"), so walk up to claude.
 claude_pid() {
   local pid=$$ comm args
   while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
@@ -87,33 +89,33 @@ tty_of() {
   if [ -n "$t" ] && [ "$t" != "??" ]; then printf '/dev/%s' "$t"; fi
 }
 
-# Path script mà Stop hook đang trỏ tới — rỗng nếu chưa đăng ký. Đọc cả bản cài cũ (trỏ thẳng vào repo).
+# Script path the Stop hook points to — empty if not registered. Also reads old installs (pointing straight into a repo).
 hook_target() {
   [ -f "$SETTINGS" ] || return 0
   sed -n "s/.*f='\([^']*auto-clear\.sh\)'.*/\1/p" "$SETTINGS" | head -n 1
 }
 
-# Đã đăng ký VÀ script đích còn tồn tại (hook trỏ vào repo đã xoá/dời = coi như chưa cài).
+# Registered AND the target script still exists (a hook pointing into a deleted/moved repo = not installed).
 hook_installed() {
   local target
   target=$(hook_target)
   [ -n "$target" ] && [ -f "$target" ]
 }
 
-# StopFailure hook đã đăng ký (bản install cũ chỉ có Stop hook → phải chạy lại install).
+# StopFailure hook registered (old installs only have the Stop hook → install must be run again).
 failhook_installed() {
   hook_installed && grep -q 'auto-clear\.sh.* failhook' "$SETTINGS" 2>/dev/null
 }
 
-# Số "auto-clear-version: N" của một file script (0 = không có dòng đó = cũ hơn chính cơ chế này).
+# The "auto-clear-version: N" number of a script file (0 = no such line = older than this mechanism itself).
 script_version() {
   local v
   v="$(sed -n 's/^# auto-clear-version: \([0-9][0-9]*\)[[:space:]]*$/\1/p' "$1" 2>/dev/null | head -n 1)"
   printf '%s' "${v:-0}"
 }
 
-# Chép script này đè bản copy của hook, trừ khi bản copy MỚI HƠN (xem "auto-clear-version" ở đầu file).
-# Exit 0 = bản copy giờ bằng hoặc mới hơn version của script này; 1 = đã giữ bản copy mới hơn.
+# Copy this script over the hook's copy, unless the copy is NEWER (see "auto-clear-version" at the top of the file).
+# Exit 0 = the copy is now the same or newer than this script's version; 1 = the newer copy was kept.
 copy_hook_script() {
   [ "$SCRIPT_PATH" = "$HOOK_SCRIPT" ] && return 0
   local mine theirs
@@ -126,18 +128,18 @@ copy_hook_script() {
   cmp -s "$SCRIPT_PATH" "$HOOK_SCRIPT" || cp "$SCRIPT_PATH" "$HOOK_SCRIPT"
 }
 
-# Hook chạy bản copy → đồng bộ với bản của skill đang bật cờ để hook luôn khớp phiên bản vừa arm.
+# The hook runs the copy → sync it with the arming skill's version so the hook always matches what was just armed.
 sync_hook_copy() {
   if [ "$(hook_target)" = "$HOOK_SCRIPT" ]; then
     copy_hook_script || true
   fi
 }
 
-# Prompt --then trong cờ: base64 một dòng để xuống dòng/dấu "=" không phá format key=value.
+# The --then prompt in the flag: single-line base64 so newlines / "=" cannot break the key=value format.
 b64_encode() { printf '%s' "$1" | base64 | tr -d '\n'; }
 b64_decode() { printf '%s' "$1" | base64 --decode 2>/dev/null; }
 
-# Số lần thử lại tối đa ghi trong cờ retry (cờ bản cũ không có → AUTO_CLEAR_RETRY_MAX). 0 = không giới hạn.
+# Max retry count stored in the retry flag (old flags lack it → AUTO_CLEAR_RETRY_MAX). 0 = unlimited.
 retry_max_of() {
   local max
   max=$(sed -n 's/^max=//p' "$1")
@@ -147,19 +149,19 @@ retry_max_of() {
 
 max_label() { if [ "$1" -eq 0 ]; then printf '∞'; else printf '%s' "$1"; fi; }
 
-# Prompt hợp lệ: không rỗng, một dòng, không ký tự điều khiển, ≤ THEN_MAX ký tự. Sai → in lý do, return 1.
+# Valid prompt: not empty, one line, no control characters, <= THEN_MAX characters. Invalid → print the reason, return 1.
 validate_then() {
   local p="$1" n
-  [ -n "$p" ] || { echo "INVALID_THEN: prompt rỗng"; return 1; }
-  case "$p" in *$'\n'*|*$'\r'*) echo "INVALID_THEN: prompt phải là một dòng"; return 1 ;; esac
+  [ -n "$p" ] || { echo "INVALID_THEN: empty prompt"; return 1; }
+  case "$p" in *$'\n'*|*$'\r'*) echo "INVALID_THEN: prompt must be a single line"; return 1 ;; esac
   if printf '%s' "$p" | LC_ALL=C grep -q '[[:cntrl:]]'; then
-    echo "INVALID_THEN: prompt chứa ký tự điều khiển"; return 1
+    echo "INVALID_THEN: prompt contains control characters"; return 1
   fi
   n=$(printf '%s' "$p" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
-  [ "$n" -le "$THEN_MAX" ] || { echo "INVALID_THEN: prompt dài $n ký tự (tối đa $THEN_MAX)"; return 1; }
+  [ "$n" -le "$THEN_MAX" ] || { echo "INVALID_THEN: prompt is $n characters long (max $THEN_MAX)"; return 1; }
 }
 
-# $1 uuid, $2 tty mong đợi ("" = bỏ qua so tty), $3 "dry" | "type", $4 chữ cần gõ ("" = "/clear")
+# $1 uuid, $2 expected tty ("" = skip the tty check), $3 "dry" | "type", $4 text to type ("" = "/clear")
 iterm_send() {
   osascript - "$1" "$2" "$3" "${4:-/clear}" <<'OSA'
 on run argv
@@ -199,18 +201,18 @@ cmd_arm() {
     case "$1" in
       --stdin) use_stdin=1 ;;
       --then)
-        [ $# -ge 2 ] || { echo "INVALID_THEN: --then thiếu prompt"; return 1; }
+        [ $# -ge 2 ] || { echo "INVALID_THEN: --then is missing its prompt"; return 1; }
         has_then=1; then_prompt="$2"; shift ;;
       *) echo "usage: auto-clear.sh arm [--stdin] [--then \"<prompt>\"]"; return 1 ;;
     esac
     shift
   done
-  # Validate trước mọi side-effect: prompt sai thì không lưu report, không bật cờ.
+  # Validate before any side effect: an invalid prompt saves no report and arms no flag.
   if [ -n "$has_then" ]; then validate_then "$then_prompt" || return 1; fi
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID (không chạy trong iTerm2) — gõ /clear tay"; return 2; }
-  hook_installed || { echo "NOT_INSTALLED: Stop hook chưa đăng ký (hoặc trỏ tới script không còn tồn tại) — chạy: bash $SCRIPT_PATH install"; return 3; }
-  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID (not running in iTerm2) — type /clear manually"; return 2; }
+  hook_installed || { echo "NOT_INSTALLED: Stop hook not registered (or it points to a script that no longer exists) — run: bash $SCRIPT_PATH install"; return 3; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: no ancestor claude process found"; return 2; }
   sync_hook_copy
   tty=$(tty_of "$pid")
   mkdir -p "$STATE_DIR/reports"
@@ -238,8 +240,8 @@ cmd_arm() {
 cmd_off() {
   local uuid
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
-  # `off` = dev dừng loop → gỡ luôn cờ thử lại lỗi API, không thì lỗi API sau này gõ prompt loop vào pane.
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID"; return 2; }
+  # `off` = the dev stops the loop → also disarm the API-error retry, otherwise a later API error types the loop prompt into the pane.
   if [ -f "$(retry_path "$uuid")" ]; then
     rm -f "$(retry_path "$uuid")"
     log "retry-off pane=$uuid (off)"
@@ -259,10 +261,10 @@ cmd_retry_arm() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --prompt)
-        [ $# -ge 2 ] || { echo "INVALID_THEN: --prompt thiếu nội dung"; return 1; }
+        [ $# -ge 2 ] || { echo "INVALID_THEN: --prompt is missing its text"; return 1; }
         prompt="$2"; shift ;;
       --max)
-        case "${2:-}" in ''|*[!0-9]*) echo "INVALID_MAX: --max cần số nguyên ≥ 0 (0 = không giới hạn)"; return 1 ;; esac
+        case "${2:-}" in ''|*[!0-9]*) echo "INVALID_MAX: --max needs an integer >= 0 (0 = unlimited)"; return 1 ;; esac
         max="$2"; shift ;;
       *) echo "usage: auto-clear.sh retry-arm [--prompt \"<prompt>\"] [--max N]"; return 1 ;;
     esac
@@ -270,9 +272,9 @@ cmd_retry_arm() {
   done
   validate_then "$prompt" || return 1
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID (không chạy trong iTerm2) — lỗi API phải gõ tiếp tay"; return 2; }
-  failhook_installed || { echo "NOT_INSTALLED: StopFailure hook chưa đăng ký — chạy: bash $SCRIPT_PATH install"; return 3; }
-  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID (not running in iTerm2) — after an API error, type to continue manually"; return 2; }
+  failhook_installed || { echo "NOT_INSTALLED: StopFailure hook not registered — run: bash $SCRIPT_PATH install"; return 3; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: no ancestor claude process found"; return 2; }
   sync_hook_copy
   tty=$(tty_of "$pid")
   mkdir -p "$STATE_DIR"
@@ -285,7 +287,7 @@ cmd_retry_arm() {
 cmd_retry_off() {
   local uuid
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID"; return 2; }
   if [ -f "$(retry_path "$uuid")" ]; then
     rm -f "$(retry_path "$uuid")"
     log "retry-off pane=$uuid"
@@ -295,16 +297,16 @@ cmd_retry_off() {
   fi
 }
 
-# Đặt count trong cờ retry (giữ nguyên các dòng khác).
+# Set count in the retry flag (other lines kept as is).
 retry_set_count() {
   local file="$1" count="$2" tmp
   tmp="$file.tmp.$$"
   { grep -v '^count=' "$file"; printf 'count=%s\n' "$count"; } > "$tmp" && mv "$tmp" "$file"
 }
 
-# StopFailure hook: lượt trả lời chết vì lỗi API. Có cờ retry của pane + đúng process claude đã arm →
-# chờ RETRY_DELAY giây rồi gõ prompt; quá `max` của cờ (0 = không giới hạn) lần liên tiếp thì thôi (cờ giữ
-# nguyên, log give-up).
+# StopFailure hook: the turn died on an API error. The pane has a retry flag + it is the same claude process that
+# armed it → wait RETRY_DELAY seconds, then type the prompt; more than the flag's `max` (0 = unlimited) times in a
+# row → give up (the flag stays, give-up is logged).
 cmd_failhook() {
   local input uuid file armed_pid armed_tty cur_pid count max prompt error result mode
   input=""
@@ -326,32 +328,32 @@ cmd_failhook() {
   max=$(retry_max_of "$file")
   count=$(( ${count:-0} + 1 ))
   if [ "$max" -gt 0 ] && [ "$count" -gt "$max" ]; then
-    log "failhook give-up pane=$uuid error=${error:-?}: đã thử lại $max lần"
+    log "failhook give-up pane=$uuid error=${error:-?}: retried $max times"
     return 0
   fi
   retry_set_count "$file" "$count"
   if ! validate_then "$prompt" >/dev/null; then
-    log "failhook skip pane=$uuid: prompt trong cờ không hợp lệ"
+    log "failhook skip pane=$uuid: invalid prompt in flag"
     return 0
   fi
-  log "failhook pane=$uuid error=${error:-?} lần $count/$(max_label "$max") — chờ ${RETRY_DELAY}s"
+  log "failhook pane=$uuid error=${error:-?} try $count/$(max_label "$max") — wait ${RETRY_DELAY}s"
   mode="${AUTO_CLEAR_DRY:+dry}"
   sleep "$RETRY_DELAY"
-  # Dev đã gỡ cờ (retry-off / off) trong lúc chờ → không gõ.
-  [ -f "$file" ] || { log "failhook skip pane=$uuid: cờ retry đã bị gỡ trong lúc chờ"; return 0; }
+  # The dev disarmed (retry-off / off) while we waited → do not type.
+  [ -f "$file" ] || { log "failhook skip pane=$uuid: retry flag removed while waiting"; return 0; }
   result=$(iterm_send "$uuid" "$armed_tty" "$mode" "$prompt" 2>&1)
-  log "failhook pane=$uuid tty=$armed_tty lần $count -> $result"
+  log "failhook pane=$uuid tty=$armed_tty try $count -> $result"
   return 0
 }
 
 cmd_status() {
   local uuid then_b64
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID"; return 2; }
   if hook_installed; then
     echo "HOOK installed ($SETTINGS -> $(hook_target))"
   elif [ -n "$(hook_target)" ]; then
-    echo "HOOK broken: script $(hook_target) không còn tồn tại — chạy lại install"
+    echo "HOOK broken: script $(hook_target) no longer exists — run install again"
   else
     echo "HOOK not-installed"
   fi
@@ -374,8 +376,8 @@ cmd_status() {
 cmd_probe() {
   local uuid pid tty
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
-  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID"; return 2; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: no ancestor claude process found"; return 2; }
   tty=$(tty_of "$pid")
   echo "pane=$uuid claude_pid=$pid claude_tty=${tty:-?}"
   iterm_send "$uuid" "$tty" dry
@@ -384,8 +386,8 @@ cmd_probe() {
 cmd_type_test() {
   local uuid pid tty result
   uuid=$(pane_uuid)
-  [ -n "$uuid" ] || { echo "UNSUPPORTED: không có ITERM_SESSION_ID"; return 2; }
-  pid=$(claude_pid) || { echo "UNSUPPORTED: không tìm thấy process claude tổ tiên"; return 2; }
+  [ -n "$uuid" ] || { echo "UNSUPPORTED: no ITERM_SESSION_ID"; return 2; }
+  pid=$(claude_pid) || { echo "UNSUPPORTED: no ancestor claude process found"; return 2; }
   tty=$(tty_of "$pid")
   result=$(iterm_send "$uuid" "$tty" type "$TYPE_TEST_TEXT" 2>&1)
   log "type-test pane=$uuid tty=$tty -> $result"
@@ -394,11 +396,11 @@ cmd_type_test() {
 
 cmd_hook() {
   local uuid flag armed_pid armed_tty cur_pid result then_b64 then_prompt mode
-  # Stop hook nhận JSON qua stdin — đọc cho hết để phía Claude Code không dính EPIPE.
+  # The Stop hook receives JSON on stdin — drain it so Claude Code's side does not hit EPIPE.
   [ -t 0 ] || cat > /dev/null 2>&1
   uuid=$(pane_uuid)
   [ -n "$uuid" ] || return 0
-  # Lượt kết thúc bình thường (lỗi API không bắn Stop, chỉ bắn StopFailure) → chuỗi lỗi API đã dứt.
+  # The turn ended normally (an API error fires only StopFailure, never Stop) → the API-error streak is over.
   if [ -f "$(retry_path "$uuid")" ] && ! grep -qx 'count=0' "$(retry_path "$uuid")"; then
     retry_set_count "$(retry_path "$uuid")" 0
     log "retry-reset pane=$uuid"
@@ -420,16 +422,16 @@ cmd_hook() {
   log "hook pane=$uuid tty=$armed_tty -> $result"
   [ -n "$then_b64" ] || return 0
   then_prompt=$(b64_decode "$then_b64")
-  # Cờ có thể bị sửa tay giữa arm và hook → validate lại trước khi gõ.
+  # The flag may have been hand-edited between arm and hook → re-validate before typing.
   if ! validate_then "$then_prompt" >/dev/null; then
-    log "hook-then pane=$uuid skip: prompt trong cờ không hợp lệ"
+    log "hook-then pane=$uuid skip: invalid prompt in flag"
     return 0
   fi
   case "$result" in
     ok*) ;;
-    *) log "hook-then pane=$uuid skip: /clear không gõ được ($result)"; return 0 ;;
+    *) log "hook-then pane=$uuid skip: /clear was not typed ($result)"; return 0 ;;
   esac
-  # Chờ /clear xong để prompt rơi vào session sạch; iterm_send so tty lại nên vẫn chỉ gõ vào pane đã arm.
+  # Wait for /clear to finish so the prompt lands in a clean session; iterm_send re-checks the tty, so it still only types into the armed pane.
   sleep "$THEN_DELAY"
   result=$(iterm_send "$uuid" "$armed_tty" "$mode" "$then_prompt" 2>&1)
   log "hook-then pane=$uuid tty=$armed_tty prompt=$then_prompt -> $result"
@@ -453,11 +455,11 @@ if os.path.exists(path):
         data = json.load(f)
     shutil.copy2(path, path + ".bak-auto-clear")
 hooks = data.setdefault("hooks", {})
-# StopFailure: hook chờ AUTO_CLEAR_RETRY_DELAY (30s) rồi mới gõ → timeout phải dư.
+# StopFailure: the hook waits AUTO_CLEAR_RETRY_DELAY (30s) before typing → the timeout needs headroom.
 for event, sub, timeout in (("Stop", "hook", 30), ("StopFailure", "failhook", 120)):
     command = f"f='{script}'; [ -f \"$f\" ] && bash \"$f\" {sub} || true"
     groups = hooks.setdefault(event, [])
-    # Idempotent: bỏ entry auto-clear cũ (nếu có), giữ nguyên mọi hook khác.
+    # Idempotent: drop old auto-clear entries (if any), keep every other hook as is.
     for group in groups:
         group["hooks"] = [h for h in group.get("hooks", []) if "auto-clear" not in h.get("command", "")]
     groups[:] = [g for g in groups if g.get("hooks")]

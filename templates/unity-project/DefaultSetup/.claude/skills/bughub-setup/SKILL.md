@@ -1,137 +1,138 @@
 ---
 name: bughub-setup
-description: Cài BugHub (Bug Logger dùng chung — server tạo GitLab Issue + thread Discord cho bug QA gửi) cho project Unity hiện tại trong một lệnh, idempotent — kiểm MCP `bughub` đã kết nối, (tài khoản admin) đăng ký/sửa project trên server qua `bughub_admin_project_upsert` (kèm gán thành viên `members` khi dev nêu "A làm lead, B QA…"), (không admin) chỉ kiểm project đã tồn tại qua `GET /v1/projects/<code>/form`, kiểm package `com.ezg.buglogger`, ghi `projectCode` vào asset `BugLoggerSettings` của game và `bugHub.projectCode` trong `.claude/project-profile.json`, kiểm gate cheat + in cách thêm máy QA vào allowlist cheat (Remote Config), nhắc cài `/auto-clear` cho `/fix-bug --watch`. Dev chỉ trả lời ID forum Discord (và xác nhận mã project nếu chưa có). Chạy lại trên project đã cài → mọi bước `ok`, không tạo trùng. Dùng khi user nói "/bughub-setup", "setup bughub", "cài bughub", "cài bug logger cho project", "đăng ký project lên BugHub", "gắn project vào BugHub". KHÔNG sửa bug (→ `/fix-bug`), KHÔNG cài/upgrade CI (→ `/auto-build-setup`), KHÔNG đổi config server ngoài `bughub_admin_project_upsert`.
+description: Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says "A làm lead, B QA…" / "A is lead, B QA…"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says "/bughub-setup", "setup bughub", "cài bughub", "install bughub", "cài bug logger cho project", "install bug logger for the project", "đăng ký project lên BugHub", "register the project on BugHub", "gắn project vào BugHub". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ `/auto-build-setup`), does NOT change server config beyond `bughub_admin_project_upsert`.
 ---
 
-# BugHub Setup — cài BugHub cho project hiện tại
+# BugHub Setup — install BugHub for the current project
 
-Kiến trúc (contract, nguồn chân lý): BugHub là **một** Cloudflare Worker cho mọi project. Client game chỉ
-cấu hình **mã project** (`projectCode`); mọi việc với GitLab/Discord do server làm. Máy dev nói chuyện với
-server qua **MCP `bughub`** (Claude Code lộ tool dạng `mcp__bughub__bughub_*`) và đúng một endpoint public
-`GET /v1/projects/<code>/form`.
+Architecture (the contract, source of truth): BugHub is **one** Cloudflare Worker for every project. The game
+client only configures the **project code** (`projectCode`); the server does everything involving GitLab/Discord.
+The dev machine talks to the server through the **`bughub` MCP** (Claude Code exposes its tools as
+`mcp__bughub__bughub_*`) and exactly one public endpoint `GET /v1/projects/<code>/form`.
 
-**Luật cứng của skill:**
+**Hard rules of this skill:**
 
-1. **Không** dùng CLI hay REST API của GitLab/Discord dưới bất kỳ hình thức nào; không đụng secret/config
-   server ngoài `bughub_admin_project_upsert`. Thao tác server chỉ qua tool `bughub_*` hoặc
-   `GET <endpoint>/v1/projects/<code>/form`. (`git fetch`/`git show` nhánh build ở bước 7 là git thường, không phải API.)
-2. **Idempotent:** mỗi bước đọc trạng thái hiện có trước, chỉ ghi khi lệch. Lần chạy thứ hai trên project
-   đã cài → mọi bước `ok`, không tạo asset/key/project trùng.
-3. **Không hỏi những gì suy ra được.** Chỉ hỏi dev: xác nhận mã project (khi chưa có), ID forum Discord,
-   ID kênh feedback (tuỳ chọn), `gitlabProject` (chỉ khi `origin` không phải gitlab.com) — và chỉ khi
-   project **chưa** đăng ký trên server.
-4. Một bước trượt **không** dừng cả skill (trừ bước 2): ghi kết quả bước đó, làm tiếp bước sau, gom vào
-   bảng report bước 9.
+1. **Never** use the GitLab/Discord CLI or REST API in any form; do not touch server secrets/config beyond
+   `bughub_admin_project_upsert`. Server operations go only through `bughub_*` tools or
+   `GET <endpoint>/v1/projects/<code>/form`. (`git fetch`/`git show` of the build branch in step 7 is plain git, not an API.)
+2. **Idempotent:** every step reads the current state first and only writes when it differs. A second run on
+   an installed project → every step `ok`, no duplicate asset/key/project.
+3. **Don't ask what can be inferred.** Only ask the dev: confirm the project code (when there is none), the
+   Discord forum ID, the feedback channel ID (optional), `gitlabProject` (only when `origin` is not gitlab.com) —
+   and only when the project is **not yet** registered on the server.
+4. A failed step does **not** stop the whole skill (except step 2): record that step's result, continue with
+   the next step, collect everything in the step 9 report table.
 
-Kết quả mỗi bước là một trong: `ok` (đã đúng sẵn) · `created` (tạo mới) · `updated` (sửa giá trị lệch) ·
-`skipped (<lý do>)` · `cần dev làm: <việc cụ thể>`.
+Each step's result is one of: `ok` (already correct) · `created` (newly created) · `updated` (fixed a differing
+value) · `skipped (<reason>)` · `dev to do: <specific task>`.
 
-**Biến dùng xuyên suốt:**
+**Variables used throughout:**
 
-| Biến | Lấy từ |
+| Variable | Source |
 |---|---|
-| `<endpoint>` | env `BUGHUB_ENDPOINT` nếu có; không thì dòng `DEFAULT_ENDPOINT=` trong `.claude/scripts/bughub-wait.sh` (đọc file, đừng gõ theo trí nhớ); file đó không có → `https://bug-reporter.developer-a1f.workers.dev`. Bỏ `/` cuối. Phải khớp `^https://[A-Za-z0-9.-]+(:[0-9]+)?$` (http chỉ cho `localhost`/`127.0.0.1`), sai → dừng, báo giá trị lạ. Host khác `bug-reporter.developer-a1f.workers.dev` → nêu rõ host trong mọi lệnh in ra cho dev (lệnh `claude mcp add` dẫn tới bước đăng nhập Google — dev phải thấy mình đang đăng nhập vào đâu) |
-| `<code>` | bước 1 |
+| `<endpoint>` | env `BUGHUB_ENDPOINT` if set; otherwise the `DEFAULT_ENDPOINT=` line in `.claude/scripts/bughub-wait.sh` (read the file, don't type it from memory); if that file doesn't exist → `https://bug-reporter.developer-a1f.workers.dev`. Strip the trailing `/`. Must match `^https://[A-Za-z0-9.-]+(:[0-9]+)?$` (http only for `localhost`/`127.0.0.1`); otherwise → stop and report the odd value. A host other than `bug-reporter.developer-a1f.workers.dev` → state the host explicitly in every command printed for the dev (the `claude mcp add` command leads to a Google sign-in — the dev must see where they are signing in) |
+| `<code>` | step 1 |
 
-Lệnh trong skill viết cho bash. Windows chạy chúng trong Git Bash, thay `python3` bằng `py`; bước nào có
-lệnh PowerShell riêng thì ghi kèm.
+Commands in this skill are written for bash. On Windows run them in Git Bash, replacing `python3` with `py`;
+steps that have their own PowerShell command list it alongside.
 
 ---
 
-## Bước 1 — Mã project
+## Step 1 — Project code
 
 ```bash
 python3 .claude/scripts/project_profile.py bugHub      # → {"projectCode": "..."}
 ```
 
-- `projectCode` có giá trị → dùng làm `<code>`. Kiểm khớp regex `^[A-Za-z0-9_-]+$` (cùng luật với
-  `bughub-wait.sh`); sai → dừng bước này, `cần dev làm: sửa bugHub.projectCode`.
-- Rỗng (hoặc script `project_profile.py` không có) → **đề xuất** mã theo codename project: đoạn cuối của
-  path `origin` (bỏ `.git`), không có `origin` thì tên thư mục repo — viết HOA (`sm007` → `SM007`). Nếu bước
-  5 tìm thấy asset `BugLoggerSettings` đã có `projectCode` khác rỗng thì đề xuất giá trị đó. Hỏi dev xác nhận
-  hoặc gõ mã khác; validate cùng regex. Không tự chốt khi dev chưa trả lời.
-- Profile và asset `BugLoggerSettings` mang hai mã **khác nhau** → hỏi dev chọn mã nào, không tự đè.
+- `projectCode` has a value → use it as `<code>`. Check it matches the regex `^[A-Za-z0-9_-]+$` (same rule as
+  `bughub-wait.sh`); mismatch → stop this step, `dev to do: fix bugHub.projectCode`.
+- Empty (or the `project_profile.py` script is missing) → **propose** a code from the project codename: the last
+  segment of the `origin` path (without `.git`), or the repo folder name when there is no `origin` — UPPERCASED
+  (`sm007` → `SM007`). If step 5 finds a `BugLoggerSettings` asset with a non-empty `projectCode`, propose that
+  value. Ask the dev to confirm or type another code; validate with the same regex. Don't settle it yourself
+  before the dev answers.
+- The profile and the `BugLoggerSettings` asset carry two **different** codes → ask the dev which to use, don't overwrite on your own.
 
-Server so mã không phân biệt hoa thường; luôn ghi dạng dev đã xác nhận.
+The server compares codes case-insensitively; always write the form the dev confirmed.
 
-## Bước 2 — MCP `bughub` đã kết nối? (bước duy nhất được dừng cả skill)
+## Step 2 — Is the `bughub` MCP connected? (the only step allowed to stop the whole skill)
 
-Tìm tool `bughub_whoami` trong danh sách tool (tool deferred → ToolSearch query `bughub`). Không có, hoặc
-gọi `bughub_whoami` trả lỗi xác thực / 401 → **dừng skill**, in đúng:
+Look for the `bughub_whoami` tool in the tool list (deferred tool → ToolSearch query `bughub`). Missing, or
+calling `bughub_whoami` returns an auth error / 401 → **stop the skill**, print exactly:
 
 ```
 claude mcp add --transport http --scope user bughub <endpoint>/mcp
 ```
 
-rồi: trong Claude Code gõ `/mcp` → chọn `bughub` → **Authenticate** (đăng nhập Google tài khoản
-`@easygoing.vn`), xong chạy lại `/bughub-setup`. Thêm MCP xong phải mở lại session Claude Code thì tool mới
-xuất hiện. Không tự chạy `claude mcp add` thay dev (sửa config user-level của máy dev).
+then: in Claude Code type `/mcp` → pick `bughub` → **Authenticate** (sign in with a Google `@easygoing.vn`
+account), then run `/bughub-setup` again. After adding the MCP the Claude Code session must be reopened for the
+tools to appear. Don't run `claude mcp add` on the dev's behalf (it edits the dev machine's user-level config).
 
-Lỗi mạng / 5xx (không phải lỗi xác thực) → cũng dừng, báo server không trả lời, kèm lỗi nguyên văn.
+Network error / 5xx (not an auth error) → also stop, report that the server is not responding, with the verbatim error.
 
-## Bước 3 — Project trên server
+## Step 3 — Project on the server
 
 `bughub_whoami` → `{email, person, isAdmin}`.
 
 ### 3a. Admin (`isAdmin = true`)
 
-1. `bughub_admin_projects` → tìm dòng có mã trùng `<code>` (so không phân biệt hoa thường).
-2. **Đã có** → `bughub_admin_project_doctor(code: <code>)` (chỉ đọc).
-   - Mọi bước doctor `ok` và dòng project có intake bật → kết quả `ok`. **Không** gọi upsert, **không** hỏi dev gì.
-   - Có bước lệch / `error` / `warn` (vd bước 6 `discord_command`: bot chưa có lệnh "Đưa vào BugHub") → gọi lại
-     `bughub_admin_project_upsert` với `code`, `gitlabProject`,
-     `forumChannelId` (và `feedbackChannelId` nếu có) **lấy từ dòng project hiện có** — không hỏi lại dev —
-     và `intakeEnabled` **giữ nguyên giá trị hiện có**. Thiếu giá trị nào trong dòng đó mới hỏi dev đúng giá
-     trị đó. In nguyên bảng kết quả. Kết quả `updated` (hoặc `cần dev làm` nếu còn `error`, xem bảng lỗi dưới).
-   - Intake đang **tắt** → có thể admin khác cố ý tắt (spam, hết quota). Hỏi dev có bật lại không; đồng ý mới
-     upsert với `intakeEnabled: true` (giá trị khác lấy từ dòng hiện có như trên), không thì kết quả
-     `cần dev làm: intake <code> đang tắt — bật trong /admin khi sẵn sàng`.
-3. **Chưa có** → gom input rồi `bughub_admin_project_upsert`:
-   - `gitlabProject` — suy từ `git remote get-url origin`:
+1. `bughub_admin_projects` → find the row whose code matches `<code>` (case-insensitive).
+2. **Exists** → `bughub_admin_project_doctor(code: <code>)` (read-only).
+   - Every doctor step `ok` and the project row has intake on → result `ok`. Do **not** call upsert, do **not** ask the dev anything.
+   - Some step differs / `error` / `warn` (e.g. step 6 `discord_command`: the bot does not have the "Đưa vào BugHub" command yet) → call
+     `bughub_admin_project_upsert` again with `code`, `gitlabProject`,
+     `forumChannelId` (and `feedbackChannelId` if any) **taken from the existing project row** — don't ask the dev again —
+     and `intakeEnabled` **kept at its current value**. Only when a value is missing from that row, ask the dev for
+     exactly that value. Print the full result table. Result `updated` (or `dev to do` if an `error` remains, see the error table below).
+   - Intake is **off** → another admin may have turned it off on purpose (spam, out of quota). Ask the dev whether to
+     turn it back on; only on yes upsert with `intakeEnabled: true` (other values taken from the existing row as above),
+     otherwise result `dev to do: intake <code> is off — turn it on in /admin when ready`.
+3. **Does not exist** → gather the inputs, then `bughub_admin_project_upsert`:
+   - `gitlabProject` — inferred from `git remote get-url origin`:
      ```bash
      git remote get-url origin 2>/dev/null | python3 -c "import re,sys; u=sys.stdin.read().strip(); m=re.match(r'^(?:https?://(?:[^@/]+@)?gitlab\.com/|git@gitlab\.com:|ssh://git@gitlab\.com/)(.+?)(?:\.git)?/?$', u); print(m.group(1) if m else '')"
      ```
-     In ra `group/project` (vd `ezg-sm-space/sm007`). Rỗng (không có `origin`, hoặc `origin` không phải
-     gitlab.com) → hỏi dev đường dẫn project GitLab dạng `group/project`. Giá trị (suy ra hay dev gõ) phải
-     khớp `^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$` và không chứa `..`; sai → hỏi lại một lần.
-   - `forumChannelId` — **hỏi dev** ID forum Discord của project (chuột phải forum → Copy Channel ID, cần
-     bật Developer Mode). Validate `^[0-9]{17,20}$`; sai → hỏi lại một lần.
-   - `feedbackChannelId` — hỏi dev, tuỳ chọn (Enter để bỏ qua = feedback vào kênh report mặc định).
-     Có giá trị thì validate như trên.
-   - Gọi `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`
-     (kèm `members` nếu dev đã nêu thành viên — mục 5).
-   - **In nguyên bảng kết quả từng bước** server trả về (`ok | created | fixed | warn: <lý do> | error: <lý do>`)
-     — không tóm tắt, không bỏ dòng. Mọi dòng `ok/created/fixed` → kết quả `created`; dòng `warn` không chặn
-     (xem bảng lỗi dưới).
-4. Sau 2/3: `GET /form` (lệnh ở 3b) phải ra `200` với `intakeEnabled` true (trừ khi dev vừa chọn để intake
-   tắt). Không → ghi lại trong report.
-5. **Thành viên** — chỉ khi dev đã nêu trong lệnh/chat ("A làm lead, B QA, C dev"); không nêu thì bỏ qua,
-   **không hỏi**. Truyền `members: [{who, roles}]` vào cùng lần `bughub_admin_project_upsert` của mục 2/3
-   (project đã có và doctor `ok` → gọi riêng `bughub_admin_project_upsert(code, members)`). `who` = đúng chữ
-   dev gõ (tên, email, phần trước `@`, Discord id); `roles` ⊂ `lead | dev | qa | art | gd`, thay vai trò của
-   người đó **trong project này** (`[]` = gỡ khỏi project), người không nêu giữ nguyên. Server tra danh bạ
-   và kiểm quyền **trước** khi ghi gì:
-   - `unknown_person` → `bughub_admin_people_list(query: <who>)` tìm gần đúng, đưa dev chọn; không có ai →
-     `cần dev làm: owner BugHub thêm <who> vào danh bạ (bughub_admin_people_sync)`.
-   - `ambiguous_person` → in `candidates` (tên + email), hỏi dev chọn rồi gọi lại với email người đó.
-   - `inactive_person` → `cần dev làm: bật lại <tên> (bughub_admin_person_upsert active: true)`.
-   In bảng `members[]` kết quả (`added | changed | removed | unchanged | error`). Kết quả bước: `updated` nếu
-   có người thay đổi.
+     Prints `group/project` (e.g. `ezg-sm-space/sm007`). Empty (no `origin`, or `origin` is not
+     gitlab.com) → ask the dev for the GitLab project path as `group/project`. The value (inferred or typed) must
+     match `^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$` and must not contain `..`; otherwise → ask again once.
+   - `forumChannelId` — **ask the dev** for the project's Discord forum ID (right-click the forum → Copy Channel ID; needs
+     Developer Mode on). Validate `^[0-9]{17,20}$`; otherwise → ask again once.
+   - `feedbackChannelId` — ask the dev, optional (Enter to skip = feedback goes to the default report channel).
+     If given, validate as above.
+   - Call `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`
+     (with `members` if the dev named members — item 5).
+   - **Print the full per-step result table** the server returns (`ok | created | fixed | warn: <reason> | error: <reason>`)
+     — no summarizing, no dropped rows. Every row `ok/created/fixed` → result `created`; `warn` rows don't block
+     (see the error table below).
+4. After 2/3: `GET /form` (command in 3b) must return `200` with `intakeEnabled` true (unless the dev just chose to keep
+   intake off). Otherwise → note it in the report.
+5. **Members** — only when the dev named them in the command/chat ("A làm lead, B QA, C dev" / "A is lead, B QA, C dev");
+   not named → skip, **don't ask**. Pass `members: [{who, roles}]` in the same `bughub_admin_project_upsert` call of item 2/3
+   (project exists and doctor `ok` → call `bughub_admin_project_upsert(code, members)` separately). `who` = exactly what
+   the dev typed (name, email, the part before `@`, Discord id); `roles` ⊂ `lead | dev | qa | art | gd`, replaces that
+   person's roles **in this project** (`[]` = remove from the project), people not named stay unchanged. The server looks up
+   the directory and checks permissions **before** writing anything:
+   - `unknown_person` → `bughub_admin_people_list(query: <who>)` for a fuzzy match, let the dev pick; nobody →
+     `dev to do: a BugHub owner adds <who> to the directory (bughub_admin_people_sync)`.
+   - `ambiguous_person` → print `candidates` (name + email), ask the dev to pick, then call again with that person's email.
+   - `inactive_person` → `dev to do: reactivate <name> (bughub_admin_person_upsert active: true)`.
+   Print the resulting `members[]` table (`added | changed | removed | unchanged | error`). Step result: `updated` if
+   anyone changed.
 
-**Dòng `error` trong bảng upsert** — server chỉ bật intake khi bước 1–4 không lỗi, nên đây là việc tay:
+**`error` rows in the upsert table** — the server only turns intake on when steps 1–4 have no error, so these are manual tasks:
 
-| Lỗi ở bước | Kết quả ghi `cần dev làm:` |
+| Error at step | Record as `dev to do:` |
 |---|---|
-| 1 (resolve GitLab / quyền) | thêm tài khoản bot BugHub làm **Maintainer** của project GitLab `<gitlabProject>`, rồi chạy lại skill |
-| 2–3 (label / webhook) | thường cùng nguyên nhân quyền Maintainer ở trên |
-| 4 (Discord) | cấp cho bot trên forum: View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Attach Files, Manage Threads; kiểm đúng ID forum; forum còn chỗ cho tag status (tối đa 20 tag) |
-| `not_admin` (tool result `isError`) | tài khoản vừa bị gỡ quyền admin → làm như 3b |
-| `forbidden` `people.assign-lead` | chỉ owner/admin gán hoặc gỡ vai trò `lead` — nhờ admin BugHub |
-| 6 `discord_command` = `warn: …` (không chặn intake) | lệnh menu tin nhắn "Đưa vào BugHub" của bot chưa đăng ký được — chỉ ảnh hưởng việc đưa thread QA tự mở vào BugHub; báo admin BugHub kèm nguyên dòng `warn` (thường là token bot / `DISCORD_APPLICATION_ID` của Worker) |
+| 1 (resolve GitLab / permissions) | add the BugHub bot account as **Maintainer** of GitLab project `<gitlabProject>`, then rerun the skill |
+| 2–3 (label / webhook) | usually the same Maintainer-permission cause as above |
+| 4 (Discord) | grant the bot on the forum: View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Attach Files, Manage Threads; check the forum ID is right; the forum has room for the status tags (max 20 tags) |
+| `not_admin` (tool result `isError`) | the account just lost admin rights → do as in 3b |
+| `forbidden` `people.assign-lead` | only an owner/admin can assign or remove the `lead` role — ask a BugHub admin |
+| 6 `discord_command` = `warn: …` (doesn't block intake) | the bot's "Đưa vào BugHub" message-menu command could not be registered — only affects moving threads QA opened themselves into BugHub; report it to a BugHub admin with the full `warn` row (usually the bot token / the Worker's `DISCORD_APPLICATION_ID`) |
 
-### 3b. Không phải admin
+### 3b. Not an admin
 
-Không gọi bất kỳ tool `bughub_admin_*` nào. Chỉ kiểm:
+Do not call any `bughub_admin_*` tool. Only check:
 
 ```bash
 TMP=$(mktemp)
@@ -140,57 +141,59 @@ INTAKE=$(python3 -c "import json,sys; print(str(json.load(open(sys.argv[1])).get
 rm -f "$TMP"; echo "$HTTP intake=$INTAKE"
 ```
 
-| Kết quả | Ghi |
+| Result | Record |
 |---|---|
 | `200 intake=true` | `ok` |
-| `200 intake=false` | `cần dev làm: nhờ admin BugHub chạy /bughub-setup (hoặc trang /admin) để bật intake cho <code>` |
-| `404` | `cần dev làm: project <code> chưa đăng ký hoặc đang tắt intake (server trả 404 cho cả hai) — nhờ admin BugHub chạy /bughub-setup trên repo này` (gửi kèm `gitlabProject` suy ở 3a + ID forum Discord) |
-| khác / lỗi mạng | `skipped (server không trả lời: <mã/lỗi>)` |
+| `200 intake=false` | `dev to do: ask a BugHub admin to run /bughub-setup (or the /admin page) to turn on intake for <code>` |
+| `404` | `dev to do: project <code> is not registered or has intake off (the server returns 404 for both) — ask a BugHub admin to run /bughub-setup on this repo` (send along the `gitlabProject` inferred in 3a + the Discord forum ID) |
+| other / network error | `skipped (server not responding: <status/error>)` |
 
-## Bước 4 — Package `com.ezg.buglogger`
+## Step 4 — Package `com.ezg.buglogger`
 
 ```bash
 [ -f Packages/com.ezg.buglogger/package.json ] && echo "embedded"
 grep -q '"com.ezg.buglogger"' Packages/manifest.json && echo "manifest"
 ```
 
-- Một trong hai có → `ok`.
-- Không có:
-  1. Tìm trên Feature Hub: MCP `ezg` → `search_feature_hub` (query `buglogger`).
-  2. Có → `get_install_steps` cho package đó. Kiểm snippet `install` đúng là cài `com.ezg.buglogger` (nhắc
-     đúng package id đó, không làm việc gì khác), cho dev xem và xác nhận một dòng, rồi mới chạy bằng
-     `unity_execute_code` (cần Editor của project này mở, xem bước 5 cách chọn instance); xác nhận bằng
-     snippet `verify`. Kết quả
-     `created`. Không có Editor → in các bước cài, kết quả `cần dev làm: cài com.ezg.buglogger theo các bước trên`.
-  3. Chưa publish (không tìm thấy) → `cần dev làm: com.ezg.buglogger chưa publish lên Feature Hub — publish
-     bằng /package-module hoặc copy package embedded từ project đã có`. Bước 5 sẽ `skipped`.
+- Either one present → `ok`.
+- Neither:
+  1. Search the Feature Hub: MCP `ezg` → `search_feature_hub` (query `buglogger`).
+  2. Found → `get_install_steps` for that package. Check the `install` snippet really installs `com.ezg.buglogger` (it
+     names exactly that package id and does nothing else), show it to the dev and get a one-line confirmation, only then
+     run it via `unity_execute_code` (needs this project's Editor open, see step 5 for how to pick the instance); confirm
+     with the `verify` snippet. Result
+     `created`. No Editor → print the install steps, result `dev to do: install com.ezg.buglogger with the steps above`.
+  3. Not published (not found) → `dev to do: com.ezg.buglogger is not published on the Feature Hub — publish it
+     with /package-module or copy the embedded package from a project that has it`. Step 5 will be `skipped`.
 
-Không tự sửa `Packages/manifest.json` bằng tay.
+Don't hand-edit `Packages/manifest.json`.
 
-## Bước 5 — Asset `BugLoggerSettings`
+## Step 5 — `BugLoggerSettings` asset
 
-Client nạp asset bằng `Resources.Load("BugLoggerSettings")`, nên asset phải tên đúng `BugLoggerSettings.asset`
-và nằm **trực tiếp** trong một thư mục `Resources/`. Field serialize `projectCode` là contract của package.
+The client loads the asset with `Resources.Load("BugLoggerSettings")`, so the asset must be named exactly
+`BugLoggerSettings.asset` and sit **directly** inside a `Resources/` folder. The serialized field `projectCode` is
+the package's contract.
 
-**Đường dẫn mặc định khi phải tạo mới** (`<featuresRoot>` = `python3 .claude/scripts/project_profile.py featuresRoot`):
-`<featuresRoot>/_Shared/BugLogger/Resources/BugLoggerSettings.asset` nếu thư mục `<featuresRoot>/_Shared/BugLogger/`
-đã có (project cũ còn tự dựng màn Bug Logger ở đó — từ `com.ezg.buglogger` 0.2.0 UI nằm trong package), không thì
-`Assets/Resources/BugLoggerSettings.asset`. Path này được
-nhét vào chuỗi C# ở 5a nên phải khớp `^Assets/[A-Za-z0-9_./ -]+/Resources/BugLoggerSettings\.asset$`;
-không khớp → dùng 5b.
+**Default path when it must be created** (`<featuresRoot>` = `python3 .claude/scripts/project_profile.py featuresRoot`):
+`<featuresRoot>/_Shared/BugLogger/Resources/BugLoggerSettings.asset` if the folder `<featuresRoot>/_Shared/BugLogger/`
+already exists (older projects still build their own Bug Logger screen there — since `com.ezg.buglogger` 0.2.0 the UI
+lives in the package), otherwise `Assets/Resources/BugLoggerSettings.asset`. This path is
+inserted into a C# string in 5a, so it must match `^Assets/[A-Za-z0-9_./ -]+/Resources/BugLoggerSettings\.asset$`;
+otherwise → use 5b.
 
-### 5a. Có Unity Editor của project này (đường chính)
+### 5a. This project's Unity Editor is available (main path)
 
-1. `unity_list_instances` → chọn instance có `projectPath` **trùng thư mục repo này** (`git rev-parse --show-toplevel`);
-   so path, không so tên — port của Editor đã đóng có thể bị project khác chiếm. Không có instance nào khớp → 5b.
-2. **Editor dùng chung session khác?** `unity_agents_list`. Có agent khác đang hoạt động → vẫn chạy được
-   (tạo/sửa một asset `.asset` không import script, không domain reload), nhưng **không** dừng Play mode của
-   họ, và ghi vào report là Editor đang dùng chung. `unity_editor_state` đang compile → chờ tới khi xong.
-   Snippet cố ý **không** gọi `AssetDatabase.Refresh()` (Refresh nhập luôn `.cs` session khác đang sửa dở →
-   compile + domain reload): thư mục tạo bằng `AssetDatabase.CreateFolder`, asset bằng `CreateAsset`.
-3. Chạy `unity_execute_code` với snippet dưới, thay `__CODE__` và `__PATH__`. **Payload chỉ được chứa ký tự
-   ASCII** (Unity MCP làm hỏng ký tự không phải ASCII) — mã project và path đều phải ASCII, comment trong
-   snippet cũng vậy; path có ký tự lạ → đi 5b.
+1. `unity_list_instances` → pick the instance whose `projectPath` **matches this repo's folder** (`git rev-parse --show-toplevel`);
+   compare paths, not names — the port of a closed Editor may have been taken by another project. No matching instance → 5b.
+2. **Editor shared with another session?** `unity_agents_list`. Another agent active → still OK to run
+   (creating/editing one `.asset` imports no script, no domain reload), but do **not** stop their Play mode,
+   and note in the report that the Editor is shared. `unity_editor_state` compiling → wait until it finishes.
+   The snippet deliberately does **not** call `AssetDatabase.Refresh()` (Refresh would also import `.cs` files another
+   session is half-way through editing → compile + domain reload): folders are created with `AssetDatabase.CreateFolder`,
+   the asset with `CreateAsset`.
+3. Run `unity_execute_code` with the snippet below, replacing `__CODE__` and `__PATH__`. **The payload must be ASCII
+   only** (Unity MCP mangles non-ASCII characters) — the project code and path must both be ASCII, and so must comments
+   in the snippet; a path with odd characters → go to 5b.
 
 ```csharp
 // bughub-setup step 5: create or update Resources/BugLoggerSettings.asset (ASCII only)
@@ -254,28 +257,28 @@ var warn = elsewhere.Count > 0 ? " | warn: settings outside Resources (not loade
 return result + " " + path + " projectCode=" + CODE + warn;
 ```
 
-| Kết quả trả về | Ghi |
+| Returned result | Record |
 |---|---|
-| `ok …` / `updated …` / `created …` | đúng chữ đó + path. `created`/`updated` → nhắc dev commit asset (và `.meta` khi `created`) |
-| `error: … not found (package …)` | `skipped (package chưa compile — xem bước 4)` |
-| `error: duplicate …` | `cần dev làm: xoá bớt, chỉ giữ một Resources/BugLoggerSettings.asset` — không tự xoá |
-| `error: cannot load …` / `error: field projectCode …` | `cần dev làm: kiểm asset <path> (script reference hỏng?)` — không tự xoá/tạo lại |
-| `… warn: settings outside Resources …` | giữ kết quả chính, nêu cảnh báo trong report — không tự xoá/di chuyển |
+| `ok …` / `updated …` / `created …` | that exact word + path. `created`/`updated` → remind the dev to commit the asset (and the `.meta` when `created`) |
+| `error: … not found (package …)` | `skipped (package not compiled — see step 4)` |
+| `error: duplicate …` | `dev to do: delete the extras, keep only one Resources/BugLoggerSettings.asset` — don't delete on your own |
+| `error: cannot load …` / `error: field projectCode …` | `dev to do: check asset <path> (broken script reference?)` — don't delete/recreate on your own |
+| `… warn: settings outside Resources …` | keep the main result, mention the warning in the report — don't delete/move on your own |
 
-Chạy lại snippet trên asset đã đúng → trả `ok`, không tạo asset thứ hai, không ghi file.
+Re-running the snippet on an already-correct asset → returns `ok`, creates no second asset, writes no file.
 
-### 5b. Không có Editor (MCP không kết nối / Editor chưa mở / chỉ có Editor của project khác)
+### 5b. No Editor (MCP not connected / Editor not open / only another project's Editor)
 
-1. Tìm asset sẵn có theo GUID script (không cần Editor):
+1. Find an existing asset by the script GUID (no Editor needed):
    ```bash
    META=$(ls Packages/com.ezg.buglogger/Runtime/Settings/BugLoggerSettings.cs.meta \
             Library/PackageCache/com.ezg.buglogger*/Runtime/Settings/BugLoggerSettings.cs.meta 2>/dev/null | head -1)
    GUID=$([ -n "$META" ] && sed -n 's/^guid: //p' "$META")
    if [ -z "$GUID" ]; then echo "NO-META"; else grep -rl --include='*.asset' "guid: $GUID" Assets; fi
    ```
-2. Tìm thấy đúng một asset tên `BugLoggerSettings.asset` trong thư mục `Resources/`:
-   - Dòng `  projectCode: <code>` đã đúng → `ok`.
-   - Lệch → sửa **đúng dòng đó** trong YAML (không đụng dòng khác), kết quả `updated`:
+2. Exactly one asset named `BugLoggerSettings.asset` found in a `Resources/` folder:
+   - The line `  projectCode: <code>` is already correct → `ok`.
+   - Differs → edit **exactly that line** in the YAML (touch no other line), result `updated`:
      ```bash
      python3 - "<asset path>" "<code>" <<'PY'
      import re, sys
@@ -287,14 +290,14 @@ Chạy lại snippet trên asset đã đúng → trả `ok`, không tạo asset 
      open(path, "w", encoding="utf-8", newline="").write(new)
      PY
      ```
-3. Không tìm thấy (hoặc in `NO-META` — không tìm được `.cs.meta`) → **không** tự viết asset YAML mới. Kết quả
-   `cần dev làm: mở Editor rồi chạy lại /bughub-setup, hoặc tạo tay: Assets > Create > Ezg > Bug Logger Settings
-   tại <đường dẫn mặc định>, đặt Project Code = <code>`. Nhiều hơn một asset → như dòng `duplicate` ở 5a.
+3. Not found (or it prints `NO-META` — the `.cs.meta` could not be found) → do **not** write a new asset YAML yourself. Result
+   `dev to do: open the Editor and rerun /bughub-setup, or create it by hand: Assets > Create > Ezg > Bug Logger Settings
+   at <default path>, set Project Code = <code>`. More than one asset → same as the `duplicate` row in 5a.
 
-## Bước 6 — `bugHub.projectCode` trong `.claude/project-profile.json`
+## Step 6 — `bugHub.projectCode` in `.claude/project-profile.json`
 
-File profile có format viết tay (dòng trống giữa nhóm, mảng gọn) — **không** `json.dump` lại cả file. Sửa
-đúng chỗ, rồi kiểm lại bằng `json.loads`:
+The profile file has a hand-written format (blank lines between groups, compact arrays) — do **not** `json.dump` the
+whole file back. Edit in place, then verify with `json.loads`:
 
 ```bash
 python3 - .claude/project-profile.json "<code>" <<'PY'
@@ -331,16 +334,17 @@ print(result)
 PY
 ```
 
-In ra `ok` / `updated` / `created` → ghi đúng chữ đó. `error: …` → không ghi file (script thoát trước khi
-ghi), kết quả `cần dev làm: thêm "bugHub": {"projectCode": "<code>"} vào project-profile.json`.
-Kiểm lại: `python3 .claude/scripts/project_profile.py bugHub` phải in đúng `<code>`.
+Prints `ok` / `updated` / `created` → record that exact word. `error: …` → no file written (the script exits before
+writing), result `dev to do: add "bugHub": {"projectCode": "<code>"} to project-profile.json`.
+Verify: `python3 .claude/scripts/project_profile.py bugHub` must print exactly `<code>`.
 
-## Bước 7 — Cheat cho máy QA (ai thấy Bug Logger)
+## Step 7 — Cheat for QA devices (who sees the Bug Logger)
 
-Bug Logger có trong **mọi** bản build; nút nổi (UI của package, `BugLoggerUI.LauncherVisible`) chỉ hiện khi game
-bật nó theo cheat (`GameSystems.isCheat` — template gán trong `DebugToolsCheatGate`). Cheat bật được ở mọi bản build
-cho đúng những máy có trong danh sách máy test của project — package `com.ezg.cheat-gate` (`CheatGate`), mã project
-khai ở `GameConstant.CheatGateProject`. Kiểm project đã dùng CheatGate với đúng mã BugHub chưa:
+The Bug Logger is in **every** build; the floating button (the package UI, `BugLoggerUI.LauncherVisible`) only shows
+when the game turns it on via cheat (`GameSystems.isCheat` — the template sets it in `DebugToolsCheatGate`). Cheat can be
+enabled in every build for exactly the devices on the project's test-device list — package `com.ezg.cheat-gate`
+(`CheatGate`), project code declared in `GameConstant.CheatGateProject`. Check whether the project already uses
+CheatGate with the right BugHub code:
 
 ```bash
 f=$(grep -rl "CheatGateProject[[:space:]]*=" Assets --include="*.cs" | head -1)
@@ -349,67 +353,67 @@ f=$(grep -rl "CheatGateProject[[:space:]]*=" Assets --include="*.cs" | head -1)
 grep -rl "static bool CanEnableCheatFromRemoteConfig" Assets --include="*.cs" | head -1 | sed 's/^/OLD-GATE: /'
 ```
 
-| Tình huống | Kết quả |
+| Situation | Result |
 |---|---|
-| `NO-CHEATGATE` (có hoặc không `OLD-GATE`) | `cần dev làm: project chưa dùng com.ezg.cheat-gate — cài từ Feature Hub và tích hợp theo README của package (bỏ whitelist Remote Config cũ)` |
-| `CheatGateProject = ""` | `cần dev làm: đặt GameConstant.CheatGateProject = "<code>" trong <f>` |
-| `CheatGateProject = "<khác code>"` | `cần dev làm: GameConstant.CheatGateProject đang là "<giá trị>", BugHub là "<code>" — sửa cho khớp` |
-| `CheatGateProject = "<code>"`, không có `OLD-GATE` | `ok` |
-| `CheatGateProject = "<code>"`, còn `OLD-GATE` | `cần dev làm: còn gate cũ CanEnableCheatFromRemoteConfig trong <file> — bỏ để chỉ còn CheatGate` |
+| `NO-CHEATGATE` (with or without `OLD-GATE`) | `dev to do: the project does not use com.ezg.cheat-gate yet — install it from the Feature Hub and integrate it per the package README (drop the old Remote Config whitelist)` |
+| `CheatGateProject = ""` | `dev to do: set GameConstant.CheatGateProject = "<code>" in <f>` |
+| `CheatGateProject = "<not code>"` | `dev to do: GameConstant.CheatGateProject is "<value>", BugHub is "<code>" — make them match` |
+| `CheatGateProject = "<code>"`, no `OLD-GATE` | `ok` |
+| `CheatGateProject = "<code>"`, `OLD-GATE` still present | `dev to do: the old gate CanEnableCheatFromRemoteConfig is still in <file> — remove it so only CheatGate remains` |
 
-Skill **không** tự sửa gate (đụng cheat của bản store, cần dev quyết). Luôn in hướng dẫn thêm máy QA:
+The skill does **not** edit the gate itself (it touches the store build's cheat, the dev must decide). Always print the guide for adding QA devices:
 
-1. Trên máy QA, mở game (bản có tích hợp) → Settings → tap version 10 lần → game hiện `Device ID: XXXX-XXXX-XXXX`
-   (đã copy sẵn).
-2. Lead / QA của project trong BugHub thêm máy bằng MCP `ezg`: `test_device_add` với project `<code>`, device_id đó
-   và label (ai cầm máy nào). Có hiệu lực sau ~1-2 phút; QA tap lại 10 lần là mở cheat.
-3. Gỡ máy: `test_device_remove`; xem danh sách: `test_device_list`. Không dùng Remote Config
-   `enable_cheat_default` / `enable_cheat_default_device` nữa.
+1. On the QA device, open the game (a build with the integration) → Settings → tap the version 10 times → the game shows
+   `Device ID: XXXX-XXXX-XXXX` (already copied).
+2. The project's Lead / QA in BugHub adds the device via MCP `ezg`: `test_device_add` with project `<code>`, that device_id
+   and a label (who holds which device). Takes effect after ~1-2 minutes; QA taps 10 times again to open cheat.
+3. Remove a device: `test_device_remove`; list devices: `test_device_list`. Remote Config
+   `enable_cheat_default` / `enable_cheat_default_device` is no longer used.
 
-## Bước 8 — `/auto-clear` cho `/fix-bug --watch`
+## Step 8 — `/auto-clear` for `/fix-bug --watch`
 
-`/fix-bug --watch` cần Stop hook của `/auto-clear` (một lần mỗi máy; macOS dùng iTerm2):
+`/fix-bug --watch` needs the `/auto-clear` Stop hook (once per machine; macOS uses iTerm2):
 
 ```bash
 bash .claude/skills/auto-clear/scripts/auto-clear.sh status
 # Windows: powershell -ExecutionPolicy Bypass -File .claude/skills/auto-clear/scripts/auto-clear.ps1 status
 ```
 
-| Dòng in ra | Kết quả |
+| Printed line | Result |
 |---|---|
 | `HOOK installed …` | `ok` |
-| `HOOK not-installed` / `HOOK broken …` | `cần dev làm: /auto-clear install (một lần trên máy này)` |
-| `UNSUPPORTED …` (không chạy trong iTerm2 / Windows Terminal) | `cần dev làm: chạy /fix-bug --watch trong iTerm2 (macOS) rồi /auto-clear install` |
-| script không có | `cần dev làm: cài skill auto-clear từ Feature Hub (tab AI Feature)` |
+| `HOOK not-installed` / `HOOK broken …` | `dev to do: /auto-clear install (once on this machine)` |
+| `UNSUPPORTED …` (not running in iTerm2 / Windows Terminal) | `dev to do: run /fix-bug --watch in iTerm2 (macOS), then /auto-clear install` |
+| script missing | `dev to do: install the auto-clear skill from the Feature Hub (AI Feature tab)` |
 
-Không tự chạy `install` — nó sửa `~/.claude/settings.json` của dev.
+Don't run `install` yourself — it edits the dev's `~/.claude/settings.json`.
 
-Nhánh của cửa sổ watch: `python3 .claude/scripts/bughub-watch.py config` → `mode: "follow"` (`branch` rỗng,
-mặc định) thì chạy watch ở nhánh nào sửa + push lên nhánh đó. Không phải lỗi, không thành dòng trong bảng — chỉ
-thêm vào danh sách việc dev: "mở pane riêng ở nhánh muốn nhận fix rồi gõ `/fix-bug --watch`; muốn bot chạy trên
-nhánh riêng thì khai `bugHub.watch` (branch / baseBranch / mergeToBase / worktree) trong
-`.claude/project-profile.json`". Không tự chọn nhánh hay worktree thay dev.
+Watch window branch: `python3 .claude/scripts/bughub-watch.py config` → `mode: "follow"` (empty `branch`, the
+default) means watch fixes + pushes to whatever branch it runs on. Not an error, not a row in the table — just add
+to the dev to-do list: "open a separate pane on the branch that should receive fixes, then type `/fix-bug --watch`; to
+have the bot run on its own branch, declare `bugHub.watch` (branch / baseBranch / mergeToBase / worktree) in
+`.claude/project-profile.json`". Don't pick a branch or worktree on the dev's behalf.
 
-## Bước 9 — Report
+## Step 9 — Report
 
-Một bảng, đủ 8 dòng, rồi danh sách việc dev phải làm (nếu có):
+One table with all 8 rows, then the dev to-do list (if any):
 
 ```
-| Bước | Kết quả |
+| Step | Result |
 |---|---|
-| 1. Mã project | ok — SM007 |
+| 1. Project code | ok — SM007 |
 | 2. MCP bughub | ok — <email> (admin|dev) |
-| 3. Project trên server | created | ok | updated | cần dev làm: … |
+| 3. Project on server | created | ok | updated | dev to do: … |
 | 4. Package com.ezg.buglogger | ok (embedded|manifest) | … |
 | 5. BugLoggerSettings | ok | created | updated — <path> | … |
 | 6. project-profile.json | ok | created | updated |
-| 7. Cheat máy QA | ok | cần dev làm: … |
-| 8. auto-clear | ok | cần dev làm: … |
+| 7. QA device cheat | ok | dev to do: … |
+| 8. auto-clear | ok | dev to do: … |
 ```
 
-- Bước 3 vừa gọi upsert → dán nguyên bảng server trả về dưới bảng trên.
-- Bước 7 → luôn kèm 3 dòng hướng dẫn thêm máy QA vào allowlist cheat.
-- File đã đổi (asset + `.meta` khi tạo mới, `project-profile.json`) liệt kê dạng link tuyệt đối `file://`
-  theo `.claude/rules/output-format.md`. Skill **không** commit — dev tự commit (vd `/push-in-session`).
-- Mọi bước `ok` → một dòng cuối: "BugHub đã sẵn sàng cho `<code>` — QA (máy trong allowlist cheat) gửi bug từ mọi bản build, dev
-  sửa bằng `/fix-bug`. Bug QA tự mở thread trong forum: chuột phải tin nhắn → Apps → **Đưa vào BugHub**."
+- Step 3 just called upsert → paste the server's full table below the table above.
+- Step 7 → always include the 3-line guide for adding QA devices to the cheat allowlist.
+- Changed files (asset + `.meta` when newly created, `project-profile.json`) listed as absolute `file://` links
+  per `.claude/rules/output-format.md`. The skill does **not** commit — the dev commits (e.g. `/push-in-session`).
+- Every step `ok` → one final line: "BugHub is ready for `<code>` — QA (devices in the cheat allowlist) submit bugs from any build, devs
+  fix them with `/fix-bug`. For a bug thread QA opened themselves in the forum: right-click the message → Apps → **Đưa vào BugHub**."

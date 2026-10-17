@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-qaprofile.py — phần THUẦN (không cần thiết bị) của hồ sơ QA theo project cho skill /auto-test-device.
+qaprofile.py — the PURE part (no device needed) of the per-project QA profile for the /auto-test-device skill.
 
-Skill dùng chung giữa mọi repo, nên mọi giá trị riêng của project nằm ở `.claude/project-profile.json["qa"]`
-(máy đọc) và `.claude/docs/QaProfile.md` (model đọc). Module này:
-  * QA_DEFAULTS + deep-merge (y hệt project_profile.DEFAULTS["qa"] của template — có test so khớp);
-  * đọc/ghi block `qa` mà KHÔNG làm hỏng format tay + `$comment*` của project-profile.json;
-  * tự dò quy ước của repo (enum Features, lớp cơ sở màn, cheat, PlayerData facade, CSV, tracking…);
-  * liveness feature (mẫu chết, forceLive/forceDead, màn đã quan sát, tham chiếu tĩnh);
-  * sinh QaProfile.md từ QaProfile.template.md (chỉ ghi vào vùng auto, giữ chữ dev);
-  * charter (`<FEATURE>-NN`), coverage, đọc CSV làm oracle, đọc report.json của com.ezg.autotest (0.1.1 + 0.2).
-Chỉ dùng thư viện chuẩn.
+The skill is shared by every repo, so all project-specific values live in `.claude/project-profile.json["qa"]`
+(machine-readable) and `.claude/docs/QaProfile.md` (model-readable). This module provides:
+  * QA_DEFAULTS + deep-merge (identical to the template's project_profile.DEFAULTS["qa"] — a test checks they match);
+  * read/write of the `qa` block WITHOUT breaking the hand formatting + `$comment*` of project-profile.json;
+  * auto-detection of the repo's conventions (Features enum, screen base class, cheat, PlayerData facade, CSV, tracking…);
+  * feature liveness (dead patterns, forceLive/forceDead, observed screens, static references);
+  * generation of QaProfile.md from QaProfile.template.md (writes only inside the auto regions, keeps dev text);
+  * charters (`<FEATURE>-NN`), coverage, CSV reading as an oracle, parsing com.ezg.autotest report.json (0.1.1 + 0.2).
+Standard library only.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ PROFILE_REL = os.path.join(".claude", "project-profile.json")
 PROJECT_PROFILE_PY_REL = os.path.join(".claude", "scripts", "project_profile.py")
 TEMPLATE_REL = os.path.join(".claude", "docs", "QaProfile.template.md")
 
-# Nguyên văn hợp đồng §1 — đổi ở đây thì đổi cả project_profile.DEFAULTS["qa"] của template (test so khớp).
+# Verbatim §1 contract — change it here and also change the template's project_profile.DEFAULTS["qa"] (a test checks they match).
 QA_DEFAULTS = {
     "schemaVersion": QA_SCHEMA_VERSION,
     "status": "template",
@@ -68,16 +68,16 @@ QA_DEFAULTS = {
 }
 
 QA_COMMENT = [
-    "Hồ sơ QA cho skill /auto-test-device (qadevice.py). Key thiếu lấy mặc định của template;",
-    "`python3 .claude/skills/auto-test-device/scripts/qadevice.py profile show` in bản đã merge kèm nguồn từng key.",
-    "conventions = quy ước code của game (tool tự dò bằng `profile init`, sửa tay khi dò sai).",
-    "liveness.observed / verified.* do tool ghi lúc `stop` (màn đã thấy mở, cheat/state path đã gọi được).",
-    "noise = luật bỏ qua finding audit đã xác nhận là nhiễu. Bản cho người đọc: .claude/docs/QaProfile.md.",
+    "QA profile for the /auto-test-device skill (qadevice.py). Missing keys fall back to the template defaults;",
+    "`python3 .claude/skills/auto-test-device/scripts/qadevice.py profile show` prints the merged result with each key's source.",
+    "conventions = the game's code conventions (auto-detected by `profile init`; fix by hand when detection is wrong).",
+    "liveness.observed / verified.* are written by the tool on `stop` (screens seen open, cheats/state paths that worked).",
+    "noise = rules that skip audit findings confirmed as noise. Human-readable version: .claude/docs/QaProfile.md.",
 ]
 
 PROBE_OVERRIDE_KEYS = ("screenBaseTypes", "cheatTypeName", "cheatFlagMember", "cheatEnableMethod", "cheatDisableMethod")
 
-# ───────────────────────────────────────────────────────────── tiện ích
+# ───────────────────────────────────────────────────────────── utilities
 
 def _read(path, default=""):
     try:
@@ -106,7 +106,7 @@ def today():
 
 
 def deep_merge(base, over):
-    """dict theo key (đệ quy), list = thay thế nguyên list, scalar = ghi đè. Không sửa tham số."""
+    """dict = per key (recursive), list = replaced whole, scalar = overwritten. Does not mutate the arguments."""
     if isinstance(base, dict) and isinstance(over, dict):
         out = copy.deepcopy(base)
         for k, v in over.items():
@@ -119,10 +119,10 @@ def _rel(root, path):
     return os.path.relpath(path, root).replace(os.sep, "/")
 
 
-# ───────────────────────────────────────────────────────────── đọc / ghi block qa
+# ───────────────────────────────────────────────────────────── read / write the qa block
 
 def load_project_profile_module(root):
-    """Import .claude/scripts/project_profile.py của repo (nếu có) — nguồn DEFAULTS["qa"] của template."""
+    """Import the repo's .claude/scripts/project_profile.py (if present) — source of the template's DEFAULTS["qa"]."""
     path = os.path.join(root, PROJECT_PROFILE_PY_REL)
     if not os.path.isfile(path):
         return None
@@ -144,7 +144,7 @@ def template_qa_defaults(root):
 
 
 def _provenance(defaults, user, path=""):
-    """Map 'conventions.cheatTypeName' → dev|default cho mọi lá."""
+    """Map 'conventions.cheatTypeName' → dev|default for every leaf."""
     out = {}
     for k, v in defaults.items():
         p = (path + "." + k) if path else k
@@ -160,7 +160,7 @@ def _provenance(defaults, user, path=""):
 
 
 def load_qa_profile(root, with_provenance=False):
-    """qa đã merge: QA_DEFAULTS ← DEFAULTS["qa"] của template (nếu import được) ← block qa của project."""
+    """Merged qa: QA_DEFAULTS ← the template's DEFAULTS["qa"] (if importable) ← the project's qa block."""
     prof = _read_json(os.path.join(root, PROFILE_REL), {}) or {}
     user = prof.get("qa") if isinstance(prof.get("qa"), dict) else {}
     defaults = template_qa_defaults(root)
@@ -174,7 +174,7 @@ def load_qa_profile(root, with_provenance=False):
 
 
 def _top_level_key_span(text, key):
-    """(start, end) của `"key": <value>` ở tầng 1 của object JSON ngoài cùng; None nếu không có."""
+    """(start, end) of `"key": <value>` at depth 1 of the outermost JSON object; None if absent."""
     depth, i, n, in_str, esc = 0, 0, len(text), False, False
     want = json.dumps(key)
     while i < n:
@@ -216,9 +216,9 @@ def _indent_block(obj, indent=2, level=1):
 
 
 def save_qa_patch(root, patch, replace=False):
-    """Ghi vào block `qa` của .claude/project-profile.json, giữ nguyên byte phần còn lại (format tay, $comment).
-    replace=False: deep-merge lên block hiện có; True: thay cả block. Tạo file tối thiểu nếu chưa có.
-    Trả block qa sau khi ghi."""
+    """Write into the `qa` block of .claude/project-profile.json, keeping every other byte unchanged (hand format, $comment).
+    replace=False: deep-merge onto the existing block; True: replace the whole block. Creates a minimal file if missing.
+    Returns the qa block as written."""
     path = os.path.join(root, PROFILE_REL)
     text = _read(path, "")
     if not text.strip():
@@ -242,13 +242,13 @@ def save_qa_patch(root, patch, replace=False):
     return new
 
 
-# ───────────────────────────────────────────────────────────── quét code
+# ───────────────────────────────────────────────────────────── code scanning
 
 SKIP_DIRS = {"Library", "Temp", "Logs", "obj", "UserSettings", ".git", "node_modules", "Plugins", "ThirdParty", "3rdParty", "Editor"}
 
 
 def source_roots(root):
-    """Thư mục code game: sourceRoot của profile nếu có, không thì Assets/_Project, không nữa thì Assets."""
+    """Game code folder: the profile's sourceRoot if set, else Assets/_Project, else Assets."""
     prof = _read_json(os.path.join(root, PROFILE_REL), {}) or {}
     cands = [prof.get("sourceRoot") or "", "Assets/_Project", "Assets"]
     for c in cands:
@@ -285,7 +285,7 @@ def _brace_body(text, open_idx):
 
 
 def parse_enum(text, name):
-    """Giá trị enum `name` trong text C# (bỏ comment/attribute). Trả [(tên, số|None)]."""
+    """Values of enum `name` in C# text (comments/attributes stripped). Returns [(name, number|None)]."""
     text = _strip_cs(text)
     m = re.search(r"\benum\s+%s\b[^{]*\{" % re.escape(name), text)
     if not m:
@@ -310,11 +310,11 @@ def parse_enum(text, name):
 
 
 def _enclosing_type(text, idx):
-    """Tên type bao ngoài vị trí idx (class/struct) + namespace → 'Outer+Inner' kiểu reflection."""
+    """Name of the types (class/struct) enclosing position idx + namespace → reflection-style 'Outer+Inner'."""
     text = text[:idx]
     outers = []
     depth = 0
-    # đi ngược: đếm ngoặc để biết đang ở trong khai báo nào
+    # walk the braces up to idx to know which declarations we are inside
     stack = []
     for m in re.finditer(r"\b(class|struct|namespace)\s+([\w.]+)[^{;]*\{|\{|\}", text):
         tok = m.group(0)
@@ -332,7 +332,7 @@ def _enclosing_type(text, idx):
 
 
 def find_features_enum(root, src=None):
-    """(type name 'Outer+Features', đường dẫn file, [(tên, số)]) hoặc (None, None, [])."""
+    """(type name 'Outer+Features', file path, [(name, number)]) or (None, None, [])."""
     best = None
     for p in iter_cs(root, src):
         t = _read(p)
@@ -350,15 +350,15 @@ def find_features_enum(root, src=None):
 
 
 SCREEN_NAME_RE = re.compile(r"Screen|Popup|Panel|Page|Window|Dialog", re.I)
-# Dấu hiệu vòng đời MÀN (không tính Show()/Hide()/Close() chung chung — component con nào cũng có).
+# SCREEN lifecycle markers (generic Show()/Hide()/Close() do not count — any child component has them).
 SCREEN_MARKERS = (r"\bOnShow\w*\b", r"\bOnHide\w*\b", r"\bOnBack\w*\b", r"\bUIManager\b", r"\bisShow\w*\b|\bIsShow\w*\b",
                   r"\bFeatures\.\w+", r"\bOnOpen\w*\b|\bOnClose\w*\b", r"\bCanvasGroup\b")
 
 
 def detect_screen_bases(root, src=None, known=()):
-    """Lớp cơ sở màn UI: có ≥3 lớp con, không là con của ứng viên khác, và (tên trong danh sách đã biết | tên có
-    Screen/Popup/Panel/Page/Window/Dialog | thân lớp có ≥2 dấu hiệu vòng đời màn: OnShow/OnHide/OnBack/UIManager/isShow/Features./CanvasGroup).
-    Trả (danh sách tên, {tên: số lớp con})."""
+    """UI screen base classes: ≥3 subclasses, not a subclass of another candidate, and (name in the known list | name contains
+    Screen/Popup/Panel/Page/Window/Dialog | class body has ≥2 screen lifecycle markers: OnShow/OnHide/OnBack/UIManager/isShow/Features./CanvasGroup).
+    Returns (list of names, {name: subclass count})."""
     parents, counts, bodies = {}, {}, {}
     for p in iter_cs(root, src):
         t = _strip_cs(_read(p))
@@ -376,7 +376,7 @@ def detect_screen_bases(root, src=None, known=()):
         if n < 3 or base in ("MonoBehaviour", "Component", "Behaviour", "ScriptableObject", "Object"):
             continue
         body = bodies.get(base, "")
-        if not body:  # lớp của Unity/package (EditorWindow, MonoBehaviour con…) — không phải màn của game
+        if not body:  # Unity/package class (EditorWindow, MonoBehaviour subclasses…) — not a game screen
             continue
         marks = sum(1 for rg in SCREEN_MARKERS if re.search(rg, body))
         if SCREEN_NAME_RE.search(base) or (marks >= 2 and re.search(r"Controller|View$", base)):
@@ -396,7 +396,7 @@ def detect_screen_bases(root, src=None, known=()):
 
 
 def detect_cheat(root, src=None):
-    """Type giữ cờ cheat (public static bool isCheat) + hàm bật (hỏi CheatGate, nhận Action<bool>) / tắt."""
+    """Type holding the cheat flag (public static bool isCheat) + enable method (asks CheatGate, takes Action<bool>) / disable method."""
     out = {"cheatTypeName": "", "cheatFlagMember": "", "cheatEnableMethod": "", "cheatDisableMethod": "", "file": "",
            "namespace": ""}
     for p in iter_cs(root, src):
@@ -433,7 +433,7 @@ def detect_cheat_prefix(root, src=None):
 
 
 def find_class(root, names, src=None):
-    """Tên class đầu tiên trong `names` khai báo trong code game → (tên, file) | ("", "")."""
+    """First class name from `names` declared in the game code → (name, file) | ("", "")."""
     pats = [(n, re.compile(r"\b(?:class|struct)\s+%s\b" % re.escape(n))) for n in names]
     for p in iter_cs(root, src):
         t = _read(p)
@@ -444,7 +444,7 @@ def find_class(root, names, src=None):
 
 
 def detect_tracking_class(root, src=None):
-    """Class tên có Tracking/Analytics chứa ≥5 hằng chuỗi (tên event) — khi project không có TrackingEventName."""
+    """Class named *Tracking*/*Analytics* holding ≥5 string constants (event names) — for projects without TrackingEventName."""
     best = ("", "", 0)
     for p in iter_cs(root, src):
         if not re.search(r"Track|Analytic", os.path.basename(p), re.I):
@@ -490,7 +490,7 @@ def detect_csv_glob(root, src=None):
     tops = (os.path.normpath(src), os.path.normpath(root))
     common = os.path.commonpath([d for _, d in csv_dirs]) if len(csv_dirs) > 1 else csv_dirs[0][1]
     if len(csv_dirs) == 1 or os.path.normpath(common) in tops or len(_rel(root, common)) < len("Assets"):
-        # một thư mục duy nhất hoặc CSV rải nhiều nơi (localize, config…) → thư mục cha của chỗ nhiều CSV nhất (vd Assets/_Project/Csv)
+        # a single folder, or CSVs scattered around (localize, config…) → parent of the folder with the most CSVs (e.g. Assets/_Project/Csv)
         best = csv_dirs[0][1]
         parent = os.path.dirname(best)
         common = parent if os.path.normpath(parent) not in tops else best
@@ -509,37 +509,37 @@ def detect_prefab_prefix(root, src=None):
 
 
 def detect_conventions(root):
-    """Quét repo → {key: {"value", "source": auto|default, "evidence"}} cho mọi key conventions + liveness patterns."""
+    """Scan the repo → {key: {"value", "source": auto|default, "evidence"}} for every conventions key + liveness patterns."""
     src = source_roots(root)
     d = QA_DEFAULTS["conventions"]
     res = {}
 
     def put(key, value, evidence=""):
         if value in ("", None, []):
-            res[key] = {"value": d[key], "source": "default", "evidence": evidence or "không dò được — dùng mặc định"}
+            res[key] = {"value": d[key], "source": "default", "evidence": evidence or "not detected — using default"}
         else:
             res[key] = {"value": value, "source": "auto", "evidence": evidence}
 
     enum_name, enum_file, vals = find_features_enum(root, src)
-    put("featuresEnum", enum_name, "%s (%d giá trị)" % (_rel(root, enum_file), len(vals)) if enum_file else "")
+    put("featuresEnum", enum_name, "%s (%d values)" % (_rel(root, enum_file), len(vals)) if enum_file else "")
     bases, counts = detect_screen_bases(root, src, known=d["screenBaseTypes"])
     put("screenBaseTypes", bases, ", ".join("%s×%d" % (b, counts.get(b, 0)) for b in bases))
     n, p = find_class(root, ["UIManager", "UIController", "ScreenManager"], src)
     put("uiManagerType", n, _rel(root, p) if p else "")
-    put("screenPrefabPrefix", detect_prefab_prefix(root, src), "theo tên prefab trong Resources")
+    put("screenPrefabPrefix", detect_prefab_prefix(root, src), "from prefab names in Resources")
     ch = detect_cheat(root, src)
     put("cheatTypeName", ch["cheatTypeName"], _rel(root, ch["file"]) if ch["file"] else "")
     put("cheatFlagMember", ch["cheatFlagMember"], "")
     if ch["file"]:
         res["cheatEnableMethod"] = {"value": ch["cheatEnableMethod"], "source": "auto",
-                                    "evidence": "" if ch["cheatEnableMethod"] else "không có TryEnableCheat(Action<bool>) — bật cheat kiểu cũ/tay"}
+                                    "evidence": "" if ch["cheatEnableMethod"] else "no TryEnableCheat(Action<bool>) — cheat is enabled the old/manual way"}
         res["cheatDisableMethod"] = {"value": ch["cheatDisableMethod"], "source": "auto",
-                                     "evidence": "" if ch["cheatDisableMethod"] else "không có DisableCheat"}
+                                     "evidence": "" if ch["cheatDisableMethod"] else "no DisableCheat"}
     else:
         put("cheatEnableMethod", "", "")
         put("cheatDisableMethod", "", "")
     pre, cnt = detect_cheat_prefix(root, src)
-    put("cheatMethodPrefix", pre, "%d hàm static" % cnt if cnt else "")
+    put("cheatMethodPrefix", pre, "%d static methods" % cnt if cnt else "")
     n, p = detect_player_data_facade(root, src)
     put("playerDataFacade", n, _rel(root, p) if p else "")
     n, p = find_class(root, ["TimeManager", "TimeService", "GameTime"], src)
@@ -548,17 +548,17 @@ def detect_conventions(root):
     if not n:
         n, p = detect_tracking_class(root, src)
     put("trackingEventNameType", n, _rel(root, p) if p else "")
-    res["trackingLogPattern"] = {"value": d["trackingLogPattern"], "source": "default", "evidence": "mẫu log tracking mặc định"}
+    res["trackingLogPattern"] = {"value": d["trackingLogPattern"], "source": "default", "evidence": "default tracking log pattern"}
     g, gd = detect_csv_glob(root, src)
     put("csvConfigGlob", g, _rel(root, gd) if gd else "")
-    # liveness patterns: hậu tố "chết" thấy trong enum
+    # liveness patterns: "dead" suffixes seen in the enum
     pats = list(QA_DEFAULTS["liveness"]["deadFeaturePatterns"])
     names = [v[0] for v in vals]
     for suf in ("_Retired", "_Old", "_Legacy", "_Deprecated", "_Unused"):
         if any(nm.endswith(suf) for nm in names) and ("%s$" % suf) not in pats:
             pats.append("%s$" % suf)
     res["_deadFeaturePatterns"] = {"value": pats, "source": "auto" if len(pats) > 1 else "default",
-                                   "evidence": "%d/%d giá trị enum khớp" % (sum(1 for nm in names if any(re.search(pt, nm) for pt in pats)), len(names))}
+                                   "evidence": "%d/%d enum values match" % (sum(1 for nm in names if any(re.search(pt, nm) for pt in pats)), len(names))}
     res["_features"] = {"value": names, "source": "auto", "evidence": enum_name or ""}
     res["_sourceRoot"] = {"value": _rel(root, src), "source": "auto", "evidence": ""}
     return res
@@ -567,7 +567,7 @@ def detect_conventions(root):
 # ───────────────────────────────────────────────────────────── liveness
 
 def feature_names(root, qa):
-    """Giá trị enum Features theo qa.conventions.featuresEnum (tên cuối sau '+'/'.')."""
+    """Values of the Features enum named by qa.conventions.featuresEnum (last segment after '+'/'.')."""
     want = (qa.get("conventions") or {}).get("featuresEnum") or "Features"
     enum_short = want.split("+")[-1].split(".")[-1]
     for p in iter_cs(root):
@@ -580,7 +580,7 @@ def feature_names(root, qa):
 
 
 def _screen_token(name):
-    """'screen_offline_earning(Clone)' / 'ScreenOfflineEarningController' → 'offlineearning' để so với enum."""
+    """'screen_offline_earning(Clone)' / 'ScreenOfflineEarningController' → 'offlineearning' for comparing with the enum."""
     s = re.sub(r"\(Clone\)$", "", name or "").strip()
     s = re.sub(r"^(screen_|popup_|ui_)", "", s, flags=re.I)
     s = re.sub(r"^Screen", "", s)
@@ -589,7 +589,7 @@ def _screen_token(name):
 
 
 def match_feature(screen_name, names):
-    """Tên GameObject màn (probe) → tên enum Feature khớp nhất, hoặc None."""
+    """Screen GameObject name (from the probe) → best-matching Feature enum name, or None."""
     tok = _screen_token(screen_name)
     if not tok:
         return None
@@ -598,7 +598,7 @@ def match_feature(screen_name, names):
         by_tok.setdefault(re.sub(r"[^a-z0-9]", "", n.lower()), n)
     if tok in by_tok:
         return by_tok[tok]
-    # 'offlineearnings' vs 'offlineearning' — chấp nhận s/plural, hoặc token là tiền tố dài
+    # 'offlineearnings' vs 'offlineearning' — accept a trailing s/plural, or a long prefix match
     for t2, n in by_tok.items():
         if len(tok) >= 5 and (t2.rstrip("s") == tok.rstrip("s") or (tok.startswith(t2) and len(t2) >= 6) or (t2.startswith(tok) and len(tok) >= 6)):
             return n
@@ -606,7 +606,7 @@ def match_feature(screen_name, names):
 
 
 def static_refs(root, names, enum_file=""):
-    """Số file code (ngoài file enum, ngoài map bundle/AssetRefs) tham chiếu `Features.<Name>`."""
+    """Number of code files (excluding the enum file and the bundle/AssetRefs maps) that reference `Features.<Name>`."""
     counts = {n: 0 for n in names}
     rg = re.compile(r"\bFeatures\.(\w+)\b")
     skip = re.compile(r"AssetRefs\.cs$|AssetBundleName\.cs$|\.Generated\.cs$")
@@ -625,8 +625,8 @@ def static_refs(root, names, enum_file=""):
 
 def classify_features(root, qa, names=None, enum_file=None, refs=True):
     """→ {name: {"state": live|dead|unreferenced|referenced, "why": ...}}.
-    dead  = khớp deadFeaturePatterns hoặc forceDead;  live = forceLive hoặc đã quan sát (observed);
-    còn lại theo tham chiếu tĩnh: referenced (có code gọi) / unreferenced (không thấy code gọi — có thể mở qua prefab)."""
+    dead  = matches deadFeaturePatterns or forceDead;  live = forceLive or observed;
+    the rest by static references: referenced (some code uses it) / unreferenced (no code reference found — may open via a prefab)."""
     lv = qa.get("liveness") or {}
     if names is None:
         names, enum_file = feature_names(root, qa)
@@ -641,14 +641,14 @@ def classify_features(root, qa, names=None, enum_file=None, refs=True):
         if n in force_dead:
             out[n] = {"state": "dead", "why": "forceDead"}
         elif any(p.search(n) for p in pats):
-            out[n] = {"state": "dead", "why": "khớp mẫu chết"}
+            out[n] = {"state": "dead", "why": "matches a dead pattern"}
         elif n in force_live:
             out[n] = {"state": "live", "why": "forceLive"}
         elif n in observed:
-            out[n] = {"state": "live", "why": "đã thấy mở %s" % observed[n]}
+            out[n] = {"state": "live", "why": "seen open %s" % observed[n]}
         elif refs:
             c = counts.get(n, 0)
-            out[n] = {"state": "referenced" if c else "unreferenced", "why": "%d file gọi" % c if c else "không file nào gọi Features.%s" % n}
+            out[n] = {"state": "referenced" if c else "unreferenced", "why": "referenced by %d file(s)" % c if c else "no file references Features.%s" % n}
         else:
             out[n] = {"state": "referenced", "why": ""}
     return out
@@ -656,48 +656,53 @@ def classify_features(root, qa, names=None, enum_file=None, refs=True):
 
 # ───────────────────────────────────────────────────────────── QaProfile.md
 
+# `<Tên game>` is a placeholder token that qadevice.py replaces with the product name — keep it verbatim.
 MINIMAL_QA_DOC = """# QA Profile — <Tên game>
 
 **Status:** template
-**Cập nhật:** <YYYY-MM-DD> · **Người duyệt:** <dev>
+**Updated:** <YYYY-MM-DD> · **Reviewer:** <dev>
 
-(Khung tối thiểu do tool sinh vì repo chưa có `.claude/docs/QaProfile.template.md` — cập nhật bộ AI của template để có
-khung đầy đủ §0–§11; chữ ngoài các vùng auto bên dưới được giữ nguyên khi làm mới.)
+(Minimal frame generated by the tool because the repo has no `.claude/docs/QaProfile.template.md` yet — update the
+template's AI kit to get the full §0–§11 frame; text outside the auto regions below is kept on refresh.)
 
-## 2. Quy ước code
+## 2. Code conventions
 <!-- auto:conventions:start -->
 <!-- auto:conventions:end -->
 
-## 3. Màn / feature: sống – chết – đã quan sát
+## 3. Screens / features: live – dead – observed
 <!-- auto:features:start -->
 <!-- auto:features:end -->
 
-## 5. Cheat & state path đã kiểm
+## 5. Verified cheats & state paths
 <!-- auto:verified:start -->
 <!-- auto:verified:end -->
 
-## 7. Luật nhiễu đã xác nhận
+## 7. Confirmed noise rules
 <!-- auto:noise:start -->
 <!-- auto:noise:end -->
 
-## 8. Môi trường & thiết bị
+## 8. Environments & devices
 <!-- auto:environments:start -->
 <!-- auto:environments:end -->
 
-## 10. Đường dẫn
+## 10. Paths
 <!-- auto:paths:start -->
 <!-- auto:paths:end -->
 
-## 11. Lịch sử phiên
-| Ngày | Tính năng | Máy | Bug | Coverage | Ghi chú |
+## 11. Session history
+| Date | Feature | Device | Bug | Coverage | Notes |
 |---|---|---|---|---|---|
 """
 
 AUTO_RE = re.compile(r"(<!--\s*auto:(\w+):start\s*-->)(.*?)(<!--\s*auto:\2:end\s*-->)", re.S)
 
+# Label of the date line. "Cập nhật" is the old (Vietnamese) label — still accepted so existing QaProfile.md files keep
+# working; set_status keeps whichever label the doc already uses.
+UPDATED_LINE_RE = re.compile(r"^\*\*(Updated|Cập nhật):\*\*\s*[^·\n]*", re.M)
+
 
 def fill_auto_sections(doc, sections):
-    """Thay nội dung giữa <!-- auto:<name>:start --> … <!-- auto:<name>:end -->; phần ngoài giữ nguyên."""
+    """Replace the content between <!-- auto:<name>:start --> … <!-- auto:<name>:end -->; everything outside is kept."""
     def rep(m):
         name = m.group(2)
         if name not in sections:
@@ -709,7 +714,7 @@ def fill_auto_sections(doc, sections):
 def set_status(doc, status, date=None):
     doc = re.sub(r"^\*\*Status:\*\*\s*\S+", "**Status:** %s" % status, doc, count=1, flags=re.M)
     if date:
-        doc = re.sub(r"^\*\*Cập nhật:\*\*\s*[^·\n]*", "**Cập nhật:** %s " % date, doc, count=1, flags=re.M)
+        doc = UPDATED_LINE_RE.sub(lambda m: "**%s:** %s " % (m.group(1), date), doc, count=1)
     return doc
 
 
@@ -719,9 +724,9 @@ def doc_status(doc):
 
 
 def render_sections(root, qa, det, classes, game_name=""):
-    """Bảng cho các vùng auto của QaProfile.md."""
+    """Tables for the auto regions of QaProfile.md."""
     conv = qa.get("conventions") or {}
-    rows = ["| Key | Giá trị | Nguồn | Bằng chứng |", "|---|---|---|---|"]
+    rows = ["| Key | Value | Source | Evidence |", "|---|---|---|---|"]
     for k in QA_DEFAULTS["conventions"]:
         v = conv.get(k)
         info = det.get(k, {})
@@ -733,28 +738,28 @@ def render_sections(root, qa, det, classes, game_name=""):
     dead = sorted(n for n, c in classes.items() if c["state"] == "dead")
     lv = qa.get("liveness") or {}
     feat_md = "\n".join([
-        "- Enum: `%s` — %d giá trị · mẫu chết: %s" % (conv.get("featuresEnum"), len(classes) + 1, ", ".join("`%s`" % p for p in lv.get("deadFeaturePatterns") or [])),
-        "- **Sống (có code gọi / đã quan sát): %d** — %s" % (len(live), ", ".join(live) or "—"),
-        "- **Không thấy code gọi (có thể mở qua prefab/enum serialize — xác nhận bằng quan sát): %d** — %s" % (len(unref), ", ".join(unref) or "—"),
-        "- **Chết (bỏ qua khi test): %d** — %s" % (len(dead), ", ".join(dead) or "—"),
-        "- Đã quan sát mở lúc chạy: %s" % (", ".join("%s (%s)" % kv for kv in sorted((lv.get("observed") or {}).items())) or "chưa có phiên nào"),
+        "- Enum: `%s` — %d values · dead patterns: %s" % (conv.get("featuresEnum"), len(classes) + 1, ", ".join("`%s`" % p for p in lv.get("deadFeaturePatterns") or [])),
+        "- **Live (referenced in code / observed): %d** — %s" % (len(live), ", ".join(live) or "—"),
+        "- **No code reference found (may open via prefab / serialized enum — confirm by observation): %d** — %s" % (len(unref), ", ".join(unref) or "—"),
+        "- **Dead (skipped in tests): %d** — %s" % (len(dead), ", ".join(dead) or "—"),
+        "- Observed open at runtime: %s" % (", ".join("%s (%s)" % kv for kv in sorted((lv.get("observed") or {}).items())) or "no sessions yet"),
     ])
     ver = qa.get("verified") or {}
     cheats = ver.get("cheats") or {}
     paths = ver.get("statePaths") or {}
-    ver_md = "\n".join(["| Loại | Tên / đường dẫn | Lần cuối OK |", "|---|---|---|"] +
+    ver_md = "\n".join(["| Kind | Name / path | Last OK |", "|---|---|---|"] +
                        ["| cheat | `%s` | %s |" % kv for kv in sorted(cheats.items())] +
                        ["| state | `%s` → `%s` | %s |" % (k, v.get("path", ""), v.get("lastOk", "")) for k, v in sorted(paths.items())]
-                       or ["| — | chưa có | |"])
+                       or ["| — | none yet | |"])
     noise = qa.get("noise") or []
-    noise_md = "\n".join(["| Flag | Khớp | Lý do | Ai / ngày |", "|---|---|---|---|"] +
+    noise_md = "\n".join(["| Flag | Match | Reason | By / date |", "|---|---|---|---|"] +
                          ["| `%s` | `%s` | %s | %s %s |" % (r.get("flag"), r.get("match"), r.get("reason", ""), r.get("addedBy", ""), r.get("date", "")) for r in noise]
-                         or ["| — | chưa có luật nào | | |"])
+                         or ["| — | no rules yet | | |"])
     env = qa.get("environments") or {}
     env_md = "\n".join([
-        "- Cỡ chữ hệ thống: %s" % ", ".join(str(x) for x in env.get("fontScales") or []),
-        "- Kích thước màn thử: %s" % ", ".join(env.get("screenSizes") or []) if env.get("screenSizes") else "- Kích thước màn thử: (không)",
-        "- Dark mode: %s · animator scale: %s" % ("có" if env.get("darkMode") else "không", env.get("animatorScale")),
+        "- System font scales: %s" % ", ".join(str(x) for x in env.get("fontScales") or []),
+        "- Test screen sizes: %s" % ", ".join(env.get("screenSizes") or []) if env.get("screenSizes") else "- Test screen sizes: (none)",
+        "- Dark mode: %s · animator scale: %s" % ("yes" if env.get("darkMode") else "no", env.get("animatorScale")),
     ])
     paths_md = "\n".join("- `%s`: `%s`" % kv for kv in sorted((qa.get("paths") or {}).items()))
     return {"conventions": conv_md, "features": feat_md, "verified": ver_md, "noise": noise_md, "environments": env_md,
@@ -763,7 +768,7 @@ def render_sections(root, qa, det, classes, game_name=""):
 
 # ───────────────────────────────────────────────────────────── charter
 
-# Mã ca trong bảng charter: `P0-01` (ưu tiên-số) — tham chiếu đầy đủ `<tên-file-charter>/<P0-01>` (vd offline-earning/P0-01).
+# Case id in a charter table: `P0-01` (priority-number) — full reference `<charter-file-name>/<P0-01>` (e.g. offline-earning/P0-01).
 CASE_ID_RE = re.compile(r"\|\s*((?:P[0-5]|[A-Z][A-Z0-9]{1,9})-(\d{2,3}))\s*\|")
 FULL_CASE_RE = re.compile(r"^(?:([\w.-]+)/)?((?:P[0-5]|[A-Z][A-Z0-9]{1,9})-\d{2,3})$", re.I)
 
@@ -785,7 +790,7 @@ def _strip_accents(s):
 
 
 def split_case(ref, default_charter=""):
-    """'offline-earning/P0-01' | 'P0-01' → (charter, 'P0-01') hoặc None nếu sai dạng."""
+    """'offline-earning/P0-01' | 'P0-01' → (charter, 'P0-01'), or None if malformed."""
     m = FULL_CASE_RE.match((ref or "").strip())
     if not m:
         return None
@@ -811,7 +816,7 @@ def list_charters(root, qa):
 
 
 def charter_cases(root, qa, charter_id=None):
-    """{'<charter>/<P0-01>': {"charter", "case", "priority", "title"}} từ mọi charter (hoặc một charter theo tên file)."""
+    """{'<charter>/<P0-01>': {"charter", "case", "priority", "title"}} from every charter (or one charter by file name)."""
     out = {}
     for ch in list_charters(root, qa):
         if charter_id and ch["id"] != charter_id:
@@ -829,9 +834,12 @@ def charter_cases(root, qa, charter_id=None):
 
 
 def new_charter_text(template, feature, qa, sources=""):
+    # Placeholders below are literal tokens of references/charter.template.md — keep them in sync with that file.
     t = template.replace("<Tính năng>", feature).replace("<tính năng>", feature).replace("<YYYY-MM-DD>", today())
     if sources:
-        t = t.replace("<GDD/TechSpec/file code/CSV đã đọc>", sources)
+        # "<GDD/TechSpec/file code/CSV đã đọc>" = token of the old (Vietnamese) template — still replaced, in case of an old copy.
+        for token in ("<GDD/TechSpec/code files/CSVs read>", "<GDD/TechSpec/file code/CSV đã đọc>"):
+            t = t.replace(token, sources)
     return t
 
 
@@ -863,16 +871,16 @@ def coverage_summary(cases_run, planned, classes, observed_now):
 def coverage_markdown(cov, title=""):
     out = ["## Coverage%s" % (" — " + title if title else ""), ""]
     if cov["charters"]:
-        out += ["| Charter | Planned | Run | Pass | Fail | Blocked | Skip | Chưa chạy |", "|---|---|---|---|---|---|---|---|"]
+        out += ["| Charter | Planned | Run | Pass | Fail | Blocked | Skip | Not run |", "|---|---|---|---|---|---|---|---|"]
         for ch, b in sorted(cov["charters"].items()):
             out.append("| %s | %d | %d | %d | %d | %d | %d | %s |" % (ch, b["planned"], b["run"], b["pass"], b["fail"], b["blocked"], b["skip"],
                                                                ", ".join(b["not_run"]) or "—"))
     else:
-        out.append("- Chưa có charter nào trong repo (`charter new <feature>`).")
+        out.append("- No charters in the repo yet (`charter new <feature>`).")
     if cov["adhoc"]:
-        out.append("- Ca ngoài charter đã ghi: %s" % ", ".join(cov["adhoc"]))
+        out.append("- Cases recorded outside any charter: %s" % ", ".join(cov["adhoc"]))
     out.append("")
-    out.append("- Màn sống: %d · đã mở trong phiên: %d · **chưa mở: %d** — %s" % (
+    out.append("- Live screens: %d · opened this session: %d · **not opened: %d** — %s" % (
         len(cov["live"]), len(cov["visited"]), len(cov["unvisited"]), ", ".join(cov["unvisited"][:40]) + ("…" if len(cov["unvisited"]) > 40 else "")))
     return "\n".join(out) + "\n"
 
@@ -938,7 +946,7 @@ def filter_rows(rows, where):
     return [r for r in rows if ok(r)]
 
 
-# ───────────────────────────────────────────────────────────── report.json của com.ezg.autotest
+# ───────────────────────────────────────────────────────────── com.ezg.autotest report.json
 
 SEVERITY_INT = {0: "Info", 1: "Minor", 2: "Major", 3: "Critical", 4: "Blocker"}
 STATUS_INT = {0: "NotRun", 1: "Running", 2: "Passed", 3: "Warning", 4: "Failed", 5: "Error", 6: "Skipped", 7: "Cancelled"}
@@ -964,7 +972,7 @@ def screen_of_case(case):
     m = re.match(r"^screen-(\w+)$", cid)
     if m:
         return m.group(1)
-    m = re.search(r"Mở màn\s+(\w+)", str(case.get("name") or ""))
+    m = re.search(r"Mở màn\s+(\w+)", str(case.get("name") or ""))  # case name as written by com.ezg.autotest (Vietnamese)
     return m.group(1) if m else ""
 
 
@@ -975,10 +983,10 @@ def latest_report(root, qa):
 
 
 def parse_autotest_report(path):
-    """report.json 0.1.1 (enum số) hoặc 0.2 (chuỗi) → cấu trúc phẳng: issues[], cases[], summary."""
+    """report.json 0.1.1 (numeric enums) or 0.2 (strings) → flat structure: issues[], cases[], summary."""
     d = _read_json(path, None)
     if not isinstance(d, dict):
-        raise ValueError("không đọc được %s" % path)
+        raise ValueError("cannot read %s" % path)
     issues, cases = [], []
     for s in d.get("suites") or []:
         sid = s.get("suiteId") or s.get("id") or ""
@@ -990,7 +998,7 @@ def parse_autotest_report(path):
                 issues.append({"suite": sid, "case": c.get("caseId", ""), "group": i.get("category") or i.get("group") or "",
                                "severity": _sev(i.get("severity")), "location": i.get("location", ""), "objectPath": i.get("objectPath", ""),
                                "message": i.get("title") or i.get("message", ""), "screen": i.get("screen") or scr})
-    for i in d.get("issues") or []:  # format 0.2 có thể để issues phẳng ở gốc
+    for i in d.get("issues") or []:  # format 0.2 may keep issues flat at the root
         issues.append({"suite": i.get("suite", ""), "case": i.get("case", ""), "group": i.get("group") or i.get("category", ""),
                        "severity": _sev(i.get("severity")), "location": i.get("location", ""), "objectPath": i.get("objectPath", ""),
                        "message": i.get("message", ""), "screen": i.get("screen", "")})
@@ -1011,13 +1019,13 @@ def parse_autotest_report(path):
 def autotest_markdown(rep, max_rows=40):
     out = ["## Autotest import — %s" % (rep.get("runId") or os.path.basename(os.path.dirname(rep["path"]))),
            "", "- File: `%s` · format %s · %s" % (rep["path"], rep["version"], rep.get("startedAt", "")),
-           "- Theo mức: " + " · ".join("%s %d" % (s, rep["bySeverity"].get(s, 0)) for s in SEV_ORDER if rep["bySeverity"].get(s)),
-           "- Theo suite: " + " · ".join("%s(%s)" % (s, ",".join("%s%d" % (k[0], v) for k, v in sorted(m.items()))) for s, m in sorted(rep["bySuite"].items())),
-           "- Màn autotest đã mở OK (Δ-skip smoke mở màn): %d — %s" % (len(rep["coveredScreens"]), ", ".join(rep["coveredScreens"]) or "—"),
-           "- Màn autotest mở LỖI (ưu tiên xác nhận trên máy): %d — %s" % (len(rep["failedScreens"]), ", ".join(rep["failedScreens"]) or "—"), ""]
+           "- By severity: " + " · ".join("%s %d" % (s, rep["bySeverity"].get(s, 0)) for s in SEV_ORDER if rep["bySeverity"].get(s)),
+           "- By suite: " + " · ".join("%s(%s)" % (s, ",".join("%s%d" % (k[0], v) for k, v in sorted(m.items()))) for s, m in sorted(rep["bySuite"].items())),
+           "- Screens autotest opened OK (Δ-skip the open-screen smoke): %d — %s" % (len(rep["coveredScreens"]), ", ".join(rep["coveredScreens"]) or "—"),
+           "- Screens autotest FAILED to open (confirm on device first): %d — %s" % (len(rep["failedScreens"]), ", ".join(rep["failedScreens"]) or "—"), ""]
     hot = [i for i in rep["issues"] if i["severity"] in ("Blocker", "Critical")]
     if hot:
-        out += ["### Blocker/Critical (%d)" % len(hot), "", "| Suite | Nhóm | Màn | Vị trí | Thông điệp |", "|---|---|---|---|---|"]
+        out += ["### Blocker/Critical (%d)" % len(hot), "", "| Suite | Group | Screen | Location | Message |", "|---|---|---|---|---|"]
         for i in hot[:max_rows]:
             out.append("| %s | %s | %s | %s | %s |" % (i["suite"], i["group"], i["screen"], (i["objectPath"] or i["location"])[-60:],
                                                    i["message"][:90].replace("|", "/")))

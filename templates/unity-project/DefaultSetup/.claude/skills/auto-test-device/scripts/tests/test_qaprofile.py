@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Test phần 1.5 của qadevice (hồ sơ QA theo project, auto-audit, env, charter/coverage, csv, autotest-import…)
-trên repo giả trong thư mục tạm — không cần thiết bị, không chạm repo thật.
+"""Tests for the qadevice 1.5 features (per-project QA profile, auto-audit, env, charter/coverage, csv, autotest-import…)
+on a fake repo in a temp folder — no device needed, the real repo is never touched.
 
-Chạy: python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests
+Run: python3 -m unittest discover -s .claude/skills/auto-test-device/scripts/tests
 """
 import contextlib
 import io
@@ -201,7 +201,7 @@ def make_repo(with_template=True, with_charter=True, with_qa=False):
 
 
 class FakeProbe(object):
-    """Probe giả: /ui trả theo self.ui (có thể là list để đổi theo từng lần gọi); ghi lại mọi call."""
+    """Fake probe: /ui returns self.ui (ui_seq can vary it per call); records every call."""
 
     def __init__(self, ui=None, version="1.3.0"):
         self.calls = []
@@ -246,7 +246,7 @@ class FakeProbe(object):
 
 
 class FakeAndroid(q.Android):
-    """Android giả: không gọi adb; ghi lệnh shell, trả output canned cho settings/wm/uimode."""
+    """Fake Android: never calls adb; records shell commands, returns canned output for settings/wm/uimode."""
 
     def __init__(self, probe=None):
         q.Android.__init__(self, "emulator-5554", adb="adb")
@@ -325,7 +325,7 @@ class FakeAndroid(q.Android):
 
 @contextlib.contextmanager
 def fake_env(root, probe=None):
-    """repo_root → root; state → tmp; Session.device → FakeAndroid; check_logs/log không chạm adb."""
+    """repo_root → root; state → tmp; Session.device → FakeAndroid; check_logs/log never touch adb."""
     home = tempfile.mkdtemp(prefix="qastate")
     dev = FakeAndroid(probe)
     saved = (q.repo_root, q.Session.device, q.check_logs, q.log_start, os.environ.get("QADEVICE_HOME"), q.AUTO_AUDIT)
@@ -366,7 +366,7 @@ def run_cmd(argv):
     return rc, out.getvalue()
 
 
-# ───────────────────────────────────────────────────────────── schema · merge · ghi ngược
+# ───────────────────────────────────────────────────────────── schema · merge · write-back
 
 class SchemaTests(unittest.TestCase):
     def test_deep_merge_semantics(self):
@@ -374,34 +374,34 @@ class SchemaTests(unittest.TestCase):
         over = {"a": {"y": [9], "z": 2}, "c": 3}
         m = qp.deep_merge(base, over)
         self.assertEqual(m, {"a": {"x": 1, "y": [9], "z": 2}, "b": 1, "c": 3})
-        self.assertEqual(base["a"]["y"], [1, 2])  # không sửa tham số
+        self.assertEqual(base["a"]["y"], [1, 2])  # arguments not mutated
 
     def test_qa_defaults_match_template_project_profile(self):
         if not os.path.isfile(REAL_PROJECT_PROFILE_PY):
-            self.skipTest("không có .claude/scripts/project_profile.py")
+            self.skipTest("no .claude/scripts/project_profile.py")
         mod = qp.load_project_profile_module(REAL_REPO)
         if mod is None or not isinstance(getattr(mod, "DEFAULTS", None), dict) or "qa" not in mod.DEFAULTS:
-            self.skipTest("project_profile.py chưa có DEFAULTS['qa']")
-        self.assertEqual(q.QA_DEFAULTS, mod.DEFAULTS["qa"], "QA_DEFAULTS của qadevice lệch DEFAULTS['qa'] của template")
+            self.skipTest("project_profile.py has no DEFAULTS['qa'] yet")
+        self.assertEqual(q.QA_DEFAULTS, mod.DEFAULTS["qa"], "qadevice QA_DEFAULTS differs from the template's DEFAULTS['qa']")
 
     def test_save_patch_preserves_hand_format_and_comments(self):
         root = make_repo()
         before = open(os.path.join(root, ".claude", "project-profile.json"), encoding="utf-8").read()
         qp.save_qa_patch(root, {"status": "draft", "conventions": {"featuresEnum": "X+Features"}})
         after = open(os.path.join(root, ".claude", "project-profile.json"), encoding="utf-8").read()
-        self.assertTrue(after.startswith(before.rstrip().rstrip("}").rstrip()))  # phần cũ giữ nguyên byte
+        self.assertTrue(after.startswith(before.rstrip().rstrip("}").rstrip()))  # existing bytes kept unchanged
         self.assertIn('"$comment_qa"', after)
         data = json.loads(after)
         self.assertEqual(data["qa"]["conventions"]["featuresEnum"], "X+Features")
-        self.assertEqual(data["nested"]["qa"]["decoy"], True)  # "qa" lồng không bị đụng
-        # patch lần 2: merge, giữ key cũ, không nhân đôi comment
+        self.assertEqual(data["nested"]["qa"]["decoy"], True)  # nested "qa" left alone
+        # 2nd patch: merges, keeps old keys, does not duplicate the comment
         qp.save_qa_patch(root, {"liveness": {"observed": {"Shop": "2026-01-01"}}})
         text = open(os.path.join(root, ".claude", "project-profile.json"), encoding="utf-8").read()
         data = json.loads(text)
         self.assertEqual(data["qa"]["conventions"]["featuresEnum"], "X+Features")
         self.assertEqual(data["qa"]["liveness"]["observed"], {"Shop": "2026-01-01"})
         self.assertEqual(text.count('"$comment_qa"'), 1)
-        self.assertEqual(text.count('"qa":'), 2)  # 1 thật + 1 decoy lồng
+        self.assertEqual(text.count('"qa":'), 2)  # 1 real + 1 nested decoy
         qp.save_qa_patch(root, {"status": "reviewed"}, replace=True)
         data = json.loads(open(os.path.join(root, ".claude", "project-profile.json"), encoding="utf-8").read())
         self.assertEqual(set(data["qa"]), {"status", "schemaVersion"})
@@ -418,7 +418,7 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(prov2["_block"], "missing")
 
 
-# ───────────────────────────────────────────────────────────── tự dò quy ước · liveness
+# ───────────────────────────────────────────────────────────── convention detection · liveness
 
 class DetectTests(unittest.TestCase):
     def test_parse_enum_and_nested_type_name(self):
@@ -428,13 +428,13 @@ class DetectTests(unittest.TestCase):
         self.assertEqual(names[:4], ["none", "Settings", "Shop", "RewardPopup"])
         self.assertIn("Tut1Intro_Retired", names)
         self.assertEqual(dict(vals)["Admin"], 50)
-        self.assertNotIn("A", names)  # enum Other không lẫn
+        self.assertNotIn("A", names)  # enum Other not mixed in
 
     def test_detect_conventions_template_layout(self):
         det = qp.detect_conventions(make_repo())
         v = {k: d["value"] for k, d in det.items()}
         self.assertEqual(v["featuresEnum"], "GameEnums+Features")
-        self.assertEqual(v["screenBaseTypes"], ["FeatureBaseController"])  # PackagePurchaseBaseController (MonoBehaviour) + EditorWindow bị loại
+        self.assertEqual(v["screenBaseTypes"], ["FeatureBaseController"])  # PackagePurchaseBaseController (MonoBehaviour) + EditorWindow excluded
         self.assertEqual((v["cheatTypeName"], v["cheatFlagMember"], v["cheatEnableMethod"], v["cheatDisableMethod"]),
                          ("GameSystems", "isCheat", "TryEnableCheat", "DisableCheat"))
         self.assertEqual(v["cheatMethodPrefix"], "Cheat_")
@@ -465,7 +465,7 @@ class DetectTests(unittest.TestCase):
         self.assertEqual(cls["Admin"]["state"], "live")
         self.assertEqual(cls["Settings"]["state"], "live")
         self.assertEqual(cls["Shop"]["state"], "referenced")
-        self.assertEqual(cls["DeadByBundleOnly"]["state"], "unreferenced")  # chỉ AssetRefs.cs gọi → không tính
+        self.assertEqual(cls["DeadByBundleOnly"]["state"], "unreferenced")  # only AssetRefs.cs references it → not counted
         self.assertNotIn("none", cls)
 
     def test_match_feature_from_screen_names(self):
@@ -487,7 +487,19 @@ class DocCharterTests(unittest.TestCase):
         self.assertIn("<!-- auto:b:start -->\n<!-- auto:b:end -->", out)
         out = qp.set_status(out, "draft", "2026-01-02")
         self.assertEqual(qp.doc_status(out), "draft")
-        self.assertIn("**Cập nhật:** 2026-01-02 · x", out)
+        self.assertIn("**Cập nhật:** 2026-01-02 · x", out)  # old Vietnamese label still accepted and kept as-is
+        out = qp.set_status("**Status:** draft\n**Updated:** <YYYY-MM-DD> · **Reviewer:** <dev>\n", "reviewed", "2026-01-03")
+        self.assertEqual(qp.doc_status(out), "reviewed")
+        self.assertIn("**Updated:** 2026-01-03 · **Reviewer:** <dev>", out)
+
+    def test_template_frame_contract(self):
+        # Literals the tool relies on: Status/Updated lines, the <Tên game> token qadevice replaces, every auto region.
+        for tpl in ([open(REAL_TEMPLATE, encoding="utf-8").read()] if os.path.isfile(REAL_TEMPLATE) else []) + [qp.MINIMAL_QA_DOC]:
+            self.assertEqual(qp.doc_status(tpl), "template")
+            self.assertIn("# QA Profile — <Tên game>", tpl)
+            self.assertTrue(qp.UPDATED_LINE_RE.search(tpl))
+            names = set(m.group(2) for m in qp.AUTO_RE.finditer(tpl))
+            self.assertEqual(names, set(qp.render_sections("", qp.QA_DEFAULTS, {}, {})))
 
     def test_charter_parsing_and_case_ids(self):
         root = make_repo()
@@ -511,7 +523,10 @@ class DocCharterTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         txt = qp.new_charter_text(tpl, "Offline earning", qp.QA_DEFAULTS, "GDD.md")
         self.assertIn("# Charter — Offline earning", txt)
-        self.assertIn("Nguồn: GDD.md", txt)
+        self.assertIn("Source: GDD.md", txt)
+        self.assertNotIn("<GDD/TechSpec/", txt)
+        old = qp.new_charter_text("Nguồn: <GDD/TechSpec/file code/CSV đã đọc>", "x", qp.QA_DEFAULTS, "GDD.md")
+        self.assertEqual(old, "Nguồn: GDD.md")  # old template token still filled in
 
     def test_coverage_summary(self):
         root = make_repo()
@@ -526,15 +541,15 @@ class DocCharterTests(unittest.TestCase):
         self.assertEqual(cov["unvisited"], ["Settings"])
         md = qp.coverage_markdown(cov, "Shop")
         self.assertIn("| shop | 4 | 2 | 1 | 1 |", md)
-        self.assertIn("chưa mở: 1", md)
+        self.assertIn("not opened: 1", md)
 
     def test_csv_oracle(self):
         root = make_repo()
         path, _ = qp.find_csv(root, qp.QA_DEFAULTS, "coinpack")
         self.assertTrue(path.endswith("CoinPack.csv"))
         header, rows = qp.read_csv_rows(path)
-        self.assertEqual(header[0], "id")  # BOM bỏ
-        self.assertEqual([r["id"] for r in rows], ["1", "2", "3"])  # dòng #comment bỏ
+        self.assertEqual(header[0], "id")  # BOM stripped
+        self.assertEqual([r["id"] for r in rows], ["1", "2", "3"])  # #comment row skipped
         self.assertEqual([r["id"] for r in qp.filter_rows(rows, ["price>=250"])], ["2", "3"])
         self.assertEqual([r["id"] for r in qp.filter_rows(rows, ["pack_name~_2$"])], ["2"])
         self.assertEqual([r["id"] for r in qp.filter_rows(rows, ["id!=1", "price<900"])], ["2"])
@@ -562,7 +577,7 @@ class DocCharterTests(unittest.TestCase):
         self.assertEqual(qp.latest_report(root, qp.QA_DEFAULTS), p2)
 
 
-# ───────────────────────────────────────────────────────────── audit: flags camelCase · noise · expect
+# ───────────────────────────────────────────────────────────── audit: camelCase flags · noise · expect
 
 class AuditFlagTests(unittest.TestCase):
     def ui(self, flags, detail=None, path="Canvas/btn"):
@@ -582,13 +597,13 @@ class AuditFlagTests(unittest.TestCase):
         self.assertEqual(kinds["overlap-button"]["detail"], "bị 'btn_x' [3] đè 60%")
         self.assertEqual(kinds["sprite-missing-colored"]["severity"], "low")
         self.assertEqual(kinds["solid-background"]["severity"], "info")
-        self.assertEqual(f[0]["severity"], "high")  # sắp theo mức
+        self.assertEqual(f[0]["severity"], "high")  # sorted by severity
 
     def test_unknown_flag_becomes_kebab_medium_and_legacy_flags_untouched(self):
         f = q.audit_elements(self.ui(["weirdNewCheck", "noSprite"]))
         kinds = {x["kind"]: x for x in f}
         self.assertEqual(kinds["weird-new-check"]["severity"], "medium")
-        self.assertIn("missing-sprite", kinds)  # nhánh cũ của noSprite vẫn chạy
+        self.assertIn("missing-sprite", kinds)  # legacy noSprite branch still runs
         self.assertNotIn("no-sprite", kinds)
 
     def test_noise_rules_suppress_by_path_and_screen(self):
@@ -659,7 +674,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(set(q.PROBE_FEATURES), {"pseudoloc", "flags", "screenBaseTypes"})
 
 
-# ───────────────────────────────────────────────────────────── lệnh profile / doctor trên repo giả
+# ───────────────────────────────────────────────────────────── profile / doctor commands on a fake repo
 
 class ProfileCommandTests(unittest.TestCase):
     def test_profile_init_sync_doctor_roundtrip(self):
@@ -682,7 +697,7 @@ class ProfileCommandTests(unittest.TestCase):
             self.assertIn("| `featuresEnum` | `GameEnums+Features` | auto |", doc)
             self.assertIn("Tut1Intro_Retired", doc)
             self.assertTrue(os.path.isfile(os.path.join(root, ".claude", "docs", "qa", "charters", "README.md")))
-            # dev sửa tay 1 key + ghi chữ riêng vào doc → init lại giữ cả hai
+            # dev edits 1 key by hand + adds own text to the doc → re-init keeps both
             qp.save_qa_patch(root, {"conventions": {"cheatMethodPrefix": "Hack_"}})
             with open(os.path.join(root, ".claude", "docs", "QaProfile.md"), "a", encoding="utf-8") as f:
                 f.write("\nDEV NOTE GIỮ LẠI\n")
@@ -693,7 +708,7 @@ class ProfileCommandTests(unittest.TestCase):
             self.assertEqual(prof["qa"]["conventions"]["cheatMethodPrefix"], "Hack_")
             doc = open(os.path.join(root, ".claude", "docs", "QaProfile.md"), encoding="utf-8").read()
             self.assertIn("DEV NOTE GIỮ LẠI", doc)
-            # sync → probe override (5 key) + autotest liveness, giữ key khác
+            # sync → probe override (5 keys) + autotest liveness, other keys kept
             rc, out = run_cmd(["profile", "sync"])
             ov = json.load(open(os.path.join(root, "Assets", "Resources", "EzgQaProbeConfig.json")))
             self.assertEqual(set(ov), set(qp.PROBE_OVERRIDE_KEYS))
@@ -702,11 +717,11 @@ class ProfileCommandTests(unittest.TestCase):
             self.assertEqual(at["economy"]["skipCurrencies"], ["Gold"])
             self.assertEqual(at["liveness"], {"enabled": True, "deadFeaturePatterns": ["_Retired$"], "forceLive": [], "forceDead": [], "observedLive": []})
             rc, out = run_cmd(["profile", "sync"])
-            self.assertIn("không có gì đổi", out)
-            # doctor --strict qua; show in provenance
+            self.assertIn("nothing changed", out)
+            # doctor --strict passes; show prints provenance
             rc, out = run_cmd(["doctor", "--strict"])
             self.assertEqual(rc, 0, out)
-            self.assertIn("probe override khớp", out)
+            self.assertIn("probe override in sync", out)
             self.assertIn("com.ezg.autotest 0.1.1 (manifest) ⚠ < 0.2.0", out)
             rc, out = run_cmd(["profile", "show"])
             self.assertIn("conventions.cheatMethodPrefix", out)
@@ -720,7 +735,7 @@ class ProfileCommandTests(unittest.TestCase):
             self.assertEqual(cm.exception.code, 1)
             rc, out = run_cmd(["doctor"])
             self.assertEqual(rc, 0)
-            self.assertIn("chưa có block qa", out)
+            self.assertIn("no qa block", out)
 
     def test_profile_init_without_template_uses_minimal_doc(self):
         root = make_repo(with_template=False)
@@ -728,12 +743,12 @@ class ProfileCommandTests(unittest.TestCase):
             rc, out = run_cmd(["profile", "init"])
             self.assertEqual(rc, 0)
             doc = open(os.path.join(root, ".claude", "docs", "QaProfile.md"), encoding="utf-8").read()
-            self.assertIn("Khung tối thiểu", doc)
+            self.assertIn("Minimal frame", doc)
             self.assertIn("| `featuresEnum` |", doc)
             self.assertEqual(qp.doc_status(doc), "draft")
 
 
-# ───────────────────────────────────────────────────────────── lệnh trong phiên: note/coverage/charter/track/autotest-import
+# ───────────────────────────────────────────────────────────── in-session commands: note/coverage/charter/track/autotest-import
 
 class SessionCommandTests(unittest.TestCase):
     def test_note_case_and_coverage_and_charter_diff(self):
@@ -741,10 +756,10 @@ class SessionCommandTests(unittest.TestCase):
         with fake_env(root) as dev:
             sess = new_session(dev, probe=False)
             rc, out = run_cmd(["note", "--case", "P0-01", "--result", "pass"])
-            self.assertEqual(rc, 1)  # chưa gắn charter → phải ghi đầy đủ
+            self.assertEqual(rc, 1)  # no charter attached yet → full reference required
             rc, out = run_cmd(["note", "--case", "shop/p0-01", "--result", "pass", "mua gói 1 ok"])
             self.assertEqual(rc, 0)
-            rc, out = run_cmd(["note", "--case", "P1-01", "--result", "fail", "--bug", "77"])  # charter đã gắn từ lệnh trước
+            rc, out = run_cmd(["note", "--case", "P1-01", "--result", "fail", "--bug", "77"])  # charter attached by the previous command
             self.assertEqual(rc, 0)
             cases = q.read_jsonl(sess.path("cases.jsonl"))
             self.assertEqual([(c["case"], c["result"], c.get("bug")) for c in cases], [("shop/P0-01", "pass", None), ("shop/P1-01", "fail", 77)])
@@ -755,9 +770,9 @@ class SessionCommandTests(unittest.TestCase):
             self.assertIn("| shop | 4 | 2 | 1 | 1 | 0 | 0 | shop/P0-02, shop/P2-01 |", out)
             self.assertTrue(os.path.isfile(sess.path("coverage.md")))
             rc, out = run_cmd(["charter", "diff"])
-            self.assertIn("2 CHƯA chạy", out)
-            self.assertIn("P0 chưa chạy: shop/P0-02", out)
-            self.assertIn("ca FAIL: shop/P1-01", out)
+            self.assertIn("2 NOT run", out)
+            self.assertIn("P0 not run: shop/P0-02", out)
+            self.assertIn("FAIL cases: shop/P1-01", out)
             rc, out = run_cmd(["charter", "list"])
             self.assertIn("shop", out)
             rc, out = run_cmd(["charter", "new", "Offline earning", "--sources", "GDD.md"])
@@ -765,10 +780,10 @@ class SessionCommandTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(root, ".claude", "docs", "qa", "charters", "offline-earning.md")))
             self.assertEqual(q.Session.load().d.get("charter"), "offline-earning")
             rc, out = run_cmd(["charter", "new", "Offline earning"])
-            self.assertEqual(rc, 1)  # đã có → không ghi đè
-            # report có mục ca + coverage
+            self.assertEqual(rc, 1)  # already exists → not overwritten
+            # report has the cases + coverage sections
             md = q.build_session_report(q.Session.load())
-            self.assertIn("## Ca theo charter (2)", md)
+            self.assertIn("## Charter cases (2)", md)
             self.assertIn("## Coverage", md)
 
     def test_autotest_import_marks_session(self):
@@ -777,14 +792,14 @@ class SessionCommandTests(unittest.TestCase):
             sess = new_session(dev, probe=False)
             rc, out = run_cmd(["autotest-import"])
             self.assertEqual(rc, 0)
-            self.assertIn("Màn autotest đã mở OK", out)
-            self.assertIn("⚠ report của autotest < 0.2.0", out)
+            self.assertIn("Screens autotest opened OK", out)
+            self.assertIn("⚠ autotest report < 0.2.0", out)
             d = q.Session.load().d
             self.assertEqual(d["autotest"]["coveredScreens"], ["Shop"])
             self.assertEqual(d["autotest"]["failedScreens"], ["Admin"])
             self.assertTrue(os.path.isfile(sess.path("autotest-summary.md")))
             rc, out = run_cmd(["coverage"])
-            self.assertIn("autotest Editor đã mở OK", out) if "Shop" in out else None
+            self.assertIn("opened OK by the Editor autotest", out) if "Shop" in out else None
 
     def test_track_filters_and_expect(self):
         root = make_repo()
@@ -800,7 +815,7 @@ class SessionCommandTests(unittest.TestCase):
                 "10-15 00:41:02.400  1234  1250 I Unity   : normal log"]) + "\n")
             rc, out = run_cmd(["track"])
             self.assertEqual(rc, 0)
-            self.assertIn("2 dòng khớp", out)
+            self.assertIn("2 matching lines", out)
             self.assertIn("shop_open", out)
             self.assertNotIn("other_app_event", out)
             rc, out = run_cmd(["track", "--expect", "iap_success"])
@@ -822,7 +837,7 @@ class SessionCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
 
 
-# ───────────────────────────────────────────────────────────── probe/thiết bị giả: auto-audit · expect · env · aspect · selfcheck · flush
+# ───────────────────────────────────────────────────────────── fake probe/device: auto-audit · expect · env · aspect · selfcheck · flush
 
 class DeviceFlowTests(unittest.TestCase):
     def ui(self, screens, n_el=1, flags=()):
@@ -840,17 +855,17 @@ class DeviceFlowTests(unittest.TestCase):
             r1 = q.maybe_auto_audit(sess, dev)
             self.assertIsNotNone(r1)
             self.assertTrue(os.path.isfile(sess.path("audit-auto-001.json")))
-            self.assertIsNone(q.maybe_auto_audit(sess, dev))  # cùng màn → không audit lại
+            self.assertIsNone(q.maybe_auto_audit(sess, dev))  # same screen → no re-audit
             probe.ui = self.ui(["screen_home", "screen_shop"], flags=["deadButton"])
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 r2 = q.maybe_auto_audit(sess, dev)
-            self.assertIn("⚑ audit tự động #2", out.getvalue())
+            self.assertIn("⚑ auto audit #2", out.getvalue())
             self.assertTrue(os.path.isfile(sess.path("audit-auto-002.json")))
             steps = q.read_jsonl(sess.path("steps.jsonl"))
             self.assertEqual(steps[-1]["action"], "auto-audit")
             self.assertEqual(steps[-1]["screens"], ["screen_home", "screen_shop"])
-            # màn home có luật nhiễu screen:home (with_qa) → finding ở audit #1 bị suppressed, #2 (shop) không
+            # home has the noise rule screen:home (with_qa) → findings of audit #1 suppressed, #2 (shop) not
             a1 = q.read_json(sess.path("audit-auto-001.json"))
             self.assertTrue(all(f.get("suppressed") for f in a1["findings"]))
             self.assertEqual(sess.d["observed"].get("Shop"), qp.today())
@@ -865,12 +880,12 @@ class DeviceFlowTests(unittest.TestCase):
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 findings, _ = q.run_audit(sess, dev)
-            self.assertIn("1 bị luật nhiễu của project ẩn", out.getvalue())
+            self.assertIn("1 hidden by the project's noise rules", out.getvalue())
             self.assertNotIn("[medium] [1] dead-button", out.getvalue())
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 q.run_audit(sess, dev, include_suppressed=True)
-            self.assertIn("⟂ nhiễu: backdrop", out.getvalue())
+            self.assertIn("⟂ noise: backdrop", out.getvalue())
 
     def test_check_expect_pass_and_fail(self):
         root = make_repo()
@@ -885,12 +900,12 @@ class DeviceFlowTests(unittest.TestCase):
                 self.assertTrue(q.check_expect(A(), sess, dev, "screen:shop"))
                 self.assertTrue(q.check_expect(A(), sess, dev, "Shop"))
                 self.assertFalse(q.check_expect(A(), sess, dev, "text:Không có"))
-            self.assertIn("KỲ VỌNG KHÔNG ĐẠT", out.getvalue())
+            self.assertIn("EXPECTATION FAILED", out.getvalue())
             self.assertEqual(len(sess.d["expect_failed"]), 1)
             steps = q.read_jsonl(sess.path("steps.jsonl"))
             self.assertEqual([s.get("result") for s in steps if s["action"] == "check"], ["pass", "pass", "fail"])
             md = q.build_session_report(q.Session.load())
-            self.assertIn("## Kỳ vọng không đạt (1)", md)
+            self.assertIn("## Failed expectations (1)", md)
 
     def test_env_apply_revert_and_aspect(self):
         root = make_repo()
@@ -906,7 +921,7 @@ class DeviceFlowTests(unittest.TestCase):
             self.assertEqual(dev.settings["always_finish_activities"], "1")
             self.assertIn("trim-memory", q.apply_env(sess, dev, "trim-memory", None))
             with self.assertRaises(q.NotSupported):
-                q.apply_env(sess, dev, "clock", "+1d")  # máy không root
+                q.apply_env(sess, dev, "clock", "+1d")  # device not rooted
             with self.assertRaises(q.QaError):
                 q.apply_env(sess, dev, "clock", "tomorrow")
             with self.assertRaises(q.QaError):
@@ -946,10 +961,10 @@ class DeviceFlowTests(unittest.TestCase):
             md = q.read_text(sess.path("env-matrix.md"))
             for step in ("font-scale=1.3", "aspect=720x1280", "dark=on", "animator=0"):
                 self.assertIn("| %s | ok |" % step, md)
-            self.assertEqual(dev.settings["font_scale"], "1")  # từng bước đã hoàn nguyên
+            self.assertEqual(dev.settings["font_scale"], "1")  # each step reverted
             self.assertIsNone(dev.size_override)
             self.assertEqual(dev.night, "no")
-            self.assertIn("## Ma trận môi trường", q.build_session_report(sess))
+            self.assertIn("## Environment matrix", q.build_session_report(sess))
 
     def test_pseudoloc_gating(self):
         root = make_repo()
@@ -966,7 +981,7 @@ class DeviceFlowTests(unittest.TestCase):
             sess.save()
             rc, out = run_cmd(["pseudoloc", "on", "--wait", "0"])
             self.assertEqual(rc, 0, out)
-            self.assertIn("12 phần tử chữ đổi", out)
+            self.assertIn("12 text elements changed", out)
             self.assertTrue(any(c[0] == "/pseudoloc" and c[1].get("on") == 1 for c in probe.calls))
             self.assertTrue(q.Session.load().d["pseudoloc"])
 
@@ -1012,20 +1027,20 @@ class DeviceFlowTests(unittest.TestCase):
             d = q.Session.load().d
             self.assertEqual(list(d["verified_cheats"]), ["FarmService.Cheat_AddGold"])
             self.assertIn("PlayerDataManager.PlayerResource.Gold", d["verified_state"])
-            self.assertEqual(d["observed"].get("Shop"), qp.today())  # call → auto-audit → quan sát màn
+            self.assertEqual(d["observed"].get("Shop"), qp.today())  # call → auto-audit → screen observed
             rc, out = run_cmd(["stop"])
             self.assertEqual(rc, 0, out)
-            self.assertIn("hồ sơ QA: +1 màn quan sát · +1 cheat · +1 state path", out)
+            self.assertIn("QA profile: +1 observed screens · +1 cheat · +1 state path", out)
             prof = json.load(open(os.path.join(root, ".claude", "project-profile.json"), encoding="utf-8"))
             self.assertEqual(prof["qa"]["liveness"]["observed"], {"Shop": qp.today()})
             self.assertEqual(prof["qa"]["verified"]["cheats"], {"FarmService.Cheat_AddGold": qp.today()})
             self.assertEqual(prof["qa"]["verified"]["statePaths"]["PlayerResource.Gold"]["path"], "PlayerDataManager.PlayerResource.Gold")
-            self.assertEqual(prof["qa"]["status"], "reviewed")  # không đụng status/noise của dev
+            self.assertEqual(prof["qa"]["status"], "reviewed")  # dev's status/noise untouched
             self.assertEqual(len(prof["qa"]["noise"]), 1)
             self.assertTrue(any(c[0] == "/pseudoloc" for c in probe.calls) is False)
             md = q.read_text(q.Session.load().path("report.md"))
-            self.assertIn("## Hồ sơ QA học được", md)
-            self.assertIn("Cheat đã gọi OK: FarmService.Cheat_AddGold", md)
+            self.assertIn("## Learned QA profile", md)
+            self.assertIn("Cheats called OK: FarmService.Cheat_AddGold", md)
 
     def test_build_update_compares_state(self):
         root = make_repo(with_qa=True)
@@ -1044,7 +1059,7 @@ class DeviceFlowTests(unittest.TestCase):
             self.assertEqual(rc, 0, out)
             self.assertEqual(dev.installed_paths, [apk])
             md = q.read_text(sess.path("migration.md"))
-            self.assertIn("State so sánh: 2 đường dẫn · 0 khác", md)
+            self.assertIn("Compared state: 2 paths · 0 differ", md)
             steps = q.read_jsonl(sess.path("steps.jsonl"))
             self.assertEqual(steps[-1]["action"], "build-update")
 
