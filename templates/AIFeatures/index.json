@@ -12,7 +12,7 @@
       "id": "Commands",
       "name": "Commands",
       "description": "Slash command gọi tay (/new-ui, /push…).",
-      "count": 29
+      "count": 28
     },
     {
       "id": "Config",
@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 54
+      "count": 53
     },
     {
       "id": "Templates",
@@ -201,24 +201,6 @@
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip",
       "sha256": "f9ef6e1b25e1c692a3456c3aca5f381240f1878c9500a0ea6b7a2389dd922915",
       "size": 1922
-    },
-    {
-      "id": "Commands/auto-build-setup",
-      "name": "auto-build-setup",
-      "category": "Commands",
-      "description": "Install or upgrade the shared ezg-autobuild GitLab CI module (iOS + Android) on this Unity project",
-      "installPath": ".claude/commands/auto-build-setup.md",
-      "isDirectory": false,
-      "files": [
-        ".claude/commands/auto-build-setup.md"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "auto-build-setup.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/auto-build-setup.zip",
-      "sha256": "49018ea04989511d9c5dff85b5dc8d0270b1c108f26932afcea31823b1a61352",
-      "size": 1424
     },
     {
       "id": "Commands/build",
@@ -739,8 +721,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "709f4098c0f43329cbf0731cc37e0109f6fb3858b5504f4ba41e3f65d00d5d0a",
-      "size": 8077
+      "sha256": "1251347b7694ebd436a94b059a2c09216bab0b050de4e2301b496bd426ffa244",
+      "size": 8098
     },
     {
       "id": "Config/project-profile.json",
@@ -811,8 +793,8 @@
       "source": "defaultsetup",
       "fileName": "backlog-system.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/backlog-system.zip",
-      "sha256": "c659249a70280c143a3fb556b2d76ac8ed24d402d4d32ccad8f2e4ae842bdb88",
-      "size": 8836
+      "sha256": "6688dc75a36e444fd5ffe998c294700c6398b68aacf1d643a2857b804e55047e",
+      "size": 8846
     },
     {
       "id": "Docs/CLAUDE_PROJECT.template",
@@ -2206,24 +2188,6 @@
       "size": 5763
     },
     {
-      "id": "Skills/auto-build-setup",
-      "name": "auto-build-setup",
-      "category": "Skills",
-      "description": "Install or upgrade the shared GitLab CI build module `ezg-sm-space/ezg-autobuild` on THIS Unity project by running its own `installer/install.sh` non-interactively. Creates/refreshes the two build branches (default `IOS/AutoBuild` + `Android/AutoBuild`), overlays the thin `AutoBuild/fastlane/Fastfile` + `.gitlab-ci.yml` shims pinned to a module tag, overwrites the project's `AutoBuild.cs` with the module's contract version, and — on a FIRST install only — pushes CI/CD variables + daily pipeline schedules to GitLab from `AutoBuild/.env`. Use when the user says \"setup autobuild\", \"cài autobuild cho project này\", \"dựng CI build iOS/Android\", \"upgrade autobuild lên bản mới nhất\", \"cài lại autobuild\", \"rollback autobuild về vX.Y.Z\". Requires: `origin` on gitlab.com, a clean working tree, and (first install) a GitLab PAT with scope `api` + Maintainer on both this project and the module repo. Does NOT run any build and does NOT touch the Mac runner.",
-      "installPath": ".claude/skills/auto-build-setup",
-      "isDirectory": true,
-      "files": [
-        ".claude/skills/auto-build-setup/SKILL.md"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "auto-build-setup.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-build-setup.zip",
-      "sha256": "189d29fbc324fb80e5a468821a31602a0809999a691f00547e1364f6fb3a608d",
-      "size": 9099
-    },
-    {
       "id": "Skills/auto-clear",
       "name": "auto-clear",
       "category": "Skills",
@@ -2353,7 +2317,7 @@
       "id": "Skills/bughub-setup",
       "name": "bughub-setup",
       "category": "Skills",
-      "description": "Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says \"A làm lead, B QA…\" / \"A is lead, B QA…\"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"install bughub\", \"cài bug logger cho project\", \"install bug logger for the project\", \"đăng ký project lên BugHub\", \"register the project on BugHub\", \"gắn project vào BugHub\". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ `/auto-build-setup`), does NOT change server config beyond `bughub_admin_project_upsert`.",
+      "description": "Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says \"A làm lead, B QA…\" / \"A is lead, B QA…\"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"install bughub\", \"cài bug logger cho project\", \"install bug logger for the project\", \"đăng ký project lên BugHub\", \"register the project on BugHub\", \"gắn project vào BugHub\". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ EZG MCP `autobuild_setup`), does NOT change server config beyond `bughub_admin_project_upsert`.",
       "installPath": ".claude/skills/bughub-setup",
       "isDirectory": true,
       "files": [
@@ -2364,8 +2328,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "8ce35ed05ec56b494ff6697709391c692ef602deabd3b6896363c2ff3dfe9622",
-      "size": 10844
+      "sha256": "18d1f0344759a384304008e4a3939349d69235404cae1102e9641d7a494f2138",
+      "size": 10852
     },
     {
       "id": "Skills/compile-check",
@@ -3332,8 +3296,8 @@
       "source": "defaultsetup",
       "fileName": "setup-project.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-project.zip",
-      "sha256": "4bb27fbb5e5199f8d853a4ae55dc260724d66df964df94dfcaf79b80502d7a95",
-      "size": 4395
+      "sha256": "ffed1f3c08bd9b812840be266a07596455aa272b9199895d78d7da7da27f0bdc",
+      "size": 4393
     },
     {
       "id": "Skills/time-manager",
@@ -3474,7 +3438,7 @@
       "id": "Skills/validate-release",
       "name": "validate-release",
       "category": "Skills",
-      "description": "Kiểm tra toàn bộ setting + tích hợp SDK của project Unity mobile đã sẵn sàng release chưa — bundle id, keystore/signing, Firebase, Ads/mediation, AppsFlyer/Facebook, Remote Config, build settings, cờ debug còn bật, secrets, localization, hằng số sót lại từ project cũ. Chạy deterministic bằng Python thuần, KHÔNG cần Unity Editor và KHÔNG cần MCP. Dùng khi user nói \"check release\", \"validate release\", \"project đã sẵn sàng build chưa\", \"kiểm tra SDK đã cài đủ chưa\", \"còn thiếu gì để lên store\", hoặc trước khi bấm build production. KHÔNG phải tool build (đó là /auto-build-setup) và KHÔNG phải compile check (đó là /compile-check).",
+      "description": "Kiểm tra toàn bộ setting + tích hợp SDK của project Unity mobile đã sẵn sàng release chưa — bundle id, keystore/signing, Firebase, Ads/mediation, AppsFlyer/Facebook, Remote Config, build settings, cờ debug còn bật, secrets, localization, hằng số sót lại từ project cũ. Chạy deterministic bằng Python thuần, KHÔNG cần Unity Editor và KHÔNG cần MCP. Dùng khi user nói \"check release\", \"validate release\", \"project đã sẵn sàng build chưa\", \"kiểm tra SDK đã cài đủ chưa\", \"còn thiếu gì để lên store\", hoặc trước khi bấm build production. KHÔNG phải tool build (build CI đi qua EZG MCP `autobuild_*`) và KHÔNG phải compile check (đó là /compile-check).",
       "installPath": ".claude/skills/validate-release",
       "isDirectory": true,
       "files": [
@@ -3488,8 +3452,8 @@
       "source": "defaultsetup",
       "fileName": "validate-release.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip",
-      "sha256": "7751c784276f2c72d5ad49b56693ce21a7ec078ed77317c1afd7013357ad3679",
-      "size": 23489
+      "sha256": "5bdebd07502a4a5d113edd6f44813a69a9327f9716b4d8f76e1b7bc24671d3be",
+      "size": 23503
     },
     {
       "id": "Templates/_GUARDRAILS",
