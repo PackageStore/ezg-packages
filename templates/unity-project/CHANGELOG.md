@@ -22,6 +22,9 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 `autobuild_status` / `autobuild_run` / `autobuild_job_log`). Tham chiếu trong `CLAUDE.md`, `backlog-system.md`,
 `validate-release`, `bughub-setup`, `setup-project` đổi sang MCP. Project cũ: `agents-update.sh --prune` để gỡ bản đã cài.
 
+**Fixed** — `agents-update.sh`: không copy rác của checkout monorepo (`__pycache__`, `*.pyc`, `.DS_Store`) sang
+project; `--prune` xoá luôn thư mục rỗng mà nó để lại (skill bị gỡ không còn sót folder trống).
+
 ## 2026-10-16
 
 **Fixed** — Boot nhanh hơn, AppsFlyer đếm đủ install (`ezg.base.features` `sha256 48dd750e… → 4f367997…`: thay 7 file +

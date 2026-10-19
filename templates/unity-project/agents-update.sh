@@ -91,6 +91,11 @@ while IFS= read -r -d '' src_file; do
   rel_claude="${src_file#$SRC/}"
   rel=".claude/$rel_claude"
   dst="$TARGET/$rel"
+  # Local junk in the template checkout (bytecode from running the tests, Finder metadata) is not
+  # part of the template: the published defaultsetup.tgz is built from a clean CI checkout.
+  case "$rel_claude" in
+    __pycache__/*|*/__pycache__/*|*.pyc|.DS_Store|*/.DS_Store) continue ;;
+  esac
 
   if is_preserved "$rel"; then
     say "  keep    $rel  (seed-once, owned by the project)"
@@ -159,6 +164,9 @@ while IFS= read -r -d '' dst_file; do
   if [ "$PRUNE" = "1" ]; then
     run rm -f "$dst_file"
     say "  prune   $rel"
+    # Drop folders the prune left empty (a removed skill would otherwise stay as an empty dir).
+    [ "$DRY_RUN" = "1" ] || ( d="$(dirname "$dst_file")"
+      while [ "$d" != "$TARGET/.claude" ] && rmdir "$d" 2>/dev/null; do d="$(dirname "$d")"; done )
   else
     say "  orphan  $rel"
   fi
