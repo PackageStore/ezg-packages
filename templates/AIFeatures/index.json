@@ -2317,7 +2317,7 @@
       "id": "Skills/bughub-setup",
       "name": "bughub-setup",
       "category": "Skills",
-      "description": "Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says \"A làm lead, B QA…\" / \"A is lead, B QA…\"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"install bughub\", \"cài bug logger cho project\", \"install bug logger for the project\", \"đăng ký project lên BugHub\", \"register the project on BugHub\", \"gắn project vào BugHub\". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ EZG MCP `autobuild_setup`), does NOT change server config beyond `bughub_admin_project_upsert`.",
+      "description": "Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) makes sure the game exists in ezg-directory with its GitLab project (`ezg` MCP `directory_projects` / `directory_project_upsert`), registers/fixes BugHub for it via `bughub_admin_project_upsert` (plus assigns roles with `directory_members` when the dev says \"A làm lead, B QA…\" / \"A is lead, B QA…\"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says \"/bughub-setup\", \"setup bughub\", \"cài bughub\", \"install bughub\", \"cài bug logger cho project\", \"install bug logger for the project\", \"đăng ký project lên BugHub\", \"register the project on BugHub\", \"gắn project vào BugHub\". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ EZG MCP `autobuild_setup`), does NOT change server config beyond `directory_project_upsert` / `directory_members` and `bughub_admin_project_upsert`.",
       "installPath": ".claude/skills/bughub-setup",
       "isDirectory": true,
       "files": [
@@ -2328,8 +2328,8 @@
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
-      "sha256": "18d1f0344759a384304008e4a3939349d69235404cae1102e9641d7a494f2138",
-      "size": 10852
+      "sha256": "d4a1c8e0f3897aeb1603a7a121bcad2a5980d7a87b9d84463b5bf10d25b528a2",
+      "size": 11488
     },
     {
       "id": "Skills/compile-check",
