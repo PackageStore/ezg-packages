@@ -1,6 +1,6 @@
 ---
 name: bughub-setup
-description: Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) registers/fixes the project on the server via `bughub_admin_project_upsert` (plus assigns `members` when the dev says "A làm lead, B QA…" / "A is lead, B QA…"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says "/bughub-setup", "setup bughub", "cài bughub", "install bughub", "cài bug logger cho project", "install bug logger for the project", "đăng ký project lên BugHub", "register the project on BugHub", "gắn project vào BugHub". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ EZG MCP `autobuild_setup`), does NOT change server config beyond `bughub_admin_project_upsert`.
+description: Install BugHub (the shared Bug Logger — a server that turns bugs QA submits into a GitLab Issue + a Discord thread) for the current Unity project in one command, idempotent — checks the `bughub` MCP is connected, (admin account) makes sure the game exists in ezg-directory with its GitLab project (`ezg` MCP `directory_projects` / `directory_project_upsert`), registers/fixes BugHub for it via `bughub_admin_project_upsert` (plus assigns roles with `directory_members` when the dev says "A làm lead, B QA…" / "A is lead, B QA…"), (non-admin) only checks the project exists via `GET /v1/projects/<code>/form`, checks the `com.ezg.buglogger` package, writes `projectCode` into the game's `BugLoggerSettings` asset and `bugHub.projectCode` in `.claude/project-profile.json`, checks the cheat gate + prints how to add QA devices to the cheat allowlist (Remote Config), reminds to install `/auto-clear` for `/fix-bug --watch`. The dev only answers the Discord forum ID (and confirms the project code if there is none yet). Re-running on an installed project → every step `ok`, nothing duplicated. Use when the user says "/bughub-setup", "setup bughub", "cài bughub", "install bughub", "cài bug logger cho project", "install bug logger for the project", "đăng ký project lên BugHub", "register the project on BugHub", "gắn project vào BugHub". Does NOT fix bugs (→ `/fix-bug`), does NOT install/upgrade CI (→ EZG MCP `autobuild_setup`), does NOT change server config beyond `directory_project_upsert` / `directory_members` and `bughub_admin_project_upsert`.
 ---
 
 # BugHub Setup — install BugHub for the current project
@@ -10,15 +10,20 @@ client only configures the **project code** (`projectCode`); the server does eve
 The dev machine talks to the server through the **`bughub` MCP** (Claude Code exposes its tools as
 `mcp__bughub__bughub_*`) and exactly one public endpoint `GET /v1/projects/<code>/form`.
 
+People, their roles per project, owners / admins and each game's **GitLab project** are not BugHub's: they live in
+**ezg-directory**, managed with the `directory_*` tools of the **`ezg` MCP** (`mcp__ezg__directory_*`). BugHub reads them
+from there. So a game is registered in two places: the directory (code + GitLab project + people), then BugHub
+(Discord forum, intake, labels, webhook).
+
 **Hard rules of this skill:**
 
 1. **Never** use the GitLab/Discord CLI or REST API in any form; do not touch server secrets/config beyond
-   `bughub_admin_project_upsert`. Server operations go only through `bughub_*` tools or
-   `GET <endpoint>/v1/projects/<code>/form`. (`git fetch`/`git show` of the build branch in step 7 is plain git, not an API.)
+   `bughub_admin_project_upsert`, `directory_project_upsert` and `directory_members`. Server operations go only through
+   `bughub_*` / `directory_*` tools or `GET <endpoint>/v1/projects/<code>/form`. (`git fetch`/`git show` of the build branch in step 7 is plain git, not an API.)
 2. **Idempotent:** every step reads the current state first and only writes when it differs. A second run on
    an installed project → every step `ok`, no duplicate asset/key/project.
 3. **Don't ask what can be inferred.** Only ask the dev: confirm the project code (when there is none), the
-   Discord forum ID, the feedback channel ID (optional), `gitlabProject` (only when `origin` is not gitlab.com) —
+   Discord forum ID, the feedback channel ID (optional), the GitLab project path (only when `origin` is not gitlab.com) —
    and only when the project is **not yet** registered on the server.
 4. A failed step does **not** stop the whole skill (except step 2): record that step's result, continue with
    the next step, collect everything in the step 9 report table.
@@ -76,58 +81,73 @@ Network error / 5xx (not an auth error) → also stop, report that the server is
 
 ### 3a. Admin (`isAdmin = true`)
 
-1. `bughub_admin_projects` → find the row whose code matches `<code>` (case-insensitive).
-2. **Exists** → `bughub_admin_project_doctor(code: <code>)` (read-only).
+**The game in ezg-directory first** (`ezg` MCP; ToolSearch query `directory` if deferred — missing tools → the dev
+reconnects the `ezg` MCP: `/mcp` → `ezg` → Reconnect; still missing → `dev to do: add the ezg MCP` and skip to step 4):
+
+1. `directory_projects` → find `<code>` (case-insensitive). Compare its `gitlabProject` with the one inferred from
+   `origin`:
+   ```bash
+   git remote get-url origin 2>/dev/null | python3 -c "import re,sys; u=sys.stdin.read().strip(); m=re.match(r'^(?:https?://(?:[^@/]+@)?gitlab\.com/|git@gitlab\.com:|ssh://git@gitlab\.com/)(.+?)(?:\.git)?/?$', u); print(m.group(1) if m else '')"
+   ```
+   Prints `group/project` (e.g. `ezg-sm-space/sm007`). Empty (no `origin`, or not gitlab.com) → ask the dev for the
+   GitLab project path `group/project`; must match `^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$` and not contain `..`.
+   - Exists with the same GitLab project → `ok`.
+   - Missing, or bound to no / another GitLab project → `directory_project_upsert(code: <code>, gitlab_project: <path>)`
+     (owners / admins of the directory only). Bound to **another** project → show both to the dev and ask before
+     changing it (the binding decides which repo Dev / Lead may set AutoBuild up on). Refused (`forbidden`) →
+     `dev to do: a directory owner / admin runs directory_project_upsert(code: <code>, gitlab_project: <path>)`, skip
+     to step 4.
+
+**Then BugHub:**
+
+2. `bughub_admin_projects` → find the row whose code matches `<code>` (case-insensitive).
+3. **Exists** → `bughub_admin_project_doctor(code: <code>)` (read-only).
    - Every doctor step `ok` and the project row has intake on → result `ok`. Do **not** call upsert, do **not** ask the dev anything.
    - Some step differs / `error` / `warn` (e.g. step 6 `discord_command`: the bot does not have the "Đưa vào BugHub" command yet) → call
-     `bughub_admin_project_upsert` again with `code`, `gitlabProject`,
-     `forumChannelId` (and `feedbackChannelId` if any) **taken from the existing project row** — don't ask the dev again —
-     and `intakeEnabled` **kept at its current value**. Only when a value is missing from that row, ask the dev for
-     exactly that value. Print the full result table. Result `updated` (or `dev to do` if an `error` remains, see the error table below).
+     `bughub_admin_project_upsert` again with `code`, `forumChannelId` (and `feedbackChannelId` if any) **taken from the
+     existing project row** — don't ask the dev again — and `intakeEnabled` **kept at its current value**. Only when a
+     value is missing from that row, ask the dev for exactly that value. Print the full result table. Result `updated`
+     (or `dev to do` if an `error` remains, see the error table below).
    - Intake is **off** → another admin may have turned it off on purpose (spam, out of quota). Ask the dev whether to
      turn it back on; only on yes upsert with `intakeEnabled: true` (other values taken from the existing row as above),
      otherwise result `dev to do: intake <code> is off — turn it on in /admin when ready`.
-3. **Does not exist** → gather the inputs, then `bughub_admin_project_upsert`:
-   - `gitlabProject` — inferred from `git remote get-url origin`:
-     ```bash
-     git remote get-url origin 2>/dev/null | python3 -c "import re,sys; u=sys.stdin.read().strip(); m=re.match(r'^(?:https?://(?:[^@/]+@)?gitlab\.com/|git@gitlab\.com:|ssh://git@gitlab\.com/)(.+?)(?:\.git)?/?$', u); print(m.group(1) if m else '')"
-     ```
-     Prints `group/project` (e.g. `ezg-sm-space/sm007`). Empty (no `origin`, or `origin` is not
-     gitlab.com) → ask the dev for the GitLab project path as `group/project`. The value (inferred or typed) must
-     match `^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$` and must not contain `..`; otherwise → ask again once.
+4. **Does not exist** → gather the inputs, then `bughub_admin_project_upsert`:
    - `forumChannelId` — **ask the dev** for the project's Discord forum ID (right-click the forum → Copy Channel ID; needs
      Developer Mode on). Validate `^[0-9]{17,20}$`; otherwise → ask again once.
    - `feedbackChannelId` — ask the dev, optional (Enter to skip = feedback goes to the default report channel).
      If given, validate as above.
-   - Call `bughub_admin_project_upsert(code, gitlabProject, forumChannelId, feedbackChannelId?, intakeEnabled: true)`
-     (with `members` if the dev named members — item 5).
+   - Call `bughub_admin_project_upsert(code, forumChannelId, feedbackChannelId?, intakeEnabled: true)`. There is no
+     `gitlabProject` / `members` argument: the GitLab project comes from the directory (item 1), people from item 6.
+     `unknown_project` → the game is not in the directory yet: go back to item 1.
    - **Print the full per-step result table** the server returns (`ok | created | fixed | warn: <reason> | error: <reason>`)
      — no summarizing, no dropped rows. Every row `ok/created/fixed` → result `created`; `warn` rows don't block
      (see the error table below).
-4. After 2/3: `GET /form` (command in 3b) must return `200` with `intakeEnabled` true (unless the dev just chose to keep
+5. After 3/4: `GET /form` (command in 3b) must return `200` with `intakeEnabled` true (unless the dev just chose to keep
    intake off). Otherwise → note it in the report.
-5. **Members** — only when the dev named them in the command/chat ("A làm lead, B QA, C dev" / "A is lead, B QA, C dev");
-   not named → skip, **don't ask**. Pass `members: [{who, roles}]` in the same `bughub_admin_project_upsert` call of item 2/3
-   (project exists and doctor `ok` → call `bughub_admin_project_upsert(code, members)` separately). `who` = exactly what
-   the dev typed (name, email, the part before `@`, Discord id); `roles` ⊂ `lead | dev | qa | art | gd`, replaces that
-   person's roles **in this project** (`[]` = remove from the project), people not named stay unchanged. The server looks up
-   the directory and checks permissions **before** writing anything:
-   - `unknown_person` → `bughub_admin_people_list(query: <who>)` for a fuzzy match, let the dev pick; nobody →
-     `dev to do: a BugHub owner adds <who> to the directory (bughub_admin_people_sync)`.
-   - `ambiguous_person` → print `candidates` (name + email), ask the dev to pick, then call again with that person's email.
-   - `inactive_person` → `dev to do: reactivate <name> (bughub_admin_person_upsert active: true)`.
-   Print the resulting `members[]` table (`added | changed | removed | unchanged | error`). Step result: `updated` if
-   anyone changed.
+6. **Members** — only when the dev named them in the command/chat ("A làm lead, B QA, C dev" / "A is lead, B QA, C dev");
+   not named → skip, **don't ask**. `directory_members(project: <code>, members: [{who, roles}])` (`ezg` MCP). `who` =
+   exactly what the dev typed (name, email, the part before `@`, Discord id, GitLab username); `roles` ⊂
+   `lead | dev | qa | art | gd`, replaces that person's roles **in this game** (`[]` = remove), people not named stay
+   unchanged. The directory resolves everyone and checks permissions **before** writing anything (a Lead sets
+   qa / dev / art / gd in games they lead; the `lead` role needs a directory owner / admin):
+   - `unknown_person` → `directory_people(query: <who>)` for a fuzzy match, let the dev pick; nobody →
+     `dev to do: a directory owner / admin adds <who> (directory_person_upsert with email, name, Discord id)`.
+   - `ambiguous_person` → print `candidates` (name + email), ask the dev to pick, then call again with that email.
+   - `inactive_person` → `dev to do: <name> is switched off in the directory (left the company?) — an owner / admin
+     reactivates them with directory_person_upsert(active: true) if that is a mistake`.
+   Print the resulting `members[]` table (`added | changed | removed | unchanged`). Step result: `updated` if anyone changed.
 
 **`error` rows in the upsert table** — the server only turns intake on when steps 1–4 have no error, so these are manual tasks:
 
 | Error at step | Record as `dev to do:` |
 |---|---|
-| 1 (resolve GitLab / permissions) | add the BugHub bot account as **Maintainer** of GitLab project `<gitlabProject>`, then rerun the skill |
+| 1 `game chưa gắn GitLab project trong ezg-directory` | item 1 above: `directory_project_upsert(code, gitlab_project)` |
+| 1 (resolve GitLab / permissions) | add the BugHub bot account as **Maintainer** of the GitLab project, then rerun the skill |
 | 2–3 (label / webhook) | usually the same Maintainer-permission cause as above |
 | 4 (Discord) | grant the bot on the forum: View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Attach Files, Manage Threads; check the forum ID is right; the forum has room for the status tags (max 20 tags) |
 | `not_admin` (tool result `isError`) | the account just lost admin rights → do as in 3b |
-| `forbidden` `people.assign-lead` | only an owner/admin can assign or remove the `lead` role — ask a BugHub admin |
+| `forbidden` `members.assign-lead` (directory) | only a directory owner / admin can assign or remove the `lead` role |
+| `blocked` / `directory_unavailable` | the account is switched off in ezg-directory / the directory did not answer — report verbatim, retry later |
 | 6 `discord_command` = `warn: …` (doesn't block intake) | the bot's "Đưa vào BugHub" message-menu command could not be registered — only affects moving threads QA opened themselves into BugHub; report it to a BugHub admin with the full `warn` row (usually the bot token / the Worker's `DISCORD_APPLICATION_ID`) |
 
 ### 3b. Not an admin
@@ -145,7 +165,7 @@ rm -f "$TMP"; echo "$HTTP intake=$INTAKE"
 |---|---|
 | `200 intake=true` | `ok` |
 | `200 intake=false` | `dev to do: ask a BugHub admin to run /bughub-setup (or the /admin page) to turn on intake for <code>` |
-| `404` | `dev to do: project <code> is not registered or has intake off (the server returns 404 for both) — ask a BugHub admin to run /bughub-setup on this repo` (send along the `gitlabProject` inferred in 3a + the Discord forum ID) |
+| `404` | `dev to do: project <code> is not registered or has intake off (the server returns 404 for both) — ask a BugHub admin to run /bughub-setup on this repo` (send along the GitLab project inferred in 3a item 1 + the Discord forum ID) |
 | other / network error | `skipped (server not responding: <status/error>)` |
 
 ## Step 4 — Package `com.ezg.buglogger`
@@ -365,7 +385,7 @@ The skill does **not** edit the gate itself (it touches the store build's cheat,
 
 1. On the QA device, open the game (a build with the integration) → Settings → tap the version 10 times → the game shows
    `Device ID: XXXX-XXXX-XXXX` (already copied).
-2. The project's Lead / QA in BugHub adds the device via MCP `ezg`: `test_device_add` with project `<code>`, that device_id
+2. The project's Lead / QA (roles in ezg-directory) adds the device via MCP `ezg`: `test_device_add` with project `<code>`, that device_id
    and a label (who holds which device). Takes effect after ~1-2 minutes; QA taps 10 times again to open cheat.
 3. Remove a device: `test_device_remove`; list devices: `test_device_list`. Remote Config
    `enable_cheat_default` / `enable_cheat_default_device` is no longer used.
