@@ -13,6 +13,11 @@
 /SceneBackups/
 *.log
 
+# Scene recovered by Unity's "Recovering Scene Backups" dialog (com.ezg.core's SceneBackupGuard keeps
+# it from appearing; this catches projects that opt out with EZG_KEEP_SCENE_BACKUPS).
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/

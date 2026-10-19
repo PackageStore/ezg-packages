@@ -120,4 +120,4 @@ liệt kê cuối cùng kèm trang tương ứng của cửa sổ. Không commit
 
 - Không sửa prefab/scene/code của game trong skill này (setup chỉ ghi config/asset cấu hình qua EzgKit).
 - Không gọi `Apply` khi dev chưa xác nhận diff; không bấm "Chuyển nhà phát hành" thay dev.
-- Không chạy qua `/planning-task` / `/run-backlog` (out-of-band như `/auto-build-setup`).
+- Không chạy qua `/planning-task` / `/run-backlog` (out-of-band như AutoBuild qua EZG MCP).

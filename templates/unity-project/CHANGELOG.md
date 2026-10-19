@@ -4,6 +4,24 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-19
+
+**Fixed** — Popup "Recovering Scene Backups" không bao giờ hiện (= luôn "No")
+- Đã tái hiện trên 6000.3.16f1: popup hiện khi Editor chết lúc còn `Temp/__Backupscenes` có scene dirty — đang Play,
+  hoặc ở Edit mode sau một lần Play (Unity giữ file tới khi scene sạch). Popup chạy native **trước** khi nạp C#, nên
+  `[InitializeOnLoad]` không chặn được ở lần mở đó; phải đảm bảo lúc Editor chết không còn backup trên đĩa.
+- `com.ezg.core` 0.1.4 thêm `SceneBackupGuard` (asm editor riêng, opt-out bằng define `EZG_KEEP_SCENE_BACKUPS`):
+  vào Play thì dời backup sang `Temp/__EzgParkedSceneBackups`, `ExitingPlayMode` trả lại để Unity khôi phục scene như
+  cũ, `EnteredEditMode` xoá. Đã test 3 kịch bản (thoát Play bình thường: scene dirty khôi phục đúng; kill -9 đang Play;
+  kill -9 ở Edit mode sau Play): không popup, không `Assets/_Recovery/`. Project cũ chỉ cần lên `com.ezg.core` 0.1.4.
+- Launcher `<Project>.command` / `.bat` do builder sinh: xoá `Temp/__Backupscenes` trước khi mở Editor (bỏ qua nếu
+  Editor đang giữ `Temp/UnityLockfile`) — bắt nốt khe hở lúc domain reload vào Play.
+- `DefaultSetup/.gitignore`: bỏ qua `Assets/_Recovery/` (project opt-out).
+
+**Removed** — `/auto-build-setup` (skill + command): AutoBuild đi qua EZG MCP (`autobuild_setup` / `autobuild_upgrade` /
+`autobuild_status` / `autobuild_run` / `autobuild_job_log`). Tham chiếu trong `CLAUDE.md`, `backlog-system.md`,
+`validate-release`, `bughub-setup`, `setup-project` đổi sang MCP. Project cũ: `agents-update.sh --prune` để gỡ bản đã cài.
+
 ## 2026-10-16
 
 **Fixed** — Boot nhanh hơn, AppsFlyer đếm đủ install (`ezg.base.features` `sha256 48dd750e… → 4f367997…`: thay 7 file +

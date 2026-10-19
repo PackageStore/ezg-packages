@@ -232,7 +232,7 @@ Scenes the template ships: `Assets/_Project/Scenes/SplashScene.unity`, `HomeScen
   nhánh đó (trước mỗi bug merge `origin/<nhánh>` vào), loop không bao giờ tự dừng. Mở bằng `/fix-bug --watch`
   trong một pane riêng hoặc `python3 .claude/scripts/bughub-watch.py start`. Muốn quay lại nhánh bot riêng
   (vd `AutoFixBug`, kèm worktree / merge ngược) thì khai `bugHub.watch.branch` trong `.claude/project-profile.json`.
-- `IOS/AutoBuild` / `Android/AutoBuild` — nhánh build CI của module [`ezg-autobuild`](.claude/skills/auto-build-setup/SKILL.md) (tên mặc định; project đổi được lúc cài). Chỉ chứa scaffold `AutoBuild/` + `.gitlab-ci.yml` shim, cài/upgrade bằng `/auto-build-setup`. Chiều đồng bộ **một hướng**: nhánh Release → nhánh build (CI tự merge mỗi lần build) — **đừng bao giờ merge/push nhánh build ngược về Release**.
+- `IOS/AutoBuild` / `Android/AutoBuild` — nhánh build CI của AutoBuild (tên mặc định; project đổi được lúc cài). Chỉ chứa scaffold `AutoBuild/` + `.gitlab-ci.yml` shim. Cài/upgrade/chạy build qua EZG MCP: `autobuild_setup`, `autobuild_upgrade`, `autobuild_status`, `autobuild_run`, `autobuild_job_log`. Chiều đồng bộ **một hướng**: nhánh Release → nhánh build (CI tự merge mỗi lần build) — **đừng bao giờ merge/push nhánh build ngược về Release**.
 
 ## Autonomous Backlog System
 

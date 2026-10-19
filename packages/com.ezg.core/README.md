@@ -12,6 +12,7 @@ Shared runtime foundation for EZG Unity projects. Provides an asset-loading adap
 | **Security** | `SecuritySystems`, `SecuredServiceBase`, `DetectDevice`. |
 | **Utils** | `ColorUtils`, `CoreUtils`, `UpdateManager`/`IUpdateManager`, `BundleNameAttribute`, and the shared `EnumBase` enum collection. |
 | **Models** | `Resource`. |
+| **Editor** | `SceneBackupGuard` — Unity's "Recovering Scene Backups" startup dialog never appears (same as always answering "No"). Opt out with the `EZG_KEEP_SCENE_BACKUPS` scripting define. |
 
 Package folder `Runtime/` mirrors the original `Assets/_Project/Core` source tree.
 
@@ -66,3 +67,4 @@ These are referenced by the `Ezg.Core` assembly but are **not** declared as pack
 
 - `Ezg.Core` — runtime assembly (auto-referenced).
 - `Ezg.Core.JumpInJumpOut.Editor` — editor-only assembly for the JumpInJumpOut helper.
+- `Ezg.Core.SceneBackupGuard.Editor` — editor-only assembly for `SceneBackupGuard` (excluded when `EZG_KEEP_SCENE_BACKUPS` is defined).

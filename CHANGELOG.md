@@ -4,6 +4,20 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-19
+
+**Fixed**
+- Popup "Recovering Scene Backups" không còn hiện khi mở Unity (`com.ezg.core` 0.1.4, `SceneBackupGuard`). Unity giữ
+  `Temp/__Backupscenes` suốt lúc Play và cả sau khi thoát Play nếu scene còn thay đổi chưa lưu; Editor chết lúc đó
+  (crash, force-quit game treo) là lần mở sau bị hỏi — và câu hỏi chạy trước khi nạp C# nên code không trả lời được.
+  Guard dời file đi khi đang Play, trả lại đúng lúc Unity khôi phục scene, xoá khi về Edit mode → sau crash luôn như
+  bấm "No". Launcher `.command`/`.bat` do builder sinh xoá backup sót trước khi mở Editor. Opt-out:
+  `EZG_KEEP_SCENE_BACKUPS`.
+
+**Removed**
+- Skill + command `/auto-build-setup`: AutoBuild giờ cài/upgrade/chạy qua EZG MCP (`autobuild_setup`, `autobuild_upgrade`,
+  `autobuild_status`, `autobuild_run`, `autobuild_job_log`).
+
 ## 2026-10-15
 
 **Changed**

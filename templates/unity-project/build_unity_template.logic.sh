@@ -2580,6 +2580,12 @@ if exist "%USERPROFILE%\.ezg\refresh-session.ps1" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.ezg\refresh-session.ps1" >nul 2>&1
 )
 
+rem Drop scene backups left by a session that died, so Unity never asks "Recovering Scene Backups"
+rem (= always "No") -- see the macOS launcher. Skipped while an Editor holds Temp\UnityLockfile.
+if exist "Temp\__Backupscenes" (
+  2>nul (>>"Temp\UnityLockfile" (call )) && rmdir /s /q "Temp\__Backupscenes"
+)
+
 echo Opening Unity Editor...
 start "" "%UNITY_EXE%" -projectPath "%CD%" -buildTarget __BUILD_TARGET__ -accept-apiupdate -ignoreCompilerErrors
 endlocal
@@ -2617,6 +2623,14 @@ fi
 # com.ezg.* package fails to resolve. Best-effort: offline or logged out, we still open the Editor.
 if [ -x "$HOME/.ezg/refresh-session.sh" ]; then
     "$HOME/.ezg/refresh-session.sh" >/dev/null 2>&1 || true
+fi
+
+# Drop scene backups left by a session that died (crash, force-quit while playing). Unity asks
+# "Recovering Scene Backups" about them at startup, before any C# loads, so this is the only place to
+# answer "No" up front; com.ezg.core's SceneBackupGuard keeps them off disk during the session.
+# Skipped while an Editor still holds Temp/UnityLockfile (project already open).
+if [ -d Temp/__Backupscenes ] && ! lsof -t Temp/UnityLockfile >/dev/null 2>&1; then
+    rm -rf Temp/__Backupscenes
 fi
 
 # Check if Unity Hub is already running

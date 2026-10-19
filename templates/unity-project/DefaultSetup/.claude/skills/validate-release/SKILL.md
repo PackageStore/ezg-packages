@@ -1,6 +1,6 @@
 ---
 name: validate-release
-description: Kiểm tra toàn bộ setting + tích hợp SDK của project Unity mobile đã sẵn sàng release chưa — bundle id, keystore/signing, Firebase, Ads/mediation, AppsFlyer/Facebook, Remote Config, build settings, cờ debug còn bật, secrets, localization, hằng số sót lại từ project cũ. Chạy deterministic bằng Python thuần, KHÔNG cần Unity Editor và KHÔNG cần MCP. Dùng khi user nói "check release", "validate release", "project đã sẵn sàng build chưa", "kiểm tra SDK đã cài đủ chưa", "còn thiếu gì để lên store", hoặc trước khi bấm build production. KHÔNG phải tool build (đó là /auto-build-setup) và KHÔNG phải compile check (đó là /compile-check).
+description: Kiểm tra toàn bộ setting + tích hợp SDK của project Unity mobile đã sẵn sàng release chưa — bundle id, keystore/signing, Firebase, Ads/mediation, AppsFlyer/Facebook, Remote Config, build settings, cờ debug còn bật, secrets, localization, hằng số sót lại từ project cũ. Chạy deterministic bằng Python thuần, KHÔNG cần Unity Editor và KHÔNG cần MCP. Dùng khi user nói "check release", "validate release", "project đã sẵn sàng build chưa", "kiểm tra SDK đã cài đủ chưa", "còn thiếu gì để lên store", hoặc trước khi bấm build production. KHÔNG phải tool build (build CI đi qua EZG MCP `autobuild_*`) và KHÔNG phải compile check (đó là /compile-check).
 ---
 
 # Validate Release — project đã đủ điều kiện lên store chưa
