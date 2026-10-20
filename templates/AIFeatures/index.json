@@ -17,8 +17,8 @@
     {
       "id": "Config",
       "name": "Config",
-      "description": "Cấu hình gốc — CÀI ĐÈ file hiện có của project, cân nhắc trước khi cài.",
-      "count": 4
+      "description": "Cấu hình gốc. CLAUDE.md: thuộc base, cài là ghi đè. settings.json / .mcp.json: project được thêm hook/MCP riêng — cập nhật bằng /update-ai (gộp JSON, giữ phần của project).",
+      "count": 3
     },
     {
       "id": "Docs",
@@ -30,7 +30,7 @@
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 11
+      "count": 12
     },
     {
       "id": "Scripts",
@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 53
+      "count": 54
     },
     {
       "id": "Templates",
@@ -72,9 +72,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "code-reviewer.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/code-reviewer.zip",
-      "sha256": "da28695772db88457aac711c2f2d57f3b4a5a0c4a9dd18308f10291c252f7c01",
-      "size": 9720
+      "sha256": "b90d1f12345cdc54fd9ae3bc13406c2262ba0294c9c10d4d64205ba80f85c312",
+      "size": 9721,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/code-reviewer.md": "9c6db7b3b539f874ec1a1b48187b76a3de9d377af40c0a3ef5b4c8d464aaf322"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/code-reviewer.zip"
     },
     {
       "id": "Agents/mockup-drafter",
@@ -90,9 +94,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "mockup-drafter.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/mockup-drafter.zip",
-      "sha256": "6e559a2df379669429cfb9db5b0e6eb7d15b422987c9558b6d7371e19b0e7a03",
-      "size": 6519
+      "sha256": "10a3ab70462e13f3089764e44e9b0e9b1d5ef228f1b3044de5b248150ddc9043",
+      "size": 6217,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/mockup-drafter.md": "5f26eecad6d010b4b7d66b206ea844db1ae587de6086fb318f9eb4432ae03843"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/mockup-drafter.zip"
     },
     {
       "id": "Agents/performance-reviewer",
@@ -108,9 +116,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "performance-reviewer.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/performance-reviewer.zip",
       "sha256": "bb1103d111170e4f836ee8f4102e113978810de9c56a62e335394d51bf8b0961",
-      "size": 6445
+      "size": 6445,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/performance-reviewer.md": "ceccfc47d42de779a3a24dd4614cea730ebd6ce51109beebdd13b672fe5ce1fe"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/performance-reviewer.zip"
     },
     {
       "id": "Agents/qa-verifier",
@@ -126,9 +138,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "qa-verifier.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/qa-verifier.zip",
-      "sha256": "3fbeb19809360dd459b9fe166a7d339a490275a9de58837c60809275fbd19074",
-      "size": 6696
+      "sha256": "15bc52bddfcbcde32fb07094abdff115d0e53a278cffae860aed65f3275a0069",
+      "size": 6730,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/qa-verifier.md": "f9c656567200272a82ee6bb0d90ac2f1c4784cfe9b82907f6522b429389d6882"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/qa-verifier.zip"
     },
     {
       "id": "Agents/security-auditor",
@@ -144,9 +160,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "security-auditor.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/security-auditor.zip",
       "sha256": "b21f26d689291616048a9079d69de13ce8e7ad7145a75cf995579d87f065a30f",
-      "size": 5832
+      "size": 5832,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/security-auditor.md": "b50cfb22108a159d4716f0709d22cda68fd10726d1c3e0466f5c828cf07e9611"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/security-auditor.zip"
     },
     {
       "id": "Agents/task-planner",
@@ -162,9 +182,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "task-planner.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/task-planner.zip",
-      "sha256": "74ffd4a936947ccde09b9e101c587d77520cc12b89080f8ed80748d2b3ae36c9",
-      "size": 4549
+      "sha256": "76ccd77b1edb9700b6f4ca655ac90c72e053df4bbff99797be583b4610e2111b",
+      "size": 4592,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/task-planner.md": "cc5e052b5ad6e1f86a6b59482cf6927ebd9581c0238885aa3e673fc3fa90e68b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/task-planner.zip"
     },
     {
       "id": "Agents/ui-visual-reviewer",
@@ -180,9 +204,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-visual-reviewer.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
-      "sha256": "6c66d87e52587c617c799c18e2a168bdfdb6ab07b0f5d5242d2beb0d07ddf851",
-      "size": 9171
+      "sha256": "bd327780735d2d04144935a4bee508f1de422eca037f9850a3265518d85800ff",
+      "size": 9727,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/agents/ui-visual-reviewer.md": "d83be9b3b4000ac753f6b52cc6ca5bd08e3524fa9477fc4c1ae64d83d0f4deb0"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip"
     },
     {
       "id": "Commands/add-localize",
@@ -198,9 +226,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip",
       "sha256": "f9ef6e1b25e1c692a3456c3aca5f381240f1878c9500a0ea6b7a2389dd922915",
-      "size": 1922
+      "size": 1922,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/add-localize.md": "8e96b367ed721ccd47766007640b6e408a45f9b3e3b6e36b7051ab224e9ed4f7"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/add-localize.zip"
     },
     {
       "id": "Commands/build",
@@ -216,9 +248,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "build.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/build.zip",
       "sha256": "343f2b3581547fecb0c259d89f2487a0573b296143b6bc8801c6b37f67ea42b8",
-      "size": 739
+      "size": 739,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/build.md": "004b7b1f24953a023bf1abd600a29ae9ba526f2c4d14654e1248ef533f748012"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/build.zip"
     },
     {
       "id": "Commands/code-review",
@@ -234,9 +270,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "code-review.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/code-review.zip",
       "sha256": "b020cb77ae5c02d91ba228b0d4e8069c667986002c38eb10787b5a7b9045a4fd",
-      "size": 2389
+      "size": 2389,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/code-review.md": "9051731921e8a97063df311b03dc1a2207f729baa0e1706e84164025c0f5b4e3"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/code-review.zip"
     },
     {
       "id": "Commands/csv-design",
@@ -252,9 +292,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "csv-design.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/csv-design.zip",
       "sha256": "d7696b6eb9b5b996f0f154c933618e16de40d9f275de98f16882b0802a0e4e3f",
-      "size": 1149
+      "size": 1149,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/csv-design.md": "af950a60ca7788f4e6101a2198081e22321f53df295166c4b9d34223843b6f1a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/csv-design.zip"
     },
     {
       "id": "Commands/design-pattern-rule",
@@ -270,9 +314,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "design-pattern-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/design-pattern-rule.zip",
       "sha256": "4141c2960b82b232c64d992a8ca1d45c07c084090c616ea836088935da3887e6",
-      "size": 861
+      "size": 861,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/design-pattern-rule.md": "30d694371b49e12f1bb91a17003cc2e6fcedba37d321b1245be1db30e5bae47d"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/design-pattern-rule.zip"
     },
     {
       "id": "Commands/feature-development",
@@ -288,9 +336,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "feature-development.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/feature-development.zip",
       "sha256": "bd711683c9d24caf8df11b61e275868171ba037d67575a77014bbf5c23beece7",
-      "size": 1837
+      "size": 1837,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/feature-development.md": "0e9d91812e289fd45cbc0eb5ff6c8e1c426f6c42fbf20e26848fd44c67828d0c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/feature-development.zip"
     },
     {
       "id": "Commands/follow-code-rule",
@@ -306,9 +358,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "follow-code-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/follow-code-rule.zip",
       "sha256": "1a0ef796b420f37c4f38506d55f13379163f8c739d7afe25f39cba8a06edf26a",
-      "size": 525
+      "size": 525,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/follow-code-rule.md": "7751093df7e6cb8bdbe3ab7a0d4a236d86e3d939e2f0721189a24f0102d0a0f7"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/follow-code-rule.zip"
     },
     {
       "id": "Commands/format-code",
@@ -324,9 +380,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "format-code.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/format-code.zip",
       "sha256": "8a51475e663a29f6319edfb7fa4c5e988d7fbc9435bca760b4d8eaab08abe3ab",
-      "size": 1782
+      "size": 1782,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/format-code.md": "f2c6bbe5b91d6db737ef1848c1fa0111dfae61f45a1be52066fb295922670f78"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/format-code.zip"
     },
     {
       "id": "Commands/gameplay-rule",
@@ -342,9 +402,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "gameplay-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gameplay-rule.zip",
       "sha256": "3c346ab36488562d4e54ec238aff4d855fc53029d335ea38a7206ffdb823e296",
-      "size": 1219
+      "size": 1219,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/gameplay-rule.md": "22e18270d5bbb652ae065c2478a47fa6fc8eb159107555944ab6372ec9e71355"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gameplay-rule.zip"
     },
     {
       "id": "Commands/gen-icon",
@@ -360,9 +424,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "gen-icon.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gen-icon.zip",
       "sha256": "40fe0932cc666411ccf1b741b5a12a55af6613f70adf29f90a79ca9a7e8cfb65",
-      "size": 1174
+      "size": 1174,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/gen-icon.md": "3683bf231ed109de4cfb13bc5286024b26299cf37c375bd13b2e0cb194f5ddce"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gen-icon.zip"
     },
     {
       "id": "Commands/new-class",
@@ -378,9 +446,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-class.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-class.zip",
       "sha256": "06cccfa17e74ea59ad5f1efe428132f24477afd9474925af3ba71341eccc4946",
-      "size": 644
+      "size": 644,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/new-class.md": "8d0b37f089d0b0ac0114ecf845be76ae3f30c1a92ec0ded50703e1713a54f469"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-class.zip"
     },
     {
       "id": "Commands/new-feature",
@@ -396,9 +468,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-feature.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-feature.zip",
       "sha256": "b9a746809abd9afcb396b600b325f2df21903332c76c14c97da8062422fd5c0b",
-      "size": 3054
+      "size": 3054,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/new-feature.md": "52613180fd194103cd8c77941dea6cc533561f175f22e504288fc7e8eee9fe6b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-feature.zip"
     },
     {
       "id": "Commands/new-package",
@@ -414,9 +490,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-package.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-package.zip",
-      "sha256": "666a68193955ffe178634d1d712c86774b26dbb2625fc093e5075160dd8273a7",
-      "size": 1555
+      "sha256": "43609d0ea0f6ce5da647fdb6d97aeda9e3c0e43bd049106270595c43be3bf09f",
+      "size": 1613,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/new-package.md": "cd1cae95fcec3c55063163145d88bb115e2dcd30fd0389d2bde5565c6e9e0eee"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-package.zip"
     },
     {
       "id": "Commands/new-ui",
@@ -432,9 +512,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-ui.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-ui.zip",
-      "sha256": "4a265376fe332e50f5c1e81fe6bd5ac2aafd4303213c031214c75a5efcbe7d27",
-      "size": 1832
+      "sha256": "f3a1d0a20d9c01bf8c84a1b3376fb1637410b52222a857ef4aa7ce77e4b2173f",
+      "size": 1889,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/new-ui.md": "0581a43c153bfe83339b577a9ad3d20c0df0105a58b5e000daf844fc1818ef07"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/new-ui.zip"
     },
     {
       "id": "Commands/package-module",
@@ -450,9 +534,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "package-module.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/package-module.zip",
       "sha256": "ecc638ead51225043312d0fc64c80c85f6a6c2562b2aec34d92c2c78d052bccc",
-      "size": 1589
+      "size": 1589,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/package-module.md": "16544abed5a3732f23e7dcd88c1d556a7c379eea4e33eec88845b3a84aa31f98"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/package-module.zip"
     },
     {
       "id": "Commands/push",
@@ -468,9 +556,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "push.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push.zip",
       "sha256": "dd67dab936f516af510743a2ccc14f8b6c97cf24b24be989431065825c823db8",
-      "size": 1239
+      "size": 1239,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/push.md": "bd2bb2b69db32cf5e9964dbd8a4f1e937528905feab7f32cbf21f2fde806ebae"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push.zip"
     },
     {
       "id": "Commands/push-in-session",
@@ -486,9 +578,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push-in-session.zip",
       "sha256": "7571f6769baf8589c6caeb2047e2ad8ebd905bf86a1f4d199afcc59de8856d3b",
-      "size": 1378
+      "size": 1378,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/push-in-session.md": "266d87016a6832af7a54c91867f1838cbf1c4d922c202b57425afd6dcfac8a8e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/push-in-session.zip"
     },
     {
       "id": "Commands/qa-review",
@@ -504,9 +600,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "qa-review.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/qa-review.zip",
       "sha256": "6439f41d2c0740429389d7cf46d1f5524107a5e3ac7a6c021a2a6ffd831d1d89",
-      "size": 1430
+      "size": 1430,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/qa-review.md": "0cefdfb74099e48f0d88506932e2c7f57612cf15aa9b59f516b99186b2028bd3"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/qa-review.zip"
     },
     {
       "id": "Commands/service-rule",
@@ -522,9 +622,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "service-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/service-rule.zip",
       "sha256": "9fa3ab783da8c37cbae8440d81ef64f21a85b5f68f566c5b373efcd9a38adf6b",
-      "size": 561
+      "size": 561,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/service-rule.md": "a60921e46b3a6f48c92521582f317ec79691f2d6843d67009de71dc26adba792"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/service-rule.zip"
     },
     {
       "id": "Commands/setup-package-push",
@@ -540,9 +644,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "setup-package-push.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/setup-package-push.zip",
       "sha256": "ed2690b5bd73aff381e4ad0d99efba213ca0c3a1036c67865e4374e2d81152fd",
-      "size": 1056
+      "size": 1056,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/setup-package-push.md": "a88488f34a5cc3829de4d8160e9aa5eb543d81db099fb9e1f703df5e25588514"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/setup-package-push.zip"
     },
     {
       "id": "Commands/step1-init-feature",
@@ -558,9 +666,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "step1-init-feature.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step1-init-feature.zip",
       "sha256": "237de07f77b3643571784c3bd06b5e00bdf38740c575f19e6edd1edc3cf2f737",
-      "size": 1156
+      "size": 1156,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/step1-init-feature.md": "ec63a221891a6e7e7e6cde8bd8371b675f5c12c2b15a7c657d50d95bd933d438"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step1-init-feature.zip"
     },
     {
       "id": "Commands/step2-design-data",
@@ -576,9 +688,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "step2-design-data.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step2-design-data.zip",
       "sha256": "18a55319c72ade917c9e9b3ecde29129d0c27a17a0e3a787977184124c4900f3",
-      "size": 1199
+      "size": 1199,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/step2-design-data.md": "65b099c2cea70cc626eb203e73be34d34d0a9bb13807c18fa9d0587a02802f79"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step2-design-data.zip"
     },
     {
       "id": "Commands/step3-implement-logic",
@@ -594,9 +710,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "step3-implement-logic.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step3-implement-logic.zip",
       "sha256": "acbf142cb0adc87340b83e8868dca652d2aef3751c8b0b448f7a0932e5c63205",
-      "size": 1151
+      "size": 1151,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/step3-implement-logic.md": "3ca7a4c7147e3967a22364a5ec7d07430ad420013565ebf1896b9a3ee63b2763"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/step3-implement-logic.zip"
     },
     {
       "id": "Commands/tester",
@@ -612,9 +732,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tester.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/tester.zip",
       "sha256": "788be7d7bcc4333acc4f6e4035166756659476a21c1b637a086eec0fc4f1679b",
-      "size": 1329
+      "size": 1329,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/tester.md": "566a77ecaac827e1b39453c83699928a81a9abb0d4e717fc5c3893b8f92212b2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/tester.zip"
     },
     {
       "id": "Commands/ui-features-rule",
@@ -630,9 +754,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-features-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-features-rule.zip",
       "sha256": "adec6b373f022205934bf76a72670addeb6729f6b6d4eff4983495a22043e10d",
-      "size": 1392
+      "size": 1392,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/ui-features-rule.md": "ab38fe11c73ca00494534fb055943325b0afdbd08312ce1a8b047193c7e6c2c1"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-features-rule.zip"
     },
     {
       "id": "Commands/ui-mockup",
@@ -648,9 +776,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-mockup.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-mockup.zip",
-      "sha256": "cfb29fb20e3ec2aafbdc44eb37b1df2c320fcad98c5f045aed29ee07b3374479",
-      "size": 4666
+      "sha256": "31911927ad7a4cb2147d5ab9ce3fdf4d7b02296ab1dca8b8212ba29b6a97af4c",
+      "size": 4667,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/ui-mockup.md": "d8d81bfce5b7bb37018c8eb5b80bdc4fbf9f91d7903a2b6b614f0f4fea39fa5c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-mockup.zip"
     },
     {
       "id": "Commands/user-data-rule",
@@ -666,9 +798,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "user-data-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/user-data-rule.zip",
       "sha256": "b5f6172f1d00de811c3e20eed8433855e6e6c3466f15d063662c6c11e93b6709",
-      "size": 884
+      "size": 884,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/user-data-rule.md": "0dd0efbcc6014be301a51b9ed74d4bdc7cbe743845bfb20a563140d32a724412"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/user-data-rule.zip"
     },
     {
       "id": "Commands/utils-constants-rule",
@@ -684,15 +820,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "utils-constants-rule.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/utils-constants-rule.zip",
       "sha256": "450805a44dafb629949b27c05ae7817d16825fc15dca7e7da75088438151f9b8",
-      "size": 1026
+      "size": 1026,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/commands/utils-constants-rule.md": "252ff70d89c9b0eb132a1049c4d66296337647c561d409fab859061fac69d944"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/utils-constants-rule.zip"
     },
     {
       "id": "Config/.mcp.json",
       "name": ".mcp.json",
       "category": "Config",
-      "description": "Khai báo MCP server cho project — CÀI ĐÈ .mcp.json hiện có.",
+      "description": "Khai báo MCP server cho project. Project có giá trị riêng (GITLAB_PROJECT_ID, server thêm): cập nhật bằng /update-ai (gộp JSON, giữ phần của project). Feature Hub chỉ ghi đè khi project chưa sửa file.",
       "installPath": ".mcp.json",
       "isDirectory": false,
       "files": [
@@ -702,15 +842,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "mcp.json.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/mcp.json.zip",
       "sha256": "acbaf19f77565db9fa7aca046e48652e63853df9ad46f9cd61ecfdad91b38451",
-      "size": 445
+      "size": 445,
+      "ownership": "merge",
+      "fileHashes": {
+        ".mcp.json": "3c19ef28cc4a1d0414600eea868e1588935a39f6a7a9537dbf3d87ea4751e5fa"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/mcp.json.zip"
     },
     {
       "id": "Config/CLAUDE.md",
       "name": "CLAUDE.md",
       "category": "Config",
-      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — template quản lý, project không được sửa, nên cài/cập nhật luôn GHI ĐÈ file hiện có. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; Feature Hub không bao giờ ghi đè hay publish file đó). Project chưa có CLAUDE_PROJECT.md: cài kèm Docs/CLAUDE_PROJECT.template + Scripts/bootstrap.sh rồi chạy bootstrap, và chuyển nội dung riêng của CLAUDE.md cũ sang CLAUDE_PROJECT.md (bản cũ vẫn còn trong git). Mục backlog/loop ở Docs/backlog-system.md — cài kèm.",
+      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — base quản lý, project không sửa, cập nhật là thay bằng bản mới. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; không bao giờ bị ghi đè hay publish). Project cũ còn ghi chú riêng trong CLAUDE.md: /update-ai tự chuyển sang CLAUDE_PROJECT.md trước khi cập nhật. Cài kèm Rules/base-ownership + Skills/update-ai.",
       "installPath": "CLAUDE.md",
       "isDirectory": false,
       "files": [
@@ -720,33 +864,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "753c090fd70329b734dcee247fb693329eb199930a3063bfbc9adcd13f9899f5",
-      "size": 8245
-    },
-    {
-      "id": "Config/project-profile.json",
-      "name": "project-profile.json",
-      "category": "Config",
-      "description": "Profile project (đường dẫn, quy ước) mà script AI đọc — CÀI ĐÈ file hiện có.",
-      "installPath": ".claude/project-profile.json",
-      "isDirectory": false,
-      "files": [
-        ".claude/project-profile.json"
-      ],
-      "fileCount": 1,
-      "installedByDefault": false,
-      "source": "defaultsetup",
-      "fileName": "project-profile.json.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "e9f7db630ffdc669fbcfccb0f0374b214b23010ced06bfbd3f5e1f62682340ca",
-      "size": 3285
+      "sha256": "d75cf9e6eaa413fea93648dd55e03a16a37e8a3331bb1b01bada63fc999a4c7b",
+      "size": 8402,
+      "ownership": "base",
+      "fileHashes": {
+        "CLAUDE.md": "1eeb75b0d5bf4e650bf1d34a8aaa3c47bc947dba2df01a553dab74f2bbb36e92"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip"
     },
     {
       "id": "Config/settings.json",
       "name": "settings.json",
       "category": "Config",
-      "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có.",
+      "description": "Cấu hình Claude Code dùng chung của project: MCP server mặc định (unity, codegraph, gitlab) + hook bảo vệ file base (PreToolUse guard, SessionStart liệt kê override) — hook gọi Skills/update-ai, cài kèm. Project được thêm hook/permission riêng: cập nhật bằng /update-ai (gộp JSON, giữ phần của project). Feature Hub chỉ ghi đè khi project chưa sửa file.",
       "installPath": ".claude/settings.json",
       "isDirectory": false,
       "files": [
@@ -756,9 +886,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "settings.json.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/settings.json.zip",
-      "sha256": "c5816ca82d4d97e2d26290e3c7980dcce6e498f8ae1886b8880b22f5708082c6",
-      "size": 203
+      "sha256": "535ab8bec1f8d4adbbe8e637e9ae63b12725d03babb5522c36bdcf54bc883efd",
+      "size": 449,
+      "ownership": "merge",
+      "fileHashes": {
+        ".claude/settings.json": "3a166c7ba974e113984607f11e2954c667776f662ed76971c63e2060977217ad"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/settings.json.zip"
     },
     {
       "id": "Docs/ArtStyle.template",
@@ -774,9 +908,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "7650c2f09cd7a501ce0f547891ce2be4475a380e12d5c29850058388921fee14",
-      "size": 6944
+      "sha256": "8883f658372a0fafce88e51956c9e4826813a0f2f81c9264ec0a1b8902567fbc",
+      "size": 7151,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/ArtStyle.template.md": "1119249f74539e6bee107799c094f270d4e30b3d3bf0a534a5c890295914f09b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip"
     },
     {
       "id": "Docs/backlog-system",
@@ -792,9 +930,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-system.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/backlog-system.zip",
       "sha256": "6688dc75a36e444fd5ffe998c294700c6398b68aacf1d643a2857b804e55047e",
-      "size": 8846
+      "size": 8846,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/backlog-system.md": "52c56d621b71960035b5d7657f0ab20c6c4c5541d959081e1353412dd8fa61e7"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/backlog-system.zip"
     },
     {
       "id": "Docs/CLAUDE_PROJECT.template",
@@ -810,9 +952,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "CLAUDE_PROJECT.template.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/CLAUDE_PROJECT.template.zip",
-      "sha256": "170be953a1a79581f642d3d0d74e6629f2ee093c3a60087236bc0c8a405513ff",
-      "size": 1190
+      "sha256": "363b0fe4b43265af0ce19f4db896feb3f69907bb40b5efa2f6b8bbd32732f669",
+      "size": 1311,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/CLAUDE_PROJECT.template.md": "bbd5b3785e368171bb02bb5d082238bb691f8cf3d1bffda87b5e08abf8a9c0af"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/CLAUDE_PROJECT.template.zip"
     },
     {
       "id": "Docs/design-pipeline",
@@ -835,9 +981,20 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "design-pipeline.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip",
-      "sha256": "fd68fb88ee472e69da8bdb738b71ab21fffae1a622f5eb00886480f35ca18f11",
-      "size": 28609
+      "sha256": "28fff013032119f8532d89c5c216aac70138ac2ab39bf0c86fc9abfb3f8a617f",
+      "size": 28628,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/design-pipeline/01-gdd-concept.md": "a607a778ab280985fb3e1e57be212a85634dd2adaab112e729fea06f4803b574",
+        ".claude/docs/design-pipeline/02-gdd-production.md": "b67b4b61bfeaff9cd8ccaaf94e7558a69e9e408eb3afce086f3e828efe2659c6",
+        ".claude/docs/design-pipeline/03-gdd-final.md": "0a84cf6755b2b474348195a429060ff92e69ee97feb4b81cd9d0d603aaca003b",
+        ".claude/docs/design-pipeline/04-feature-analysis.md": "049daee4ac9727e469d64f3c0fe0a138e8e221b298a8ce9a9d06446881d70e28",
+        ".claude/docs/design-pipeline/05-tech-spec.md": "37ef31dd37ae025e055b52c6bcc4086aa131888c6a5c45178423bb2ea81ab0fd",
+        ".claude/docs/design-pipeline/06-implementation-mapping.md": "1c82cac0f25231d88e445d92e7d1eda4e1ccf4a60219f53382e4d4feacecd1aa",
+        ".claude/docs/design-pipeline/README.md": "8d05112ccad0a44de9eb1268da9b5cbfcf1449cbb88416338877660789970b4f",
+        ".claude/docs/design-pipeline/model-assignment.md": "f627f085f9ab4b716c11a69302522ae6f3ad09ffe3ae0f9767013e47fa543104"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-pipeline.zip"
     },
     {
       "id": "Docs/design-style",
@@ -853,9 +1010,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "design-style.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-style.zip",
       "sha256": "78b0c267f96604d332cc607c90ac3800f48daf2c7327315aa9604564c628ce77",
-      "size": 1362
+      "size": 1362,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/design-style/tokens.dtcg.json": "7be45f84169975728af4b6144e7223277ad60e3c15ace89ccfa6845c69157b45"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/design-style.zip"
     },
     {
       "id": "Docs/discord-notification",
@@ -871,9 +1032,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "discord-notification.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip",
       "sha256": "aba39601ddb234d745fae775127ffb8d17915727ed60aed1abc080806f7798d8",
-      "size": 3467
+      "size": 3467,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/discord-notification.md": "8292db2b5fa0fb0a54e24ca9743656033f56593026104e804f9abbecb079d989"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/discord-notification.zip"
     },
     {
       "id": "Docs/GETTING-STARTED",
@@ -889,9 +1054,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "GETTING-STARTED.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip",
-      "sha256": "05f4615d394f44eeb736b64ec55fbac05ccf0826e73fc64d4a9e694e3294c573",
-      "size": 5727
+      "sha256": "8fd0a765161ea6d066e44644bb06f7e8f61d7ae80d0426cd3dbdc016291aadcb",
+      "size": 6259,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/GETTING-STARTED.md": "ec91dba9e9627a67b0dc30b8d95af29667591f52d492436714d132d10ddcbc42"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/GETTING-STARTED.zip"
     },
     {
       "id": "Docs/new-package-guide",
@@ -907,15 +1076,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-package-guide.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-package-guide.zip",
-      "sha256": "74f48c197a800bc03678f5984d091e1924c331ded98b98f300efc8f4f0e5f77b",
-      "size": 5014
+      "sha256": "06433aad17e5a863576af6d2fac3cde20721bfa6b7c5bd176e60e0d9ad202e54",
+      "size": 6453,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/new-package-guide.md": "63b1f83f399225d7c1c61c883165fd677d6160c3f7707ce9a86ff72c22021d75"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-package-guide.zip"
     },
     {
       "id": "Docs/new-ui-guide",
       "name": "new-ui-guide",
       "category": "Docs",
-      "description": "Decision layer for /new-ui — ground truth + spec-sheet gate (Checkpoint 0), templates, layout, layout-group-first assembly phases, script binding, final verify. Loaded by .claude/commands/new-ui.md. MCP tool sequences live in ui-mcp-playbook.md.",
+      "description": "Decision layer for /new-ui — ground truth + spec-sheet gate (Checkpoint 0), templates, layout, layout-group-first assembly phases, script binding, final verify. Read by the create-ui skill, /refactor-ui, ui-visual-reviewer and /new-package. MCP tool sequences live in ui-mcp-playbook.md.",
       "installPath": ".claude/docs/new-ui-guide.md",
       "isDirectory": false,
       "files": [
@@ -925,9 +1098,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "new-ui-guide.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
-      "sha256": "f25d9749e8c4d4ef4958a21ec91a26a2cb462da3055f8d3a900296640f57ec32",
-      "size": 19840
+      "sha256": "cb3685a98a58326522874d1c8f7f23009f5ef8ad41b2720642d908580be60786",
+      "size": 19250,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/new-ui-guide.md": "87ab41eb92d5a0dc9bee45f7838150a93cb3a14d4831105788947fb4afe14684"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip"
     },
     {
       "id": "Docs/planning-task-flow",
@@ -943,9 +1120,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "planning-task-flow.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.zip",
-      "sha256": "3017087e7923f754302628b14d87df8e4fdaf2b834daf29535dfdb79a755b7c8",
-      "size": 8270
+      "sha256": "4ec792752e8351d59ba1b4404df0837b1213f20e34b00f6e94555c816b20b504",
+      "size": 8268,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/planning-task-flow.md": "bce933962fa55572c90bcb010399fe125a41f8e6e40a60545cd42ce8e04e508c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.zip"
     },
     {
       "id": "Docs/planning-task-flow.html",
@@ -961,9 +1142,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "planning-task-flow.html.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip",
       "sha256": "732c644eea83b74e3c60ada58a8aecafe1ca3172f54fa355e729269020ff43b3",
-      "size": 20769
+      "size": 20769,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/planning-task-flow.html": "e121737ac0454a4654eb0e774533577f9df525555b51863ced852f75957647c3"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip"
     },
     {
       "id": "Docs/PolishRules",
@@ -979,9 +1164,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "PolishRules.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/PolishRules.zip",
-      "sha256": "19128d96e8f430f803f0d90dd883637a22cb464356e695a08905040f92e38fba",
-      "size": 15557
+      "sha256": "569e7a340dccd4b87e4ac9ef218bf471d4228fc6d51531274e41d79e71f42ef6",
+      "size": 18534,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/PolishRules.md": "b977ae2d76b7d14f1eeea05909278a36c8b1dfb968efc71dcfabc8f4b75223f2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/PolishRules.zip"
     },
     {
       "id": "Docs/QaProfile.template",
@@ -997,9 +1186,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "QaProfile.template.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/QaProfile.template.zip",
       "sha256": "9be8d05b6ad33740e7022d0e7ac3523bb2d12c618acba5e1cb41851c4235c27f",
-      "size": 3262
+      "size": 3262,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/QaProfile.template.md": "7a066c5701979c9e23302d30579a75a3466aaddc5b9fb7759bec36fe526b8eb3"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/QaProfile.template.zip"
     },
     {
       "id": "Docs/run-backlog-flow.html",
@@ -1015,9 +1208,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-flow.html.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip",
       "sha256": "a1e5723c163dea9d226ac7a78b633545727ffe665f17359aafb5c3ac089af72c",
-      "size": 16906
+      "size": 16906,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/run-backlog-flow.html": "52409c4e10edf3fd6cb0c3d990a8a8f7656cfa33ce797df676438eee4d8aa882"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip"
     },
     {
       "id": "Docs/ui-designer-pass",
@@ -1033,9 +1230,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-designer-pass.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-designer-pass.zip",
-      "sha256": "93e211f78e4c67a186e28db95279d5d27972164d9fcfc6881167835d73f42c00",
-      "size": 9803
+      "sha256": "68e773aa403d4650925ceca26b98fc0369afc45e483a82daccb080d6788f9157",
+      "size": 10370,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/ui-designer-pass.md": "a3c704f99a643c8541ccac5666d1cdc5cbc2b88f85808fc8b6405343dfdd27bc"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-designer-pass.zip"
     },
     {
       "id": "Docs/ui-mcp-playbook",
@@ -1051,9 +1252,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-mcp-playbook.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-mcp-playbook.zip",
-      "sha256": "d88dcc3d23cfc6bfc530c86cdae4361375851707c53dd698d473a8468fb794d6",
-      "size": 10864
+      "sha256": "4001822e77b1dd2b2786b67a637ef51ad761668ae115699f517142a2d56786b7",
+      "size": 11167,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/ui-mcp-playbook.md": "1770412dd1d39b14ba74d02dcb8d731999b110e3f71aaaac0a150edaee722a02"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-mcp-playbook.zip"
     },
     {
       "id": "Docs/ui-spec-schema.json",
@@ -1069,9 +1274,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-spec-schema.json.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-spec-schema.json.zip",
       "sha256": "00dec9c2b90dbc32aeda9572e51c13626e1e7e649de8a5e7e6879c55c36857ec",
-      "size": 1681
+      "size": 1681,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/ui-spec-schema.json": "677be15106727403d652e4df5ae6ddefece77a65b9bc11e4dbacdd50f594e258"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-spec-schema.json.zip"
     },
     {
       "id": "Docs/workflow-model-recommendations",
@@ -1087,9 +1296,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "workflow-model-recommendations.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip",
       "sha256": "ed2b5e0b26014be95075dded01d20a00e08d66f71904d4cc3be973d3b5463b7f",
-      "size": 2185
+      "size": 2185,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/docs/workflow-model-recommendations.md": "ffafce5f154945881ac48073aaeb8c5c930cbb51d1dd8f5187d4e8226f4c3ec0"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/workflow-model-recommendations.zip"
     },
     {
       "id": "Rules/art-style",
@@ -1105,9 +1318,35 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "art-style.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip",
       "sha256": "002df92d01dfba6e9e37c0edcb1c07236d326a643968434910ae2de06b0bacf3",
-      "size": 1857
+      "size": 1857,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/art-style.md": "5a01ed8bba910ca6a61a2497eab20fa86552a21a91dc0e64bf3612070d0d8aaf"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip"
+    },
+    {
+      "id": "Rules/base-ownership",
+      "name": "base-ownership",
+      "category": "Rules",
+      "description": "File AI của base EZG không sửa tại chỗ; phần riêng của project ghi vào CLAUDE_PROJECT.md, .claude/project/overrides/<kind>/<tên>.md (thắng bản base) hoặc item local-<tên>. Cài kèm Skills/update-ai (hook guard + /update-ai).",
+      "installPath": ".claude/rules/base-ownership.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/base-ownership.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "base-ownership.zip",
+      "sha256": "c4cf4ee2780d606e0345033f5da28bf74377699c93e333d5ec4d9a10fd378428",
+      "size": 1683,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/base-ownership.md": "80202db2c6a8027b78480364240df4ca6ef848f3f01199c5869ba4fac1474ca2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/base-ownership.zip"
     },
     {
       "id": "Rules/code-style",
@@ -1123,9 +1362,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "code-style.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/code-style.zip",
       "sha256": "1891526bdcbf1c725f49da2aee75a9e7720b24dfc17fc2eda8a76ec70b81cfdd",
-      "size": 564
+      "size": 564,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/code-style.md": "dcdeaa90c61e597f3ba39e5ad6b59315ad5f5062835cb26b2a7db7f40375c6c4"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/code-style.zip"
     },
     {
       "id": "Rules/compile-validation",
@@ -1141,9 +1384,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "compile-validation.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/compile-validation.zip",
       "sha256": "887c7c68a5354821606f662fccbd591198443b90ab96f900977312c8aa6425b3",
-      "size": 1084
+      "size": 1084,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/compile-validation.md": "40599830eac8cdd4e6fd37146683c2147af04d7586897d912eb51b73beab2dc6"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/compile-validation.zip"
     },
     {
       "id": "Rules/core-system",
@@ -1159,9 +1406,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "core-system.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/core-system.zip",
       "sha256": "e2053198ffe50c07cc86168997f1646e25c587a24aff35cdd2b4fc713ddc996d",
-      "size": 878
+      "size": 878,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/core-system.md": "ac720ae4e5d4aa6ed155216c6fd5aff8303c9a0fbfe0ff1ecf49020a16bdb670"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/core-system.zip"
     },
     {
       "id": "Rules/data-persistence",
@@ -1177,9 +1428,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "data-persistence.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/data-persistence.zip",
       "sha256": "ba59a34e6442cd5f96e83b674888a0ce4259200d62059e300b51cd84b442ffa9",
-      "size": 410
+      "size": 410,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/data-persistence.md": "c9deccbdf156aef904a6ef5a7b014606990825fbee025a0b454a2bee0295b8c4"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/data-persistence.zip"
     },
     {
       "id": "Rules/game-polish",
@@ -1195,9 +1450,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-polish.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/game-polish.zip",
-      "sha256": "5761dee4d4f9900f3b60d2eca07b8dc2f15f4923f60de5341187dae621858ace",
-      "size": 1648
+      "sha256": "89064ef07ac9947e2bedbb6be7361b2fa09c5d446a8d2507bfb4bbeb529f197a",
+      "size": 1679,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/game-polish.md": "9f6bc423a663b8987a62804cea0b96f9ff2bf9b32fff82cf3309f9d4db78c840"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/game-polish.zip"
     },
     {
       "id": "Rules/no-external-game-refs",
@@ -1213,9 +1472,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "no-external-game-refs.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/no-external-game-refs.zip",
       "sha256": "9ab3400bab5b48cdd5dcce81d6e3237a73e7ffa2f5a4b6a885805b9d77f08ca2",
-      "size": 1757
+      "size": 1757,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/no-external-game-refs.md": "a7a3b7d77f91342ddf6f0f0e89512dd953b9cf8285b48caf58d8eaac7898cf72"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/no-external-game-refs.zip"
     },
     {
       "id": "Rules/output-format",
@@ -1231,9 +1494,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "output-format.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/output-format.zip",
       "sha256": "a74e5be289ff89f910181fe247f4b6875376a1ef99aa7e34b3a8709e86c9eaf2",
-      "size": 696
+      "size": 696,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/output-format.md": "5bf6d6775e5f1a4d10543a754484cdc0e897c6129e1ed165066037fb8fa6909e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/output-format.zip"
     },
     {
       "id": "Rules/project-structure",
@@ -1249,9 +1516,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "project-structure.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/project-structure.zip",
       "sha256": "520072549b308cb66ea5ff26ffde55cbb509b1cf99903d5faf82007ea86cdecf",
-      "size": 1815
+      "size": 1815,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/project-structure.md": "7d115e48186a398e5dd25e15e0a60a3ef93bb8d9561ca73b69e7d4a7c379cdf3"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/project-structure.zip"
     },
     {
       "id": "Rules/third-party",
@@ -1267,9 +1538,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "third-party.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/third-party.zip",
       "sha256": "5d23152be44211a971a6502530115e79999d785e69d456a2fb8e6caea6db1b9c",
-      "size": 382
+      "size": 382,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/third-party.md": "1cfecc22b1d0b8870ca1749c1dc705ddf753e3e60808c70845d1f0b0a0837b4f"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/third-party.zip"
     },
     {
       "id": "Rules/tracking-attribution",
@@ -1285,9 +1560,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tracking-attribution.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/tracking-attribution.zip",
       "sha256": "1ce0344503c9a7e4ebfad51d14a9edd2690ee2d356874d3ee555e3086124ced4",
-      "size": 2248
+      "size": 2248,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/tracking-attribution.md": "78da02c1654f5b7f3bae56147baf21eed9363b6d464dc3bd574cb2468f863978"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/tracking-attribution.zip"
     },
     {
       "id": "Scripts/art-style-board.py",
@@ -1303,9 +1582,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "art-style-board.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/art-style-board.py.zip",
       "sha256": "1d715c5836bd0559e6977b2ca6a901c19c8494c8fc1c5583a8e48e8400656855",
-      "size": 2537
+      "size": 2537,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/art-style-board.py": "244ada06ac7ecbe6054bef449838c0acb41e65aec6962d46e25ed48707d23082"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/art-style-board.py.zip"
     },
     {
       "id": "Scripts/backlog-ops.py",
@@ -1321,9 +1604,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-ops.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-ops.py.zip",
       "sha256": "8e2603d38c9ba6b5ac4059ac0fc415f1558f140f085339cf79d84c8965bc592e",
-      "size": 34699
+      "size": 34699,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/backlog-ops.py": "45a96ffd9d23b6d3b96e8a71d435720f0b9636261feec4120f8fd07edfb9faa9"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-ops.py.zip"
     },
     {
       "id": "Scripts/backlog-preflight.ps1",
@@ -1339,9 +1626,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip",
       "sha256": "1c067645522b78dfe67ca19367198d1935b1743129f27fa6498a1ae8e7b66b29",
-      "size": 8654
+      "size": 8654,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/backlog-preflight.ps1": "091c662f83e8adc02b681a791e6e2eb96ab61a049d95f4b704ade668c04e0e49"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip"
     },
     {
       "id": "Scripts/backlog-preflight.py",
@@ -1357,9 +1648,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip",
       "sha256": "1a94c791a3a80642b8c5fa1a8164541cfab0f37c50f4d8902087d8fac8a3ee95",
-      "size": 9270
+      "size": 9270,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/backlog-preflight.py": "a89eb858fa240ac275f41e80389fdcefdfe30ce3ae0c45d941762875a0bc0cb8"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip"
     },
     {
       "id": "Scripts/backlog-snapshot.py",
@@ -1375,9 +1670,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-snapshot.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-snapshot.py.zip",
       "sha256": "659f881d0e52182f71a36fa5cf496f9817aefd4661b6bfcbc93974688ceab661",
-      "size": 2819
+      "size": 2819,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/backlog-snapshot.py": "84f5c0354428ab6094e3fc5c4db6d66e27e63d7b1212be3a9e3b9b50bd90a00e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-snapshot.py.zip"
     },
     {
       "id": "Scripts/bootstrap.ps1",
@@ -1393,9 +1692,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bootstrap.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip",
       "sha256": "631bec19d6693cfaa7b08ac8b13f4be9b16247bb634d98147ba19b512854b8ea",
-      "size": 4736
+      "size": 4736,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/bootstrap.ps1": "1554e2bf4db7b7dd839436908dff94f299069af210b6d193e47ca18bd575197b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.ps1.zip"
     },
     {
       "id": "Scripts/bootstrap.sh",
@@ -1411,9 +1714,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bootstrap.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip",
       "sha256": "679dccc24308099bb09d61b8b18e38e4635095c3834034c7ccb3ea8d682d5fce",
-      "size": 4147
+      "size": 4147,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/bootstrap.sh": "1e57646f161d78160e1c3250b35b2b77ce872c4ad5514ba8dcd3977c622d9d74"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bootstrap.sh.zip"
     },
     {
       "id": "Scripts/bughub-wait.ps1",
@@ -1429,9 +1736,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bughub-wait.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.ps1.zip",
       "sha256": "13dc8f022dc9660999d6528b748bc084b48fcc67a6aba298daf025e90e458e03",
-      "size": 2578
+      "size": 2578,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/bughub-wait.ps1": "3ff122f601c6490a38e645c713eccdc361565274b40a9b2848c0f86a4abbca17"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.ps1.zip"
     },
     {
       "id": "Scripts/bughub-wait.sh",
@@ -1447,9 +1758,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bughub-wait.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip",
       "sha256": "f7c84bb54d165189b84c3a5d3f1875fbd4044e8ed710566854f5bd3ce059e7d6",
-      "size": 2927
+      "size": 2927,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/bughub-wait.sh": "1789e599c3578eca2efb1ff176315b52e7ebc503023b8a36c35b1f3b060ec1af"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-wait.sh.zip"
     },
     {
       "id": "Scripts/bughub-watch.py",
@@ -1465,9 +1780,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bughub-watch.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip",
       "sha256": "af262c7341e893c9194eaed4777cac952b6fe314c49a1a37441032d2eb2a4dcf",
-      "size": 25062
+      "size": 25062,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/bughub-watch.py": "a475674a8e305aa9d8c8481fc5f1c0f800d5d62764e07e32850cef4444d23b0e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/bughub-watch.py.zip"
     },
     {
       "id": "Scripts/codegraph-doctor.sh",
@@ -1483,9 +1802,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "codegraph-doctor.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/codegraph-doctor.sh.zip",
       "sha256": "dd3394ff9dcaf30d32e1fc669bd4349aba1f339ce616a35f602790688d7e83e5",
-      "size": 1882
+      "size": 1882,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/codegraph-doctor.sh": "6a9dbff196b6cfa9d3be19f1ab2a5964eb31107e5a5c322e42fb0f83a061f3d4"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/codegraph-doctor.sh.zip"
     },
     {
       "id": "Scripts/discord-send.ps1",
@@ -1501,9 +1824,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "discord-send.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.ps1.zip",
       "sha256": "8971520bcd1b995ae06381e7ddb26366f6c42b178d9b56b9bc9a1cbb294d18da",
-      "size": 3373
+      "size": 3373,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/discord-send.ps1": "58ab9077ba4caf6a74f0ee83c1a9434f3db9152566288f2970409cc3ce6cad16"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.ps1.zip"
     },
     {
       "id": "Scripts/discord-send.sh",
@@ -1519,9 +1846,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "discord-send.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.sh.zip",
       "sha256": "8b55c872faa14e266b3af02723c70a22f5ec241e79d8aa77d88a208647d7e174",
-      "size": 3315
+      "size": 3315,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/discord-send.sh": "d0d7938bf96af78fd476e8877753ffe88f90e24604455cde132882960846f248"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/discord-send.sh.zip"
     },
     {
       "id": "Scripts/git_prepare_scoped.ps1",
@@ -1537,9 +1868,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_prepare_scoped.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.ps1.zip",
       "sha256": "7fc81bd98eee8081f8f0ba42c5e77822f85e2ce0207233e6eb88cebe92b288ed",
-      "size": 1361
+      "size": 1361,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_prepare_scoped.ps1": "96ebae2de789fa5625ea5a7c1753530d262d4b6bc8913527e42342747bc17d48"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.ps1.zip"
     },
     {
       "id": "Scripts/git_prepare_scoped.sh",
@@ -1555,9 +1890,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_prepare_scoped.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.sh.zip",
       "sha256": "a926cf68f7ff0430febfbb4a294953bfa1542ae115d6812bad14956d44db3090",
-      "size": 1528
+      "size": 1528,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_prepare_scoped.sh": "c74d671de72d8ebfb5686803597507a4918a9499335e90e39d188276a3994569"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare_scoped.sh.zip"
     },
     {
       "id": "Scripts/git_prepare.ps1",
@@ -1573,9 +1912,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_prepare.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.ps1.zip",
       "sha256": "d69b6fd242d96ff5b77697557a6a3f8b85e58b9ea971c54b116a9a8e28299a7a",
-      "size": 331
+      "size": 331,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_prepare.ps1": "2fc977f45816392f6d1c242dd2097c064b46ef75b51e4726011864cc8709e83e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.ps1.zip"
     },
     {
       "id": "Scripts/git_prepare.sh",
@@ -1591,9 +1934,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_prepare.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.sh.zip",
       "sha256": "2f680f9bc4784dbc40dd0e2af0df21f3d71690c28145633deec78d93a5e4a9cd",
-      "size": 803
+      "size": 803,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_prepare.sh": "628b97f8a178fc2e88afe23fcbde0a18af7cc5c03934a9aa5bece45f24fd4ece"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_prepare.sh.zip"
     },
     {
       "id": "Scripts/git_push.ps1",
@@ -1609,9 +1956,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_push.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.ps1.zip",
       "sha256": "64edb0b7eab7842e5da8849064ac3ff7086db06369df2f4039411c97a82487bf",
-      "size": 532
+      "size": 532,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_push.ps1": "ebbfc65d4f2f90422bd44f9abf86aace3c8e04e3babcc1969c97416005ff63d9"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.ps1.zip"
     },
     {
       "id": "Scripts/git_push.sh",
@@ -1627,9 +1978,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "git_push.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.sh.zip",
       "sha256": "e0047b8d7556a1e7fdf9c28f9a4733a2c8a4a6b4fc2ded3b222397f29d4cdc0f",
-      "size": 898
+      "size": 898,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/git_push.sh": "0398f32dffd7679081a1a5c976764b0f0a24ee94e8d96e4486a44cd70283f60d"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/git_push.sh.zip"
     },
     {
       "id": "Scripts/notify.ps1",
@@ -1645,9 +2000,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "notify.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.ps1.zip",
       "sha256": "07170ffc025b4ec51c3a9b5f278b4887c5b12755414c603620538b5e929955f9",
-      "size": 7877
+      "size": 7877,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/notify.ps1": "f5360d3dcddcc0e70a5293bddb5b52cb757b44f24822d0d8b16e4f32c0a68344"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.ps1.zip"
     },
     {
       "id": "Scripts/notify.sh",
@@ -1663,9 +2022,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "notify.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.sh.zip",
       "sha256": "f03a3860aef4fabaff2683af42bf99c5ae09de883e7fdd0f63055424e78a97c3",
-      "size": 5093
+      "size": 5093,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/notify.sh": "4e0f3b05e467fb0f2c4b7731572c35c5a93e906aa0f02acc4dbc04d996a02013"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/notify.sh.zip"
     },
     {
       "id": "Scripts/project_profile.py",
@@ -1681,9 +2044,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "53256a8ba25a504b01f65abb2ff7696ffcc97115745dc27e04e9b5bf03e50d3f",
-      "size": 7778
+      "sha256": "7b1ffae3ad8b810ebb72af5974f9b5348d67cab1d7a459091bc2c419d6f6c5b7",
+      "size": 7780,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/project_profile.py": "98f349819f93a0a4d0ad34a16beda05743752f24beaaa6027157a1a4ff20202f"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip"
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1699,9 +2066,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-claude.bat.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.bat.zip",
       "sha256": "415bdf7f8d4c75c3889b4b38a93845d66e1a38bd930ca911af0c49f02a210546",
-      "size": 363
+      "size": 363,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop-claude.bat": "f8baa37c172df818b302594b522a0e04f34c5b23a426b68d76006ed16a0bb980"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.bat.zip"
     },
     {
       "id": "Scripts/run-backlog-loop-claude.ps1",
@@ -1717,9 +2088,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-claude.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.ps1.zip",
       "sha256": "abdaefc95ae2f01a2861604dca6ca88ff3cbdad9397e8b95a71453e6e403461f",
-      "size": 1773
+      "size": 1773,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop-claude.ps1": "251d77576175f197fa8d2ac0aee12d1242ca5b11a2a26044be17fe26b787d0c9"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-claude.ps1.zip"
     },
     {
       "id": "Scripts/run-backlog-loop-codex.ps1",
@@ -1735,9 +2110,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-codex.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-codex.ps1.zip",
       "sha256": "a3119eea66ee88e1c8a1996f1dc875d7cfcb0062d983aaaed8216944a936661a",
-      "size": 992
+      "size": 992,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop-codex.ps1": "51628db742b5fd7883b4223dea720565f3bf1faef5dcd653c8e1fccb072e2993"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-codex.ps1.zip"
     },
     {
       "id": "Scripts/run-backlog-loop-core.ps1",
@@ -1753,9 +2132,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip",
       "sha256": "8075943f40cf6bdd37d899255eb35028eacceee4f63628d3bd49225528fe79bf",
-      "size": 40015
+      "size": 40015,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop-core.ps1": "5df358be5e5c8b383843392380e074a959ef84ecd265c7c023de87eda40843e8"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip"
     },
     {
       "id": "Scripts/run-backlog-loop-gemini.ps1",
@@ -1771,9 +2154,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-gemini.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-gemini.ps1.zip",
       "sha256": "77f2cf2266a145054c42cc4ed607eb535e68748a0b7da95038ac04e7f983ae00",
-      "size": 1036
+      "size": 1036,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop-gemini.ps1": "2776e3b75957bb5ad172e2b707df95de26463643df6a404d2320b0fa83457da5"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-gemini.ps1.zip"
     },
     {
       "id": "Scripts/run-backlog-loop.bat",
@@ -1789,9 +2176,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.bat.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.bat.zip",
       "sha256": "8a9840690493a96945946b8d199b7b0bf1bdbe4e98e1001bd1ce7f47a0fd93d5",
-      "size": 762
+      "size": 762,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop.bat": "050d40871d682a5a24987596b0ff75ed3779a42fa48ed009c3002f559fbffcbb"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.bat.zip"
     },
     {
       "id": "Scripts/run-backlog-loop.command",
@@ -1807,9 +2198,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.command.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.command.zip",
       "sha256": "ea4760c35822d88be293940022c78665092d747c205f76b8edb484144122cf72",
-      "size": 1363
+      "size": 1363,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop.command": "00c520316c536ef4353553403810188bbb6e3bd447ff637e91edae3018cf2dc5"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.command.zip"
     },
     {
       "id": "Scripts/run-backlog-loop.ps1",
@@ -1825,9 +2220,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.ps1.zip",
       "sha256": "f3e1ada228d96642960449c901c55ec82828c08908aed71208e7553942198385",
-      "size": 1129
+      "size": 1129,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop.ps1": "a48dfe4d4a3283c6dec28461ade718f9a69b4cf2e65e0ace838549b5036379d7"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.ps1.zip"
     },
     {
       "id": "Scripts/run-backlog-loop.sh",
@@ -1843,9 +2242,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip",
       "sha256": "e2494491429859620bb36a35c0216f31c6a35962b97f7da732f50ce76d2d9f4f",
-      "size": 31674
+      "size": 31674,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-loop.sh": "b4cd738832d89900678a2efbe0ab9552d09f5f3fa7d4c8826ceb5ec140f8f662"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip"
     },
     {
       "id": "Scripts/run-backlog-refs.py",
@@ -1861,9 +2264,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-refs.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-refs.py.zip",
       "sha256": "203a9969413e178dfe307904f3a63fcdaa5b74a42d558453e80009f460dd6e76",
-      "size": 2770
+      "size": 2770,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/run-backlog-refs.py": "02f37ffedf94a4b1613385171d69592d68e2c2751d972f405275aa03eb5c6f99"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-refs.py.zip"
     },
     {
       "id": "Scripts/setup-approve-handler-macos.sh",
@@ -1879,9 +2286,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "setup-approve-handler-macos.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-macos.sh.zip",
       "sha256": "1934cb42d2a0202ab6b270e00597938947dae256da08c3feeb9b6be60ed6a2ce",
-      "size": 1245
+      "size": 1245,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/setup-approve-handler-macos.sh": "8592224e458be8526e98e1e45f4784f4867abc25ec92341bf1fa8832747b7db2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-macos.sh.zip"
     },
     {
       "id": "Scripts/setup-approve-handler-windows.ps1",
@@ -1897,9 +2308,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "setup-approve-handler-windows.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-windows.ps1.zip",
       "sha256": "21f124eb66e4c8ba8b648a909af168c0f51d161fd591af0009797622ceb3f03e",
-      "size": 1147
+      "size": 1147,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/setup-approve-handler-windows.ps1": "65db3fb40b1a3ea735f9c5fcc5bc43e77fe0e2b8f5065927b92aa47be7168bfe"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/setup-approve-handler-windows.ps1.zip"
     },
     {
       "id": "Scripts/stream-render.py",
@@ -1915,9 +2330,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "stream-render.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/stream-render.py.zip",
       "sha256": "65cec76dc449a38b21c4649cca0d9db69de3455c011fafc5c7c4ac1f8ffefb85",
-      "size": 2436
+      "size": 2436,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/stream-render.py": "214c969646feb17cca825e5f80cbd4ec0dad7461f95ad11f575c806f5186e697"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/stream-render.py.zip"
     },
     {
       "id": "Scripts/sync-to-agents.command",
@@ -1933,9 +2352,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "sync-to-agents.command.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.command.zip",
       "sha256": "fb71ae32cfa1f4624fca80d0909f98a17f786cdc77be3c872d76e49f45cf8af4",
-      "size": 558
+      "size": 558,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/sync-to-agents.command": "87d20001b51c96a6562bcd1e769e54108d04dddbb1186496df2fc7f43f71c785"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.command.zip"
     },
     {
       "id": "Scripts/sync-to-agents.ps1",
@@ -1951,9 +2374,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "sync-to-agents.ps1.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.ps1.zip",
       "sha256": "3c82adf8035e0ae02f91ce7b51428870a12f43f61604e15883547188ec81a4da",
-      "size": 1855
+      "size": 1855,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/sync-to-agents.ps1": "4406ec8c74f4744a07bb1229d4ae6f1ef665b39b97b0592a84d23243e50b97f5"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.ps1.zip"
     },
     {
       "id": "Scripts/sync-to-agents.sh",
@@ -1969,9 +2396,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "sync-to-agents.sh.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.sh.zip",
       "sha256": "dbf7be24028012898bea0394e6ebfeed563706904f3b6b8bd07ce50525b537a8",
-      "size": 1768
+      "size": 1768,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/sync-to-agents.sh": "fe608d6cc61cae1908a857c8817179dd5b2ea603b9d9a308e70ef4ab4854217c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/sync-to-agents.sh.zip"
     },
     {
       "id": "Scripts/tests",
@@ -1996,15 +2427,36 @@
         ".claude/scripts/tests/test_ui_kit_sync.py",
         ".claude/scripts/tests/test_ui_layout_lock.py",
         ".claude/scripts/tests/test_ui_review.py",
+        ".claude/scripts/tests/test_ui_spec_base_kit.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 16,
+      "fileCount": 17,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "0e89b65c5d7142c5075148412ff1281c2ac8e0edf82b069ddab9882fdefa3c59",
-      "size": 85526
+      "sha256": "fad92a87c6be2850ea1eadebf74eb4b88da2a423939e35d5995b54daf2adf094",
+      "size": 88547,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/tests/test_auto_clear_ps1.py": "ee9ee16b2e5ee39a0043ed5ed8be237d1cb3e89d95cd39bf0cc725f3c6163fe6",
+        ".claude/scripts/tests/test_backlog_concurrency.py": "6adb7a90ef0e02fe056c471697e49193a2aad0f997c0abd1f543d2a3e6a35392",
+        ".claude/scripts/tests/test_backlog_ops.py": "ce4489740fff1ca44091224f012aa3bd6a17546b3e68b96e978d5af5cffccf5a",
+        ".claude/scripts/tests/test_backlog_park.py": "4ef22eba5db453e7e0d1213954dadb3d69441638edad89c24fab2fb1dfa9b5cf",
+        ".claude/scripts/tests/test_backlog_preflight.py": "bd27ed9de4499e804a58a0e2b746de6478c43367ce17e21062e5149af7765385",
+        ".claude/scripts/tests/test_bughub_wait.py": "4cf351ca34f9074e613f7e93b29b3cf32ec30c7a44c1c762a3b25fd17a892979",
+        ".claude/scripts/tests/test_bughub_watch.py": "b8b1da545e60268399246fa245c91166e22137512e3dda0042ef584a7e2dd245",
+        ".claude/scripts/tests/test_discord_notify.py": "1f70851837d2a776138a789b3331181868a91b4bc14bdf7bce3ad187841d25a1",
+        ".claude/scripts/tests/test_polish_gate.py": "b9c348012414bf747059fb4ea0c94c6edbe15077dbd91763da8308c28c5e58f2",
+        ".claude/scripts/tests/test_preflight_twin_parity.py": "5d971773101ea2863b3d6c9106891bec0565bdf026a18f690ca46d036460500a",
+        ".claude/scripts/tests/test_project_profile.py": "8346dbd1eff547dfca51f47e20ddd2c329074adf96e1ffba20fcf9a56409a2f3",
+        ".claude/scripts/tests/test_run_backlog_refs.py": "aec6691770d70849346ad4a4b77ab8584f39e70c96d905ddf2091a2495b52b8c",
+        ".claude/scripts/tests/test_ui_kit_sync.py": "692caa9d6ec35153002f62d68fc95d8a8f91ebf01aee5a8bb8017ada2f973427",
+        ".claude/scripts/tests/test_ui_layout_lock.py": "ee085344beabfa0b859f4446bfe3ea27241c1e52b4152097adf21559bfc5a35f",
+        ".claude/scripts/tests/test_ui_review.py": "54afdc2c779bc7b2615c104b405016bdee759e24902db62f1a8702e8a9009eed",
+        ".claude/scripts/tests/test_ui_spec_base_kit.py": "9aeca596f4e271b8db20ac97008ae96ef390c61a17175970bee418e99264a072",
+        ".claude/scripts/tests/test_ui_spec_pipeline.py": "27a4d597c49ab2c4062a88302211c3d06f6cefce1e1e26b272eebcce52603950"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip"
     },
     {
       "id": "Scripts/ui_spec_common.py",
@@ -2020,9 +2472,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui_spec_common.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui_spec_common.py.zip",
-      "sha256": "d1118da5b07cab6298daeaa59416b94c80cac31d8c11ab425f318d427dcd604d",
-      "size": 16927
+      "sha256": "8c9afb94e42188d10370646d80f4e9ec6680b229a2626d9b9d4c78461a2b94e5",
+      "size": 17277,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui_spec_common.py": "66ff0703be66a893621ce54d42777aef45778784fab07cd63afc7c7f4c7fb10a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui_spec_common.py.zip"
     },
     {
       "id": "Scripts/ui-build-report.py",
@@ -2038,9 +2494,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-build-report.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-build-report.py.zip",
       "sha256": "29525461f313e4faa1e0b43bb599152014db933d46e98fe346fcc8893efb36e0",
-      "size": 2449
+      "size": 2449,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-build-report.py": "7958a15ea132591ae0e1bebd3792656bb54b632428c26f16982eea6bd3b71892"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-build-report.py.zip"
     },
     {
       "id": "Scripts/ui-kit-sync.py",
@@ -2056,9 +2516,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-kit-sync.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip",
-      "sha256": "911051d61585af2eb45f2dfcf83d9d3b30ffe4b9948a788267386fe3a574ea8e",
-      "size": 14662
+      "sha256": "790a7bd0f0419faf3e241e285633697eb981b7160c8adb61a40e6aa41f40dd1c",
+      "size": 14834,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-kit-sync.py": "6d8d9f5dc105bfecfe8b899008dfc18884f090338a2fb107246eeb4cafec78ec"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip"
     },
     {
       "id": "Scripts/ui-layout-lock.py",
@@ -2074,9 +2538,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-layout-lock.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-layout-lock.py.zip",
       "sha256": "8fcc1bd1d0592d7fd598695b60a77bdf7dc1bf3944c9c6adc96142239342d775",
-      "size": 19360
+      "size": 19360,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-layout-lock.py": "240229a4437e8e91c3d1e8c4dadd5f31dcfe19f942da5ae89d09a541ad299838"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-layout-lock.py.zip"
     },
     {
       "id": "Scripts/ui-review-approve-handler.py",
@@ -2092,9 +2560,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-review-approve-handler.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review-approve-handler.py.zip",
       "sha256": "8577a2218477d3cf71c34f81c0d32cea5894847e1f058705e656f5437528a8b3",
-      "size": 1853
+      "size": 1853,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-review-approve-handler.py": "45aa0869d91a309d51df5b23f6cf4644f422e52d0436b6a495e407cf8b603871"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review-approve-handler.py.zip"
     },
     {
       "id": "Scripts/ui-review.py",
@@ -2110,9 +2582,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-review.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review.py.zip",
       "sha256": "d8424c3fd85396f107cf797b493c220ae8449e7a701c63430e8b906f371fb926",
-      "size": 17837
+      "size": 17837,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-review.py": "ae8e2d53f6c90e5ca6c0e7897dc9afcd8b7b8e7467062decf5885864fe61f513"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review.py.zip"
     },
     {
       "id": "Scripts/ui-spec-extract.py",
@@ -2128,9 +2604,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-spec-extract.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-extract.py.zip",
       "sha256": "ced2ed55e816f8a0585ba14b755c040e7973b189dc51bf3cae9ef774e143309c",
-      "size": 841
+      "size": 841,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-spec-extract.py": "cea08b7b1a1868dc11b652a3378e630ca12d7afa275070a62489bd0c106957e2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-extract.py.zip"
     },
     {
       "id": "Scripts/ui-spec-render.py",
@@ -2146,9 +2626,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-spec-render.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-render.py.zip",
-      "sha256": "a370bb7d380c131d3fe6c0733d4303fac03cf1eba64eff919c495f89429c7fa7",
-      "size": 5619
+      "sha256": "9da2dca8976661eed53f647c3b9116fc4b02f20fdc3ed44139ca46592236a71e",
+      "size": 5584,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-spec-render.py": "eed86f163a3b4d0621b0016d1781b354ed88b7d85e6abc16f932d01eaeeaba50"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-render.py.zip"
     },
     {
       "id": "Scripts/ui-spec-validator.py",
@@ -2164,9 +2648,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-spec-validator.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-validator.py.zip",
       "sha256": "d94694a152c78a6650cab97600ee6b9fbdaea8be94bacff6855458e0dd131efa",
-      "size": 698
+      "size": 698,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-spec-validator.py": "dd97e0b74a1f893a50beebe1e593c2115e9179b8a9215e62f3c0d882d8bcfc57"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-validator.py.zip"
     },
     {
       "id": "Scripts/ui-visual-diff.py",
@@ -2182,9 +2670,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-visual-diff.py.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-visual-diff.py.zip",
       "sha256": "fa727efd0a75b07c27768d6020148e29c824ac8dd8e6792fca13adb18b58d216",
-      "size": 1711
+      "size": 1711,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/scripts/ui-visual-diff.py": "d4a0a1bb027c618bb5ea7760ca2cd439023a849d6ac5feac10df8501799df319"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-visual-diff.py.zip"
     },
     {
       "id": "Skills/add-localize",
@@ -2202,9 +2694,15 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "add-localize.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip",
       "sha256": "261aea2106154f5127d7bd00f454a9cddfcd60cde1545af4044a27a833a99bc4",
-      "size": 16576
+      "size": 16576,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/add-localize/SKILL.md": "f10825959ddf9986defd1c4a6fd4e15417214f707dcec717329184bbb11cd07e",
+        ".claude/skills/add-localize/scripts/add_localize.py": "ac3d4c2313396a60da90d7e4deb1e8931e13fa0f566cf2e0278c2db53eb38fb7",
+        ".claude/skills/add-localize/scripts/sheet_io.py": "8c7fa0a843b5c4e40ef4381e262c75404563c03baa4ca0b7ee8986b3fa2098da"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-localize.zip"
     },
     {
       "id": "Skills/add-to-backlog",
@@ -2220,9 +2718,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "add-to-backlog.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-to-backlog.zip",
       "sha256": "3fcfdef84e3353decc4f573a7d1285e28f761d26dd0c1a0186b6ae0012afe92a",
-      "size": 5763
+      "size": 5763,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/add-to-backlog/SKILL.md": "62ca33327b51a4547df75660c6808e8332fe662687aff52262388fb2f6af4157"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/add-to-backlog.zip"
     },
     {
       "id": "Skills/auto-clear",
@@ -2240,9 +2742,15 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "auto-clear.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip",
       "sha256": "934948b9a0f0d0cbe1d96dd486b12e03f968e7be0f64a4de1d8ef466aed1853a",
-      "size": 23825
+      "size": 23825,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/auto-clear/SKILL.md": "3c95ef339e1723ac3f6e13999b0a744d1128c9cfc8d0e11f93dbb4e2e6ac4768",
+        ".claude/skills/auto-clear/scripts/auto-clear.ps1": "700e136dbba08f1583542ce57d8062d77e9188b66c62f1f2fc1aa29d155e6d0c",
+        ".claude/skills/auto-clear/scripts/auto-clear.sh": "3781ff7c49aa3f98a21871f5b218ed110b7593e1fd6322d5e42a4a96d94ecec8"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-clear.zip"
     },
     {
       "id": "Skills/auto-test-device",
@@ -2266,9 +2774,21 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
       "sha256": "66ad1ab11a36a40fb12aa651ce646b85e18804822d75d863d58ef6531a635707",
-      "size": 181209
+      "size": 181209,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/auto-test-device/SKILL.md": "3b3f10c0e45a32449183841f50c9ca92bbaab5f64475176c3b884119c5cab559",
+        ".claude/skills/auto-test-device/references/charter.template.md": "9af78b528dbc91c6c88ba3fb87dd41becaf0ec4b0a2c74e781218a37d64e4d69",
+        ".claude/skills/auto-test-device/references/env-matrix.md": "c7adc98d481a6ea439510edc80b0450d496c4dcb75023e0d0d3c9e5294f5fa11",
+        ".claude/skills/auto-test-device/references/oracles.md": "94810241ba7b9c65fcaff9b28d3d351b12eaf8bb5e670723306ef807537c9449",
+        ".claude/skills/auto-test-device/references/qa-playbook.md": "c27a1b719f81a5755c26239db0f0272058842b5645dac839672e26df053daacf",
+        ".claude/skills/auto-test-device/scripts/qadevice.py": "641d4a5cd278079313483d16ad12cd15596a51d50509a97950c994fd4b190c6d",
+        ".claude/skills/auto-test-device/scripts/qaprofile.py": "d0bfb7bc4442c07f272719adcddcbd5f31a0171b890c7f6b8d2b10ea9265f0ae",
+        ".claude/skills/auto-test-device/scripts/tests/test_qadevice.py": "bb101e52cf30c1317c4dc3492cfe9b31ba18421b7a4f7326fd20d25d54bb22fb",
+        ".claude/skills/auto-test-device/scripts/tests/test_qaprofile.py": "fbc8c5d0b467f3452bd14f992cf8ac55e6e24490f6400fc5d6ffafdb921f971c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip"
     },
     {
       "id": "Skills/backend-communication",
@@ -2284,9 +2804,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backend-communication.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/backend-communication.zip",
       "sha256": "af8c3b68fc5a0edcdabf4c2b3cfe4a0bf8e3c1ab688bea6c123198fc863bc927",
-      "size": 2893
+      "size": 2893,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/backend-communication/SKILL.md": "dbedf86387d2be88db4679c867d9c8588e939b0e156008387eff3debe7209786"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/backend-communication.zip"
     },
     {
       "id": "Skills/base-notification",
@@ -2302,9 +2826,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "base-notification.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/base-notification.zip",
       "sha256": "22096947e2fb8b600af7c1153c790591539264acd5af0ad56aca335ed1dbe556",
-      "size": 2371
+      "size": 2371,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/base-notification/SKILL.md": "46d7fb5c28f42e002ac2564c3e51d53ca815a43bfd539f16b876d365c1e2dc22"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/base-notification.zip"
     },
     {
       "id": "Skills/blender-rig-animate",
@@ -2346,9 +2874,39 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "blender-rig-animate.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/blender-rig-animate.zip",
       "sha256": "77a47533e8c3ff982f440f904788cdabccc66065e2c8c5ab852b3ae254d64873",
-      "size": 119348
+      "size": 119348,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/blender-rig-animate/.gitattributes": "558256b391f94034212e5a2a436acd448cc8e9ec4abb5e66b9ab122a3714a040",
+        ".claude/skills/blender-rig-animate/SKILL.md": "a85d01436744e2fb27012449dc0e729f380ae7912fc0f849df91508b8e0f7da2",
+        ".claude/skills/blender-rig-animate/reference/blender-notes.md": "dafad4e2711485ac589302bf5eb3ed18e352dfe7ff0aceff0c65863fb87330b8",
+        ".claude/skills/blender-rig-animate/reference/failure-catalog.md": "78ecb84875cb1a68329a4af49cf2f1b88391314c9eebf95bd157432cef385a77",
+        ".claude/skills/blender-rig-animate/reference/proportions.md": "11afd690b4e3f973f42af97bef87e9517101fb9575450b8f7e9337ff4eb0dd93",
+        ".claude/skills/blender-rig-animate/reference/rules.md": "b9b6cf6dec97fe816b954dff7d4ff3d588bb92d80374c6a400333fd183d80b33",
+        ".claude/skills/blender-rig-animate/reference/specs.md": "bc7a33d3969141e88462e0dfe1270e8c391310a2327bb4aafb471a614dc0f98a",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/__init__.py": "753fe11824a8a90f2d9c86c2f5eda66e39f9491c2778e4a125f3fe430d67c67a",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/anim.py": "593cecffbdba589f2919c96428789c4ae34fd8b38ba2b31a3c7ccc6f66828466",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/check_anim.py": "efb1fc668d8c21b5539fd7d065eeaa9d03fac73e143f0598b9b158c3b0986f79",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/check_weights.py": "ca1a903c7c94c4e7af7db5fe0354a451858bb82e2e6090e472a6b0dd05a60012",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/common.py": "637a0f8f5a9a23baa33cd560322b7f57442b829a7fb991f34b3a92703607fa8d",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/export.py": "d049ca8eb4d9e263bc4e843d20bf543334bf7198a1ec5b4b5e4e2310825bc829",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/follow.py": "950ac14adc44dbf333c5b852169c3aac68d24c7fc48921d4313f852c2730e2dd",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/inspect_model.py": "07f4958df27f67a096966d7c8dee37d194831c98c887c94177e860af73b52da6",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/measure.py": "458cf32d10ae86d330c247a2f5b6db7ac51527e0759293d43b9dde98b1a0242e",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/pose.py": "eda5df08ad6e430b91df54debdba088dd3addae5ca3a361d32c34f1a2a20f878",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/prepare.py": "981d1f901b45c9c0a9d63542d41f4071e3c2da5cd89489f1a688814afa10cf58",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/review.py": "903723ea1f6a660c806ca12a3bc59357a3b6386a63c5be40c9c96f007e43e239",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/rig.py": "354bf60a6aae0860139eda61a2bbee70450a70e566d7e406896c4d265a4b39e6",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/rom.py": "c3382e236c1dde325e71bf6204757981132a198a5e19bf97c47fe2312bd4261f",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/skeleton.py": "fb604cd912c7a489c090f9f60dbf0732844f5b9f5d5bf5e5f8356073b3408268",
+        ".claude/skills/blender-rig-animate/scripts/rigkit/skin.py": "06abc2b82818203ef938f015c93bdd22d80918a1c2b77d277ce757d68baa57ac",
+        ".claude/skills/blender-rig-animate/scripts/rk.py": "54d92f6fb3c4cdee725922e1b1ec56ea5133eca4af63d3230c147c2b901c0687",
+        ".claude/skills/blender-rig-animate/scripts/tests/measure_clips.py": "8c6c763bce73590d8a6440109491c96937666f3c88d42b92b8c0adb4adbad05f",
+        ".claude/skills/blender-rig-animate/scripts/tests/selftest_follow.py": "5aad0a1d2e49c78dd71cff44cc4966522599f7710aae51821a9fd5ec4fd0188e",
+        ".claude/skills/blender-rig-animate/scripts/tests/selftest_weights.py": "8a99705514ad65856ce62e5f348b8f93af2d723b4020d2b39e5b48ef3c6e9664"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/blender-rig-animate.zip"
     },
     {
       "id": "Skills/bughub-setup",
@@ -2364,9 +2922,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "bughub-setup.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip",
       "sha256": "d4a1c8e0f3897aeb1603a7a121bcad2a5980d7a87b9d84463b5bf10d25b528a2",
-      "size": 11488
+      "size": 11488,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/bughub-setup/SKILL.md": "6ca17c24d586359713318dee27c45c21f94397bd80d6a483396b013dc715dc59"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/bughub-setup.zip"
     },
     {
       "id": "Skills/compile-check",
@@ -2382,9 +2944,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "compile-check.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/compile-check.zip",
       "sha256": "17bd7d3ad3644e668a33dbab5b9ae86d45e60c6fc1a10e6b0d7c2a73910188c7",
-      "size": 1618
+      "size": 1618,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/compile-check/SKILL.md": "bf98b353ce3032a28903691bbb55543db340f417d3a246212cf14f6de7d9e7d5"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/compile-check.zip"
     },
     {
       "id": "Skills/core-systems",
@@ -2400,9 +2966,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "core-systems.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/core-systems.zip",
       "sha256": "aad437838f246849885471a36f3775908369006535d32e5ca76c00a0c383d591",
-      "size": 1944
+      "size": 1944,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/core-systems/SKILL.md": "d54e38495f237b85fd68959a3f5efbc3b17de24f3ae1427dcefc63108c3062c4"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/core-systems.zip"
     },
     {
       "id": "Skills/create-sfx",
@@ -2426,9 +2996,21 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "create-sfx.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-sfx.zip",
       "sha256": "1daf1765c6679e967e1f3aa997e0c0f8f403972268a20ae08e2bf29a9a007080",
-      "size": 48267
+      "size": 48267,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/create-sfx/SKILL.md": "700a31dc52d52e02e25c22db2e5eeddd69a4e4762d8dccbce06fd3bf25bfee78",
+        ".claude/skills/create-sfx/agents/openai.yaml": "fb0e3ad0e73b8060a3459fac3230aa3ca4d22fc13bb6c6d65c34012434ecc85b",
+        ".claude/skills/create-sfx/reference/recipes.md": "14686169e606f511efa7eca44659020186f6180514c4676b97c23c2d94d060b5",
+        ".claude/skills/create-sfx/reference/style-guide.md": "d2d2d0581a906465033012fdb2a45ed93f4d20abad8ab25fa09bfa23a9dfac25",
+        ".claude/skills/create-sfx/reference/synth-api.md": "bdde09ef8f77b92b25c3973ee835112fa62905ba85e14f2d68dce5309d177aa1",
+        ".claude/skills/create-sfx/reference/unity-integration.md": "b176f8b0c2628564d73a6272c639ce71de009ade5e6ed8dde6f33b1b90a9d752",
+        ".claude/skills/create-sfx/scripts/make_sfx.py": "442d875c6d730b0f3a489711db0fbf5940a1ecaa7339e308c575082524f19fe0",
+        ".claude/skills/create-sfx/scripts/sfx_recipes.py": "a71e152f792c448baaa323feda7e7b43f0eef409d44750473d9b21c4e273cbac",
+        ".claude/skills/create-sfx/scripts/sfxsynth.py": "45fdf766491fc2339c162bd4813df6e8342e6e8bf7c4d7fa40de6e9afd83f764"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-sfx.zip"
     },
     {
       "id": "Skills/create-ui",
@@ -2447,9 +3029,16 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "create-ui.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-ui.zip",
-      "sha256": "54cbb60db877274de8128099a7b38bd984a524cb0593cde8be9e6d444267ebec",
-      "size": 22767
+      "sha256": "b86856b32bc01b28252720908a8c83fdc7ebf58378ee767f7297934b126057a3",
+      "size": 23240,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/create-ui/SKILL.md": "205f597a7522764616c69323d5d31d8223625f0fc7ca0256f4f40447fbdb0f32",
+        ".claude/skills/create-ui/agents/openai.yaml": "c8c7118928396a8470efca3ed2a9c5d97448f95d453fc214984fa38baa7a8f89",
+        ".claude/skills/create-ui/references/mcp-playbook.md": "27eeefd816403ad29ab68ea881953510a318ba599930268a256c52ae2d8b7e13",
+        ".claude/skills/create-ui/references/prefab-templates.md": "7cdd041202cc2d2b853b242c7928e3b9e74bf2c46b7072946004ef8c738b8b96"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-ui.zip"
     },
     {
       "id": "Skills/create-vfx",
@@ -2476,9 +3065,24 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "create-vfx.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip",
       "sha256": "3f02b8d199f06b72e06d2b8d3a7c54eae61d3e7ae655f97a1e52043d36840e76",
-      "size": 77851
+      "size": 77851,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/create-vfx/SKILL.md": "bf0f401cb9e0fc4dd712315afd5dce2909c2c2ef3add4485dfbf612ed7f2ab57",
+        ".claude/skills/create-vfx/agents/openai.yaml": "3e03b59fd656b8b22147e083264a88c7cc091c6af86f656fdbadf35be37249d9",
+        ".claude/skills/create-vfx/reference/painter-api.md": "a4c55f73b791921e8bdb7c57bfa1b03adbbb1da65a07ea4eb4313f8f1185bd65",
+        ".claude/skills/create-vfx/reference/recipes.md": "3ccc8803eb4c1423fcd7df068bcd3158e4894fdaa698449b639a3544ae15fbe0",
+        ".claude/skills/create-vfx/reference/style-guide.md": "7621a1e7f08480ecb2e39fa0e25f624096d647258db9a30297d00ec1d52f4c4c",
+        ".claude/skills/create-vfx/reference/unity-integration.md": "f4b873b37a46e778fe1f2a3c5e47b14e5a960cad9b2a4f903652b581f3f7300f",
+        ".claude/skills/create-vfx/scripts/fxpaint.py": "951b21810b59991245ed70cf497a4c04e92292f744e672a8ca1b83183fddb9e9",
+        ".claude/skills/create-vfx/scripts/make_vfx.py": "a8c82ba04eda87f42184975a1f75907b59fe3db0c5098a8da2741cd9933dec15",
+        ".claude/skills/create-vfx/scripts/vfx_recipes.py": "09281a6f6f210db9f433632f55657ec62cec6c05b6ca6af138dfcde4dc9e316b",
+        ".claude/skills/create-vfx/unity/Ezg.VfxKit.Editor.asmdef": "abac66df6a7e8c8fec6945d2697d1ddc8a2ad6112a989514f8e2f9979185869a",
+        ".claude/skills/create-vfx/unity/VfxPrefabBuilder.cs": "4fe54aae2a9e2ac9743e52f106721dd14ffb2b7c3044162dd4ecdff19bfde114",
+        ".claude/skills/create-vfx/unity/VfxShowcaseLoop.cs": "dd9913a4d482f6a7eb6edfdd49adf21f8e3880e04231f9b9716f797006db2048"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip"
     },
     {
       "id": "Skills/csv-config",
@@ -2494,9 +3098,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "csv-config.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/csv-config.zip",
       "sha256": "af614c3ad4f07cfbe2e5268be4f6b73b4ffa36949b2587ed5e2ba4b01688fe47",
-      "size": 2521
+      "size": 2521,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/csv-config/SKILL.md": "12acf15733c55cb24867823de091422da93db1484c87ea60424d6d711f91bd50"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/csv-config.zip"
     },
     {
       "id": "Skills/currency-preview",
@@ -2512,9 +3120,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "currency-preview.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/currency-preview.zip",
       "sha256": "0b742baef3ee1953e4a6c3c9ffd54154cef69b4dfcc54dc79b761fbc7d943777",
-      "size": 1661
+      "size": 1661,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/currency-preview/SKILL.md": "83c79bec7c6e4206062c3cb6c198e62eac9ee136e89e93477305fb96a9e1322c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/currency-preview.zip"
     },
     {
       "id": "Skills/event-manager",
@@ -2530,9 +3142,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "event-manager.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/event-manager.zip",
       "sha256": "dc9a5d63f897532b8d4aa06420949bc77b711460de2e8533a8ef6f67685686be",
-      "size": 1621
+      "size": 1621,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/event-manager/SKILL.md": "e5bf6e5e20ff32ccb6ab782200f1d160dc219e70a678cb56ee7dad21904d0592"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/event-manager.zip"
     },
     {
       "id": "Skills/execute-backlog-tasks",
@@ -2548,9 +3164,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "execute-backlog-tasks.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip",
       "sha256": "86b5218e5722191f8ad7683af3da307fa50c225a8b33ad5d4f8aa0ad37a92fb6",
-      "size": 4213
+      "size": 4213,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/execute-backlog-tasks/SKILL.md": "42886b6727cae0d590b118d3d5a2ed85a5854094339ae22711cd23425c0148a6"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip"
     },
     {
       "id": "Skills/feature-cheat",
@@ -2566,9 +3186,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "feature-cheat.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/feature-cheat.zip",
-      "sha256": "ad20b3830ea4cd26c9da7b5897a91b42323ff5dfd0abb3b952c0f43b908868e0",
-      "size": 4776
+      "sha256": "da77bd0049682b79539400e88de149ee50af4f5be5536bd8fb8341f20211e76d",
+      "size": 4781,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/feature-cheat/SKILL.md": "930f122851f72e520c99a0bfae4d8408713ad81d1ded2c310737800f0e93540a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/feature-cheat.zip"
     },
     {
       "id": "Skills/figma-build",
@@ -2590,9 +3214,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-build.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-build.zip",
       "sha256": "41874f6f62197abc8f0512a8fb17f221c146d12e583ba907ac44ddd0b4fc4bc2",
-      "size": 17848
+      "size": 17848,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/figma-build/SKILL.md": "6bde9c501b2fdca6d80611edf7a297398215c0b8674d54f81bf030ef7924f53c",
+        ".claude/skills/figma-build/reference/build-plan.md": "2537cd735a4340d9d76e8802c7481b9cb047cae3d5ef4efc3f91f44be92d3dcf",
+        ".claude/skills/figma-build/reference/plugin-helpers.md": "44107a77c5419502b398355ab97d9778e79f291e7259624d2958a2ded5a39df3",
+        ".claude/skills/figma-build/scripts/figma_build.js": "495a7381617f6b4406d423e1346678314995970ec64f28000b21d45448b80e68",
+        ".claude/skills/figma-build/scripts/figma_build_gen.py": "921bfbff90e08eaf8beb91e55514c9baa8f79788e68b83be2bb9cdf6e5714b63",
+        ".claude/skills/figma-build/scripts/figma_helpers.js": "16e1a6c0b1a4162e854cc45a0c5a91b6690487de99ec0115db0d1f369a6d6f55",
+        ".claude/skills/figma-build/scripts/figma_helpers_selftest.js": "621e4d51e008bcdc0e75f34f493b9a01c210219f53ae6b24835761b2cd9a33b0"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-build.zip"
     },
     {
       "id": "Skills/figma-components",
@@ -2621,9 +3255,26 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-components.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip",
-      "sha256": "ba10d6a4907abf36283c45604dac2b04786bc2a96e9fc669632b1e5a24f433b5",
-      "size": 45061
+      "sha256": "10ac3bcbd575d5d287115dfb9fd629558f8f913867514acf32d8a00503a53723",
+      "size": 46381,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/figma-components/PROVENANCE.md": "7266c633bb8ea5bbc50f5b4f98d30bb73b6df41a0c64eceb131a9e6358783f2d",
+        ".claude/skills/figma-components/SKILL.md": "1b3dcbcf9509bbf807ba6634e55604b7736f670a4b833a1e0edf4c9b5dce5ccf",
+        ".claude/skills/figma-components/reference/component-creation.md": "f1e12bdf7d17306653a7c4e3768cd8864b5ee3223ef4edb24f46a8945d8315e3",
+        ".claude/skills/figma-components/reference/component-spec.md": "9d552fd764b293209bcd7f0b02c089a9ed8c47d8ecd8988cae86b38d065fb9fe",
+        ".claude/skills/figma-components/reference/discovery-phase.md": "b6c9cb30faafd3452e0af661d54ee011c94e45a51ea4af411bdd29047fe3aa0c",
+        ".claude/skills/figma-components/reference/error-recovery.md": "b1e23860f8fc22fbece3c1527aebd26c4f797b6a67bc110a30eaa954e808079a",
+        ".claude/skills/figma-components/reference/patterns-guide.md": "5dd06b4e3d5a1a6b20d179fed9f5a1203caf76e617cf889b4feae72256265cbd",
+        ".claude/skills/figma-components/reference/slots-guide.md": "9198270617b0aaa09527b84e5253dd5bd010d2c19b26250cb29533c6f6d12270",
+        ".claude/skills/figma-components/scripts/addStateVariants.js": "2118ec6a6014eb0b7c342a8a9a1d1aca1c3d5b9bda8ee8f5cf2c7a97473f905c",
+        ".claude/skills/figma-components/scripts/auditComponentCoverage.js": "a02bbbbb6b7e7718bead4501fd95eabecde22ad1e77318d65dd63a3fffdf6307",
+        ".claude/skills/figma-components/scripts/cleanupOrphans.js": "c2a4c348ada63d7e36e712b2c0a63724679f24f0ce9f4ac794fd5181094ff30f",
+        ".claude/skills/figma-components/scripts/createComponentWithVariants.js": "73962e31b8efccbeb12cb12847be3686327905e705fc0e30526fa1407f64c3cb",
+        ".claude/skills/figma-components/scripts/promoteToComponent.js": "9f912c1c72d747cc9fafa174432f0517219678c11066c617d3fcdde964b6dc77",
+        ".claude/skills/figma-components/scripts/validateComponent.js": "f733bd4d49c9681b97d6e62788442bc71a2561f5e9a719f333d9c2d9328cc17d"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-components.zip"
     },
     {
       "id": "Skills/figma-hygiene",
@@ -2670,9 +3321,44 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-hygiene.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip",
-      "sha256": "f612fe04360f5a66d953bdee5100559983ad5eb168ed1c1c1bd0a0d83f4207a8",
-      "size": 46449
+      "sha256": "489949ef4cd631302a07c441f38797f4adf5c7556749b631e052f331f28eb8c8",
+      "size": 47065,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/figma-hygiene/SKILL.md": "905825be35591f974965be2e19c65518710c4ab57e172105b0fd6b6b4e32a781",
+        ".claude/skills/figma-hygiene/debt-codes.json": "addd0ac04ed912ad04926caf087ab03faa91d079a213da33ac2d9618f1e5dfb8",
+        ".claude/skills/figma-hygiene/predicates/prelude.js": "96880b1adb44f5336776bab26d736810ab9e9862f2ed38e80d277249a2643821",
+        ".claude/skills/figma-hygiene/predicates/s1-flat.js": "e7e452e67010a64058ea5cb725b78879eb3080350e823942e63247e1dd6d3a28",
+        ".claude/skills/figma-hygiene/predicates/s3-container.js": "455ae37030279149a19d295ad8596e9cf00ae5f44a6c15d81f7f57cb3626b22d",
+        ".claude/skills/figma-hygiene/predicates/s4-autolayout.js": "9a272b33d9e8abf057bc845f2cb056b5e82d6050467d6f1d63a4355bc3eb9b2d",
+        ".claude/skills/figma-hygiene/predicates/s5-grid.js": "8207ccd0ee96c82fc643952a2967175c1933e5159b9f374884ad0d0efc6f8894",
+        ".claude/skills/figma-hygiene/predicates/s7-clip.js": "e346126f02d3402fcf113d8aa5743609670cb5912bb9bbaa83c0dfd9b070cd28",
+        ".claude/skills/figma-hygiene/predicates/s8-popup.js": "6556fa57de55f243cb87707ee2e64712e52367149ae01d668bb50ae146dee516",
+        ".claude/skills/figma-hygiene/predicates/v1-nine-slice.js": "0b962a3aecfd80cbd3b708807ad8c5e8c33cf4f07f16917c504faae5392ab729",
+        ".claude/skills/figma-hygiene/predicates/v4-grid.js": "99d41731c6754ba1682e73d65786fdc00669b9bd7229db5145045ca92e4784ab",
+        ".claude/skills/figma-hygiene/predicates/v5-concentric.js": "5c09aaeebea85df2447acade34432ab84e785ea2d5c5b93a3fe32b0e6d52b783",
+        ".claude/skills/figma-hygiene/rules.json": "fea6df62083d14f7e6c9807de0949a1d336e31501b848587a4942745d2058529",
+        ".claude/skills/figma-hygiene/scripts/audit.mjs": "a3897e2e3bf9ae8ee8f7dea8a541a9df62750689c815df4473f2db91701a46e2",
+        ".claude/skills/figma-hygiene/scripts/bridge-client.mjs": "af9735d908ddc728057c47789e134e9b004c9f789076c4dc448e115fc8b00c1d",
+        ".claude/skills/figma-hygiene/scripts/rules.mjs": "8b14177fc04cd45f022729320eb3b20248e594791d4b661abb15187f27574e78",
+        ".claude/skills/figma-hygiene/scripts/tidyCanvas.js": "e295a311a00c76feef1e855606fa4dfe3a3a98f6ac4e46277fb8cd9e4d38021d",
+        ".claude/skills/figma-hygiene/tests/audit.test.mjs": "359239907986b14b2cdb9dec40eb731ca15c0ba7a3f99c6b905273ebbd1694d5",
+        ".claude/skills/figma-hygiene/tests/bridge-client.test.mjs": "9df1c529ce08d5db8dccb7db4a7c1716c98e9d63583549f6c8b02e848bdc4c2e",
+        ".claude/skills/figma-hygiene/tests/check_skill_doc.py": "050a8315fbb4b827f7299c26e23af82cfefc294f1659640344346fad0c4ac4f0",
+        ".claude/skills/figma-hygiene/tests/harness.mjs": "504e34f90b6bbda0d0e1ed646dbd773f99aacb2569c14cdec6d296073e4e2a35",
+        ".claude/skills/figma-hygiene/tests/prelude.test.mjs": "54c3fe8a03e6f7ff3f4cf3c6fec184f473b857cf644938b7f5ca47b5ff0667d7",
+        ".claude/skills/figma-hygiene/tests/rules.test.mjs": "1e4026610b3f6b32c494e69a3362d5ee9f9a9eae6881367366f7cb3abf584cbc",
+        ".claude/skills/figma-hygiene/tests/s1-flat.test.mjs": "3a62c439808515eb85f91f931caa6485e40caa9bd823ff7a26e17738c507caa7",
+        ".claude/skills/figma-hygiene/tests/s3-container.test.mjs": "0e81b78c4a4c1f2491e378bc3c05d2bbe331607de6e20152b355f37e479207d7",
+        ".claude/skills/figma-hygiene/tests/s4-autolayout.test.mjs": "e2accc10a9c7a62b4b3873907c045b2e82df125d096b8128f973be05fbc46a4a",
+        ".claude/skills/figma-hygiene/tests/s5-grid.test.mjs": "b9bc49c3a27ab1e3adebec53970310326a61a3b2a6d4b5816142f1776c47592f",
+        ".claude/skills/figma-hygiene/tests/s7-clip.test.mjs": "96dd440b1d04a227941a255553260ae718723d0c52ddac5cc638d2e7a9505c30",
+        ".claude/skills/figma-hygiene/tests/s8-popup.test.mjs": "938643cb9b61ecbc6c7d15c02e5ab02f96193bd749c8894eea725d5be264780d",
+        ".claude/skills/figma-hygiene/tests/v1-nine-slice.test.mjs": "fad13abb747dffc6c21a8efcd2277d8c64bf998028ae98a26e161ddb4feaccb1",
+        ".claude/skills/figma-hygiene/tests/v4-grid.test.mjs": "0c1ddd5aaa4fd081f9285ad2ae417afaa8e274b6ff1307a365177dbe96e38971",
+        ".claude/skills/figma-hygiene/tests/v5-concentric.test.mjs": "a5f4e7d2b6524ba874954b4774b0771ad0188898aa4106e15711cefc742dc27c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-hygiene.zip"
     },
     {
       "id": "Skills/figma-to-unity",
@@ -2691,9 +3377,16 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip",
-      "sha256": "70587236c249d2e944ccb9253088e4bd2f81a89391ec060b6a4e748a570c4a85",
-      "size": 18387
+      "sha256": "24e1bc256ad7f983aa56609d82dae759cb06cb5cba195526cd3d9fd596de6e3f",
+      "size": 18401,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/figma-to-unity/SKILL.md": "471edd6dfd56b03223aad90f667631df6bab2928beba98f8edfe7895ca2e0d49",
+        ".claude/skills/figma-to-unity/reference/prefab-contract.md": "f9df6b70cfd248f728eb5b4db1d7973a29723fb035d3e60a84f3041c6f91dad6",
+        ".claude/skills/figma-to-unity/scripts/check_gate.py": "8a4dea9cecde0b1f9a169f16a8202b47cc76d2b2cca3d583a161f2f688cef966",
+        ".claude/skills/figma-to-unity/scripts/roundtrip.py": "3b254a440a5381032d824774f2df454d3ed76e8bd5e5b292623dad99b0d65806"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-to-unity.zip"
     },
     {
       "id": "Skills/figma-tokens",
@@ -2719,9 +3412,23 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-tokens.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip",
-      "sha256": "1f23e6f5c8649e66cbc0d96e80c7818e001f23080f6b31c828f267cb108ea869",
-      "size": 35048
+      "sha256": "735a58c0ad38b6f16b4b8f5356356f42f55886544c96e5b089639e37300ea9f6",
+      "size": 35398,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/figma-tokens/PROVENANCE.md": "33abe32c2fd37f8b99edfd1a453c9e1ef75557071ccc729e8a75f674f15bf71b",
+        ".claude/skills/figma-tokens/SKILL.md": "15f1208e8baf2511b28c2fc35ff902e9ed33a85094fcf83a4e18f13c05d6c830",
+        ".claude/skills/figma-tokens/reference/component-description-template.md": "20c0cb3a01433da169a003101ca6ee5f2c034b5d001bff40bbc40f5d9b728cb7",
+        ".claude/skills/figma-tokens/reference/naming-conventions.md": "c8f9e61e8acc8f0db87ab5a8cfaf214c5df2b3c6903c003415add337f62ff27b",
+        ".claude/skills/figma-tokens/reference/token-taxonomy.md": "c10e073c9cc88ed5252eaae7209840245f803274312654f764915234d7ad683d",
+        ".claude/skills/figma-tokens/scripts/audit-detached.js": "cccc705dacbaaf6c31ba9d628237595847d3616587a9b72b5575d787423e1aca",
+        ".claude/skills/figma-tokens/scripts/audit-naming.js": "c8c051b8d136038ca96222aa361b088ad4d9813b20385385878991341580097e",
+        ".claude/skills/figma-tokens/scripts/audit-states.js": "c42813a425d19ae02c2b42f96a9cfcd35e7990478614efdbe4d3d5713d738597",
+        ".claude/skills/figma-tokens/scripts/audit-tokens.js": "669d64d2e7cedaa8985e92258d63a6087bff97b7ec683ee92941ae90eb906a90",
+        ".claude/skills/figma-tokens/scripts/fixHardcodedToTokens.js": "ab428276f5844c7c1d3bfe3f9d894a10f94668f76ff22d88d6968f09a6b83deb",
+        ".claude/skills/figma-tokens/scripts/inventory.js": "dcddda24ff3047768fc7e5dfcb33b012fae400721fa84c04b02e6cb5f3b62818"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/figma-tokens.zip"
     },
     {
       "id": "Skills/fix-bug",
@@ -2737,9 +3444,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "fix-bug.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip",
       "sha256": "d22cfb35123aeb90ea9750e059431292e9c324910df1fe8645d6d6089ab427cb",
-      "size": 26821
+      "size": 26821,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/fix-bug/SKILL.md": "7b87987c2359b8b53ce080adde0cfbeb32892bee2e39b64371140fd1f4ab5ab2"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/fix-bug.zip"
     },
     {
       "id": "Skills/game-animation",
@@ -2781,9 +3492,39 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-animation.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-animation.zip",
       "sha256": "d9e7e994d90f1ad02017edf4db31cdfa1a9184441ab61cceddb1478a7e1eb20f",
-      "size": 111674
+      "size": 111674,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/game-animation/.gitattributes": "558256b391f94034212e5a2a436acd448cc8e9ec4abb5e66b9ab122a3714a040",
+        ".claude/skills/game-animation/SKILL.md": "dc2ab00fcb1979f90402048ee1734877dfa127046fac7457290d3bf5836d4e0c",
+        ".claude/skills/game-animation/docs/CHANGELOG.md": "9f94419d55e0db859b5b587de231bcd3072df99c3c29e9f4238f38df498caa1c",
+        ".claude/skills/game-animation/docs/GameAnimation_NguyenLy.md": "cb1ba30c4b0807ff6dfb0b6dd5017fee8b58ea8d450e5789896f46e1ba894bef",
+        ".claude/skills/game-animation/docs/GameAnimation_PackExplosiveLLC.md": "458f831a3d0e80706182df0ce66984ea484d04645d4a173b01605c31c01d09c1",
+        ".claude/skills/game-animation/docs/GameAnimation_QuyChuan.md": "1e3cc00e352f41933b71f809de852c15a7cf2d7a41d3158d92500d22f5561543",
+        ".claude/skills/game-animation/evals/01-clip-chay-2d/case.yaml": "3f9aa2c497de1a3341262b36f60f4b9ae477924aa317d479b0dbd6ec15b0e0af",
+        ".claude/skills/game-animation/evals/01-clip-chay-2d/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/02-mixamo-import/case.yaml": "e9f36d009b129e873374a7d29aac4152d5d533933e16aa1195e52bfd83a81779",
+        ".claude/skills/game-animation/evals/02-mixamo-import/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/03-xuat-fbx-blender/case.yaml": "7003bb5de452b72a305e6f4469610fbb04b819caeacccecec6fb1dddbe4f3b3c",
+        ".claude/skills/game-animation/evals/03-xuat-fbx-blender/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/04-animator-controller/case.yaml": "7da5b58fec7a4a7ba7c9613798cb3ee84dd1fbefbad2f8f493fd7d57152ba1fc",
+        ".claude/skills/game-animation/evals/04-animator-controller/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/05-frame-data-don-nhe/case.yaml": "e459425476370138103e0bfbeeba2d30b620402da4ddafac74b31873cd217ff2",
+        ".claude/skills/game-animation/evals/05-frame-data-don-nhe/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/06-hitstop/case.yaml": "fd23c5ff3e871875b96a5125d67c37beb1093b09b213567e882911e91e14d3a1",
+        ".claude/skills/game-animation/evals/06-hitstop/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/07-rig-2d-psd/case.yaml": "095c0d1e98ece598bc78763ab94d6ed75e4dfc1d218889a394c909a1e9208e29",
+        ".claude/skills/game-animation/evals/07-rig-2d-psd/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/08-pack-mua-san/case.yaml": "46fca385152a5233219fe0d420504dbd7ea3fe069227535f1011f6c09513c15b",
+        ".claude/skills/game-animation/evals/08-pack-mua-san/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/09-duyet-clip-idle/case.yaml": "38400359ea57f3a93342f7052535c17c983eb0807b983f980fef4bb7df918892",
+        ".claude/skills/game-animation/evals/09-duyet-clip-idle/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/10-ui-nut-play/case.yaml": "4f4b37c69794af41694bbcd3bbe54f9909c152f8e5ce5df2adc991fbff7b97f7",
+        ".claude/skills/game-animation/evals/10-ui-nut-play/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-animation/evals/_shared/scaffold.sh": "5c90fa1408db67b7277612658042bfe526ef6fa14db3b6bd36bb0f0373ce0a52"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-animation.zip"
     },
     {
       "id": "Skills/game-docs",
@@ -2799,9 +3540,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-docs.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-docs.zip",
       "sha256": "42ebada2914edfe62c3d2755b0d84f55e530a49087a88295f8515d9617baf6d3",
-      "size": 3055
+      "size": 3055,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/game-docs/SKILL.md": "0d13ae37f04a5ac0fd43a9818f3a31283fc2c95bbcb5a918d623c4dcbcb55f60"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-docs.zip"
     },
     {
       "id": "Skills/game-systems",
@@ -2817,9 +3562,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-systems.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-systems.zip",
       "sha256": "eecb8c1d3ad7f601186698f49d056a0848ecdf201f29bd64b1cc194554fbfd07",
-      "size": 1889
+      "size": 1889,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/game-systems/SKILL.md": "516eeed8234bdc713a3adf7249870f71f3d6117b672fa4c1be16f72be059af6b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-systems.zip"
     },
     {
       "id": "Skills/game-vfx",
@@ -2940,9 +3689,118 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "game-vfx.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
       "sha256": "bf4159eeced8415fd8c81f27ea684b3743d5e53eaee2684bf01c711d2ca5c93e",
-      "size": 1654855
+      "size": 1654855,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/game-vfx/SKILL.md": "9b6b4e344a9808f0ffd5c40370a8046a332037ddcc8a6b18c70a7666f74191f4",
+        ".claude/skills/game-vfx/docs/CHANGELOG.md": "b4fd06e6c61861ebf4775bd7b0260342be97c9546e418e5bfe9d06a09b660fbe",
+        ".claude/skills/game-vfx/docs/GameVFX_NguyenLy.md": "d53d08a85064decda048333240b2f9c44cacaf2fac8ec8177cc4ddaeca4cd398",
+        ".claude/skills/game-vfx/docs/GameVFX_QuyChuan.md": "3288d507026e506a785818055f1afa3d7c993113de8829b878a57619872e7fbb",
+        ".claude/skills/game-vfx/docs/GameVFX_ThuVien.md": "ae581d4dcf1a0d107a23542d3bcc6f34f00c8b8b4e7ea1524cfcd815ad7f0375",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_Acid_Loop.jpg": "b12db9ab3b2e86da5f756d446ddf0c0a7b6cf6a5fd3b1a91efbc9efef677622f",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_Fire_Loop.jpg": "8c76d7fbe07e251455f79bd2b55644499295ede631e8ac860288e1cfd8c4b51c",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_Frost_Nova.jpg": "d596a2710d084311eaf42d805bea0d1ce1f96b0963015c63ac242280639aec06",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_Heal_Loop.jpg": "f97e178ceb766d62430c4333973c8e1eda95aaff96beb76701e69a042bf6c6d9",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_MagicCircle_Blue.jpg": "3434c7ccc821bd16ff1437d1265605d94fddc5ad8ffd96198d00c411ce950f38",
+        ".claude/skills/game-vfx/docs/Previews~/FX_AoE_Poison_Loop.jpg": "2fcc38b893ba004ca6278da5e7fb07be3b4025e8d6f3bc677171a38f1a1cbe56",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Aura_Magic_Yellow_Loop.jpg": "48086fe997758cd256e73a1d0c302546700fd86d432878d0c821b51cc9495488",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Aura_Soft_Green_Loop.jpg": "de8f38743855a0dd8b9335573818f29603eca7b24631608b3c703c40af15451b",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Buff_AttackUp_2D_Loop.jpg": "61acce7e2469e1f203b9ccd03e27b44db7a8f891273a3239bc1d5ec38d2eda67",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Buff_Enchant_Yellow.jpg": "6d99f843f08a5205bca244d6774a91c4b776a1fcea0260a70741fdca9c425358",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Buff_Haste_2D_Loop.jpg": "faa177fc1642dda078779ddc815359a3db319d646a0f10d47ac693ba266f3cc1",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Buff_Magic_Yellow.jpg": "ac90ce5a9e81cdb1614cd5ee15afe56ff0728ce9b076b36a78304a7c41631f2c",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Death_Building.jpg": "20ee7a1a4aa95dfe63eaf4e447c2d14de261eff84b6f7d5e704f955f33afc659",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Death_Soul.jpg": "731d8901f401d41d954f08d3ccadc6fb2cc3273101b6463c2ff6b6a612037d75",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Death_Unit.jpg": "6c35c02eaa5b9184a954aea74f0d15dffd658ee9d04e09bfcf9a8dbce4377ebc",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Debuff_AttackDown_2D_Loop.jpg": "6751afa7bf96c6efbd165d75317034b28b093decdc6b5d4e58388efd16d6c1e8",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Debuff_Slow_2D_Loop.jpg": "5e32f4c0d46ccff7c349cfe8346f409f97a74d53269219576af3e9d6fbe87195",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Env_Confetti_Loop.jpg": "69819d7478568f8bf7e9c5ac2ad87f842734162e60a435de5c3df80c381e9338",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Env_Firework_Blue.jpg": "26dc48194767ef27cc43b3129c286d63c0127530fb8df03070f2d2ce430ddb0c",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Env_GlowOrb_Blue_Loop.jpg": "de987298d99301668569add94f18bdf6f2030292f2601a5586d85c44ba575afb",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Env_Lightning_Strike.jpg": "8b614b28c7abc0d40c79dae544160382b6b2d56a44469d48b9151a5e0e90f7ad",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Building.jpg": "9c6272077fd61ef28b2c146e612e7f2d541fbfdd4e6760521d2d0ffdadc2af41",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Explosion_Fire.jpg": "6f22076af2f29ae802b4056671fcedfde430b0f130e617faf01ada9ed5888d70",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Explosion_Grenade.jpg": "c9ad48cd45b259f616315d47efd216d7ecf320a0af2e2f3ae76b1c77179761a0",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Punch_Heavy.jpg": "cfa5145f238fe5679dd833842ae74b3ee462e752dabb964ebfcc604c6bab7168",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Round_Yellow.jpg": "96cc8e39c621a759488a431da90d62f33d084851dfe6fe7434c19d302c24af21",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Slam_Soft.jpg": "39e37569e5111b334bcaa44269492c70c2bf6ad0c2699b240986bdcaa1103a34",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Smoke_Burst.jpg": "cbb0e489d223251e86eb80d90c254f4edadaa14811bdc5a7d044fd3d94004668",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Spark_Yellow.jpg": "7be09bc9bd398abb35e1df1533b1591fb9a66bc6b87ac70b9c529b4ceeef3a39",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Hit_Sword_Yellow.jpg": "0ba73cda0f1c4b1498a2dc92e750fc4a35dbea117311f68033bc256b5c3b0abe",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Muzzle_Grenade_Fire.jpg": "a5496ba29b5dd2f65ff77a25a14396178f5c6de22bdfb9e9b82667514a09fdca",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Muzzle_Standard_Yellow.jpg": "849556a7bbf55bf6a03acc77e8ccf81bc563fc2a061c3aee86be1b80939aa36d",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Pickup_EnergyOrb_Loop.jpg": "c2da002607e16a294f941bbaa8d0434067f13d6d35c61d79ed0687e2662d400b",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Proj_Arrow_Loop.jpg": "b7ae97ad5b75f0d007d21cd4dd69fcd5e4d5b47d30ebefa80a3e1e0a3785a46a",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Proj_Energy_Green_Loop.jpg": "d246aaf7e240cf239b3acb675b9d6ede0692d17642781786a1112212d671e359",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Proj_Fireball_Loop.jpg": "980f7997d65ed7e58a9bbe6b8fe6aa2c488df9493a9fd1ab408335a6ee9c8f91",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Proj_Meteor_Loop.jpg": "ff101c34bfdd5904909c33f55f6341a78c6f794b3c2f81b14beceb0349530fd5",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Shield_Block_2D_Loop.jpg": "ce01e3ba30273ffde5a4b6fcaedf1594e272fce216e64dfd832dfaaee02a5716",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Slash_Mini_Blue.jpg": "2ec666ac39315282ec700828d6b657872afd295355cb10cfee8602768f8afa3b",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Slash_Thin_White.jpg": "3c084cf3090429a8a80a37c1a6f0404551ada5a0dff9901d61239904d0e2344a",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Slash_Wave_White.jpg": "da3f5a1580eb2b17a648976f74f7a3260fb0e9b6c0a4209abebbbfe2c61df7cb",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Slash_Whirlwind_Red_Loop.jpg": "b0370515aea1c1fa26758d2e0387a9af4502721373424134d05db8670a08d67c",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Spawn_LevelUp_Yellow.jpg": "95d84e66f0f5e0a5584fef745e954fb17f4cab354e7e8b077b2c4efe260d8e45",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Spawn_Summon_Ally.jpg": "594d0ae839454a130176f608a8af694180025ca4d54bc2f070442caa61d51295",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Spawn_Summon_Enemy.jpg": "497ce47346519a591135d74902d422213f7c879408204c881cd3c5c3afefd129",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Spawn_Upgrade.jpg": "0cb0e86476d92441cc111bb47ee49ab50b2afb8013a97e73f615229687c0e4f5",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Status_Burn_2D_Loop.jpg": "f07c774095d7db3b2c5742b7cb1b641f5969f80114012f14b2a15ae78fcc707f",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Status_Burn_Loop.jpg": "c89c2c94a410f20f79dc408a51eed9734eab6d725da2369f02ed0e9c8e8cfbc7",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Status_Fear_2D_Loop.jpg": "d51b9967b703043f9fbc81a4a7baa1f0ff460dc13f3a1617f642f0839b3ff668",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Status_Freeze_2D_Loop.jpg": "580d28f58c68602b563b6be60bcd8113823c815c7b9e9563f339b682fb4bbf42",
+        ".claude/skills/game-vfx/docs/Previews~/FX_Status_Stun_2D_Loop.jpg": "94f6e99b1aff431df1e15b2b78acd3e5546f0bf4606a9cdc8c4d8fd7748450e9",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Boost_Impact.jpg": "f7336c9765392dc627c2a4cddcece94f041f2f0f3eaa48b64f1242cb22aa3de2",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Break_Box.jpg": "454e3d45bb66b3b5c00838d8c1690ba1b891fedd807e9eac4ec24155846adec6",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Complete_Burst_Loop.jpg": "f58cc4383fd861e327a31484ad8df29395239c74b9ba1a3f99babf75c90cd2fa",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Complete_Idle_Loop.jpg": "a49283dfadf813afe064869b2c9bea3a91ec2e86db449d3f3652406924cb34e7",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Done_Item.jpg": "ce2fc02e2c5ae0c8f464fd0279cdbf25cbaf93bb511650d06e4d71de62ffa9d3",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Fire_Loop.jpg": "e04fdde216a36463f356c816d13f0afe4745356a30a5e8f42b6ccdd107c22bb7",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Merge_Impact_01.jpg": "16cc1c5ea9cb65b163133cf234028463ab5ed634feaee121d5aff3ce1f80f7c0",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Merge_Impact_02.jpg": "3eb2e22126b06e1e32161506465e5f57c7596737fe557fbfd280f1d3a136fd88",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Merge_Impact_03.jpg": "fa5f7acf2dbb5798722a4c0301dcc32108207c75ff71903de890257aca48cd9d",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Shine_Energy.jpg": "9a7922cd6b99f9c74f8e4d5a666e4b91d1589976376816864075ada41d358d87",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Shine_Exp.jpg": "2106d39912d3ad0736b43b6db906e1febd9d6ef2ddfbef89dd5a2e521eee19fa",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Shine_Gem.jpg": "3139476615678ba118d511d6c26e856c7c35b4c8f934fe9de6029a9278a6ca97",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Shine_Gold.jpg": "592de00ef1a7bfee425f212448fb2e0bbf69d103eadec368a4fcbde498cf41d5",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Shine_Star.jpg": "624761a317017ef59cc39c2de76a5a2942390d72c68b65a92fe45ad66c49dd4e",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Unlock_Impact.jpg": "0262bd9d02791c74bf1127b82caeadd16fa68ec08b931f18aa810821e621e83b",
+        ".claude/skills/game-vfx/docs/Previews~/FX_UI_Use_Item.jpg": "99476973423118206ae4e94cdc58642e670306e5212b1c90620a341f847ef5a2",
+        ".claude/skills/game-vfx/docs/Previews~/_sheet.jpg": "e22a8306208a1fd6d3649218324f6d8399bc21fd982f7bc7503d686bc4d24ec0",
+        ".claude/skills/game-vfx/evals/01-trung-don-co-ban/case.yaml": "ab84ca5d56fd2891d8f93b525a8b2169b574e37986126ebaf9f8f8cbaf49a2a8",
+        ".claude/skills/game-vfx/evals/01-trung-don-co-ban/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/02-thu-vien-pool/case.yaml": "26ab29ecb2d246e6009173e875f7161e4c420ebeba962de21ee2a3dea7c86889",
+        ".claude/skills/game-vfx/evals/02-thu-vien-pool/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/03-hat-tren-ui/case.yaml": "943e09974e80160df8abf5f5f1c9e2d6063b7c75fae4d1ddf8f453c262b1425d",
+        ".claude/skills/game-vfx/evals/03-hat-tren-ui/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/04-duyet-toi-uu/case.yaml": "6e28d8dd32ee89a36a9e9d3ad14cb4597cb499a401bb8a944adb2ec25fdd7e81",
+        ".claude/skills/game-vfx/evals/04-duyet-toi-uu/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/05-pack-mua-san/case.yaml": "4fbac8b7f60b52597a7182e5dd54697b63ac5c70f7cb49a73a2f00a38d6645d9",
+        ".claude/skills/game-vfx/evals/05-pack-mua-san/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/06-khong-bat-ui-tween/case.yaml": "ac68bb17c8699e43d4133a25623947043a61f4c5889dc912747c47065ddf8f99",
+        ".claude/skills/game-vfx/evals/06-khong-bat-ui-tween/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/07-khong-bat-anim/case.yaml": "311a16156f237640a5cddf66c15cd93b6172960cb6c77747cce6d6975951f7ed",
+        ".claude/skills/game-vfx/evals/07-khong-bat-anim/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/game-vfx/evals/README.md": "658425ea00d0b7244b9d51fcc4b753cc689b556ecb4ac519fc4ef80c85291a28",
+        ".claude/skills/game-vfx/evals/_shared/scaffold.sh": "00a9e9a1d8af9a95c0210f1aa3434331dc05e5b9d90a6e1c2ff89a949234443e",
+        ".claude/skills/game-vfx/reference/painter-api.md": "1e58ba149bcfb603baddbf309ec4715c6aceeef0b31acf93c34e643fc824ddd7",
+        ".claude/skills/game-vfx/reference/recipes.md": "b04e985a786e1a7e9535ce698df4fd9929bc668591992fb2f063bdb922e1aac1",
+        ".claude/skills/game-vfx/reference/style-guide.md": "113c2be2f8a52bcfd54273ddabc17d9740105d3aba66d3a6f18a3297588fda71",
+        ".claude/skills/game-vfx/reference/unity-integration.md": "cb8eec74e7f510736446169b1414204b107adfb1ab4c2ffe2c4f520f341770e3",
+        ".claude/skills/game-vfx/scripts/fxpaint.py": "2a940d72081f665b330af9aea7634caa10be7794e1e221cb99b47daebac7e765",
+        ".claude/skills/game-vfx/scripts/make_vfx.py": "bb71bd86cbc489db3f142e932f4016c92dbb9d59c09198a3c2e4275574c67028",
+        ".claude/skills/game-vfx/scripts/report.cjs": "20965078162e5c8af2dace5e2765716c5101b83d0a54478cb0a3e0a87eeb7b33",
+        ".claude/skills/game-vfx/scripts/templates/_mat_ab.mat": "2f79b7bf620e7f693d448f4dc091c05794de8f0fe9a1a8c21740fad52bec4d99",
+        ".claude/skills/game-vfx/scripts/templates/_mat_add.mat": "f92a2f02f283afb45b6e814f44032b71e9ef7e86b2b1cde644f26b110c6e8de0",
+        ".claude/skills/game-vfx/scripts/templates/vfx_template.prefab": "3c5cf7ed922e3d4a625e4bb13627f188ef3fae6ffbf695eeb2ca6b4130a5e849",
+        ".claude/skills/game-vfx/scripts/tex_report.cjs": "3c06486a0fb07edc836ba0a142ed60ac4fd5ec100c2ebcbceba845bfffccc637",
+        ".claude/skills/game-vfx/scripts/vfx_new.mjs": "32bf1e38aa917c6006cf64d7635b9fd7333937f024a6394c398223d8f6dbea14",
+        ".claude/skills/game-vfx/scripts/vfx_recipes.py": "7fe262ae58398d033f1c227c57151dc61cfc334d3e775689e35c0ee301e548b6",
+        ".claude/skills/game-vfx/scripts/vfx_scan.mjs": "e45462d2a3e73430123613211708f8aaca69cc3df3ab2a2d65ae7c13a4951dea",
+        ".claude/skills/game-vfx/unity/Ezg.GameVfx.Editor.asmdef": "e6f3b0b763a8df17a8fe349b3a02c5db7b5148e82928880e4ec63e3bcac5adcd",
+        ".claude/skills/game-vfx/unity/GameVfxPrefabBuilder.cs": "e788638ee304adf53216ae0f6a30b0473b552a6f50ce4f3606e01e128a746d16",
+        ".claude/skills/game-vfx/unity/GameVfxShowcaseLoop.cs": "c20083abf122a023c49634653fe383cdf56f07ef035d0663d08fecd49cb38f18"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip"
     },
     {
       "id": "Skills/item-preview",
@@ -2958,9 +3816,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "item-preview.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/item-preview.zip",
       "sha256": "8c28f628fe0f09679ddbcdf86f8ca409ece26d9c857fcd2bc9cccb2150d63602",
-      "size": 1667
+      "size": 1667,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/item-preview/SKILL.md": "51c24a266809428812860fce3e060d0b02c9d05215b922b214c02434652eb761"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/item-preview.zip"
     },
     {
       "id": "Skills/package-module",
@@ -2976,9 +3838,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "package-module.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/package-module.zip",
       "sha256": "947163916258c1a0a5330d44cdee348228f88af05f1b57ccf456bb14cac9bd1b",
-      "size": 16704
+      "size": 16704,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/package-module/SKILL.md": "14c0fdca1b2ccc412fab2e06b6d0956a77cb10151fb1a532940e9874ed8cb26e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/package-module.zip"
     },
     {
       "id": "Skills/planning-system",
@@ -2994,9 +3860,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "planning-system.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-system.zip",
-      "sha256": "c7fba7822fce0e68d628b2cf4bc49abba9471fd8c30fff89380ab6c4d60b9f44",
-      "size": 8698
+      "sha256": "bf9e3ee1bdc8c3cac15a89a6ecfd00c9758b220f8bd937fcc5eaaa008ece385c",
+      "size": 8706,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/planning-system/SKILL.md": "541d80ddfb86a40a9f30dec30f4fad5d96a3d107d641a78e0fb7e51d7d9c0a37"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-system.zip"
     },
     {
       "id": "Skills/planning-task",
@@ -3012,9 +3882,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "planning-task.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-task.zip",
       "sha256": "63f03de4a6c3bd568ccd8d26426e02e3cf2236fbe529d749d9e488fa600c91e1",
-      "size": 14170
+      "size": 14170,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/planning-task/SKILL.md": "dbceb4d2c557e1a608afa428a08d8440a26a8fd5702816cef180d7575011b963"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-task.zip"
     },
     {
       "id": "Skills/pooling-manager",
@@ -3030,9 +3904,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "pooling-manager.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/pooling-manager.zip",
       "sha256": "f9b4858cc7304cd70dcaf30bdc497464855445e5c9f6ccd1b194198a8749a985",
-      "size": 1837
+      "size": 1837,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/pooling-manager/SKILL.md": "1e4623b974bc5669fb1f4ed476ebef5cdbfbfaa0a6ce7c57fef776185f41a070"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/pooling-manager.zip"
     },
     {
       "id": "Skills/psd-to-feature",
@@ -3054,9 +3932,19 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "psd-to-feature.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-feature.zip",
       "sha256": "3a596abb3effa66d4364fdad8767b65d10453e0870cf22aaf35a966b16625695",
-      "size": 31304
+      "size": 31304,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/psd-to-feature/SKILL.md": "2a905e437f3a2fb8e2dfe1c554e22e34a14cde2b3427752fbc944581b52c432d",
+        ".claude/skills/psd-to-feature/reference/PsdLayout.cs": "4d3eb1050cd0ac5a9765e89930e6cee9b01fd4fd60c698013a004882b1670fce",
+        ".claude/skills/psd-to-feature/reference/example_map.json": "20b1637c299466be24ef0fc2ee335e927b8bc2e1ac24a82cb79f2e6edf804dd0",
+        ".claude/skills/psd-to-feature/reference/example_sprite_meta.json": "4dab71413351460abf986954c164ede76ce7d7ab956e15759c0b0368fd9acf82",
+        ".claude/skills/psd-to-feature/scripts/apply_sprite_meta.py": "9fe0a9dbccf0d74963e3c4ef3757cf99fe2fa9e28573592134d89f036843ca8f",
+        ".claude/skills/psd-to-feature/scripts/export_overlay_frames.py": "d528043a489b9f9582d2dd424e2248e8d52ae8b2b42a510fa9051831ae0446d3",
+        ".claude/skills/psd-to-feature/scripts/psd_export.py": "1e790df28fdff361c6d99d561d15ceaa05877b2ed11de12d04e69cf048a3b48d"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-feature.zip"
     },
     {
       "id": "Skills/psd-to-figma",
@@ -3110,9 +3998,51 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "psd-to-figma.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip",
-      "sha256": "7c95a8ecd2910001542d7186c3ef2756cbcb35f15e2a53e53621eace78e2105d",
-      "size": 109812
+      "sha256": "8553e45b85c5c3237f6ecf31ffb5e3fa1cdab8d0ba38e56b74d115918266bd5a",
+      "size": 110257,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/psd-to-figma/SKILL.md": "704ed2d68a8482062d343a3cfe88ed1b96c402c764d98f95ec08b20443722501",
+        ".claude/skills/psd-to-figma/reference/briefs/art.md": "d88441136ec3161de2fdf59ea1fcc3ab3bace69a155898fd6ae16c5c815937c0",
+        ".claude/skills/psd-to-figma/reference/briefs/components.md": "9849ca4a55bc0f13829a59ebe4959276de7b0669bccccd780ecb7ea787cf1677",
+        ".claude/skills/psd-to-figma/reference/briefs/data.md": "1c8d94b5af3a834161ff7a421a5f379f230c99240bee8631480f8938d7c7a4db",
+        ".claude/skills/psd-to-figma/reference/briefs/gate.md": "428432c9b9ff2e27db950a6f7d9491a4bd4844b40f394a22f6f07f3c4ae364fa",
+        ".claude/skills/psd-to-figma/reference/briefs/screen-build.md": "59da4fd46d11685802a917bd82c23335120689428b20c68af2ee6ee5fd8b0649",
+        ".claude/skills/psd-to-figma/reference/briefs/screen-verify.md": "552c6650247e45323b23f00e63494b13c98244c896558cd88586ddf113aa0b32",
+        ".claude/skills/psd-to-figma/reference/checkpoints.md": "3194fddde96be20b2bb049fee9de3cfcb0580bcb40e41d3d3073797cfdd2432a",
+        ".claude/skills/psd-to-figma/reference/component-registry.md": "691676b96bee674f07551b02f02d1fc88583712ab941f7d3bbf5c026434929c9",
+        ".claude/skills/psd-to-figma/reference/contracts.md": "0023ec9cdc52c0f8c130b60f7621953bf743fbd65737cbf68256a17628c8c471",
+        ".claude/skills/psd-to-figma/reference/figma-traps.md": "0f144e10a92be48243bfb4b938e7d71b5343ec751ffe0c953cd1d1591548ad74",
+        ".claude/skills/psd-to-figma/reference/nine-slice.md": "3571ceb130f9126d23be3f14a14478dd901ad57eb0a1d6acdf7730c7cf7687af",
+        ".claude/skills/psd-to-figma/reference/psd-authoring-contract.md": "d43f947ebccfeebd5e22da238115172a4a281dca2f79564192a65c954e43c1f4",
+        ".claude/skills/psd-to-figma/scripts/build_plan_gen.py": "cbc9597a4e7b646b0997fd18016688ba6f2ab18177e9e0280a488ba9983b5cf6",
+        ".claude/skills/psd-to-figma/scripts/build_plan_gen_selftest.py": "532f979d4b7fb77ffd7b02f9f2759fbcf41e82d796354e75fe5e10b1d65b45c2",
+        ".claude/skills/psd-to-figma/scripts/figma_build_gen.py": "de4511311994027a428f5977b63230acd6c6342783b242cceec3157c379957a9",
+        ".claude/skills/psd-to-figma/scripts/figma_build_save.py": "d2091cd6aefc0c70ad0a651cc910f05c1af0861093f7aea69a35042103137640",
+        ".claude/skills/psd-to-figma/scripts/figma_extract.js": "cfac5f9b9e6181312beea733b7531c6763ddc8b88f88700520fd68a0a7da3c3e",
+        ".claude/skills/psd-to-figma/scripts/figma_extract_gen.py": "2f5c153ae5efd2362e5dfe957f1e011afeb84200043ff4ec9ee6e929e2fbdb47",
+        ".claude/skills/psd-to-figma/scripts/figma_extract_rest.py": "35909cfe9253a83df498a5c0cce162463cf31881b7244a5c86c7cd440c9fa6fb",
+        ".claude/skills/psd-to-figma/scripts/figma_extract_save.py": "05a15972db2163cefb18130e522f3b9a977c223a0af728d7bd52d0fcafe1a974",
+        ".claude/skills/psd-to-figma/scripts/figma_upload.py": "492c0a7de56a9b736317ff62dbf296b701cf5abcde5b4a34e4a5c44e688b1046",
+        ".claude/skills/psd-to-figma/scripts/names_migrate.py": "24ca0b68a4dec737836239ce90c3e043ae793bfc9bfda37517d4b4c261d073f7",
+        ".claude/skills/psd-to-figma/scripts/nine_slice_detect.py": "c61b0d47c6c0445daf59623b70bd395307f4c996771559877c2714a74038d117",
+        ".claude/skills/psd-to-figma/scripts/pipeline.py": "a8392a6ef1173cc0c35461dc74ca0ca145ade726c442ff88911a2592c7dfad40",
+        ".claude/skills/psd-to-figma/scripts/pipeline_config.py": "57d95f0eea46b227874a6323e333b92b971edf91323e8f07d625972aa23097ef",
+        ".claude/skills/psd-to-figma/scripts/psd_export_icons.py": "5b7572f5045c0f849a2650c7d5632167a34f6adc78fddd1b8eedbbc08d68dd73",
+        ".claude/skills/psd-to-figma/scripts/psd_export_pngs.py": "68aa02d5b309ffddd1b2f7e2135627a3c1ad28d100e426ef86ed3cbf98893156",
+        ".claude/skills/psd-to-figma/scripts/psd_lint.py": "ddf7e224c57cac3cf2db6fc0718a2cf9f3a824716692a4ca59e7878afb7079e7",
+        ".claude/skills/psd-to-figma/scripts/psd_manifest.py": "492496fc4390387c8abd3db1b6c155b78144ac5fb740e0905aa9e76ee70b4468",
+        ".claude/skills/psd-to-figma/scripts/psd_opacity.py": "f719a443535ad2dc10dada6b016fe8c7cc9c98798b979aa7805eb1ed11073b13",
+        ".claude/skills/psd-to-figma/scripts/registry_add.py": "c48f280d4f10baca6919d08a37ee037be2065d8dee02b9034261ac0c3a3fb5f3",
+        ".claude/skills/psd-to-figma/scripts/registry_consolidate.py": "e709964319c4d6f94fab3d9c0622d9e3a8fa668c48a0748d1b580d40e47a34f9",
+        ".claude/skills/psd-to-figma/scripts/requirements.txt": "0e8e5f2ff7f32dd76f2c646d360411470bb5026e6522eb574beb5571de49afe7",
+        ".claude/skills/psd-to-figma/scripts/reuse_plan.py": "439241f06ea8c01e21f7a624d963605cb1fa446c62cb5c024fa0ed7e4397de4e",
+        ".claude/skills/psd-to-figma/scripts/text_ink.py": "479cf679cd54006fee3e1c0521167b26c9e8fa49c61b48e0504596c158c3c6bd",
+        ".claude/skills/psd-to-figma/scripts/verify_figma_vs_psd.py": "df2d578d91450155e76e44dbc9147983387e318717363d93f7a4017e7c1c4499",
+        ".claude/skills/psd-to-figma/scripts/verify_nine_slice.py": "7179112c149a344702a9972c85968389d08b6a4cd0eee4d5e2e71de23c72efb3",
+        ".claude/skills/psd-to-figma/scripts/visual_diff.py": "875985f7267aca032954a73c0fe97f57b6e89b73009ad4f74d9354212f95762f"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/psd-to-figma.zip"
     },
     {
       "id": "Skills/publish-ai-features",
@@ -3128,9 +4058,13 @@
       "installedByDefault": false,
       "source": "extra",
       "fileName": "publish-ai-features.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip",
-      "sha256": "4da6046c1bbef8ecc760aa157bd220d8e5ed0e39890aa7a184c8eb1e3f75cd3f",
-      "size": 5451
+      "sha256": "61db6dd01fdeb625819d0c5a1c4eb7b9a11aec27d501fe463294f1fa8cfc33c3",
+      "size": 6111,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/publish-ai-features/SKILL.md": "82c1d1ac073c60c3c91bb95a720344a8cf23a72c112d386c646bcde7601ba05c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-ai-features.zip"
     },
     {
       "id": "Skills/publish-feature",
@@ -3146,9 +4080,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "publish-feature.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-feature.zip",
       "sha256": "5d6d8da2724f6cf3792ee796f9e3860a6c47156353145809bb4e34af9e5e5a34",
-      "size": 6353
+      "size": 6353,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/publish-feature/SKILL.md": "b307034a06e2441128888627244ec048416cabda8c68981f3235e90dc4ec3045"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-feature.zip"
     },
     {
       "id": "Skills/publish-unity-package",
@@ -3164,9 +4102,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "publish-unity-package.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-unity-package.zip",
       "sha256": "a9645e2030473390edb6fd627e265e6d3f35917e579844c3d8d6e9533cef079f",
-      "size": 8187
+      "size": 8187,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/publish-unity-package/SKILL.md": "c5e4c3ea2911b24404baea9e2faa9568f1311255533784fa08a548ffc8618a62"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/publish-unity-package.zip"
     },
     {
       "id": "Skills/purchase-manager",
@@ -3182,9 +4124,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "purchase-manager.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/purchase-manager.zip",
       "sha256": "1d266d1f466d6fcd2470edc63e1d008b822eb2f76ab2cba4498afa5477fdc25f",
-      "size": 2305
+      "size": 2305,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/purchase-manager/SKILL.md": "f194fef32ceb0343e622c23172fa5df3452723550b6a4b238b88c0033aff912a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/purchase-manager.zip"
     },
     {
       "id": "Skills/push",
@@ -3200,9 +4146,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "push.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip",
       "sha256": "a54a32d85253022073f005aca5046cb7c41fcaebd01dc42803e88fb02acbbf5b",
-      "size": 1650
+      "size": 1650,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/push/SKILL.md": "1bf2f5efd9561146c0877a45d1d717e57197064b6ab29d577e27c51f167e54cb"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push.zip"
     },
     {
       "id": "Skills/push-in-session",
@@ -3218,9 +4168,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "push-in-session.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip",
       "sha256": "764c11d5eb259cc54d835dbbadeb7ec4dd61e3984d352d9a97bc0e726b09f011",
-      "size": 5675
+      "size": 5675,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/push-in-session/SKILL.md": "727ad37b74dcbed6b4c9658e6ad72ed413e57b35fc35d74643f9479f33a25c86"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/push-in-session.zip"
     },
     {
       "id": "Skills/refactor-ui",
@@ -3236,9 +4190,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "refactor-ui.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "2bc13ff755798cc988fbbcc1c64314f6193a5572f22715a4396c8f4e759ffddd",
-      "size": 14716
+      "sha256": "caacdaae8347837e9e5d17b15e5d967a57b61a50ecb576f5839f0a3ad9fa94f8",
+      "size": 15605,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/refactor-ui/SKILL.md": "6d48639d6de3c594676fe40958f4c162841010711895fe1382fa04f664c5fc4a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip"
     },
     {
       "id": "Skills/restart-unity",
@@ -3256,9 +4214,15 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "restart-unity.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/restart-unity.zip",
       "sha256": "eb118d0b58cbc27ebd78327db95d6a33e0cd887fe68f9ab7758c5b4a6ed3c9e5",
-      "size": 9486
+      "size": 9486,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/restart-unity/SKILL.md": "1d1bf13dc8cdb8e96cb87655b4be84531b6e828b872605efca5f33584fffb654",
+        ".claude/skills/restart-unity/scripts/restart-unity.ps1": "913834084ffe6ce300ea4be2ad08fc88bcd44c957706f51e2087186948da782f",
+        ".claude/skills/restart-unity/scripts/restart-unity.sh": "6ca98c0af2c720f3061d3f8bc61fff42b86e7c822aba0567bb452f03d154c25a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/restart-unity.zip"
     },
     {
       "id": "Skills/rewards-service",
@@ -3274,9 +4238,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "rewards-service.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/rewards-service.zip",
       "sha256": "8b7bbb6e20dd57af18986ec40c27e6dee1e1d1e96d8f64af5161fb2c7bde9ebf",
-      "size": 2064
+      "size": 2064,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/rewards-service/SKILL.md": "81735125b2b64f6314281e32b7c8d900caf9d6ceae6613ad98c26e3192ec87c7"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/rewards-service.zip"
     },
     {
       "id": "Skills/run-backlog",
@@ -3296,9 +4264,17 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "c64d183cd0d5c070e7df615cf9dfea6cb0490620d07108164cab0fb18612bcf7",
-      "size": 44838
+      "sha256": "be367bbb4a5ed90ee9dba71cd8574648a037d9b43dd3dfac8633f39b9071d421",
+      "size": 44877,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/run-backlog/SKILL.md": "bf68605cfa46954b5db12a55250e46acdf64b76573b518a52ea91b198aa5629f",
+        ".claude/skills/run-backlog/ref-requires.md": "3244d1a8409cec0195cffcc0d6b0b79ae46ec088220cfc724b9c2763c4dfa758",
+        ".claude/skills/run-backlog/ref-resume.md": "7cc99cae8fc7d79b5e44674a068993d2fd4666568a4c7d81ccd06248f18afbd3",
+        ".claude/skills/run-backlog/ref-workflow.md": "19044772454f8a7ae1f5ed0a865d4483c029ba6e552d3fde81ae5e87cadc5cb6",
+        ".claude/skills/run-backlog/ref-worktree.md": "1d74bbfc6cbd5e9a6c281f7eb6fdb4ae9d01e0af571c179f36e6aa949c054359"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip"
     },
     {
       "id": "Skills/setup-package-push",
@@ -3314,9 +4290,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "setup-package-push.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-package-push.zip",
       "sha256": "ea27ea022b63137a08b00bee455d46ed96cadd8a141a8f332a53469b7a0e5442",
-      "size": 3793
+      "size": 3793,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/setup-package-push/SKILL.md": "b1e53d14decf8fa66fc2d94025e9ed52a67faeaadeac945d5d5aeb8ac33ecef8"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-package-push.zip"
     },
     {
       "id": "Skills/setup-project",
@@ -3332,9 +4312,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "setup-project.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-project.zip",
       "sha256": "ffed1f3c08bd9b812840be266a07596455aa272b9199895d78d7da7da27f0bdc",
-      "size": 4393
+      "size": 4393,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/setup-project/SKILL.md": "9ab8bb5c67e00abdd48641d15dfcff1c788d68ba3e29525cd9e413f808b3b200"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/setup-project.zip"
     },
     {
       "id": "Skills/time-manager",
@@ -3350,9 +4334,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "time-manager.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/time-manager.zip",
       "sha256": "2fdf48e51f7046f187ff272c9ae5c86e19851b080369767498b2b49c2ac6160c",
-      "size": 1819
+      "size": 1819,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/time-manager/SKILL.md": "492a4d1513ec5639d8809853464be7201aa1da288bf095aa6f2e280233e0097a"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/time-manager.zip"
     },
     {
       "id": "Skills/ui-cooldown-time-view",
@@ -3368,9 +4356,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-cooldown-time-view.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-cooldown-time-view.zip",
       "sha256": "3213f86cb4a8cb8c63ae1d5e662b607f7f5e14aa9ec64c9e4e85064cb105e28c",
-      "size": 1591
+      "size": 1591,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/ui-cooldown-time-view/SKILL.md": "02339bdc5ae8e9f644409bc5cece4b6db352fb1376d7457ae0827ca3af6e4aed"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-cooldown-time-view.zip"
     },
     {
       "id": "Skills/ui-kit",
@@ -3386,9 +4378,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-kit.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-kit.zip",
-      "sha256": "e806c60d8017a756c23e6d740c4b675ae23f29b447f1b0a8aec52cfb685619b0",
-      "size": 2900
+      "sha256": "b67656e58e81e90829e6e4ba5df3d3e16e772ae9789ad9b3cf97aca9de7dc731",
+      "size": 3143,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/ui-kit/SKILL.md": "521f50f31deae0cd67cbed34ba35b38b855404138b8f299000e82bb5bafd6089"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-kit.zip"
     },
     {
       "id": "Skills/ui-manager",
@@ -3404,9 +4400,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-manager.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-manager.zip",
       "sha256": "b78dbd9763d04e5e0f5b6e691c2231f1443804084ce945ab2581d20e3a828257",
-      "size": 1745
+      "size": 1745,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/ui-manager/SKILL.md": "86d55127169fa6df5f7aa3ce6e391c13a3e976213e392e4405451bc244e3b3f8"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-manager.zip"
     },
     {
       "id": "Skills/ui-motion",
@@ -3467,9 +4467,84 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-motion.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip",
-      "sha256": "d2aaf03536d4d9d3ab0f42572e70dc8e71b51ee0d592f33e4cb164a6e3d18a50",
-      "size": 106282
+      "sha256": "42d26b2549b6786e72aaa3d5597ddeafcd159c7ede5eeb2176930de736600f63",
+      "size": 106733,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/ui-motion/.gitattributes": "76fd9956d7647bffb137b30c15f04f0af6e877e09b3598d14d24adf6b1cc602e",
+        ".claude/skills/ui-motion/.gitignore": "3ecd1864a1296d566705947f9b4582bd5502456a5d92062f262a4d27429d54d5",
+        ".claude/skills/ui-motion/SKILL.md": "0f29c0abafe908b6fff1931e06428b6c3eeeefd6ea5ae41c82e451dc8e7fa27f",
+        ".claude/skills/ui-motion/docs/CHANGELOG.md": "75c5945f2b4769b7e1879edb57850ad142cbf3150248ca184256d2d1a221e03f",
+        ".claude/skills/ui-motion/docs/README.md": "1b98e30de77d49a435be617403d1a8bde10818d21b922f7f204118270ba5b75e",
+        ".claude/skills/ui-motion/docs/Samples/UIMotionSfxSink.cs.txt": "18e458d9c84b966e7add9c77f0a54f09aa9a8af51c67052f1e99ebb541c12bd9",
+        ".claude/skills/ui-motion/docs/UIMotion_QuyChuan.md": "7bd212ee6c38646f6c81be2319de34e9650a48d1ba4872a982858df9858899b0",
+        ".claude/skills/ui-motion/evals/01-nut-press/case.yaml": "2e3f067dbb51a217debc57e5e132e9d546f1a6874205cbb37e43ea505d47dc94",
+        ".claude/skills/ui-motion/evals/01-nut-press/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/02-dong-popup/case.yaml": "760586e73f71d60b933d0f3d3d04ece4122fc2b1016efe9644f9d2a71ecb52cc",
+        ".claude/skills/ui-motion/evals/02-dong-popup/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/03-project-chua-co-module/case.yaml": "5427e4fc68bb61241d6b75bb1aa04957c79d51d229918b279adc1c741554bb90",
+        ".claude/skills/ui-motion/evals/03-project-chua-co-module/scaffold.sh": "63a320f9a9202e19e3a9b5a569d29aa647de6860392f148c6a58fbe9dab2bc8e",
+        ".claude/skills/ui-motion/evals/04-keyword-role/case.yaml": "b40ba4b995974e9bd4551e35f03c1824b77b39003d5a6e0e7423e3026a87b2c7",
+        ".claude/skills/ui-motion/evals/04-keyword-role/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/05-list-item-loop/case.yaml": "08e0fda51f2b0e97cda26760cf086e0a87e1393f9ff42dd6485ffb698e95e96c",
+        ".claude/skills/ui-motion/evals/05-list-item-loop/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/06-cam-giac-ca-game/case.yaml": "d93da4f59281c6bff7df23ee34e41f6daff894ec972a2fcf7a628eb912141d22",
+        ".claude/skills/ui-motion/evals/06-cam-giac-ca-game/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/07-sfx-audio-manager/case.yaml": "f24c779d06c956c5dbf18919c88cf1c2be15d2afc6e7fb95ca9f34ef37d3bd07",
+        ".claude/skills/ui-motion/evals/07-sfx-audio-manager/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/08-role-moi/case.yaml": "549a03287a12cd921fbd88a485c4a1e6beb9e14f6d260b6151aa02057a61d1a3",
+        ".claude/skills/ui-motion/evals/08-role-moi/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/09-gate-no/case.yaml": "fd0cb376d42f99b01e544a036763463e96ce7ce76ef16dcb5cca7dbba3b7dbf3",
+        ".claude/skills/ui-motion/evals/09-gate-no/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/10-animation-nhan-vat/case.yaml": "8769778bbd267cdb47773fd097579312d30ec59a4c1ff636d6ae65c045d3cb45",
+        ".claude/skills/ui-motion/evals/10-animation-nhan-vat/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/11-dung-dieu-cua-project/case.yaml": "a23f9d18408fb9c6034812e99746f008b39c86bca077aeb4cb5b83a0cff2d57b",
+        ".claude/skills/ui-motion/evals/11-dung-dieu-cua-project/scaffold.sh": "e1b750058bb871a733f3add8afe3ecd69dfd17cc2b47d47abe4f6db1e1830f83",
+        ".claude/skills/ui-motion/evals/README.md": "dd775b999c9162092593993f0c651c96a4e2c44a0bfacb10fb1b6be29fb9b806",
+        ".claude/skills/ui-motion/evals/_shared/scaffold.sh": "f5236c286a08eb6a5c10056db9948d1921911abf6faca0f8fe161e78809a1afe",
+        ".claude/skills/ui-motion/reference/project-files.md": "ff4bf2705aee1d4b1061daef203e3fb9611fff67035b822d13702c5581957f97",
+        ".claude/skills/ui-motion/reference/retrofit.md": "45cc70029ef7f848fd525a6c3560e9062f97cb0b6eb8bc5ba7e9a407695a1b99",
+        ".claude/skills/ui-motion/reference/sfx-sink.md": "ee7bc22a6d6c9dc393ef288438399b6a4a6fb001d7baa98399cc0f66fb5970a9",
+        ".claude/skills/ui-motion/reference/survey.md": "c450eadf5ce3417c0044395429877b427e63f3c957c955269df1e67eecf27b85",
+        ".claude/skills/ui-motion/reference/unity-batch.md": "8fe40352d0b420fe39815c38aed1342c8bfcbb2ef3915ef4bf91413bc7bdaff9",
+        ".claude/skills/ui-motion/scripts/lib/csharp.mjs": "b1d7f393287873cda2f5bfbd3fa9bc3ddf51bd0f1ffc697f866b67a73483254a",
+        ".claude/skills/ui-motion/scripts/lib/fsutil.mjs": "39058159644db6abe094d9d103a480e49f578b6733d492a8b375eb841678a7fe",
+        ".claude/skills/ui-motion/scripts/lib/rules.mjs": "143eaf3857f93137a85b7b1bf9ec7a3055aecf18e643b8bc6af5f923a917b2db",
+        ".claude/skills/ui-motion/scripts/lib/survey.mjs": "02eece1259a51e88ea1ddb86b7c0fb17b8f839ce2522d9594b871dfddd6279c3",
+        ".claude/skills/ui-motion/scripts/lib/tokens.mjs": "457a4f5afd3b542c953593f365e7c85ccc74e4e50c26c5a44ec2f637e44474eb",
+        ".claude/skills/ui-motion/scripts/lib/unityyaml.mjs": "951d928c65fcc33e36b1712f13c1c1eb8752166f793f4598fbd9710fe19ccb3c",
+        ".claude/skills/ui-motion/scripts/lib/writers.mjs": "a77ba1223ba92c6d908b8e71798726b50d6162108457569e22269f6e49f0aca6",
+        ".claude/skills/ui-motion/scripts/tests/make_fixture.mjs": "a291e0b1ed7ce13dd7519aa34ca011bb9f0fe024c85d1f8511a90aa3ead9fb67",
+        ".claude/skills/ui-motion/scripts/tests/selftest.mjs": "a67a7191cfc57bf63c60ecb5b228ee4d0e47e57d19b8302f27c22a6ec6acc474",
+        ".claude/skills/ui-motion/scripts/uimotion.mjs": "bf6b9be902814c3693ebf05a4fe8bc29acb0b4a15ba85024822d15eba7a99a60"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip"
+    },
+    {
+      "id": "Skills/update-ai",
+      "name": "update-ai",
+      "category": "Skills",
+      "description": "Cập nhật toàn bộ AI dùng chung (skill, command, agent, rule, docs, script, CLAUDE.md, settings) từ Feature Hub bằng MỘT lệnh /update-ai mà không mất phần project đã tuỳ biến: so 3 chiều với bản gốc, cập nhật file project chưa sửa, gộp JSON settings/.mcp.json, chuyển phần project lỡ sửa thẳng vào file base sang override rồi mới nhận bản mới, cài item mới, commit local. Kèm hook chặn sửa nhầm file base. Project cũ: cài item này một lần (tab AI Feature, hoặc bảo Claude \"cài skill update-ai từ Feature Hub\") rồi gõ /update-ai.",
+      "installPath": ".claude/skills/update-ai",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/update-ai/SKILL.md",
+        ".claude/skills/update-ai/scripts/ezg_base.py",
+        ".claude/skills/update-ai/scripts/tests/test_ezg_base.py"
+      ],
+      "fileCount": 3,
+      "installedByDefault": true,
+      "source": "defaultsetup",
+      "fileName": "update-ai.zip",
+      "sha256": "17d7ea1fe39d70bef5676991b26121faadf673eb1dbb62865825d95620e5bee0",
+      "size": 25167,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/update-ai/SKILL.md": "805c8577987e72e21e741f951ed51e0d7245d539668fa66891bc66729d002246",
+        ".claude/skills/update-ai/scripts/ezg_base.py": "bece9c38da8e3f99f36fa718bf1e48dd5b94eaf918905bb4e3d257ffd5a62eaf",
+        ".claude/skills/update-ai/scripts/tests/test_ezg_base.py": "5917c9a18a76d54c12b07fb93b7a76c85da3eb81b9a079ea93adc34de3c15cf0"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/update-ai.zip"
     },
     {
       "id": "Skills/validate-release",
@@ -3488,9 +4563,16 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "validate-release.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip",
       "sha256": "5bdebd07502a4a5d113edd6f44813a69a9327f9716b4d8f76e1b7bc24671d3be",
-      "size": 23503
+      "size": 23503,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/validate-release/SKILL.md": "0032afb393d256b2589597f0a79806d989ba9ccfcc81941d1ea63877a254f8cd",
+        ".claude/skills/validate-release/config/default-rules.json": "9a72eb589d9ffd5e0168020c4cda8217bbffe55a7d6d4d9e6122e97695062345",
+        ".claude/skills/validate-release/references/checks.md": "44ee92c0c2c089e5da03fcf31ba93f8bad4065cf98623e065209ea24607e9260",
+        ".claude/skills/validate-release/scripts/validate_release.py": "3fbc94870bf4223710ba1e33cdfbee58e86aeac96901c952c48b9a2e90df2dad"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/validate-release.zip"
     },
     {
       "id": "Templates/_GUARDRAILS",
@@ -3506,9 +4588,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_GUARDRAILS.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_GUARDRAILS.zip",
-      "sha256": "644e9350308126c36adaed906d54e4e8fb38d2d8628c7d611dec1cc548cfabc1",
-      "size": 3868
+      "sha256": "8f91d0a2ba3a200a54bbe4fb25d32d6525be1ca2504342ac7aaaf760187e807c",
+      "size": 3899,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_GUARDRAILS.md": "eafb7073be3edc9747ccc380f029b136da4e8fd7104e912af6c410b5c50c3f5c"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_GUARDRAILS.zip"
     },
     {
       "id": "Templates/_REVALIDATION-PLAYBOOK",
@@ -3524,9 +4610,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_REVALIDATION-PLAYBOOK.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_REVALIDATION-PLAYBOOK.zip",
       "sha256": "e1c253842897d00ce3b187320663db433ee730110bafbe4c306efb9b2845750c",
-      "size": 3459
+      "size": 3459,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_REVALIDATION-PLAYBOOK.md": "df8913500683901d2957db31254a8ec16507b8173ae1f660c350306e2d3816de"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_REVALIDATION-PLAYBOOK.zip"
     },
     {
       "id": "Templates/_TEMPLATE",
@@ -3542,9 +4632,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE.zip",
       "sha256": "1a99d28af398b20d6a81d7a05da916127bebaae278185948e0e133bec5d78637",
-      "size": 1671
+      "size": 1671,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE.md": "e781ed52b15804fe95af9e58d375350c709d9faf9cbaf140f14518f5c188e4d4"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE.zip"
     },
     {
       "id": "Templates/_TEMPLATE_L",
@@ -3560,9 +4654,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_L.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_L.zip",
       "sha256": "22dcce793cbb44cc694d358df50cc772d23aefe39038d55c1cdd801a4618c07c",
-      "size": 3414
+      "size": 3414,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE_L.md": "d2f041cd96d3b8600649436d5df973de6321daa52a397d352f48928fd298fa68"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_L.zip"
     },
     {
       "id": "Templates/_TEMPLATE_M",
@@ -3578,9 +4676,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_M.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_M.zip",
       "sha256": "39b8f5943abe08d35e8321199404db71c86d20b91f959cb2fddfe6f6e00455cc",
-      "size": 3021
+      "size": 3021,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE_M.md": "14cd1a8ee3b1543ddfe00ae42a67f3cd24151538d89b102177ca42a2419fec82"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_M.zip"
     },
     {
       "id": "Templates/_TEMPLATE_S",
@@ -3596,9 +4698,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_S.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_S.zip",
       "sha256": "020c2a4ff26251a26a5c0590bd000a737c87f8571c97dd5eb19439c0b2c325a5",
-      "size": 1267
+      "size": 1267,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE_S.md": "73b134a067a1bb0b12870e0851b096093c65808a5be14d2c0267c9a846d2437b"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_S.zip"
     },
     {
       "id": "Templates/_TEMPLATE_WF",
@@ -3614,9 +4720,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_WF.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_WF.zip",
       "sha256": "a1fd664de6a619d86de30d18a8c6aac20196430cfa4c8d5a3bb32768fd98b161",
-      "size": 3300
+      "size": 3300,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE_WF.md": "dd767ebc23dba35763123bec1861a31044c7257506019fc9acea35c9f2c52046"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_WF.zip"
     },
     {
       "id": "Templates/_TEMPLATE_XS",
@@ -3632,9 +4742,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_XS.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_XS.zip",
       "sha256": "a9d614600c423e13dafb7110759243c790d11fa91f49af7da5d570629d1ffde2",
-      "size": 745
+      "size": 745,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/backlog-templates/_TEMPLATE_XS.md": "a7158ac8d8bb6fd1c0dd1ec5d428aa774fc9bfe86dd9c468a4c3f66641cbdd16"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_XS.zip"
     },
     {
       "id": "UiKit/kit-preview.template.html",
@@ -3650,9 +4764,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "kit-preview.template.html.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/kit-preview.template.html.zip",
       "sha256": "52eff2f7d511016ae96dfe6d12e1ad8f3e25397c02bcb01d5dc12622f7802153",
-      "size": 8053
+      "size": 8053,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/ui-kit/kit-preview.template.html": "516e39be7127a2109181d64d9f67b266e587d329e42ed16877ef689113069128"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/kit-preview.template.html.zip"
     },
     {
       "id": "UiKit/ui-kit-usage.json",
@@ -3668,9 +4786,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-kit-usage.json.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-kit-usage.json.zip",
-      "sha256": "f32a56afbd0f20a54c6cd2e02297c61ed776798566de17579295c2ee4d7399be",
-      "size": 1160
+      "sha256": "12ea229556f087e9e03ec7b08cfd3b6f1a141db747f3ce3227a56d1f406361de",
+      "size": 3552,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/ui-kit/ui-kit-usage.json": "729e51174449e25b5d173b26b717095f685f03198b423872514a72c8f04ae722"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-kit-usage.json.zip"
     },
     {
       "id": "UiKit/ui-review-dashboard.template.html",
@@ -3686,9 +4808,13 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ui-review-dashboard.template.html.zip",
-      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-review-dashboard.template.html.zip",
       "sha256": "084fa8914b16055a817de72f50338682fd84247e3870c202db8a3dc8b0e2bbb5",
-      "size": 13591
+      "size": 13591,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/ui-kit/ui-review-dashboard.template.html": "e4769c736d7cb41db4839a2993621243268100fa8dfb4251c2dbde09f720ef22"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-review-dashboard.template.html.zip"
     }
   ]
 }
