@@ -7,7 +7,7 @@ Nguồn chi tiết (đây chỉ là bản mô tả, không phải nguồn chân 
 - Orchestrator new-system: [.claude/skills/planning-system/SKILL.md](../skills/planning-system/SKILL.md)
 - Stage thiết kế: [.claude/docs/design-pipeline/](design-pipeline/README.md)
 - Bookkeeping: `.claude/scripts/backlog-ops.py`
-- Mockup pipeline: [.claude/commands/ui-mockup.md](../workflows/ui-mockup.md) + [.claude/agents/mockup-drafter.md](../agents/mockup-drafter.md) + UI-kit `.claude/ui-kit/` (sync: `.claude/scripts/ui-kit-sync.py`)
+- Mockup pipeline: [.claude/commands/ui-mockup.md](../commands/ui-mockup.md) + [.claude/agents/mockup-drafter.md](../agents/mockup-drafter.md) + UI-kit `.claude/ui-kit/` (sync: `.claude/scripts/ui-kit-sync.py`)
 
 ---
 

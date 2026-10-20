@@ -1,6 +1,7 @@
 """End-to-end tests for the spec-first UI mockup toolchain."""
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -8,37 +9,90 @@ import unittest
 from pathlib import Path
 
 
-REPO = Path(__file__).resolve().parents[3]
-VALIDATOR = REPO / ".claude" / "scripts" / "ui-spec-validator.py"
-RENDERER = REPO / ".claude" / "scripts" / "ui-spec-render.py"
-EXTRACTOR = REPO / ".claude" / "scripts" / "ui-spec-extract.py"
-REPORT = REPO / ".claude" / "scripts" / "ui-build-report.py"
-VISUAL_DIFF = REPO / ".claude" / "scripts" / "ui-visual-diff.py"
+# The suite runs the real scripts end to end, but never against the host repo's own UI
+# kit: it builds a throwaway repo (scripts copied in, an empty profile, one fixture
+# prefab, a fixture kit whose `_meta.sourceHash` matches that prefab). A project's kit
+# carries ITS template names, so pinning the fixtures to one kit made the whole suite
+# fail in every project whose kit differs (and skip entirely in the monorepo).
+SOURCE_SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Every test here validates a spec against the UI kit, and the validator refuses
-# a kit whose `_meta.sourceHash` no longer matches the prefabs it was extracted
-# from. The kit is a generated artifact, so it is legitimately absent or stale
-# in a tree that has not run ui-kit-sync yet: a fresh clone before bootstrap, or
-# a project template that ships the toolchain without any prefabs. Failing there
-# would report a broken pipeline when the only real news is "no kit built yet".
-KIT_JSON = REPO / ".claude" / "ui-kit" / "ui-kit.json"
+# Fixture kit — the legacy names the older rules were written against, plus the
+# base-template names the newer tests use. Only geometry the validator reads.
+FIXTURE_KIT = {
+    "TextTemplate": {"size": [600, 90], "texts": [{"fontSize": 40}]},
+    "ButtonActive": {"size": [350, 150], "texts": [{"fontSize": 40}]},
+    "ButtonIcon": {"size": [64, 55], "texts": []},
+    "ResourceViewTemplate": {"size": [750, 140], "texts": []},
+    "ResourceHomeTemplate": {"size": [250, 60], "texts": []},
+    "TabBottomTemplate": {"size": [1080, 148.73], "texts": []},
+    "TabToggleIconTemplate": {"size": [200, 200], "texts": []},
+    "TabToggleTextTemplate": {"size": [350, 200], "texts": []},
+    "ScrollViewTemplate": {"size": [1080, 2400], "texts": []},
+    "ScrollLoopTemplate": {"size": [1080, 2400], "texts": []},
+    "ScrollViewLoopTemplate": {"size": [1080, 2400], "texts": []},
+    "FrameTemplate": {"size": [600, 250], "texts": []},
+    "FrameTemplateInside": {"size": [800, 400], "texts": []},
+    "ButtonTitleTemplate": {"size": [300, 60], "texts": [{"fontSize": 40}]},
+    "tab_template": {"size": [960, 159.75], "texts": []},
+    "toggle_tab_template": {"size": [300, 200], "texts": []},
+    "panel_template": {"size": [0, 0], "texts": []},
+}
+TEMPLATES_REL = Path("Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates")
 
 
-def _kit_state():
-    """None when the kit is usable, else why the suite has to stand down."""
-    if not KIT_JSON.exists():
-        return f"UI kit not generated yet ({KIT_JSON} missing) — run ui-kit-sync.py"
-    try:
-        meta = json.loads(KIT_JSON.read_text(encoding="utf-8")).get("_meta", {})
-    except (OSError, ValueError) as exc:
-        return f"UI kit unreadable: {exc}"
-    source = REPO / meta.get("source", "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates")
-    if not source.is_dir():
-        return f"prefab source {source} absent — kit cannot be validated here"
-    return None
+def build_sandbox() -> Path:
+    root = Path(tempfile.mkdtemp(prefix="ui-spec-repo-"))
+    shutil.copytree(
+        SOURCE_SCRIPTS, root / ".claude" / "scripts",
+        ignore=shutil.ignore_patterns("tests", "__pycache__"),
+    )
+    (root / ".claude" / "project-profile.json").write_text("{}\n", encoding="utf-8")
+    templates = root / TEMPLATES_REL
+    templates.mkdir(parents=True)
+    (templates / "Fixture.prefab").write_text("%YAML 1.1\n--- !u!1 &1\nGameObject:\n", encoding="utf-8")
+    source_hash = subprocess.run(
+        [sys.executable, "-c", "import ui_spec_common as u; print(u.kit_source_hash())"],
+        cwd=root / ".claude" / "scripts", capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    kit_dir = root / ".claude" / "ui-kit"
+    kit_dir.mkdir(parents=True)
+    (kit_dir / "ui-kit.json").write_text(json.dumps({
+        "_meta": {"sourceHash": source_hash, "source": str(TEMPLATES_REL)},
+        "templates": FIXTURE_KIT,
+    }), encoding="utf-8")
+    (kit_dir / "ui-kit.css").write_text(
+        "".join(f".tpl-{name}{{width:{rec['size'][0]}px;height:{rec['size'][1]}px}}\n"
+                for name, rec in FIXTURE_KIT.items()),
+        encoding="utf-8",
+    )
+    return root
 
 
-KIT_SKIP_REASON = _kit_state()
+REPO = None
+VALIDATOR = RENDERER = EXTRACTOR = REPORT = VISUAL_DIFF = None
+
+
+def setUpModule():
+    global REPO, VALIDATOR, RENDERER, EXTRACTOR, REPORT, VISUAL_DIFF
+    REPO = build_sandbox()
+    scripts = REPO / ".claude" / "scripts"
+    VALIDATOR = scripts / "ui-spec-validator.py"
+    RENDERER = scripts / "ui-spec-render.py"
+    EXTRACTOR = scripts / "ui-spec-extract.py"
+    REPORT = scripts / "ui-build-report.py"
+    VISUAL_DIFF = scripts / "ui-visual-diff.py"
+
+
+def tearDownModule():
+    if REPO is not None:
+        shutil.rmtree(REPO, ignore_errors=True)
+
+
+try:
+    import PIL  # noqa: F401
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 
 def valid_spec():
@@ -131,7 +185,6 @@ def fullscreen_tab_spec():
     }
 
 
-@unittest.skipIf(KIT_SKIP_REASON is not None, KIT_SKIP_REASON or "")
 class UISpecPipelineTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="ui-spec-test-")
@@ -632,6 +685,7 @@ class UISpecPipelineTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["source"], str(html_path.resolve()))
 
+    @unittest.skipUnless(HAS_PIL, "Pillow not installed")
     def test_build_report_requires_final_evidence(self):
         spec_path = self.write_spec()
         prefab = self.dir / "TestPopup.prefab"

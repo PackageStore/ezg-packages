@@ -276,7 +276,7 @@ census before adding to them.
 |---|---|---|
 | Palette anchor | `color/{role}` | `ink` — the darkest value: every text and plate stroke, every ink drop/inner shadow, the bar track. One token, because those uses never diverge. Add a second top-level anchor only for a value with the same all-owners reach. |
 | Button plate, per colour | `color/btn/{color}/{color}-{part}` | parts: `face-1`, `face-2` (gradient stops), `gloss-1`, `gloss-2` (rim, the `-2` at 30 % alpha), `shadow`; optional `icon`, `icon-stroke` for a glyph that sits on that plate. One full set per `Color=` variant of the plate. |
-| Button, shared | `color/btn/{role}` | `plate-low` (the light rim under a plate); `pressed`, `hover` — the state overlays, black and white at low alpha. One value serves every colour: a state token never reads the plate colour (`figma-components` rule 7). |
+| Button, shared | `color/btn/{role}` | `plate-low` (the light rim under a plate); `pressed`, `disabled` (+ legacy `hover`) — the state overlays: black at low alpha, grey at partial alpha (white at low alpha for legacy hover). One value serves every colour: a state token never reads the plate colour (`figma-components` rule 7). |
 | Text | `color/text/{role}` | e.g. `title`, `row-title`, `row-label`, `on-dark`, `stroke-title`, `stroke-light` — the dark outline is `color/ink`, not a text role |
 | Surface | `color/surface/{role}` | e.g. `popup`, `plate`, `row-plate`, `slot`, `bar-fill`, `bar-fill-gold`, `overlay` |
 | Border | `color/border/{role}` | e.g. `container`, `row-plate`, `bar` — the ink outline is `color/ink` |
@@ -351,7 +351,7 @@ Set explicit scopes on every variable at creation time.
 | Spacing | `["GAP", "WIDTH_HEIGHT"]` |
 | Radius | `["CORNER_RADIUS"]` |
 | Button plate parts (fill stops and rim effects) | `["ALL_FILLS", "EFFECT_COLOR"]` |
-| Button state overlays (`color/btn/pressed`, `color/btn/hover`) | `["SHAPE_FILL"]` |
+| Button state overlays (`color/btn/pressed`, `color/btn/disabled`, legacy `color/btn/hover`) | `["SHAPE_FILL"]` |
 
 Two failure modes, both real:
 
@@ -457,7 +457,8 @@ it as one.
 4. **Bind inside the master, never on the instance.** An override recorded on an
    instance is the thing tokens exist to remove.
 5. **Font identity is gated.** Every TEXT node must stay on the body font
-   (`figma.fonts.body`, falling back to `preflight.json` `fonts.body`), with a
+   (`figma.fonts.body`, falling back to `preflight.json` `fonts.body`) or the display
+   font (`figma.fonts.display`, only when ArtStyle §5 declares one), with a
    non-empty `textStyleId` in `style_ids.json`. A token pass that swaps a font or
    drops a style binding fails the `psd-to-figma` gate, and that failure is a
    bug — it cannot be pinned as accepted debt.

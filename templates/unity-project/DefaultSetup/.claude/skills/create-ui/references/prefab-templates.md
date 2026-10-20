@@ -62,15 +62,15 @@
   - `full_screen_template` (ships **inactive**) — for a feature that *is* the screen, or a persistent screen-level HUD. Body goes under `content`; `top_view`/`botview` are extra docked slots; `bg_fullscreen`/`_bg_Pattern_FullScreen_Normal` are the backdrop layers. Its `botview/button_close` also ships **already active**:
     - Navigation page (player backs out of it) → wire `botview/button_close` into `_closeButtons`, keep `ClickBackgroundToExit = false`.
     - Persistent HUD/shell (never individually dismissed) → deactivate `botview/button_close`, keep `_closeButtons` empty.
-  - Explicitly assign `MainUI` to `full_screen_template` in both full-screen cases — child order never changes, so the null-fallback (`transform.GetChild(1)`) always resolves to `popup_template`, which is wrong and inactive here.
+  - Leave `MainUI` empty in both full-screen cases too: the null-fallback (`transform.GetChild(1)`) is `popup_template`, so the scale tween runs on the inactive popup body and the full-screen screen fades in — the convention of every full-screen screen the template ships (`screen_shop`, `screen_admin`, `screen_currency_bar`). Assign `MainUI = full_screen_template` only when a task explicitly wants the page to scale like a dialog.
   - Default to `popup_template` unless the request explicitly calls for a full-screen feature or HUD.
 - Validation checklist after creating a variant:
   - Root still has the feature controller and `UITransition`.
   - `FeatureType` is set correctly.
   - Exactly one of `popup_template` / `full_screen_template` is active.
   - Popup: its `button_close` active, wired into `_closeButtons`, `ClickBackgroundToExit = true`.
-  - Full-screen navigation page: `MainUI` set to `full_screen_template`; `botview/button_close` active + wired into `_closeButtons`; `ClickBackgroundToExit = false`.
-  - Full-screen persistent HUD/shell: `MainUI` set to `full_screen_template`; `botview/button_close` deactivated; `_closeButtons` empty.
+  - Full-screen navigation page: `MainUI` empty; `botview/button_close` active + wired into `_closeButtons`; `ClickBackgroundToExit = false`.
+  - Full-screen persistent HUD/shell: `MainUI` empty; `botview/button_close` deactivated; `_closeButtons` empty.
   - The prefab opens and closes without missing references.
 
 ### `CurrenciesPreview`

@@ -16,11 +16,11 @@ This workflow is a thin entry point — the executable detail lives in the **`cr
 2. **Root screen** (controller inherits `FeatureBaseController`): create a **prefab variant** of `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`.
    - Place it in `Assets/_Project/Features/<Domain>/[FeatureName]/Resources/`, named `screen_<snake_case>.prefab`.
    - `screen_template` ships with NO controller — create and attach the `[FeatureName]Controller : FeatureBaseController` to the root.
-   - Preserve root child order: `[0] = background_button`, `[1] = popup_template` (MainUI). Build content under `popup_template/popup_container/container_content`.
+   - Preserve root child order: `[0] = background_button`, `[1] = popup_template` (`MainUI` fallback), `[2] = full_screen_template`. Build popup content under `popup_template/popup_container/container_content`, full-screen content under `full_screen_template/content`.
 3. **Reusable blocks**: pick the closest prefab from `Templates/Templates` (buttons, tabs, lists, sliders, input fields, item/currency previews, resource headers, text boxes) — reuse before creating raw GameObjects.
 4. **Register the screen**: add a `GameEnums.Features` entry; prefab name `screen_<snake_case>` must match the enum via `ToSnakeCase` so `UIManager.Instance.Show()` can load it from any `Resources/`.
 5. **Screenshot + self-correct** (`unity_screenshot_game`) after each meaningful chunk — never declare UI done without looking at it.
-6. **Wire serialized references** (close buttons, `MainUI`, tab toggles); review `FeatureType`, `ClickBackgroundToExit`, `_closeButtons`, `_backgroundAlpha`, time-scale flags.
+6. **Wire serialized references** (close buttons, tab toggles — `MainUI` stays empty for popups and full-screen alike); review `FeatureType`, `ClickBackgroundToExit`, `_closeButtons`, `_backgroundAlpha`, time-scale flags.
 6b. **Designer pass (Phase D)** — root screens, once Phase C (wiring) is accepted: lay art, FX and motion **over** the frozen layout (never move it), prove it with `ui-layout-lock.py` (`diff` + `scope`), get `ui-visual-reviewer` phase D `pass` (interactive: the dev's OK) — or `revert` to Phase C and record why. Procedure + skips: [`.claude/docs/ui-designer-pass.md`](../docs/ui-designer-pass.md).
 7. If any `.cs` file was created/edited (the controller, Phase D motion code), run `/compile-check`.
 

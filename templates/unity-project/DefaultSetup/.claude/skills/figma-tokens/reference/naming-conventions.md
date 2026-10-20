@@ -74,12 +74,14 @@ axis:
 
 Rules:
 
-- **`State` values are `Default` / `Pressed` / `Hover` only.** No `Normal`,
-  `Disabled`, `Active` or `Focused` may be added: there is no keyboard focus
-  ring and no form. Upstream's web state ladders do not apply — ignore them. An
-  existing set that still ships `Normal`, `Disabled` or `Active` is debt; rename
-  it only in a pass that also updates `component_ids.json` and re-imports its
-  prefabs.
+- **`State` values are `Default` / `Pressed`, plus `Disabled` on a control that
+  can be locked** (grey + a reason on screen — `.claude/docs/PolishRules.md`
+  §9.3). No `Normal`, `Active`, `Focused`, `Loading` or `Error`: there is no
+  keyboard focus ring and no form. `Hover` is not drawn for new work (touch has
+  no pointer); a set that already ships `Hover` stays valid and is not debt.
+  Upstream's web state ladders do not apply — ignore them. An existing set that
+  still ships `Normal` or `Active` is debt; rename it only in a pass that also
+  updates `component_ids.json` and re-imports its prefabs.
 - **Every variant name must be unique within its set.** A duplicate puts the set
   into an error state, after which reading `componentPropertyDefinitions` throws
   `Component set has existing errors`.

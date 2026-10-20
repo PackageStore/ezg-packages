@@ -30,7 +30,7 @@ and never in this skill. Placeholders used below:
 | Placeholder | Means |
 |---|---|
 | `<fileKey>` | the target Figma file, `figma.fileKey` in `psd2figma.json` |
-| `<body-font>` | the project's one font `{family, style}`, `figma.fonts.body` |
+| `<body-font>` | the project's body font `{family, style}`, `figma.fonts.body` (a display font, when ArtStyle §5 declares one, is `figma.fonts.display`) |
 | the frame size | the one fixed screen size, `frame.w` × `frame.h` |
 | the grid style | the file-local layout-grid style, `figma.gridStyleId` |
 | Screens / Components / Icons | the three page names (a fixed convention); their ids are in `page_ids.json` |
@@ -71,7 +71,8 @@ them.
 
 Every screen is the project frame size on the file-local grid style
 (`figma.gridStyleId`): a fixed number of equal columns with a fixed gutter and
-side margin, plus one row band marking the bottom safe zone. Read the
+side margin, plus row bands marking the safe zones (a style with only a bottom
+band takes the house top band of 100 px). Read the
 concrete geometry from the grid style; never hardcode it here. The measures and
 their tokens:
 
@@ -93,15 +94,23 @@ the `psd-to-figma` art tolerance is 0.00 px (`N-1`), so resizing it to the
 nearest span moves art and fails the verify pass on every screen that instances
 it. Snap new work; leave imported work alone.
 
-**The safe zone binds the master, not just the screen.** A component placed at
-the bottom of a screen must be designed to sit above the bottom safe zone — a
-bottom navigation bar, for instance, must end above the safe-zone line, not
-overlap it. The top edge has no safe zone.
+**Safe zones bind the master, not just the screen.** No interactive element sits
+in the top 100 px (status bar / notch) or the bottom 60 px (gesture bar) of the
+frame; a band the grid style draws itself wins over these numbers. A component placed
+at the top or bottom of a screen must be designed to sit outside them — a top
+bar starts at or below the top safe-zone line, a bottom navigation bar ends
+above the bottom one, never overlapping either.
 
-**Minimum touch target is ≈44 pt.** Convert that to a px floor at the project's
-design width (`frame.w`) and hold every tappable master to it. Anything smaller
-needs a transparent hit frame around it, and the reason recorded in the
-description.
+**Minimum touch target is ≈44 pt — 128 px on both axes on the 1080-wide frame**
+(`.claude/docs/PolishRules.md` §9.1; scale it if `frame.w` differs). Hold every
+tappable master to it. Anything smaller needs a transparent hit frame around
+it, and the reason recorded in the description.
+
+**Spacing is on the soft 4 px grid.** A new gap, padding or line-height — and a
+new `space/*` token — is a multiple of 4 (scale 4 / 8 / 12 / 16 / 24 / 32 / 48 /
+64); content inside a panel keeps at least 16 px padding. The column grid's own
+side margin is the grid style's, not a spacing value. An imported value off the
+4 px grid is pinned debt, like an off-span width above: leave it alone.
 
 ## Critical rules
 
@@ -119,10 +128,13 @@ description.
    `INSTANCE` cannot be resized or repositioned: `resize()` is silently ignored
    and `x`/`y` assignment throws. Only fills, `characters`, `name`, `visible`
    and variant properties override.
-4. **`State` is `Default` / `Pressed` / `Hover`.** No `Normal`, no `Disabled`,
-   no `Active`, no `Focused`, no `Loading`, no `Error`. There is no keyboard
-   focus ring and no form validation. Upstream's six-state web ladder does not
-   apply and must not be re-imported.
+4. **`State` is `Default` / `Pressed`, plus `Disabled` on a control that can
+   be locked** (grey + a reason on screen — `.claude/docs/PolishRules.md` §9.3;
+   a control that is never locked does not get it). No `Normal`, no `Active`,
+   no `Focused`, no `Loading`, no `Error`: there is no keyboard focus ring and
+   no form validation. Touch has no pointer, so new sets do not get `Hover`; a
+   set that already ships `Hover` stays valid and is not debt. Upstream's
+   six-state web ladder does not apply and must not be re-imported.
 5. **Component properties are set-level with a single default, not one per
    variant.** After `combineAsVariants`, per-variant `BOOLEAN` and
    `INSTANCE_SWAP` definitions merge into one with one `defaultValue`. When the
@@ -157,10 +169,12 @@ description.
    from an image fill has no bindable surface. Genericize the chrome first —
    this is Phase 2b of `figma-tokens`, and it gates every colour binding in a
    master. The genericised button plates are the reference construction.
-10. **Never touch font identity or `textStyleId`.** Every TEXT node stays the
-    project body font (`<body-font>`) with a style id from `style_ids.json`.
-    Load the node's *current* font via `getStyledTextSegments(['fontName'])`
-    before any text write.
+10. **Never touch font identity or `textStyleId`.** A file uses exactly the
+    font family(ies) the game's `.claude/docs/ArtStyle.md` §5 declares: one
+    body font, plus one display font only when §5 declares it (one family for
+    both is fine) — never a third. Every TEXT node keeps its family and a style
+    id from `style_ids.json`. Load the node's *current* font via
+    `getStyledTextSegments(['fontName'])` before any text write.
 11. **New masters live on the `Components` page; icons on `Icons`.** Do not
     adopt upstream's one-page-per-component structure — it would add a page per
     component and break `figma-to-unity`, which reads three named pages.
@@ -248,8 +262,11 @@ component that nests the plate set as an exposed `Bg` instance — clones it onc
 per state and combines the clones into a `State` set. The recipe from
 `reference/component-spec.md` is colour-agnostic, so no new art and no
 per-colour token is needed: `Pressed` moves the content down and lays a dark
-`Overlay` on `Bg`, `Hover` lays a light `Overlay` on `Bg`. Each overlay binds
-to one state token from `figma-tokens`.
+`Overlay` on `Bg`, `Disabled` (only for a control that can be locked) lays a
+grey `Overlay` on `Bg`. Each overlay binds to one state token from
+`figma-tokens`. The script defaults to `STATES: ['Pressed']`; pass
+`['Pressed', 'Disabled']` plus `DISABLED_TOKEN` for a lockable control. `Hover`
+is accepted only to extend a legacy set that already has it.
 
 ### Phase 4 — Adopt
 

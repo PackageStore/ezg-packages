@@ -34,7 +34,7 @@ from that `screen=` hint instead of from `/new-ui` Workflow args.
 
 **Prerequisite:** `.claude/ui-kit/ui-kit.json` exists and is current — `python3 .claude/scripts/ui-kit-sync.py --check` (exit 1 = regenerate with the same script minus `--check`; lifecycle in skill `ui-kit`). New drafts also produce sibling `<Screen>.ui-spec.json`; the task contract deliberately remains the `.html`/`.png` `groundTruth` states above.
 
-**Polish floors:** the validator also blocks the measurable `.claude/docs/PolishRules.md` §9 rules (`polish_*`: text < 30 px, tappables < 128 px without `hitArea`, more than one primary CTA, an action pair stacked vertically) in draft/approve mode; soft ones (8 px grid, CTA height, text room, missing `role`) only warn. Threshold / gate knobs: `project-profile.json` → `polish` (`specGate: block | warn | off`).
+**Polish floors:** the validator also blocks the measurable `.claude/docs/PolishRules.md` §9 rules (`polish_*`: text < 30 px, tappables < 128 px without `hitArea`, more than one primary CTA, an action pair stacked vertically) in draft/approve mode; soft ones (4 px grid, CTA height, text room, missing `role`) only warn. Threshold / gate knobs: `project-profile.json` → `polish` (`specGate: block | warn | off`).
 
 **Art direction:** `.claude/docs/ArtStyle.md` (palette tokens, kit, type table, layout rules, rejected directions) — `mockup-drafter` and the dashboard's regenerate prompt both read it, so a mockup never invents a colour. Missing or `Status: template` → drafts still run but say so in `assumptions[]`; fill it in (its § Bootstrap) before trusting the look.
 

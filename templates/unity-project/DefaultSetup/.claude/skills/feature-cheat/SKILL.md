@@ -10,8 +10,8 @@ This template ships the chrome and the button prefabs; you supply the buttons' l
 `Cheat_*` methods.
 
 > ⚠️ **The chrome is NOT inherited here.** `screen_template.prefab` — the base every feature screen is a
-> variant of — has exactly two children (`background_button`, `full_screen_template`) and **no cheat
-> menu**. You must instantiate `CheatMenu.prefab` into the feature prefab yourself. (If you have seen a
+> variant of — has exactly three children (`background_button`, `popup_template`, `full_screen_template`)
+> and **no cheat menu**. You must instantiate `CheatMenu.prefab` into the feature prefab yourself. (If you have seen a
 > project where `ButtonCheatMenu` came for free from a `FeatureTemplate`/`PackageTemplate`, that is a
 > different codebase — those prefabs do not exist in this template.)
 
@@ -93,7 +93,7 @@ label `Cheat`) as a **direct child of `CheatMenu/Menu`**. For an on/off cheat us
 |---|---|
 | GameObject name | Short PascalCase action name, not the method name — `NextDay`, `ResetClaim`, `GrantPack` |
 | Label text | Short **plain-English**, `\n` allowed for two lines — `+1 day`, `Reset claim`, `Grant pack` |
-| Localize | **NONE.** Never add `LocalizesUI` / `LangKey` — cheat labels are dev-only |
+| Localize | **NONE.** Never add `LocalizeHelper` (or any localize component) — cheat labels are dev-only |
 | Size | Keep the prefab's inherited size; use the **same width** for every button in one menu |
 | `onClick` | One persistent call → a `public Cheat_*` method on the feature **Controller** |
 
@@ -181,7 +181,7 @@ Non-negotiable rules for the code layer:
 - [ ] `CheatMenu.prefab` instantiated into the feature prefab (not hand-built); `_targetMenu` points at `Menu`.
 - [ ] Sample `Add Point` / `Remove Point` buttons repurposed or deleted.
 - [ ] Cheat buttons are `ButtonCheatTemplate` (or `ToggleCheatTemplate`) instances directly under `CheatMenu/Menu`.
-- [ ] Uniform button width within the menu; labels are short plain English with **no** `LocalizesUI`.
+- [ ] Uniform button width within the menu; labels are short plain English with **no** `LocalizeHelper`.
 - [ ] Each button's `onClick` resolves to a real `public Cheat_*` method on the feature Controller.
 - [ ] Controller cheats sit in `#region Cheats` with `[TabGroup("Cheats")] [Button]` and refresh the UI.
 - [ ] Service cheats sit in `#region Cheats`, prefixed `Cheat_`, and save/emit like the real flow.

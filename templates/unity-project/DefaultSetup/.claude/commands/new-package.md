@@ -22,13 +22,13 @@ This workflow is a thin entry point — the executable detail lives in **[`.clau
 | § | What |
 |---|---|
 | 1–2 | Argument parsing · description analysis (attached file → text → minimal scaffold) |
-| 3 | Reference study — read an existing pack before writing one |
+| 3 | Reference study — read the template's own pack code (`PackTemplateModel`, `PurchaseTemplate`, `ShopItemRawPack`) before writing one |
 | 4 | Directory structure under `<featuresRoot>/[PackageName]/` — `Scripts/Controller/` + `Scripts/Data/` + `CsvConfig/` + `Resources/` |
-| 5 | Code generation — Model, Collection, Manager, Controller (`GameFeatureBaseController`) |
+| 5 | Code generation — Model, Collection, Manager, Controller (`FeatureBaseController`) |
 | 6 | Registration in `DataManager` + `PlayerDataManager` + IAP product |
 | 7 | CSV data file (`pack_id`, `duration`, `comeback_after`, price, rewards…) — read `.claude/skills/csv-config/SKILL.md` first |
 | 8–9 | Common usings · purchase type options (soft currency / ads / real IAP) |
-| 10 | UI prefab — delegate to `/new-ui`, variant of `PackageTemplate` (includes the Phase D designer pass — [`ui-designer-pass.md`](../docs/ui-designer-pass.md)) |
+| 10 | UI prefab — delegate to `/new-ui` (Package branch: `screen_template` popup Variant holding a `purchase_template` card; includes the Phase D designer pass — [`ui-designer-pass.md`](../docs/ui-designer-pass.md)) |
 | 10b | Cheat support (`Cheat_*` methods on the controller — see `.claude/skills/feature-cheat/SKILL.md`) |
 | 11 | Final checklist |
 

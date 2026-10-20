@@ -166,7 +166,7 @@ KHÔNG được rewrite GDD.
 - Over-dependence vào Ads
 
 > **CẤM tự kê backend làm mitigation (bắt buộc).** Dự án mặc định **offline / local-first** — IAP pack
-> chạy local pack pattern (CSV config + `PackageManager` local save + `RewardManager` grant client-side
+> chạy local pack pattern (CSV config + `PlayerShop` local save + `PurchaseManager` / `RewardsService` grant client-side
 > + `TimeManager`); rất ít file chạm backend, và base template mặc định **không có backend nào**. Xem
 > phần Architecture trong [CLAUDE.md](../../../CLAUDE.md) + `backend.kind` trong
 > `.claude/project-profile.json` — nguồn chân lý, đọc trước khi audit section này.

@@ -124,9 +124,9 @@ Only judge this when the task carries `[CHEAT]` on its `**Guardrails:**` line (o
 
 - Task tagged `[CHEAT]` but the diff has **no** `Cheat_*` method and no new child under `CheatMenu/Menu` = **block** (silently skipped criterion).
 - Diff adds cheats the task never asked for = **warn** (scope creep; cheats are a planning decision).
-- `Cheat_*` code that bypasses the production path — hand-rolled currency/item grants instead of `RewardManager` / the manager's own setters, or a save write that skips the feature's normal save+emit sequence = **block** (a cheat that drifts from the real flow tests nothing).
+- `Cheat_*` code that bypasses the production path — hand-rolled currency/item grants instead of `RewardsService` / `PurchaseManager` / the manager's own setters, or a save write that skips the feature's normal save+emit sequence = **block** (a cheat that drifts from the real flow tests nothing).
 - Time cheat implemented with `DateTime.Now`/`DateTime.UtcNow` math, or a day-offset applied at call sites instead of inside the feature's single time accessor = **block** (`TimeManager` rule — the offset belongs inside the one accessor that already wraps `TimeManager`).
-- `LocalizesUI` added to a cheat label = **warn** (cheat labels are deliberately not localized — the one documented exception to the localize rule).
+- `LocalizeHelper` added to a cheat label = **warn** (cheat labels are deliberately not localized — the one documented exception to the localize rule).
 - `#if UNITY_EDITOR` around cheat code = **warn**, not block: the project gates visibility via `GameCheatObjectController` + `GameSystems.isCheat`, and `Features/System/GameCheat` does not use the directive either.
 - Cheat methods outside a `#region Cheats` or missing the Odin `[Button]` = **warn** (they become Inspector-invisible and drift from the convention).
 

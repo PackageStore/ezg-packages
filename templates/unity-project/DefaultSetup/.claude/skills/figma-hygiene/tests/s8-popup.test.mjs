@@ -68,3 +68,28 @@ test('offset root: edges are relative to root', async () => {
   const root = tree({ type: 'FRAME', name: 'Screen', box: [5000, 300, 1080, 2400], children: [popup({ box: [5030, 1100, 1020, 800] })] })
   assert.deepEqual(await PREDICATES['S-8'](root, params, ctxFor(project)), [])
 })
+
+test('container into the top 100 px gives a finding', async () => {
+  const f = await run(popup({ box: [30, 60, 1020, 800] }))
+  assert.equal(f.length, 1)
+  assert.match(f[0].detail, /top edge/)
+})
+
+test('container starting exactly at the top safe limit passes', async () => {
+  assert.deepEqual(await run(popup({ box: [30, 100, 1020, 800] })), [])
+})
+
+test('no safe-zone keys: defaults are top 100 and bottom 60', async () => {
+  const bare = { grid: { columnEdges: [30, 204, 378, 552, 726, 900], columnWidth: 150 } }
+  const root = tree({ type: 'FRAME', name: 'Screen', box: [0, 0, 1080, 2400], children: [popup({ box: [30, 50, 1020, 2320] })] })
+  const f = await PREDICATES['S-8'](root, params, ctxFor(bare))
+  assert.equal(f.length, 2)
+  assert.match(f[0].detail, /top edge/)
+  assert.match(f[1].detail, /bottom edge/)
+})
+
+test('safeTop 0 and safeBottom 0 turn the safe-zone checks off', async () => {
+  const off = { grid: { columnEdges: [30, 204, 378, 552, 726, 900], columnWidth: 150, safeTop: 0, safeBottom: 0 } }
+  const root = tree({ type: 'FRAME', name: 'Screen', box: [0, 0, 1080, 2400], children: [popup({ box: [30, 0, 1020, 2400] })] })
+  assert.deepEqual(await PREDICATES['S-8'](root, params, ctxFor(off)), [])
+})

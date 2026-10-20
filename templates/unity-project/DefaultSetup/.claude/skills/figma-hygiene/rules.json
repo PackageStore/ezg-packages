@@ -120,7 +120,7 @@
       "scope": "screen",
       "engine": "eval",
       "blocks": false,
-      "fix": "Move the plate, close button, content and panels into one root-level Container-*Popup frame on column edges, above the bottom safe zone, constraints CENTER/CENTER, clipsContent off.",
+      "fix": "Move the plate, close button, content and panels into one root-level Container-*Popup frame on column edges, inside the top and bottom safe zones, constraints CENTER/CENTER, clipsContent off.",
       "params": {
         "containerPattern": "^Container-.*Popup$",
         "edgeTol": 1

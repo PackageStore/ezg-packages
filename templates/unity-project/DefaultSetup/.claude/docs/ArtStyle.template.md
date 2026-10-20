@@ -52,6 +52,9 @@ Spec, mockup, recolor và text **chỉ dùng token trong bảng này**. Cần m�
 
 **Màu rarity / trạng thái** (cố định toàn game):
 
+Màu cảnh báo / lỗi (thường là đỏ) chỉ dùng cho cảnh báo, lỗi và badge thông báo (red dot / số đếm) —
+không dùng để trang trí (PolishRules §2.3).
+
 | Token | Hex | Dùng cho |
 |---|---|---|
 
@@ -90,7 +93,8 @@ Skill visual `Read` các board này trước khi chọn sprite/màu.
 - **Popup thường:** <khung, tiêu đề, X, nút CTA>
 - **Popup offer / IAP:** <họ khung riêng nếu có>
 - **Luật chung:** <CTA chính duy nhất, ...>
-- **Khoảng cách / lưới:** <thang spacing, padding chuẩn, bội số>
+- **Khoảng cách / lưới:** <thang spacing, padding chuẩn, bội số — để trống = mặc định PolishRules §9.1: lưới mềm 4 px,
+  lưới cột 6 × 150 / gutter 24 / margin 30, vùng an toàn 100 px trên / 60 px dưới>
 
 ### 4b. Họ màn có bố cục khoá
 
@@ -118,6 +122,9 @@ dòng → agent ghi đề xuất vào đây (`Status: draft`), không tự chế
 
 **Khung cỡ:** <min–max dùng khi vai trò không có trong bảng>. Best-fit min trong bảng là sàn tuyệt đối
 khi bản dịch dài.
+
+**Họ font:** <tối đa 2 họ — 1 display + 1 body, hoặc một họ cho cả hai (PolishRules §9.2); không thêm họ
+thứ ba>
 
 | Vai trò | Font (asset) | Cỡ (best-fit min–max) | Màu | Viền / bóng |
 |---|---|---|---|---|

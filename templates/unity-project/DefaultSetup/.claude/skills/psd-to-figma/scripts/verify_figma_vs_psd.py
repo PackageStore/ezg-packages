@@ -261,6 +261,20 @@ def load_expected_font(cfg):
         "(or paths.preflight pointing at a file that carries fonts.body)")
 
 
+def load_expected_fonts(cfg):
+    """Allowed fonts: the body font, plus figma.fonts.display when the game's ArtStyle §5 declares a
+    display face. At most two families — anything else is a font violation."""
+    fonts = [load_expected_font(cfg)]
+    display = cfg.settings.get("figma", {}).get("fonts", {}).get("display")
+    if display and display != fonts[0]:
+        fonts.append(display)
+    return fonts
+
+
+def font_label(fonts):
+    return " or ".join(f"{f['family']}/{f['style']}" for f in fonts)
+
+
 def load_valid_style_ids(cfg):
     """Merge the settings styleIdFiles, in order, into one set of valid ids."""
     ids = set()
@@ -279,10 +293,13 @@ def load_valid_style_ids(cfg):
 def check_font_identity(nodes, expected_font, valid_style_ids):
     """Check every TEXT node for font family/style and text-style binding.
 
+    `expected_font` is one {family, style} or a list of them (body + display).
+
     Returns (font_violations, style_violations) — each a list of
     (node_id, node_name, detail_string).
     Font violations are a hard bug, never accepted debt.
     """
+    allowed = expected_font if isinstance(expected_font, list) else [expected_font]
     font_violations = []
     style_violations = []
     for n in nodes:
@@ -295,10 +312,9 @@ def check_font_identity(nodes, expected_font, valid_style_ids):
             font_violations.append((nid, nname, "fontName is MIXED"))
         elif isinstance(fn, dict):
             fam, sty = fn.get("family", ""), fn.get("style", "")
-            if fam != expected_font["family"] or sty != expected_font["style"]:
+            if not any(fam == f["family"] and sty == f["style"] for f in allowed):
                 font_violations.append(
-                    (nid, nname,
-                     f"{fam}/{sty} (expected {expected_font['family']}/{expected_font['style']})"))
+                    (nid, nname, f"{fam}/{sty} (expected {font_label(allowed)})"))
         elif fn is not None:
             font_violations.append((nid, nname, f"unexpected fontName value: {fn}"))
 
@@ -426,7 +442,7 @@ def main():
 
     exceptions = debt.get("verification_exceptions", [])
     figma = {k: load(v)["nodes"] for k, v in EXTRACT.items()}
-    expected_font = load_expected_font(cfg)
+    expected_font = load_expected_fonts(cfg)
     valid_style_ids = load_valid_style_ids(cfg)
 
     figma_clipped = {}
@@ -853,7 +869,7 @@ def main():
 
     # ---- font identity section ----
     lines.append(f"\n## Font Identity\n")
-    lines.append(f"Expected: {expected_font['family']} {expected_font['style']}")
+    lines.append(f"Expected: {font_label(expected_font)}")
     if all_font_violations:
         lines.append(f"\n### Font violations ({len(all_font_violations)})\n")
         for scr, nid, nname, detail in all_font_violations:

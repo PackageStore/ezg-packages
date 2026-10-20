@@ -42,18 +42,23 @@ Determine package requirements by priority:
 
 ## 3. Reference study (required before implementation)
 
+The template's own pack code is the reference — read it before writing anything, and when a step
+below names a class that `Glob` cannot find in this repo, follow the shipped code instead of the
+step (the generation steps below predate parts of the current template; record the deviation):
+
 | # | Path | Purpose |
 |---|------|---------|
-| 1 | `PackageTemplateModel.cs` (`Glob **/PackageTemplateModel.cs`) | Base model fields (name, profit, rewards, packId) |
-| 2 | `<featuresRoot>/Package/Scripts/Controller/PurchaseTemplateController.cs` | How UI handles IAP purchases |
-| 3 | `<featuresRoot>/Package/Scripts/Controller/PackageManager.cs` | Purchase tracking (`IsPurchase`, `PurchasePack`, `PurchaseDailyPack`, `PurchaseWeeklyPack`) |
-| 4 | Examples (pick relevant) | `StarterPack/` (duration/comebackAfter), `GemRefillPack/` (gem trigger), `JewelPack/` (simple time-limited) |
+| 1 | `<featuresRoot>/Monetization/Shop/Store/Scripts/Data/PackTemplateModel.cs` | Base pack model (`id`, `rewards`, `purchaseList`, `iapCost`, `costRequire`, `sale`, product ids, `packName`, `isBestSeller`, `ProductId`) |
+| 2 | `<featuresRoot>/Monetization/Shop/Store/Scripts/Data/CoinPackModel.cs` + `CoinPackCollection.cs` | Minimal pack model + collection (`dataGroups`) pair |
+| 3 | `<featuresRoot>/_Shared/UI/Templates/purchase_template/PurchaseTemplate.cs` | The pack card: `InitButtons`, `SetPurchaseType`, `SetRewards`, `SetSale`, `SetProductId`, `SetCurrencyRequire`, `SetFirstTimeBonus` |
+| 4 | `<featuresRoot>/Monetization/Shop/Store/Scripts/Controller/ShopItemRawPack.cs` + `ShopPackageLogic.cs` + `ShopService.cs` | How a card is driven from a `PackTemplateModel` row, listed in the shop, and how purchases are tracked (`ShopService.IsBuyPack`) |
+| 5 | `<featuresRoot>/_Shared/Purchase/` (`PurchaseManager`, `IAPIntegration/`) + `RewardsService` | Purchase entry points and reward granting — every buy goes through them |
 
 ---
 
 ## 4. Directory structure
 
-Create under `<featuresRoot>/`:
+Create under the `Monetization` bucket, `<featuresRoot>/Monetization/` (rule `project-structure`; a time-boxed event pack goes under `Events/<Event>/` instead):
 
 ```
 [PackageName]/
@@ -76,7 +81,7 @@ Create under `<featuresRoot>/`:
 ### A. `[PackageName]Model.cs`
 
 - **Location:** `[PackageName]/Scripts/Data/`
-- **Inheritance:** `PackageTemplateModel`
+- **Inheritance:** `PackTemplateModel`
 - **Rules:** no namespace; `[Serializable]`; add type-specific fields as needed:
   - `duration` (int) — availability seconds
   - `comebackAfter` (int) — cooldown before reappear (seconds)
@@ -86,7 +91,7 @@ Create under `<featuresRoot>/`:
 using System;
 
 [Serializable]
-public class [PackageName]Model : PackageTemplateModel
+public class [PackageName]Model : PackTemplateModel
 {
     /// <summary>
     /// Thời gian tồn tại của gói (giây)
@@ -167,33 +172,37 @@ public static [PackageName]Manager [PackageName]
 ### E. `[PackageName]Controller.cs`
 
 - **Location:** `[PackageName]/Scripts/Controller/`
-- **Inheritance:** `GameFeatureBaseController` (adds `FeatureType` for open/close events) — locate with `Glob **/GameFeatureBaseController.cs`
+- **Inheritance:** `FeatureBaseController` (carries `FeatureType` for open/close events) — `Features/_Shared/UI/Framework/FeatureBaseController.cs`
 - **Namespace:** `Ezg.Feature.[PackageName]`
 - **Rules:**
-  - `PurchaseTemplateController` reference for IAP
-  - `UI_CooldownTimeView` for time-limited packages
-  - Override `LoadData()` to init package data
+  - `PurchaseTemplate` reference (the `purchase_template` card in the popup — new-ui-guide §1 Package branch)
+  - `UI_CooldownTimeView` for time-limited packages (from the instantiated `cooldown_timer_template`)
+  - Override `LoadData()` to init package data; drive the card like `ShopItemRawPack.UpdateView`
+  - Purchases go through `PurchaseManager` / rewards through `RewardsService` before any animation
   - Override `CloseMe()` to emit close event
-  - `FeatureType` (TabGroup "Common", from the base class) is wired on the prefab during `/new-ui` (§10), not set in this class
+  - `FeatureType` (from the base class) is wired on the prefab during `/new-ui` (§10), not set in this class
 
 ```csharp
+using System;
+using Ezg.Core.UI;
+using Ezg.Feature.Shared.GameData;
+using Ezg.Feature.Shared.UI;
+using Ezg.Feature.Shared.UI.Framework;
 using Sirenix.OdinInspector;
 using TigerForge;
 using UnityEngine;
-using System;
 
 namespace Ezg.Feature.[PackageName]
 {
-    internal class [PackageName]Controller : GameFeatureBaseController
+    internal class [PackageName]Controller : FeatureBaseController
     {
         [SerializeField]
         [TabGroup("Cấu hình")]
         [Required]
-        private PurchaseTemplateController _purchase;
+        private PurchaseTemplate _purchase;
 
         [SerializeField]
         [TabGroup("Cấu hình")]
-        [Required]
         private int _packIndex;
 
         [SerializeField]
@@ -201,18 +210,39 @@ namespace Ezg.Feature.[PackageName]
         [Required]
         private UI_CooldownTimeView _cooldownTime;
 
+        protected override void Awake()
+        {
+            base.Awake();
+            // Đăng ký nút một lần (ShopItemRawPack làm ở Start) — LoadData có thể chạy nhiều lần.
+            _purchase.InitButtons(OnPurchaseAds, OnPurchaseCurrency, OnPurchaseIap, OnPurchaseFree);
+        }
+
         protected override void LoadData()
         {
             base.LoadData();
 
-            _purchase.InitData(DataManager.[PackageName].GetPack(_packIndex));
+            var pack = DataManager.[PackageName].GetPack(_packIndex);
+            // Đổ dữ liệu như ShopItemRawPack.UpdateView: HideAll → SetSale → SetRewards → SetPurchaseType
+            // → SetProductId (IAP) / SetCurrencyRequire (Currency) → SetFirstTimeBonus nếu có.
+            _purchase.HideAll();
+            _purchase.SetSale(pack.sale)
+                .SetRewards(pack.rewards, false)
+                .SetPurchaseType(pack.purchaseList[0].purchaseType, true);
             _cooldownTime.InitCustomCooldown([PackageName]Manager.GetEndTime(_packIndex), () => CloseMe());
         }
+
+        // Mỗi handler mua qua PurchaseManager rồi cấp thưởng qua RewardsService — chép đúng luồng
+        // OnPurchase* của ShopItemRawPack, không tự cộng tiền / item.
+        private void OnPurchaseAds() { }
+        private void OnPurchaseCurrency() { }
+        private void OnPurchaseIap() { }
+        private void OnPurchaseFree() { }
 
         public override void CloseMe(Action completeAction = null)
         {
             base.CloseMe(() =>
             {
+                completeAction?.Invoke();
                 EventManager.EmitEvent(nameof([PackageName]Controller));
             });
         }
@@ -224,58 +254,63 @@ namespace Ezg.Feature.[PackageName]
 
 ## 6. DataManager / IAP registration
 
-1. **`CsvAssetDir.cs`** — locate with `Glob **/CsvAssetDir.cs`  
-   `public const string [PackageName] = "[PackageName]";`  
-   Value is bare filename (no extension). `ResLoader` resolves CSV inside the package's `CsvConfig/` folder.
+1. **Generated accessors — never hand-edit.** `CsvAssetDir.cs` (CSV → asset name) and
+   `DataManager.Generated.cs` (`DataManager.[PackageName]`) are produced by the `com.ezg.csv-reader`
+   import tool from the CSV in the pack's `CsvConfig/` (skill `csv-config`). Add the CSV, run the import,
+   and check the new `public static [PackageName]Collection [PackageName] => Get<...>()` line appeared.
 
-2. **`DataManagerAutoGenerate.cs`** — locate with `Glob **/DataManagerAutoGenerate.cs`  
-   `public static [PackageName]Collection [PackageName] => Get<[PackageName]Collection>();`
-
-3. **`GameSystems.cs`** — locate with `Glob **/GameSystems.cs`  
-   Inside `InitAllPurchasePackage()`, add to `consumablePack` **before** the `Where` filter:
+2. **IAP product ids** — `InAppPurchase` registers the store catalog from `ShopService.GetAllProductId()`
+   and grants every completed order through `ShopService.GrantIapByProductId()` →
+   `GetPackByProductId()` (no UI controller involved, so recovered / deferred orders are granted too).
+   A pack sold for real money adds its collection to **both**, the same way `CoinPack` / `GemPack` /
+   `RemoveAdsPack` are listed:
 
 ```csharp
-consumablePack.AddRange(DataManager.[PackageName].dataGroups.Select(x => x.packId));
+// ShopService.GetAllProductId()
+list.AddRange(DataManager.[PackageName].dataGroups.Select(x => x.ProductId));
+
+// ShopService.GetPackByProductId() — add to the ?? chain
+?? Find(DataManager.[PackageName].dataGroups)
 ```
 
-Pattern: `.Select(x => x.packId)` when each entry is a separate pack (same as `StarterPack`, `JewelPack`, `GloryPassPack`).
+   Missing from the first → the store never offers the SKU; missing from the second → the order
+   charges and grants nothing (PolishRules §12 / P35).
 
 ---
 
 ## 7. CSV data file
 
-**Path:** `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv`
+**Path:** `<featuresRoot>/Monetization/[PackageName]/CsvConfig/[PackageName].csv`
 
 > Do **NOT** place CSV at `Assets/Csv/Collection/Packages/...` — that legacy path is obsolete (see csv-config skill).
 
 ### Columns
 
+Start from the header the template's own packs use (`Monetization/Shop/CsvConfig/CoinPack.csv` /
+`GemPack.csv`) — it maps 1:1 onto `PackTemplateModel` — then add the pack's own columns (e.g.
+`duration`, `comeback_after`) at the end:
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `pack_id` | string | IAP product ID (e.g. `com.company.game.[package_name]_1`) |
-| `duration` | int | Availability seconds (86400 = 1 day) |
-| `comeback_after` | int | Cooldown before reappear (seconds) |
-| `profit` | int | Value multiplier shown to user (e.g. 1000 = x10) |
-| `name` | string | Localization key (e.g. `#[package_name]_1`) |
-| `res_type` | int | `EnumBase.ResourceTypes` int (Money=1, Hero=3, …) |
-| `res_id` | int | Resource ID from corresponding enum |
-| `res_number` | long | Amount |
-| `bonus` | int | Bonus % (optional) |
-| `stage_bonus` | int | Stage-based bonus (optional) |
-| `custom_value` | string | Custom data (optional) |
+| `id` | int | Pack id (row key) |
+| `pack_name` | string | Localization key of the pack name (lowercase, e.g. `[package_name]_1`) |
+| `res_type` / `res_id` / `res_number` | int / int / long | One reward (`EnumBase.ResourceTypes`, resource id, amount) |
+| `bonus` / `stage_bonus` | float / int | Reward bonus (optional) |
+| `first_time_purchase_bonus` | int | Extra amount on the first purchase (0 = none) |
+| `purchase_type` / `purchase_count` | `PurchaseType` / int | `IAP` / `Ads` / `Free` / `Currency` and how many times |
+| `iap_cost` | float | Display price fallback (the store price wins at runtime) |
+| `cost_type` / `cost_id` / `cost_number` | | Soft-currency cost when `purchase_type = Currency` |
+| `sale` | float | Sale % shown on the card (empty = none) |
+| `google_product_id` / `google_product_id_premium` / `apple_product_id` | string | Store SKUs (`com.company.game.[package_name]_N`) |
 
-### Multi-reward example
+### Example
 
 ```csv
-pack_id,duration,comeback_after,profit,name,res_type,res_id,res_number,bonus,stage_bonus,custom_value
-com.company.game.[package]_1,86400,86400,1000,#[package]_1,1,22,1,,,
-,,,,,1,2,200,,,
-,,,,,1,16,10,,,
-com.company.game.[package]_2,86400,86400,1500,#[package]_2,3,2,1,,,
-,,,,,1,2,500,,,
+id,pack_name,res_type,res_id,res_number,bonus,stage_bonus,first_time_purchase_bonus,purchase_type,purchase_count,iap_cost,cost_type,cost_id,cost_number,sale,google_product_id,google_product_id_premium,apple_product_id
+1,[package_name]_1,1,2,100,0,0,0,IAP,1,3.99,,,,,com.company.game.[package_name]_1,,com.company.game.[package_name]_1
 ```
 
-**Important:** empty `pack_id` means the row belongs to the previous pack's rewards array.
+Multi-reward rows follow the csv-config skill's continuation-row rule — read it before writing one.
 
 ---
 
@@ -298,14 +333,14 @@ using UnityEngine;
 
 ## 9. Purchase type options
 
-From `PackageManager.PurchaseTypes`:
+From the `PurchaseType` enum (`Features/_Shared/ResourceSystem/Services/RewardsService.cs`):
 
 | Type | Description |
 |------|-------------|
-| `Free` | No cost, direct claim |
-| `Ads` | Watch ad to purchase |
-| `Currency` | In-game currency |
-| `Iap` | Real-money IAP (default for packages) |
+| `Free` | No cost, direct claim (`button_purchase_free`) |
+| `Ads` | Watch ad to purchase (`button_purchase_ads`, through `AdsController`) |
+| `Currency` | In-game currency (`button_purchase_currency`, cost via `PurchaseManager.PurchaseOffline`) |
+| `IAP` | Real-money IAP — default for packages (`button_purchase_iap`, `PurchaseManager.PurchaseOnline`) |
 
 ---
 
@@ -315,7 +350,7 @@ Every package needs a UI prefab, but **the build is not described here** — inv
 
 > `/new-ui [PackageName]`
 
-Because the name ends with `Pack`, `/new-ui` auto-routes to its **Package branch**, which is the single source of truth for the prefab build — base template `PackageTemplate.prefab`, Popup layout, `_purchase` / `_packIndex` / `_cooldownTime` wiring, `ClickBackgroundToExit`, `FeatureType`, and Variant verification. See [new-ui-guide.md](new-ui-guide.md) §0b, §1, §4 (Package branch) + §5 (including the Phase D designer pass — [ui-designer-pass.md](ui-designer-pass.md)), with tool-call recipes in [ui-mcp-playbook.md](ui-mcp-playbook.md) §4.
+Because the name ends with `Pack`, `/new-ui` auto-routes to its **Package branch**, which is the single source of truth for the prefab build — a `screen_template` Variant on the popup layout holding a `purchase_template` card (or a plain shop-cell prefab when the pack only lives in the shop list), `_purchase` / `_packIndex` / timer wiring, `ClickBackgroundToExit`, `FeatureType`, and Variant verification. See [new-ui-guide.md](new-ui-guide.md) §0b, §1, §4 (Package branch) + §5 (including the Phase D designer pass — [ui-designer-pass.md](ui-designer-pass.md)), with tool-call recipes in [ui-mcp-playbook.md](ui-mcp-playbook.md) §4.
 
 Only package-specific fact to carry across: the controller to bind is `[PackageName]Controller.cs` from §5.E above.
 
@@ -331,24 +366,23 @@ Typical package cheats (mirror `Features/System/GameCheat` in style):
 
 - `ResetBuy` "Reset buy" → clear the purchased/claimed flag in `Player[PackageName]Data` so the pack can be bought again.
 - `Expire` "Expire now" / `+1 day` → move the cooldown/limited window (route through the manager's single time accessor, never `DateTime.Now`).
-- `Grant` "Grant pack" → run the reward path **through the production entry point** (`RewardManager` / the same method the real purchase calls), never a parallel grant.
+- `Grant` "Grant pack" → run the reward path **through the production entry point** (`RewardsService` / `ShopService.GrantIapByProductId` — the same method the real purchase calls), never a parallel grant.
 
-`GameSystems.Cheat.IAP` already exists for simulating the purchase itself — prefer it over faking a receipt. Cheat labels get **no** `LocalizesUI`. Do not wrap cheat code in `#if UNITY_EDITOR`; the chrome's `GameCheatObjectController` gates visibility.
+`GameSystems.Cheat.IAP` already exists for simulating the purchase itself — prefer it over faking a receipt. Cheat labels get **no** `LocalizeHelper`. Do not wrap cheat code in `#if UNITY_EDITOR`; the chrome's `GameCheatObjectController` gates visibility.
 
 ---
 
 ## 11. Final checklist
 
 - [ ] All names end with `Pack` suffix
-- [ ] `[PackageName]Model.cs` inherits `PackageTemplateModel`
+- [ ] `[PackageName]Model.cs` inherits `PackTemplateModel`
 - [ ] `[PackageName]Collection.cs` has `dataGroups` array
 - [ ] `[PackageName]Manager.cs` registered in `PlayerDataManager.cs`
-- [ ] `CsvAssetDir.cs` updated with path constant
-- [ ] `DataManagerAutoGenerate.cs` updated with collection property
-- [ ] `GameSystems.InitAllPurchasePackage()` has `DataManager.[PackageName].dataGroups.Select(x => x.packId)`
-- [ ] CSV at `<featuresRoot>/[PackageName]/CsvConfig/[PackageName].csv`
+- [ ] `CsvAssetDir.cs` + `DataManager.Generated.cs` regenerated by the csv-reader import (not hand-edited)
+- [ ] `ShopService.GetAllProductId()` and `ShopService.GetPackByProductId()` include `DataManager.[PackageName]`
+- [ ] CSV at `<featuresRoot>/Monetization/[PackageName]/CsvConfig/[PackageName].csv`
 - [ ] IAP product IDs: `com.company.game.[package_name]_N`
 - [ ] Localization keys for package names
-- [ ] `/new-ui [PackageName]` → prefab variant at `Features/[PackageName]/Resources/[PackageName].prefab` (Package branch)
-- [ ] Controller `_purchase`, `_packIndex`, `_cooldownTime` (if time-limited) bound
+- [ ] `/new-ui [PackageName]` → `screen_<snake_case>` Variant of `screen_template` in `<featuresRoot>/<Domain>/[PackageName]/Resources/` (Package branch), or a shop-cell prefab when the pack has no popup
+- [ ] Controller `_purchase` (the `purchase_template` card), `_packIndex`, `_cooldownTime` (if time-limited) bound
 - [ ] Cheat decision made explicitly (§10b): `Cheat_*` methods + buttons under `CheatMenu/Menu` (reset-buy / expire-window at minimum), or a stated reason why none are needed

@@ -134,8 +134,8 @@ chunk:
 > `screen_template.prefab` fileID `6025426740827259555`). In a static scene/prefab view this
 > looks invisible. **This is harmless at actual runtime** — `FeatureBaseController.Awake()` /
 > `UITransition.PlayOpen()` never touch the root's own scale (they only animate `MainUI` =
-> child `[1]`), and a root `Canvas` in Screen Space – Overlay mode ignores its own Transform
-> scale for rendering. Confirmed: the shipped, in-production `screen_change_name.prefab`
+> child `[1]`), and a root `Canvas` in a Screen Space mode (the template serializes Screen Space –
+> Camera) drives its own RectTransform at runtime. Confirmed: the shipped, in-production `screen_change_name.prefab`
 > variant does **not** override this value either, and it renders fine at runtime regardless.
 > **Even so, always explicitly set the root `RectTransform` `m_LocalScale` to `{1,1,1}` before
 > saving.** Leaving it at `{0,0,0}` is a real workflow trap even though it's runtime-safe: every
@@ -298,11 +298,13 @@ A screen is not usable until all four hold. `UIManager.Show()` loads by
    `ClickBackgroundToExit`) and `transform.GetChild(1)` as `MainUI` (when `MainUI` is unset).
    Keep `background_button` first and `popup_template` second, **or** explicitly assign
    `MainUI` and verify the background reference.
-   - **Full-screen screens must explicitly assign `MainUI` to `full_screen_template`.** Child
-     order never changes (`popup_template` stays index `[1]`, `full_screen_template` stays `[2]`
-     regardless of which is active) — the null-fallback `transform.GetChild(1)` always resolves
-     to `popup_template`, which is wrong (and inactive) for a full-screen screen. Leaving `MainUI`
-     unset on a full-screen variant silently breaks `UITransition.PlayOpen`/`PlayClose` targeting.
+   - **Leave `MainUI` unset on full-screen screens too.** `MainUI` only steers `UITransition`:
+     with the fallback (`popup_template`, inactive on a full-screen screen) the default scale
+     tween runs on an invisible node, so the page **fades** in and out (the close tween still
+     completes and re-enables touch). That is the convention of every full-screen screen the
+     template ships (`screen_shop`, `screen_admin`, `screen_currency_bar` all keep `MainUI` empty).
+     Assigning `MainUI = full_screen_template` makes the page zoom like a dialog — only on an
+     explicit task request, recorded as a deviation.
 
 **Verify open:** after building + saving, confirm via
 `UIManager.Instance.Show(GameEnums.Features.MyNewScreen, ...)` (e.g. through `unity_play_mode`
@@ -343,9 +345,9 @@ fine.
   neither (§6a).
 - Popup screens: `popup_template/.../button_close` active, present in `_closeButtons`, and
   `ClickBackgroundToExit = true` (§6b).
-- Full-screen navigation pages: `MainUI` explicitly set to `full_screen_template` (§7 step 4),
-  and `full_screen_template/botview/button_close` active + present in `_closeButtons` (§6c).
-- Full-screen persistent HUD/shell: `MainUI` explicitly set to `full_screen_template`, and
+- Full-screen navigation pages: `MainUI` empty (§7 step 4), and
+  `full_screen_template/botview/button_close` active + present in `_closeButtons` (§6c).
+- Full-screen persistent HUD/shell: `MainUI` empty, and
   `full_screen_template/botview/button_close` deactivated with `_closeButtons` empty (§6d).
 - `_closeWithBackey`: `true` for popup (§6b) and full-screen navigation page (§6c); `false` for
   full-screen persistent HUD/shell (§6d) — same reasoning as the deactivated close button (§6e).

@@ -108,7 +108,7 @@ class WaitShTests(WaitContract, unittest.TestCase):
         stub_dir.mkdir()
         for name in ("python3", "python", "py"):
             path = stub_dir / name
-            path.write_text("#!/bin/sh\n" + body, encoding="utf-8", newline="\n")
+            path.write_bytes(("#!/bin/sh\n" + body).encode("utf-8"))
             path.chmod(0o755)
         old_path = os.environ["PATH"]
         os.environ["PATH"] = str(stub_dir) + os.pathsep + old_path

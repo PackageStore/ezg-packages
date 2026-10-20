@@ -255,11 +255,22 @@ class CapabilityFallbackTests(unittest.TestCase):
 
 class SoftRuleTests(KitSandbox):
     def test_off_grid_spacing_warns(self):
+        # Lưới mềm 4 px (PolishRules §9.1): 18 lệch lưới, 12 / 20 nằm trên lưới.
         data = spec()
-        data["containers"][0]["gap"] = 20
+        data["containers"][0]["gap"] = 18
         result = self.check(data)
         self.assertTrue(result["ok"], result["errors"])
         self.assertIn("polish_grid", codes(result["warnings"]))
+
+    def test_four_px_steps_are_on_grid(self):
+        data = spec()
+        data["containers"][0]["gap"] = 12
+        data["containers"][0]["padding"] = [20, 20, 20, 20]
+        result = self.check(data)
+        self.assertNotIn("polish_grid", codes(result["warnings"]))
+
+    def test_default_grid_step_is_four(self):
+        self.assertEqual(usc.POLISH_DEFAULTS["gridStep"], 4)
 
     def test_long_button_label_warns(self):
         data = spec()

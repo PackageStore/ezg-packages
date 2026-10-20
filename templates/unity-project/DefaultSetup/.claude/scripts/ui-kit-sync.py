@@ -78,8 +78,8 @@ MAX_VARIANT_DEPTH = 5
 # Hand-maintained composition contract, kept as DATA next to the kit rather than
 # in this file. The extractor can read a prefab's own geometry but not how
 # templates compose with each other, so a drafter reading ui-kit.json alone
-# cannot tell that tab toggles must live inside the bottom bar (how DungeonGuide
-# ended up with a hand-made tab row in Mid). Those rules are per-project — the
+# cannot tell that tab toggles must live inside their tab strip (how a shipped
+# screen ended up with a hand-made tab row). Those rules are per-kit — the
 # template set differs — while this script is shared byte-identical across
 # projects, so hardcoding them here would ship one game's rules to every other.
 USAGE_FILE = OUT_DIR / "ui-kit-usage.json"
@@ -889,7 +889,7 @@ def build_css(kit):
     for name, rec in kit.items():
         w, h = rec["size"]
         if w == 0 and h == 0:
-            # Screen-root templates (FeatureTemplate/PackageTemplate) are sized
+            # Screen-root templates (screen_template and its variants) are sized
             # by UIManager at runtime — in a mockup the .stage plays that role.
             props = [f"width:var(--design-w,{DESIGN_W}px)", f"height:var(--design-h,{DESIGN_H}px)"]
         else:

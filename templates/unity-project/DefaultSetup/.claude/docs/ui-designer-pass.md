@@ -63,8 +63,9 @@ The Phase C prefab is the frozen layout. Phase D may:
 2. **Fill empty art slots** — an existing Image/RawImage that is a *visible* empty slot: sprite /
    texture still empty (null or a Unity built-in placeholder), colour alpha above zero, on a node
    with no Button/Selectable and no Mask, **and** not bound at runtime (spec element not
-   `"dynamic"`, no controller / view / template code sets it; Package branch: never pre-fill
-   `PurchaseTemplate`). It gets its art plus colour / preserve-aspect / image type on that component.
+   `"dynamic"`, no controller / view / template code sets it; never pre-fill a `purchase_template`
+   instance — its `PurchaseTemplate` component sets pack icon / name / price at runtime). It gets its
+   art plus colour / preserve-aspect / image type on that component.
 3. **Create art files** under `<Feature>/Visuals/` (D4).
 4. **Add motion** in the screen's controller and a static `<Feature>Motion` class in
    `<Feature>/Scripts/Controller/`; idle-FX components the project lacks go there too (reuse the
@@ -186,14 +187,28 @@ table only names the layers:
 Rules (binding):
 - The frame's open/close already exists: `FeatureBaseController.AnimOpenUI/AnimCloseUI` +
   `UITransition`. Do not add a second intro on the root. Child stagger → `override AnimOpenUI()`,
-  call `base.AnimOpenUI()` first, then run the screen's sequence.
+  call `base.AnimOpenUI()` first, then run the screen's sequence. What the template plays (verified in
+  `UITransition.cs`): `screen_template` ships `_animIn` / `_animOut` empty, so the default is open =
+  `MainUI` scale 0.8 → 1 `OutBack` 0.3 s + `CanvasGroup` fade 0 → 1 0.3 s + background fade to
+  `_backgroundAlpha` 0.3 s; close = scale → 0.8 `InBack` 0.2 s + both fades 0.2 s; all
+  `SetUpdate(true)`. A `TransitionAnimationObject` preset assigned to `_animIn` / `_animOut` replaces
+  that (presets: `Visual/ArtAsset/Shared/Transition/Data/` — `Popup_In/Out_*`, `Screen_In/Out_*`,
+  `SimpleCutTransitionAnimation`; a preset animates every root child, child 0 alpha only). Changing
+  the screen's enter is a preset / ArtStyle §7 decision, not new tween code. Project has the UI
+  Motion module installed (skill `ui-motion` survey finds it) → its standard wins for the roles it
+  covers.
 - Tween only `localScale`, alpha (`CanvasGroup`/`Graphic`) and rotation of existing nodes — their
   position and size belong to the layout. Anything goes on overlay nodes. A slide-in of a laid-out
   child = alpha + scale, or an overlay that moves; never `anchoredPosition` / `sizeDelta` of a
   laid-out node.
-- Do not scale a button root (its template press effect captures the base scale) and do not insert
-  a "visual root" between a node and its children (that reparents); the press stays the template's,
-  the beat goes on an overlay.
+- Do not scale a button root (its template press effect captures the base scale: `button_template`
+  = `JumpInJumpOut` press 0.05 s down to 0.95 × 0.9, release 0.3 s `OutBack` back to 1, unscaled time,
+  plus a glow `DOTweenAnimation` fade 0.15 s) and do not insert a "visual root" between a node and
+  its children (that reparents — legal only in `/refactor-ui`, which may change layout; never in
+  Phase D); the press stays the template's, the beat goes on an overlay.
+- Idle on an overlay: a `DOTweenAnimation` component (DOTween Pro ships with the template; loops
+  `-1`, *Ignore TimeScale* / `isIndependentUpdate` on) or a small idle behaviour in the feature's `Scripts/Controller/`; UI
+  Motion components only when that module is installed.
 - DOTween: `SetUpdate(true)`, `SetLink(gameObject)`, kill in `OnDisable` and before every replay;
   re-opening is idempotent (reset to the rest state first, no accumulated scale); one `Sequence`
   per beat; durations/eases as named constants. UniTask, never coroutines; no per-frame allocation.

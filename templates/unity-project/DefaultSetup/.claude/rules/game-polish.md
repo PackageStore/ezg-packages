@@ -3,9 +3,10 @@
 Áp cho MỌI task, kể cả task tay không qua skill và task `/run-backlog` — hễ đụng UI, flow màn hình, feedback /
 motion, VFX, SFX, animation, số hiển thị, onboarding, shop / quảng cáo / IAP, hiệu năng gameplay.
 
-1. **Đọc đúng mục trước khi quyết** (file dài, đọc phần cần): UI / popup / nút / chữ → §9 · feedback,
-   motion, nhận thưởng → §6 + §3 · VFX → §4 · âm, rung → §5 · onboarding → §10 · shop / ads / IAP → §12 ·
-   hiệu năng → §13 · camera / chuyển cảnh → §7 · module khai ở `project-profile.json` → `polish.modules` → M1–M4.
+1. **Đọc đúng mục trước khi quyết** (file dài, đọc phần cần): UI / popup / nút / chữ / toast → §9 (Spine, video
+   trên UI → §9.10) · feedback, motion, nhận thưởng → §6 + §3 · VFX → §4 · âm, rung → §5 · onboarding → §10 ·
+   shop / ads / IAP → §12 · hiệu năng → §13 · camera / chuyển cảnh → §7 · module khai ở `project-profile.json` →
+   `polish.modules` → M1–M4.
 2. **Thứ tự ưu tiên:** lời dev trong task → art hoạ sĩ của đúng màn (PSD / Figma) → `ArtStyle.md` → PolishRules.
    Số trong PolishRules là mặc định trên canvas **1080×2400** (`designResolution`); nguyên tắc thì không bỏ.
 3. **Dùng thứ template có, biết chỗ nó KHÔNG lo:** Back Android → `UIManager` → `CloseMe` (đặt logic đóng ở
@@ -13,7 +14,7 @@ motion, VFX, SFX, animation, số hiển thị, onboarding, shop / quảng cáo 
    khoá touch lúc mở — nút quan trọng tự khoá ~0.5 s; số lớn → `Utils.MoneyConvert`; rung → `VibrateManager`
    (`ButtonVibrate` rung mọi lần bấm — chỉ cho khoảnh khắc lớn); rewarded → `AdsController`; cấp thưởng qua
    `RewardsService` / `PurchaseManager` trước, animation sau.
-4. **Chưa qua checklist = chưa xong.** Trước khi báo xong, tự chấm các ID `P01…P40` áp cho phần vừa làm
+4. **Chưa qua checklist = chưa xong.** Trước khi báo xong, tự chấm các ID `P01…P48` áp cho phần vừa làm
    (bảng cuối PolishRules). Dòng `block` fail → sửa rồi mới xong. Dòng `human` (cần máy thật / tai người) → ghi
    thành bước kiểm tay vào tài liệu đi kèm (task / DONE summary / `TechSpec/<Màn>-UIRefactor.md`), **không**
    tự đánh pass. Dòng không liên quan → `na`.

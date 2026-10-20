@@ -110,7 +110,9 @@ enter `verify_report.md`.
 Every TEXT node — including text inside clip frames — must satisfy two conditions
 or the gate fails:
 
-1. `fontName` equals `figma.fonts.body` from the settings file. The expected font
+1. `fontName` equals `figma.fonts.body` — or `figma.fonts.display` when the
+   settings file sets one (a game whose ArtStyle §5 declares a display face; never a
+   third family) — from the settings file. The expected font
    is always sourced from settings, never hardcoded in the gate or in a build
    script — with no font in settings the gate exits with a message naming the
    key to add, rather than assuming one.

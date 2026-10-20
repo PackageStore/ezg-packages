@@ -4,6 +4,50 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-21
+
+**Fixed** — Doc UI của base mô tả đúng template thật (trước đây chép từ kit của project khác)
+- `docs/new-ui-guide.md`, `docs/ui-mcp-playbook.md`, `agents/mockup-drafter.md`, `agents/ui-visual-reviewer.md`,
+  `commands/new-ui.md` / `new-package.md`, `docs/new-package-guide.md`, `skills/create-ui/**`: cấu trúc
+  `screen_template` → `background_button` / `popup_template` / `full_screen_template`, catalog template thật
+  (`button_template*`, `button_purchase_*`, `tab_template`, `panel_template`, `ScrollViewTemplate` guid
+  `33918c20…`, `ScrollViewLoopTemplate`, `notification_*`, `money_bar_require_view`…), localize `LocalizeHelper`,
+  CheatMenu phải instantiate, tên prefab `screen_<snake_case>`. Bỏ tên template không tồn tại (`TabBottomTemplate`,
+  `FrameTemplateInside`, `ButtonNormal`, `PackageTemplate`…).
+- `MainUI` thống nhất một luật: để trống ở cả popup lẫn full-screen (full-screen chỉ fade — đúng các màn template
+  ship). create-ui trước đây bảo gán `MainUI = full_screen_template`.
+- `ui-kit/ui-kit-usage.json`: bỏ 3 note của template không có, thêm 32 note cho template thật (gồm luật dùng từng
+  prefab của bộ UI System). `usageUnknown` rỗng trên template.
+- Validator ui-spec: message trung tính, thêm tên template thật vào các set scroll / chrome / tab / section (giữ tên
+  cũ cho kit cũ); `test_ui_spec_pipeline` dựng sandbox kit riêng nên chạy được ở mọi project (trước đây đỏ 22 test
+  trong project sinh từ template). `test_bughub_wait` chạy được trên Python 3.9.
+- Motion: `refactor-ui`, `docs/ui-designer-pass.md`, `skills/ui-motion` ghi số thật của `UITransition` (mở 0.8 → 1
+  `OutBack` 0.3 s + fade; đóng `InBack` 0.2 s), 22 preset `TransitionAnimationObject`, `JumpInJumpOut` của
+  `button_template`; bỏ `Features/_Shared/UI/Fx/UIFx*` (không tồn tại) → `DOTweenAnimation` / behaviour trong
+  feature; module UI Motion chỉ áp khi project đã cài. Visual root: chỉ `refactor-ui` được tách, Phase D cấm.
+- Tên class cũ trong agent / design-pipeline: `RewardManager` → `RewardsService` / `PurchaseManager`,
+  `GameFeatureBaseController` → `FeatureBaseController`, `LocalizesUI` → `LocalizeHelper`.
+
+**Changed** — Luật polish / Figma theo tài liệu UI của team
+- `PolishRules.md` §9.1: **lưới mềm 4 px** (thang 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64, quy đổi bản 1x ×2.88),
+  lưới cột 6 × 150 / gutter 24 / margin 30 (thay "lề ≥ 48"), **vùng an toàn 100 px trên / 60 px dưới** cho phần tử
+  bấm được. `polish.gridStep` mặc định 4.
+- §2.3: màu cảnh báo (đỏ) được dùng cho badge thông báo (`RedDotBadge`, `notification_dot` / `notification_count`).
+- §9.2 font: tối đa 2 họ (display + body, hoặc một họ). Skill Figma theo cùng luật (`figma.fonts.display` tuỳ chọn).
+- Figma State: `Default` / `Pressed` bắt buộc, `Disabled` khi nút có thể khoá, `Hover` không vẽ mới (set cũ vẫn hợp
+  lệ). `addStateVariants.js` hỗ trợ `Disabled` (`color/btn/disabled`), `audit-states.js` chỉ đòi Default + Pressed.
+- `figma-hygiene` S-8: kiểm cả mép trên (`grid.safeTop`, mặc định 100) và mép dưới (`safeBottom` mặc định 60; đặt 0
+  để tắt).
+
+**Added** — `PolishRules.md`: thử thứ bậc bằng ảnh xám + blur, tương phản viền chữ, popup ≤ 1 lớp nội dung, toast
+(một cái một lúc, thời gian theo độ dài chữ, không quảng cáo), ≤ ~6 lựa chọn một khung nhìn, ghost slot cho lưới có
+sức chứa (khác placeholder), §9.10 Spine (`SkeletonGraphic`) / rig 2D / video trên Canvas. Checklist **P41–P48**.
+
+**Note** — Project cũ: `.claude/project-profile.json` còn `polish.gridStep: 8` thì giữ 8 tới khi tự đổi sang 4 (mọi
+bội 8 đều là bội 4). Kit cũ cần lại note tab đã bỏ thì thêm vào `.claude/project/ui-kit-usage.json`. Prefab
+`FadingGlowButton` của template còn `isIndependentUpdate: 0` (glow đứng khi timeScale = 0) — asset nằm trong gói
+`ezg.base.*`, sửa ở bản gói kế tiếp.
+
 ## 2026-10-20
 
 **Added** — File AI của base có chủ sở hữu rõ ràng + cập nhật một lệnh `/update-ai`, không mất phần project đã tuỳ biến

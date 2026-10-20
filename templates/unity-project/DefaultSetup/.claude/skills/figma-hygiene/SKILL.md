@@ -26,10 +26,12 @@ This prose is the human contract; `rules.json` is its machine form. Where they d
 Every screen is composed on a 6-column grid. It is the backbone of the whole UI system, in Figma and in Unity alike — never optional.
 
 - Design frame is 1080×2400 portrait. 6 columns of 150 px, 24 px gutters, 30 px side margins. Column left edges are at x = 30, 204, 378, 552, 726, 900.
-- Safe zone: no interactive element in the bottom 60 px. The top edge has no safe zone.
+- Safe zones: no interactive element in the top 100 px (status bar / notch) or the bottom 60 px (gesture bar). `project.json` → `grid.safeTop` / `grid.safeBottom` (defaults 100 / 60) are what `S-8` measures.
 - Figma: every screen-size frame must have an applied layout grid style. Apply it when you create the frame (this is what `V-4` checks).
 - Spanning: full-width panels span 6 columns, cards span 2, item-grid slots span 1.5–2.
-- Unity: anchor screens to the same column math. Nudge elements onto the nearest column edge and out of the bottom safe zone.
+- Spacing inside the columns follows the soft 4 px grid: every padding, gap and line-height is a multiple of 4 (scale 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64). Content inside a panel keeps at least 16 px padding from the panel edge. The 30 px side margin belongs to the column grid, not to the spacing scale.
+- Touch targets: at least 128 px on both axes on the 1080 frame (≈ 44 pt); a smaller visual gets a transparent hit frame.
+- Unity: anchor screens to the same column math. Nudge elements onto the nearest column edge and out of both safe zones (the template's own chrome — currency bar, back / close button — keeps the template's placement).
 
 ### Reuse rule — components and instances, never copies
 
@@ -104,8 +106,8 @@ screen root can never be that object.
   the popup: backdrop, dim layer, the chrome still visible around it.
 - **The container is the footprint, not the plate.** Its bounds enclose every
   child, overhang included. Size it to the grid: left and right edges on column
-  edges (normally the full content span between the side margins), bottom
-  above the bottom safe zone. The plate inside it also spans whole columns,
+  edges (normally the full content span between the side margins), top and
+  bottom inside the safe zones. The plate inside it also spans whole columns,
   centred in the container. A plate whose width is pinned debt is centred,
   never resized.
 - **One sub-container per panel.** The main plate and its content form one
@@ -182,7 +184,7 @@ reported as a warning only.
 | S-5 | **Grid where grid** | When instances form an NxM pattern (N 2 or more, M 2 or more), their parent is a single container | no |
 | S-6 | **Component reuse** | Art/structure repeating 3 or more times across screens is a component, not loose nodes (see *Reuse rule* above) | no |
 | S-7 | **No clip content** | Zero nodes with `clipsContent = true` in the subtree, except the screen frame itself, scroll lists and `Mask-*` frames (see *Clip content* above) | yes |
-| S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*Popup` frame whose left/right edges sit on column edges and whose bottom edge sits above the bottom safe zone, constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) | no |
+| S-8 | **Popup containment** | On a popup screen, the plate instance, its close button, its content containers and any stacked panels share one root-level `Container-*Popup` frame whose left/right edges sit on column edges and whose top and bottom edges sit inside the safe zones (`grid.safeTop` / `grid.safeBottom`, defaults 100 / 60 px), constraints CENTER/CENTER, `clipsContent = false` (see *Popup composition* above) | no |
 | S-9 | **No underscores** | Zero names containing `_` in the subtree (nodes, instances, screen frame, and the styles they bind) except `slice_ROW_COL` cells (see *Naming* above) | yes |
 | S-10 | **Tidy canvas** | On the page the workflow writes to, no two top-level nodes overlap and every gap between row neighbours and between rows is at most 100 px (see *Canvas layout* above) | yes |
 

@@ -42,14 +42,15 @@ only the sub-section it owns. Keys the stages read:
 | `paths.projectRoot` / `paths.psdDir` | consuming root, then PSD source dir |
 | `frame.w` / `frame.h` | the one fixed frame size every screen uses |
 | `figma.fileKey` / `figma.pages` | target file; page id → name |
-| `figma.fonts.body` / `.condensed` / `condensedIsRealFamily` | the one font, its accepted substitute |
+| `figma.fonts.body` / `.display` / `.condensed` / `condensedIsRealFamily` | the body font; the display font (only when the game's ArtStyle §5 declares one); the body font's accepted substitute |
 | `figma.gridStyleId` | the file-local layout-grid style every screen frame applies |
 | `tables.screens` / `.nodeNames` / `.diffRegions` / `.extract` | the per-project data files, all in `<data>` |
 | `reuse.waive` | stems waived from component promotion, with a mandatory reason |
 
 A value the skill needs that is not there gets added there, never pasted into a
 step. The gate reads the expected font from `figma.fonts.body`, falling back to
-`paths.preflight`; with neither it exits naming the key to add.
+`paths.preflight`; with neither it exits naming the key to add. `figma.fonts.display`,
+when set, is the one other font the gate accepts.
 
 ## Pipeline
 
@@ -89,7 +90,10 @@ instances, never loose art. Record every component, 9-slice and style through
   silently dropped (P-17).
 - **Node names come from `node_names.json`**, and vocabulary is fixed per
   project — one agreed term per concept, never a synonym.
-- **One font family per file** (`figma.fonts.body`); the accepted substitute is
+- **At most two font families per file**, exactly the ones the game's
+  `.claude/docs/ArtStyle.md` §5 declares: the body font (`figma.fonts.body`), plus a
+  display font (`figma.fonts.display`) only when §5 has one — one family for both is
+  fine, a third never. The body font's accepted substitute is
   `figma.fonts.condensed` with `condensedIsRealFamily:false`, never ad hoc.
 - **The layout grid style is local to the target file** and applies to every
   screen-size frame.
@@ -106,8 +110,8 @@ instances, never loose art. Record every component, 9-slice and style through
 - **Build with tested helpers**, never hand-written Plugin API — the
   `figma-build` skill's `figma_helpers.js`, self-tested once per session with
   `figma_build_gen.py --helpers-selftest`.
-- **Font SSOT.** Every TEXT node must carry `fontName` = `figma.fonts.body` and
-  bind a style from `styleIdFiles`. A font/style violation is a bug, never debt.
+- **Font SSOT.** Every TEXT node must carry `fontName` = `figma.fonts.body` (or
+  `figma.fonts.display` when set) and bind a style from `styleIdFiles`. A font/style violation is a bug, never debt.
 - **Generated build, never hand-written.** `build_plan_gen.py` turns the
   manifest into a build plan (`figma-build/reference/build-plan.md`);
   `figma_build_gen.py` hands it to the `figma-build` skill. A hand edit goes

@@ -17,6 +17,17 @@ Skill này **không chứa thông tin riêng của project nào**. Có ba nguồ
 Luật polish dùng chung (rule `game-polish`, `.claude/docs/PolishRules.md` §6 feedback / juice / nhịp giữ – loé – bay, §9.4
 popup, §9.9 input) áp song song: quy chuẩn module thắng ở chỗ hai bên cùng nói, PolishRules bổ sung chỗ module chưa nói.
 
+**Project sinh từ EZG template không có sẵn module.** Motion mặc định của template là `UITransition` (mở / đóng màn,
+preset `TransitionAnimationObject`) + `JumpInJumpOut` / `DOTweenAnimation` trên `button_template` — xem `refactor-ui` §5 và
+`.claude/docs/ui-designer-pass.md` D5. Chưa cài module thì làm theo các đường đó; số trong quy chuẩn module **chỉ** áp khi
+module đã vào project (§1 "Chưa có module": hỏi user trước khi đưa vào). Đưa module vào rồi thì nó thay các đường trên ở
+những role nó phủ — khai class tự có motion của template (`UITransition`, `JumpInJumpOut`, `ShowingObjectController`)
+vào `componentRules` để tool không gắn chồng.
+
+Số px trong quy chuẩn module tính trên canvas **1080×1920**. Canvas chuẩn EZG là **1080×2400** cùng bề ngang 1080, nên
+quãng trượt / offset cố định của quy chuẩn (tính bằng px) giữ nguyên; chuyển động "từ mép màn" thì neo theo mép thật của
+canvas, không chép số px dọc của canvas 1920.
+
 Điều về project đang làm chỉ lấy từ file riêng của nó hoặc từ chính project (khảo sát, đọc code). **Không dùng trí nhớ về
 project khác**: tên class, số, keyword của project A sai ở project B. Thiếu thì khảo sát rồi hỏi user, rồi ghi vào file
 riêng của project. Không ghi thông tin project vào skill này, cũng không ghi vào folder module.

@@ -77,9 +77,14 @@ project **không sửa** file này — số riêng của game ghi ở `.claude/d
 - **Thứ bậc kích thước phản ánh tầm quan trọng** (thường < elite < boss; item thường < item hiếm).
 
 ### 2.3 Màu
-- **Dành riêng một màu cho nguy hiểm / lỗi** (thường là đỏ). Không dùng nó để trang trí.
+- **Dành riêng một màu cho nguy hiểm / lỗi** (thường là đỏ). Không dùng nó để trang trí. Ngoại lệ duy nhất:
+  badge thông báo (red dot, số đếm — template: `RedDotBadge`, prefab `notification_dot` / `notification_count`)
+  dùng chính màu đó. Ngoài cảnh báo / lỗi và badge, không chỗ nào khác mang màu này.
 - **Phân lớp thị giác** từ êm nhất tới nổi nhất: nền / sàn → vật tương tác → nhân vật chính → cảnh báo.
   Đạo cụ nền tối hoặc nhạt hơn vùng chơi.
+- **Thử thứ bậc bằng ảnh xám + làm mờ.** Chuyển ảnh chụp màn sang grayscale rồi blur nhẹ: thứ quan trọng
+  nhất (CTA chính / tiêu điểm) vẫn phải là mảng nổi nhất, thứ phụ chìm xuống. Mảng giành chú ý mà không quan
+  trọng → giảm value / độ bão hoà của nó, không tăng cỡ CTA.
 - **Màu đặc trưng nhân vật / thương hiệu** không phủ mảng UI lớn.
 - **Không truyền thông tin chỉ bằng màu.** Luôn kèm icon hoặc hình để người mù màu vẫn đọc được.
 
@@ -217,7 +222,17 @@ project **không sửa** file này — số riêng của game ghi ở `.claude/d
 
 ### 9.1 Bố cục
 Số mặc định trên canvas dọc **1080×2400**; ngang / tablet quy đổi theo tỷ lệ.
-- **Lưới và khoảng cách:** lưới 8 px; spacing 8 / 16 / 24 / 32 / 48; lề màn hình ≥ 48.
+- **Lưới mềm 4 px:** spacing, padding, gap, line-height và kích thước phần tử tự vẽ là bội số của 4; thang
+  spacing 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64. "Mềm" = phần tử xếp theo nhau với khoảng cách đúng thang, không
+  bắt từng phần tử bám ô lưới; số suy ra từ lưới cột hay bề ngang màn (150, 1020…) giữ nguyên dù lẻ. Bản vẽ ở
+  1x (bề ngang 375 pt, 1 pt = 1 px) → nhân 2.88 (= 1080 / 375) lên canvas rồi làm tròn về bội 4. Ngưỡng:
+  `polish.gridStep` = 4 (project cũ còn 8 vẫn hợp lệ — mọi bội 8 đều là bội 4).
+- **Lưới cột:** 6 cột × 150, gutter 24, margin 30 (mép trái cột x = 30, 204, 378, 552, 726, 900; chi tiết +
+  span ở skill `figma-hygiene`). Panel full-width chạy từ mép cột đầu tới mép cột cuối, card 2 cột, ô lưới item
+  1.5–2 cột. Chữ, icon, nút bên trong panel cách mép panel ≥ 16.
+- **Vùng an toàn của canvas:** không đặt phần tử bấm được trong **100 px trên cùng** và **60 px dưới cùng**
+  của canvas (tai thỏ, thanh trạng thái, thanh cử chỉ). Chrome của template (`screen_template`: thanh tiền tệ,
+  nút đóng / back, tiêu đề) do template quyết, không chấm. Nền / art được tràn vào vùng này.
 - **Vùng chạm ≥ 128 px** (≈ 44 pt); CTA cao 152–176 px. Visual nhỏ hơn thì thêm vùng raycast vô hình
   (ui-spec `hitArea`).
 - **Chữ:** tối thiểu 32 px (không bao giờ dưới 30), body 40 px. Bảng chữ của game (ArtStyle §5) thắng
@@ -232,7 +247,11 @@ Số mặc định trên canvas dọc **1080×2400**; ngang / tablet quy đổi 
 - **Không tràn, cắt, chồng, thiếu glyph.** Font phủ mọi ngôn ngữ hỗ trợ và mọi ký hiệu dùng tới.
 - **Chừa chỗ cho chữ dài hơn ~30%** khi dịch. Auto-size được, nhưng có cỡ tối thiểu.
 - **Chữ căn giữa mặt nút; nhãn nút một dòng.**
-- **Hệ font:** 1 font display + 1 font body, có bản quyền, không font demo.
+- **Hệ font:** tối đa 2 họ — 1 display + 1 body (một họ cho cả hai cũng được), có bản quyền, không font demo.
+  Không thêm họ thứ ba; file Figma / PSD dùng đúng (các) họ ArtStyle §5 khai.
+- **Tương phản vừa đủ, không chồng tương phản.** Chữ khác value rõ với nền ngay dưới nó (nút, panel) là đủ đọc.
+  Viền chữ (outline / stroke) chỉ thêm khi nó khác value với chính chữ; chữ cùng sắc độ với nền mà vá bằng viền
+  đen chỉ làm chữ khó đọc hơn — đổi màu chữ hoặc nền thay vì thêm viền.
 - **Dùng ngôn ngữ người chơi,** không thuật ngữ nội bộ. Mô tả nói rõ tăng cái gì, cho cái gì, khi nào.
   Gợi ý ≤ ~12 từ mỗi dòng.
 - **Hiện số thật.** Ký hiệu mơ hồ → icon + số + tooltip.
@@ -257,14 +276,29 @@ Số mặc định trên canvas dọc **1080×2400**; ngang / tablet quy đổi 
 
 ### 9.4 Popup
 - **Một tiêu điểm** (hình chủ thể + 1 CTA). Cỡ theo nội dung; không chật, không cắt, không tường chữ.
-- **Vào / ra nhất quán.** Nút nảy khi bấm; nút khoá rung. (Template: `UITransition` qua `FeatureBaseController.AnimOpenUI/AnimCloseUI`.)
+- **Vào / ra nhất quán.** Nút nảy khi bấm; nút khoá rung. Template: `UITransition` qua
+  `FeatureBaseController.AnimOpenUI/AnimCloseUI` — không gán preset (mặc định của `screen_template`): mở = scale
+  0.8 → 1 `OutBack` 0.3 s + fade 0.3 s, đóng = `InBack` 0.2 s + fade 0.2 s, chạy theo unscaled time. Màn
+  full-screen để `MainUI` trống nên chỉ fade. Preset `TransitionAnimationObject` (22 asset ở
+  `Visual/ArtAsset/Shared/Transition/Data/`, vd `Popup_In_Mid`) chỉ chạy khi được gán. Nút: `JumpInJumpOut` +
+  glow của `button_template`. Project đã cài module UI Motion (skill `ui-motion`) thì quy chuẩn của module thắng.
 - **Chạm ra ngoài để đóng.** Template: field `ClickBackgroundToExit` của `FeatureBaseController` — **mặc định
   false**, popup phải bật nó trên prefab. Ngoại lệ (để false): màn full-screen, popup bắt buộc chọn / nhận
   thưởng, panel mà bấm nhầm là mất lượt.
 - **Nút Back Android** làm đúng việc nút đóng / back của màn. Template: `UIManager` bắt Escape và đóng
   màn trên cùng qua `CloseMe` — màn có bước đóng đặc biệt phải đặt nó trong `CloseMe` (override + `base`),
   không treo riêng ở `onClick` của nút X.
+- **Chiều sâu ≤ 1 lớp.** Trên một màn chỉ có một popup nội dung; lớp thứ hai chỉ dành cho hộp xác nhận /
+  thông báo ngắn (template: `GameSystems.ShowMessage`). Popup mở từ popup khác thì thay chỗ hoặc ẩn lớp dưới để
+  người chơi chỉ thấy một lớp, và luôn biết đường quay về. Popup không phủ kín màn — người chơi vẫn thấy màn
+  phía sau (nội dung phải chiếm cả màn thì đó là màn full-screen, không phải popup).
 - **Hàng đợi popup:** không chồng sai thứ tự, không mở lúc pause / chuyển cảnh, thử lại sau loading / resume.
+- **Toast (thông báo tự ẩn)** chỉ để phản hồi điều vừa xảy ra sau một hành động (lưu xong, mua lỗi, thiếu tài
+  nguyên). Không dùng toast cho khuyến mãi, thông báo không liên quan việc đang làm, hay thông tin bắt người chơi
+  hành động — cái đó là popup hoặc màn riêng. **Một toast một lúc** (cái sau chờ lượt); vào bằng fade hoặc
+  trượt + fade 0.2–0.4 s; hiện khoảng 50–100 ms mỗi ký tự (~3 s cho một câu ngắn) rồi tự ẩn. Đặt gần mép trên
+  hoặc dưới nhưng không lấn vào 100 px trên / 60 px dưới (§9.1), không che header, thanh tiền tệ, tab bar, CTA.
+  Template: layer `Toast_Container` (`UIManager.UIGroupName`).
 - **Hành động có hậu quả** (mất item, tiêu tiền thật) nói rõ hậu quả và bắt xác nhận.
 - **Màn trống** có hình + một dòng nói cách có nội dung.
 
@@ -288,6 +322,12 @@ Số mặc định trên canvas dọc **1080×2400**; ngang / tablet quy đổi 
 - **Bấm item nhận đúng item đó với đúng giá đó.** Giá hiện đúng ngay từ đầu; giá tăng theo độ hiếm.
 - **Trạng thái rõ:** đã mua (mờ + ✓), đang chọn (sáng + viền + ✓), khoá (xám + lý do).
 - **Refresh / reroll không bao giờ ra kết quả y hệt;** hết lượt thì khoá và nói vì sao.
+- **Ít lựa chọn trong một khung nhìn:** shop / màn chọn hiện tối đa ~6 món cùng lúc (trí nhớ ngắn hạn ~7 ± 2);
+  nhiều hơn thì chia tab / trang / cuộn. Mỗi món khác nhau rõ; offer đặc biệt tách riêng, nổi rõ, có tooltip.
+- **Lưới có sức chứa lấp hàng cuối bằng ô trống** (ghost slot) — túi đồ, ô trang bị, ô thưởng, bộ sưu tập: ô
+  cùng cỡ, mờ, có thể kèm biểu tượng mờ của loại đồ sẽ vào. Khối lưới thành hình chữ nhật đủ (hàng cuối khuyết
+  trông như lỗi) và báo "còn chỗ để lấp". Ghost slot là trạng thái trống có chủ đích, **khác placeholder**
+  (hình / chữ giả chưa làm — bị cấm, §1.1). Không áp cho list cuộn dài hay số món đổi liên tục.
 
 ### 9.8 Icon và tiền tệ
 - **Icon có màu, khối lớn.** Không icon trắng phẳng cho chức năng quan trọng hay thứ đang bán.
@@ -302,6 +342,20 @@ Số mặc định trên canvas dọc **1080×2400**; ngang / tablet quy đổi 
 - **Debounce chạm nhanh** (không bao giờ trừ tiền hai lần): khoá nút / cờ đang xử lý từ lúc bấm tới lúc
   `PurchaseManager` / `RewardsService` trả kết quả.
 - **Hành động dễ bấm nhầm mà có hậu quả** (quảng cáo, tiền thật, mất item) bắt xác nhận.
+
+### 9.10 Nhân vật động và video trên Canvas
+Canvas chỉ vẽ thành phần UI (Image, Text, RawImage…); sprite gắn xương (SpriteRenderer) và video không tự hiện lên.
+- **Chuyển động đơn giản** (nhún, xoay, alpha, đổi màu, co giãn) → DOTween trên RectTransform (`SetUpdate(true)`,
+  kill khi tắt), không cần camera.
+- **Spine** → `SkeletonGraphic` (vẽ thẳng trên Canvas; template có `com.ezg.spine`), không dựng camera +
+  RenderTexture.
+- **Rig 2D bằng xương (SpriteRenderer) và video** → camera riêng quay vào một RenderTexture, hiện bằng `RawImage`:
+  - Object được quay nằm trên một layer riêng, camera chỉ cull layer đó (không đẩy object ra xa để né UI), nền
+    camera trong suốt (Solid Color, alpha 0).
+  - RenderTexture đúng cỡ hiển thị trên canvas, không lớn hơn; video có thể nhỏ hơn bản gốc nếu chấp nhận hơi mờ.
+  - Tắt camera / dừng `VideoPlayer` khi màn ẩn; chuẩn bị (`Prepare()`, warm-up) ở màn loading, không để lần mở
+    đầu khựng vì Play On Awake (§1.6).
+  - Video cần nền trong: WebM VP8 có kênh alpha (tách nền trước khi xuất).
 
 ---
 
@@ -485,7 +539,7 @@ Dòng không áp cho task (không đụng phần đó) → `na`, không phải `
 | P12 | Không nháy / khựng khi chuyển cảnh, camera, mở lần đầu (đã prewarm)? | §1.6, §13 | block | perf, qa |
 | P13 | Nhận / mua theo nhịp giữ – loé – bay; khoảnh khắc lớn xếp lớp? | §6 | warn | build, ui |
 | **UI** | | | | |
-| P14 | Bám lưới 8 px, khoảng cách đều; lề màn ≥ 48; CTA cao 152–176? | §9.1 | warn | spec, ui |
+| P14 | Bám lưới mềm 4 px (thang 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64), khoảng cách đều; panel trên lưới cột (margin 30), nội dung cách mép panel ≥ 16; CTA cao 152–176? | §9.1 | warn | spec, ui |
 | P15 | Chữ không bao giờ < 30 px (30–31 chỉ cảnh báo, chuẩn ≥ 32); vùng chạm ≥ 128 px (hoặc vùng raycast vô hình)? Chrome của template (nút đóng / back / tiêu đề, `CheatMenu`) do template quyết, không chấm. | §9.1 | block | spec, build, ui |
 | P16 | Không tràn / chồng / lệch chữ ở mọi ngôn ngữ (VI + EN + một ngôn ngữ dài) và mọi tỷ lệ chuẩn §9.1; chừa 30%? | §9.1, §9.2 | block | spec (warn), build, ui |
 | P17 | Tối đa 1 CTA primary; màu nút theo vai trò; cặp nút nằm ngang cùng chiều cao? | §9.3 | block | spec, ui |
@@ -517,3 +571,12 @@ Dòng không áp cho task (không đụng phần đó) → `na`, không phải `
 | P38 | Có before / after cùng điều kiện; màn mới / làm lại vào ArtStyle `screens/pending/`? | §14 | block | build |
 | P39 | Đúng phạm vi task, không tự bù số / tự thêm luồng? | §1.8 | block | code |
 | P40 | Bug: root cause + quét cùng loại + test chống tái phát? | §1.10, §14 | warn | code |
+| **Bổ sung — UI và hiển thị** | | | | |
+| P41 | Ảnh chụp chuyển xám + làm mờ nhẹ: CTA chính / tiêu điểm vẫn là mảng nổi nhất, thứ phụ chìm xuống? | §2.3, §9.3 | warn | ui |
+| P42 | Không phần tử bấm được (do feature thêm) trong 100 px trên cùng / 60 px dưới cùng của canvas? Chrome của template không chấm. | §9.1 | block | build, ui |
+| P43 | Popup ≤ 1 lớp nội dung (lớp thứ hai chỉ là xác nhận / thông báo ngắn); popup không phủ kín màn, còn thấy màn phía sau? | §9.4 | warn | ui, qa |
+| P44 | Toast chỉ phản hồi sau hành động (không quảng cáo / không bắt hành động); một cái một lúc; thời gian theo độ dài chữ; không che header / thanh tiền tệ / tab bar / CTA? | §9.4 | warn | code, ui |
+| P45 | Shop / màn chọn: ≤ ~6 lựa chọn trong một khung nhìn, offer đặc biệt tách riêng và nổi rõ? | §9.7 | warn | ui |
+| P46 | Lưới có sức chứa lấp hàng cuối bằng ghost slot (không hàng khuyết, không placeholder)? | §9.7 | warn | build, ui |
+| P47 | Spine trên UI là `SkeletonGraphic`; rig 2D / video qua camera + RenderTexture (layer riêng, đúng cỡ, tắt khi ẩn, chuẩn bị ở loading)? | §9.10, §13 | warn | perf, code |
+| P48 | Chữ khác value rõ với nền; viền chữ (nếu có) khác value với chữ — không vá chữ chìm bằng viền đen? | §9.2 | warn | ui |

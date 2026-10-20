@@ -125,7 +125,7 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
   **typography** theo bảng chữ + khung cỡ ArtStyle §5.
 - **Kiểm hướng đã loại**: đối chiếu concept + palette + bố cục với ArtStyle §9 (cả ảnh `rejected/`) và
   "Từ khoá KHÔNG" §1 — trùng dòng nào thì đổi ngay trong brief, trước khi dựng.
-- **Layout**: Popup vs FullScreen (theo §4/§4b), container nào nhận chiều cao dư ở 20:9/21:9,
+- **Layout**: popup (`popup_template`) vs full-screen (`full_screen_template`) (theo §4/§4b), container nào nhận chiều cao dư ở 20:9/21:9,
   grid/row tính số thực (`N × cell + (N−1) × spacing ≤ usable width`) cho **worst case**, khoảng cách
   theo thang ArtStyle §4.
 - **Motion language** (§5): easing + nhịp lấy từ ArtStyle §7, beat nào là "khoảnh khắc sướng" của màn.
@@ -133,7 +133,9 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
   hợp) và juice theo cấp; claim/purchase theo nhịp giữ – loé – bay; nút có `role` (tối đa 1 primary, cặp
   nút nằm ngang, ads có ▶); trạng thái khoá = xám + lý do, thiếu tài nguyên hiện trên nút; màn trống
   có hình + 1 dòng; cỡ chữ ≥ 32 (không < 30), vùng chạm ≥ 128 px (chrome template + `CheatMenu` giữ cỡ của
-  template); nên: CTA cao 152–176, lưới 8 px. Dev đưa PSD/Figma → số của hoạ sĩ thắng PolishRules; sàn đo
+  template); không đặt phần tử bấm được trong 100 px trên cùng và 60 px dưới cùng của canvas 1080×2400
+  (chrome template trừ); nên: CTA cao 152–176, lưới mềm 4 px (spacing / padding / line-height là bội của
+  4, thang 4/8/12/16/24/32/48/64). Dev đưa PSD/Figma → số của hoạ sĩ thắng PolishRules; sàn đo
   được bị art hoạ sĩ vi phạm thì giữ art, ghi dòng `polish:` báo dev.
 
 Sau brief là **spec-sheet** new-ui-guide §0c (bắt buộc, số cho từng node) — autonomous nên không chờ duyệt.
@@ -155,6 +157,9 @@ Thứ tự ưu tiên — **tái dụng trước, vẽ sau**:
    `generate_image`, hoặc MCP sinh ảnh của studio nếu đã authenticate; luôn **mở ảnh ra xem** trước
    khi dùng — tool có thể lặng lẽ trả hình vẽ bằng code), không có thì ghép layer từ sprite sẵn có (art feature,
    kit + nguồn ghép layer dự phòng khai ở ArtStyle §3) + Pillow. Không để ô trống / placeholder trong bản final.
+   Placeholder = art / chữ chưa làm xong (khung xám, icon mẫu, "Lorem", ô art bỏ trống) — cấm. **Ô trống mờ
+   (ghost slot)** lấp hàng cuối của lưới item cố định cho đủ cột (PolishRules §9.7) là thiết kế có chủ đích,
+   không phải placeholder — được giữ.
 
 **House style cho mọi art mới** (FX, emblem, hero AI, recolor): theo ArtStyle §6 — prompt nền, ảnh
 tham chiếu đính kèm và luật kỹ thuật ở đó; recolor kit có sẵn theo họ màu ArtStyle cho phép. Đặt art
@@ -221,21 +226,32 @@ ArtStyle §7** — bảng dưới chỉ là cấu trúc, không phải giá tr�
 
 §7 thiếu giá trị cho lớp nào → chọn, ghi vào §7 (`Status: draft`) rồi mới dùng.
 
-Dùng thứ project đã có trước, viết mới sau:
+Dùng thứ project đã có trước, viết mới sau. **Base template không ship module UI Motion** — project đã
+cài module (skill `ui-motion` khảo sát thấy) thì quy chuẩn của module thắng ở các role nó phủ, dùng
+component / role của nó thay cho các mục dưới:
 - **Vào/Ra của khung chính đã có sẵn**: `FeatureBaseController.AnimOpenUI/AnimCloseUI` (virtual) chạy
-  `UITransition.PlayOpen/PlayClose` khi prefab có component đó (fade nền + scale `MainUI`, hoặc
-  `TransitionAnimationObject` gán trên prefab), `OnComplete` mở lại touch. Popup → pop-in; FullScreen
-  → fade `CanvasGroup` vì `MainUI` để trống (new-ui-guide §0 Layout mode → `MainUI`, đừng wire nó).
-  **Không** viết intro thứ hai tween cùng root — đổi cảm giác thì chỉnh `TransitionAnimationObject` /
-  tham số `UITransition`; stagger phần tử con thì `override AnimOpenUI()`, gọi `base.AnimOpenUI()`
-  rồi mới chạy sequence của màn.
-- **Idle**: gắn component `Features/_Shared/UI/Fx/` — `UIFxPulse`, `UIFxSpin`, `UIFxFloat`, `UIFxFade`,
-  `UIFxShineSweep`, `UIFxSparkle`, `UIFxWobble`, `UIFxPopIn` (tự chạy OnEnable, tự kill + trả trạng
-  thái gốc OnDisable, `_randomDelay` lệch pha). Nhiều effect trên một object được nếu đụng property
-  khác nhau; hai effect cùng tween scale sẽ giành nhau.
+  `UITransition.PlayOpen/PlayClose`, `OnComplete` mở lại touch. `screen_template` để trống
+  `_animIn`/`_animOut` nên mặc định là: mở = scale `MainUI` 0.8 → 1 `OutBack` 0.3 s + fade `CanvasGroup`
+  0 → 1 0.3 s + fade nền tới `_backgroundAlpha` 0.3 s; đóng = scale về 0.8 `InBack` 0.2 s + hai fade
+  0.2 s; mọi tween `SetUpdate(true)`. Gán preset `TransitionAnimationObject` vào `_animIn`/`_animOut`
+  (`Visual/ArtAsset/Shared/Transition/Data/`: `Popup_In_*`/`Popup_Out_*`, `Screen_In_*`/`Screen_Out_*`
+  theo hướng Top/Bottom/Left/Right/Mid, `SimpleCutTransitionAnimation` = cắt thẳng) là thay hẳn mặc
+  định: preset chạy trên **mọi** child của root, child 0 (nền) chỉ đổi alpha. Popup → pop-in;
+  full-screen (`full_screen_template`) → chỉ thấy fade `CanvasGroup` vì `MainUI` để trống nên scale rơi
+  vào `popup_template` đang tắt — đúng quy ước các màn full-screen của template (`screen_shop`,
+  `screen_admin`, `screen_currency_bar` đều để `MainUI` trống; luật `MainUI`: new-ui-guide §0).
+  **Không** viết intro thứ hai tween cùng root — đổi cảm giác thì chọn preset / ghi nhịp vào ArtStyle §7;
+  stagger phần tử con thì `override AnimOpenUI()`, gọi `base.AnimOpenUI()` rồi mới chạy sequence của màn.
+  List do template sinh (`ItemPreview`, `CurrencyPreview`…) đã có `ShowingObjectController` hiện lần lượt
+  từng con — chỉnh nó, đừng tween chồng.
+- **Idle** (chỉ trên focal point): component `DOTweenAnimation` của DOTween Pro (có sẵn trong template —
+  `button_template` cũng dùng nó) với loops `-1`, *Ignore TimeScale* / `isIndependentUpdate` bật; hoặc một
+  behaviour idle nhỏ trong `<Feature>/Scripts/Controller/` (tự chạy `OnEnable`, `Kill` + trả trạng thái
+  gốc ở `OnDisable`, lệch pha bằng delay ngẫu nhiên). Nhiều idle trên một object được nếu đụng property
+  khác nhau; hai cái cùng tween scale sẽ giành nhau.
 - Beat feedback riêng của màn → static class `<Feature>Motion` (PopIn / Punch / Stamp / Ripple) trong
-  `<Feature>/Scripts/Controller/`; thiếu mode idle chung thì thêm vào `_Shared/UI/Fx/` (kế thừa
-  `UIFxBase`) thay vì đẻ bản riêng trong feature.
+  `<Feature>/Scripts/Controller/`. Một idle / beat mà nhiều feature cần thì đề xuất đưa vào base
+  template, **không** tự tạo thư mục dùng chung trong `Features/_Shared/` (rule `project-structure`).
 
 Luật kỹ thuật (bắt buộc):
 - **DOTween**, `SetUpdate(true)` cho mọi tween UI, `SetLink(gameObject)` (hoặc `SetTarget(this)`),
@@ -247,13 +263,17 @@ Luật kỹ thuật (bắt buộc):
   `DOKill(true)` trước khi punch đọc scale gốc.
 - Tween trong layout group chỉ đụng `localScale`/alpha/rotation (vị trí bị layout ghi đè); muốn đổi
   kích thước thì tween `LayoutElement.preferredHeight/Width`, không tween `sizeDelta`.
-- **Không scale root của button**: button template mang `JumpInJumpOut` + `DOTweenAnimation` chụp
-  `localScale` gốc để làm press effect → tách một child "visual root" (Card) để animate, hoặc slide + alpha.
+- **Không scale root của button**: `button_template` mang `JumpInJumpOut` (nhấn: 0.05 s xuống 0.95 × 0.9,
+  nhả: 0.3 s `OutBack` về 1, unscaled time) + glow `DOTweenAnimation` (fade 0.15 s), chụp `localScale` gốc
+  để làm press effect → tách một child "visual root" (Card) để animate, hoặc slide + alpha. Tách visual
+  root là đổi cấu trúc (reparent) — chỉ làm ở skill này, nơi được đổi layout, và nối lại reference;
+  Phase D của `/new-ui` (`ui-designer-pass.md` D5) cấm cách này vì layout đã khoá, ở đó beat đặt lên
+  overlay.
 - Beat claim/purchase: khóa touch bằng `UIManager.EnableTouch(false)` trong lúc beat chạy,
   `EnableTouch(true)` trong `finally`; gắn CancellationToken hủy theo vòng đời view. Phần thưởng vẫn
   được cấp **đúng một lần** qua `RewardsService`/`PurchaseManager` dù view bị đóng giữa beat —
   animation không bao giờ được là điều kiện để grant chạy (hay chạy hai lần).
-- FullScreen: tuân luật `MainUI` của new-ui-guide §0 Layout mode (không để màn full-screen "pop").
+- Full-screen: tuân luật `MainUI` của new-ui-guide §0 Layout mode (không để màn full-screen "pop").
 - **Feedback (PolishRules §6, P11/P13)**: không nút nào bấm im lặng — press của button template + âm
   qua audio service của project; rung qua `VibrateManager` chỉ cho khoảnh khắc lớn và tôn trọng toggle
   Rung; nút / phần thưởng hiện sau một beat tự khoá ~0.5 s (§9.9); debounce mọi CTA tốn tiền tới khi
@@ -333,8 +353,8 @@ Gotchas — Metal Toolchain / shader keyword), không phải bug của UI vừa 
 
 - Component localize của project là **`LocalizeHelper`** (`Key` = key lowercase **không** `#`,
   `Category` = tab CSV thuộc enum `LocalizeCategory` — `Common`, `Shop`, `Settings`, `Quest`…).
-  new-ui-guide §3b gọi nó là `LocalizesUI` — cùng vai trò, cùng luật: label **tĩnh** bắt buộc có,
-  label **động** (số, giá IAP, countdown, tên) tuyệt đối không.
+  Luật (như new-ui-guide §3b): label **tĩnh** bắt buộc có, label **động** (số, giá IAP, countdown,
+  tên) tuyệt đối không.
 - Key: tái dụng trước (grep `<localize.csvRoot>/en/common.csv` + tab của feature), tạo mới sau theo
   family `<featurename>_<element>`, title = `<featurename>_title`. Key mới đi qua skill **`/add-localize`**
   (sheet + CSV + `.asset`, EN + VI viết tay). **Không** bấm Download của localize downloader để "sync"

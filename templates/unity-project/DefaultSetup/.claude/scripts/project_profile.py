@@ -99,7 +99,7 @@ DEFAULTS = {
         "hardMinFontSize": 30,
         "minTouchTarget": 128,
         "ctaHeight": [152, 176],
-        "gridStep": 8,
+        "gridStep": 4,
     },
 
     # --- review surfaces ----------------------------------------------------

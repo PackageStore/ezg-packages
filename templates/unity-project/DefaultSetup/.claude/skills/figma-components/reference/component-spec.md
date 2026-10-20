@@ -15,9 +15,9 @@ substitute the project's own. Generic archetype names (`Button`, `Row`, `Card`,
 
 ## Core principles
 
-1. **States first.** Design `Pressed` and `Hover` before the happy path. A
-   button set without them is incomplete, and interactive sets that ship only a
-   `Type` axis are incomplete today.
+1. **States first.** Design `Pressed` (and `Disabled` when the control can be
+   locked) before the happy path. A button set without `Pressed` is incomplete,
+   and interactive sets that ship only a `Type` axis are incomplete today.
 2. **Auto-layout for anything that stacks or repeats.** Absolute position is for
    overlays — a corner badge, a decorative flourish — and for art whose exact
    offset came from the PSD and is under the 0.00 px verify tolerance.
@@ -59,7 +59,7 @@ ComponentSet "Button"                  State axis only
 │       ├── Icon-Price  (instance of an icon set, INSTANCE_SWAP)
 │       └── Price-Value (TEXT, textStyleId → Price-Value)
 ├── State=Pressed        (content moved down, Overlay on Bg)
-└── State=Hover          (Overlay on Bg)
+└── State=Disabled       (grey Overlay on Bg — only when the control can be locked)
 
 ComponentSet "Base-Plate"              Color axis only
 ├── Color=Green
@@ -77,7 +77,7 @@ Child node names follow `figma-hygiene` S-2/S-3 and the layer table in
 | Kind | `Type` | one value per kind — icon role, currency, destination, rarity, empty/filled | icon buttons, currency bars, nav buttons, slots |
 | Colour | `Color` | one value per button colour | button plates |
 | Icon | `Icon` | one value per icon drawing | stat containers |
-| State | `State` | `Default`, `Pressed`, `Hover` | interactive sets |
+| State | `State` | `Default`, `Pressed` (+ `Disabled` when lockable; `Hover` legacy only) | interactive sets |
 
 Boolean properties for toggles: a `Show Plus` boolean on a currency bar is the
 existing example. Instance-swap properties for icon slots. Text properties for
@@ -126,12 +126,16 @@ sets*).
 ## Archetypes and their required states
 
 There is no keyboard, so there is no `Focused`; there are no forms, so there is
-no `Error`, `Success` or `Read-only`. There is no `Disabled` and no `Active`.
-`Default`, `Pressed` and `Hover` are the entire ladder.
+no `Error`, `Success` or `Read-only`; there is no `Active`. The ladder is
+`Default` and `Pressed`, plus `Disabled` on a control the game can lock — the
+locked look is grey with a reason shown on screen (`.claude/docs/PolishRules.md`
+§9.3), and a control that is never locked does not get it. Touch has no pointer,
+so new sets do not get `Hover`; a set that already ships `Hover` stays valid and
+is not debt.
 
-An existing set that still ships `Normal`, `Disabled` or `Active` is debt. Rename
-it only in a pass that also updates `component_ids.json` and re-imports its
-prefabs — the prefab file names derive from the variant names.
+An existing set that still ships `Normal` or `Active` is debt. Rename it only in
+a pass that also updates `component_ids.json` and re-imports its prefabs — the
+prefab file names derive from the variant names.
 
 ### Button (icon buttons, buy buttons, plates, nav buttons)
 
@@ -139,13 +143,15 @@ prefabs — the prefab file names derive from the variant names.
 |---|---|---|
 | `Default` | yes | The base. |
 | `Pressed` | yes | Content other than `Bg` translates down by `space/tight`; an `Overlay` rectangle on `Bg`, bound to `color/btn/pressed` (black at low alpha). The rim stays: it belongs to the plate set. |
-| `Hover` | yes | An `Overlay` rectangle on `Bg`, bound to `color/btn/hover` (white at low alpha). No offset. |
+| `Disabled` | when lockable | An `Overlay` rectangle on `Bg`, bound to `color/btn/disabled` (grey at partial alpha). No offset. |
+| `Hover` | no — legacy only | An `Overlay` rectangle on `Bg`, bound to `color/btn/hover` (white at low alpha). No offset. Kept on sets that already ship it; not drawn for new work. |
 
 The `Overlay` copies `Bg`'s box and corner radii, constraints STRETCH/STRETCH.
 The per-colour plate tokens (`color/btn/<color>/…`) belong to the plate set's
-`Color` variants only. The two state tokens, `color/btn/pressed` and
-`color/btn/hover`, are colour-agnostic: one value serves every colour. If
-either does not exist, hand the job to `figma-tokens` first.
+`Color` variants only. The state tokens, `color/btn/pressed`,
+`color/btn/disabled` (and legacy `color/btn/hover`), are colour-agnostic: one
+value serves every colour. If one the set needs does not exist, hand the job to
+`figma-tokens` first.
 
 ### Row (upgrade / list rows)
 
@@ -202,15 +208,16 @@ masters whose width is already off the column grid are pinned debt and must not
 be resized: the `psd-to-figma` art tolerance is 0.00 px and every screen
 instancing them would fail verify.
 
-Minimum touch target ≈44 pt — convert to a px floor at the project design width
-and hold every tappable master to it.
+Minimum touch target ≈44 pt — 128 px on both axes on the 1080-wide frame
+(`.claude/docs/PolishRules.md` §9.1); hold every tappable master to it, or give a
+smaller visual a transparent hit frame.
 
 ## What upstream specified that does not apply
 
 | Upstream | Why it is out |
 |---|---|
 | The core-10 specs (Button/Input/Select/Checkbox/Radio/Badge/Avatar/Card/Modal/Toast) with web pixel sizes h=32/40/48 | A form-app library. This UI has no text input, no dropdown, no checkbox, no radio, no toast. The archetypes above replace them. |
-| `Disabled`, `Focused`, `Loading`, `Error`, `Success`, `Read-only` states | Not in this project's ladder: no keyboard, no forms. |
+| `Focused`, `Loading`, `Error`, `Success`, `Read-only` states | Not in this project's ladder: no keyboard, no forms. (`Disabled` stays, for lockable controls only.) |
 | The focus-ring standard (2 px outline, `color/border/focus`, 2 px offset) | No focus ring exists or is wanted; there is no `color/border/focus` token. |
 | WCAG AA contrast gates (4.5:1 / 3:1) | False failures on stylised game art with stroked, drop-shadowed text. `figma-tokens` dropped the same check. |
 | `Size` axis (Small/Medium/Large) | One fixed frame. Size differences here are per-usage art sizes, not a scale ladder. |

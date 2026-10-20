@@ -170,18 +170,19 @@ def render(spec: dict) -> str:
             ) else "false"
             style = ";".join(part for part in (css_style(node), grid_rules, alignment_style(node)) if part)
             scroll = node.get("scroll")
-            # A scroll container maps to a ScrollViewTemplate/ScrollLoopTemplate instance in Unity
+            # A scroll container maps to a ScrollViewTemplate/ScrollViewLoopTemplate instance in Unity
             # (new-ui-guide.md §3d), so mark it in both the tag and the rendered box.
             scroll_attr = f' data-scroll="{html.escape(str(scroll))}"' if scroll else ""
             scroll_bar = '<span class="spec-scrollbar"></span>' if scroll else ""
-            # A tabBar container IS the TabBottomTemplate instance in Unity (new-ui-guide.md
-            # §3d), so paint the bar itself — otherwise the frozen PNG shows floating toggles
+            # A tabBar container IS one tab-strip template instance in Unity (new-ui-guide.md
+            # §3d), so paint the strip itself — otherwise the frozen PNG shows floating toggles
             # over nothing and reads as "tabs anywhere is fine".
             tabbar = node.get("tabBar") is True
             tabbar_attr = ' data-tabbar="true"' if tabbar else ""
-            # A section container IS a FrameTemplateInside instance carrying a ButtonTitleTemplate
-            # pill on its top edge (new-ui-guide.md §3d), so paint both — a frozen PNG that shows
-            # the blocks unframed is what makes the builder ship a flat wall of text.
+            # A section container IS the kit's titled frame (base kit: panel_template + its Title;
+            # older kits: a frame with a title pill on its top edge — new-ui-guide.md §3d), so
+            # paint both — a frozen PNG that shows the blocks unframed is what makes the builder
+            # ship a flat wall of text.
             section = node.get("section")
             section_attr = ""
             section_title = ""
@@ -194,8 +195,8 @@ def render(spec: dict) -> str:
             label = (
                 f"{kind}·{node_id}"
                 + (f" ⇅{scroll}" if scroll else "")
-                + (" ⧉TabBottomTemplate" if tabbar else "")
-                + (" ⧉FrameTemplateInside+ButtonTitleTemplate" if section_attr else "")
+                + (" ⧉tab-strip" if tabbar else "")
+                + (" ⧉titled-frame" if section_attr else "")
             )
             ct_tag = f'<span class="ui-tag ui-tag-ct">{html.escape(label)}</span>'
             return (
@@ -251,12 +252,11 @@ def render(spec: dict) -> str:
 .spec-container[data-scroll="horizontal"] > .spec-scrollbar{{left:8px;right:8px;bottom:5px;height:8px}}
 .spec-container[data-scroll="vertical"] > .spec-scrollbar,
 .spec-container[data-scroll="loop"] > .spec-scrollbar{{top:8px;bottom:8px;right:5px;width:8px}}
-/* Tab bar — the container maps to the shipped FullScreen/Bot TabBottomTemplate, so it paints
-   like the real bar instead of leaving the toggles floating on the background. */
+/* Tab bar — the container maps to one tab-strip template instance, so it paints like the
+   real strip instead of leaving the toggles floating on the background. */
 .spec-container[data-tabbar]{{background:rgba(147,122,101,1.0)}}
-/* Titled info block — the container maps to a FrameTemplateInside instance whose
-   ButtonTitleTemplate pill straddles the top edge (ignoreLayout, pos (0,30), size (0,60)),
-   so the frame's padding-top reserves 50px for it exactly like the Unity VerticalLayoutGroup. */
+/* Titled info block — the container maps to the kit's titled frame; the heading is painted
+   as a pill on the top edge and the frame's padding-top reserves 50px for it. */
 .spec-container[data-section]{{background:rgba(0,0,0,.533);border-radius:22px;padding-top:50px}}
 .spec-container[data-section] > .spec-section-title{{position:absolute;z-index:40;top:-30px;left:50%;
 transform:translateX(-50%);height:60px;padding:0 15px;display:flex;align-items:center;

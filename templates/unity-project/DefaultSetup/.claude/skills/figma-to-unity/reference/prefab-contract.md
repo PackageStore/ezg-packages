@@ -73,7 +73,7 @@ nesting the prefab of the plate variant it holds. No prefab exists per
 combination. A placed instance that picks another `Color` has a nested instance
 whose component changed, so `ComponentManager.SwapChangedComponent` replaces
 that nested prefab with the new variant's prefab, keeping its place, transform
-and node id. The `Overlay` of a `Pressed` or `Hover` variant is a plain shape
+and node id. The `Overlay` of a `Pressed`, `Disabled` or (legacy) `Hover` variant is a plain shape
 node inside that variant's prefab.
 
 ## Server render slicing

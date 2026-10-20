@@ -1,14 +1,43 @@
 {
   "_meta": {
     "what": "Composition rules the extractor cannot read out of a prefab. ui-kit-sync.py copies each note into the matching template of ui-kit.json as `usage`, and mockup-drafter reads it while drafting.",
-    "why": "A prefab's YAML carries its own geometry but not how it composes with OTHER templates. Nothing in TabBottomTemplate.prefab says a tab toggle must live inside it — which is how a screen ended up with a hand-made tab row in the content area, passing every gate.",
+    "why": "A prefab's YAML carries its own geometry but not how it composes with OTHER templates. Nothing in toggle_tab_template.prefab says it must live inside a tab strip — which is how a screen ended up with a hand-made tab row in the content area, passing every gate.",
     "howToEdit": "BASE-owned: shipped by the EZG template for its own templates and replaced on every update — a game project never edits it. A project's own rules go in .claude/project/ui-kit-usage.json (same shape, merged on top, project wins per template). One entry per template name (the prefab file stem). Add one whenever a review catches a drafter composing templates wrongly; that rule is the fix, not a one-off correction. Names that match no template are reported as `_meta.usageUnknown` in ui-kit.json.",
     "keepInSyncWith": ".claude/docs/new-ui-guide.md §3d",
     "skill": ".claude/skills/ui-kit/SKILL.md"
   },
   "templates": {
-    "TabBottomTemplate": "Thanh tab đáy — đã ship sẵn (inactive) tại FeatureTemplate FullScreen/Bot cùng ToggleGroup + HorizontalLayoutGroup + UI_TabExtensions. Trong ui-spec đây là CONTAINER mang \"tabBar\": true (type row) đặt trong chrome Bot, KHÔNG phải element; children chỉ gồm TabToggleIconTemplate/TabToggleTextTemplate. Xem new-ui-guide.md §3d.",
-    "TabToggleIconTemplate": "Tab icon — phải là con trực tiếp của một container \"tabBar\": true (TabBottomTemplate). Mỗi tab tương ứng một page container trong Mid, nối qua UI_TabExtensions (_toggleList ↔ _objectList). Không dựng row tab tự chế trong nội dung.",
-    "TabToggleTextTemplate": "Tab chữ — cùng luật với TabToggleIconTemplate. Tab1/Tab2 mẫu của FeatureTemplate chính là 2 instance của template này nằm trong TabBottomTemplate."
+    "screen_template": "Gốc của MỌI màn / popup có controller kế thừa FeatureBaseController — chỉ dùng làm Prefab Variant gốc, không bao giờ là con của màn khác. Con [0] background_button, [1] popup_template (active), [2] full_screen_template (inactive): bật đúng một trong hai body. Mockup không vẽ lại chrome của nó (nền mờ, khung popup, title, nút đóng) — chỉ đánh dấu baseChrome.",
+    "popup_template": "Body của màn dạng popup, đã có sẵn trong screen_template (con [1]). Nội dung của feature đặt trong popup_container/container_content (contentRoot của spec = container_content). Title + nút đóng nằm ở top_container_popup có sẵn — không tự dựng thêm.",
+    "top_container_popup": "Thanh title + button_close của popup — chỉ dùng cho popup (đã nằm sẵn trong popup_template), không dùng cho màn full-screen. button_close của nó phải được thêm vào _closeButtons của controller thì mới đóng được.",
+    "popup_template_notice": "Popup dạng thông báo dẹt: một dòng nội dung + nút yes / no / confirm, kích thước chuẩn của notice. Chỉ dùng cho notice — không nhét nội dung khác vào.",
+    "popup_notice_positive": "Notice mà CTA dẫn tới hành động tích cực (đồng ý mua, đồng ý xem quảng cáo…).",
+    "popup_notice_negative": "Notice mà CTA dẫn tới hành động tiêu cực (đồng ý thoát, từ chối, mất tiến độ…) — hậu quả phải nói rõ trong nội dung (PolishRules §9.4).",
+    "button_back_left": "Nút back chỉ dùng ở màn full-screen (popup dùng button_close). Một màn một nút back; giữ cỡ gốc của template.",
+    "button_back_right": "Như button_back_left (bản đặt bên phải) — chỉ dùng ở màn full-screen.",
+    "button_close": "Nút X đóng màn. screen_template đã có sẵn một cái cho mỗi body (popup: top_container_popup; full-screen: botview) — không thêm cái thứ hai; nút nào đóng màn cũng phải nằm trong _closeButtons.",
+    "button_purchase_currency": "Nút mua bằng tiền trong game — giá hiện bằng money_bar_require_view có sẵn bên trong nút, không đặt thêm một khối giá cạnh nút.",
+    "button_purchase_ads": "Nút xem quảng cáo — ship sẵn ads_tag (dấu quảng cáo riêng); role 'ads' trong ui-spec, không dùng cho mua bằng tiền.",
+    "button_purchase_iap": "Nút mua bằng tiền thật (IAP) — ship sẵn discount_container cho nhãn giảm giá; giá lấy từ store lúc runtime (text 'dynamic').",
+    "button_purchase_free": "Nút nhận miễn phí — không có giá; khi hết lượt thì khoá kèm lý do, không ẩn.",
+    "purchase_template": "Thẻ một gói mua: PurchaseTemplate tự bật đúng nút (IAP / ads / free / tiền trong game / sold out) và đổ tên, icon, phần thưởng, giảm giá lúc runtime qua SetData — không điền sẵn các field đó trên prefab và không tự đặt nút mua thứ hai.",
+    "money_bar_require_view": "Icon + số cho MỌI chỗ hiện giá hoặc yêu cầu tài nguyên để mua / nâng cấp. Nút mua đã có sẵn một cái bên trong — không lồng thêm.",
+    "Money_Bar": "Thanh tiền tệ đầu màn (gồm các button_money_bar). Dùng cho màn hoặc header cần hiện tiền tệ; không sửa prefab gốc để thêm tiền tệ của một feature — thêm vào bản instance trong chính prefab của feature đó.",
+    "notification_count": "Badge có số đếm (vd. X món có thể nâng cấp). Đặt bên trong nút / tab nó đánh dấu, góc trên-phải; logic bật tắt kế thừa RedDotBadge.",
+    "notification_dot": "Badge chỉ có chấm, cho thông báo không cần số. Đặt bên trong nút / tab nó đánh dấu, góc trên-phải; logic bật tắt kế thừa RedDotBadge.",
+    "notification_text": "Badge chữ ngắn (vd. 'Mới', 'Free'). Đặt bên trong nút / tab nó đánh dấu; chữ là label tĩnh có localize.",
+    "tab_template": "Tab strip (UI_TabExtensions + ToggleGroup + HorizontalLayoutGroup) chứa các toggle_tab_template. Trong ui-spec đây là CONTAINER mang \"tabBar\": true (type row), children chỉ gồm toggle — không vẽ nó thành element. Mỗi tab một page container là anh em trong cùng màn; _toggleList / _objectList cùng độ dài, cùng thứ tự. Thanh tab mà mỗi nút mở một màn khác (UIManager.Show) là launcher — không dùng UI_TabExtensions.",
+    "toggle_tab_template": "Một nút tab — luôn là con trực tiếp của một container \"tabBar\": true (instance tab_template). Không dựng row tab tự chế trong nội dung.",
+    "TabTogglerGroupBar": "Tab strip thứ hai của kit (UI_TabExtensions + ToggleGroup + HorizontalLayoutGroup) chứa TabToggle_template_cell — cùng luật với tab_template.",
+    "TabToggle_template_cell": "Nút tab của TabTogglerGroupBar — luôn là con trực tiếp của container \"tabBar\": true tương ứng.",
+    "ScrollViewTemplate": "Vùng cuộn nội dung tĩnh. Trong ui-spec là cờ \"scroll\" trên CONTAINER, không bao giờ là element; khi dựng, nội dung vào Viewport/Content (layout group + ContentSizeFitter gắn trên Content). Không tự gắn ScrollRect / Mask ở chỗ khác.",
+    "ScrollViewLoopTemplate": "List dài / số item do CSV hay runtime quyết định (LoopListView2, có recycle). Trong ui-spec là \"scroll\": \"loop\" trên CONTAINER; item do controller sinh từ item prefab — không đặt tay từng item.",
+    "ItemPreview": "Dải item sinh lúc runtime: ItemPreviewController tự tạo các ItemElement từ _itemTemplate — không đặt tay từng ô.",
+    "CurrenciesPreview": "Hàng nhiều loại tiền sinh lúc runtime qua CurrencyPreviewController — không đặt tay từng mục; một loại tiền thì dùng CurrencyPreview.",
+    "panel_template": "Khối nội dung có tiêu đề: khung + Title (text_head) + VerticalLayoutGroup. Trong ui-spec đây là CONTAINER mang \"section\": {title, localize}, không vẽ thành element bên trong section; tiêu đề là label tĩnh có localize.",
+    "FrameTemplate": "Khung nền trơn (chỉ Image) cho panel / thẻ không cần tiêu đề — element anchor stretch, con đầu tiên của container nó bọc. Không tô màu nền container để giả khung.",
+    "cooldown_timer_template": "Đồng hồ đếm ngược (UI_CooldownTimeView) — instantiate template, không tự dựng; mọi đồng hồ trên một màn giữ cùng một cỡ; text là 'dynamic'.",
+    "OfferExpriesTimer_Template": "Dòng 'hết hạn sau …' của offer — instantiate template, cùng cỡ ở mọi màn; text thời gian là 'dynamic'.",
+    "CheatMenu": "Menu cheat dev-only — screen_template KHÔNG có sẵn; chỉ instantiate ở gốc prefab khi task có [CHEAT], nút cheat (ButtonCheatTemplate / ToggleCheatTemplate) là con trực tiếp của CheatMenu/Menu. Mockup không bao giờ vẽ nó."
   }
 }

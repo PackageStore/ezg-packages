@@ -306,54 +306,65 @@ ANCHORS = {
 }
 
 # Containers are invisible layout only. A visible panel/card/frame must be an
-# element mapping to a frame template (FrameTemplate / FrameTemplateInside /
-# LayoutTemplate) anchored stretch — never CSS styling on the container. The
-# /new-ui builder cannot turn a styled container into a real framed sprite; it
-# emits a raw recoloured Image instead (the DungeonGuide "backgrounds bị đổi màu"
-# + "không dùng FrameTemplate" defect). Popup outer frame comes from the base
-# template chrome, not a redrawn container background.
+# element mapping to a frame template of the kit (base kit: FrameTemplate /
+# panel_template; older kits: FrameTemplateInside / LayoutTemplate) anchored
+# stretch — never CSS styling on the container. The /new-ui builder cannot turn a
+# styled container into a real framed sprite; it emits a raw recoloured Image
+# instead (a shipped "backgrounds recoloured, no frame template" defect). The popup
+# outer frame comes from the base template chrome, not a redrawn container background.
 CONTAINER_FRAME_KEYS = (
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight", "boxShadow",
 )
 # Fixed-size chrome widgets: two instances at different sizes reads as uneven UI
-# (the Dungeon "TimeLayoutTemplate kích thước không đồng đều" defect).
+# (a shipped "timers at uneven sizes" defect). Base kit names first; the second
+# line keeps the names of older project kits so their specs are still checked.
 CHROME_TEMPLATES = {
+    "cooldown_timer_template", "OfferExpriesTimer_Template", "ResourceViewer", "CurrencyPreview",
+    "money_bar_require_view", "notification_count", "notification_dot",
+    # legacy kits
     "TimeLayoutTemplate", "TimeLayoutTemplate_small", "ResourceHomeTemplate",
-    "ResourceViewTemplate", "CurrencyPreview", "GameNotification",
+    "ResourceViewTemplate", "GameNotification",
 }
 
 # A scroll region is a CONTAINER property, not an element: ScrollViewTemplate /
-# ScrollLoopTemplate own their own Viewport/Content subtree, and spec elements
-# cannot nest children, so placing one as an element strands the scrolled body
-# outside it. Marking the container instead tells /new-ui to instantiate the
-# template and drop the container's children into Viewport/Content. Without this
-# field a scrolling area is invisible in the spec and the builder hand-adds a
-# raw ScrollRect (the StageOverview / task 064 defect).
-SCROLL_TEMPLATES = {"ScrollViewTemplate", "ScrollLoopTemplate"}
+# ScrollViewLoopTemplate (legacy kits: ScrollLoopTemplate) own their own
+# Viewport/Content subtree, and spec elements cannot nest children, so placing one
+# as an element strands the scrolled body outside it. Marking the container instead
+# tells /new-ui to instantiate the template and drop the container's children into
+# Viewport/Content. Without this field a scrolling area is invisible in the spec and
+# the builder hand-adds a raw ScrollRect (a shipped defect that passed every gate).
+SCROLL_TEMPLATES = {"ScrollViewTemplate", "ScrollViewLoopTemplate", "ScrollLoopTemplate"}
 SCROLL_MODES = (False, "vertical", "horizontal", "loop")
 
-# A tab bar is a CONTAINER property too. FeatureTemplate ships FullScreen/Bot/
-# TabBottomTemplate (Image + ToggleGroup + HorizontalLayoutGroup +
-# UI_TabExtensions) already holding the toggle row, but inactive — a feature with
-# tabs activates it and parents its TabToggle* instances to it, then wires
-# UI_TabExtensions (_toggleList ↔ _objectList). Spec elements hold no children,
-# so a TabBottomTemplate element cannot host the toggles: they end up in a
-# hand-made row inside Mid while the real bar stays dead and the controller
-# hand-wires Toggle.onValueChanged (the DungeonGuide defect).
-TAB_BAR_TEMPLATES = {"TabBottomTemplate"}
-TAB_TOGGLE_TEMPLATES = {"TabToggleIconTemplate", "TabToggleTextTemplate"}
+# A tab bar is a CONTAINER property too. A tab strip template owns the toggle row
+# (HorizontalLayoutGroup + ToggleGroup + UI_TabExtensions) — base kit: tab_template
+# hosting toggle_tab_template, TabTogglerGroupBar hosting TabToggle_template_cell —
+# and the feature wires UI_TabExtensions (_toggleList ↔ _objectList). Spec elements
+# hold no children, so a strip drawn as an element cannot host the toggles: they end
+# up in a hand-made row while the controller hand-wires Toggle.onValueChanged (a
+# shipped defect). The "tabBar": true container IS one strip instance.
+# Older kits ship a bottom tab bar inside the full-screen chrome instead (inactive
+# until a screen has tabs); the bottom-chrome warnings only apply to that kit.
+LEGACY_BOTTOM_TAB_BARS = {"TabBottomTemplate"}
+TAB_BAR_TEMPLATES = {"tab_template", "TabTogglerGroupBar"} | LEGACY_BOTTOM_TAB_BARS
+TAB_TOGGLE_TEMPLATES = {
+    "toggle_tab_template", "TabToggle_template_cell",
+    # legacy kits
+    "TabToggleIconTemplate", "TabToggleTextTemplate",
+}
 
 # A titled info block is a CONTAINER property, same reasoning as scroll/tabBar: the
-# block is a FrameTemplateInside instance whose ButtonTitleTemplate pill straddles the
-# frame's top edge, and both must WRAP the block's body — which spec elements cannot do.
-# Drawn by hand it degrades into a styled container plus a loose label, and the /new-ui
-# builder then ships a flat wall of text with no framing (the DungeonGuide storyboard
-# defect). Precedent: StageOverview.prefab, DungeonGuide.prefab.
-SECTION_FRAME_TEMPLATES = {"FrameTemplate", "FrameTemplateInside", "LayoutTemplate"}
-SECTION_TITLE_TEMPLATES = {"ButtonTitleTemplate"}
-# The pill hangs 30px above the frame's top edge, so the list stacking the sections needs
-# at least that much clearance or each title lands on the block above it, and the frame
-# itself must reserve the other 30px plus breathing room before its body starts.
+# frame and its heading must WRAP the block's body — which spec elements cannot do.
+# Base kit: one panel_template instance (frame + its own Title, text_head). Older kits:
+# a FrameTemplateInside instance whose ButtonTitleTemplate pill straddles the frame's
+# top edge. Drawn by hand it degrades into a styled container plus a loose label, and
+# the /new-ui builder then ships a flat wall of text with no framing (a shipped defect).
+SECTION_FRAME_TEMPLATES = {"FrameTemplate", "panel_template", "FrameTemplateInside", "LayoutTemplate"}
+SECTION_TITLE_TEMPLATES = {"ButtonTitleTemplate"}  # legacy kits only — panel_template owns its Title
+# Legacy pill geometry (only when the kit has a pill template): the pill hangs 30px above
+# the frame's top edge, so the list stacking the sections needs at least that much
+# clearance or each title lands on the block above it, and the frame itself must reserve
+# the other 30px plus breathing room before its body starts.
 SECTION_MIN_PARENT_GAP = 40
 SECTION_PILL_RESERVE = 50
 
@@ -398,7 +409,7 @@ POLISH_DEFAULTS = {
     "hardMinFontSize": 30,
     "minTouchTarget": 128,
     "ctaHeight": [152, 176],
-    "gridStep": 8,
+    "gridStep": 4,
 }
 POLISH_GATES = ("block", "warn", "off")
 # Vai trò nút (element.role). ACTION_ROLES là nhóm "cặp nút hành động" phải nằm ngang.
@@ -631,7 +642,7 @@ def _polish_issues(spec, containers, elements, container_map, element_map, decla
         if off_grid:
             found.append(("warn", issue(
                 "polish_grid", path_of(container_id),
-                f"spacing off the {grid}px grid: {', '.join(off_grid)} (PolishRules §9.1 scale 8/16/24/32/48)",
+                f"spacing off the {grid}px grid: {', '.join(off_grid)} (PolishRules §9.1 scale 4/8/12/16/24/32/48/64)",
             )))
     return found
 
@@ -784,8 +795,8 @@ def validate_spec(
                 if row.get("type") != "row":
                     errors.append(issue(
                         "tabbar_container_type", f"{base}.type",
-                        "a tabBar container must be type 'row' - it maps to TabBottomTemplate, whose "
-                        "HorizontalLayoutGroup lays the toggles out left to right",
+                        "a tabBar container must be type 'row' - it maps to the kit's tab strip template, "
+                        "whose HorizontalLayoutGroup lays the toggles out left to right",
                     ))
                 children = row.get("children")
                 for child in children if isinstance(children, list) else []:
@@ -793,17 +804,17 @@ def validate_spec(
                     if child_row is None or child_row.get("template") not in TAB_TOGGLE_TEMPLATES:
                         errors.append(issue(
                             "tabbar_children", f"{base}.children",
-                            f"tabBar child {child!r} must be a TabToggleIconTemplate/TabToggleTextTemplate "
-                            "element — TabBottomTemplate hosts only the toggles; each tab's page body lives "
-                            "in the content root (FullScreen/Mid)",
+                            f"tabBar child {child!r} must be a tab toggle element ({', '.join(sorted(TAB_TOGGLE_TEMPLATES))}) "
+                            "— the strip hosts only the toggles; each tab's page body is a sibling container "
+                            "under the content root",
                         ))
         if "section" in row:
             section = row["section"]
             if not isinstance(section, dict):
                 errors.append(issue(
                     "section_value", f"{base}.section",
-                    "section must be an object {title, localize} — it maps the container to a "
-                    "FrameTemplateInside block titled by a ButtonTitleTemplate pill",
+                    "section must be an object {title, localize} — it maps the container to the kit's "
+                    "titled frame (base kit: panel_template + its Title)",
                 ))
             else:
                 title = section.get("title")
@@ -811,15 +822,15 @@ def validate_spec(
                 if not isinstance(title, str) or not title.strip():
                     errors.append(issue(
                         "section_value", f"{base}.section.title",
-                        "section.title must be a non-empty string — it is the text painted in the pill",
+                        "section.title must be a non-empty string — it is the block's heading text",
                     ))
                 if localize != "none" and not (
                     isinstance(localize, str) and localize.startswith("#") and len(localize) > 1
                 ):
                     errors.append(issue(
                         "section_localize", f"{base}.section.localize",
-                        "section.localize must be '#key' or 'none' — the pill's TitleText is a STATIC "
-                        "label owned by LocalizesUI, never 'dynamic'",
+                        "section.localize must be '#key' or 'none' — the heading is a STATIC label owned "
+                        "by the localize component (LocalizeHelper), never 'dynamic'",
                     ))
                 if row.get("type") == "absolute":
                     errors.append(issue(
@@ -829,7 +840,8 @@ def validate_spec(
                         "has none",
                     ))
                 padding = row.get("padding")
-                if _valid_vec(padding, 4, positive=True) and padding[2] < SECTION_PILL_RESERVE:
+                if (templates & SECTION_TITLE_TEMPLATES and _valid_vec(padding, 4, positive=True)
+                        and padding[2] < SECTION_PILL_RESERVE):
                     warnings.append(issue(
                         "section_padding_top", f"{base}.padding",
                         f"padding.top {padding[2]} leaves less than {SECTION_PILL_RESERVE} for the title "
@@ -842,7 +854,7 @@ def validate_spec(
                         errors.append(issue(
                             "section_title_as_element", f"{base}.children",
                             f"{child!r} draws a {template} inside a section container that already owns "
-                            "its title pill — the flag builds it, so this ships two titles",
+                            "its heading — the flag builds it, so this ships two titles",
                         ))
                     elif template in SECTION_FRAME_TEMPLATES:
                         errors.append(issue(
@@ -857,8 +869,8 @@ def validate_spec(
                 errors.append(issue(
                     "container_style", f"{base}.style",
                     f"container declares visible framing ({', '.join(offenders)}); a panel/card/frame must be an "
-                    "element using FrameTemplate/FrameTemplateInside/LayoutTemplate anchored stretch, not container "
-                    "styling — the builder recolours a raw Image otherwise",
+                    "element using a frame template of the kit (FrameTemplate / panel_template) anchored stretch, "
+                    "not container styling — the builder recolours a raw Image otherwise",
                 ))
         children = row.get("children", [])
         if not isinstance(children, list):
@@ -934,17 +946,17 @@ def validate_spec(
         row for row in elements
         if isinstance(row, dict) and row.get("template") in TAB_TOGGLE_TEMPLATES
     ]
-    # FeatureTemplate ships Bot/TabBottomTemplate inactive, so a bar drawn without toggles is a
-    # brown strip the build never renders - and the mockup showing it is exactly what makes a
-    # builder activate it for nothing (BattleResultDungeon).
+    # Legacy kits ship their bottom tab bar inactive in the full-screen chrome, so a bar drawn
+    # without toggles is a strip the build never renders - and the mockup showing it is exactly
+    # what makes a builder activate it for nothing (a shipped defect).
     if not tab_toggles:
         for row in elements:
-            if not isinstance(row, dict) or row.get("template") not in TAB_BAR_TEMPLATES:
+            if not isinstance(row, dict) or row.get("template") not in LEGACY_BOTTOM_TAB_BARS:
                 continue
             warnings.append(issue(
                 "tabbar_empty_chrome", ids.get(row.get("id"), "$.elements") + ".template",
-                "TabBottomTemplate is drawn with no tab toggles; the shipped bar is inactive, so this screen "
-                "renders no bar at runtime. Drop it and leave ButtonBack alone in the Bot chrome",
+                f"{row.get('template')} is drawn with no tab toggles; the shipped bar is inactive, so this "
+                "screen renders no bar at runtime. Drop it and leave the back button alone in the bottom chrome",
             ))
     if tab_toggles:
         for row in elements:
@@ -952,8 +964,8 @@ def validate_spec(
                 continue
             errors.append(issue(
                 "tabbar_as_element", ids.get(row.get("id"), "$.elements") + ".template",
-                "TabBottomTemplate cannot be an element on a screen that has tab toggles — elements hold no "
-                "children, so the toggles land outside the bar. Mark the row container holding them with "
+                f"{row.get('template')} cannot be an element on a screen that has tab toggles — elements hold "
+                "no children, so the toggles land outside the strip. Mark the row container holding them with "
                 "\"tabBar\": true instead",
             ))
         for row in tab_toggles:
@@ -963,8 +975,7 @@ def validate_spec(
             errors.append(issue(
                 "tabs_outside_bottom_bar", ids.get(row.get("id"), "$.elements") + ".parent",
                 f"tab toggle {row.get('id')!r} sits in {parent!r}, which is not a \"tabBar\": true container — "
-                "navigation tabs belong inside FullScreen/Bot's TabBottomTemplate (precedent: Equipment.prefab, "
-                "Shop.prefab). A hand-made tab row in Mid leaves the shipped bar inactive and forces the "
+                "tab toggles belong inside the kit's tab strip template. A hand-made tab row forces the "
                 "controller to hand-wire Toggle listeners instead of UI_TabExtensions",
             ))
 
@@ -981,13 +992,13 @@ def validate_spec(
             continue
         warnings.append(issue(
             "section_title_without_frame", ids.get(row.get("id"), "$.elements") + ".parent",
-            f"{row.get('id')!r} is a loose ButtonTitleTemplate; a titled info block is a container "
+            f"{row.get('id')!r} is a loose {row.get('template')}; a titled info block is a container "
             "flag — put \"section\": {\"title\", \"localize\"} on the container it heads so the "
-            "builder frames the body too (StageOverview.prefab). A standalone header pill is fine — "
-            "record it in assumptions[]",
+            "builder frames the body too. A standalone header pill is fine — record it in assumptions[]",
         ))
-    # The pill hangs above the frame, so a tight parent gap stacks each title onto the block above.
-    for node_id in section_ids:
+    # Legacy pill only: it hangs above the frame, so a tight parent gap stacks each title onto
+    # the block above. The base kit's panel_template keeps its Title inside the frame.
+    for node_id in (section_ids if templates & SECTION_TITLE_TEMPLATES else ()):
         parent_row = container_map.get(declared_parent.get(node_id))
         if parent_row is None:
             continue
@@ -1042,7 +1053,8 @@ def validate_spec(
         if content_root not in container_map:
             errors.append(issue(
                 "content_root", "$.contentRoot",
-                "contentRoot must name the Popup/content or FullScreen/Mid container",
+                "contentRoot must name the container that maps to the screen's content node "
+                "(base kit: popup → container_content, full-screen → content)",
             ))
         else:
             def descends_from(node_id: str, ancestor: str) -> bool:
@@ -1057,7 +1069,7 @@ def validate_spec(
 
             for node_id, row in element_map.items():
                 # Tab toggles are feature content that legitimately lives in the Bot chrome
-                # (inside the shipped TabBottomTemplate), so a tabBar parent exempts them
+                # (inside the tab bar container), so a tabBar parent exempts them
                 # instead of forcing a misleading baseChrome flag.
                 if declared_parent.get(node_id) in tab_bar_ids:
                     continue
@@ -1076,17 +1088,20 @@ def validate_spec(
                     warnings.append(issue(
                         "fullscreen_missing_chrome", "$.branch",
                         f"branch='FullScreen' has no baseChrome element outside contentRoot {content_root!r} — "
-                        "mirror FeatureTemplate.prefab's FullScreen/Top (ResourceViewTemplate Gold/Gem bar) and "
-                        "FullScreen/Bot (a ButtonIcon instance named ButtonBack; the TabBottomTemplate bar only "
-                        "when the screen has tabs), or record the deviation in assumptions[]",
+                        "mirror the screen template's full-screen chrome (base kit: full_screen_template's "
+                        "top_view title bar and botview back/close button; the currency bar when the screen "
+                        "shows currency), or record the deviation in assumptions[]",
                     ))
 
-            if tab_bar_ids and all(descends_from(node_id, content_root) for node_id in tab_bar_ids):
+            # Only kits that ship a bottom tab bar in the full-screen chrome expect primary tabs there;
+            # the base kit's tab strips (tab_template…) live in the content by design.
+            if (templates & LEGACY_BOTTOM_TAB_BARS and tab_bar_ids
+                    and all(descends_from(node_id, content_root) for node_id in tab_bar_ids)):
                 warnings.append(issue(
                     "tabbar_in_content", "$.containers",
-                    "every tabBar container sits inside contentRoot; primary navigation tabs belong to the "
-                    "FullScreen/Bot chrome (the shipped TabBottomTemplate). A content-level filter row like "
-                    "Equipment's EquipmentFilter is fine — record it in assumptions[]",
+                    "every tabBar container sits inside contentRoot; with this kit primary navigation tabs "
+                    "belong to the bottom chrome bar. A content-level filter row is fine — record it in "
+                    "assumptions[]",
                 ))
 
     questions = spec.get("questions", [])

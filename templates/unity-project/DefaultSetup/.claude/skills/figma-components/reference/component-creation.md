@@ -163,15 +163,15 @@ Base-Plate set:
   Color → [one value per button colour]
   Total = colours
 
-Button set:
-  State → [Default, Pressed, Hover]
+Button set (a buy button the game can lock):
+  State → [Default, Pressed, Disabled]
   each variant nests an exposed Base-Plate instance as Bg
   Total = 3; the instance panel offers colours × 3
 
-Nav button set:
-  State → [Default, Pressed, Hover]
+Nav button set (never locked):
+  State → [Default, Pressed]
   each variant nests an exposed instance of the destination set (Type)
-  Total = 3; the instance panel offers destinations × 3
+  Total = 2; the instance panel offers destinations × 2
 ```
 
 ### The 30-combination cap
@@ -282,7 +282,7 @@ Rules that bite:
 - There is no `figma.createComponentSet()`. You cannot make an empty set.
 
 **One row, in axis order.** A one-axis set lays its variants left to right in
-the order of its values; a `State` set reads Default, Pressed, Hover, which is
+the order of its values; a `State` set reads Default, Pressed, Disabled, which is
 what a reviewer scans to check that the ladder is consistent.
 
 ## 6. Component properties
@@ -412,12 +412,14 @@ The Phase 3 job. `scripts/addStateVariants.js` does this; the shape is:
    parent instance.
 2. Clone the master once per new state and name each clone `State=<Value>`.
 3. Apply the recipe to each clone: `Pressed` moves the content down and adds an
-   `Overlay` rectangle on `Bg`, bound to `color/btn/pressed`; `Hover` adds an
-   `Overlay` bound to `color/btn/hover`. Never override a fill on `Bg`.
+   `Overlay` rectangle on `Bg`, bound to `color/btn/pressed`; `Disabled` (only
+   when the control can be locked) adds a grey `Overlay` bound to
+   `color/btn/disabled`. Never override a fill on `Bg`. `Hover` is legacy —
+   a set that already has it keeps it; new sets do not get it.
 4. Rename the master `State=Default` and `combineAsVariants` it with the clones.
    The set takes the master's old name, so instances already placed from the
    master stay linked.
-5. Lay out the set in one row: Default, Pressed, Hover.
+5. Lay out the set in one row: Default, Pressed, Disabled.
 6. Validate, then write the description's `STATES` section.
 
 Never clone the plate set once per state: that is the multiplied matrix rule 7

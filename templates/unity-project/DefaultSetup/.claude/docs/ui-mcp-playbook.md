@@ -4,8 +4,10 @@ description: Reference doc (not a command) — executable Unity MCP layer for th
 
 # UI MCP Execution Playbook
 
-This is the **executable layer** shared by [new-ui.md](../workflows/new-ui.md) (via
-[new-ui-guide.md](new-ui-guide.md)) and the Package branch of
+This is the **executable layer** shared by [/new-ui](../commands/new-ui.md) (via
+[new-ui-guide.md](new-ui-guide.md) and the [create-ui](../skills/create-ui/SKILL.md) skill, whose
+[`references/mcp-playbook.md`](../skills/create-ui/references/mcp-playbook.md) carries the verified
+`screen_template` structure + close-button recipes in its §6) and the Package branch of
 [/new-package](../commands/new-package.md) (via [new-package-guide.md](new-package-guide.md)).
 The guides decide *what* to build (template, layout mode, containment, catalog); this file is the
 deterministic *how* — the exact Unity MCP tool sequence, property paths, value formats, reference
@@ -15,11 +17,11 @@ It exists because an AI agent drives Unity **through MCP tools, not the Inspecto
 "drag X into Y". Every "drag/assign/bind" instruction in `new-ui-guide.md` maps to a concrete tool
 call here.
 
-> **Scope note:** property paths (`m_*`) and value formats below are Unity-universal and were
-> verified live on the sibling project (same Unity 6000.x + same MCP server). **Project-specific
-> hierarchy** (`BackgroundButton`/`Popup`/`FullScreen`, `Popup/content`, template GUIDs) must be
-> confirmed live against this repo with `unity_prefab_info` / `unity_execute_code` before wiring —
-> never guess hierarchy (already required by `new-ui-guide.md` §0).
+> **Scope note:** property paths (`m_*`) and value formats below are Unity-universal. The
+> hierarchy names (`background_button` / `popup_template` / `full_screen_template`,
+> `popup_container/container_content`, `full_screen_template/content`) and GUIDs are the EZG base
+> template's — a project that reworked its templates confirms them live with `unity_prefab_info` /
+> `unity_execute_code` before wiring — never guess hierarchy (already required by `new-ui-guide.md` §0).
 >
 > **Always pass `port`** on every `unity_*` call. Get it once from `unity_select_instance`.
 > Examples below omit it for brevity.
@@ -64,7 +66,7 @@ Every UI build is the same five moves. Repeat per element.
 | Move | Tool | Purpose |
 |------|------|---------|
 | **Place** | `unity_asset_instantiate_prefab` | Drop a template into the scene under the right parent. |
-| **Parent** | `unity_gameobject_reparent` | Move it into the content container (`Popup/content` or `FullScreen/Mid`). |
+| **Parent** | `unity_gameobject_reparent` | Move it into the content container (`popup_template/popup_container/container_content` or `full_screen_template/content`). |
 | **Shape** | `unity_component_set_property` | Set RectTransform / Image / Text values (§3). |
 | **Wire** | `unity_component_get_referenceable` → `unity_component_batch_wire` | Connect serialized references (§4) — this replaces every "drag" instruction. |
 | **See** | `unity_screenshot_game` | Look at the result and correct it (§5). Never declare done blind. |
@@ -77,13 +79,15 @@ the most reliable handle for `reparent`, `get_referenceable`, and `batch_wire`.
 ## 2. `instantiate` value formats
 
 `unity_asset_instantiate_prefab`:
-- `prefabPath` = **asset path**, e.g. `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/ButtonNormal.prefab`,
-  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`,
-  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/PackageTemplate.prefab`,
-  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/TimeLayoutTemplate.prefab`.
-- `parent` = hierarchy path of the parent, e.g. `Canvas/[FeatureName]/Popup/content`.
-- Per `new-ui-guide.md` §3c **content-containment rule**: new elements go inside `Popup/content`
-  (pop-up) or `FullScreen/Mid` (full-screen), **never** as a direct child of `Popup`/`FullScreen`.
+- `prefabPath` = **asset path**, e.g. `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Popup_Template/screen_template.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Button_Template/button_template_CTA_txt.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/Purchase_Template/purchase_template.prefab`,
+  `Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates/CooldownTimer_Template/cooldown_timer_template.prefab`.
+  Exact paths of every template: `.claude/ui-kit/ui-kit.json` → `templates.<name>.path`.
+- `parent` = hierarchy path of the parent, e.g. `screen_my_feature/popup_template/popup_container/container_content`.
+- Per `new-ui-guide.md` §3c **content-containment rule**: new elements go inside
+  `popup_container/container_content` (popup) or `full_screen_template/content` (full-screen),
+  **never** as a direct child of `popup_container` / `full_screen_template`.
 
 ---
 
@@ -136,15 +140,13 @@ Assign a sprite: `unity_search_assets` (`type:"Sprite"`/`"Texture2D"`) to get th
 
 - Legacy `Text` (`componentType:"Text"`): set `m_Text` (string) only.
 - TMP (`componentType:"TextMeshProUGUI"`): `m_text`, `m_fontColor` (Color), `m_fontSize` (float).
-- **`LocalizesUI`** (this repo's localize component — see `new-ui-guide.md` §3b): set the `LangKey`
-  field to `#[featurename]_title` (lowercase, `#` prefix). Then register the key through the
-  project's localize pipeline (`com.ezg.localize`: add the row to the localize sheet, pull it with
-  `LocalizeDownloader`, regenerate the `LanguageData` assets) — an unregistered key renders raw.
-
-> ⚠️ **Localize naming is pending a rewrite.** This section describes `LocalizesUI` + `LangKey`; the
-> component this template actually ships is `LocalizeHelper` (`_Shared/Localize/LocalizeHelper.cs`)
-> with `Key` + `Category` fields, and `LocalizeCategory` is generated per project. Verify against the
-> real component before wiring, and do not look for an `/add-localize` command — there is none here.
+- **`LocalizeHelper`** (`Features/_Shared/Localize/LocalizeHelper.cs` — rules in `new-ui-guide.md` §3b):
+  `componentType:"LocalizeHelper"`, set `Key` (lowercase, **no** `#` — a spec's `"#shop_title"` is
+  `Key = "shop_title"`) and `Category` (enum `LocalizeCategory`, generated per project = the CSV tab;
+  `Common` by default). Every text template already carries the component — set it, do not add a
+  second one; a DYNAMIC label gets it **removed** (`unity_component_remove`). Register a new key with
+  the skill `/add-localize` (sheet + CSV + runtime `.asset`) — an unregistered key renders as
+  `Category: key`.
 
 ### Layout groups (layout-group-first — new-ui-guide.md §3e)
 
@@ -172,23 +174,23 @@ values. Standard Unity serialized names (not yet live-verified on this MCP build
 - While `m_ChildControlWidth/Height` is on, children's `m_SizeDelta` is overridden — size
   children via `LayoutElement` (`m_PreferredWidth/Height`) instead.
 
-### Tab bar (new-ui-guide.md §3d — tabs live in `Bot/TabBottomTemplate`, never a row in `Mid`)
+### Tab strip (new-ui-guide.md §3d — toggles live inside a tab strip, never a hand-made row)
 
-The bar already exists on every `screen_template` variant but ships inactive, so the sequence is
-activate → populate → wire, not "build a new row":
+The base kit has no pre-placed tab bar: a screen with tabs instantiates a strip, so the sequence is
+place → populate → wire:
 
-1. `unity_gameobject_set_active { path: "<Feature>/FullScreen/Bot/TabBottomTemplate", active: true }`.
-2. Tabs are children of that node: rename/duplicate the shipped `Tab1`/`Tab2`
-   (`TabToggleTextTemplate`), or `unity_asset_instantiate_prefab` `TabToggleIconTemplate.prefab`
-   with `parentPath: ".../Bot/TabBottomTemplate"`. Delete leftover sample tabs. It already owns
-   `ToggleGroup` + `HorizontalLayoutGroup` — do **not** add a second layout group.
-3. Each tab gets a page GameObject under `FullScreen/Mid`, same order as the toggles.
-4. Wire the `UI_TabExtensions` already on the bar (§4 formats): `_toggleList` = the toggles in
+1. `unity_asset_instantiate_prefab` `Templates/tab_template.prefab` (or
+   `Tab_Template/TabToggle/TabToggleGroup/TabTogglerGroupBar.prefab`) into the content container.
+2. Tabs are direct children of that strip: rename/duplicate its shipped `toggle_tab_template`
+   (`TabToggle_template_cell` for `TabTogglerGroupBar`), left → right. Delete leftover sample tabs.
+   The strip already owns `ToggleGroup` + `HorizontalLayoutGroup` — do **not** add a second layout group.
+3. Each tab gets a page GameObject in the same content container, same order as the toggles.
+4. Wire the `UI_TabExtensions` already on the strip (§4 formats): `_toggleList` = the toggles in
    order, `_objectList` = the pages at matching indexes, `_mainCanvasScale` = root `CanvasScaler`,
    `_indexOnOpen` = default tab (`-1` keeps current state), `_useAnimSwap` = slide animation on/off.
-5. The controller then only calls `RegisterOnchangeAction(i, action)` / `JumpToIndex(i)`
-   (`EquipmentController.Start()` is the reference). No hand-written `onValueChanged` listeners
-   and no manual `Focus.SetActive` — `ToggleGroup` + `UI_TabExtensions` own that.
+5. The controller then only calls `RegisterOnchangeAction(i, action)` / `JumpToIndex(i)` /
+   `SetTabIndex(i)`. No hand-written `onValueChanged` listeners — `ToggleGroup` +
+   `UI_TabExtensions` own that.
 
 ### Value-format rules (verified)
 - Vector2 `{x,y}` · Vector3 `+z` · Color `{r,g,b,a}` 0–1 · Quaternion `+w`.
@@ -212,26 +214,26 @@ A built screen renders but its buttons/controller fields are dead until wired.
 3. Single reference shortcut: `unity_component_set_property` with ObjectReference value
    `{gameObject:"...", componentType:"..."}`.
 
-**Concrete mappings from new-ui-guide.md Package branch (Step 4):**
-- "drag `Popup/content/PurchaseTemplate` into `_purchase`" →
-  `batch_wire { path:"[FeatureName]", componentType:"[PackageName]Controller",
-  propertyName:"_purchase", referenceGameObject:"[FeatureName]/Popup/content/PurchaseTemplate",
-  referenceComponentType:"PurchaseTemplateController" }`.
-- "drag the `TimeText` child into `_cooldownTime`" → `batch_wire` with
-  `propertyName:"_cooldownTime"`, `referenceGameObject:".../CooldownTime"`,
+**Concrete mappings (new-ui-guide.md §4):**
+- Popup close button → `batch_wire { path:"[FeatureName]", componentType:"[FeatureName]Controller",
+  propertyName:"_closeButtons", referenceGameObject:"[FeatureName]/popup_template/popup_container/top_container_popup/button_close",
+  referenceComponentType:"Button" }` (full-screen navigation page: `full_screen_template/botview/button_close`).
+- Pack card → `batch_wire { path:"[FeatureName]", componentType:"[PackageName]Controller",
+  propertyName:"_purchase", referenceGameObject:"[FeatureName]/popup_template/popup_container/container_content/purchase_template",
+  referenceComponentType:"PurchaseTemplate" }`.
+- Pack timer → `batch_wire` with the controller's timer field, `referenceGameObject:".../cooldown_timer_template"`,
   `referenceComponentType:"UI_CooldownTimeView"`.
-- `_packIndex` is an int, not a reference → `set_property` `{propertyName:"_packIndex", value:0}`.
-- `ClickBackgroundToExit = true` (inherited from `FeatureBaseController`) →
-  `set_property` `{componentType:"[PackageName]Controller", propertyName:"ClickBackgroundToExit",
-  value:true}`.
-- `FeatureType` (enum, TabGroup "Common" on `GameFeatureBaseController`) →
-  `set_property` `{propertyName:"FeatureType", value:"<EnumBase.Features member>"}`.
+- `ClickBackgroundToExit = true` (inherited from `FeatureBaseController`, default false) →
+  `set_property` `{componentType:"[FeatureName]Controller", propertyName:"ClickBackgroundToExit", value:true}`.
+- `FeatureType` (enum `GameEnums.Features`, on `FeatureBaseController`) →
+  `set_property` `{propertyName:"FeatureType", value:"<GameEnums.Features member>"}`.
 
 **Never wire `MainUI`** (inherited from `FeatureBaseController`, TabGroup "Cấu hình chung"). It is a
-deliberate opt-out field: empty → `Awake()` falls back to `transform.GetChild(1)` = `Popup`, which
-gives popups their scale-in and full-screen screens their fade-in (new-ui-guide.md §0 "Layout mode →
-`MainUI`"). Pointing it at `FullScreen` makes a full-screen screen pop like a dialog. If a
-prefab already has it set and the task didn't ask for that, clear it:
+deliberate opt-out field: empty → `Awake()` falls back to `transform.GetChild(1)` = `popup_template`,
+which gives popups their scale-in and full-screen screens their fade-in — the convention of every
+full-screen screen the template ships (new-ui-guide.md §0 "Layout mode → `MainUI`"). Pointing it at
+`full_screen_template` makes a full-screen screen pop like a dialog. If a prefab already has it set
+and the task didn't ask for that, clear it:
 
 ```csharp
 // unity_execute_code — clear MainUI back to the default fallback
@@ -318,13 +320,13 @@ UI built blind via property writes is wrong more often than right. After each me
    > ```
    >
    > Related authoring gotchas verified in the same run: a feature root is its own
-   > **overlay canvas** — instantiate/reparent it to the **scene root**, not under another
+   > **root canvas** — instantiate/reparent it to the **scene root**, not under another
    > canvas; another canvas in the scene (e.g. splash) can cover yours — deactivate it while
    > authoring and restore it in §9 cleanup (never save the scene); non-ASCII text sent
    > through `unity_execute_code` gets mangled — build Vietnamese strings from char codes
    > (`"B" + (char)0x00F9 + ...`) and verify by code point, never by string compare.
 2. Read it. Check: element visible, inside its container, anchored correctly, text/icon present,
-   not zero-sized, not off-screen, exactly one of `Popup`/`FullScreen` active.
+   not zero-sized, not off-screen, exactly one of `popup_template` / `full_screen_template` active.
 3. Wrong → fix the offending property → screenshot again. **Max 3 rounds per element**; if still
    wrong, report what is off instead of looping.
 
@@ -332,7 +334,7 @@ This per-element loop is the fine-grained mechanic. At the coarser level, `new-u
 the whole build into **3 phase checkpoints (A skeleton / B elements / C wiring)**, followed for root
 screens by **Phase D, the designer pass** ([`ui-designer-pass.md`](ui-designer-pass.md)) — each phase
 ends by either showing the user (interactive) or spawning an independent
-[`ui-visual-reviewer`](.claude/agents/ui-visual-reviewer.md) subagent (autonomous `/run-backlog`
+[`ui-visual-reviewer`](../agents/ui-visual-reviewer.md) subagent (autonomous `/run-backlog`
 runs). The reason: a self-graded "looks fine, moving on" after a 40-50-call build chain is the
 actual failure mode behind results not matching intent — the builder is the worst judge of its
 own drift. The independent reviewer captures its own screenshot (never trusts yours) and checks
@@ -361,28 +363,30 @@ Agent({
 Read the JSON verdict. `block` → fix each `findings[]` entry, re-stage, re-spawn — max 2 rounds
 per phase. `pass` → proceed to the next phase.
 
-> **Edit-time invisibility gotcha:** if the feature template's root plays an open-animation
-> (scale 0 → 1) via a transition component, it looks invisible in a static scene. Use
-> `unity_play_mode` for a true-to-runtime screenshot, or temporarily set the root
-> `RectTransform.m_LocalScale` to `{1,1,1}` for inspection (restore before saving).
+> **Edit-time invisibility gotcha:** `screen_template`'s root ships at `m_LocalScale (0,0,0)`, so a
+> fresh instance looks invisible in a static scene (harmless at runtime — create-ui
+> `references/mcp-playbook.md` §5). Set the root `RectTransform.m_LocalScale` to `{1,1,1}` and keep it
+> there when saving; any **child** you zero out to inspect must be restored before saving. Use
+> `unity_play_mode` for a true-to-runtime screenshot.
 
 ---
 
 ## 6. Register so `UIManager.Show()` can open it (project convention)
 
-This repo opens features via `UIManager.Instance.Show(EnumBase.Features.X).Forget()`
-(see [ui-manager skill](.claude/skills/ui-manager/SKILL.md)). To make a new screen openable:
+This repo opens features via `UIManager.Instance.Show(GameEnums.Features.X, data).Forget()`
+(see [ui-manager skill](../skills/ui-manager/SKILL.md)). To make a new screen openable:
 
-1. **Enum** — add a member to `EnumBase.Features`. Append; do not renumber existing values.
-2. **Controller** — inherit `GameFeatureBaseController` (which adds `FeatureType` and the
-   open/close event push). Attach it to the prefab **root** (the template root has no controller
-   by default).
-3. **Set `FeatureType`** on the controller (TabGroup "Common") to the matching
-   `EnumBase.Features` member — required for open/close events and for `FeatureKey` resolution.
-4. **Prefab name + location** — `[FeatureName].prefab` (PascalCase, matching the controller +
-   folder) in `<featuresRoot>/[FeatureName]/Resources/`.
+1. **Enum** — add a member to `GameEnums.Features` (`Features/_Shared/Config/GameEnums.cs`) with an
+   unused number; never renumber existing values (they are serialized into prefabs).
+2. **Controller** — inherit `FeatureBaseController` (it carries `FeatureType` and the open/close
+   event push). Attach it to the prefab **root** (the template root has no controller by default).
+3. **Set `FeatureType`** on the controller to the matching `GameEnums.Features` member.
+4. **Prefab name + location** — `screen_<snake_case>.prefab` = the enum member through
+   `ToSnakeCase` (`MyNewScreen` → `screen_my_new_screen`), at the root of the feature's
+   `<featuresRoot>/<Domain>/[FeatureName]/Resources/` — `UIManager` loads `screen_{feature.ToSnakeCase()}`
+   by bare name, so a sub-folder of `Resources/` is not found.
 
-**Verify open:** `UIManager.Instance.Show(EnumBase.Features.[FeatureName]).Forget()` via
+**Verify open:** `UIManager.Instance.Show(GameEnums.Features.[FeatureName]).Forget()` via
 `unity_play_mode` (+ a cheat/menu trigger), then screenshot.
 
 ---
@@ -392,8 +396,9 @@ This repo opens features via `UIManager.Instance.Show(EnumBase.Features.X).Forge
 `unity_asset_create_prefab` **does** produce a true Prefab Variant — the trick is the source
 GameObject must be an **instance of the base template**, not a plain GameObject. Verified live:
 
-1. `unity_asset_instantiate_prefab` the base (`screen_template.prefab` / `PackageTemplate.prefab`)
-   into the scene — the scene object is now a prefab *instance* of the base.
+1. `unity_asset_instantiate_prefab` the base (`Popup_Template/screen_template.prefab`, guid
+   `56fe2a4fb9f5141488c53da9e7819aa1`) into the scene — the scene object is now a prefab *instance*
+   of the base.
 2. Assemble on that instance (all the steps above).
 3. `unity_asset_create_prefab(gameObjectPath = that instance, savePath = the feature Resources
    path)`. Because the source is a base-template instance, Unity saves the asset as a **Variant**:
@@ -408,28 +413,31 @@ base template, `unity_asset_create_prefab` yields a flattened **regular** prefab
 link. The variant relationship comes entirely from the source being a base-template instance — so
 always start from an instantiated template, never a blank object.
 
-Save to `<featuresRoot>/[FeatureName]/Resources/[FeatureName].prefab`.
+Save to `<featuresRoot>/<Domain>/[FeatureName]/Resources/screen_<snake_case>.prefab` (§6).
 
 ---
 
 ## 8. Validate before done (runnable checks — feeds new-ui-guide.md Step 5)
 
-- `unity_gameobject_info` on root → child order intact (`BackgroundButton` 0, `Popup` 1,
-  `FullScreen` 2), controller present, exactly one of `Popup`/`FullScreen` active.
-- `unity_gameobject_info` on new nodes → none is a direct child of `Popup`/`FullScreen`
-  (containment rule); cooldown node, if any, is at `Popup/content/CooldownTime`.
-- `unity_component_get_properties` on the controller → `FeatureType`, `_purchase`, `_packIndex`,
-  `_cooldownTime` (if time-limited), `ClickBackgroundToExit` all set; no null `[Required]`.
+- `unity_gameobject_info` on root → child order intact (`background_button` 0, `popup_template` 1,
+  `full_screen_template` 2), controller present, exactly one of `popup_template` /
+  `full_screen_template` active.
+- `unity_gameobject_info` on new nodes → none is a direct child of `popup_container` /
+  `full_screen_template` (containment rule); timers are template instances inside the content container.
+- `unity_component_get_properties` on the controller → `FeatureType`, `_closeButtons`,
+  `ClickBackgroundToExit` (popup), pack fields (`_purchase`, timer) all set; no null `[Required]`.
 - Same call → `MainUI` is **null** (unless the task explicitly asked otherwise). In YAML:
   `MainUI: {fileID: 0}`. Non-null on a full-screen prefab = wrong open animation (§4).
 - `unity_search_missing_references` → no broken references.
-- `LocalizesUI.LangKey` set and registered (§3 text / `new-ui-guide.md` §3b).
+- `LocalizeHelper` `Key` / `Category` set and registered on every static label, absent on dynamic
+  ones (§3 text / `new-ui-guide.md` §3b).
 - `unity_screenshot_game` (or play-mode) → final visual matches intent, captured at the
   §0-pinned design-resolution view (standard 1080×2400).
 - Polish (`.claude/docs/PolishRules.md` §9, rule `game-polish`): text ≥ 32 px (never < 30), touch
   targets ≥ 128 px (template chrome + `CheatMenu` excluded), at most one primary CTA, action pairs side
   by side, locked = grey + reason, empty state has an image + one line, popups enable
-  `ClickBackgroundToExit` unless §9.4 exempts them — read the real values off the prefab.
+  `ClickBackgroundToExit` unless §9.4 exempts them, no feature-added tappable in the top 100 px /
+  bottom 60 px of the canvas (P42), spacing on the 4 px grid (soft) — read the real values off the prefab.
 - If any `.cs` was created/edited: `unity_asset_import` (or `unity_execute_menu_item
   "Assets/Refresh"`) → wait for compile via `unity_editor_state` → `unity_get_compilation_errors`
   (severity `error`) → fix (max 2 rounds) before declaring done.

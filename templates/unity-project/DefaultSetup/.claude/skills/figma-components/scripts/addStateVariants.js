@@ -4,14 +4,19 @@
  * Module: 3 — Make a State set from a Default master
  * Input:  COMPONENT_ID (string, required) — the Default master: a standalone
  *                COMPONENT, not in a set, that nests the plate set as BG_CHILD.
- *         STATES (string[], optional) — defaults to ['Pressed', 'Hover'].
- *                Allowed values: Pressed, Hover. Default is the master itself.
+ *         STATES (string[], optional) — defaults to ['Pressed'].
+ *                Allowed values: Pressed, Disabled, Hover. Default is the
+ *                master itself. Add Disabled when the control can be locked
+ *                (grey + reason). Hover is legacy only: touch has no pointer,
+ *                so new sets do not get it; sets that already ship it stay valid.
  *         BG_CHILD (string, optional) — name of the nested plate instance.
  *                Defaults to 'Bg'.
  *         PRESSED_TOKEN (string, optional) — COLOR variable of the Pressed
  *                overlay, e.g. 'color/btn/pressed'.
+ *         DISABLED_TOKEN (string, optional) — COLOR variable of the Disabled
+ *                overlay, e.g. 'color/btn/disabled' (grey at partial alpha).
  *         HOVER_TOKEN (string, optional) — COLOR variable of the Hover
- *                overlay, e.g. 'color/btn/hover'.
+ *                overlay, e.g. 'color/btn/hover'. Legacy sets only.
  *         PRESSED_OFFSET (number, optional) — px the content moves down on
  *                Pressed; pass the value of `space/tight`. Defaults to 0.
  * Output: { set, exposed, added, variantCount, axes, noVisualChange, positions }
@@ -21,7 +26,7 @@
  *
  * One axis per set (figma-components rule 7). The plate set keeps its Color
  * axis; this set carries State only and nests the plate as an exposed
- * instance, so N colours and 3 states are N + 3 variants, not N × 3.
+ * instance, so N colours and 2 states are N + 2 variants, not N × 2.
  *
  * Mechanics: BG_CHILD is marked isExposedInstance, the master is cloned once
  * per state, each clone is named `State=<value>`, the master is renamed
@@ -31,6 +36,8 @@
  * Recipe — colour-agnostic, it never reads a per-colour token:
  *   Pressed — content other than BG_CHILD moves down PRESSED_OFFSET; an
  *             `Overlay` rectangle bound to PRESSED_TOKEN sits on BG_CHILD.
+ *   Disabled — an `Overlay` rectangle bound to DISABLED_TOKEN sits on
+ *             BG_CHILD and greys the plate; the content does not move.
  *   Hover   — an `Overlay` rectangle bound to HOVER_TOKEN sits on BG_CHILD.
  * The overlay is a sibling, never a fill override on BG_CHILD: a fill override
  * survives a Color swap on the placed instance and would pin the old colour.
@@ -56,9 +63,9 @@ let page = master.parent;
 while (page.type !== 'PAGE') page = page.parent;
 await figma.setCurrentPageAsync(page);
 
-const ALLOWED = ['Pressed', 'Hover'];
+const ALLOWED = ['Pressed', 'Disabled', 'Hover'];
 const states = (typeof STATES !== 'undefined' && STATES && STATES.length)
-  ? STATES : ['Pressed', 'Hover'];
+  ? STATES : ['Pressed'];
 const bad = states.filter(s => !ALLOWED.includes(s));
 if (bad.length) return { error: `disallowed State values: ${bad.join(', ')}. Allowed: ${ALLOWED.join(', ')}` };
 
@@ -68,6 +75,7 @@ const offset = typeof PRESSED_OFFSET === 'number' ? PRESSED_OFFSET : 0;
 const colorVars = await figma.variables.getLocalVariablesAsync('COLOR');
 const tokenNames = {
   Pressed: typeof PRESSED_TOKEN === 'string' ? PRESSED_TOKEN : null,
+  Disabled: typeof DISABLED_TOKEN === 'string' ? DISABLED_TOKEN : null,
   Hover: typeof HOVER_TOKEN === 'string' ? HOVER_TOKEN : null,
 };
 const overlayVar = {};

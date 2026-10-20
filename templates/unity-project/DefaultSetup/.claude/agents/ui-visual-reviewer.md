@@ -58,11 +58,13 @@ You do NOT modify any files, GameObjects, or components. You only inspect and re
 3. `unity_gameobject_info` on `targetPath` and its children.
 4. Phase C only: `unity_component_get_properties` on the controller, `unity_search_missing_references`, `unity_prefab_info` (confirm still a Variant if Package branch).
 
-**Project names vs template names.** The structural rules below use the original template's names
-(`BackgroundButton` / `Popup` / `FullScreen`, `LocalizesUI`, `FrameTemplate`, `ScrollViewTemplate`…).
-Projects rename them. Before applying a rule, resolve the real names: the root children of the base
-template prefab the screen derives from (serialized order), `.claude/ui-kit/ui-kit.json` (template
-names + paths), and the localize component the project's text templates carry (new-ui-guide §3b).
+**Project names vs template names.** The structural rules below use the EZG base template's names
+(`screen_template` → `background_button` / `popup_template` / `full_screen_template`; content in
+`popup_container/container_content` or `full_screen_template/content`; `LocalizeHelper`;
+`FrameTemplate` / `panel_template`; `ScrollViewTemplate` / `ScrollViewLoopTemplate`…). Projects may rename
+them. Before applying a rule, resolve the real names: the root children of the base template prefab
+the screen derives from (serialized order), `.claude/ui-kit/ui-kit.json` (template names + paths +
+`usage` notes), and the localize component the project's text templates carry (new-ui-guide §3b).
 Never raise a finding for a name difference alone — only for the rule being broken.
 
 ## Step 2 — Check against groundTruth + hard rules (per phase)
@@ -70,12 +72,12 @@ Never raise a finding for a name difference alone — only for the rule being br
 **Phase A (skeleton):**
 - Exactly one of the base template's popup layout node (sib=1) / full-screen layout node (sib=2) active — never both, never neither.
 - Root child order intact: background-button node 0, popup node 1, full-screen node 2 (as resolved above).
-- If Package branch: root is an instance of the project's package template (structurally — its purchase block present under the popup content), not a blank hierarchy.
+- If Package branch (pack popup): root is a `screen_template` Variant on the popup layout with the pack's `purchase_template` card under the popup content, not a blank hierarchy (new-ui-guide §1).
 
 **Phase B (elements):**
 - Every new node lives inside the correct content container (popup content / full-screen middle container of the base template) — **no new node is a direct child of the popup or full-screen layout node** (new-ui-guide.md §3c). This is the single most common failure — check it explicitly per new node, not just visually.
 - Compare your screenshot against `groundTruth`: each element's approximate position/size/color matches the reference image, or matches the numeric spec-sheet within a reasonable margin. Flag: zero-sized, off-screen, overlapping siblings, wrong color/sprite, text overflow/truncation, anything visibly absent from the reference.
-- Cooldown node (if present) sits inside the popup content container, not directly under the popup node.
+- Timer node (if present) is a timer template instance inside the content container, not directly under a body node.
 - ArtStyle check (below) on whatever is already visible.
 
 **Phase C (wiring + final):**
@@ -83,9 +85,9 @@ Never raise a finding for a name difference alone — only for the rule being br
 - **Root Canvas render mode** — `unity_component_get_properties` on the root Canvas: `renderMode` must equal the base template's **serialized** `m_RenderMode` (read it from the base template prefab file — do not assume a value). A different value on the variant means an override leaked in (typically the playbook §5 RenderTexture helper, or a fresh Canvas added instead of a Variant) — this is a `block`.
 - **Panels are template instances** — every visible panel/card/frame background is a real instance of one of the project's frame/layout/item templates (ui-kit.json), not a raw `Image` recoloured by hand. A hand-set solid-colour Image where the spec/reference/ArtStyle kit shows a framed panel is a `block` (the spec should carry a frame-template element, not container styling).
 - **Scroll regions are template instances** — run `unity_execute_code` and walk every `ScrollRect` in the prefab: each one must sit on a node whose `PrefabUtility.GetCorrespondingObjectFromSource` resolves to one of the project's scroll templates (ui-kit.json), with content under `Viewport/Content`. A hand-added `ScrollRect`/`RectMask2D` on a base-template node is a `block` — new-ui-guide.md §3d requires instantiating the template. Same walk catches a scrollable-looking area with **no** `ScrollRect` at all when the spec container declares `"scroll": true` (content taller than viewport, silently clipped or overflowing).
-- Controller's `[Required]` fields (`_purchase`, `_packIndex`, `_cooldownTime` if time-limited, `FeatureType`, `ClickBackgroundToExit`) are non-null / set.
-- **`MainUI` is null** — `unity_component_get_properties` on the root controller. This field is meant to stay empty: `FeatureBaseController.Awake()` falls back to `transform.GetChild(1)` = the popup layout node, which is what gives popups their scale-in and full-screen screens their fade-in. `MainUI` = the full-screen node on a full-screen prefab is a `block` (screen pops like a dialog instead of fading — new-ui-guide.md §0 "Layout mode → `MainUI`"), unless the task spec explicitly asked for a custom scale target.
-- Localize per spec-block `"localize"` field (new-ui-guide.md §3b), using the project's localize component: every STATIC label has it with the declared key (title = the project's `<featurename>_title` convention); every `"localize": "dynamic"` label has NONE (its `Awake()` would clobber logic-bound text). Flag raw keys visible in the screenshot (unregistered) and any node carrying two localize components.
+- Controller's fields are set: `[Required]` references (pack: `_purchase`, timer if time-limited) non-null, `FeatureType`, `_closeButtons` holding the active body's close button, `ClickBackgroundToExit` on popups.
+- **`MainUI` is null** — `unity_component_get_properties` on the root controller. This field is meant to stay empty: `FeatureBaseController.Awake()` falls back to `transform.GetChild(1)` = the popup layout node, which is what gives popups their scale-in and full-screen screens their fade-in (every full-screen screen the template ships keeps it empty). `MainUI` = the full-screen node on a full-screen prefab is a `block` (screen pops like a dialog instead of fading — new-ui-guide.md §0 "Layout mode → `MainUI`"), unless the task spec explicitly asked for a custom scale target.
+- Localize per spec-block `"localize"` field (new-ui-guide.md §3b), using the project's localize component (`LocalizeHelper`: `Key` + `Category`): every STATIC label has it with the declared key (title = the project's `<featurename>_title` convention); every `"localize": "dynamic"` label has NONE (it rewrites the text on `Start` / `OnEnable` / language change and would clobber logic-bound text). Flag raw keys visible in the screenshot (unregistered) and any node carrying two localize components.
 - Package branch: prefab is still a Variant (`unity_prefab_info` → `isVariant: true`).
 - Final screenshot matches `groundTruth` as a whole composition, not just individual elements.
 - **ArtStyle check** (below) — the main check in `refactor` mode.
@@ -130,18 +132,27 @@ the absolute floors (text < 30 px, touch < 128 px) still hold, but a floor broke
 reported in `notes` for the dev, never blocked. Read the numbers off the components
 (`unity_component_get_properties`: text `fontSize` / auto-size min, `RectTransform.sizeDelta` of every
 Button / Toggle, plus any raycast pad), never off the mockup. **Out of scope:** template-owned chrome —
-the base template's close / back / title nodes, `FullScreen/Top` + `Bot` chrome, and the `CheatMenu`
-subtree (dev-only, hidden unless cheats are on). Grade each row that applies — `pass` / `fail` / `na` +
-evidence — into `polish_checks`:
+the base template's close / back / title nodes (`top_container_popup`, `full_screen_template/top_view` +
+`botview`, a `Money_Bar` instance), and the `CheatMenu` subtree (dev-only, hidden unless cheats are on).
+Grade each row that applies — `pass` / `fail` / `na` + evidence — into `polish_checks`:
 - `block` when it fails (phase B / C / `refactor`): **P15** text < 30 px, or a tappable < 128 px on either
   axis with no raycast pad; **P16** overflow / clipping / overlap in any captured language or aspect;
   **P17** more than one primary CTA, an action pair stacked vertically, button colours not following their
   role; **P04** state or information shown by colour alone; **P06** distorted / stretched art; **P09** an
   overlay or FX covering text, a value or the CTA; **P23** an empty list / screen with no image + line;
   **P24** stray debug / version / marker nodes; **P26** item states (bought / selected / locked) not
-  distinguishable, or locked with no reason; **P11** (`refactor`) a tappable with no press feedback.
-- `minor`: P15 text 30–31 px, P14 (off-grid spacing, CTA height outside 152–176), P13 rhythm, P25,
-  anything that is taste.
+  distinguishable, or locked with no reason; **P11** (`refactor`) a tappable with no press feedback;
+  **P42** a tappable the feature added whose rect enters the top 100 px or the bottom 60 px of the
+  design-resolution capture (safe zone — measure the `RectTransform` world rect against the canvas, not
+  the screenshot by eye; template chrome is out of scope as above).
+- `minor`: P15 text 30–31 px, P14 (spacing off the 4 px grid, CTA height outside 152–176), P13 rhythm, P25,
+  **P41** (squint test below), anything that is taste.
+- **Squint test (P41, `warn` → `minor`)** — phase C, D and `refactor`: look at the capture desaturated and
+  slightly blurred (`unity_execute_code` → read the capture into a `Texture2D`, convert to grayscale and
+  box-blur a few px, save beside it and `Read` it; or a desaturate + blur filter on the PNG). The focal
+  element of the spec's hierarchy — normally the primary CTA, else the screen's subject — must still be
+  the strongest blob; secondary actions read weaker, decoration weakest. Two elements fighting for first
+  place, or the CTA disappearing into the background, is a finding with both captures as evidence.
 - **Phase D blocks only what Phase D may change:** P09, P11, P13 and P06 on art Phase D added. Every other
   failing row is Phase C's (layout, text, nodes Phase D may not touch) → `minor` with "Phase C" in `notes`;
   the Phase C verdict owns it.
@@ -181,10 +192,10 @@ Return EXACTLY one JSON object as your final message. No prose around it.
   ],
   "findings": [
     {
-      "location": "Canvas/WeeklyGemPack/Popup/content/GemIcon",
-      "issue": "sits as a direct sibling of Popup, not inside Popup/content — violates containment rule",
-      "expected": "parented under Popup/content per new-ui-guide.md §3c",
-      "actual": "parented directly under Popup",
+      "location": "screen_weekly_gem_pack/popup_template/popup_container/GemIcon",
+      "issue": "sits as a direct child of popup_container, not inside container_content — violates containment rule",
+      "expected": "parented under popup_container/container_content per new-ui-guide.md §3c",
+      "actual": "parented directly under popup_container",
       "severity": "block" | "minor"
     }
   ],

@@ -28,8 +28,10 @@ if (!cs || cs.type !== 'COMPONENT_SET') {
 // CONFIG — expected states per component archetype. The keys are archetype
 // fragments matched against a component-set name; tune them to the project's own
 // component naming. The state VALUES are the project ladder
-// (Default/Pressed/Hover, Empty/Filled, Off/On) and should not gain web
-// states (no Disabled, no Active, no Focused).
+// (Default/Pressed, Empty/Filled, Off/On) and should not gain web states (no
+// Active, no Focused). `Disabled` (a lockable control) and `Hover` (legacy sets
+// drawn before touch-only states) are optional: present is fine, absent is
+// never reported as missing.
 //
 // Multi-word keys exist alongside single-word ones because a "Radio Button"
 // is *not* a button (no Pressed) and an "Inline Link" needs Visited like a
@@ -46,22 +48,22 @@ const stateMap = {
   // Longest match wins, so 'btn plate' beats 'btn'.
   'btn plate':     ['Default'],
   'bg btn':        ['Default'],
-  'icon button':   ['Default', 'Pressed', 'Hover'],
-  'menu button':   ['Default', 'Pressed', 'Hover'],
+  'icon button':   ['Default', 'Pressed'],
+  'menu button':   ['Default', 'Pressed'],
   'resource bar':  ['Default'],
   'stat container':['Default'],
   'text template': ['Default'],
   'merge slot':    ['Empty', 'Filled'],
 
   // Single-word archetypes.
-  btn:      ['Default', 'Pressed', 'Hover'],
-  button:   ['Default', 'Pressed', 'Hover'],
+  btn:      ['Default', 'Pressed'],
+  button:   ['Default', 'Pressed'],
   row:      ['Default'],
   card:     ['Default'],
   boost:    ['Default'],
   slot:     ['Empty', 'Filled'],
   toggle:   ['Off', 'On'],
-  tab:      ['Default', 'Pressed', 'Hover'],
+  tab:      ['Default', 'Pressed'],
 
   // Static — variant axis is Type/Color/Icon, not State.
   plate:    ['Default'],
@@ -100,7 +102,7 @@ const matches = archetypeKeys.filter(t => nameNorm.includes(normalize(t)));
 const componentType = matches.sort((a, b) => b.length - a.length)[0] || 'unknown';
 const expectedStates = componentType === 'unknown' ? ['Default'] : stateMap[componentType];
 
-// Parse variant names ("Type=Primary, Size=Medium, State=Hover")
+// Parse variant names ("Type=Primary, Size=Medium, State=Pressed")
 const variantProps = {};
 for (const variant of cs.children) {
   if (!variant.name) continue;
