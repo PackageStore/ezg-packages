@@ -24,13 +24,13 @@
       "id": "Docs",
       "name": "Docs",
       "description": "Tài liệu tham chiếu cho pipeline AI.",
-      "count": 17
+      "count": 18
     },
     {
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 10
+      "count": 11
     },
     {
       "id": "Scripts",
@@ -73,14 +73,14 @@
       "source": "defaultsetup",
       "fileName": "code-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/code-reviewer.zip",
-      "sha256": "a0f4132eb1c5b0e68e82eb960b5b2f968299bbf7b70f7a8ca624d82925e17b6b",
-      "size": 7825
+      "sha256": "da28695772db88457aac711c2f2d57f3b4a5a0c4a9dd18308f10291c252f7c01",
+      "size": 9720
     },
     {
       "id": "Agents/mockup-drafter",
       "name": "mockup-drafter",
       "category": "Agents",
-      "description": "Generate one 1080×1920 UI draft as a spec-first pair: authoritative <Screen>.ui-spec.json plus generated <Screen>.html. Use for /planning-task, /planning-system, or /ui-mockup when grounding a /new-ui task. Parallel-safe: write only that screen's pair. Never approve, export PNG, edit task files, or invent economy values.",
+      "description": "Drafter mockup spec-first (ui-spec v1 + HTML) theo design resolution của project (chuẩn 1080×2400) và luật polish đo được (role nút, ≤1 primary, chữ ≥ 32, vùng chạm ≥ 128). Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/agents/mockup-drafter.md",
       "isDirectory": false,
       "files": [
@@ -91,8 +91,8 @@
       "source": "defaultsetup",
       "fileName": "mockup-drafter.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/mockup-drafter.zip",
-      "sha256": "7610543f9ed51a28af204af3ef925e65d837f2031e26cccf857e901644feff76",
-      "size": 5750
+      "sha256": "6e559a2df379669429cfb9db5b0e6eb7d15b422987c9558b6d7371e19b0e7a03",
+      "size": 6519
     },
     {
       "id": "Agents/performance-reviewer",
@@ -109,8 +109,8 @@
       "source": "defaultsetup",
       "fileName": "performance-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/performance-reviewer.zip",
-      "sha256": "88037b964ead27170846123e6394b8fdb996b174af389321f62c2a48489d6f0c",
-      "size": 5975
+      "sha256": "bb1103d111170e4f836ee8f4102e113978810de9c56a62e335394d51bf8b0961",
+      "size": 6445
     },
     {
       "id": "Agents/qa-verifier",
@@ -127,8 +127,8 @@
       "source": "defaultsetup",
       "fileName": "qa-verifier.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/qa-verifier.zip",
-      "sha256": "5fa43270d69b3fa798cdde899e353ed11736d60aa295da6911838786e58afa75",
-      "size": 6026
+      "sha256": "3fbeb19809360dd459b9fe166a7d339a490275a9de58837c60809275fbd19074",
+      "size": 6696
     },
     {
       "id": "Agents/security-auditor",
@@ -163,14 +163,14 @@
       "source": "defaultsetup",
       "fileName": "task-planner.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/task-planner.zip",
-      "sha256": "d25e95b79eb1ebd41a38c0d36fb3dc5afe759a9cd84770afff35c69345abde35",
-      "size": 3967
+      "sha256": "74ffd4a936947ccde09b9e101c587d77520cc12b89080f8ed80748d2b3ae36c9",
+      "size": 4549
     },
     {
       "id": "Agents/ui-visual-reviewer",
       "name": "ui-visual-reviewer",
       "category": "Agents",
-      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow — phase checkpoints A/B/C plus the Phase D designer pass (overlay art/FX/motion on a frozen layout) — or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
+      "description": "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow — phase checkpoints A/B/C plus the Phase D designer pass (overlay art/FX/motion on a frozen layout) — or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), the shared PolishRules checklist (text/touch-target floors, at most one primary CTA, state legibility, empty states), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything.",
       "installPath": ".claude/agents/ui-visual-reviewer.md",
       "isDirectory": false,
       "files": [
@@ -181,8 +181,8 @@
       "source": "defaultsetup",
       "fileName": "ui-visual-reviewer.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Agents/ui-visual-reviewer.zip",
-      "sha256": "391df6a0a0ab983f247828ca584fb8bdeb98cc90cd9beab15711626e835ef7ba",
-      "size": 7829
+      "sha256": "6c66d87e52587c617c799c18e2a168bdfdb6ab07b0f5d5242d2beb0d07ddf851",
+      "size": 9171
     },
     {
       "id": "Commands/add-localize",
@@ -361,8 +361,8 @@
       "source": "defaultsetup",
       "fileName": "gen-icon.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/gen-icon.zip",
-      "sha256": "64cc62ce4e099924dbcf9292bcb9ab50452e51e0cec82e9e65ed84010b44dc1e",
-      "size": 1060
+      "sha256": "40fe0932cc666411ccf1b741b5a12a55af6613f70adf29f90a79ca9a7e8cfb65",
+      "size": 1174
     },
     {
       "id": "Commands/new-class",
@@ -638,7 +638,7 @@
       "id": "Commands/ui-mockup",
       "name": "ui-mockup",
       "category": "Commands",
-      "description": "Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their 1080×1920 PNG contract automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.",
+      "description": "Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their PNG contract (the spec's designResolution — EZG standard 1080×2400) automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.",
       "installPath": ".claude/commands/ui-mockup.md",
       "isDirectory": false,
       "files": [
@@ -649,8 +649,8 @@
       "source": "defaultsetup",
       "fileName": "ui-mockup.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Commands/ui-mockup.zip",
-      "sha256": "18a4df33236f9b2c31eee6b5095b2f88e2c23026d7f8e31b4b7da0a3c9b3d67f",
-      "size": 4394
+      "sha256": "cfb29fb20e3ec2aafbdc44eb37b1df2c320fcad98c5f045aed29ee07b3374479",
+      "size": 4666
     },
     {
       "id": "Commands/user-data-rule",
@@ -721,8 +721,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE.md.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/CLAUDE.md.zip",
-      "sha256": "1251347b7694ebd436a94b059a2c09216bab0b050de4e2301b496bd426ffa244",
-      "size": 8098
+      "sha256": "753c090fd70329b734dcee247fb693329eb199930a3063bfbc9adcd13f9899f5",
+      "size": 8245
     },
     {
       "id": "Config/project-profile.json",
@@ -739,8 +739,8 @@
       "source": "defaultsetup",
       "fileName": "project-profile.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Config/project-profile.json.zip",
-      "sha256": "9f001a4fcddb6a52154f72521f4d7f1800c8c7db54b03d4e74dc8a4d7e28b4ad",
-      "size": 2777
+      "sha256": "e9f7db630ffdc669fbcfccb0f0374b214b23010ced06bfbd3f5e1f62682340ca",
+      "size": 3285
     },
     {
       "id": "Config/settings.json",
@@ -775,8 +775,8 @@
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip",
-      "sha256": "afed3b9fc89a13594b5ec12fdd2477091f708487467278e8c780cb844a3bbfa1",
-      "size": 6644
+      "sha256": "7650c2f09cd7a501ce0f547891ce2be4475a380e12d5c29850058388921fee14",
+      "size": 6944
     },
     {
       "id": "Docs/backlog-system",
@@ -811,8 +811,8 @@
       "source": "defaultsetup",
       "fileName": "CLAUDE_PROJECT.template.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/CLAUDE_PROJECT.template.zip",
-      "sha256": "21fd137d0671c92facbde8b2559a1ce7edb2bc349dc43fe81e189a4c1a777ad2",
-      "size": 1113
+      "sha256": "170be953a1a79581f642d3d0d74e6629f2ee093c3a60087236bc0c8a405513ff",
+      "size": 1190
     },
     {
       "id": "Docs/design-pipeline",
@@ -926,8 +926,8 @@
       "source": "defaultsetup",
       "fileName": "new-ui-guide.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/new-ui-guide.zip",
-      "sha256": "5a8869264f905fefa6da2e2545b67417e10606fea926e40232909a46b34657bf",
-      "size": 18993
+      "sha256": "f25d9749e8c4d4ef4958a21ec91a26a2cb462da3055f8d3a900296640f57ec32",
+      "size": 19840
     },
     {
       "id": "Docs/planning-task-flow",
@@ -962,8 +962,26 @@
       "source": "defaultsetup",
       "fileName": "planning-task-flow.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/planning-task-flow.html.zip",
-      "sha256": "ac31d04b7ad78c2e59ebd3602003081fbd1f1b6c8c0aaccc21ea056d1cd6db46",
-      "size": 20743
+      "sha256": "732c644eea83b74e3c60ada58a8aecafe1ca3172f54fa355e729269020ff43b3",
+      "size": 20769
+    },
+    {
+      "id": "Docs/PolishRules",
+      "name": "PolishRules",
+      "category": "Docs",
+      "description": "Luật polish bắt buộc cho game mobile EZG (Part I core + module M1–M4) với checklist ID P01–P40 mà validator ui-spec, /new-ui Phase C/D, /refactor-ui, ui-visual-reviewer, code-reviewer, performance-reviewer, qa-verifier, task-planner trích. Canvas chuẩn 1080×2400. Cài kèm Rules/game-polish.",
+      "installPath": ".claude/docs/PolishRules.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/docs/PolishRules.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "PolishRules.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/PolishRules.zip",
+      "sha256": "19128d96e8f430f803f0d90dd883637a22cb464356e695a08905040f92e38fba",
+      "size": 15557
     },
     {
       "id": "Docs/QaProfile.template",
@@ -998,8 +1016,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog-flow.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip",
-      "sha256": "570f4d01f4646308dcb4acbf5bdd108a0677d6aad1db53f857b4c9392daa4963",
-      "size": 16877
+      "sha256": "a1e5723c163dea9d226ac7a78b633545727ffe665f17359aafb5c3ac089af72c",
+      "size": 16906
     },
     {
       "id": "Docs/ui-designer-pass",
@@ -1016,8 +1034,8 @@
       "source": "defaultsetup",
       "fileName": "ui-designer-pass.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-designer-pass.zip",
-      "sha256": "d1febfbbba0b33672bd291fa4557ea7adf20d944f1feb5b4adb01bf4f6c9ee66",
-      "size": 9074
+      "sha256": "93e211f78e4c67a186e28db95279d5d27972164d9fcfc6881167835d73f42c00",
+      "size": 9803
     },
     {
       "id": "Docs/ui-mcp-playbook",
@@ -1034,8 +1052,8 @@
       "source": "defaultsetup",
       "fileName": "ui-mcp-playbook.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-mcp-playbook.zip",
-      "sha256": "766d0a8a1cacb88c9ae67526240a053441571ba806cb2854bb67332a67689da0",
-      "size": 10470
+      "sha256": "d88dcc3d23cfc6bfc530c86cdae4361375851707c53dd698d473a8468fb794d6",
+      "size": 10864
     },
     {
       "id": "Docs/ui-spec-schema.json",
@@ -1052,8 +1070,8 @@
       "source": "defaultsetup",
       "fileName": "ui-spec-schema.json.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ui-spec-schema.json.zip",
-      "sha256": "0526983f3f15d205fb26fbc237ae68bdbdc77f37605c2d485adf863303c800a6",
-      "size": 1301
+      "sha256": "00dec9c2b90dbc32aeda9572e51c13626e1e7e649de8a5e7e6879c55c36857ec",
+      "size": 1681
     },
     {
       "id": "Docs/workflow-model-recommendations",
@@ -1088,8 +1106,8 @@
       "source": "defaultsetup",
       "fileName": "art-style.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/art-style.zip",
-      "sha256": "2896547e686d4de7e3aeaf0f1c2067b976d7e3dfc4f122d2b73d79b59013050a",
-      "size": 1627
+      "sha256": "002df92d01dfba6e9e37c0edcb1c07236d326a643968434910ae2de06b0bacf3",
+      "size": 1857
     },
     {
       "id": "Rules/code-style",
@@ -1164,6 +1182,24 @@
       "size": 410
     },
     {
+      "id": "Rules/game-polish",
+      "name": "game-polish",
+      "category": "Rules",
+      "description": "Mọi thứ người chơi thấy/chạm (UI, feedback, VFX, SFX, số hiển thị, ads/IAP, hiệu năng) phải qua checklist .claude/docs/PolishRules.md trước khi báo xong — áp cả task tay lẫn /run-backlog. Cài kèm Docs/PolishRules.",
+      "installPath": ".claude/rules/game-polish.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/game-polish.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "game-polish.zip",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/game-polish.zip",
+      "sha256": "5761dee4d4f9900f3b60d2eca07b8dc2f15f4923f60de5341187dae621858ace",
+      "size": 1648
+    },
+    {
       "id": "Rules/no-external-game-refs",
       "name": "no-external-game-refs",
       "category": "Rules",
@@ -1196,8 +1232,8 @@
       "source": "defaultsetup",
       "fileName": "output-format.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/output-format.zip",
-      "sha256": "84a4726b13eb5d8fda1e02d77d8fbf514d28f72ca1c0a0b63774729ebef45709",
-      "size": 580
+      "sha256": "a74e5be289ff89f910181fe247f4b6875376a1ef99aa7e34b3a8709e86c9eaf2",
+      "size": 696
     },
     {
       "id": "Rules/project-structure",
@@ -1646,8 +1682,8 @@
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip",
-      "sha256": "1f6c07464872173f1b1e85d5ffcb5f12345f3d21b4415ef9e57343cd2a12956b",
-      "size": 7043
+      "sha256": "53256a8ba25a504b01f65abb2ff7696ffcc97115745dc27e04e9b5bf03e50d3f",
+      "size": 7778
     },
     {
       "id": "Scripts/run-backlog-loop-claude.bat",
@@ -1953,6 +1989,7 @@
         ".claude/scripts/tests/test_bughub_wait.py",
         ".claude/scripts/tests/test_bughub_watch.py",
         ".claude/scripts/tests/test_discord_notify.py",
+        ".claude/scripts/tests/test_polish_gate.py",
         ".claude/scripts/tests/test_preflight_twin_parity.py",
         ".claude/scripts/tests/test_project_profile.py",
         ".claude/scripts/tests/test_run_backlog_refs.py",
@@ -1961,19 +1998,19 @@
         ".claude/scripts/tests/test_ui_review.py",
         ".claude/scripts/tests/test_ui_spec_pipeline.py"
       ],
-      "fileCount": 15,
+      "fileCount": 16,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/tests.zip",
-      "sha256": "21d175e96524668da98c4b2b47ee5489fbdd3e3f56ba5b92fe685ceac72f6578",
-      "size": 80476
+      "sha256": "0e89b65c5d7142c5075148412ff1281c2ac8e0edf82b069ddab9882fdefa3c59",
+      "size": 85526
     },
     {
       "id": "Scripts/ui_spec_common.py",
       "name": "ui_spec_common.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Lõi validator ui-spec: designResolution theo project (profile → CanvasScaler screen_template → 1080×2400), gate polish đo được (chữ, vùng chạm, CTA, cặp nút), hash kit. Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui_spec_common.py",
       "isDirectory": false,
       "files": [
@@ -1984,14 +2021,14 @@
       "source": "defaultsetup",
       "fileName": "ui_spec_common.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui_spec_common.py.zip",
-      "sha256": "9822bb2dabbeae40bbac3aeaa860f9c52dcd2bc44f6ef24cafaa85b9a5a5af50",
-      "size": 11204
+      "sha256": "d1118da5b07cab6298daeaa59416b94c80cac31d8c11ab425f318d427dcd604d",
+      "size": 16927
     },
     {
       "id": "Scripts/ui-build-report.py",
       "name": "ui-build-report.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-build-report.py",
       "isDirectory": false,
       "files": [
@@ -2002,14 +2039,14 @@
       "source": "defaultsetup",
       "fileName": "ui-build-report.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-build-report.py.zip",
-      "sha256": "2f4dec8b8e540cc394c3a7d5a0082bee310cf59cf62f9008804c607f66b18921",
-      "size": 2189
+      "sha256": "29525461f313e4faa1e0b43bb599152014db933d46e98fe346fcc8893efb36e0",
+      "size": 2449
     },
     {
       "id": "Scripts/ui-kit-sync.py",
       "name": "ui-kit-sync.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-kit-sync.py",
       "isDirectory": false,
       "files": [
@@ -2020,8 +2057,8 @@
       "source": "defaultsetup",
       "fileName": "ui-kit-sync.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-kit-sync.py.zip",
-      "sha256": "f4e7136db2e3b2acd869474c02771ef6f164571f24f3cd9644486c64cd442f35",
-      "size": 14084
+      "sha256": "911051d61585af2eb45f2dfcf83d9d3b30ffe4b9948a788267386fe3a574ea8e",
+      "size": 14662
     },
     {
       "id": "Scripts/ui-layout-lock.py",
@@ -2063,7 +2100,7 @@
       "id": "Scripts/ui-review.py",
       "name": "ui-review.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-review.py",
       "isDirectory": false,
       "files": [
@@ -2074,8 +2111,8 @@
       "source": "defaultsetup",
       "fileName": "ui-review.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-review.py.zip",
-      "sha256": "17e5ad3cac8f89413bfec342abe232ad347e7f86df127df1b98924872798000d",
-      "size": 17399
+      "sha256": "d8424c3fd85396f107cf797b493c220ae8449e7a701c63430e8b906f371fb926",
+      "size": 17837
     },
     {
       "id": "Scripts/ui-spec-extract.py",
@@ -2099,7 +2136,7 @@
       "id": "Scripts/ui-spec-render.py",
       "name": "ui-spec-render.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-spec-render.py",
       "isDirectory": false,
       "files": [
@@ -2110,14 +2147,14 @@
       "source": "defaultsetup",
       "fileName": "ui-spec-render.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-spec-render.py.zip",
-      "sha256": "c866e4609e8ae9922bef6de5f024a1289d42aba68c4d5c863793192f8ce899dd",
-      "size": 5236
+      "sha256": "a370bb7d380c131d3fe6c0733d4303fac03cf1eba64eff919c495f89429c7fa7",
+      "size": 5619
     },
     {
       "id": "Scripts/ui-spec-validator.py",
       "name": "ui-spec-validator.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-spec-validator.py",
       "isDirectory": false,
       "files": [
@@ -2135,7 +2172,7 @@
       "id": "Scripts/ui-visual-diff.py",
       "name": "ui-visual-diff.py",
       "category": "Scripts",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/scripts/ui-visual-diff.py",
       "isDirectory": false,
       "files": [
@@ -2146,8 +2183,8 @@
       "source": "defaultsetup",
       "fileName": "ui-visual-diff.py.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/ui-visual-diff.py.zip",
-      "sha256": "b8a55e8bed7b69a1dd811b028c699a7c6ac1cd6189a6f06a49f0e3909fd200ee",
-      "size": 1370
+      "sha256": "fa727efd0a75b07c27768d6020148e29c824ac8dd8e6792fca13adb18b58d216",
+      "size": 1711
     },
     {
       "id": "Skills/add-localize",
@@ -2230,8 +2267,8 @@
       "source": "defaultsetup",
       "fileName": "auto-test-device.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/auto-test-device.zip",
-      "sha256": "a54ed4480b07fc3e2976a407c69fadce8fd5a5f00c5c504aef76f4b17938c815",
-      "size": 181051
+      "sha256": "66ad1ab11a36a40fb12aa651ce646b85e18804822d75d863d58ef6531a635707",
+      "size": 181209
     },
     {
       "id": "Skills/backend-communication",
@@ -2390,8 +2427,8 @@
       "source": "defaultsetup",
       "fileName": "create-sfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-sfx.zip",
-      "sha256": "e25e0280ef628538e002794548d7ad659cd8f2ea16c2070c288ec412590d142c",
-      "size": 48156
+      "sha256": "1daf1765c6679e967e1f3aa997e0c0f8f403972268a20ae08e2bf29a9a007080",
+      "size": 48267
     },
     {
       "id": "Skills/create-ui",
@@ -2440,8 +2477,8 @@
       "source": "defaultsetup",
       "fileName": "create-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/create-vfx.zip",
-      "sha256": "cc2d673a4aa18fd8d0512d83332a2fe5fecc5a3da79222aecef5fbd4639c39f5",
-      "size": 77709
+      "sha256": "3f02b8d199f06b72e06d2b8d3a7c54eae61d3e7ae655f97a1e52043d36840e76",
+      "size": 77851
     },
     {
       "id": "Skills/csv-config",
@@ -2745,8 +2782,8 @@
       "source": "defaultsetup",
       "fileName": "game-animation.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-animation.zip",
-      "sha256": "61a10a17bc47ce61078899105832290dc14df66a2ee94f5ee0d8c1667c467b35",
-      "size": 111485
+      "sha256": "d9e7e994d90f1ad02017edf4db31cdfa1a9184441ab61cceddb1478a7e1eb20f",
+      "size": 111674
     },
     {
       "id": "Skills/game-docs",
@@ -2904,8 +2941,8 @@
       "source": "defaultsetup",
       "fileName": "game-vfx.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip",
-      "sha256": "81eb07fc4c3d08b6d7cb95548bff7c404dcbd25f413304ac04b630fc77658e12",
-      "size": 1654770
+      "sha256": "bf4159eeced8415fd8c81f27ea684b3743d5e53eaee2684bf01c711d2ca5c93e",
+      "size": 1654855
     },
     {
       "id": "Skills/item-preview",
@@ -2976,8 +3013,8 @@
       "source": "defaultsetup",
       "fileName": "planning-task.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/planning-task.zip",
-      "sha256": "e369a0d5fbdb79379161db3ead9ab2029cd49189d209e2dcaea4fb314a3b8084",
-      "size": 13671
+      "sha256": "63f03de4a6c3bd568ccd8d26426e02e3cf2236fbe529d749d9e488fa600c91e1",
+      "size": 14170
     },
     {
       "id": "Skills/pooling-manager",
@@ -3200,8 +3237,8 @@
       "source": "defaultsetup",
       "fileName": "refactor-ui.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/refactor-ui.zip",
-      "sha256": "5c7a70e03b00ceceadda4860fb6253cacec583d7d8253e82c6de772ef84fe1db",
-      "size": 13798
+      "sha256": "2bc13ff755798cc988fbbcc1c64314f6193a5572f22715a4396c8f4e759ffddd",
+      "size": 14716
     },
     {
       "id": "Skills/restart-unity",
@@ -3260,8 +3297,8 @@
       "source": "defaultsetup",
       "fileName": "run-backlog.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/run-backlog.zip",
-      "sha256": "8af93642fc4643263b9350fcdb23936bb012a49c6a09235a23a20f9aff5aa42e",
-      "size": 44409
+      "sha256": "c64d183cd0d5c070e7df615cf9dfea6cb0490620d07108164cab0fb18612bcf7",
+      "size": 44838
     },
     {
       "id": "Skills/setup-package-push",
@@ -3431,8 +3468,8 @@
       "source": "defaultsetup",
       "fileName": "ui-motion.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip",
-      "sha256": "38f3530c1bad60f6b62f31ad0fb2aaa703ddffaea9c1a50cc0acde57e101ff91",
-      "size": 106146
+      "sha256": "d2aaf03536d4d9d3ab0f42572e70dc8e71b51ee0d592f33e4cb164a6e3d18a50",
+      "size": 106282
     },
     {
       "id": "Skills/validate-release",
@@ -3470,8 +3507,8 @@
       "source": "defaultsetup",
       "fileName": "_GUARDRAILS.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_GUARDRAILS.zip",
-      "sha256": "fdde9253a291c81551a53142acba484102c13cd75639514bae29c7eab2263967",
-      "size": 3580
+      "sha256": "644e9350308126c36adaed906d54e4e8fb38d2d8628c7d611dec1cc548cfabc1",
+      "size": 3868
     },
     {
       "id": "Templates/_REVALIDATION-PLAYBOOK",
@@ -3524,8 +3561,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_L.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_L.zip",
-      "sha256": "df551fe5d70070b3d31f7c7cdb08cc07fe39204b6b1abc22dbebc3cb0f4cb0a7",
-      "size": 3149
+      "sha256": "22dcce793cbb44cc694d358df50cc772d23aefe39038d55c1cdd801a4618c07c",
+      "size": 3414
     },
     {
       "id": "Templates/_TEMPLATE_M",
@@ -3542,8 +3579,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_M.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_M.zip",
-      "sha256": "d558cfdca2ac5347ca63639dffcac19a8a7b248b24f5eeb61d44c895a754f6cc",
-      "size": 2766
+      "sha256": "39b8f5943abe08d35e8321199404db71c86d20b91f959cb2fddfe6f6e00455cc",
+      "size": 3021
     },
     {
       "id": "Templates/_TEMPLATE_S",
@@ -3560,8 +3597,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_S.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_S.zip",
-      "sha256": "f37ee675b2e1cbccdcfdabb155b067757bba3d91340c4dd43d4864569f8f74be",
-      "size": 1220
+      "sha256": "020c2a4ff26251a26a5c0590bd000a737c87f8571c97dd5eb19439c0b2c325a5",
+      "size": 1267
     },
     {
       "id": "Templates/_TEMPLATE_WF",
@@ -3578,8 +3615,8 @@
       "source": "defaultsetup",
       "fileName": "_TEMPLATE_WF.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Templates/_TEMPLATE_WF.zip",
-      "sha256": "119e4a324d16f9f5afd4861daba8fa0d2a96cd8aebc1b5908128968803b3c40b",
-      "size": 3129
+      "sha256": "a1fd664de6a619d86de30d18a8c6aac20196430cfa4c8d5a3bb32768fd98b161",
+      "size": 3300
     },
     {
       "id": "Templates/_TEMPLATE_XS",
@@ -3603,7 +3640,7 @@
       "id": "UiKit/kit-preview.template.html",
       "name": "kit-preview.template.html",
       "category": "UiKit",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/ui-kit/kit-preview.template.html",
       "isDirectory": false,
       "files": [
@@ -3614,8 +3651,8 @@
       "source": "defaultsetup",
       "fileName": "kit-preview.template.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/kit-preview.template.html.zip",
-      "sha256": "05edcd5120ff88444898934f3b83084b51a204bf807d1e38cf85b21b4efc418f",
-      "size": 8040
+      "sha256": "52eff2f7d511016ae96dfe6d12e1ad8f3e25397c02bcb01d5dc12622f7802153",
+      "size": 8053
     },
     {
       "id": "UiKit/ui-kit-usage.json",
@@ -3639,7 +3676,7 @@
       "id": "UiKit/ui-review-dashboard.template.html",
       "name": "ui-review-dashboard.template.html",
       "category": "UiKit",
-      "description": "",
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py.",
       "installPath": ".claude/ui-kit/ui-review-dashboard.template.html",
       "isDirectory": false,
       "files": [
@@ -3650,8 +3687,8 @@
       "source": "defaultsetup",
       "fileName": "ui-review-dashboard.template.html.zip",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/UiKit/ui-review-dashboard.template.html.zip",
-      "sha256": "c3daf2d2618f644cb323ecd9f03b152ba2e82e73f0c3698d1b03391a0d669b8a",
-      "size": 13398
+      "sha256": "084fa8914b16055a817de72f50338682fd84247e3870c202db8a3dc8b0e2bbb5",
+      "size": 13591
     }
   ]
 }
