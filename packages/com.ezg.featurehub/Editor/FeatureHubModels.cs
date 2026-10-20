@@ -28,6 +28,10 @@ namespace Ezg.FeatureHub.Editor
         public const string AI_INDEX_URL =
             "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/index.json";
 
+        // path → mọi hash từng publish (để biết file trên đĩa là bản base cũ hay đã bị project sửa).
+        public const string AI_HISTORY_URL =
+            "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/history.json";
+
         // Thư mục temp tải file về (nằm trong Temp/ của project — đã gitignore).
         public const string TEMP_DIR_NAME = "EzgFeatureHub";
 
@@ -77,6 +81,7 @@ namespace Ezg.FeatureHub.Editor
         NotInstalled,
         Installed,
         UpdateAvailable,
+        LocallyModified,   // project đã sửa thẳng file base — không ghi đè, hướng dẫn chạy /update-ai
     }
 
     /// <summary>Trạng thái một UPM dependency so với Packages/manifest.json hiện tại.
@@ -171,6 +176,10 @@ namespace Ezg.FeatureHub.Editor
         public long size;
         public bool installedByDefault;
         public string source;                          // "defaultsetup" | "extra"
+        // Từ catalog 2026-10: hash chuẩn hoá (nsha) của từng file + quyền sở hữu ("base" | "merge").
+        // Catalog cũ không có → null, Feature Hub quay về cách so sha256 của zip như trước.
+        public string ownership;
+        public Dictionary<string, string> fileHashes;
     }
 
     /// <summary>Catalog AI: danh mục + toàn bộ item. Data-driven như features/index.json.</summary>

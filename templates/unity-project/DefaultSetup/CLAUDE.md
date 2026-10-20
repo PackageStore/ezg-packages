@@ -4,8 +4,11 @@ Chỉ dẫn **dùng chung** cho mọi project sinh từ EZG Unity game template.
 `CLAUDE_PROJECT.md` mà nó import ở cuối — vào mọi phiên, kể cả subagent.
 
 > **⛔ Project KHÔNG được sửa file này — chỉ sửa `CLAUDE_PROJECT.md`.**
-> - `CLAUDE.md` thuộc template EZG: cập nhật từ Feature Hub (item `Config/CLAUDE.md`), `agents-update.sh`
->   hay chạy lại builder đều **ghi đè** nó — sửa tại chỗ sẽ mất ở lần cập nhật sau.
+> - `CLAUDE.md` thuộc template EZG: cập nhật bằng `/update-ai` (hoặc Feature Hub, item `Config/CLAUDE.md`)
+>   là **thay** bằng bản mới — sửa tại chỗ sẽ mất ở lần cập nhật sau.
+> - Mọi file base khác trong `.claude/` (skill, command, agent, rule, docs, script — danh sách ở
+>   `.claude/ezg-base.lock.json`) cũng vậy: phần riêng ghi vào `.claude/project/overrides/<kind>/<tên>.md`
+>   (đọc trước, thắng bản base), item riêng đặt tên `local-<tên>`. Rule `base-ownership`; hook chặn sửa nhầm.
 > - `CLAUDE_PROJECT.md` (root repo) thuộc project: tên game, gameplay bucket, scene, hệ thống / package /
 >   quy ước / gotcha riêng. Commit cùng repo game; **không bao giờ** đẩy lên server dùng chung (monorepo
 >   `ezg-packages`, Feature Hub, `defaultsetup.tgz`).

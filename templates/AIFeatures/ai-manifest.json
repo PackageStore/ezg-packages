@@ -11,19 +11,16 @@
   },
   "overrides": {
     "Config/CLAUDE.md": {
-      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — template quản lý, project không được sửa, nên cài/cập nhật luôn GHI ĐÈ file hiện có. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; Feature Hub không bao giờ ghi đè hay publish file đó). Project chưa có CLAUDE_PROJECT.md: cài kèm Docs/CLAUDE_PROJECT.template + Scripts/bootstrap.sh rồi chạy bootstrap, và chuyển nội dung riêng của CLAUDE.md cũ sang CLAUDE_PROJECT.md (bản cũ vẫn còn trong git). Mục backlog/loop ở Docs/backlog-system.md — cài kèm."
+      "description": "Chỉ dẫn DÙNG CHUNG cho Claude ở project root — base quản lý, project không sửa, cập nhật là thay bằng bản mới. Phần riêng của project nằm ở CLAUDE_PROJECT.md (CLAUDE.md import nó; không bao giờ bị ghi đè hay publish). Project cũ còn ghi chú riêng trong CLAUDE.md: /update-ai tự chuyển sang CLAUDE_PROJECT.md trước khi cập nhật. Cài kèm Rules/base-ownership + Skills/update-ai."
     },
     "Docs/CLAUDE_PROJECT.template": {
       "description": "Khung CLAUDE_PROJECT.md — chỉ dẫn riêng của project (game, gameplay bucket, hệ thống/quy ước riêng) mà CLAUDE.md import. bootstrap copy thành CLAUDE_PROJECT.md ở root repo khi chưa có — file đó project tự điền và commit, Feature Hub không bao giờ ghi đè, không bao giờ đẩy lên server. Cài kèm Config/CLAUDE.md + Scripts/bootstrap.sh."
     },
     "Config/settings.json": {
-      "description": "Bật MCP server mặc định (unity, codegraph, gitlab) — CÀI ĐÈ settings.json hiện có."
+      "description": "Cấu hình Claude Code dùng chung của project: MCP server mặc định (unity, codegraph, gitlab) + hook bảo vệ file base (PreToolUse guard, SessionStart liệt kê override) — hook gọi Skills/update-ai, cài kèm. Project được thêm hook/permission riêng: cập nhật bằng /update-ai (gộp JSON, giữ phần của project). Feature Hub chỉ ghi đè khi project chưa sửa file."
     },
     "Config/.mcp.json": {
-      "description": "Khai báo MCP server cho project — CÀI ĐÈ .mcp.json hiện có."
-    },
-    "Config/project-profile.json": {
-      "description": "Profile project (đường dẫn, quy ước) mà script AI đọc — CÀI ĐÈ file hiện có."
+      "description": "Khai báo MCP server cho project. Project có giá trị riêng (GITLAB_PROJECT_ID, server thêm): cập nhật bằng /update-ai (gộp JSON, giữ phần của project). Feature Hub chỉ ghi đè khi project chưa sửa file."
     },
     "Skills/ui-motion": {
       "description": "Motion, sfx, feedback cho UI uGUI theo role bằng module UI Motion và quy chuẩn đi kèm module, dùng cho mọi project: khảo sát project, sinh luật riêng (ProjectSettings/UIMotionProject.json + .md), gắn motion cho prefab, chạy gate M-1…M-12, đưa module vào project cũ. Mang sẵn quy chuẩn UI Motion (docs/ trong skill): đọc được luật cả khi project chưa có module. Gắn motion vào prefab thì cần module UIMotion trong project (tab Unity Packages > EZG Shared > UIMotion); script khảo sát cần Node 18+."
@@ -84,6 +81,13 @@
     },
     "Agents/mockup-drafter": {
       "description": "Drafter mockup spec-first (ui-spec v1 + HTML) theo design resolution của project (chuẩn 1080×2400) và luật polish đo được (role nút, ≤1 primary, chữ ≥ 32, vùng chạm ≥ 128). Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Skills/update-ai": {
+      "description": "Cập nhật toàn bộ AI dùng chung (skill, command, agent, rule, docs, script, CLAUDE.md, settings) từ Feature Hub bằng MỘT lệnh /update-ai mà không mất phần project đã tuỳ biến: so 3 chiều với bản gốc, cập nhật file project chưa sửa, gộp JSON settings/.mcp.json, chuyển phần project lỡ sửa thẳng vào file base sang override rồi mới nhận bản mới, cài item mới, commit local. Kèm hook chặn sửa nhầm file base. Project cũ: cài item này một lần (tab AI Feature, hoặc bảo Claude \"cài skill update-ai từ Feature Hub\") rồi gõ /update-ai.",
+      "installedByDefault": true
+    },
+    "Rules/base-ownership": {
+      "description": "File AI của base EZG không sửa tại chỗ; phần riêng của project ghi vào CLAUDE_PROJECT.md, .claude/project/overrides/<kind>/<tên>.md (thắng bản base) hoặc item local-<tên>. Cài kèm Skills/update-ai (hook guard + /update-ai)."
     }
   }
 }

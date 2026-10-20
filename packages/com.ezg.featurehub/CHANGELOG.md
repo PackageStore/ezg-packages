@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0 — 2026-10-20
+
+**Added**
+- File AI của base EZG được bảo vệ khỏi ghi đè: catalog mới có `fileHashes` (hash chuẩn hoá từng file) +
+  `ownership`, cộng `ai/history.json` (mọi hash từng publish). Tab AI Feature so thật với đĩa — kể cả
+  project sinh từ builder (không có install-record) — và hiện trạng thái mới **"Đã sửa local"** khi project
+  đã sửa thẳng một file của base.
+- `EzgBaseLock` — đọc/ghi `.claude/ezg-base.lock.json` (bản gốc của từng file base, cùng định dạng với
+  skill `update-ai`). Cài/gỡ qua Feature Hub cập nhật lock.
+
+**Changed**
+- `FeatureHubAiInstaller.Install` **từ chối** item có file project đã sửa (cả khi gọi từ snippet MCP
+  `get_install_steps`): ghi đè sẽ mất phần sửa. Thông báo chỉ đường `/update-ai` (chuyển phần sửa sang
+  `.claude/project/overrides/` rồi mới nhận bản mới); window có nút copy lệnh.
+- Item dạng thư mục **không còn bị xoá cả thư mục** khi cập nhật: ghi file của bản mới, xoá file base mà bản
+  mới bỏ (chỉ khi project chưa sửa), giữ file project tự thêm.
+- "Cài tất cả mục còn thiếu" bỏ qua mục "Đã sửa local".
+- Install-record và lock đọc lại khi file đổi trên đĩa (skill `update-ai` cũng ghi chúng).
+
+Catalog cũ (không có `fileHashes`) vẫn chạy như 0.4.0.
+
 ## 0.4.0 — 2026-08-25
 
 **Added**

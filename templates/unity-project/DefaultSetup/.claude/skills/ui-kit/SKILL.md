@@ -25,7 +25,8 @@ folder held 48, and 22 tests stood down for weeks with nobody noticing.
 | `ui-kit.json` | generated | **Never hand-edit.** Public contract: per-template size, anchors, pivot, text nodes, children. |
 | `ui-kit.css` | generated | **Never hand-edit.** `.tpl-<Name>` classes inlined into every mockup HTML. |
 | `kit-preview.html` | generated | **Never hand-edit.** Gallery for humans; open it to see what a template actually looks like. |
-| `ui-kit-usage.json` | **hand-written** | Composition rules the prefab YAML cannot express. See below. |
+| `ui-kit-usage.json` | base (hand-written upstream) | Composition rules for the base's own templates. A project **does not edit it** — an update replaces it. |
+| `../project/ui-kit-usage.json` | **project, hand-written** | The project's own composition rules (same shape), merged on top of the base file. See below. |
 | `*.template.html` | hand-written | Page shells for the gallery and the review dashboard. |
 
 `ui-kit.json` is **project-specific** — `_meta.sourceHash` is a hash of *these*
@@ -58,7 +59,7 @@ Any of these, before you do anything else with the UI:
 - A prefab under `uiTemplatesRoot` was **added, deleted, renamed, or edited** —
   including a size/anchor tweak. This is the trigger that actually gets missed:
   the change looks like a Unity edit, not a toolchain one.
-- You edited `ui-kit-usage.json`.
+- You edited `.claude/project/ui-kit-usage.json` (or an update replaced the base `ui-kit-usage.json`).
 - The validator or a mockup run reported `kit_stale`, `kit_missing`, or
   `unknown_template` for a template you know exists.
 - Fresh clone / freshly generated project, or after merging a branch that
@@ -80,7 +81,10 @@ live in a bar that owns the `UI_TabExtensions`, so a drafter reading
 `ui-kit.json` alone built a hand-made tab row in the content area and passed
 every gate.
 
-Those rules live in `ui-kit-usage.json` as one note per template **name as keyed
+Those rules live in two files with the same shape: `.claude/ui-kit/ui-kit-usage.json`
+(shipped by the base for its own templates — never edit it in a game project, /update-ai replaces
+it) and `.claude/project/ui-kit-usage.json` (the project's own rules, never touched by an update;
+a note there wins over the base note for the same template). One note per template **name as keyed
 in `ui-kit.json`** — normally the prefab file stem, but the scan is recursive, so
 a stem that collides across folders or carries a character illegal in a CSS class
 gets renamed (the record's `prefab` and `path` fields show the original).
@@ -95,8 +99,9 @@ drafter reads it as part of the contract.
 }
 ```
 
-Write a note when a review catches a mockup composing templates wrongly — the
-rule is the fix, not the one-off correction. Keep the wording aligned with
+Write a note — in `.claude/project/ui-kit-usage.json` — when a review catches a mockup
+composing templates wrongly — the rule is the fix, not the one-off correction. A rule every
+project needs belongs in the base file: send it upstream (/publish-ai-features). Keep the wording aligned with
 `.claude/docs/new-ui-guide.md` §3d, which is the human-facing half of the same
 contract; a rule that exists in only one of the two will be followed only half
 the time. A note naming a template this project does not have is reported as

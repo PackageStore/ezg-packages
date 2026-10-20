@@ -2,7 +2,7 @@
   "_meta": {
     "what": "Composition rules the extractor cannot read out of a prefab. ui-kit-sync.py copies each note into the matching template of ui-kit.json as `usage`, and mockup-drafter reads it while drafting.",
     "why": "A prefab's YAML carries its own geometry but not how it composes with OTHER templates. Nothing in TabBottomTemplate.prefab says a tab toggle must live inside it — which is how a screen ended up with a hand-made tab row in the content area, passing every gate.",
-    "howToEdit": "Hand-written, one entry per template name (the prefab file stem). Add one whenever a review catches a drafter composing templates wrongly; that rule is the fix, not a one-off correction. Names that match no template are reported as `_meta.usageUnknown` in ui-kit.json.",
+    "howToEdit": "BASE-owned: shipped by the EZG template for its own templates and replaced on every update — a game project never edits it. A project's own rules go in .claude/project/ui-kit-usage.json (same shape, merged on top, project wins per template). One entry per template name (the prefab file stem). Add one whenever a review catches a drafter composing templates wrongly; that rule is the fix, not a one-off correction. Names that match no template are reported as `_meta.usageUnknown` in ui-kit.json.",
     "keepInSyncWith": ".claude/docs/new-ui-guide.md §3d",
     "skill": ".claude/skills/ui-kit/SKILL.md"
   },

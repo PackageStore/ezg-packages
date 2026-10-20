@@ -7,10 +7,15 @@
 // Payload là .zip mà mỗi entry đã là path TƯƠNG ĐỐI PROJECT ROOT (vd ".claude/skills/ui-kit/SKILL.md"),
 // nên cài = giải nén thẳng xuống project root. Mọi entry đều bị kiểm tra phải nằm trong
 // item.installPath trước khi ghi (chặn zip-slip: entry kiểu "../../../etc/passwd").
+//
+// Từ 0.5.0: file AI của base không được project sửa tại chỗ (rule base-ownership). Cài/cập nhật từ
+// chối item có file project đã sửa (EzgBaseLock.Inspect) và ghi lock .claude/ezg-base.lock.json sau
+// khi cài — cả khi gọi từ snippet của MCP get_install_steps.
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
@@ -46,14 +51,23 @@ namespace Ezg.FeatureHub.Editor
 
         /// <summary>
         /// Tải + cài một AI item. onDone(success, errorOrNull).
-        /// Item dạng thư mục được thay MỚI HOÀN TOÀN để bản cập nhật không để sót file đã bị gỡ khỏi
-        /// skill — nhưng chỉ sau khi gói đã giải nén xong xuôi vào staging (xem Extract).
+        /// Từ chối khi project đã sửa tại chỗ một file của item (cần catalog có fileHashes): ghi đè sẽ mất
+        /// phần sửa — việc đó để /update-ai làm (chuyển phần sửa sang override rồi mới nhận bản mới).
+        /// Item dạng thư mục: ghi bản mới, xoá file base mà bản mới đã bỏ (chỉ khi project chưa sửa file đó),
+        /// giữ nguyên file project tự thêm — chỉ sau khi gói đã giải nén xong xuôi vào staging (xem Extract).
         /// </summary>
         public static void Install(AiItem item, Action<float> onProgress, Action<bool, string> onDone)
         {
             if (item == null || string.IsNullOrEmpty(item.url) || string.IsNullOrEmpty(item.installPath))
             {
                 onDone?.Invoke(false, "Item AI thiếu url hoặc installPath.");
+                return;
+            }
+
+            var modified = EzgBaseLock.Inspect(item).Modified;
+            if (modified.Count > 0)
+            {
+                onDone?.Invoke(false, ModifiedMessage(modified));
                 return;
             }
 
@@ -90,6 +104,7 @@ namespace Ezg.FeatureHub.Editor
 
                     MakeExecutable(written);
                     FeatureHubInstallRecord.MarkAiInstalled(item, written);
+                    EzgBaseLock.MarkInstalled(item, written);
                     onDone?.Invoke(true, null);
                 }
                 catch (Exception e)
@@ -119,6 +134,7 @@ namespace Ezg.FeatureHub.Editor
             var record = FeatureHubInstallRecord.GetAi(item.id);
             // Xóa record TRƯỚC để trạng thái không kẹt ở "Đã cài" nếu bước xóa file lỗi giữa chừng.
             FeatureHubInstallRecord.RemoveAi(item.id);
+            EzgBaseLock.MarkUninstalled(item);
 
             var failed = new List<string>();
             int deleted = 0;
@@ -231,9 +247,16 @@ namespace Ezg.FeatureHub.Editor
 
                 if (item.isDirectory)
                 {
-                    // Thay mới hoàn toàn: bản cập nhật không được để sót file đã bị gỡ khỏi skill.
-                    TryDeleteDirectory(final);
-                    Directory.Move(staged, final);
+                    // Ghi từng file của bản mới (không xoá cả thư mục: file project tự thêm vào phải còn).
+                    foreach (var rel in written)
+                    {
+                        string from = Path.Combine(staging, rel.Replace('/', Path.DirectorySeparatorChar));
+                        string to = FullPath(rel);
+                        Directory.CreateDirectory(Path.GetDirectoryName(to));
+                        File.Copy(from, to, overwrite: true);
+                    }
+
+                    RemoveDroppedFiles(item, written);
                 }
                 else
                 {
@@ -246,6 +269,51 @@ namespace Ezg.FeatureHub.Editor
             {
                 TryDeleteDirectory(staging);
             }
+        }
+
+        /// <summary>
+        /// Xoá file base mà bản mới không còn ship (biết qua install-record + lock của lần cài trước) — chỉ
+        /// khi file đó vẫn đúng bản base (baseline/history). File project đã sửa hoặc tự thêm thì giữ.
+        /// </summary>
+        private static void RemoveDroppedFiles(AiItem item, List<string> written)
+        {
+            var keep = new HashSet<string>(written, StringComparer.Ordinal);
+            var previous = new HashSet<string>(StringComparer.Ordinal);
+            var record = FeatureHubInstallRecord.GetAi(item.id);
+            if (record?.files != null)
+                previous.UnionWith(record.files);
+            var lockData = EzgBaseLock.Load();
+            if (lockData != null)
+                foreach (var pair in lockData.files)
+                    if (pair.Value?.item == item.id)
+                        previous.Add(pair.Key);
+
+            foreach (var rel in previous)
+            {
+                if (keep.Contains(rel) || !IsInsideTarget(rel, item.installPath.TrimEnd('/')))
+                    continue;
+                string local = EzgBaseLock.LocalHash(rel);
+                if (local == null)
+                    continue;
+                string baseline = EzgBaseLock.Baseline(rel);
+                bool known = EzgBaseLock.History?.files != null &&
+                             EzgBaseLock.History.files.TryGetValue(rel, out var hashes) && hashes.Contains(local);
+                if (local != baseline && !known)
+                {
+                    Debug.LogWarning($"[FeatureHub] Giữ {rel}: bản mới của {item.id} đã bỏ file này nhưng project có sửa.");
+                    continue;
+                }
+                TryDelete(FullPath(rel));
+            }
+        }
+
+        /// <summary>Thông báo khi từ chối ghi đè — cùng nội dung ở dialog của window và log của snippet MCP.</summary>
+        public static string ModifiedMessage(List<string> modified)
+        {
+            string files = string.Join("\n  ", modified.Take(5)) + (modified.Count > 5 ? $"\n  … (+{modified.Count - 5})" : "");
+            return "Project đã sửa tại chỗ file của base (ghi đè sẽ mất phần sửa):\n  " + files +
+                   $"\n\nMở Claude Code trong project và chạy {EzgBaseLock.UPDATE_COMMAND} — nó chuyển phần sửa sang " +
+                   ".claude/project/overrides/ (hoặc CLAUDE_PROJECT.md) rồi mới nhận bản mới.";
         }
 
         /// <summary>

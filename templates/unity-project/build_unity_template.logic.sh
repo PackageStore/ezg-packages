@@ -2826,9 +2826,18 @@ apply_default_setup_extras() {
   local root="$DEFAULT_SETUP_DIR" entry name copied=0 rel stash="" preserved=0
   [ -d "$root" ] || return 0
 
-  # 1) Stash the per-project files an earlier run (or an earlier apply in THIS run) already filled in.
+  # 1) Stash the per-project files an earlier run (or an earlier apply in THIS run) already filled in,
+  #    plus every base file this project edited in place (per its .claude/ezg-base.lock.json): the
+  #    copy below would silently overwrite those edits. /update-ai moves them into overrides later.
+  local keep=("${DEFAULT_SETUP_PRESERVE[@]}") edited="" base_tool="$PROJECT_PATH/.claude/skills/update-ai/scripts/ezg_base.py"
+  if [ -f "$PROJECT_PATH/.claude/ezg-base.lock.json" ] && [ -f "$base_tool" ] && command -v python3 >/dev/null 2>&1; then
+    edited="$(python3 "$base_tool" --root "$PROJECT_PATH" modified --include-merge 2>/dev/null || true)"
+    while IFS= read -r rel; do
+      [ -n "$rel" ] && keep+=("$rel")
+    done <<<"$edited"
+  fi
   if stash="$(mktemp -d "${TMPDIR:-/tmp}/ezg-preserve.XXXXXX" 2>/dev/null)"; then
-    for rel in "${DEFAULT_SETUP_PRESERVE[@]}"; do
+    for rel in "${keep[@]}"; do
       [ -f "$PROJECT_PATH/$rel" ] || continue
       mkdir -p "$stash/$(dirname "$rel")" 2>/dev/null || continue
       cp -f "$PROJECT_PATH/$rel" "$stash/$rel" 2>>"$BUILD_RUN_LOG" && preserved=1
@@ -2859,7 +2868,7 @@ apply_default_setup_extras() {
 
   # 2) Put the stashed per-project files back over the freshly copied placeholders.
   if [ -n "$stash" ]; then
-    for rel in "${DEFAULT_SETUP_PRESERVE[@]}"; do
+    for rel in "${keep[@]}"; do
       [ -f "$stash/$rel" ] || continue
       cp -f "$stash/$rel" "$PROJECT_PATH/$rel" 2>>"$BUILD_RUN_LOG" \
         || log "WARNING: could not restore preserved file: $rel"
@@ -2867,6 +2876,7 @@ apply_default_setup_extras() {
     rm -rf "$stash"
   fi
   [ "$preserved" = "1" ] && log "Kept this project's existing ${DEFAULT_SETUP_PRESERVE[*]} (not re-seeded)."
+  [ -n "$edited" ] && log "Kept base files this project edited in place (run /update-ai to move them into overrides): $(printf '%s' "$edited" | tr '\n' ' ')"
 
   if [ "$copied" = "1" ]; then
     log "Applied DefaultSetup extras (.claude, .mcp.json, ...) into: $PROJECT_PATH"

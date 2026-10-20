@@ -143,6 +143,32 @@ namespace Ezg.FeatureHub.Editor
             });
         }
 
+        /// <summary>
+        /// Tải ai/history.json (mọi hash từng publish cho mỗi path). Không có (server cũ, 404) → null: Feature Hub
+        /// vẫn chạy, chỉ là project chưa có lock sẽ thấy mọi file khác bản mới là "đã sửa local".
+        /// </summary>
+        public static void LoadAiHistory(Action<AiHistory> onDone)
+        {
+            EditorDownloader.DownloadText(FeatureHubConstants.AI_HISTORY_URL, (ok, text, _) =>
+            {
+                if (!ok)
+                {
+                    onDone?.Invoke(null);
+                    return;
+                }
+
+                try
+                {
+                    onDone?.Invoke(JsonConvert.DeserializeObject<AiHistory>(text));
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[FeatureHub] Parse AI history lỗi: {e.Message}");
+                    onDone?.Invoke(null);
+                }
+            });
+        }
+
         /// <summary>Đọc dependencies hiện có trong Packages/manifest.json để so trạng thái.</summary>
         public static Dictionary<string, string> LoadProjectDependencies()
         {

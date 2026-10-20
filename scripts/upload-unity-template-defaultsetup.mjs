@@ -11,6 +11,11 @@
  *   unity-template/defaultsetup.tgz         (gzipped tar of the DefaultSetup/ folder)
  *   unity-template/defaultsetup.tgz.sha256  (its SHA-256, text/plain -- logic verifies against this)
  *
+ * The tarball also carries DefaultSetup/.claude/ezg-base.lock.json — generated here, never committed:
+ * the per-file hashes of every base file exactly as shipped (same items/hashes as the AI catalog,
+ * via ai-catalog-lib.mjs). A freshly generated project therefore knows from day one which files are
+ * the base's, so the edit guard works immediately and /update-ai can tell its own edits from upstream.
+ *
  * Run:
  *   node --env-file=.env upload-unity-template-defaultsetup.mjs --dry-run
  *   node --env-file=.env upload-unity-template-defaultsetup.mjs
@@ -19,10 +24,11 @@
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { BUCKET, REPO_ROOT, makeClient, putObject, hasFlag } from "./registry-lib.mjs";
+import { LOCK_REL, buildLock, collectItems, packItem } from "./ai-catalog-lib.mjs";
 
 const TEMPLATE_DIR = join(REPO_ROOT, "templates", "unity-project");
 const DEFAULT_SETUP_DIR = join(TEMPLATE_DIR, "DefaultSetup");
@@ -40,6 +46,18 @@ function buildTarball() {
   }
   const work = mkdtempSync(join(tmpdir(), "ezg-defaultsetup-"));
   const out = join(work, "defaultsetup.tgz");
+
+  // The base lock lives beside the real tree in a scratch folder and joins the archive under the
+  // same DefaultSetup/ prefix (a second -C below), so the repo itself never holds a generated file.
+  const lockRoot = join(work, "lock");
+  const lockFile = join(lockRoot, "DefaultSetup", LOCK_REL);
+  const items = collectItems({ onlyDefaultSetup: true }).map(packItem);
+  const lock = buildLock(items,
+    "Baseline của các file thuộc base EZG — /update-ai và Feature Hub ghi file này, đừng sửa tay. " +
+    "Commit cùng repo. Phần riêng của project: CLAUDE_PROJECT.md, .claude/project/ (xem rule base-ownership).");
+  mkdirSync(dirname(lockFile), { recursive: true });
+  writeFileSync(lockFile, `${JSON.stringify(lock, null, 2)}\n`);
+  console.log(`lock  : ${Object.keys(lock.files).length} base files in ${Object.keys(lock.items).length} items`);
   // Archive root is the DefaultSetup/ folder itself, so the logic extracts DefaultSetup/ (ProjectSettings/
   // plus the baked-in tooling like .claude/, .agents/, .mcp.json).
   //   --no-xattrs + COPYFILE_DISABLE : keep macOS resource forks (._*) out of the tarball.
@@ -58,6 +76,7 @@ function buildTarball() {
     "--exclude=CLAUDE_PROJECT.md",
     "--exclude=.DS_Store", "--exclude=settings.local.json",
     "-czf", out, "-C", TEMPLATE_DIR, "DefaultSetup",
+    "-C", lockRoot, `DefaultSetup/${LOCK_REL}`,
   ], {
     env: { ...process.env, COPYFILE_DISABLE: "1" },
     stdio: ["ignore", "ignore", "inherit"],

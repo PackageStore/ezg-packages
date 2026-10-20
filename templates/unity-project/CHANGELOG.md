@@ -6,6 +6,38 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 ## 2026-10-20
 
+**Added** — File AI của base có chủ sở hữu rõ ràng + cập nhật một lệnh `/update-ai`, không mất phần project đã tuỳ biến
+- Skill **`update-ai`** (`skills/update-ai/`, script `ezg_base.py`, 23 test): so từng file base 3 chiều (bản gốc trong
+  `.claude/ezg-base.lock.json` / bản đang có / bản mới trên Feature Hub), tự cập nhật file project chưa sửa, gộp JSON 3
+  chiều cho `settings.json` / `.mcp.json` (giữ hook, MCP server, `GITLAB_PROJECT_ID`… của project), cài item mới của bộ
+  mặc định, xoá file base đã bị bỏ (chỉ khi project chưa sửa), giữ + báo file project lỡ sửa thẳng vào base kèm đường
+  override, `diff` có bản gốc chính xác, `pin` item, ghi lock + `install-record.json`, commit local. Không cần Unity,
+  không cần clone monorepo. Project chưa có lock: so với `history.json` của server (mọi bản từng publish).
+- `rules/base-ownership.md` (luôn nạp) + khối đầu `CLAUDE.md`: file base không sửa tại chỗ; phần riêng ở
+  `CLAUDE_PROJECT.md`, `.claude/project/overrides/<kind>/<tên>.md` (đọc trước, thắng bản base), item `local-<tên>`,
+  `.claude/project/ui-kit-usage.json`, pin ở `.claude/project/ezg-pins.json`.
+- `settings.json`: hook `PreToolUse` (Edit/Write/MultiEdit/NotebookEdit) **chặn sửa file base** và chỉ đúng đường
+  override; hook `SessionStart` liệt kê override đang có + cảnh báo file base đang bị sửa tại chỗ. Fail-open (không có
+  lock / python / lỗi → cho qua); `EZG_BASE_EDIT=1` cho người bảo trì base.
+- `ui-kit-sync.py`: gộp `.claude/project/ui-kit-usage.json` lên trên `ui-kit-usage.json` của base (project thắng theo
+  template); `ui-kit-usage.json` của base không còn là file project sửa.
+- Publish: `scripts/ai-catalog-lib.mjs` (dùng chung cho catalog + tarball) — index có `fileHashes` + `ownership`,
+  `ai/history.json` + `ai/blobs/<nsha>` (gồm toàn bộ lịch sử git; CI checkout `fetch-depth: 0`), `--local-out` để thử
+  offline, chặn publish file của project (`.claude/project/`, `local-*`, lock, pins). `defaultsetup.tgz` mang sẵn lock
+  nên project mới được bảo vệ từ ngày đầu.
+
+**Changed**
+- `Config/project-profile.json` rời catalog AI (Feature Hub từng ghi đè profile của project). Builder vẫn seed một lần.
+- `agents-update.sh` + builder (chạy lại trên project cũ) **giữ file base project đã sửa tại chỗ** (theo lock) thay vì
+  ghi đè; `agents-update.sh` refresh lock, không báo `.claude/project/` / `local-*` là orphan. Builder cần publish lại
+  logic (`upload-unity-template-script.mjs`) mới có hiệu lực.
+- Feature Hub 0.5.0 (`com.ezg.featurehub`): trạng thái "Đã sửa local", không ghi đè file project đã sửa (kể cả qua
+  snippet MCP), không xoá file project thêm vào thư mục skill.
+
+**Note** — Project cũ: cài `Skills/update-ai` một lần (Feature Hub → AI Feature, hoặc bảo Claude "cài skill update-ai từ
+Feature Hub") rồi `/update-ai`. Lần đầu nó tạo lock, nhận hook mới và chuyển ghi chú riêng còn sót trong file base sang
+override.
+
 **Added** — Polish là tiêu chí "xong" của mọi task (task tay lẫn `/run-backlog`), thay vì một lượt `/refactor-ui` sau
 - `docs/PolishRules.md`: luật polish dùng chung (Part I core + module M1 combat / M2 tiers / M3 procgen / M4 gacha),
   checklist ID `P01–P40` mức `block` / `warn` / `human` + gate nào chấm dòng nào. Bản Việt hoá của bộ "Game Polish

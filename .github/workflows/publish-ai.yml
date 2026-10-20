@@ -18,6 +18,7 @@ on:
       - '.agents/skills/**'
       - 'scripts/upload-unity-template-ai.mjs'
       - 'scripts/upload-unity-template-defaultsetup.mjs'
+      - 'scripts/ai-catalog-lib.mjs'
   workflow_dispatch:
 
 # write: the refreshed templates/AIFeatures/index.json is committed back so the repo does not
@@ -33,7 +34,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # Full history: the catalog publish walks git history to record every version ever shipped
+      # for each file (ai/history.json + ai/blobs/), which is how /update-ai tells an older base
+      # version from a project's own edit. A shallow clone would only know the current version.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:

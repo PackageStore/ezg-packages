@@ -11,6 +11,8 @@ file này ở cuối, nên nó được nạp vào mọi phiên Claude Code, k�
 - Giữ ngắn: mỗi dòng ở đây tốn token ở mọi lượt. Tài liệu dài (GDD, TechSpec, quy trình chi tiết) để ở
   `GDD/`, `TechSpec/`, `Docs/`… rồi trỏ tới bằng link thường — không import (import nạp cả file vào mọi lượt).
 - Chỉ ghi điều `CLAUDE.md` chưa nói hoặc nói chưa đúng cho project này; điều đã có ở đó thì không chép lại.
+- Chỉnh riêng cho MỘT skill / command / agent / rule / doc của base → `.claude/project/overrides/<kind>/<tên>.md`
+  (nạp khi dùng item đó, không tốn token mọi lượt); item mới của riêng project → `local-<tên>`. Rule `base-ownership`.
 
 ## Game
 

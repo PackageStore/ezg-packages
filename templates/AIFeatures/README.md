@@ -32,7 +32,7 @@ Trùng `<Category>/<name>` thì bản sau thắng theo thứ tự **DefaultSetup
 | `Harness` | `.claude/harness/` | `.claude/harness/<name>` | file hoặc thư mục con |
 | `Templates` | `.claude/backlog-templates/` | `.claude/backlog-templates/<name>` | file hoặc thư mục con |
 | `UiKit` | `.claude/ui-kit/` | `.claude/ui-kit/<name>` | file hoặc thư mục con |
-| `Config` | `.claude/settings.json`, `.claude/project-profile.json`, `.mcp.json`, `CLAUDE.md` | đúng path gốc | 1 file |
+| `Config` | `.claude/settings.json`, `.mcp.json`, `CLAUDE.md` | đúng path gốc | 1 file |
 
 Category lạ đặt trong `AIFeatures/` (không có trong bảng) → đích mặc định `.claude/<category viết thường>/<item>`.
 
@@ -83,12 +83,37 @@ không đổi, nên Feature Hub chỉ báo "Có bản mới" khi nội dung th�
   cài mọi item còn thiếu đang hiển thị). Muốn một item có sẵn trong project mới thì đặt nó vào
   `templates/unity-project/DefaultSetup/` (`defaultsetup.tgz`), không phải bật cờ này.
 
+## Quyền sở hữu file (rule `base-ownership`)
+
+| Loại | Gồm | Khi project cập nhật (`/update-ai`, Feature Hub) |
+|---|---|---|
+| **base** | mọi file của catalog trừ 2 file dưới | thay bằng bản mới — **chỉ khi project chưa sửa**; file đã sửa được giữ, `/update-ai` chuyển phần sửa sang override rồi mới thay |
+| **merge** | `Config/settings.json`, `Config/.mcp.json` | gộp JSON 3 chiều, giữ key/hook/MCP server project thêm (`ownership: "merge"` trong index) |
+| **project** | `CLAUDE_PROJECT.md`, `.claude/project/**`, item `local-*`, `ArtStyle.md`, `QaProfile.md`, `project-profile.json`, lock | không bao giờ ship, không bao giờ đụng — script publish **báo lỗi** nếu gặp trong catalog |
+
+`project-profile.json` đã rời catalog (2026-10): builder seed một lần, sau đó project sở hữu; key mới
+đến qua `project_profile.DEFAULTS`.
+
 ## Layout trên R2
 
 ```
-unity-template/ai/index.json                          ← catalog (categories + items)
+unity-template/ai/index.json                          ← catalog (categories + items; mỗi item có
+                                                         fileHashes {path: nsha} + ownership)
 unity-template/ai/files/<Category>/<name>.zip         ← payload từng item
+unity-template/ai/history.json                        ← { files: { path: [nsha, ...] } } — mọi bản
+                                                         từng publish (gồm cả lịch sử git)
+unity-template/ai/blobs/<nsha>                        ← nội dung từng phiên bản, đánh địa chỉ theo hash
 ```
+
+`nsha` = sha256 của nội dung, file text thì gộp CRLF → LF (không có byte NUL trong 8000 byte đầu) —
+cùng một định nghĩa ở `scripts/ai-catalog-lib.mjs`, `ezg_base.py` (skill update-ai) và `EzgBaseLock.cs`
+(Feature Hub). `history.json` cho biết file trên đĩa của một project là "một bản base cũ" (cập nhật an
+toàn) hay "project đã sửa"; `blobs/` cho `/update-ai` lấy đúng bản gốc để diff 3 chiều. Script publish
+lấy lịch sử từ git nên CI phải checkout `fetch-depth: 0`. `defaultsetup.tgz` mang sẵn
+`.claude/ezg-base.lock.json` (sinh lúc publish, không commit) nên project mới được bảo vệ ngay.
+
+Thử offline: `node upload-unity-template-ai.mjs --local-out <dir>` rồi
+`python3 .claude/skills/update-ai/scripts/ezg_base.py --source <dir> status` trong một project.
 
 Đọc qua gateway: `https://upm-registry-worker.developer-a1f.workers.dev/template/ai/index.json`.
 

@@ -1,3 +1,32 @@
 {
-  "enabledMcpjsonServers": ["unity", "codegraph", "gitlab"]
+  "enabledMcpjsonServers": [
+    "unity",
+    "codegraph",
+    "gitlab"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/skills/update-ai/scripts/ezg_base.py\" guard 2>/dev/null || python \"$CLAUDE_PROJECT_DIR/.claude/skills/update-ai/scripts/ezg_base.py\" guard 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/skills/update-ai/scripts/ezg_base.py\" session-context 2>/dev/null || python \"$CLAUDE_PROJECT_DIR/.claude/skills/update-ai/scripts/ezg_base.py\" session-context 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

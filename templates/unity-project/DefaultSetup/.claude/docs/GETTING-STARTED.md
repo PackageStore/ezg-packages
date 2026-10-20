@@ -34,7 +34,7 @@ Sáu việc nó làm, và lý do không việc nào ship kèm được trong tar
 | Backlog | `.git/backlog/{planning,todo,in-progress,done}` + `BACKLOG.md` | bookkeeping riêng từng dev; để trong tree thì mỗi nhánh mang một index riêng và merge là đụng NNN |
 | UI kit | `.claude/ui-kit/{ui-kit.json,ui-kit.css,kit-preview.html}` — chỉ sinh khi chưa có | trích từ prefab template của **chính project này** và mang hash của chúng; kit copy từ project khác mô tả sai game và `/ui-mockup` chặn ngay là `kit_stale` |
 | Art style | `.claude/docs/ArtStyle.md` từ khung `ArtStyle.template.md` — chỉ khi chưa có | art direction riêng của game; template chỉ ship khung nên cập nhật template không bao giờ ghi đè bản đã điền |
-| Chỉ dẫn riêng | `CLAUDE_PROJECT.md` ở root từ khung `.claude/docs/CLAUDE_PROJECT.template.md` — chỉ khi chưa có | `CLAUDE.md` thuộc template (Feature Hub ghi đè, project không sửa) và import file này; nội dung riêng của game nằm ở đây, commit cùng repo, không bao giờ lên server dùng chung |
+| Chỉ dẫn riêng | `CLAUDE_PROJECT.md` ở root từ khung `.claude/docs/CLAUDE_PROJECT.template.md` — chỉ khi chưa có | `CLAUDE.md` thuộc template (`/update-ai` thay bản mới, project không sửa) và import file này; nội dung riêng của game nằm ở đây, commit cùng repo, không bao giờ lên server dùng chung |
 
 Chạy lại bất cứ lúc nào — đây cũng là cách sửa một checkout hỏng nửa vời (ai đó xoá `.agents/`,
 hoặc `.agents/` biến thành thư mục thật).
@@ -91,20 +91,40 @@ Những key còn lại build script **cố ý không đoán**: layout code, thre
 > Chạy lại build script trên project đã có **không** ghi đè file này (`.mcp.json` cũng vậy) — hai file
 > đó được seed một lần rồi thuộc về project. Phần còn lại của `.claude/` thì có refresh.
 
-**Cập nhật khi template ra bản mới.** Chạy lại build script là được, nhưng nó kéo theo resolve
-packages, cần Unity và ghi lại `ProjectSettings` — nhiều máy móc cho một lần cập nhật tài liệu.
-Bản nhẹ chỉ đụng hệ thống agent:
+**Cập nhật khi template ra bản mới.** Mở Claude Code trong project rồi gõ:
 
-```bash
-bash <template>/agents-update.sh /đường/dẫn/project          # xem trước: thêm --dry-run
+```
+/update-ai
 ```
 
-Nó giữ nguyên đúng những file mà build script giữ (đọc thẳng `DEFAULT_SETUP_PRESERVE` từ builder
-nên hai bên không thể lệch nhau), bù file mới, và refresh `.agents/` link view — bước này quan trọng
-vì mỗi lần template mọc thêm thư mục cấp một dưới `.claude/` là có thêm một link target
-(`backlog-templates/` và `ui-kit/` đều đã đến theo đường đó). File project tự thêm sẽ được **liệt kê
-là orphan chứ không xoá** — không có cách nào an toàn để phân biệt "template bỏ đi" với "project tự
-thêm vào"; đọc danh sách rồi chạy lại với `--prune` nếu đồng ý.
+Skill `update-ai` so từng file base với bản trên Feature Hub theo 3 chiều (bản gốc lúc cài trong
+`.claude/ezg-base.lock.json` / bản đang có / bản mới), tự cập nhật mọi file project chưa sửa, gộp JSON
+cho `settings.json` / `.mcp.json` (giữ hook, MCP server, giá trị riêng của project), cài item mới của bộ
+mặc định, chuyển phần project lỡ sửa thẳng vào file base sang override rồi mới nhận bản mới, chạy các
+bước sau cập nhật (link view `.agents/`, ui-kit-sync, test) và commit local. Không cần Unity, không cần
+clone monorepo — chỉ cần phiên đăng nhập EZG (`~/.ezg/credentials.json`).
+
+Project sinh **trước** khi có skill này: cài nó một lần (Unity → `Ezg > Feature Hub` → tab AI Feature →
+`update-ai` → Cài, hoặc bảo Claude "cài skill update-ai từ Feature Hub"), rồi `/update-ai`.
+
+**Phần riêng của project để đâu** (rule `base-ownership`) — base không bao giờ ghi đè những chỗ này:
+
+| Muốn | Ghi vào |
+|---|---|
+| Chỉ dẫn chung cho project | `CLAUDE_PROJECT.md` |
+| Chỉnh một skill / command / agent / rule / doc của base | `.claude/project/overrides/<kind>/<tên>.md` (đọc trước, thắng bản base) |
+| Skill / command / agent / rule riêng | `.claude/<skills\|commands\|agents\|rules>/local-<tên>` |
+| Luật ghép UI template riêng | `.claude/project/ui-kit-usage.json` |
+| Giữ một item base không cập nhật | `/update-ai` → pin (kèm lý do, lưu ở `.claude/project/ezg-pins.json`) |
+
+Sửa thẳng một file base thì hook `PreToolUse` chặn và chỉ đường override; SessionStart liệt kê các
+override đang có cho Claude. Người bảo trì base cần sửa tại chỗ: mở Claude với `EZG_BASE_EDIT=1`.
+
+Đường cũ cho người bảo trì có clone template — `bash <template>/agents-update.sh /đường/dẫn/project`
+(`--dry-run` để xem trước) — vẫn chạy: giữ file mà build script giữ, **giữ cả file base project đã sửa
+tại chỗ** (theo lock; chạy `/update-ai` sau để chuyển chúng sang override), bù file mới, refresh link view
+`.agents/` và lock. File project tự thêm được **liệt kê là orphan chứ không xoá** (trừ `.claude/project/`
+và item `local-*`, vốn là của project); đọc danh sách rồi chạy lại với `--prune` nếu đồng ý.
 
 | Key | Ý nghĩa | Sửa khi |
 |-----|---------|---------|

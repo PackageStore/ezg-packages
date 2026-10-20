@@ -358,6 +358,13 @@ namespace Ezg.FeatureHub.Editor
                 if (_tab == 3)
                     RebuildList();
             });
+            // Lịch sử hash của base: phân biệt "bản base cũ" với "project đã sửa" khi project chưa có lock.
+            FeatureHubService.LoadAiHistory(history =>
+            {
+                EzgBaseLock.History = history;
+                if (_tab == 3)
+                    RebuildList();
+            });
         }
 
         private void CheckLoaded()
@@ -706,7 +713,11 @@ namespace Ezg.FeatureHub.Editor
 
             _listContainer.Add(AiHintRow(filtered.Count));
 
-            int missing = filtered.Count(i => FeatureHubInstallRecord.GetAiStatus(i) != AiItemStatus.Installed);
+            int missing = filtered.Count(i =>
+            {
+                var st = FeatureHubInstallRecord.GetAiStatus(i);
+                return st == AiItemStatus.NotInstalled || st == AiItemStatus.UpdateAvailable;
+            });
             if (missing > 0)
                 _listContainer.Add(SectionActionBar(
                     $"Cài {missing} mục đang hiển thị còn thiếu", () => InstallAllAi(filtered)));
@@ -727,7 +738,8 @@ namespace Ezg.FeatureHub.Editor
         private VisualElement AiHintRow(int count)
         {
             return new Label($"{count} mục · cài vào thư mục .claude/ ở gốc project (ngoài Assets/) — " +
-                             "Claude Code nhận ngay, không cần restart Unity.")
+                             "Claude Code nhận ngay, không cần restart Unity. Cập nhật cả bộ an toàn (giữ phần " +
+                             $"project tuỳ biến): gõ {EzgBaseLock.UPDATE_COMMAND} trong Claude Code.")
             {
                 style =
                 {
@@ -744,6 +756,13 @@ namespace Ezg.FeatureHub.Editor
 
             var detail = DetailContainer();
             detail.Add(DetailRow("Trạng thái", AiStatusText(status)));
+            if (status == AiItemStatus.LocallyModified)
+            {
+                var modified = EzgBaseLock.Inspect(item).Modified;
+                detail.Add(DetailRow("Đã sửa", string.Join("\n", modified.Take(5)) +
+                                               (modified.Count > 5 ? $"\n… (+{modified.Count - 5})" : "")));
+                detail.Add(DetailRow("Cập nhật", $"Chạy {EzgBaseLock.UPDATE_COMMAND} trong Claude Code — chuyển phần sửa sang override rồi mới nhận bản mới."));
+            }
             detail.Add(DetailRow("Danh mục", AiCategoryDisplayName(item.category)));
             if (!string.IsNullOrEmpty(item.description))
                 detail.Add(DetailRow("Mô tả", item.description));
@@ -788,11 +807,24 @@ namespace Ezg.FeatureHub.Editor
             if (_busy)
                 return;
 
+            // Project đã sửa thẳng file base: không ghi đè (mất phần sửa) — chỉ đường /update-ai.
+            if (FeatureHubInstallRecord.GetAiStatus(item) == AiItemStatus.LocallyModified)
+            {
+                string message = FeatureHubAiInstaller.ModifiedMessage(EzgBaseLock.Inspect(item).Modified);
+                if (EditorUtility.DisplayDialog("Đã sửa local — dùng /update-ai", $"{item.name}\n\n{message}",
+                        $"Copy lệnh {EzgBaseLock.UPDATE_COMMAND}", "Đóng"))
+                {
+                    EditorGUIUtility.systemCopyBuffer = EzgBaseLock.UPDATE_COMMAND;
+                    SetStatus($"Đã copy {EzgBaseLock.UPDATE_COMMAND} — dán vào Claude Code trong project này.");
+                }
+                return;
+            }
+
             // Ghi đè là chuyện thật sự xảy ra ở đây (khác .unitypackage: Unity tự merge), nên phải nói rõ.
             if (FeatureHubAiInstaller.TargetExists(item))
             {
                 string what = item.isDirectory
-                    ? $"Thư mục '{item.installPath}' sẽ bị THAY MỚI hoàn toàn (file lạ bên trong sẽ mất)."
+                    ? $"File base trong '{item.installPath}' sẽ được thay bằng bản mới (file project tự thêm vào được giữ)."
                     : $"File '{item.installPath}' sẽ bị GHI ĐÈ.";
                 if (!EditorUtility.DisplayDialog("Cài đè", $"{item.name}\n\n{what}\n\nTiếp tục?", "Cài đè", "Hủy"))
                     return;
@@ -846,20 +878,26 @@ namespace Ezg.FeatureHub.Editor
             if (_busy || visible == null)
                 return;
 
+            var statuses = visible.ToDictionary(i => i, FeatureHubInstallRecord.GetAiStatus);
             var queue = visible
-                .Where(i => FeatureHubInstallRecord.GetAiStatus(i) != AiItemStatus.Installed)
+                .Where(i => statuses[i] == AiItemStatus.NotInstalled || statuses[i] == AiItemStatus.UpdateAvailable)
                 .ToList();
+            int modified = visible.Count(i => statuses[i] == AiItemStatus.LocallyModified);
+            string skippedNote = modified > 0
+                ? $"\n\nBỏ qua {modified} mục project đã sửa local — chạy {EzgBaseLock.UPDATE_COMMAND} trong Claude Code cho các mục đó."
+                : string.Empty;
 
             if (queue.Count == 0)
             {
-                SetStatus("Không có mục nào còn thiếu trong danh sách đang hiển thị.");
+                SetStatus("Không có mục nào còn thiếu trong danh sách đang hiển thị." +
+                          (modified > 0 ? $" {modified} mục đã sửa local: dùng {EzgBaseLock.UPDATE_COMMAND}." : string.Empty));
                 return;
             }
 
             if (!EditorUtility.DisplayDialog(
                     "Cài tất cả mục còn thiếu",
                     $"Sẽ tải & ghi {queue.Count} mục vào .claude/ ở gốc project.\n" +
-                    "Mục đã có sẵn trên đĩa sẽ bị ghi đè bằng bản mới. Tiếp tục?",
+                    "Mục đã có sẵn trên đĩa (project chưa sửa) sẽ được thay bằng bản mới. Tiếp tục?" + skippedNote,
                     "Cài", "Hủy"))
                 return;
 
@@ -1829,6 +1867,7 @@ namespace Ezg.FeatureHub.Editor
         {
             AiItemStatus.Installed => LottieLibrary.CHECK2,
             AiItemStatus.UpdateAvailable => LottieLibrary.UPDATE,
+            AiItemStatus.LocallyModified => LottieLibrary.ALERT,
             _ => LottieLibrary.DOWNLOAD,
         };
 
@@ -1883,6 +1922,7 @@ namespace Ezg.FeatureHub.Editor
         {
             AiItemStatus.Installed => "Đã cài",
             AiItemStatus.UpdateAvailable => "Có bản mới",
+            AiItemStatus.LocallyModified => "Đã sửa local",
             _ => "Chưa cài",
         };
 
@@ -1890,6 +1930,7 @@ namespace Ezg.FeatureHub.Editor
         {
             AiItemStatus.Installed => C_SUCCESS,
             AiItemStatus.UpdateAvailable => C_WARN,
+            AiItemStatus.LocallyModified => C_DANGER,
             _ => C_MUTED,
         };
 
@@ -1897,6 +1938,7 @@ namespace Ezg.FeatureHub.Editor
         {
             AiItemStatus.Installed => "Cài lại",
             AiItemStatus.UpdateAvailable => "Cập nhật",
+            AiItemStatus.LocallyModified => "Hướng dẫn",
             _ => "Cài",
         };
 

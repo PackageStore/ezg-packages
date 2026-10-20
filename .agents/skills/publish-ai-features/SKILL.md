@@ -45,6 +45,8 @@ MONOREPO_PATH    = env MONOREPO_PATH, mặc định theo OS:
                    # Đã có clone ở đây thì dùng tại chỗ; chỉ clone khi thiếu.
 ITEM             = thứ cần đẩy (thư mục skill / file command / agent / rule...)
 CATEGORY         = Skills | Commands | Agents | Rules | Docs | Scripts | Harness | Templates | UiKit | Config
+                   # Config = .claude/settings.json, .mcp.json (gộp JSON khi cập nhật), CLAUDE.md.
+                   # project-profile.json KHÔNG còn trong catalog: builder seed một lần, project sở hữu.
 ```
 
 ---
@@ -145,6 +147,13 @@ tên project riêng. Thứ này sẽ chạy trên máy người khác.
 game (palette, kit, hướng đã loại). Bộ dùng chung chỉ ship khung `ArtStyle.template.md`; đẩy bản của một
 game lên là mọi project khác bị bám nhầm style.
 
+**Không bao giờ đẩy phần riêng của project** (rule `base-ownership`): `.claude/project/**` (override,
+pin, `ui-kit-usage.json` riêng), `.claude/ezg-base.lock.json`, item tên `local-*`. Muốn biến một item
+`local-<tên>` của project thành dùng chung → đổi tên bỏ tiền tố `local-` khi copy vào monorepo (script
+publish từ chối tên `local-*`). Muốn đưa một **override** thành mặc định cho mọi game → viết lại nội dung
+đó vào chính file base trong monorepo, không copy file override. Sửa một skill base ngay trong project
+game để đem đi publish: hook guard chặn Edit/Write vào file base — mở Claude với `EZG_BASE_EDIT=1`.
+
 **Không bao giờ đẩy `CLAUDE_PROJECT.md`** — chỉ dẫn riêng của một game (`CLAUDE.md` import nó). Bộ dùng
 chung chỉ ship khung `.claude/docs/CLAUDE_PROJECT.template.md`; `.gitignore` của monorepo và
 `upload-unity-template-ai.mjs` cũng chặn file này. `CLAUDE.md` của project cũng **không** phải nguồn để
@@ -194,8 +203,15 @@ curl -fsSL -H "Authorization: Bearer $TOKEN" \
   | python3 -c "import json,sys;d=json.load(sys.stdin);print([i['id'] for i in d['items'] if 'psd-to-feature' in i['id']])"
 ```
 
-Báo user: mở `Ezg > Feature Hub > AI Feature`, bấm ↻ là thấy item mới (hoặc trạng thái **"Có bản mới"**
-nếu là cập nhật).
+Báo user, kèm câu để chuyển cho các project khác:
+
+> Base AI có bản mới (<item>). Ở mỗi project: mở Claude Code và gõ **`/update-ai`** — nó cập nhật mọi
+> thứ project chưa sửa, giữ phần project đã tuỳ biến (chuyển sang override nếu lỡ sửa thẳng file base).
+> Project chưa có skill này: cài `update-ai` một lần ở `Ezg > Feature Hub > AI Feature` (hoặc bảo Claude
+> "cài skill update-ai từ Feature Hub").
+
+Trong Unity, `Ezg > Feature Hub > AI Feature` bấm ↻ cũng thấy item mới / **"Có bản mới"** (hoặc
+**"Đã sửa local"** khi project đã sửa thẳng file đó — Feature Hub không ghi đè, chỉ đường `/update-ai`).
 
 ---
 
@@ -211,7 +227,9 @@ node --env-file=.env upload-unity-template-ai.mjs --item Skills/ui-kit  # 1 item
 node --env-file=.env upload-unity-template-defaultsetup.mjs             # tarball cho project sinh mới
 ```
 
-Cờ: `--dry-run`, `--category <Id>`, `--item <Cat/name>`, `--skip-files`, `--force`.
+Cờ: `--dry-run`, `--category <Id>`, `--item <Cat/name>`, `--skip-files`, `--force`,
+`--local-out <dir>` (ghi cả catalog — index, zip, `history.json`, `blobs/` — ra thư mục local thay vì R2,
+để thử `/update-ai` offline: `python3 .claude/skills/update-ai/scripts/ezg_base.py --source <dir> status`).
 `--force` chỉ cần khi có ai xoá tay object trên R2 — bình thường script tự so sha256 với catalog live
 nên item đổi nội dung luôn được đẩy lại, item không đổi thì bỏ qua.
 

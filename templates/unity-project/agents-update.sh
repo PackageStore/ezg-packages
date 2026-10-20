@@ -20,6 +20,13 @@
 #     template-owned and gets updated too — but only once CLAUDE_PROJECT.md exists, since
 #     before the split the project's own notes may still live inside CLAUDE.md.
 #
+# Base files the project EDITED IN PLACE (content differs from the baseline recorded in
+# .claude/ezg-base.lock.json) are KEPT and listed — overwriting them would lose the edit. Run
+# /update-ai in the project afterwards: it moves each edit into .claude/project/overrides/ (or
+# CLAUDE_PROJECT.md) and then takes the new base. The lock is refreshed at the end.
+# /update-ai is the everyday update path (no monorepo clone needed); this script stays for
+# maintainers who have the template checked out.
+#
 # Files the template no longer ships are REPORTED, not deleted: a project may have
 # added its own skills next to the shipped ones, and there is no safe way to tell
 # "upstream dropped this" from "the project added this". Use --prune once you have
@@ -79,6 +86,20 @@ is_preserved() {  # is_preserved <path-relative-to-project-root>
   return 1
 }
 
+# Base files edited in place, per the project's lock (needs python3; none without a lock).
+BASE_TOOL="$SRC/skills/update-ai/scripts/ezg_base.py"
+EDITED=()
+if [ -f "$TARGET/.claude/ezg-base.lock.json" ] && [ -f "$BASE_TOOL" ] && command -v python3 >/dev/null 2>&1; then
+  while IFS= read -r line; do
+    [ -n "$line" ] && EDITED+=("$line")
+  done < <(python3 "$BASE_TOOL" --root "$TARGET" modified --include-merge 2>/dev/null || true)
+fi
+is_edited() {  # is_edited <path-relative-to-project-root>
+  local rel="$1" p
+  for p in "${EDITED[@]+"${EDITED[@]}"}"; do [ "$p" = "$rel" ] && return 0; done
+  return 1
+}
+
 say "=== agents-update ==="
 say "template : $SRC"
 say "project  : $TARGET"
@@ -86,7 +107,7 @@ say "preserve : ${PRESERVE[*]}"
 [ "$DRY_RUN" = "1" ] && say "mode     : DRY RUN (no writes)"
 say ""
 
-updated=0; added=0; skipped=0
+updated=0; added=0; skipped=0; kept=0
 while IFS= read -r -d '' src_file; do
   rel_claude="${src_file#$SRC/}"
   rel=".claude/$rel_claude"
@@ -96,6 +117,12 @@ while IFS= read -r -d '' src_file; do
   case "$rel_claude" in
     __pycache__/*|*/__pycache__/*|*.pyc|.DS_Store|*/.DS_Store) continue ;;
   esac
+
+  if is_edited "$rel"; then
+    say "  keep    $rel  (edited in place — run /update-ai to move the edit into an override)"
+    kept=$((kept + 1))
+    continue
+  fi
 
   if is_preserved "$rel"; then
     say "  keep    $rel  (seed-once, owned by the project)"
@@ -132,6 +159,9 @@ elif [ ! -e "$TARGET/CLAUDE.md" ]; then
   added=$((added + 1))
 elif cmp -s "$SRC_CLAUDE_MD" "$TARGET/CLAUDE.md"; then
   say "  (up to date)"
+elif is_edited "CLAUDE.md"; then
+  say "  keep    CLAUDE.md  (edited in place — /update-ai moves the project's notes into CLAUDE_PROJECT.md)"
+  kept=$((kept + 1))
 elif [ ! -f "$TARGET/CLAUDE_PROJECT.md" ]; then
   say "  hold    CLAUDE.md  (no CLAUDE_PROJECT.md yet — the old CLAUDE.md may hold this project's own notes)"
   held=1
@@ -160,6 +190,10 @@ while IFS= read -r -d '' dst_file; do
     # Project-owned QA profile + charters: the template ships only docs/QaProfile.template.md;
     # the filled-in copy and the charters /auto-test-device writes always look orphaned — never prune.
     docs/QaProfile.md|docs/qa/*) continue ;;
+    # Project-owned by design (rule base-ownership): overrides, pins, project usage notes, the
+    # project's own local-* skills/commands/agents/rules, and the lock the tooling maintains.
+    project/*|ezg-base.lock.json) continue ;;
+    skills/local-*|commands/local-*|agents/local-*|rules/local-*) continue ;;
   esac
   if [ "$PRUNE" = "1" ]; then
     run rm -f "$dst_file"
@@ -185,8 +219,20 @@ elif [ -f "$TARGET/.claude/scripts/sync-to-agents.sh" ]; then
   ( cd "$TARGET" && bash .claude/scripts/sync-to-agents.sh ) | sed 's/^/  /'
 fi
 
+# Record the new baselines (files now equal to the template) so the edit guard and /update-ai know
+# which files are the base's and which were edited.
+if [ "$DRY_RUN" = "1" ]; then
+  say "  [dry] would refresh .claude/ezg-base.lock.json"
+elif [ -f "$BASE_TOOL" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "$BASE_TOOL" --root "$TARGET" lock-init --from-dir "$SCRIPT_DIR/DefaultSetup" | sed 's/^/  /'
+fi
+
 say ""
-say "=== $added added, $updated updated, $skipped preserved, $orphans orphaned ==="
+say "=== $added added, $updated updated, $skipped preserved, $kept kept (edited), $orphans orphaned ==="
+if [ "$kept" -gt 0 ]; then
+  say "Edited base files were kept. In the project, run /update-ai: it moves each edit into"
+  say ".claude/project/overrides/ (or CLAUDE_PROJECT.md) and then takes the new base."
+fi
 if [ "$orphans" -gt 0 ] && [ "$PRUNE" = "0" ]; then
   say "Re-run with --prune to delete the orphans listed above."
 fi

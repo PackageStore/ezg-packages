@@ -33,7 +33,8 @@ The gallery is higher fidelity: it resolves sprite/font GUIDs, reads sprite
 rects and borders from texture .meta files, and renders them from source assets
 without creating captured copies.
 
-Hand-written composition rules that no prefab can express (`ui-kit-usage.json`)
+Hand-written composition rules that no prefab can express (`ui-kit-usage.json`
+from the base, then `.claude/project/ui-kit-usage.json` from the project on top)
 are merged in as each template's `usage` field.
 
 Deterministic output (sorted names, no timestamps) → clean git diffs.
@@ -82,14 +83,13 @@ MAX_VARIANT_DEPTH = 5
 # template set differs — while this script is shared byte-identical across
 # projects, so hardcoding them here would ship one game's rules to every other.
 USAGE_FILE = OUT_DIR / "ui-kit-usage.json"
+# ui-kit-usage.json ships with the base (rules for the base's own templates) and an update replaces
+# it, so a project's additions live in its own file, which the base never touches. Same shape; a
+# project note wins over the base note for the same template.
+PROJECT_USAGE_FILE = ROOT / ".claude" / "project" / "ui-kit-usage.json"
 
 
-def load_usage(errors=None):
-    """Per-project composition notes; missing file simply means none.
-
-    `errors` collects why notes were dropped, so --check can say "your file is
-    broken" instead of the misleading "the notes changed".
-    """
+def _load_usage_file(path, errors):
     def broken(message):
         if errors is not None:
             errors.append(message)
@@ -97,23 +97,34 @@ def load_usage(errors=None):
         return {}
 
     try:
-        raw = USAGE_FILE.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return {}
     except OSError as error:
-        return broken(f"cannot read {USAGE_FILE.name}: {error}")
+        return broken(f"cannot read {path.name}: {error}")
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as error:
         # Hand-edited file: a typo must not silently drop every note, and it must
         # not sink the kit either — the geometry half is still worth writing.
-        return broken(f"{USAGE_FILE.name} is not valid JSON ({error}); "
+        return broken(f"{path.relative_to(ROOT).as_posix()} is not valid JSON ({error}); "
                       "usage notes skipped")
     notes = payload.get("templates", payload)
     if not isinstance(notes, dict):
         return {}
     return {name: text for name, text in notes.items()
             if isinstance(text, str) and text.strip() and not name.startswith("_")}
+
+
+def load_usage(errors=None):
+    """Composition notes: the base file, then the project's own file on top; missing = none.
+
+    `errors` collects why notes were dropped, so --check can say "your file is
+    broken" instead of the misleading "the notes changed".
+    """
+    notes = _load_usage_file(USAGE_FILE, errors)
+    notes.update(_load_usage_file(PROJECT_USAGE_FILE, errors))
+    return notes
 
 DOC_RE = re.compile(r"^--- !u!(\d+) &(-?\d+)( stripped)?\s*$", re.M)
 GUID_IN_META_RE = re.compile(r"^guid: ([0-9a-f]{32})", re.M)

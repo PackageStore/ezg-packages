@@ -14,6 +14,7 @@ namespace Ezg.FeatureHub.Editor
         #region Fields
 
         private static InstallRecord _cache;
+        private static DateTime _cacheStamp;   // mtime lúc đọc — /update-ai cũng ghi file này
 
         #endregion
 
@@ -126,6 +127,18 @@ namespace Ezg.FeatureHub.Editor
             if (item == null)
                 return AiItemStatus.NotInstalled;
 
+            // Catalog mới có hash từng file: so thật với đĩa (lock + history), không cần record —
+            // nên project sinh từ builder (không có record) cũng thấy đúng "Có bản mới" / "Đã sửa local".
+            if (item.fileHashes != null && item.fileHashes.Count > 0)
+            {
+                var inspection = EzgBaseLock.Inspect(item);
+                if (!inspection.Exists)
+                    return AiItemStatus.NotInstalled;
+                if (inspection.Modified.Count > 0)
+                    return AiItemStatus.LocallyModified;
+                return inspection.Outdated.Count > 0 ? AiItemStatus.UpdateAvailable : AiItemStatus.Installed;
+            }
+
             var installed = GetAi(item.id);
             if (installed != null)
             {
@@ -197,12 +210,15 @@ namespace Ezg.FeatureHub.Editor
 
         private static InstallRecord Load()
         {
-            if (_cache != null)
+            string recordPath = RecordPath();
+            DateTime stamp = File.Exists(recordPath) ? File.GetLastWriteTimeUtc(recordPath) : DateTime.MinValue;
+            if (_cache != null && stamp == _cacheStamp)
                 return _cache;
 
+            _cacheStamp = stamp;
             try
             {
-                string path = RecordPath();
+                string path = recordPath;
                 if (File.Exists(path))
                 {
                     string json = File.ReadAllText(path);
@@ -233,6 +249,7 @@ namespace Ezg.FeatureHub.Editor
                 string json = Newtonsoft.Json.JsonConvert.SerializeObject(
                     record, Newtonsoft.Json.Formatting.Indented);
                 File.WriteAllText(path, json);
+                _cacheStamp = File.GetLastWriteTimeUtc(path);
             }
             catch (Exception e)
             {
