@@ -1,5 +1,5 @@
 ---
-description: Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their 1080×1920 PNG contract automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.
+description: Generate + AUTO-APPROVE spec-first UI mockups for /new-ui tasks. Drafts are frozen to their PNG contract (the spec's designResolution — EZG standard 1080×2400) automatically; the dev only steps in to answer forbidden-to-invent questions or request edits via the review dashboard. Runs automatically after planning and manually any time to re-generate.
 ---
 
 # /ui-mockup — Mockup generate & auto-approve
@@ -33,6 +33,8 @@ A HYBRID task carrying the marker on a `**Mockup:**` line names its screen inlin
 from that `screen=` hint instead of from `/new-ui` Workflow args.
 
 **Prerequisite:** `.claude/ui-kit/ui-kit.json` exists and is current — `python3 .claude/scripts/ui-kit-sync.py --check` (exit 1 = regenerate with the same script minus `--check`; lifecycle in skill `ui-kit`). New drafts also produce sibling `<Screen>.ui-spec.json`; the task contract deliberately remains the `.html`/`.png` `groundTruth` states above.
+
+**Polish floors:** the validator also blocks the measurable `.claude/docs/PolishRules.md` §9 rules (`polish_*`: text < 30 px, tappables < 128 px without `hitArea`, more than one primary CTA, an action pair stacked vertically) in draft/approve mode; soft ones (8 px grid, CTA height, text room, missing `role`) only warn. Threshold / gate knobs: `project-profile.json` → `polish` (`specGate: block | warn | off`).
 
 **Art direction:** `.claude/docs/ArtStyle.md` (palette tokens, kit, type table, layout rules, rejected directions) — `mockup-drafter` and the dashboard's regenerate prompt both read it, so a mockup never invents a colour. Missing or `Status: template` → drafts still run but say so in `assumptions[]`; fill it in (its § Bootstrap) before trusting the look.
 
@@ -79,7 +81,7 @@ python3 .claude/scripts/ui-review.py auto-approve --open --task backlog/planning
 
 The JSON gains an `"opened"` field naming what was launched. Omit `--open` **only** when auto-approve runs from `/planning-task` / `/planning-system` or any headless/batch loop — a browser popping up mid-planning is noise. If the browser cannot launch (headless machine, `webbrowser` no-op), the JSON still reports every path — say so and move on.
 
-For every pending screen that passes approve-mode validation, the script: re-renders `--check`, exports the frozen 1080×1920 PNG (headless Chrome), writes the hash-bound `<Screen>.ui-approval.json`, flips the task `groundTruth` → `.png`, and stages only that screen/task. Screens are left `pending` with a reason when:
+For every pending screen that passes approve-mode validation, the script: re-renders `--check` (a stale render is re-rendered from the spec once), exports the frozen PNG at the spec's `designResolution` (headless Chrome), writes the hash-bound `<Screen>.ui-approval.json`, flips the task `groundTruth` → `.png`, and stages only that screen/task. Screens are left `pending` with a reason when:
 
 - the drafter left `questions[]` or literal `[?]` placeholders (forbidden-to-invent group), or
 - validation/render/PNG export failed (e.g. no Chrome on the machine).
@@ -88,7 +90,7 @@ No Chrome → ask the dev to open the HTML at 100% zoom, screenshot to the sibli
 
 ## STEP 4 — Dev review / edits (only when needed)
 
-Run `python3 .claude/scripts/ui-review.py serve` and hand the printed URL to the dev. The dashboard (its own look is `.claude/docs/design-style/` — the review tool's, not the game's) is token-protected, loopback-only, and shows ONLY screens that still need a human: it renders each 1080×1920 preview in-page, surfaces the drafter's `questions[]` as pickable options (⚡ options carry deterministic JSON patches applied server-side without AI), `assumptions[]` collapsible, and a free-text edit box per screen.
+Run `python3 .claude/scripts/ui-review.py serve` and hand the printed URL to the dev. The dashboard (its own look is `.claude/docs/design-style/` — the review tool's, not the game's) is token-protected, loopback-only, and shows ONLY screens that still need a human: it renders each preview in-page at its spec's aspect, surfaces the drafter's `questions[]` as pickable options (⚡ options carry deterministic JSON patches applied server-side without AI), `assumptions[]` collapsible, and a free-text edit box per screen.
 
 - **⚡ Apply choices** — hash-checked, patches the authoritative spec, re-renders, re-validates. No AI.
 - **✦ AI Regenerate** — free-form visual requests spawn the bounded headless `claude -p` (scoped `Edit(TechSpec/Mockups/**)` under `--permission-mode default`, git-diff containment proof, live progress + ✕ Huỷ). Requests are durably queued in `TechSpec/Mockups/_regen-queue.jsonl` first.

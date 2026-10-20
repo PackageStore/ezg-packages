@@ -33,20 +33,23 @@ call here.
    the Unity project.
 2. `unity_scene_info` → note the active scene and whether it `isDirty`. Build under the scene's
    `Canvas`. **Never `unity_scene_new`** while the current scene `isDirty`.
-3. **Pin the Game view to the design resolution — before any screenshot.** The project's UI
-   canvas is CanvasScaler **1080×1920 portrait, match height** (see `SplashScene` /
-   `OverviewCanvas`). At Free Aspect or any other size the scaler re-lays the screen, so every
+3. **Pin the Game view to the design resolution — before any screenshot.** `W×H` = the
+   `designResolution` of the spec you are building (approved `<S>.ui-spec.json`); no spec →
+   the project's: `python3 .claude/scripts/ui_spec_common.py design-resolution` (EZG standard
+   **1080×2400 portrait** — it matches `screen_template`'s CanvasScaler, Expand, reference
+   1080×2400; a legacy spec approved at 1080×1920 keeps 1080×1920 so its visual diff stays
+   pixel-aligned). At Free Aspect or any other size the scaler re-lays the screen, so every
    screenshot — the §5 builder loop AND the `ui-visual-reviewer` checkpoints — would grade a
    composition no device will show. Pin via `unity_execute_code`:
 
    ```csharp
    UnityEditor.PlayModeWindow.SetViewType(UnityEditor.PlayModeWindow.PlayModeViewTypes.GameView);
-   UnityEditor.PlayModeWindow.SetCustomRenderingResolution(1080, 1920, "Design 1080x1920");
+   UnityEditor.PlayModeWindow.SetCustomRenderingResolution(W, H, $"Design {W}x{H}");  // e.g. 1080, 2400
    uint w, h; UnityEditor.PlayModeWindow.GetRenderingResolution(out w, out h);
    return $"GameView {w}x{h}";
    ```
 
-   Expect `GameView 1080x1920`; cross-check the pixel size of the first saved screenshot PNG.
+   Expect `GameView {W}x{H}`; cross-check the pixel size of the first saved screenshot PNG.
    `unity_graphics_game_capture` is **not** a layout-verify substitute — it renders the camera at
    an arbitrary width/height (default 512×512, wrong aspect) and can miss Screen Space – Overlay
    canvases. Layout verification = pinned view + `unity_screenshot_game`.
@@ -253,8 +256,9 @@ fields must be non-null.
 
 UI built blind via property writes is wrong more often than right. After each meaningful chunk:
 
-1. `unity_screenshot_game` (optionally `superSize:2`) — at the §0-pinned **1080×1920** Game
-   view; if anything may have resized it, re-run the §0 pin snippet first.
+1. `unity_screenshot_game` (optionally `superSize:2`) — at the §0-pinned **design resolution**
+   (`W×H`, standard 1080×2400) Game view; if anything may have resized it, re-run the §0 pin
+   snippet first.
 
    > **⚠ Edit-mode reality (verified live):** outside play mode, `unity_screenshot_game`
    > captures only the camera render — **Screen Space Overlay canvases are NOT composited**
@@ -298,10 +302,11 @@ UI built blind via property writes is wrong more often than right. After each me
    >   cam.backgroundColor = new Color(0.08f,0.08f,0.12f,1f); cam.cullingMask = 1 << 5;
    >   cv.renderMode = RenderMode.ScreenSpaceCamera; cv.worldCamera = cam; cv.planeDistance = 10f;
    >   Canvas.ForceUpdateCanvases();
-   >   var rt = new RenderTexture(1080, 1920, 24); cam.targetTexture = rt; cam.Render();
+   >   const int W = 1080, H = 2400; // the §0 design resolution (the spec's designResolution)
+   >   var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.Render();
    >   RenderTexture.active = rt;
-   >   var tex = new Texture2D(1080, 1920, TextureFormat.RGB24, false);
-   >   tex.ReadPixels(new Rect(0,0,1080,1920), 0, 0); tex.Apply();
+   >   var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+   >   tex.ReadPixels(new Rect(0,0,W,H), 0, 0); tex.Apply();
    >   System.IO.File.WriteAllBytes("<out>.png", tex.EncodeToPNG());
    >   RenderTexture.active = null; cam.targetTexture = null;
    >   UnityEngine.Object.DestroyImmediate(rt); UnityEngine.Object.DestroyImmediate(tex);
@@ -349,7 +354,7 @@ Agent({
     before: <Phase C captures: <captures>/before-<W>x<H>.png at every size below>
     lockReport: <ui-layout-lock.py diff report path>
     builderClaims: <design brief + artstyle_gate.md paths + `ui-layout-lock.py scope` output>
-    Aspects / states to capture: <1080x1920, 1080x2400, 1536x2048 · default, main CTA, …>
+    Aspects / states to capture: <1080x2400 (design), 1080x1920, 1536x2048 · default, main CTA, …>
   `
 })
 ```
@@ -420,7 +425,11 @@ Save to `<featuresRoot>/[FeatureName]/Resources/[FeatureName].prefab`.
 - `unity_search_missing_references` → no broken references.
 - `LocalizesUI.LangKey` set and registered (§3 text / `new-ui-guide.md` §3b).
 - `unity_screenshot_game` (or play-mode) → final visual matches intent, captured at the
-  §0-pinned 1080×1920 view.
+  §0-pinned design-resolution view (standard 1080×2400).
+- Polish (`.claude/docs/PolishRules.md` §9, rule `game-polish`): text ≥ 32 px (never < 30), touch
+  targets ≥ 128 px (template chrome + `CheatMenu` excluded), at most one primary CTA, action pairs side
+  by side, locked = grey + reason, empty state has an image + one line, popups enable
+  `ClickBackgroundToExit` unless §9.4 exempts them — read the real values off the prefab.
 - If any `.cs` was created/edited: `unity_asset_import` (or `unity_execute_menu_item
   "Assets/Refresh"`) → wait for compile via `unity_editor_state` → `unity_get_compilation_errors`
   (severity `error`) → fix (max 2 rounds) before declaring done.

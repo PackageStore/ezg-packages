@@ -33,6 +33,91 @@ SPEC_RE = re.compile(
 PATCH_ROOTS = {"containers", "elements", "wiring", "assumptions"}
 PATCH_OPS = {"add", "remove", "replace"}
 
+# Chuẩn canvas EZG: portrait 1080×2400 (khớp CanvasScaler của screen_template). Spec cũ vẽ ở
+# 1080×1920 vẫn hợp lệ (đã duyệt thì không bắt vẽ lại) — chỉ draft mới phải theo design_resolution().
+DEFAULT_DESIGN_RESOLUTION = [1080, 2400]
+LEGACY_DESIGN_RESOLUTION = [1080, 1920]
+_REFERENCE_RESOLUTION_RE = re.compile(
+    r"m_ReferenceResolution:\s*\{x:\s*([\d.]+),\s*y:\s*([\d.]+)\}"
+)
+
+
+def _portrait_resolution(value) -> list[int] | None:
+    """[w, h] số nguyên dương, dọc (w < h); không hợp lệ → None."""
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value):
+        return None
+    width, height = (int(round(v)) for v in value)
+    if width <= 0 or height <= 0 or width >= height:
+        return None
+    return [width, height]
+
+
+# Script pipeline phải tự theo designResolution của spec thì mới dùng được canvas khác 1080×1920. Project cập
+# nhật lẻ ui_spec_common.py (Feature Hub cài từng file) mà ui-review / ui-spec-render / ... còn bản cũ ghi cứng
+# 1080×1920 → PNG đóng băng bị cắt. Khi đó cả pipeline giữ hành vi cũ cho tới khi cập nhật đủ nhóm.
+_RESOLUTION_AWARE_SCRIPTS = {
+    "ui-review.py": "spec_resolution",
+    "ui-spec-render.py": "spec_resolution",
+    "ui-build-report.py": "spec_resolution",
+    "ui-visual-diff.py": "supported_resolutions",
+    "ui-kit-sync.py": "design_resolution",
+}
+
+
+def _pipeline_supports_design_resolution() -> bool:
+    here = Path(__file__).resolve().parent
+    for name, marker in _RESOLUTION_AWARE_SCRIPTS.items():
+        path = here / name
+        try:
+            if path.exists() and marker not in path.read_text(encoding="utf-8", errors="ignore"):
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def design_resolution() -> list[int]:
+    """Độ phân giải thiết kế của project: profile `designResolution` → CanvasScaler của
+    screen_template.prefab → DEFAULT_DESIGN_RESOLUTION. Mọi script pipeline mockup đọc từ đây.
+    Script pipeline còn bản cũ (cập nhật lẻ) → LEGACY 1080×1920."""
+    if not _pipeline_supports_design_resolution():
+        return list(LEGACY_DESIGN_RESOLUTION)
+    configured = _portrait_resolution(profile().get("designResolution"))
+    if configured:
+        return configured
+    try:
+        candidates = sorted(TEMPLATES_DIR.rglob("screen_template.prefab"))
+    except OSError:
+        candidates = []
+    for candidate in candidates:
+        try:
+            match = _REFERENCE_RESOLUTION_RE.search(candidate.read_text(encoding="utf-8", errors="ignore"))
+        except OSError:
+            continue
+        detected = _portrait_resolution([float(match.group(1)), float(match.group(2))]) if match else None
+        if detected:
+            return detected
+    return list(DEFAULT_DESIGN_RESOLUTION)
+
+
+def supported_resolutions() -> list[list[int]]:
+    """Mọi designResolution validator chấp nhận: của project + chuẩn EZG + legacy 1080×1920."""
+    if not _pipeline_supports_design_resolution():
+        return [list(LEGACY_DESIGN_RESOLUTION)]
+    result = [design_resolution()]
+    for value in (DEFAULT_DESIGN_RESOLUTION, LEGACY_DESIGN_RESOLUTION):
+        if value not in result:
+            result.append(list(value))
+    return result
+
+
+def spec_resolution(spec: dict) -> list[int]:
+    """designResolution của một spec (đã validate); thiếu/hỏng → legacy 1080×1920 như trước."""
+    value = _portrait_resolution(spec.get("designResolution")) if isinstance(spec, dict) else None
+    return value or list(LEGACY_DESIGN_RESOLUTION)
+
 
 class UISpecError(ValueError):
     pass
@@ -61,8 +146,11 @@ def kit_hash() -> str:
 
 
 def kit_source_hash() -> str:
+    # Phải băm ĐÚNG tập file mà ui-kit-sync.py source_hash() băm: quét đệ quy (rglob).
+    # Thư viện template chia thư mục con (Button_Template/, Popup_Template/…); quét phẳng
+    # thì hash luôn lệch `_meta.sourceHash` và mọi spec v1 bị báo kit_stale dù kit vừa sinh.
     digest = hashlib.sha256()
-    for path in sorted(TEMPLATES_DIR.glob("*.prefab")):
+    for path in sorted(TEMPLATES_DIR.rglob("*.prefab")):
         digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -300,6 +388,254 @@ def _container_frame_offenders(style: dict) -> list[str]:
     return sorted(offenders)
 
 
+# --- Polish gate (PolishRules §9) ------------------------------------------------------------
+# Chỉ những luật ĐO ĐƯỢC trên spec: cỡ chữ, touch target, số CTA chính, cặp nút, lưới khoảng cách,
+# chỗ cho bản dịch dài. Ngưỡng đọc từ profile `polish` (mặc định = PolishRules trên canvas 1080 ngang).
+# Mức "block" chặn draft/approve khi specGate = block; build chỉ cảnh báo (spec đã duyệt).
+POLISH_DEFAULTS = {
+    "specGate": "block",
+    "minFontSize": 32,
+    "hardMinFontSize": 30,
+    "minTouchTarget": 128,
+    "ctaHeight": [152, 176],
+    "gridStep": 8,
+}
+POLISH_GATES = ("block", "warn", "off")
+# Vai trò nút (element.role). ACTION_ROLES là nhóm "cặp nút hành động" phải nằm ngang.
+BUTTON_ROLES = {"primary", "secondary", "ads", "cancel", "close", "back", "nav", "tab", "item", "locked"}
+ACTION_ROLES = {"primary", "secondary", "cancel", "ads"}
+# Màn chỉ dev thấy (cheat/admin/debug) — người chơi không thấy, không chấm polish (như Phase D D0).
+DEV_ONLY_RE = re.compile(r"cheat|admin|debug", re.IGNORECASE)
+# Ước lượng bề ngang chữ: ~0.55 em mỗi ký tự, chừa 30% cho bản dịch dài (PolishRules §9.2).
+TEXT_EM_PER_CHAR = 0.55
+TEXT_LOCALIZE_ROOM = 1.3
+TEXT_LINE_HEIGHT = 1.25
+
+
+def _polish_settings() -> dict:
+    """Ngưỡng polish đã merge với profile; giá trị hỏng rơi về mặc định thay vì làm sập validator."""
+    try:
+        raw = profile().get("polish") or {}
+    except Exception:  # noqa: BLE001 — profile hỏng đã được project_profile báo to ở chỗ khác
+        raw = {}
+    if isinstance(raw, str) and raw in POLISH_GATES:
+        raw = {"specGate": raw}  # viết tắt "polish": "off" | "warn" | "block"
+    settings = dict(POLISH_DEFAULTS)
+    for key, default in POLISH_DEFAULTS.items():
+        value = raw.get(key, default) if isinstance(raw, dict) else default
+        if key == "specGate":
+            settings[key] = value if value in POLISH_GATES else default
+        elif key == "ctaHeight":
+            ok = isinstance(value, list) and len(value) == 2 and all(_is_number(v) and v > 0 for v in value)
+            settings[key] = list(value) if ok and value[0] <= value[1] else list(default)
+        else:
+            settings[key] = value if _is_number(value) and value > 0 else default
+    return settings
+
+
+def _is_interactive(row: dict) -> bool:
+    """Element là thứ người chơi bấm: khai `interactive`/`role`, hoặc template họ button/toggle."""
+    if row.get("interactive") is False:
+        return False
+    role = row.get("role")
+    if row.get("interactive") is True or (isinstance(role, str) and role in BUTTON_ROLES):
+        return True
+    template = row.get("template")
+    if not isinstance(template, str) or template in SECTION_TITLE_TEMPLATES:
+        return False
+    name = template.lower()
+    if name.startswith("text") or "cheat" in name:
+        return False  # nhãn chữ kiểu text_button_CTA không phải vùng bấm; nút cheat là chrome dev-only
+    return "button" in name or "btn" in name or "toggle" in name
+
+
+def _polish_issues(spec, containers, elements, container_map, element_map, declared_parent, ids, kit_records):
+    """Danh sách (level, issue) cho các luật polish đo được trên spec. level = block | warn."""
+    settings = _polish_settings()
+    if settings["specGate"] == "off":
+        return []
+    name = f"{spec.get('screen', '')} {spec.get('feature', '')}"
+    if DEV_ONLY_RE.search(name):
+        return []
+    found: list[tuple[str, dict]] = []
+
+    def path_of(node_id, suffix=""):
+        return ids.get(node_id, "$") + suffix
+
+    # Node nằm trong list lặp (scroll / grid): mỗi ô có nút riêng là bình thường, không tính CTA màn.
+    repeated = {
+        row["id"] for row in containers
+        if isinstance(row, dict) and isinstance(row.get("id"), str)
+        and (row.get("scroll") or row.get("type") == "grid")
+    }
+
+    def in_repeated(node_id) -> bool:
+        seen, current = set(), node_id
+        while current in declared_parent and current not in seen:
+            seen.add(current)
+            current = declared_parent[current]
+            if current in repeated:
+                return True
+        return False
+
+    def is_template_chrome(node_id, row) -> bool:
+        """Chrome của base template (baseChrome) hoặc nằm trong CheatMenu — template quyết cỡ, không chấm."""
+        if row.get("baseChrome") or "cheat" in str(row.get("template", "")).lower():
+            return True
+        seen, current = set(), node_id
+        while current in declared_parent and current not in seen:
+            seen.add(current)
+            current = declared_parent[current]
+            if "cheat" in str(current).lower():
+                return True
+        return False
+
+    def native_record(row):
+        record = kit_records.get(row.get("template")) if isinstance(kit_records, dict) else None
+        return record if isinstance(record, dict) else {}
+
+    def effective_size(row):
+        if row.get("anchor") == "stretch":
+            return None  # kích thước theo cha — không đo được trên spec
+        if _valid_vec(row.get("size"), 2, positive=True):
+            # Một trục = 0 nghĩa là layout group quyết cỡ (quy ước của kit) — không đo được trên spec.
+            return row["size"] if row["size"][0] > 0 and row["size"][1] > 0 else None
+        parent = container_map.get(row.get("parent")) or {}
+        if parent.get("type") == "grid" and _valid_vec(parent.get("cellSize"), 2, positive=True):
+            return parent["cellSize"]
+        native = native_record(row).get("size")
+        if _valid_vec(native, 2, positive=True) and native[0] > 0 and native[1] > 0:
+            return native
+        return None
+
+    def effective_font(row):
+        if _is_number(row.get("fontSize")):
+            return row["fontSize"], True
+        for text in native_record(row).get("texts") or []:
+            if isinstance(text, dict) and _is_number(text.get("fontSize")) and text["fontSize"] > 0:
+                return text["fontSize"], False
+        return None, False
+
+    hard_min, soft_min = settings["hardMinFontSize"], settings["minFontSize"]
+    min_touch = settings["minTouchTarget"]
+    cta_low, cta_high = settings["ctaHeight"]
+    grid = settings["gridStep"]
+    primaries = []
+    tab_bars = {c for c, row in container_map.items() if row.get("tabBar") is True}
+
+    for node_id, row in element_map.items():
+        if is_template_chrome(node_id, row):
+            continue
+        font, explicit = effective_font(row)
+        if font is not None and explicit and font < hard_min:
+            found.append(("block", issue(
+                "polish_font_size", path_of(node_id, ".fontSize"),
+                f"fontSize {font} is below the hard floor {hard_min}px (PolishRules §9.1: min 32, never below 30 "
+                "on the 1080-wide canvas) — enlarge it or drop the text",
+            )))
+        elif font is not None and explicit and font < soft_min:
+            found.append(("warn", issue(
+                "polish_font_size_soft", path_of(node_id, ".fontSize"),
+                f"fontSize {font} is under the {soft_min}px minimum (PolishRules §9.1); keep it only for a "
+                "secondary tag/badge and record why in assumptions[]",
+            )))
+
+        role = row.get("role")
+        if role is not None and not (isinstance(role, str) and role in BUTTON_ROLES):
+            found.append(("warn", issue(
+                "polish_role_unknown", path_of(node_id, ".role"),
+                f"unknown role {role!r}; use one of {sorted(BUTTON_ROLES)}",
+            )))
+
+        interactive = _is_interactive(row)
+        size = effective_size(row)
+        if interactive and size is not None and min(size) < min_touch:
+            hit = row.get("hitArea")
+            if not (_valid_vec(hit, 2, positive=True) and min(hit) >= min_touch):
+                found.append(("block", issue(
+                    "polish_touch_target", path_of(node_id, ".size"),
+                    f"touch target {size[0]}x{size[1]} is under {min_touch}px (PolishRules §9.1 ≈ 44pt) — enlarge "
+                    f"it, or keep the visual and declare \"hitArea\": [w,h] >= {min_touch} for an invisible "
+                    "raycast pad",
+                )))
+
+        if role == "primary" and not in_repeated(node_id):
+            primaries.append(node_id)
+            if size is not None and not (cta_low <= size[1] <= cta_high):
+                found.append(("warn", issue(
+                    "polish_cta_height", path_of(node_id, ".size"),
+                    f"primary CTA height {size[1]} is outside {cta_low}–{cta_high}px (PolishRules §9.1)",
+                )))
+        if (interactive and role is None and not in_repeated(node_id)
+                and declared_parent.get(node_id) not in tab_bars):
+            found.append(("warn", issue(
+                "polish_button_role", path_of(node_id, ".role"),
+                "interactive element has no role — declare \"role\" (primary / secondary / ads / cancel / close / "
+                "back / nav / tab / item / locked) so the one-primary-CTA and button-pair rules can check it",
+            )))
+
+        text = row.get("text")
+        if (isinstance(text, str) and text.strip() and not text.startswith("#") and font
+                and size is not None and size[0] > 0):
+            needed = len(text.strip()) * font * TEXT_EM_PER_CHAR * TEXT_LOCALIZE_ROOM
+            lines = 1 if interactive else max(1, int(size[1] // (font * TEXT_LINE_HEIGHT)))
+            if needed > size[0] * lines:
+                found.append(("warn", issue(
+                    "polish_text_room", path_of(node_id, ".text"),
+                    f"{text.strip()!r} at {font}px needs ~{round(needed)}px with 30% localisation room but the box "
+                    f"gives {round(size[0] * lines)}px ({lines} line(s)); button labels stay on one line "
+                    "(PolishRules §9.2) — widen the box, shorten the copy, or set an auto-size minimum",
+                )))
+
+    if len(primaries) > 1:
+        found.append(("block", issue(
+            "polish_multiple_primary", "$.elements",
+            f"{len(primaries)} primary CTAs on one screen ({', '.join(primaries)}); PolishRules §9.3 allows at most "
+            "one — demote the others to secondary/ads",
+        )))
+
+    for container_id, row in container_map.items():
+        children = row.get("children") if isinstance(row.get("children"), list) else []
+        roles = {
+            child: element_map[child].get("role") for child in children
+            if isinstance(child, str) and child in element_map and isinstance(element_map[child].get("role"), str)
+        }
+        actions = [child for child, role in roles.items() if role in ACTION_ROLES]
+        has_primary = "primary" in roles.values()
+        if (row.get("type") == "col" and not in_repeated(container_id) and container_id not in repeated
+                and has_primary and len(actions) >= 2):
+            found.append(("block", issue(
+                "polish_button_pair_stacked", path_of(container_id, ".type"),
+                f"action buttons {', '.join(actions)} (a primary with its secondary / cancel / ads partner) are "
+                "stacked vertically; PolishRules §9.3 puts the pair side by side at one height (secondary left, "
+                "primary right) — put them in a row container. A vertical menu of secondary buttons is fine",
+            )))
+        if row.get("type") == "row" and has_primary and len(actions) >= 2:
+            heights = {
+                element_map[child]["size"][1] for child in actions
+                if _valid_vec(element_map[child].get("size"), 2, positive=True) and element_map[child]["size"][1] > 0
+            }
+            if len(heights) > 1:
+                found.append(("warn", issue(
+                    "polish_button_pair_height", path_of(container_id, ".children"),
+                    f"action pair {', '.join(actions)} uses different heights {sorted(heights)}; PolishRules §9.3 "
+                    "keeps a pair at one height",
+                )))
+        values = []
+        if _is_number(row.get("gap")):
+            values.append(("gap", row["gap"]))
+        for key in ("padding", "spacing"):
+            if isinstance(row.get(key), list):
+                values.extend((key, v) for v in row[key] if _is_number(v))
+        off_grid = sorted({f"{key}={v}" for key, v in values if v and v % grid})
+        if off_grid:
+            found.append(("warn", issue(
+                "polish_grid", path_of(container_id),
+                f"spacing off the {grid}px grid: {', '.join(off_grid)} (PolishRules §9.1 scale 8/16/24/32/48)",
+            )))
+    return found
+
+
 def validate_spec(
     spec: dict,
     *,
@@ -328,8 +664,20 @@ def validate_spec(
             errors.append(issue("required", f"$.{key}", f"{key} must be a non-empty string"))
     if spec.get("branch") not in ("Popup", "FullScreen"):
         errors.append(issue("branch", "$.branch", "branch must be Popup or FullScreen"))
-    if spec.get("designResolution") != [1080, 1920]:
-        errors.append(issue("resolution", "$.designResolution", "designResolution must be [1080, 1920]"))
+    supported = supported_resolutions()
+    design = supported[0]
+    if spec.get("designResolution") not in supported:
+        errors.append(issue(
+            "resolution", "$.designResolution",
+            f"designResolution must be the project design resolution {design} "
+            f"(accepted: {', '.join(str(value) for value in supported)})",
+        ))
+    elif strict and spec.get("designResolution") != design:
+        warnings.append(issue(
+            "resolution_legacy", "$.designResolution",
+            f"designResolution {spec.get('designResolution')} is not the project design resolution {design}; "
+            "an approved spec stays valid, but a new or re-generated draft must use the project value",
+        ))
 
     containers = spec.get("containers", [])
     elements = spec.get("elements", [])
@@ -362,9 +710,11 @@ def validate_spec(
             (container_map if kind == "containers" else element_map)[node_id] = row
 
     templates = set()
+    kit_records: dict = {}
     try:
         payload = json.loads(KIT_JSON.read_text(encoding="utf-8"))
         templates = set(payload.get("templates", {}))
+        kit_records = payload.get("templates", {}) if isinstance(payload.get("templates"), dict) else {}
         recorded_source_hash = payload.get("_meta", {}).get("sourceHash")
         current_source_hash = kit_source_hash()
         if recorded_source_hash != current_source_hash:
@@ -665,6 +1015,16 @@ def validate_spec(
                 "(timers, chips, badges) should share one size — reuse the template's native size",
             ))
 
+    if strict:
+        for level, entry in _polish_issues(
+            spec, containers, elements, container_map, element_map, declared_parent, ids, kit_records,
+        ):
+            gate = _polish_settings()["specGate"]
+            # build = spec đã duyệt, đang dựng: hợp đồng đã đóng băng, lỗi polish chỉ cảnh báo để
+            # không làm gãy task đang chạy. draft/approve mới là chỗ chặn.
+            blocking = level == "block" and gate == "block" and mode != "build"
+            (errors if blocking else warnings).append(entry)
+
     for node_id, row in {**container_map, **element_map}.items():
         parent = row.get("parent")
         if parent is not None and parent not in container_map:
@@ -810,3 +1170,14 @@ def validate_spec(
         "specHash": spec_hash(spec),
         "kitHash": kit_hash() if KIT_JSON.exists() and KIT_CSS.exists() else None,
     }
+
+
+if __name__ == "__main__":
+    # `python3 .claude/scripts/ui_spec_common.py design-resolution` → [1080, 2400]: kích thước pin Game view /
+    # chụp kiểm khi chưa có spec (có spec thì dùng designResolution của chính spec đó).
+    import sys
+
+    if sys.argv[1:] == ["design-resolution"]:
+        print(json.dumps(design_resolution()))
+    else:
+        sys.exit("usage: ui_spec_common.py design-resolution")

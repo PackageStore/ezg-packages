@@ -28,6 +28,6 @@ Pattern to follow / files that must not be changed / behavior that must be prese
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] No violations of rules in `.claude/rules/` | Verify: quick manual code review
 
-**Guardrails:** <list ONLY the applicable tags, space-separated — definitions + verify recipes live in `.claude/backlog-templates/_GUARDRAILS.md`. For S this is usually a small set, e.g. `[BOUNDARY] [DOUBLE-SUBMIT] [LOADING/COOLDOWN] [CONSOLE]`. If the task has user input → include `[BOUNDARY]`; if a user-facing mutation → include `[DOUBLE-SUBMIT] [LOADING/COOLDOWN]`. Do NOT paste the full block text.>
+**Guardrails:** <list ONLY the applicable tags, space-separated — definitions + verify recipes live in `.claude/backlog-templates/_GUARDRAILS.md`. For S this is usually a small set, e.g. `[BOUNDARY] [DOUBLE-SUBMIT] [LOADING/COOLDOWN] [CONSOLE]`. If the task has user input → include `[BOUNDARY]`; if a user-facing mutation → include `[DOUBLE-SUBMIT] [LOADING/COOLDOWN]`. Player-facing change → `[POLISH]` + one criterion naming the PolishRules IDs it must pass. Do NOT paste the full block text.>
 
 **Guardrails skipped:** <only call out a guardrail you deliberately excluded that a reader might expect, + reason ≥10 chars each; else "none".>

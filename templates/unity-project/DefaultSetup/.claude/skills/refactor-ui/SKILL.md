@@ -54,7 +54,10 @@ per-project (`featuresRoot`, `uiTemplatesRoot`, `localize.*`) đọc bằng
 - **Không reskin.** User gọi skill này thường vì bản trước "vẫn xấu và chưa phù hợp" — nghĩ lại bố
   cục, concept và nhịp chuyển động từ đầu, không chỉ thay màu/khung — nhưng **bên trong** art style
   của game (`ArtStyle.md`): làm lại màn, không làm lại phong cách game. Bản final phải đẹp ở **mọi tỷ
-  lệ màn hình** (§6), không riêng 1080×1920.
+  lệ màn hình** (§6), không riêng tỷ lệ thiết kế 1080×2400.
+- **Polish là tiêu chí "xong"**, không phải lượt sau: `.claude/docs/PolishRules.md` (rule
+  `game-polish`) — §9 UI, §6 feedback, §3 animation, §4 VFX, §5 âm. Mọi dòng checklist `block` áp cho
+  màn phải pass có bằng chứng (§6 Polish gate) trước khi ship.
 - Dev đưa kèm **PSD/Figma của hoạ sĩ** → art direction là của hoạ sĩ, không tự chế đè lên: ghép bằng
   `merge-psd-ui` (PSD đã import thành node `psd`) / `psd-to-feature` (file PSD thô; macOS không có
   Photoshop → `psd-tools`) / `figma-to-unity`, rồi chỉ chạy phần motion §5 + verify §6 của skill này.
@@ -126,6 +129,12 @@ Hai cách gọi tương đương: `/refactor-ui <yêu cầu>` hoặc câu tự n
   grid/row tính số thực (`N × cell + (N−1) × spacing ≤ usable width`) cho **worst case**, khoảng cách
   theo thang ArtStyle §4.
 - **Motion language** (§5): easing + nhịp lấy từ ArtStyle §7, beat nào là "khoảnh khắc sướng" của màn.
+- **Feedback + polish** (PolishRules §6, §9): mọi thứ bấm được có gói feedback (hình + tiếng, + rung khi
+  hợp) và juice theo cấp; claim/purchase theo nhịp giữ – loé – bay; nút có `role` (tối đa 1 primary, cặp
+  nút nằm ngang, ads có ▶); trạng thái khoá = xám + lý do, thiếu tài nguyên hiện trên nút; màn trống
+  có hình + 1 dòng; cỡ chữ ≥ 32 (không < 30), vùng chạm ≥ 128 px (chrome template + `CheatMenu` giữ cỡ của
+  template); nên: CTA cao 152–176, lưới 8 px. Dev đưa PSD/Figma → số của hoạ sĩ thắng PolishRules; sàn đo
+  được bị art hoạ sĩ vi phạm thì giữ art, ghi dòng `polish:` báo dev.
 
 Sau brief là **spec-sheet** new-ui-guide §0c (bắt buộc, số cho từng node) — autonomous nên không chờ duyệt.
 
@@ -245,17 +254,21 @@ Luật kỹ thuật (bắt buộc):
   được cấp **đúng một lần** qua `RewardsService`/`PurchaseManager` dù view bị đóng giữa beat —
   animation không bao giờ được là điều kiện để grant chạy (hay chạy hai lần).
 - FullScreen: tuân luật `MainUI` của new-ui-guide §0 Layout mode (không để màn full-screen "pop").
+- **Feedback (PolishRules §6, P11/P13)**: không nút nào bấm im lặng — press của button template + âm
+  qua audio service của project; rung qua `VibrateManager` chỉ cho khoảnh khắc lớn và tôn trọng toggle
+  Rung; nút / phần thưởng hiện sau một beat tự khoá ~0.5 s (§9.9); debounce mọi CTA tốn tiền tới khi
+  `PurchaseManager` / `RewardsService` trả kết quả (P29).
 
 ## 6. Verify — không có ảnh là chưa xong
 
 - **Chụp edit-mode trên URP**: canvas Screen-Space **không** render qua `cam.Render()` (ra ảnh trắng
   trơn) → dựng preview scene (`EditorSceneManager.NewPreviewScene`), instantiate màn nền + màn cần
   chụp, **đổi canvas của instance preview sang World Space** kích thước W×H (scale 0.01), camera
-  ortho `size = H/200` (1920 → 9.6) tại `z = −10`, render vào RenderTexture W×H, `ReadPixels` → PNG.
+  ortho `size = H/200` (2400 → 12, 1920 → 9.6) tại `z = −10`, render vào RenderTexture W×H, `ReadPixels` → PNG.
   Đây là cùng cách project dùng để pixel-diff UI (CLAUDE_PROJECT.md § Cách nghiệm thu). Chỉ đổi canvas trên
   **instance preview**, không bao giờ trên asset. Nạp dữ liệu thật (gọi hàm init/refresh bằng
   reflection nếu cần), `ForceRebuildLayoutImmediate` vài vòng trước khi render.
-- Play mode: `unity_screenshot_game` ở Game view pin 1080×1920 (playbook §0).
+- Play mode: `unity_screenshot_game` ở Game view pin theo design resolution (chuẩn 1080×2400 — playbook §0).
 - Text: `LocalizeHelper` không chạy ở edit mode (return khi `!isPlaying`) → gán text thật đọc từ
   `<localize.csvRoot>/<lang>/<tab>.csv` (`key~value`) bằng code đọc file, **không** gõ Unicode trong
   code MCP; chụp cả **VI và EN** để bắt tràn chữ (nên thêm một ngôn ngữ chữ dài như DE).
@@ -263,12 +276,13 @@ Luật kỹ thuật (bắt buộc):
   (DOTween manual update theo bước để callback chạy thật — xem bẫy editor dùng chung dưới đây).
 - SoftMask làm mất icon trong ảnh RenderTexture → tắt tạm SoftMask/SoftMaskable **trên instance
   preview** (không phải asset) trước khi render. Popup tự bật đè lên màn ở play mode → đóng trước khi chụp.
-- **Aspect sweep** — bắt buộc, đây là chỗ bản rework trước bị chê: tối thiểu 1080×1920 (9:16),
-  1125×2436 (19.5:9, safe area sim), 1080×2400 (20:9), 1080×2520 (21:9), 1536×2048 (3:4 iPad) — nên
-  thêm 10:16 và 2:3 tablet. CanvasScaler Expand nên canvas không bao giờ nhỏ hơn 1080×1920: lỗi là
-  **phần dư rơi sai chỗ**. Cách sửa đã chứng minh: chia chiều cao dư bằng spacer flex **có trọng số**
+- **Aspect sweep** — bắt buộc, đây là chỗ bản rework trước bị chê: tối thiểu 1080×2400 (20:9, tỷ lệ
+  thiết kế), 1080×1920 (9:16), 1125×2436 (19.5:9, safe area sim), 1080×2520 (21:9), 1536×2048 (3:4
+  iPad) — nên thêm 10:16 và 2:3 tablet. CanvasScaler Expand (reference = design resolution) nên canvas
+  không bao giờ nhỏ hơn reference: máy 9:16 / tablet dư **bề ngang** (1080×1920 → canvas 1350×2400),
+  máy 21:9 dư **chiều cao** — lỗi là **phần dư rơi sai chỗ**. Cách sửa đã chứng minh: chia chiều cao dư bằng spacer flex **có trọng số**
   (không dồn hết vào một khối), nền kéo tràn cả vùng safe area đáy, nội dung giữ bề rộng 1080 cố định
-  ở giữa trên tablet, popup giữ bề rộng cố định neo tâm. Quét xong pin lại 1080×1920.
+  ở giữa trên tablet / 9:16, popup giữ bề rộng cố định neo tâm. Quét xong pin lại design resolution.
 - **Tự phản biện ít nhất 2 vòng**: mỗi lần chụp, chấm theo checklist dưới, sửa chỗ yếu nhất, chụp lại.
   Hỏi thẳng: "Designer giỏi nhìn màn này có thấy nghiệp dư chỗ nào không?"
   - focal point rõ, CTA chính nổi nhất; căn lề/khoảng cách đều (layout group, thang ArtStyle §4);
@@ -282,13 +296,18 @@ Luật kỹ thuật (bắt buộc):
   `artstyle_gate.md` trong scratchpad. Dòng mức `block` fail → sửa, chụp lại, chấm lại. Không được
   "pass" một dòng mà không chỉ ra bằng chứng. §11 trống / `Status: template` → ghi rõ gate bị bỏ qua vì
   sao (report phải nói).
+- **Polish gate** (bắt buộc, cùng lúc với ArtStyle gate): chấm từng dòng checklist PolishRules áp cho
+  màn — tối thiểu P04, P08, P09, P11, P13, P15–P19, P21, P23, P26, P27, P29 — pass/fail/na + bằng chứng
+  (node, `fontSize`/`sizeDelta` đọc từ prefab, ảnh, dòng code) vào `polish_gate.md` trong scratchpad.
+  Dòng `block` fail → sửa, chụp lại, chấm lại (đây là màn được phép đổi layout, nên sửa được cả dòng
+  layout). Dòng `human` → ghi vào mục "Kiểm tay" của `TechSpec/<Screen>-UIRefactor.md` (§8), không tự pass.
 - Cuối cùng spawn `ui-visual-reviewer` (độc lập, tự chụp); `block` → sửa, tối đa 2 vòng. Prompt cho
   reviewer **phải** có đủ:
   - `mode: refactor`, `phase: C`, `port`, `targetPath` = path prefab asset (reviewer tự dựng preview,
     không sửa asset) + công thức chụp đa tỷ lệ của §6;
   - `groundTruth` = ArtStyle (§8 ảnh `approved/` cùng họ, §9 + ảnh `rejected/`, §11) — **không** đưa
     design brief hay màn chưa duyệt làm groundTruth; brief + `artstyle_gate.md` chỉ đi kèm dưới nhãn
-    `builderClaims` (reviewer kiểm lại, không tin);
+    `builderClaims` (reviewer kiểm lại, không tin) — kèm `polish_gate.md`;
   - ảnh before (mốc so) + họ màn §4b + danh sách trạng thái cần chụp + lời chê của dev (nếu task có).
   Sau đó chạy new-ui-guide §5 hard checklist + playbook §8.
 - `.cs` đã sửa → compile check theo rule `compile-validation` (`/compile-check`); Editor không kết nối
@@ -327,7 +346,7 @@ Gotchas — Metal Toolchain / shader keyword), không phải bug của UI vừa 
 ## 8. Kết thúc
 
 0. Ghi `TechSpec/<Screen>-UIRefactor.md` ngắn (concept, bảng node chính, art đã tạo, motion beat +
-   hằng số, luật logic giữ nguyên) để lần chỉnh sau không phải đoán lại. Cập nhật `ArtStyle.md`:
+   hằng số, luật logic giữ nguyên, mục **Kiểm tay** = các dòng PolishRules `human` của màn) để lần chỉnh sau không phải đoán lại. Cập nhật `ArtStyle.md`:
    token/kit/kiểu art mới vừa tạo → §2/§3/§6; giá trị motion/trạng thái mới → §7/§4c; chép ảnh after
    (tỷ lệ thiết kế, thu rộng ~540 px) vào `.claude/docs/ArtStyle/screens/pending/<Màn>.png` và thêm
    dòng vào bảng "Chờ duyệt" của §8 (ảnh cũ cùng màn ở `pending/` bị thay thế). **Không** tự đưa màn

@@ -45,6 +45,7 @@ This project has a **CodeGraph MCP index** (`mcp__codegraph__*` tools) with 1900
 5. Apply the scope-control gate: if proposing broad changes, explain why/impact/migration/tests/checkpoints/rollback; if you cannot explain, narrow the scope or put it under `open_questions`.
 6. Decide which guardrails apply (see `applicable_guardrails` below). For each guardrail you exclude, provide a concrete reason of ≥10 chars.
 7. **Cheat decision (`cheat` guardrail) — always make it explicitly, never by omission.** If the feature has state a tester cannot reach in a few taps (time gate / daily reset / cooldown, progression or unlock threshold, resource requirement, rare or one-shot flow, anything that must be resettable to re-test), include `cheat` in `applicable_guardrails` and add a `completion_criteria` entry naming the concrete cheats (e.g. *"cheat buttons `+1 day` / `Reset claim` under `CheatMenu/Menu` drive the daily reset flow"*). Otherwise put a real reason in `not_applicable.cheat` (e.g. `"static info popup, fully drivable from its own UI"`). Read `.claude/skills/feature-cheat/SKILL.md` before deciding — the chrome is inherited from `FeatureTemplate`, so the cost is only the `Cheat_*` methods + 2–5 buttons. A verify step that reads "wait until tomorrow" or "reach level N" is the signal that a cheat is required.
+8. **Polish decision (`polish` guardrail) — always explicit, like cheat.** Anything a player sees or touches (screen, popup, button, reward / purchase / ad flow, number display, feedback, VFX, SFX, animation, onboarding) → include `polish` in `applicable_guardrails`, list the checklist IDs that apply in `polish_rows` (bảng cuối `.claude/docs/PolishRules.md`: pick by what the task touches — e.g. a reward popup → P08 P11 P13 P15 P16 P17 P21 P23 P26 P27 P29; a shop → + P18 P19 P22 P34 P35; gameplay feel → P09 P10 P12 P32; Part II rows only for modules in `project-profile.json` → `polish.modules`), and add ONE `completion_criteria` entry `"[POLISH] PolishRules <ids> pass"` whose verify recipe names the concrete checks (e.g. *"locked button shows 'Mở ở cấp 5' and tapping it costs nothing; claim grants once even if the popup closes mid-animation"*). Write the specific behaviours into the other criteria too when they are the feature's own logic (locked reason text, empty state, confirmation). Not player-facing (pure data / tooling / backend) → `not_applicable.polish` with the reason.
 
 ## Return value
 
@@ -68,11 +69,13 @@ Return ONE JSON object as the final message:
   "completion_criteria": ["observable criterion 1 (observable in Editor/build)", "..."],
   "verify_steps": ["happy path — open scene X, do Y, confirm Z", "edge case", "regression check"],
   "risks": ["commonly forgotten guards"],
-  "applicable_guardrails": ["pattern", "ui", "time", "save", "async", "localize", "event", "dotween", "double_submit", "loading_cooldown", "boundary", "persist_restart", "mobile_perf", "android_build", "backend_security", "csv_config", "cheat"],
+  "applicable_guardrails": ["pattern", "ui", "time", "save", "async", "localize", "event", "dotween", "double_submit", "loading_cooldown", "boundary", "persist_restart", "mobile_perf", "android_build", "backend_security", "csv_config", "cheat", "polish"],
+  "polish_rows": ["P08", "P11", "P15", "P17", "P29"],
   "not_applicable": {
     "backend_security": "no backend write in this task",
     "android_build": "no Editor-only code touched",
-    "cheat": "static info popup, fully drivable from its own UI"
+    "cheat": "static info popup, fully drivable from its own UI",
+    "polish": "editor-only CSV importer, nothing player-facing"
   },
   "mobile_impact": {
     "gc_alloc": "none | hot-path-risk — mitigation: ...",

@@ -33,6 +33,27 @@
   "sfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated",
   "soundConfigAsset": "Assets/_Project/Features/_Shared/Resources/SoundConfig.asset",
   "sfxEventFields": {},
+  "$comment_designResolution": [
+    "Canvas thiết kế UI dọc [w, h] cho mockup / ui-spec / ảnh chụp kiểm / visual diff. Rỗng = tự dò",
+    "CanvasScaler m_ReferenceResolution của screen_template.prefab; dò không ra = [1080, 2400] (chuẩn EZG).",
+    "Spec cũ đã duyệt ở [1080, 1920] vẫn hợp lệ; draft mới theo giá trị này."
+  ],
+  "designResolution": [],
+  "$comment_polish": [
+    "Ngưỡng polish đo được (.claude/docs/PolishRules.md §9) mà validator ui-spec + reviewer dùng.",
+    "specGate: block = lỗi đo được chặn draft/approve mockup (build chỉ cảnh báo) | warn | off.",
+    "modules: module Part II game có — combat | tiers | procgen | gacha (rỗng = chỉ Part I).",
+    "Đổi số chỉ khi ArtStyle.md của game quy định khác (ArtStyle thắng PolishRules)."
+  ],
+  "polish": {
+    "specGate": "block",
+    "modules": [],
+    "minFontSize": 32,
+    "hardMinFontSize": 30,
+    "minTouchTarget": 128,
+    "ctaHeight": [152, 176],
+    "gridStep": 8
+  },
 
   "$comment_localize": [
     "Where /add-localize reads its per-project values. `sheet` is the team's",

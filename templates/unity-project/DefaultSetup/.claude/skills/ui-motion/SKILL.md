@@ -14,6 +14,9 @@ Skill này **không chứa thông tin riêng của project nào**. Có ba nguồ
 | File riêng của project | Điều chỉ đúng cho project đang làm: class tự có motion, audio manager, chỗ đóng screen, thói quen đặt tên, quyết định, bẫy | `ProjectSettings/UIMotionProject.json` (luật máy đọc) và `ProjectSettings/UIMotionProject.md` (ghi chú) |
 | Script của skill | Khảo sát project, sinh hai file trên, kiểm file luật, cài module | `scripts/uimotion.mjs` (Node 18+, không cần cài gì) |
 
+Luật polish dùng chung (rule `game-polish`, `.claude/docs/PolishRules.md` §6 feedback / juice / nhịp giữ – loé – bay, §9.4
+popup, §9.9 input) áp song song: quy chuẩn module thắng ở chỗ hai bên cùng nói, PolishRules bổ sung chỗ module chưa nói.
+
 Điều về project đang làm chỉ lấy từ file riêng của nó hoặc từ chính project (khảo sát, đọc code). **Không dùng trí nhớ về
 project khác**: tên class, số, keyword của project A sai ở project B. Thiếu thì khảo sát rồi hỏi user, rồi ghi vào file
 riêng của project. Không ghi thông tin project vào skill này, cũng không ghi vào folder module.

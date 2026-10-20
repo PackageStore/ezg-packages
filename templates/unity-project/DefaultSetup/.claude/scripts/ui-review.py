@@ -28,6 +28,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 from project_profile import profile
 from ui_spec_common import ROOT, apply_json_patch, canonical_json, load_spec, spec_hash
 
+try:
+    from ui_spec_common import spec_resolution
+except ImportError:  # ui_spec_common.py cũ hơn script này (cập nhật lẻ qua Feature Hub) → hành vi cũ 1080×1920
+    def spec_resolution(spec):
+        value = spec.get("designResolution") if isinstance(spec, dict) else None
+        return list(value) if isinstance(value, list) and len(value) == 2 else [1080, 1920]
+
 
 
 
@@ -210,6 +217,7 @@ def screen_record(spec: dict, html: Path, html_rel: str) -> dict:
         "html": html_rel,
         "preview": html.relative_to(MOCKUPS_ROOT).as_posix(),
         "specHash": spec_hash(spec),
+        "resolution": spec_resolution(spec),
         "questions": normalize_questions(spec.get("questions", [])),
         "assumptions": [a for a in spec.get("assumptions", []) if isinstance(a, str)],
         "placeholders": sum(
@@ -399,12 +407,14 @@ def approve_screen(html_rel: str, expected_hash: str, existing_png: bool = False
     if before_hash != expected_hash or validation.get("specHash") != expected_hash:
         raise RuntimeError(f"Hash changed: expected {expected_hash}, current {before_hash}")
     png = html.with_suffix(".png")
+    # PNG đóng băng đúng designResolution của CHÍNH spec (chuẩn 1080×2400; spec cũ 1080×1920).
+    width, height = spec_resolution(load_spec(html)[0])
     if not existing_png:
-        result = subprocess.run([find_chrome(), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--window-size=1080,1920", f"--screenshot={png}", html.resolve().as_uri()], cwd=ROOT, text=True, capture_output=True)
+        result = subprocess.run([find_chrome(), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", f"--window-size={width},{height}", f"--screenshot={png}", html.resolve().as_uri()], cwd=ROOT, text=True, capture_output=True)
         if result.returncode or not png.exists():
             raise RuntimeError(result.stderr.strip() or "Chrome screenshot export failed")
-    if not png.exists() or png_size(png) != (1080, 1920):
-        raise RuntimeError("Approved PNG must exist at 1080x1920")
+    if not png.exists() or png_size(png) != (width, height):
+        raise RuntimeError(f"Approved PNG must exist at {width}x{height} (the spec designResolution)")
     if current_hash(html) != before_hash or sha256_html(html) != before_html:
         raise RuntimeError("Spec or HTML changed during approval")
     png_rel, evidence = relative(png), approval_path(html)
@@ -417,14 +427,14 @@ def approve_screen(html_rel: str, expected_hash: str, existing_png: bool = False
         for task in tasks:
             task.write_text(task.read_text(encoding="utf-8").replace(f"groundTruth={png_rel}", f"groundTruth=PENDING-APPROVAL:{html_rel}"), encoding="utf-8")
         raise RuntimeError(staged.stderr.strip() or "git add failed; approval rolled back")
-    return {"html": html_rel, "png": png_rel, "specHash": before_hash}
+    return {"html": html_rel, "png": png_rel, "specHash": before_hash, "resolution": f"{width}×{height}"}
 
 
 def auto_approve(task_files: list[str] | None = None) -> dict:
     """Default-approve every pending draft that survives approve-mode validation.
 
     Approval is the DEFAULT state of a mockup: after drafting, planning (or a manual
-    /ui-mockup run) calls this to freeze each draft to its 1080×1920 PNG contract and flip
+    /ui-mockup run) calls this to freeze each draft to its designResolution PNG contract and flip
     the task groundTruth — no human round. The only screens left pending are the ones the
     validator refuses (unresolved questions[] / literal [?] placeholders — the
     forbidden-to-invent group) or ones whose PNG export failed; those are reported so the
@@ -464,7 +474,7 @@ def auto_approve(task_files: list[str] | None = None) -> dict:
             # Self-heal a stale render: the sidecar spec is authoritative and the renderer is
             # deterministic, so re-rendering and retrying once is safe. This happens when a spec
             # edit landed but its render step was interrupted (the DungeonConfirmPopup case).
-            if "differs from" in str(exc) or "re-render" in str(exc):
+            if "differs from" in str(exc) or "re-render" in str(exc) or "rendered HTML is stale" in str(exc):
                 try:
                     html = safe_html(screen["html"])
                     spec_path = html.with_suffix(".ui-spec.json")
@@ -522,7 +532,7 @@ def write_gallery(approved: list[dict]) -> Path:
             f'<div class="meta"><small>{feature}</small><b>{screen}</b>'
             f'<span class="badge">✓ ĐÃ DUYỆT</span>'
             f'<span class="links"><a href="{html_src}" target="_blank" rel="noreferrer">HTML tương tác</a>'
-            f'<a href="{png_src}" target="_blank" rel="noreferrer">PNG 1080×1920</a></span></div></article>'
+            f'<a href="{png_src}" target="_blank" rel="noreferrer">PNG {item.get("resolution", "")}</a></span></div></article>'
         )
     body = (
         f"<h1>Mockup vừa duyệt — {len(approved)} màn hình</h1>"
@@ -664,7 +674,9 @@ def regen_prompt(html_rel: str, expected_hash: str, text: str) -> str:
         f"Yêu cầu của human: {json.dumps(text, ensure_ascii=False)}. "
         f"Quy tắc: chỉ dùng template có trong .claude/ui-kit/ui-kit.json; mọi text phải có localize (#key / dynamic / none); "
         f"đọc .claude/docs/ArtStyle.md nếu có — màu/cỡ chữ chỉ lấy từ token + bảng chữ trong đó, theo luật bố cục của nó, không vẽ hướng nằm trong bảng đã loại; "
-        f"giữ nguyên designResolution 1080×1920. "
+        f"giữ nguyên designResolution đang có trong spec (draft mới theo design resolution của project — chuẩn 1080×2400); "
+        f"theo luật polish đo được (.claude/docs/PolishRules.md §9): mỗi nút có `role`, đúng một `primary`, cặp nút nằm ngang, "
+        f"fontSize ≥ 32 (không bao giờ < 30), vùng bấm ≥ 128px (hoặc `hitArea`) — validator chặn nếu sai. "
         f"QUAN TRỌNG — sau khi áp dụng, XÓA khỏi mảng `questions[]` mọi câu hỏi mà human vừa trả lời (nếu đã trả lời hết thì đặt `questions: []`). "
         f"KHÔNG để lại text literal `[?]` trong bất kỳ element nào — literal `[?]` sẽ CHẶN approval (validator ở mode approve coi là lỗi placeholder). "
         f"Với quyết định kiểu 'bind từ config / placeholder động', THAY `[?]` bằng một GIÁ TRỊ MẪU đại diện + `localize:\"dynamic\"` "

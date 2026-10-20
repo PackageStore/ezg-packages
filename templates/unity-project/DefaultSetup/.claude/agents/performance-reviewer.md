@@ -109,6 +109,20 @@ When you cannot determine the context from the diff alone, use `codegraph_caller
 - Recomputing a derived value every frame that only changes on an event → **block**.
 - Reading `DataManager` config or `PlayerDataManager` repeatedly inside a loop instead of caching the reference → **major** (`DataManager` is read-only config; re-resolving the same lookup every frame is wasteful — cache it).
 
+### 6. First-time cost, stutter and caps (`.claude/docs/PolishRules.md` §13 — cite `P12` / `P32` in the finding)
+
+- A first open that does extra heavy work in the tap handler — a synchronous `Resources.Load` /
+  AssetBundle load, `Instantiate` of a big prefab or pool, shader or font-atlas first use — with no prewarm
+  at loading → **major** (**block** on the path that enters gameplay or a battle). **Not a finding:** a
+  screen opened the standard way through `UIManager.Show` (the template loads + instantiates on demand and
+  ships no prewarm API) — flag only what the task adds on top of that.
+- Unbounded concurrent spawns of floating numbers, FX, audio voices or markers (no cap / merge) →
+  **major**.
+- `Debug.Log*`, string formatting for logs, or exception-driven control flow per frame → **block**.
+- A quality / LOD tier switch that can fire during a transition (no hysteresis) → **minor**.
+- "Measure before concluding": when the cost depends on content size, say what to profile instead of
+  guessing a severity up.
+
 ## Project-specific perf notes
 
 - The hottest surfaces are gameplay battle code under `<gameplayRoot>/` — enemy spawning/waves, enemy AI/movement ticks, and the skill projectiles `<gameplayRoot>/Skills/Skill<ID>/ProjectileSkill<ID>.cs`. Scrutinize these hardest; they run for hundreds of entities per frame.

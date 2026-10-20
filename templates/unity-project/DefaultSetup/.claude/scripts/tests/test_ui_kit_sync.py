@@ -25,7 +25,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 SCRIPT_SRC = REPO / ".claude" / "scripts" / "ui-kit-sync.py"
-SCRIPT_DEPS = ["project_profile.py"]
+SCRIPT_DEPS = ["project_profile.py", "ui_spec_common.py"]
 DEFAULT_TEMPLATES = "Assets/_Project/Visual/ArtAsset/Shared/Resources/Prefabs/Templates"
 
 

@@ -392,6 +392,7 @@ Write code to fulfill the task. Rules:
   - Localize all user-facing text.
   - Magic numbers → CSV config or `SCREAMING_CONST`.
 - **Cheat affordance** — when the task carries `[CHEAT]` on its `**Guardrails:**` line, implement it as specified: `public Cheat_*` methods in a `#region Cheats` on the Controller (`[TabGroup("Cheats")] [Button]`, ending in a UI refresh) + `ButtonNormal` instances under the prefab's **inherited** `CheatMenu/Menu`, wired to those methods. Read [.claude/skills/feature-cheat/SKILL.md](../feature-cheat/SKILL.md) first — it has the exact sizes/labels/guids and the `unity_execute_code` recipe for persistent `onClick` wiring; the design must mirror `Features/System/GameCheat`. Never re-instantiate `CheatMenu` and never localize cheat labels. **If the task has no `[CHEAT]` tag, do NOT add cheats on your own** — that is a planning decision, not an implementer one. **Editor absent:** write the `Cheat_*` code, leave the prefab buttons undone, and say so explicitly in the DONE summary + as a manual verify step (do not silently drop the criterion).
+- **Polish** — anything player-facing follows rule `game-polish` (`.claude/docs/PolishRules.md`): implement the rows the `[POLISH]` criterion lists (grant before animation, re-entrancy guard on spend / claim, locked = grey + reason and free to tap, feedback on every tap, close logic in `CloseMe` so Android Back runs it, `Utils.MoneyConvert` for big numbers). Polish outside the task's files is out of scope (§1.8) — note it, do not fix it.
 - No new abstractions, no extra features beyond the task spec.
 - No comments unless the WHY is non-obvious.
 - Do not hardcode API keys, secrets, or tokens.
@@ -790,6 +791,11 @@ Prompt body:
 > <FULL_DIFF>
 > ```
 >
+> UI REVIEW (only when this task ran `ui-visual-reviewer` — `/new-ui` Phase C / D, `/refactor-ui`; else omit the block): the LAST verdict JSON of each phase that ran, verbatim — its `polish_checks` are the evidence for the visual `[POLISH]` rows:
+> ```
+> <UI_REVIEWER_VERDICTS>
+> ```
+>
 > Run verification according to the instructions in the agent definition and return a JSON verdict + criteria_check + manual_verify_steps.
 
 ### 7b. Read verdict and decide
@@ -914,6 +920,7 @@ steps; do not shorten it on the assumption they can read the file later.
    - Performance review: <pass|warn|skipped (not perf-sensitive)|skipped (XS tier)> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
    - Security review: <pass|warn|skipped — no sensitive files> (rounds used if spawned) [tool: codegraph|grep-fallback|n/a]
    - QA verify: <pass|warn|skipped (XS/S tier)> (rounds used: 1|2) [tool: codegraph|grep-fallback|n/a]
+   - Polish: <pass|unmet: P<id> (<reason>), …|code-review only (S tier — no qa-verifier)|skipped (no [POLISH] tag)> — from qa-verifier `[POLISH]` + ui-visual-reviewer `polish_checks` (+ `polish-note:` lines of Phase D)
    - Runtime smoke: <pass|warn|skipped (XS/S tier)|skipped (worktree mode)|skipped (Unity MCP not connected / Editor not open)|skipped (no runtime surface)|skipped (Editor became unresponsive mid-gate)|skipped (game did not boot within budget)> (rounds used: 1|2) [screenshot: .claude/tmp/backlog/runtime-smoke-<NNN>.png|stall frame: .claude/tmp/backlog/stall-<NNN>.png|n/a]
 
    **Mode:** <current|worktree>

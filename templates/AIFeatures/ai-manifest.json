@@ -48,6 +48,42 @@
     },
     "Scripts/art-style-board.py": {
       "description": "Dựng board ảnh tham chiếu (.claude/docs/ArtStyle/*.png) từ các thư mục kit khai trong ArtStyle.md — để agent NHÌN được house style, kể cả art dạng PSD. Cần Pillow (+ psd-tools cho PSD)."
+    },
+    "Rules/game-polish": {
+      "description": "Mọi thứ người chơi thấy/chạm (UI, feedback, VFX, SFX, số hiển thị, ads/IAP, hiệu năng) phải qua checklist .claude/docs/PolishRules.md trước khi báo xong — áp cả task tay lẫn /run-backlog. Cài kèm Docs/PolishRules."
+    },
+    "Docs/PolishRules": {
+      "description": "Luật polish bắt buộc cho game mobile EZG (Part I core + module M1–M4) với checklist ID P01–P40 mà validator ui-spec, /new-ui Phase C/D, /refactor-ui, ui-visual-reviewer, code-reviewer, performance-reviewer, qa-verifier, task-planner trích. Canvas chuẩn 1080×2400. Cài kèm Rules/game-polish."
+    },
+    "Scripts/ui_spec_common.py": {
+      "description": "Lõi validator ui-spec: designResolution theo project (profile → CanvasScaler screen_template → 1080×2400), gate polish đo được (chữ, vùng chạm, CTA, cặp nút), hash kit. Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-spec-validator.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-spec-render.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-review.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-visual-diff.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-build-report.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Scripts/ui-kit-sync.py": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "UiKit/ui-review-dashboard.template.html": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "UiKit/kit-preview.template.html": {
+      "description": "Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
+    },
+    "Agents/mockup-drafter": {
+      "description": "Drafter mockup spec-first (ui-spec v1 + HTML) theo design resolution của project (chuẩn 1080×2400) và luật polish đo được (role nút, ≤1 primary, chữ ≥ 32, vùng chạm ≥ 128). Nhóm pipeline mockup/ui-spec — CẬP NHẬT CÙNG LÚC cả nhóm: Scripts/ui_spec_common.py, ui-spec-validator.py, ui-spec-render.py, ui-review.py, ui-visual-diff.py, ui-build-report.py, ui-kit-sync.py, project_profile.py, UiKit/ui-review-dashboard.template.html, UiKit/kit-preview.template.html, Docs/ui-spec-schema.json, Agents/mockup-drafter. Cài lẻ vẫn chạy an toàn theo cả hai chiều (thiếu bản mới ở bất kỳ script nào → cả pipeline giữ 1080×1920 như cũ) — chỉ đủ nhóm mới có canvas chuẩn 1080×2400 + gate polish; sau khi đủ nhóm chạy lại python3 .claude/scripts/ui-kit-sync.py."
     }
   }
 }

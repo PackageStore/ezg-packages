@@ -48,12 +48,15 @@ Mockup: groundTruth=PENDING-MOCKUP (screen=<Feature>/<Screen>) — HYBRID/M/L ta
 - [ ] Functional criterion 2 | Verify: ...
 - [ ] Regression: [specific feature name] still works | Verify: replay that flow in the Editor
 - [ ] [CHEAT] (when the tag applies) Cheats `<Btn1>` / `<Btn2>` exist under `CheatMenu/Menu` and drive `<the state a tester cannot reach>` | Verify: Play Mode, open the feature, tap the cheat button, confirm the state changes with no Console error
+- [ ] [POLISH] (when the tag applies) PolishRules `<P-ids from polish_rows>` pass — e.g. every new button gives visual + sound feedback, locked shows its reason and costs nothing, reward granted once even if the popup closes mid-animation | Verify: open the screen, tap every control incl. the locked / not-enough path, press Android Back, tap outside, switch language with it open
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] No violations of rules in `.claude/rules/` | Verify: quick manual code review
 - [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings during the full flow | Verify: Play scene end-to-end, check Console
 
-**Guardrails:** <list ONLY the applicable tags from the task-planner's `applicable_guardrails`, space-separated — definitions + verify recipes live in `.claude/backlog-templates/_GUARDRAILS.md`. e.g. `[SAVE] [ASYNC] [LOCALIZE]`. Available tags: PATTERN, UI, TIME, SAVE, ASYNC, LOCALIZE, EVENT, DOTWEEN, DOUBLE-SUBMIT, LOADING/COOLDOWN, BOUNDARY, PERSIST-RESTART, MOBILE-PERF, BACKEND-SECURITY, CSV-CONFIG, CHEAT. Do NOT paste the full block text — the tag is enough; reviewers look it up in the catalog.>
+**Guardrails:** <list ONLY the applicable tags from the task-planner's `applicable_guardrails`, space-separated — definitions + verify recipes live in `.claude/backlog-templates/_GUARDRAILS.md`. e.g. `[SAVE] [ASYNC] [LOCALIZE]`. Available tags: PATTERN, UI, TIME, SAVE, ASYNC, LOCALIZE, EVENT, DOTWEEN, DOUBLE-SUBMIT, LOADING/COOLDOWN, BOUNDARY, PERSIST-RESTART, MOBILE-PERF, BACKEND-SECURITY, CSV-CONFIG, CHEAT, POLISH. Do NOT paste the full block text — the tag is enough; reviewers look it up in the catalog.>
 
+<!-- [POLISH] is a DECISION too: anything a player sees or touches carries it with the criterion above
+     (IDs from the end of .claude/docs/PolishRules.md), or `**Guardrails skipped:**` says `polish (<reason>)`. -->
 <!-- [CHEAT] is a DECISION, not an optional extra: either the tag is here with a matching completion criterion,
      or `**Guardrails skipped:**` carries `cheat (<reason>)`. Silence = planning fail.
      Pattern + design (mirror Features/System/GameCheat): .claude/skills/feature-cheat/SKILL.md -->

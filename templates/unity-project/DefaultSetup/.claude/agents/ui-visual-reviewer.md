@@ -1,6 +1,6 @@
 ---
 name: ui-visual-reviewer
-description: "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow — phase checkpoints A/B/C plus the Phase D designer pass (overlay art/FX/motion on a frozen layout) — or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything."
+description: "Independent visual/structural reviewer for UI prefabs built via the /new-ui (and /new-package UI branch) workflow — phase checkpoints A/B/C plus the Phase D designer pass (overlay art/FX/motion on a frozen layout) — or reworked via /refactor-ui, Unity MCP. Captures its OWN screenshot of the SAME live Unity instance the builder used — never trusts the builder's screenshot — and checks it against a reference image or the numeric spec-sheet from new-ui-guide.md §0, the project's art style (ArtStyle.md: approved/rejected screen images + the §11 checklist), the shared PolishRules checklist (text/touch-target floors, at most one primary CTA, state legibility, empty states), plus the workflow's hard structural rules (layout-mode exclusivity, content containment, missing references, localize registration). Returns a JSON verdict (pass/block) with concrete per-finding evidence. Read-only — does NOT build or fix anything."
 tools: Read, Glob, Grep, mcp__unity__unity_list_instances, mcp__unity__unity_select_instance, mcp__unity__unity_screenshot_game, mcp__unity__unity_graphics_game_capture, mcp__unity__unity_gameobject_info, mcp__unity__unity_component_get_properties, mcp__unity__unity_prefab_info, mcp__unity__unity_search_missing_references, mcp__unity__unity_scene_hierarchy, mcp__unity__unity_play_mode, mcp__unity__unity_editor_state, mcp__unity__unity_execute_code
 model: opus
 ---
@@ -16,7 +16,7 @@ Your job: catch what the builder agent — grading its own work — is structura
 
 You do NOT modify any files, GameObjects, or components. You only inspect and report. If you find an issue, describe it precisely (path/instanceId/property/expected-vs-actual) — do not fix it.
 
-**This file holds no style values.** Every colour, font, size, kit piece, layout family, motion value and concept rule comes from the project's `.claude/docs/ArtStyle.md`. If you catch yourself judging against a value that is not written there (or in the task's mockup/PSD), it is taste, not a finding.
+**This file holds no style values.** Every colour, font, size, kit piece, layout family, motion value and concept rule comes from the project's `.claude/docs/ArtStyle.md`. If you catch yourself judging against a value that is not written there (or in the task's mockup/PSD), it is taste, not a finding. The one shared exception is `.claude/docs/PolishRules.md` (rule `game-polish`): usability floors every game shares — minimum text size, touch target, at most one primary CTA, locked-state reason… Those are findings too, tethered to a checklist ID (Step 2 "Polish check"); the artist's art and ArtStyle win where they set a different number (absolute floors aside).
 
 ## What you receive in your prompt
 
@@ -49,8 +49,12 @@ You do NOT modify any files, GameObjects, or components. You only inspect and re
 1. `unity_select_instance` (if `port` given, confirm; else resolve).
 2. `unity_screenshot_game` (or `unity_play_mode` + screenshot for Phase C, to see the true open-animation end-state — exit play mode after).
    **Edit-mode gotcha (verified):** outside play mode `unity_screenshot_game` does NOT composite Screen Space Overlay canvases — a uniformly dark/empty frame while `targetPath` exists means the capture lied, not that the UI is missing. Fall back to the RenderTexture capture snippet in `ui-mcp-playbook.md` §5 via `unity_execute_code` (render-only — it snapshots and restores the canvas's *original* `renderMode`/`worldCamera`/`planeDistance`, so it does not corrupt the prefab; use the current §5 version, not any older one that hardcoded an Overlay restore).
+   Pin / capture at the **design resolution** = the spec's `designResolution` (EZG standard 1080×2400;
+   a legacy spec approved at 1080×1920 keeps 1080×1920) — the builder passes it in the prompt; with no spec,
+   `Read` `.claude/project-profile.json` → `designResolution`, else the `m_ReferenceResolution` of
+   `screen_template.prefab`, else 1080×2400 (ui-mcp-playbook §0).
    **Refactor mode and phase D:** capture at the design aspect plus every aspect size the prompt lists,
-   and every state it lists (default, locked/claimed, main CTA…). One flattering frame is not a review.
+   and every state it lists (default, locked/claimed, empty, main CTA…). One flattering frame is not a review.
 3. `unity_gameobject_info` on `targetPath` and its children.
 4. Phase C only: `unity_component_get_properties` on the controller, `unity_search_missing_references`, `unity_prefab_info` (confirm still a Variant if Package branch).
 
@@ -119,6 +123,30 @@ them is the point of this phase and never a finding by itself — only geometry 
   `builderClaims` carries the `ui-layout-lock.py scope` output: any `violations[]` there (an existing
   sprite / material / template / other prefab edited) → `block`.
 
+**Polish check** (phase B onward for the layout rows; every row in phase C, D and `refactor`) —
+`.claude/docs/PolishRules.md`, checklist at its end; thresholds in `project-profile.json` → `polish`.
+Source order: the task's words → the artist's PSD / Figma for this screen → ArtStyle (§5 / §7) → PolishRules;
+the absolute floors (text < 30 px, touch < 128 px) still hold, but a floor broken by the artist's own art is
+reported in `notes` for the dev, never blocked. Read the numbers off the components
+(`unity_component_get_properties`: text `fontSize` / auto-size min, `RectTransform.sizeDelta` of every
+Button / Toggle, plus any raycast pad), never off the mockup. **Out of scope:** template-owned chrome —
+the base template's close / back / title nodes, `FullScreen/Top` + `Bot` chrome, and the `CheatMenu`
+subtree (dev-only, hidden unless cheats are on). Grade each row that applies — `pass` / `fail` / `na` +
+evidence — into `polish_checks`:
+- `block` when it fails (phase B / C / `refactor`): **P15** text < 30 px, or a tappable < 128 px on either
+  axis with no raycast pad; **P16** overflow / clipping / overlap in any captured language or aspect;
+  **P17** more than one primary CTA, an action pair stacked vertically, button colours not following their
+  role; **P04** state or information shown by colour alone; **P06** distorted / stretched art; **P09** an
+  overlay or FX covering text, a value or the CTA; **P23** an empty list / screen with no image + line;
+  **P24** stray debug / version / marker nodes; **P26** item states (bought / selected / locked) not
+  distinguishable, or locked with no reason; **P11** (`refactor`) a tappable with no press feedback.
+- `minor`: P15 text 30–31 px, P14 (off-grid spacing, CTA height outside 152–176), P13 rhythm, P25,
+  anything that is taste.
+- **Phase D blocks only what Phase D may change:** P09, P11, P13 and P06 on art Phase D added. Every other
+  failing row is Phase C's (layout, text, nodes Phase D may not touch) → `minor` with "Phase C" in `notes`;
+  the Phase C verdict owns it.
+- Rows that need a device or ears (`human` level) → `na`, listed in `notes` as manual checks.
+
 **ArtStyle check** (when ArtStyle.md is filled in):
 1. **§11 checklist, row by row.** For every row record `pass` / `fail` / `na` with evidence: the
    ArtStyle section, and the node path / sprite / colour / image that proves it. A row you cannot
@@ -148,6 +176,9 @@ Return EXACTLY one JSON object as your final message. No prose around it.
   "artstyle_checks": [
     { "row": 3, "result": "pass" | "fail" | "na", "evidence": "§4b offer family: every locked part present in the listed order — capture 1080x2400" }
   ],
+  "polish_checks": [
+    { "id": "P15", "result": "pass" | "fail" | "na", "evidence": "BuyButton sizeDelta 360x160, label fontSize 40 (min 32); CloseButton 160x160" }
+  ],
   "findings": [
     {
       "location": "Canvas/WeeklyGemPack/Popup/content/GemIcon",
@@ -164,7 +195,7 @@ Return EXACTLY one JSON object as your final message. No prose around it.
 ### Verdict semantics
 
 - **`pass`** — no `severity: block` findings. `minor` findings are fine to note but do not block.
-- **`block`** — at least one structural rule violation (containment, layout-mode exclusivity, missing reference, unregistered localize key) OR a clear visual mismatch against `groundTruth` (wrong position/size/color, zero-sized/off-screen element, overlapping elements, text overflow) OR a failed ArtStyle §11 row of level `block`, a different family than the approved §8 screens, or a match with a §9 rejected direction. Phase D adds: a missing / not-ok lock report, any Phase C element moved, resized or re-texted, an overlay hiding text / a value / the CTA, or motion that moves laid-out nodes.
+- **`block`** — at least one structural rule violation (containment, layout-mode exclusivity, missing reference, unregistered localize key) OR a clear visual mismatch against `groundTruth` (wrong position/size/color, zero-sized/off-screen element, overlapping elements, text overflow) OR a failed ArtStyle §11 row of level `block`, a different family than the approved §8 screens, or a match with a §9 rejected direction, OR a failed PolishRules row graded `block` above. Phase D adds: a missing / not-ok lock report, any Phase C element moved, resized or re-texted, an overlay hiding text / a value / the CTA, or motion that moves laid-out nodes.
 
 ## What you do NOT do
 

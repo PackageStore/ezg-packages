@@ -18,6 +18,7 @@ Cần Python 3 + `numpy`, `Pillow`, `scipy` (`pip install numpy pillow scipy`); 
 |---|---|
 | Luôn luôn | Quy chuẩn `game-vfx` theo cách skill `game-vfx` mục 1 chỉ: tối thiểu 2.1 (cấp), 3.1 (timing), 4.4 (flipbook), 4.7, 6.2 (trần), 7.1–7.3, 8.2, 8.4, 9.3. Brief VFX của game (`ProjectSettings/GameVFXProject.md` nếu có) |
 | Luôn luôn | `.claude/docs/ArtStyle.md` §0, §6b (VFX), §9 (hướng đã loại) + rule `art-style`. `$M config` in ra cấu hình đã đọc từ §6b |
+| Luôn luôn | `.claude/docs/PolishRules.md` §4 (rule `game-polish`): nhiều lớp mỗi lớp chuyển động riêng, phát từ đúng nguồn, vùng = vùng tác dụng, không che chủ thể / UI, có VFX lúc xuất hiện lẫn biến mất, giới hạn hạt + đo fps — checklist P09, P12, P32 |
 | Luôn luôn | [reference/style-guide.md](reference/style-guide.md): hình mà bộ vẽ này tạo ra, nhịp, những gì cấm |
 | Request khớp recipe có sẵn | [reference/recipes.md](reference/recipes.md) §1–§2 (map request → recipe, tham số) |
 | Cần dáng mới, không recipe nào khớp | recipes.md §4 (viết recipe mới) + [reference/painter-api.md](reference/painter-api.md) |

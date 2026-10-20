@@ -9,6 +9,12 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageStat
 
+try:
+    from ui_spec_common import supported_resolutions
+except ImportError:  # ui_spec_common.py cũ hơn script này (cập nhật lẻ qua Feature Hub) → hành vi cũ
+    def supported_resolutions():
+        return [[1080, 1920]]
+
 
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -34,8 +40,18 @@ def main():
     try:
         reference = Image.open(args.reference).convert("RGB")
         actual = Image.open(args.actual).convert("RGB")
-        if reference.size != (1080, 1920) or actual.size != (1080, 1920):
-            raise ValueError("both images must be 1080x1920")
+        # Mockup PNG và ảnh Unity phải cùng một designResolution (chuẩn 1080×2400, spec cũ 1080×1920).
+        accepted = [tuple(value) for value in supported_resolutions()]
+        if reference.size != actual.size:
+            raise ValueError(
+                f"images differ in size: reference {reference.size[0]}x{reference.size[1]}, "
+                f"actual {actual.size[0]}x{actual.size[1]} — capture Unity at the spec designResolution"
+            )
+        if reference.size not in accepted:
+            raise ValueError(
+                f"images are {reference.size[0]}x{reference.size[1]}; expected one of "
+                + ", ".join(f"{w}x{h}" for w, h in accepted)
+            )
         diff = ImageChops.difference(reference, actual)
         stat = ImageStat.Stat(diff)
         mae = sum(stat.mean) / (3 * 255)
@@ -53,7 +69,7 @@ def main():
             "actual": portable(args.actual),
             "referenceSha256": file_hash(args.reference),
             "actualSha256": file_hash(args.actual),
-            "resolution": [1080, 1920],
+            "resolution": list(reference.size),
             "meanAbsoluteError": round(mae, 6),
             "rootMeanSquareError": round(rmse, 6),
             "changedPixelRatio": round(changed_ratio, 6),

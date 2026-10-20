@@ -99,7 +99,7 @@ h1 span{color:transparent;background:linear-gradient(100deg,var(--grad-from),var
   background:transparent;cursor:pointer;transition:all var(--t-fast) var(--ease)}
 .pick:checked{border-color:var(--good);background:var(--good)}
 .pick:checked::after{content:"✓";display:block;color:#fff;font:bold 12px/13px sans-serif;text-align:center}
-.preview-frame{position:relative;width:338px;height:600px;margin:auto;border:1px solid var(--border);
+.preview-frame{position:relative;width:338px;height:calc(336px * var(--ar,1.777778) + 2px);margin:auto;border:1px solid var(--border);
   border-radius:var(--r-md);overflow:hidden;cursor:zoom-in;box-shadow:var(--shadow-sm);
   transition:border-color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease)}
 .preview-frame:hover{border-color:var(--border-accent);box-shadow:var(--shadow-md),0 0 20px var(--accent-dim)}
@@ -109,8 +109,8 @@ h1 span{color:transparent;background:linear-gradient(100deg,var(--grad-from),var
   background:var(--glass-bg);backdrop-filter:blur(8px);box-shadow:var(--shadow-lg);
   font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;pointer-events:none;
   opacity:0;transform:translate(-50%,-44%) scale(.95);transition:opacity var(--t-base) var(--ease),transform var(--t-base) var(--spring)}
-.clip{position:relative;width:336px;height:598px;overflow:hidden;background:#0c0e1b}
-.clip iframe{width:1080px;height:1920px;border:0;transform:scale(.311111);transform-origin:top left;pointer-events:none}
+.clip{position:relative;width:336px;height:calc(336px * var(--ar,1.777778));overflow:hidden;background:#0c0e1b}
+.clip iframe{width:calc(var(--dw,1080) * 1px);height:calc(var(--dw,1080) * var(--ar,1.777778) * 1px);border:0;transform:scale(calc(336 / var(--dw,1080)));transform-origin:top left;pointer-events:none}
 .meta{padding-top:13px}
 .links{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px;color:var(--text-faint);
   font-size:10px;font-weight:600}
@@ -178,8 +178,8 @@ button:disabled{cursor:wait;filter:grayscale(.4);opacity:.6;transform:none}
   border-radius:var(--r-md);color:var(--text);background:var(--input-bg);font-size:18px}
 .modal-close:hover{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 .modal-viewport{flex:1;overflow:auto;background:var(--bg);scrollbar-width:thin}
-.modal-canvas{width:1080px;height:1920px;margin:24px auto;box-shadow:var(--shadow-xl),0 0 0 1px var(--border)}
-.modal-canvas iframe{display:block;width:1080px;height:1920px;border:0;background:#0d0d16}
+.modal-canvas{width:calc(var(--dw,1080) * 1px);height:calc(var(--dw,1080) * var(--ar,1.777778) * 1px);margin:24px auto;box-shadow:var(--shadow-xl),0 0 0 1px var(--border)}
+.modal-canvas iframe{display:block;width:calc(var(--dw,1080) * 1px);height:calc(var(--dw,1080) * var(--ar,1.777778) * 1px);border:0;background:#0d0d16}
 .modal-help{padding:8px 14px;border-top:1px solid var(--border-faint);color:var(--text-faint);
   background:var(--surface);font-size:10px;line-height:1.4;text-align:center}
 .modal-help kbd{padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);
@@ -245,8 +245,8 @@ body.modal-open{overflow:hidden}
 @media(max-width:600px){.hero{min-width:0}
   .telemetry{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;max-width:none;gap:6px}
   .chip{min-width:0;padding:9px 8px}.grid{width:100%;grid-template-columns:minmax(0,1fr);justify-items:stretch}
-  .card{width:100%;min-width:0;padding:12px}.preview-frame{width:322px;max-width:100%;height:572px}
-  .clip{width:320px;max-width:100%;height:570px}.clip iframe{transform:scale(.296296)}
+  .card{width:100%;min-width:0;padding:12px}.preview-frame{width:322px;max-width:100%;height:calc(320px * var(--ar,1.777778) + 2px)}
+  .clip{width:320px;max-width:100%;height:calc(320px * var(--ar,1.777778))}.clip iframe{transform:scale(calc(320 / var(--dw,1080)))}
   .title b{max-width:190px}.dock{bottom:8px}.approve-selected,.approve-all{padding:0 10px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.card{opacity:1;transform:none}}
 </style>
@@ -278,7 +278,7 @@ body.modal-open{overflow:hidden}
 <div id="previewModal" class="preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalScreenTitle">
   <div class="modal-backdrop" data-close-modal></div>
   <div class="modal-panel">
-    <div class="modal-bar"><span class="modal-emblem">⌖</span><div class="modal-title"><small>Full-size visual contract</small><b id="modalScreenTitle"></b></div><span class="modal-size">1080 × 1920</span><button id="modalClose" class="modal-close" aria-label="Đóng preview">×</button></div>
+    <div class="modal-bar"><span class="modal-emblem">⌖</span><div class="modal-title"><small>Full-size visual contract</small><b id="modalScreenTitle"></b></div><span class="modal-size" id="modalSize">1080 × 2400</span><button id="modalClose" class="modal-close" aria-label="Đóng preview">×</button></div>
     <div class="modal-viewport"><div class="modal-canvas"><iframe id="modalFrame" title="Full-size UI preview"></iframe></div></div>
     <div class="modal-help">Scroll để inspect toàn bộ mockup · <kbd>ESC</kbd> để đóng</div>
   </div>
@@ -395,9 +395,10 @@ async function approve(rows){
   setTimeout(()=>location.reload(),3000);
 }
 const modal=document.getElementById('previewModal'),modalFrame=document.getElementById('modalFrame'),modalTitle=document.getElementById('modalScreenTitle');
-function openPreview(s){modalTitle.textContent=`${s.feature} / ${s.screen}`;modalFrame.src=`${s.preview}?h=${s.specHash}`;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.classList.add('modal-open');document.getElementById('modalClose').focus()}
+function openPreview(s){const r=res(s);modal.style.setProperty('--ar',String(r[1]/r[0]));modal.style.setProperty('--dw',String(r[0]));document.getElementById('modalSize').textContent=`${r[0]} × ${r[1]}`;modalTitle.textContent=`${s.feature} / ${s.screen}`;modalFrame.src=`${s.preview}?h=${s.specHash}`;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.classList.add('modal-open');document.getElementById('modalClose').focus()}
 function closePreview(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');setTimeout(()=>{if(!modal.classList.contains('open'))modalFrame.src='about:blank'},320)}
-function card(s,i){return `<article class="card" data-i="${i}" style="--i:${i}"><header class="card-head"><span class="hex">${String(i+1).padStart(2,'0')}</span><div class="title"><small>${esc(s.feature)}</small><b title="${esc(s.screen)}">${esc(s.screen)}</b></div><span class="state">Chờ xử lý</span></header><label class="pick-wrap" title="Chọn màn hình"><input class="pick" type="checkbox"></label><div class="preview-frame" role="button" tabindex="0" aria-label="Xem full-size ${esc(s.screen)}"><span class="inspect-hint">⌕ Xem full size</span><div class="clip"><iframe src="${esc(s.preview)}?h=${esc(s.specHash)}"></iframe></div></div><div class="meta"><div class="links"><span class="inspect-copy">⌕ Click preview để inspect</span><span class="hash">${esc(s.specHash.slice(0,8))}</span></div>${decideBlock(s,i)}<div class="edit-box"><textarea maxlength="2000" placeholder="Ghi chú thêm ngoài các mục trên (layout, màu sắc, hierarchy...)"></textarea></div><div class="actions"><button class="approve-one">✓ Duyệt</button><button class="request-edit">✦ Regenerate</button></div><div class="regen-panel"><div class="regen-spin"></div><div class="regen-info"><b class="regen-timer">00:00</b><small class="regen-phase">Đang khởi động agent…</small><code class="regen-log"></code></div><button class="regen-cancel">✕ Huỷ</button></div></div></article>`}
+function res(s){const r=s.resolution;return Array.isArray(r)&&r.length===2&&r[0]>0&&r[1]>0?r:[1080,1920]}
+function card(s,i){return `<article class="card" data-i="${i}" style="--i:${i}"><header class="card-head"><span class="hex">${String(i+1).padStart(2,'0')}</span><div class="title"><small>${esc(s.feature)}</small><b title="${esc(s.screen)}">${esc(s.screen)}</b></div><span class="state">Chờ xử lý</span></header><label class="pick-wrap" title="Chọn màn hình"><input class="pick" type="checkbox"></label><div class="preview-frame" style="--ar:${res(s)[1]/res(s)[0]};--dw:${res(s)[0]}" role="button" tabindex="0" aria-label="Xem full-size ${esc(s.screen)}"><span class="inspect-hint">⌕ Xem full size</span><div class="clip"><iframe src="${esc(s.preview)}?h=${esc(s.specHash)}"></iframe></div></div><div class="meta"><div class="links"><span class="inspect-copy">⌕ Click preview để inspect</span><span class="hash">${esc(s.specHash.slice(0,8))}</span></div>${decideBlock(s,i)}<div class="edit-box"><textarea maxlength="2000" placeholder="Ghi chú thêm ngoài các mục trên (layout, màu sắc, hierarchy...)"></textarea></div><div class="actions"><button class="approve-one">✓ Duyệt</button><button class="request-edit">✦ Regenerate</button></div><div class="regen-panel"><div class="regen-spin"></div><div class="regen-info"><b class="regen-timer">00:00</b><small class="regen-phase">Đang khởi động agent…</small><code class="regen-log"></code></div><button class="regen-cancel">✕ Huỷ</button></div></div></article>`}
 function render(){const grid=document.getElementById('grid');grid.innerHTML=SCREENS.length?SCREENS.map(card).join(''):'<div class="empty"><span class="victory">✨ Tất cả đã duyệt</span>Không còn màn nào cần bạn xử lý — mockup mới sẽ tự được duyệt sau khi draft.</div>';document.getElementById('count').textContent=`${SCREENS.length} màn cần bạn xử lý`;document.getElementById('topCount').textContent=`${SCREENS.length} MÀN`;document.querySelectorAll('.preview-frame').forEach(p=>{const open=()=>openPreview(SCREENS[+p.closest('.card').dataset.i]);p.onclick=open;p.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}}});document.querySelectorAll('.approve-one').forEach(b=>b.onclick=()=>approve([SCREENS[+b.closest('.card').dataset.i]]));document.querySelectorAll('.request-edit').forEach(b=>b.onclick=()=>{const c=b.closest('.card'),s=SCREENS[+c.dataset.i],input=collectInput(c,s);if(!input.aiText&&!input.decisions.length)return toast('Hãy chọn phương án cho ít nhất một mục (hoặc nhập ghi chú).');if(input.decisions.length)applyDecisions(s,input.decisions,input.aiText);else regenerate(s,input.aiText,c)});
   document.querySelectorAll('.auto-resolve').forEach(b=>b.onclick=()=>{const c=b.closest('.card'),s=SCREENS[+c.dataset.i];regenerate(s,AUTO_RESOLVE_TEXT,c)});
   document.querySelectorAll('.regen-cancel').forEach(b=>b.onclick=()=>{const c=b.closest('.card');cancelRegen(SCREENS[+c.dataset.i],c)});

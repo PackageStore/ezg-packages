@@ -49,7 +49,7 @@ Unity projects do not have equivalents to `npm run dev` + `curl` + browser scree
 
 **Exception — `/new-ui`-backed tasks:** if the task's `**Backed by workflow:**` line is `/new-ui` (or the `/new-package` UI branch), visual/structural correctness of the prefab (layout, containment, missing references, localize) was already independently checked per-phase by `ui-visual-reviewer` during implementation (see `.claude/docs/new-ui-guide.md` §3). Do not re-flag those as `unverifiable` — instead check that the phase checkpoints actually ran and returned `pass` (evidence in the implementer's notes); if they were skipped, that itself is an `unmet` criterion.
 
-1. Read the task spec — extract each item in the "Completion Criteria" (especially the tags `[PATTERN]`, `[UI]`, `[TIME]`, `[SAVE]`, `[ASYNC]`, `[LOCALIZE]`, `[EVENT]`, `[DOTWEEN]`, `[CONSOLE]`, `[DOUBLE-SUBMIT]`, `[LOADING/COOLDOWN]`, `[BOUNDARY]`, `[PERSIST-RESTART]`, `[MOBILE-PERF]`, `[BACKEND-SECURITY]`, `[CSV-CONFIG]`).
+1. Read the task spec — extract each item in the "Completion Criteria" (especially the tags `[PATTERN]`, `[UI]`, `[TIME]`, `[SAVE]`, `[ASYNC]`, `[LOCALIZE]`, `[EVENT]`, `[DOTWEEN]`, `[CONSOLE]`, `[DOUBLE-SUBMIT]`, `[LOADING/COOLDOWN]`, `[BOUNDARY]`, `[PERSIST-RESTART]`, `[MOBILE-PERF]`, `[BACKEND-SECURITY]`, `[CSV-CONFIG]`, `[POLISH]`).
 2. Read the staged diff + modified files.
 3. For each criterion, find evidence in the code that the criterion has been addressed (grep keywords, read the corresponding method, trace flow).
 4. If a criterion mentions a specific file/method, verify that the file/method actually exists and the logic matches.
@@ -81,6 +81,7 @@ For each type of criterion, here is how to perform the static check. The **Prima
 | `[BACKEND-SECURITY]` Write via Cloudflare Worker | **Grep** (literal client-write pattern) | Grep for client-side `supabase.from(...).insert\|update\|delete\|upsert` — flag as FAIL |
 | `[CSV-CONFIG]` Balance number in CSV | **Grep** (literal numbers) | Grep hardcoded numbers in gameplay/balance code — flag if the task has this tag |
 | `[CHEAT]` Dev cheat shipped | `codegraph_explore` on the changed Controller/Manager + **Grep** on the prefab | Two halves, BOTH required when the task lists cheat buttons: (1) code — `public Cheat_*` inside a `#region Cheats` on the Controller, each ending in a UI refresh, plus any `Cheat_*` manager mutations that save/emit like the real flow; (2) prefab — `grep -n "m_MethodName" <Feature>.prefab` lists every cheat method, and each button is a `ButtonNormal` instance under `CheatMenu/Menu`. Method present but no button (or vice versa) = `unmet`, not `met`. Verify each button's `m_MethodName` resolves to a real `public` method (`codegraph_search`) — a typo'd name fails silently at runtime. Cheat labels must have NO `LocalizesUI` (documented exception). If the task was implemented headless (no Editor), the prefab half is `unverifiable` — say so and put it in `manual_verify_steps`, never mark it `met`. |
+| `[POLISH]` PolishRules rows (`P<id>`) listed in the criterion | `codegraph_explore` on the touched screens / handlers + **Grep** on prefabs | Check each listed ID per `.claude/docs/PolishRules.md` (checklist at its end). Code-checkable rows (P08 grant before animation, P18 locked path costs nothing, P19 insufficient-resource state refreshes, P21 close logic in `CloseMe` so Android Back runs it, P22 confirmation, P27 number format, P28 language refresh, P29 re-entrancy guard, P36 Settings toggles) → `met` / `unmet` with file:line. Visual rows (P04, P06, P09, P15–P17, P23, P24, P26) → judged from the `UI REVIEW` block of your prompt (the `ui-visual-reviewer` verdicts): `pass` there → `met`, `fail` → `unmet`; no `UI REVIEW` block or the row is absent from it → `unverifiable` + a manual step (never `unmet` for lack of evidence you were not given). Rows the Phase D verdict lists as "Phase C" are judged from the Phase C verdict. Feel / device / ear rows (P07, P12, P13, P31, P37) → `unverifiable` + a concrete step in `manual_verify_steps` (which screen, which tap, what to look / listen for). |
 | `[VERIFY]` Manual steps completed | N/A | This is a criterion the user will run, cannot be verified statically. Output manual steps in evidence for the user to run. |
 
 ## How to read task spec
@@ -131,7 +132,7 @@ Return EXACTLY one JSON object as your final message. No prose around it.
 
 - **`pass`** — all criteria are `met` or `unverifiable` (user verifiable) or `not-applicable`. No `unmet` items.
 - **`warn`** — has `unmet` items in `minor` criteria (e.g. missing XML doc, naming nit). Core implementation functions.
-- **`fail`** — has at least 1 `unmet` item in a FUNCTIONAL criterion or a critical tag (`[SAVE]`, `[BACKEND-SECURITY]`, `[BOUNDARY]`, `[DOUBLE-SUBMIT]`, `[PATTERN]`, `[TIME]`, `[ASYNC]`). The orchestrator will auto-fix loop.
+- **`fail`** — has at least 1 `unmet` item in a FUNCTIONAL criterion or a critical tag (`[SAVE]`, `[BACKEND-SECURITY]`, `[BOUNDARY]`, `[DOUBLE-SUBMIT]`, `[PATTERN]`, `[TIME]`, `[ASYNC]`), or an `unmet` `[POLISH]` row whose PolishRules level is `block`. The orchestrator will auto-fix loop. An `unmet` `[POLISH]` row of level `warn` → `warn`.
 
 ## Manual verify steps output
 
@@ -142,6 +143,7 @@ The `manual_verify_steps` array is a lifesaver when automated verification is no
 - Has at least one edge case step
 - Has at least one regression check step on a related feature
 - The final step (if the task touches Editor code/asset) suggests building an Android APK to test on a device
+- Player-facing tasks add the polish feel steps the code cannot prove (PolishRules `human` / feel rows): tap every new button and confirm it gives visual + sound feedback, switch language with the screen open, press Android Back, tap outside a popup, try the locked / not-enough-currency path
 
 If the task spec already has a section "Bước verify bắt buộc sau khi loop dừng (manual)" (Required manual verification steps after loop stops), copy those steps exactly (paraphrase slightly if needed for clarity). Do NOT skip any step.
 

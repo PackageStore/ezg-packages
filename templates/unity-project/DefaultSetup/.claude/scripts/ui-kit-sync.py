@@ -11,7 +11,7 @@ read Unity's `!u!` tags) and writes to .claude/ui-kit/:
                     template references.
   ui-kit.css        one `.tpl-<Name>` class per template carrying the real
                     dimensions + colors, plus the shared wireframe base
-                    (.stage 1080x1920, .tpl, .col/.row flex helpers) that
+                    (.stage at the design resolution, .tpl, .col/.row flex helpers) that
                     /ui-mockup drafts inline into each mockup HTML.
   kit-preview.html  gallery rendered from prefab hierarchy and linked assets,
                     including sliced sprites and layout-driven roots.
@@ -55,6 +55,11 @@ from pathlib import Path
 
 # Running as a script puts this directory on sys.path, so the plain import works.
 from project_profile import profile
+try:
+    from ui_spec_common import design_resolution
+except ImportError:  # ui_spec_common.py cũ hơn script này (cập nhật lẻ qua Feature Hub) → hành vi cũ
+    def design_resolution():
+        return [1080, 1920]
 
 ROOT = Path(__file__).resolve().parents[2]
 # Where the screen templates live differs per project, so it comes from the
@@ -64,7 +69,9 @@ TEMPLATES_REL = profile().ui_templates_root
 TEMPLATES_DIR = ROOT / TEMPLATES_REL
 PREFABS_ROOT = TEMPLATES_DIR.parent
 OUT_DIR = ROOT / ".claude" / "ui-kit"
-DESIGN_W, DESIGN_H = 1080, 1920
+# Canvas thiết kế của project (profile designResolution → CanvasScaler của screen_template →
+# 1080×2400). Stage của mockup, cỡ template stretch và gallery đều theo số này.
+DESIGN_W, DESIGN_H = design_resolution()
 MAX_VARIANT_DEPTH = 5
 
 # Hand-maintained composition contract, kept as DATA next to the kit rather than
@@ -490,6 +497,9 @@ def extract(prefab: Path, guid_paths: dict):
            "_rootRT": root_id}
     if stretch_w or stretch_h:
         rec["stretch"] = True
+        # Trục nào kéo theo canvas: CSS tính trục đó theo --design-w/--design-h của stage, nên spec
+        # cũ 1080×1920 render lại vẫn đúng dù kit sinh ở design resolution khác.
+        rec["stretchAxes"] = [bool(stretch_w), bool(stretch_h)]
     if bg:
         rec["backgroundRGBA"] = bg
     if root["pivot"] and root["pivot"] != [0.5, 0.5]:
@@ -854,7 +864,7 @@ def build_css(kit):
         "   into each mockup HTML (self-contained contract, survives moves). */",
         "*{box-sizing:border-box;margin:0;padding:0}",
         "body{background:#0d0d16;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif}",
-        f".stage{{position:relative;width:{DESIGN_W}px;height:{DESIGN_H}px;overflow:hidden;"
+        f".stage{{position:relative;width:var(--design-w,{DESIGN_W}px);height:var(--design-h,{DESIGN_H}px);overflow:hidden;"
         "background:#151527;color:#fff}",
         ".col{display:flex;flex-direction:column}",
         ".row{display:flex;flex-direction:row}",
@@ -870,12 +880,22 @@ def build_css(kit):
         if w == 0 and h == 0:
             # Screen-root templates (FeatureTemplate/PackageTemplate) are sized
             # by UIManager at runtime — in a mockup the .stage plays that role.
-            props = [f"width:{DESIGN_W}px", f"height:{DESIGN_H}px"]
+            props = [f"width:var(--design-w,{DESIGN_W}px)", f"height:var(--design-h,{DESIGN_H}px)"]
         else:
             # A single zero axis = layout-driven (LayoutGroup sizes it at
             # runtime) — let content size it in the mockup instead of 0px.
-            props = [(f"width:{w}px" if w else "width:auto;min-width:60px"),
-                     (f"height:{h}px" if h else "height:auto;min-height:60px")]
+            # A stretched axis follows the stage (renderer sets --design-w/-h per spec).
+            axes = rec.get("stretchAxes") or [False, False]
+
+            def axis(prop, value, design, var, stretched):
+                if not value:
+                    return f"{prop}:auto;min-{prop}:60px"
+                if stretched:
+                    return f"{prop}:calc(var({var},{design}px) * {value / design:.6f})"
+                return f"{prop}:{value}px"
+
+            props = [axis("width", w, DESIGN_W, "--design-w", axes[0]),
+                     axis("height", h, DESIGN_H, "--design-h", axes[1])]
         props.append(f"background:{rec['background'] or 'rgba(255,255,255,0.08)'}")
         fs = next((t["fontSize"] for t in rec["texts"] if t["fontSize"]), None)
         if fs:
@@ -908,7 +928,8 @@ def build_preview(kit):
     template = (OUT_DIR / "kit-preview.template.html").read_text(encoding="utf-8")
     return (template.replace("__COUNT__", str(len(kit)))
             .replace("__CARDS__", "".join(cards))
-            .replace("__KIT__", payload))
+            .replace("__KIT__", payload)
+            .replace("/*__DESIGN__*/[1080, 2400]", f"[{DESIGN_W}, {DESIGN_H}]"))
 
 
 def check():

@@ -543,7 +543,7 @@
       <rect class="sv-node sv-sys" x="540" y="546" width="440" height="98" rx="10"/>
       <text class="sv-tsys" x="556" y="569">Task UI → mockup tự động</text>
       <text class="sv-sub" x="556" y="588">drafter vẽ wireframe từ UI-kit → auto-approve</text>
-      <text class="sv-sub" x="556" y="605">freeze PNG 1080×1920 + spec JSON nhúng sẵn cho /new-ui</text>
+      <text class="sv-sub" x="556" y="605">freeze PNG 1080×2400 + spec JSON nhúng sẵn cho /new-ui</text>
       <text class="sv-sub" x="556" y="622">screen còn câu hỏi cấm-bịa → PENDING — chặn promote</text>
       <path class="sv-flow" d="M270 644 V672" marker-end="url(#mA)"/>
 
@@ -612,7 +612,7 @@
         <ul>
           <li>N task dùng <b>MỘT timestamp chung</b> + số thứ tự <code>NN</code> theo topo dependency — thứ tự promote chính là thứ tự thực thi.</li>
           <li>Mỗi task mang <code>**Context docs:**</code> (trỏ TechSpec — số liệu economy/CSV lấy nguyên văn, cấm bịa), <code>**Depends on:**</code>, và <code>**Requires:** unity-editor</code> cho task UI.</li>
-          <li>Task UI sinh kèm <b>mockup tự động</b>: drafter vẽ wireframe từ UI-kit → auto-approve thành PNG 1080×1920 + spec JSON nhúng. Screen còn câu hỏi cấm-bịa ở lại <code>PENDING-APPROVAL</code> và bị chặn promote.</li>
+          <li>Task UI sinh kèm <b>mockup tự động</b>: drafter vẽ wireframe từ UI-kit → auto-approve thành PNG 1080×2400 (designResolution) + spec JSON nhúng; validator chặn lỗi polish đo được. Screen còn câu hỏi cấm-bịa ở lại <code>PENDING-APPROVAL</code> và bị chặn promote.</li>
           <li>Pipeline chỉ dừng hỏi dev đúng <b>4 nhóm cấm-bịa</b>: economy/reward · save-migration · backend/IAP/security · UX flow cốt lõi. Còn lại tự quyết.</li>
         </ul>
       </div>

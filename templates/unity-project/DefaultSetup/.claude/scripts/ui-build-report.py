@@ -13,6 +13,13 @@ from pathlib import Path
 
 from ui_spec_common import ROOT, UISpecError, canonical_json, kit_hash, load_spec, spec_hash, validate_spec
 
+try:
+    from ui_spec_common import spec_resolution
+except ImportError:  # ui_spec_common.py cũ hơn script này (cập nhật lẻ qua Feature Hub) → hành vi cũ 1080×1920
+    def spec_resolution(spec):
+        value = spec.get("designResolution") if isinstance(spec, dict) else None
+        return list(value) if isinstance(value, list) and len(value) == 2 else [1080, 1920]
+
 
 def png_size(path: Path) -> list[int]:
     data = path.read_bytes()[:24]
@@ -53,8 +60,9 @@ def validate_report(report: dict, report_path: Path | None = None) -> dict:
             errors.append("specHash does not match current spec")
         if report.get("kitHash") != kit_hash():
             errors.append("kitHash does not match current UI kit")
-        if png_size(resolved(report["unityScreenshot"])) != [1080, 1920]:
-            errors.append("unityScreenshot must be 1080x1920")
+        expected = spec_resolution(spec)
+        if png_size(resolved(report["unityScreenshot"])) != expected:
+            errors.append(f"unityScreenshot must be {expected[0]}x{expected[1]} (the spec designResolution)")
         diff = json.loads(resolved(report["visualDiff"]).read_text(encoding="utf-8"))
         if not diff.get("ok"):
             errors.append("visualDiff must be ok")
@@ -87,8 +95,12 @@ def create(args) -> int:
         validation = validate_spec(spec, mode="build")
         if not validation["ok"]:
             raise UISpecError(json.dumps(validation, ensure_ascii=False))
-        if png_size(args.screenshot) != [1080, 1920]:
-            raise UISpecError("Unity screenshot must be 1080x1920")
+        expected = spec_resolution(spec)
+        if png_size(args.screenshot) != expected:
+            raise UISpecError(
+                f"Unity screenshot must be {expected[0]}x{expected[1]} (the spec designResolution) — pin the "
+                "Game view to that size before capturing"
+            )
         if not args.prefab.exists():
             raise UISpecError(f"prefab does not exist: {args.prefab}")
         def portable(path: Path) -> str:

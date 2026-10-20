@@ -27,7 +27,8 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
        `FeatureName | groundTruth=PENDING-MOCKUP`                 no draft yet (drafter failed/skipped)
        `FeatureName | groundTruth=clone:<ExistingPrefab>`         clones an existing layout, no mockup
      backlog-ops promote warns (mockup_warnings) while the value is still PENDING-*.
-     Optional trailing ` | polish=off` skips the designer pass (Phase D — .claude/docs/ui-designer-pass.md)
+     Optional trailing ` | polish=off` skips the designer pass only (Phase D — .claude/docs/ui-designer-pass.md;
+     the PolishRules checklist / [POLISH] criterion still apply)
      for a dev-only / throwaway screen; leave it out for anything a player sees (default = on). -->
 
 **Context docs:** `TechSpec/<Name>-Implementation.md`, `TechSpec/<Name>-TechSpec.md`
@@ -53,12 +54,13 @@ Filename: `backlog/todo/NNN-TIER-short-slug.md`
 - <anything the workflow does NOT generate that this task still needs, e.g. "wire the new skill into evolution pool X", "balance value Y in CSV", "extra event Z">
 - <CHEAT (/new-feature, /new-package, /new-ui): list each cheat as `name · label · method`, e.g. `NextDay · "+1 day" · Cheat_NextDay`. A cheat list here is still a PURE scaffold task — it is a dev affordance on the scaffold's own prefab/controller, not cross-system logic. Pattern: .claude/skills/feature-cheat/SKILL.md>
 
-**Guardrails:** <tags per `.claude/backlog-templates/_GUARDRAILS.md`. `/new-feature`, `/new-package`, `/new-ui` tasks MUST resolve `[CHEAT]` one way or the other — either the tag is here with the cheat list above, or `**Guardrails skipped:** cheat (<reason ≥10 chars>)`. Omit this line entirely for scaffolds with no applicable tag (`/new-class`).>
+**Guardrails:** <tags per `.claude/backlog-templates/_GUARDRAILS.md`. `/new-feature`, `/new-package`, `/new-ui` tasks MUST resolve `[CHEAT]` one way or the other — either the tag is here with the cheat list above, or `**Guardrails skipped:** cheat (<reason ≥10 chars>)`. Same for `[POLISH]` on any player-facing screen (planning-task STEP 2 item 3c) — or `**Guardrails skipped:** polish (<reason>)` for a dev-only screen. Omit this line entirely for scaffolds with no applicable tag (`/new-class`).>
 
 **Completion criteria** (lift the workflow's own checklist, then append delta criteria):
 - [ ] Workflow checklist fully satisfied | Verify: run through the workflow's "CHECKLIST" / "FINAL CHECKLIST" section item by item
 - [ ] <delta criterion 1, if any> | Verify: ...
 - [ ] [CHEAT] (when the tag applies) each listed cheat button sits under `CheatMenu/Menu` and is wired to its `Cheat_*` method | Verify: Play Mode, open the feature, tap each cheat button, confirm the state changes with no Console error
+- [ ] [POLISH] (player-facing screen) PolishRules `<P-ids>` pass | Verify: open the screen, tap every control incl. locked / not-enough paths, press Android Back, tap outside, switch language
 - [ ] Compiles in Unity (no CS#### errors) | Verify: open Unity Editor, check Console
 - [ ] [CONSOLE] Unity Console has no new red errors or yellow warnings | Verify: Play the relevant scene end-to-end
 

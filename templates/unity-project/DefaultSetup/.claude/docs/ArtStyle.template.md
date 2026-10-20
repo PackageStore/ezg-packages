@@ -26,6 +26,10 @@ hướng đã bị loại. Mọi skill/agent ra quyết định hình ảnh (`re
 **Thứ tự ưu tiên khi mâu thuẫn:** lời dev trong task → art của hoạ sĩ giao cho đúng màn đó (PSD/Figma)
 → file này → màn mẫu đã duyệt (§8) → suy luận của agent (chỉ cho chỗ file này chưa nói, và phải ghi lại).
 
+Luật thao tác / trải nghiệm dùng chung mọi game (cỡ chữ tối thiểu, vùng chạm, một CTA chính, feedback, khoá input…)
+nằm ở `.claude/docs/PolishRules.md` (rule `game-polish`) — không chép vào đây. Số ghi ở file này (§5 chữ, §7 motion)
+thắng số mặc định của PolishRules; nguyên tắc của PolishRules thì không bỏ.
+
 ## 1. Bản sắc
 
 - **Thể loại / bối cảnh:** <vd: idle tycoon nông trại, casual, mọi lứa tuổi>
@@ -80,7 +84,8 @@ Skill visual `Read` các board này trước khi chọn sprite/màu.
 
 ## 4. Bố cục
 
-- **Canvas / tỷ lệ:** <độ phân giải thiết kế, CanvasScaler, safe area>
+- **Canvas / tỷ lệ:** <độ phân giải thiết kế, CanvasScaler, safe area — chuẩn EZG 1080×2400 dọc, Expand; số khác thì
+  khai cả `designResolution` trong `.claude/project-profile.json`>
 - **Màn full-screen:** <header ở đâu, nút back/X ở đâu, chừa chỗ cho thanh tiền tệ không>
 - **Popup thường:** <khung, tiêu đề, X, nút CTA>
 - **Popup offer / IAP:** <họ khung riêng nếu có>
@@ -222,7 +227,9 @@ Không lặp lại. Thêm dòng mỗi khi dev chê một hướng — đây là 
 
 Checklist mà builder tự chấm và `ui-visual-reviewer` chấm lại trên ảnh **tự chụp**. Mỗi dòng là câu
 có/không kiểm được trên ảnh hoặc prefab, trỏ về mục chứa giá trị. Dòng mức `block` sai = verdict block.
-Thêm dòng khi dev chê một lỗi mà checklist chưa bắt được.
+Thêm dòng khi dev chê một lỗi mà checklist chưa bắt được. Chỉ tiêu chí **riêng của game** (bản sắc) ở đây —
+luật dùng chung (chữ ≥ 32, vùng chạm ≥ 128, một CTA chính, trạng thái khoá có lý do…) đã ở checklist PolishRules,
+được chấm riêng (`polish_gate.md`, `polish_checks`).
 
 | # | Câu hỏi | Mục | Mức |
 |---|---|---|---|

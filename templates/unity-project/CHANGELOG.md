@@ -4,6 +4,42 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-20
+
+**Added** — Polish là tiêu chí "xong" của mọi task (task tay lẫn `/run-backlog`), thay vì một lượt `/refactor-ui` sau
+- `docs/PolishRules.md`: luật polish dùng chung (Part I core + module M1 combat / M2 tiers / M3 procgen / M4 gacha),
+  checklist ID `P01–P40` mức `block` / `warn` / `human` + gate nào chấm dòng nào. Bản Việt hoá của bộ "Game Polish
+  Rules", đã chỉnh cho khớp base: tham chiếu "hit game" → chuẩn thể loại tả trung tính (`no-external-game-refs`);
+  "chưa duyệt không push" → push được, màn mới vào ArtStyle `screens/pending/` chờ dev duyệt; "đưa 2–3 phương án" chỉ
+  khi đổi art direction; dòng cần máy thật / tai người là `human`, agent không tự pass; ghi rõ những gì framework đã lo
+  sẵn (Back Android → `CloseMe`, `ClickBackgroundToExit`, khoá touch khi mở, `Utils.MoneyConvert`, `AdsController`).
+- `rules/game-polish.md` (luôn nạp, ngắn): đọc đúng mục trước khi quyết, thứ tự ưu tiên dev → ArtStyle → PolishRules,
+  tự chấm checklist trước khi báo xong. `rules/art-style.md` mục 7 thêm ngoại lệ cho số mặc định của PolishRules.
+- Gate, theo thứ tự: **validator ui-spec** chặn lỗi đo được ngay ở mockup (`polish_font_size` < 30, `polish_touch_target`
+  < 128 không `hitArea`, `polish_multiple_primary`, `polish_button_pair_stacked`; cảnh báo lưới 8 px, chiều cao CTA,
+  chỗ cho bản dịch, thiếu `role`) — draft/approve chặn, build chỉ cảnh báo, `project-profile.json` → `polish.specGate`
+  để hạ xuống `warn`/`off`; spec có field mới `role` / `interactive` / `hitArea` · **build**: `new-ui-guide` (spec-sheet +
+  hard checklist), Phase D (`polish_gate.md`, feedback plan), `refactor-ui` (brief + Polish gate) · **review**:
+  `ui-visual-reviewer` (`polish_checks`), `code-reviewer` (mục Polish: grant trước animation, chống bấm đúp, nút khoá
+  không tốn, Back qua `CloseMe`, format số…), `performance-reviewer` (chi phí lần đầu, giới hạn đồng thời),
+  `qa-verifier` (tag `[POLISH]`) · **planning**: `task-planner` (`polish_rows`), `planning-task`, `_GUARDRAILS` +
+  template task (tag `[POLISH]`), `mockup-drafter`. Skill VFX / SFX / animation / ui-motion / auto-test-device / gen-icon
+  trỏ đúng mục của mình.
+
+**Changed** — Canvas thiết kế chuẩn **1080×2400** cho cả pipeline mockup (khớp CanvasScaler của `screen_template`, trước
+đây mockup vẽ 1080×1920 trong khi canvas thật là 1080×2400). `designResolution` lấy theo: profile → CanvasScaler của
+`screen_template` → 1080×2400. Renderer, PNG đóng băng, dashboard duyệt, visual diff, build report, kit-sync, playbook
+pin Game view đều theo `designResolution` của từng spec. Spec 1080×1920 đã duyệt vẫn hợp lệ (chỉ cảnh báo
+`resolution_legacy`), task đang dở không bị chặn. In giá trị: `python3 .claude/scripts/ui_spec_common.py design-resolution`.
+
+**Fixed** — Validator ui-spec báo `kit_stale` cho MỌI spec v1 khi template nằm trong thư mục con (đúng layout template
+EZG): `kit_source_hash` quét phẳng trong khi `ui-kit-sync.py` quét đệ quy. Giờ cùng quét đệ quy.
+**Fixed** — `ui-review.py auto-approve` tự render lại cả khi renderer báo `rendered HTML is stale` (kit/renderer vừa đổi),
+không còn để màn kẹt `PENDING-APPROVAL`; `mockup-drafter` cũng trả `recovered` thay vì `error` trong trường hợp đó.
+**Note** — Script pipeline mockup là item lẻ trên Feature Hub: cập nhật cả nhóm cùng lúc (mô tả item đã ghi), rồi chạy lại
+`ui-kit-sync.py`. Cài lẻ an toàn cả hai chiều: thiếu bản mới ở bất kỳ script nào thì cả pipeline giữ 1080×1920 như cũ.
+Kit CSS tính trục kéo giãn theo `--design-w/--design-h` của stage, nên spec cũ 1080×1920 render lại vẫn đúng.
+
 ## 2026-10-19
 
 **Fixed** — Popup "Recovering Scene Backups" không bao giờ hiện (= luôn "No")

@@ -24,6 +24,10 @@ hay chấm visual — và khi sinh SFX (§6c).
    "chấm từng dòng §11", "block khi…"). Cần chỗ chứa mới → thêm mục/slot **trống** vào
    `ArtStyle.template.md`, điền giá trị ở `ArtStyle.md` của project. Lý do: các file đó được đẩy sang mọi
    project; giá trị style viết cứng sẽ lan sang game khác.
+   **Ngoại lệ duy nhất:** `.claude/docs/PolishRules.md` (rule `game-polish`) được mang **số mặc định dùng
+   chung** về thao tác / trải nghiệm (vùng chạm, sàn cỡ chữ, lưới, khoá input, nhịp feedback, ngân sách
+   hiệu năng). Đó là chuẩn chung của mọi game, không phải bản sắc; ArtStyle.md vẫn thắng khi nó ghi số
+   khác (§5 chữ, §7 motion), và giá trị motion lấy từ PolishRules khi §7 trống thì ghi lại vào §7.
 
 **Lý do:** không có nguồn chuẩn thì mỗi lần rework agent tự chế palette/concept, và màn lệch lại thành
 mẫu cho màn sau — có màn đã phải làm lại 3–4 lần vì lệch style.

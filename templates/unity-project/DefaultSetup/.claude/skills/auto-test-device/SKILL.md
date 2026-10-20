@@ -253,7 +253,9 @@ Do not touch the device before you know what "correct" looks like. Read in this 
    (`qa.liveness.deadFeaturePatterns`/`forceDead`, not in `observed`, autotest reports `Feature.Dead`) → do not test it,
    do not log bugs for dead screens.
 6. **Visual reference:** `.claude/docs/ArtStyle.md` (if present) + approved mockups/screenshots — to know which screens are
-   "on style".
+   "on style". **Polish oracle:** `.claude/docs/PolishRules.md` — its "Lỗi hay gặp nhất" list and checklist IDs are expected
+   behaviour to test against (silent button, locked with no reason / that still costs, Back or tap-outside not closing,
+   overflowing text, `+0` / negative numbers, popup stacking, first-open hitch); cite the `P<id>` in the bug.
 7. **Past bugs** of the feature (STEP 0d) + autotest errors (0f) — failure-prone areas, do not log them again.
 
 Write the charter with the `charter.template.md` skeleton: goal, entry path, state/conditions, **oracles** (a table of

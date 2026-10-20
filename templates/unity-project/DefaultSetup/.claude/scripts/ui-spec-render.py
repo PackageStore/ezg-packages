@@ -20,6 +20,13 @@ from ui_spec_common import (
     validate_spec,
 )
 
+try:
+    from ui_spec_common import spec_resolution
+except ImportError:  # ui_spec_common.py cũ hơn script này (cập nhật lẻ qua Feature Hub) → hành vi cũ 1080×1920
+    def spec_resolution(spec):
+        value = spec.get("designResolution") if isinstance(spec, dict) else None
+        return list(value) if isinstance(value, list) and len(value) == 2 else [1080, 1920]
+
 
 STYLE_MAP = {
     "background": "background",
@@ -217,11 +224,14 @@ def render(spec: dict) -> str:
 
     title = f"{spec['screen']} — {spec['feature']}"
     spec_json = canonical_json(spec).rstrip()
+    # Stage theo designResolution của CHÍNH spec (1080×2400 chuẩn mới, 1080×1920 spec cũ) — CSS .stage
+    # của kit chỉ là mặc định; PNG đóng băng và Unity screenshot phải cùng kích thước này.
+    stage_w, stage_h = spec_resolution(spec)
     return f"""<!doctype html>
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1080,initial-scale=1">
+<meta name="viewport" content="width={stage_w},initial-scale=1">
 <meta name="ui-spec-version" content="{spec['specVersion']}">
 <meta name="ui-spec-hash" content="{spec_hash(spec)}">
 <meta name="ui-kit-hash" content="{kit_hash()}">
@@ -268,7 +278,7 @@ body:not(.ui-tags) .ui-tag{{display:none}}
 <label><input type="checkbox" id="tglTags" checked> Template labels</label>
 <span class="ui-hint"><b class="el">■</b> element template · <b class="ct">■</b> container type·id</span>
 </div>
-<div class="stage" data-branch="{html.escape(spec['branch'])}">
+<div class="stage" data-branch="{html.escape(spec['branch'])}" style="--design-w:{stage_w}px;--design-h:{stage_h}px;width:{stage_w}px;height:{stage_h}px">
 <div class="dim"></div>
 {body}
 </div>

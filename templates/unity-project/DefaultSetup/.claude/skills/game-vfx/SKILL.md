@@ -118,6 +118,7 @@ xuất phát.
 |---|---|
 | Luôn luôn | Quy chuẩn theo mục 1: tối thiểu 2.1, 3.1, 4.4, 6.2, 7.1–7.3, 8.2, 8.4, 9.3; brief VFX của game (mục 2) |
 | Luôn luôn | ArtStyle.md §0, §6b, §9 của project nếu có; `$M config` in cấu hình đã đọc từ §6b |
+| Luôn luôn | `.claude/docs/PolishRules.md` §4 (+ M1 khi game khai `combat`) — luật polish dùng chung; quy chuẩn `game-vfx` thắng ở chỗ hai bên cùng nói, PolishRules bổ sung chỗ quy chuẩn chưa nói |
 | Luôn luôn | [reference/style-guide.md](reference/style-guide.md): hình bộ vẽ tạo ra, nhịp, điều cấm |
 | Request khớp recipe | [reference/recipes.md](reference/recipes.md) §1–§2 (map request → recipe, tham số) |
 | Dáng mới, không recipe nào khớp | recipes.md §4 + [reference/painter-api.md](reference/painter-api.md) |

@@ -28,7 +28,7 @@ Skip it and record `designer-pass: skipped (<reason>)` in the report / DONE summ
 
 | Condition | Why |
 |---|---|
-| args carry ` \| polish=off` (task `**Workflow args:**` or the `/new-ui` call) | planner/dev opted out |
+| args carry ` \| polish=off` (task `**Workflow args:**` or the `/new-ui` call) | planner/dev opted out of the designer pass only — the PolishRules checklist, the spec validator and the `[POLISH]` criterion still apply |
 | dev-only screen: cheat / admin / debug / test (feature `GameCheat`, `Admin`, or a screen name containing `Cheat`, `Debug`, `Admin`) | players never see it |
 | reusable child block, not a root screen (an item cell, a widget prefab) | it is polished where it is used |
 | running inside `/refactor-ui` (CREATE mode scaffolds via create-ui) | refactor-ui §2–§7 is the fuller designer pass and may change layout |
@@ -125,7 +125,7 @@ files). A lock pass is necessary, not sufficient — the reviewer judges the res
    session) and skip.
 3. Capture the Phase C screen at **all three** sizes into `<captures>/before-<W>x<H>.png`
    (ui-mcp-playbook §5 capture; aspect sweep as in `refactor-ui` §6), then re-pin the Game view to
-   1080×1920 (playbook §0).
+   the spec's `designResolution` (standard 1080×2400 — playbook §0).
 
 ## D3. Brief (`<captures>/../brief.md`, 10–20 lines — before any art)
 
@@ -140,6 +140,10 @@ drafter intended); the controller (which containers it fills at runtime — D1.1
   focal point.
 - **Art fills** — every empty static slot and the art it gets.
 - **Motion plan** — the four layers (D5) with values from the task, else ArtStyle §7.
+- **Feedback plan** (`.claude/docs/PolishRules.md` §6, rule `game-polish`) — every tappable thing on
+  the screen and its feedback package (visual + sound, + haptics where it fits); the juice tier of
+  each beat (ordinary light, big moments strong); claim / purchase in the hold → flash → fly rhythm
+  (values: task → ArtStyle §7 → PolishRules §6). No button may stay silent (P11).
 - **Rejected check** — compare with ArtStyle §9 and §1's "do not" list; change the plan now.
 
 ## D4. Art
@@ -195,7 +199,11 @@ Rules (binding):
   per beat; durations/eases as named constants. UniTask, never coroutines; no per-frame allocation.
 - Claim/purchase beat: `UIManager.EnableTouch(false)` during the beat, `true` in `finally`, cancel
   with the view's lifetime. Rewards are granted exactly once by the existing code path — animation
-  is never a condition for a grant.
+  is never a condition for a grant (PolishRules §3, P08).
+- Feedback (PolishRules §6, P11/P13): the press stays the button template's; the beat adds the
+  screen's sound through the project's audio service and haptics through `VibrateManager` (only for
+  big moments, honouring the Settings vibration toggle). Tiered: an ordinary claim is light, a rare
+  reward is layered. A reward that appears after a beat locks its own button ~0.5 s (§9.9).
 - Nothing a tween does at runtime may be saved into the prefab.
 
 **Compile now** (rule `compile-validation`), before any capture — captures and idle components need
@@ -221,23 +229,29 @@ More technique: `refactor-ui` §5 — except its "visual root" child pattern (re
    retake **after** (never `before`); `scope` / `revert` / `finish` exit 2 → no usable session
    (stale or unreadable): record `designer-pass: failed (<error>)` and stop Phase D — the screen
    stays as it is for the dev. Run both checks again after every later fix round.
-2. **Captures** into `<captures>/after-<W>x<H>[-<state>].png` at 1080×1920, 1080×2400 and 1536×2048,
+2. **Captures** into `<captures>/after-<W>x<H>[-<state>].png` at 1080×2400 (design), 1080×1920 and 1536×2048,
    every state the task or spec lists (at least default + main CTA state), plus one mid-animation
    frame of the enter and of the feedback beat (drive DOTween manually so callbacks run; trigger the
    beat by calling the `<Feature>Motion` method directly — never run a real claim/purchase, or
    snapshot the `PlayerDataManager` module first and restore it after). Compare each with its
-   `before-` twin: same layout, finished art. Re-pin 1080×1920 when done.
+   `before-` twin: same layout, finished art. Re-pin the design resolution when done.
 3. **Self-critique, two rounds.** "Would a senior designer call anything here amateur?" — focal point
    unmistakable; nothing covers text/CTA; text contrast unchanged or better; no white blocks, hard
    edges or stretched art; FX neither clipped nor misplaced at the other sizes; motion within
    ArtStyle §7, nothing loops outside the focal point. Fix the weakest spot, capture again.
 4. **ArtStyle gate** — every ArtStyle §11 row: pass/fail/na with evidence (node, sprite, token,
    image) into `<captures>/../artstyle_gate.md`. A failing `block` row → fix, re-capture, re-grade.
+4b. **Polish gate** — the PolishRules checklist rows this screen touches (at least P04, P09, P11,
+   P13, P15, P16, P17, P23, P26): pass/fail/na with evidence into `<captures>/../polish_gate.md`.
+   Phase D fixes and is judged only on its own rows (P09, P11, P13, and P06 on art it added). A failing
+   row Phase D may not touch (layout, text, existing nodes) belongs to Phase C, whose verdict owns it —
+   never move layout for it: note it as `polish-note: P<id> — <evidence> (Phase C)` in the session notes /
+   DONE summary for the dev, not as an unmet row.
 5. **Independent check.**
    - Autonomous: spawn `ui-visual-reviewer` with `phase: "D"` (ui-mcp-playbook §5 template):
      `groundTruth` = approved mockup PNG + ui-spec (geometry) and ArtStyle (art), `before` = the
-     `before-*.png` set, `lockReport` = the D6.1 report, `builderClaims` = brief + gate + the `scope`
-     output, sizes and states. `block` → fix → step 1 again → re-spawn; max **2 rounds**.
+     `before-*.png` set, `lockReport` = the D6.1 report, `builderClaims` = brief + both gates
+     (`artstyle_gate.md`, `polish_gate.md`) + the `scope` output, sizes and states. `block` → fix → step 1 again → re-spawn; max **2 rounds**.
    - Interactive: show the dev each `before-`/`after-` pair and wait for OK (like phases A–C); no
      reviewer spawn. The dev asks for changes → apply them within D1 and repeat D6; the dev prefers
      the flat screen → revert.
@@ -271,7 +285,8 @@ only case Phase D leaves for the normal gates.
   only by Phase D output that its fix rounds cannot clear → `revert` (plus the evidence regeneration
   above), re-run that gate on Phase C — not the block token. If the revert refuses (see above) and
   `--discard-later-edits` does not apply, the gate ends the way it normally would.
-- The new-ui-guide §5 evidence uses the **final** 1080×1920 capture as `<S>.unity.png`; keep
+- The new-ui-guide §5 evidence uses the **final** capture at the spec's `designResolution` (standard
+  1080×2400) as `<S>.unity.png`; keep
   `<S>.ui-layout-lock.json` (D6.1, `ok: true`) beside it. A reverted Phase D leaves no lock report
   (revert deletes it).
 - `ArtStyle.md`: a token / kit piece / FX family / motion value Phase D needed that ArtStyle lacked →
@@ -279,6 +294,8 @@ only case Phase D leaves for the normal gates.
   capture at `.claude/docs/ArtStyle/screens/pending/<Screen>.png` and add (or replace) the screen's
   row in the §8 **Chờ duyệt** table. Never write the approved table — only the dev approves.
 - Report / DONE summary line: `designer-pass: done (<n> overlay nodes, <m> art fills, motion:
-  <layers>; lock ok, <k> warnings)` · `skipped (<reason>)` · `reverted (<reason>)`.
+  <layers>; lock ok, <k> warnings; polish <p> pass / <f> fail)` · `skipped (<reason>)` ·
+  `reverted (<reason>)`; plus the `polish-note:` lines of D6.4b (Phase C rows, for the dev). Phase D's own
+  rows never end unresolved — failing after the rounds means revert.
 - Commit list: the prefab, controller + `<Feature>Motion`, art + `.meta`, `ArtStyle.md`, the pending
   PNG, `<S>.ui-layout-lock.json` — never `.claude/tmp/`, never `scope` warnings.

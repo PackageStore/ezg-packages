@@ -140,6 +140,55 @@ Only judge this when the task carries `[CHEAT]` on its `**Guardrails:**` line (o
 - Name of a third-party game/studio, or a "like game X" / "X clone" comparison, anywhere in the diff (code, comment, identifier, file name, CSV, localize, docs, task spec) = **block** for player-facing content (UI text, localize, email subject, store metadata), **warn** elsewhere. Engine/SDK/plugin names and internal EZG codenames (`sm00x`…) in dev docs are fine.
 - A screenshot / video / GIF / audio captured from another game added to the repo = **block**.
 
+### Polish (`.claude/rules/game-polish.md` → `.claude/docs/PolishRules.md`)
+
+Judge only player-facing code **the diff touches** (screens, popups, buttons, reward / purchase / ad
+flows, number display, settings). Cite the checklist ID in `issue` (e.g. `P29:`). Template plumbing that
+already covers a rule is not a finding: Android Back → `UIManager` → `CloseMe`; `Utils.MoneyConvert` for
+K/M/B; `VibrateManager` for haptics; `AdsController` for rewarded ads. What the template does **not** do:
+lock touch while a screen opens (`UIManager.Show` never calls `EnableTouch(false)`; `AnimOpenUI` only
+re-enables at the end) and turn tap-outside on (`ClickBackgroundToExit` defaults to `false`, set per prefab).
+
+- **P08 — logic waits on animation** = **critical**: a reward / currency / item / save commit placed in a
+  tween `OnComplete`, after `await`-ing an animation, or skipped when the view closes mid-beat. Grant
+  first through `RewardsService` / `PurchaseManager`, animate after.
+- **P29 — no re-entrancy guard** = **critical**: a spend / claim / purchase / ad handler that can run twice
+  from fast taps (no `interactable = false` / in-flight flag / `UIManager.EnableTouch(false)` until the
+  result returns). Same check as `[DOUBLE-SUBMIT]`. A spend / claim / ad button live the instant its
+  screen appears (no ~0.5 s lock, so a held finger from the previous screen fires it) = **major**.
+- **P18 — locked path costs something** = **critical**: tapping a locked / unaffordable control still
+  calls `PurchaseOffline` / `RemoveCurrency` / consumes a turn. Locked state with no reason shown = **major**.
+- **P20 — dead button** = **critical**: a player-visible button with an empty / `TODO` handler, or
+  "Coming soon" text in a build.
+- **P21 — Back / close bypass**: closing logic (grant, save, resume, analytics) wired only to the X
+  button's `onClick` instead of `CloseMe` (override + `base`), so Android Back skips it = **critical** when
+  it skips a grant / save, else **major**. A new / reworked popup prefab whose serialized
+  `ClickBackgroundToExit` is `0` (`grep -n "ClickBackgroundToExit" <prefab>`) while it is not a §9.4
+  exception (full-screen, forced choice / reward claim, mis-tap loses a turn) = **major**.
+- **P19 — insufficient resources** = **major**: a cost button that does not reflect "not enough" on itself,
+  or does not refresh when the currency changes (no listener on the currency-changed event / no refresh on
+  `OnEnable`), or that silently does nothing when tapped short instead of showing where to earn / buy.
+- **P33 — progress lost on interruption** = **major**: player progress mutated in memory and saved only on a
+  later step (scene exit, close button) that a kill / background / call can skip.
+- **P22 — consequence without confirmation** = **major**: spending real money / premium currency, losing
+  items or an easy-to-mis-tap ad with no confirmation step.
+- **P27 — number display** = **major**: hand-rolled K/M formatting instead of `Utils.MoneyConvert`; a
+  `"+" + value` / countdown that can print `+0`, `-0`, `0s` or a negative; currency in `int` where the
+  economy can exceed it = **critical** (overflow).
+- **P28 — language switch** = **major**: a dynamic label set once with no refresh on language change.
+- **P30 — displayed ≠ real** = **major**: a shown number (power, price, preview, prediction) computed by a
+  second formula instead of the function the logic uses.
+- **P11 — silent action** = **major**: a new tappable with no press / sound feedback (a raw `Button` that
+  is not a button-template instance and plays nothing).
+- **P34 / P35 — monetization**: rewarded ad not through `AdsController`, interstitial fired inside a tap
+  handler before the tapped action, IAP pack whose grant path or failure message is missing =
+  **critical**; ad button without its dedicated style / ▶ icon = **major**.
+- **P36 — haptics ignore the Settings toggle** = **major**.
+- **P39 — out of scope** = **major**: polish / behaviour changes outside the task's files and criteria.
+- Completion criteria tagged `[POLISH]` list their `P<id>` rows — the code-checkable ones above are contract
+  items under the Correctness axis (missing = **block**); visual / feel rows in the same criterion belong to
+  `ui-visual-reviewer` / `qa-verifier`, not to you.
+
 ### Backend Security
 
 - **Write to Supabase DIRECTLY from client = block.** All mutations must go through a Cloudflare Worker endpoint. Reason: protect the Supabase service key, server-validate input, audit logs.
@@ -211,6 +260,7 @@ Pay special attention to tags in completion criteria:
 - `[MOBILE-PERF]` — no GC alloc in gameplay loops
 - `[BACKEND-SECURITY]` — write via Cloudflare Worker
 - `[CSV-CONFIG]` — balance numbers in CSV
+- `[POLISH]` — the PolishRules rows (`P<id>`) the criterion lists; code-checkable ones are judged per the Polish section above
 
 If the task has a tag but the diff does not show the corresponding code → **block** with a specific suggestion.
 
@@ -218,7 +268,7 @@ If the task has a tag but the diff does not show the corresponding code → **bl
 
 - Do NOT modify files. You only review.
 - Do NOT propose adding tests, ESLint, Prettier, or CI changes (the project does not have an official test framework, and that is an intentional decision).
-- Do NOT comment about i18n / accessibility / dark mode other than verifying that the localize key has been used.
+- Do NOT comment about i18n / accessibility / dark mode other than verifying that the localize key has been used and the PolishRules rows in the Polish section (P28 language refresh; colour-only information P04 is the ui-visual-reviewer's).
 - Do NOT propose large refactors outside the scope of the task — that is the job of the design pipeline (`.claude/docs/design-pipeline/06-implementation-mapping.md`) or tech-debt skills.
 - Do NOT block because code "could look better" — only block when violating a specific convention or missing a completion criterion.
 

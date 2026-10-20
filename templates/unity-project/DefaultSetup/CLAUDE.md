@@ -260,6 +260,9 @@ Invariant — áp cho MỌI phiên, kể cả việc làm tay:
 - **Vietnamese comments** are common and intentional — leave them in place; write new comments in Vietnamese.
 - **Odin Inspector** attributes (`[TabGroup]`, `[SerializeField]`, `[ShowIf]`) are used throughout MonoBehaviours.
 - **Editor tools** under `Assets/_Project/Editor/` are `#if UNITY_EDITOR` only.
+- **Polish** — mọi thứ người chơi thấy / chạm phải qua checklist `.claude/docs/PolishRules.md` (rule
+  [.claude/rules/game-polish.md](.claude/rules/game-polish.md)); canvas UI chuẩn **1080×2400** dọc (`designResolution`
+  trong `.claude/project-profile.json`), ngưỡng + module Part II ở key `polish` của file đó.
 - **Không reference game khác** — không tên game/studio bên thứ ba, không "giống game X", không ảnh/video
   game khác trong code, comment, asset, GDD, TechSpec, task, mockup. Chi tiết + ngoại lệ:
   [.claude/rules/no-external-game-refs.md](.claude/rules/no-external-game-refs.md).

@@ -81,6 +81,26 @@ DEFAULTS = {
     "sfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated",
     "soundConfigAsset": "Assets/_Project/Features/_Shared/Resources/SoundConfig.asset",
     "sfxEventFields": {},
+    # Độ phân giải thiết kế của UI (portrait [w, h]) — mockup, ui-spec, ảnh chụp kiểm, visual diff
+    # đều theo số này. Rỗng = tự dò CanvasScaler `m_ReferenceResolution` của screen_template.prefab
+    # dưới uiTemplatesRoot; dò không ra thì [1080, 2400] (chuẩn EZG). Spec cũ [1080, 1920] vẫn hợp lệ.
+    "designResolution": [],
+
+    # --- polish (.claude/docs/PolishRules.md) --------------------------------
+    # Ngưỡng ĐO ĐƯỢC mà validator ui-spec + reviewer dùng. Số mặc định = PolishRules §9 trên canvas
+    # 1080×2400; project chỉ đổi khi ArtStyle.md của nó quy định khác (ArtStyle thắng).
+    #   specGate     — "block": lỗi polish đo được chặn draft/approve (build chỉ cảnh báo);
+    #                  "warn": mọi lỗi polish chỉ cảnh báo; "off": tắt hẳn check polish trong validator.
+    #   modules      — module Part II áp dụng cho game: combat | tiers | procgen | gacha.
+    "polish": {
+        "specGate": "block",
+        "modules": [],
+        "minFontSize": 32,
+        "hardMinFontSize": 30,
+        "minTouchTarget": 128,
+        "ctaHeight": [152, 176],
+        "gridStep": 8,
+    },
 
     # --- review surfaces ----------------------------------------------------
     # Filename globs that make a diff "sensitive" and auto-spawn the
@@ -189,7 +209,7 @@ DEFAULTS = {
 
 # Top-level keys merged per sub-key (recursively) instead of replaced wholesale, so a
 # project overriding one leaf keeps every sibling default. Everything else is shallow.
-DEEP_MERGE_KEYS = ("backend", "bugHub", "qa")
+DEEP_MERGE_KEYS = ("backend", "bugHub", "qa", "polish")
 
 _PROFILE_FILENAME = "project-profile.json"
 
@@ -315,6 +335,17 @@ class Profile:
         return dict(self.get("sfxEventFields") or {})
 
     # -- review surfaces ----------------------------------------------------
+    @property
+    def design_resolution(self) -> list:
+        """Giá trị khai trong profile (có thể rỗng). Giá trị thật dùng ui_spec_common.design_resolution()."""
+        value = self.get("designResolution")
+        return list(value) if isinstance(value, list) else []
+
+    @property
+    def polish(self) -> dict:
+        """Block `polish` đã merge đệ quy với DEFAULTS — validator ui-spec + reviewer đọc."""
+        return self.get("polish")
+
     @property
     def sensitive_globs(self) -> list:
         return list(self.get("sensitiveGlobs"))
@@ -447,6 +478,8 @@ if __name__ == "__main__":
             "sfxRoot": p.sfx_root,
             "soundConfigAsset": p.sound_config_asset,
             "sfxEventFields": p.sfx_event_fields,
+            "designResolution": p.design_resolution,
+            "polish": p.polish,
             "sensitiveGlobs": p.sensitive_globs,
             "playerPrefsAllowedFiles": p.player_prefs_allowed_files,
             "backend": p.backend,

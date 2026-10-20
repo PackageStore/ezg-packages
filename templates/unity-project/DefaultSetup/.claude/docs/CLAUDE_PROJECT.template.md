@@ -24,7 +24,8 @@ template, scene chính.)_
 ## Hệ thống & package riêng
 
 _(Chưa điền — CSV collection / PlayerData module thêm ngoài template, package hay plugin riêng, chỗ project
-làm khác template.)_
+làm khác template; module polish Part II game có (khai ở `project-profile.json` → `polish.modules`) và chỗ game
+lệch ngưỡng PolishRules có chủ ý.)_
 
 ## Quy ước & gotcha riêng
 

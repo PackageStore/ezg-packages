@@ -8,6 +8,10 @@ description: Quy chuẩn Rigging và Animation 2D, 3D của team (GameAnimation_
 Luật nằm trong `GameAnimation_QuyChuan.md`, không nằm ở đây. File này chỉ nói cách đọc và cách kiểm. Luật đổi thì sửa
 file quy chuẩn, không sửa skill.
 
+Luật polish dùng chung của mọi game (rule `game-polish`): `.claude/docs/PolishRules.md` §3 (+ M1 khi
+`project-profile.json` → `polish.modules` có `combat`). Quy chuẩn module thắng ở chỗ hai bên cùng nói; PolishRules bổ sung
+chỗ quy chuẩn chưa nói (logic không chờ animation, nhân vật menu không đứng im, màn kết quả có cảm xúc, bám đất).
+
 Skill này dùng cho mọi project và không chứa thông tin riêng của project nào. Điều chỉ đúng cho một game (preset cảm giác
 đã chọn, tên xương theo 5.2 hay Mixamo, cỡ nhân vật, bộ vũ khí, brief từng clip, quyết định lệch quy chuẩn) nằm trong
 file của chính game đó: xem mục 2. Không dùng trí nhớ về game khác: tên, số, quyết định của game A sai ở game B.

@@ -43,6 +43,15 @@ class DeepMergeTests(unittest.TestCase):
         self.assertEqual(p.backend, self.pp.DEFAULTS["backend"])
         self.assertEqual(p.bug_hub, self.pp.DEFAULTS["bugHub"])
 
+    def test_polish_block_merges_per_key(self):
+        p = self.pp.Profile({"polish": {"specGate": "warn", "modules": ["gacha"]}})
+        self.assertEqual(p.polish["specGate"], "warn")
+        self.assertEqual(p.polish["modules"], ["gacha"])
+        self.assertEqual(p.polish["minTouchTarget"], 128)
+        self.assertEqual(self.pp.Profile({}).polish, self.pp.DEFAULTS["polish"])
+        self.assertEqual(self.pp.Profile({}).design_resolution, [])
+        self.assertEqual(self.pp.Profile({"designResolution": [1080, 2340]}).design_resolution, [1080, 2340])
+
     def test_leaf_override_keeps_siblings(self):
         p = self.pp.Profile({"qa": {"status": "draft", "conventions": {"cheatTypeName": "GameCheat"}}})
         qa = p.qa

@@ -29,6 +29,7 @@ cần `afconvert` (có sẵn trên macOS) hoặc `ffmpeg`; WAV đọc trực ti�
 | Khi | Đọc |
 |---|---|
 | Luôn luôn (3 phút) | [reference/style-guide.md](reference/style-guide.md): game phát âm thế nào, từ vựng âm, độ to chuẩn, nhịp, loa điện thoại, những gì cấm |
+| Luôn luôn | `.claude/docs/PolishRules.md` §5 (rule `game-polish`): phân lớp âm, biến thể cho âm lặp, giới hạn voice + tần suất, fade đuôi, duck nhạc khi popup lớn; nghe thật trên máy = dòng `human` P37, không tự pass |
 | Luôn luôn | `.claude/docs/ArtStyle.md` §6c (SFX) + §9 (hướng đã loại) + rule `art-style`. `$M config` in ra cấu hình đã đọc (§6c, `SoundConfig` field nào đang trống, bundle) |
 | Request khớp recipe có sẵn | [reference/recipes.md](reference/recipes.md) §1–§2 (map request → recipe + nguyên tố + event) |
 | Cần âm mới, không recipe nào khớp | recipes.md §4 (viết recipe mới) + [reference/synth-api.md](reference/synth-api.md) |

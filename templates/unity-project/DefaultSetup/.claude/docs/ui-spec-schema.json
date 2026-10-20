@@ -20,7 +20,13 @@
     "screen": {"type": "string", "minLength": 1},
     "feature": {"type": "string", "minLength": 1},
     "branch": {"enum": ["Popup", "FullScreen"]},
-    "designResolution": {"const": [1080, 1920]},
+    "designResolution": {
+      "description": "Portrait design canvas [w, h]. New drafts use the project design resolution (project-profile designResolution → screen_template CanvasScaler → [1080, 2400]); approved legacy specs keep [1080, 1920].",
+      "type": "array",
+      "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
+      "minItems": 2,
+      "maxItems": 2
+    },
     "contentRoot": {"type": "string", "minLength": 1},
     "containers": {
       "type": "array",
@@ -75,6 +81,12 @@
             ]
           },
           "baseChrome": {"type": "boolean"},
+          "role": {
+            "description": "Button role (PolishRules §9.3): at most one primary per screen outside repeated lists; action pairs sit side by side.",
+            "enum": ["primary", "secondary", "ads", "cancel", "close", "back", "nav", "tab", "item", "locked"]
+          },
+          "interactive": {"type": "boolean", "description": "Override the template-name guess of whether players tap this element."},
+          "hitArea": {"$ref": "#/$defs/vec2", "description": "Invisible raycast pad [w, h] when the visual is smaller than the touch-target minimum."},
           "style": {"type": "object"}
         },
         "additionalProperties": true
