@@ -273,7 +273,11 @@ _BACKEND_WRITE_ADVICE = profile().backend_direct_write_advice
 CREDENTIAL_ID_PATTERN = r"(?-i:[A-Z0-9_]{3,}_(KEY|SECRET|TOKEN|PASSWORD)\b)"
 
 NS_REQUIREMENTS = [
-    (r"\.(Where|Select|ToList|FirstOrDefault|LastOrDefault|Any|All|OrderBy|OrderByDescending|ThenBy|ThenByDescending|GroupBy|Distinct|Skip|Take|Sum|Count|Max|Min|Average|SelectMany|Aggregate)\s*\(", "System.Linq"),
+    # Negative lookbehind on Mathf/Math: `Mathf.Max(0.01f, x)` / `Math.Min(a, b)` are UnityEngine +
+    # BCL numeric statics, not LINQ — they share the names `Max`/`Min` with Enumerable and were
+    # flagged critical-definite "Add 'using System.Linq;'" on every diff that touched such a line.
+    # Same class of fix as the `[Button` / `.Button(` lookbehinds below.
+    (r"(?<!\bMathf)(?<!\bMath)\.(Where|Select|ToList|FirstOrDefault|LastOrDefault|Any|All|OrderBy|OrderByDescending|ThenBy|ThenByDescending|GroupBy|Distinct|Skip|Take|Sum|Count|Max|Min|Average|SelectMany|Aggregate)\s*\(", "System.Linq"),
     (r"\b(UniTask|UniTaskVoid|UniTaskCompletionSource)\b", "Cysharp.Threading.Tasks"),
     (r"\.DO(Fade|Move|Scale|Color|Rotate|Jump|Punch|Shake|Value|Blendable|Path)\s*\(|\b(DOTween|DOVirtual|Tweener|TweenParams)\b", "DG.Tweening"),
     (r"\b(EasyEventManager)\b", "TigerForge"),
