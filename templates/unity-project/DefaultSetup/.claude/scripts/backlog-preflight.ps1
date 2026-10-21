@@ -339,7 +339,11 @@ Test-LocalizeIntegrity -ChangedFiles $changedFiles -Findings $findings
 Test-UiKitStaleness -ChangedFiles $changedFiles -Findings $findings
 
 $nsRequirements = @(
-    @{ Pattern = '\.(Where|Select|ToList|FirstOrDefault|LastOrDefault|Any|All|OrderBy|OrderByDescending|ThenBy|ThenByDescending|GroupBy|Distinct|Skip|Take|Sum|Count|Max|Min|Average|SelectMany|Aggregate)\s*\('; Namespace = 'System.Linq' },
+    # Negative lookbehind on Mathf/Math: Mathf.Max(0.01f, x) / Math.Min(a, b) are UnityEngine + BCL
+    # numeric statics, not LINQ — they share the names Max/Min with Enumerable and were flagged
+    # critical-definite "Add 'using System.Linq;'" on every diff that touched such a line.
+    # Same class of fix as the '[' / '.' lookbehinds below. Keep in lockstep with backlog-preflight.py.
+    @{ Pattern = '(?<!\bMathf)(?<!\bMath)\.(Where|Select|ToList|FirstOrDefault|LastOrDefault|Any|All|OrderBy|OrderByDescending|ThenBy|ThenByDescending|GroupBy|Distinct|Skip|Take|Sum|Count|Max|Min|Average|SelectMany|Aggregate)\s*\('; Namespace = 'System.Linq' },
     @{ Pattern = '\b(UniTask|UniTaskVoid|UniTaskCompletionSource)\b'; Namespace = 'Cysharp.Threading.Tasks' },
     @{ Pattern = '\.DO(Fade|Move|Scale|Color|Rotate|Jump|Punch|Shake|Value|Blendable|Path)\s*\(|\b(DOTween|DOVirtual|Tweener|TweenParams)\b'; Namespace = 'DG.Tweening' },
     @{ Pattern = '\b(EasyEventManager)\b'; Namespace = 'TigerForge' },
