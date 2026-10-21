@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.14] - 2026-10-21
+### Fixed
+- **A node with no geometry no longer stops the import.** Figma sends a boolean group with no
+  shapes left inside with every cell of `relativeTransform` and `size` null, and no
+  `absoluteBoundingBox`. A null cell cannot become a float, so the whole document failed to decode
+  and nothing was imported. A null cell now reads as NaN, and such a node is removed from the
+  document with its subtree, with one warning that lists each one by layer path and id, so it can be
+  deleted in Figma. A node with no transform but a bounding box is kept, since a server render is
+  placed from the box alone.
+
 ## [0.8.13] - 2026-10-14
 ### Fixed
 - **A HUG frame that includes strokes in layout is as wide as in Figma.** "Include strokes in

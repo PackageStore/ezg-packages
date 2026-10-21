@@ -283,8 +283,52 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
         /// <summary>
         /// The top two rows of a matrix that represents the 2D transform of this node relative to its parent. The bottom row of the matrix is implicitly always (0, 0, 1). Use to transform coordinates in geometry. Only present if geometry=paths is passed
+        /// A null cell (a node with no geometry, such as an empty boolean group) reads as NaN; see
+        /// <see cref="FigmaDataUtils.PruneNodesWithoutGeometry"/>.
         /// </summary>
+        [Newtonsoft.Json.JsonConverter(typeof(TolerantTransformConverter))]
         public float[,] relativeTransform;
+
+        /// <summary>
+        /// Reads <see cref="relativeTransform"/> with a null cell as NaN. Figma sends every cell null
+        /// for a node that has no geometry, and a null cannot become a float, so the whole document
+        /// failed to decode.
+        /// </summary>
+        public class TolerantTransformConverter : Newtonsoft.Json.JsonConverter<float[,]>
+        {
+            public override float[,] ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, float[,] existingValue,
+                bool hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                if (reader.TokenType == Newtonsoft.Json.JsonToken.Null) return null;
+                var rows = Newtonsoft.Json.Linq.JArray.Load(reader);
+                var columns = 0;
+                foreach (var row in rows)
+                    if (row is Newtonsoft.Json.Linq.JArray cells && cells.Count > columns) columns = cells.Count;
+
+                var matrix = new float[rows.Count, columns];
+                for (var r = 0; r < rows.Count; r++)
+                for (var c = 0; c < columns; c++)
+                {
+                    var cell = rows[r] is Newtonsoft.Json.Linq.JArray cells && c < cells.Count ? cells[c] : null;
+                    matrix[r, c] = cell == null || cell.Type == Newtonsoft.Json.Linq.JTokenType.Null
+                        ? float.NaN
+                        : (float)cell;
+                }
+                return matrix;
+            }
+
+            public override void WriteJson(Newtonsoft.Json.JsonWriter writer, float[,] value, Newtonsoft.Json.JsonSerializer serializer)
+            {
+                writer.WriteStartArray();
+                for (var r = 0; r < value.GetLength(0); r++)
+                {
+                    writer.WriteStartArray();
+                    for (var c = 0; c < value.GetLength(1); c++) writer.WriteValue(value[r, c]);
+                    writer.WriteEndArray();
+                }
+                writer.WriteEndArray();
+            }
+        }
         // TO DO - Implement
 
         /// <summary>

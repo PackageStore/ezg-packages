@@ -59,6 +59,56 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>
+        ///     Remove every node that has no geometry, with its subtree, and warn with its path. Figma
+        ///     sends such a node (a boolean group with no shapes left inside) with every cell of
+        ///     <c>relativeTransform</c> null and no <c>absoluteBoundingBox</c>; it draws nothing, and
+        ///     placing it would throw and stop the import. A node with no transform but a bounding
+        ///     box is kept, since a server render is placed from the box alone.
+        /// </summary>
+        public static int PruneNodesWithoutGeometry(FigmaFile file)
+        {
+            if (file?.document == null) return 0;
+            var removed = new List<string>();
+            PruneNodesWithoutGeometry(file.document, new List<string>(), removed);
+            if (removed.Count > 0)
+                Debug.LogWarning($"[FigmaBridge] {removed.Count} node(s) with no geometry skipped (delete them in Figma, " +
+                                 $"or put a shape back inside):\n  {string.Join("\n  ", removed)}");
+            return removed.Count;
+        }
+
+        private static void PruneNodesWithoutGeometry(Node node, List<string> path, List<string> removed)
+        {
+            if (node.children == null) return;
+            path.Add(node.name);
+            var kept = new List<Node>(node.children.Length);
+            foreach (var child in node.children)
+            {
+                if (child == null) continue;
+                if (HasNoGeometry(child))
+                {
+                    // The document and page names are left out of the path, like the Figma layer list
+                    var shown = path.Skip(Math.Min(2, path.Count)).Append(child.name);
+                    removed.Add($"{string.Join(" / ", shown)} ({child.id}, {child.type})");
+                    continue;
+                }
+                PruneNodesWithoutGeometry(child, path, removed);
+                kept.Add(child);
+            }
+            path.RemoveAt(path.Count - 1);
+            if (kept.Count != node.children.Length) node.children = kept.ToArray();
+        }
+
+        private static bool HasNoGeometry(Node node)
+        {
+            if (node.type is NodeType.DOCUMENT or NodeType.CANVAS) return false;
+            var transform = node.relativeTransform;
+            if (transform == null) return node.absoluteBoundingBox == null;
+            foreach (var cell in transform)
+                if (float.IsNaN(cell)) return true;
+            return false;
+        }
+
+        /// <summary>
         /// Converts from Figma Paint Fill Color to Unity color
         /// </summary>
         /// <param name="paint"></param>
