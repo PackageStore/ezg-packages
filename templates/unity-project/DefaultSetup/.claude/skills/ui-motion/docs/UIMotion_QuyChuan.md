@@ -1,17 +1,19 @@
 # Quy chuẩn UI Motion
 
-Phiên bản 0.4 · 2026-09-28 · Khớp module `UIMotionDefaults.Version` = 0.4.1.
+Phiên bản 0.6 · 2026-10-22 · Khớp module `UIMotionDefaults.Version` = 0.6.0.
 Áp dụng cho UI uGUI trong Unity (prefab, scene), ghép tay hay sinh bằng tool; mọi cơ chế chạy phía Unity. Dùng được cho mọi
 project: quy chuẩn và module chỉ chứa luật chung, điều riêng của từng project nằm trong file riêng của project đó (mục 2.4).
 
 Người đọc: người ghép UI, tech art giữ 3 asset kiểm soát, dev. Mục nào có chữ **[DEV]** là việc của dev, còn lại thao tác
 trong Unity. Bắt đầu nhanh: `README.md`. Claude làm việc này qua skill `ui-motion` (folder `Skill~/ui-motion` của module).
 
-**Đổi so với 0.3** (dùng chung cho mọi project): bảng Component mặc định chỉ còn component của Unity, TMP, DOTween và module
-— class tự có motion của từng project khai trong file luật riêng `ProjectSettings/UIMotionProject.json` rồi áp vào RoleMap
-(mục 2.4). Asset RoleMap / Settings / Profile là của project, nằm ngoài folder module (mục 2), có lệnh dời asset cũ ra. Từ
-nhận prefab item / khuôn chuyển vào RoleMap. Folder quét mặc định `Assets`. Stub Odin nằm trong module. Skill `ui-motion`
-khảo sát project và sinh file riêng của project.
+**Đổi so với 0.5** (theme): preset Profile theo tông cảm xúc **Casual / Funny / Serious**; Profile mang được kiểu hiện / ẩn
+theo role, thứ tự ưu tiên component → theme → RoleMap; tham số **Squash** (squash & stretch, mặc định 0) (mục 2.1, 2.2).
+
+**Đổi so với 0.4** (chung sống với code game, rút từ QA một game thật đã áp module): component chỉ trả về thứ chính nó đã
+đổi, không nhận giá trị giữa chừng làm gốc, nhường kênh mà code game đang tween (mục 6, luật 5 và 20–24). Lớp phủ màn không
+nhấn co; nút đang co vẫn giữ vùng chạm cũ. Luật gắn lúc chạy không dựa vào trạng thái nhất thời; class của game "sở hữu node
+tham chiếu" (mục 2.4, 3.4). Gắn khi save prefab và Timer chuyển sang **tắt** mặc định (mục 2.3).
 
 Lịch sử các bản trước: `CHANGELOG.md`.
 
@@ -23,7 +25,8 @@ Lịch sử các bản trước: `CHANGELOG.md`.
 2. **Có UI là có motion.** Tool gắn component, không phải người. Ba điểm gắn: Quét và gắn, lúc save prefab, lúc chạy game.
 3. **Một chỗ kiểm soát.** Ba asset Profile, RoleMap, Settings. Không mở từng screen để chỉnh cảm giác.
 4. **Không phá cái đang chạy.** Component tự có motion (screen controller, nút, list animator của project khai trong file luật
-   riêng; Animator, DOTweenAnimation…) không bị gắn chồng. Tool chỉ thêm cái còn thiếu, không ghi đè chỉnh tay.
+   riêng; Animator, DOTweenAnimation…) không bị gắn chồng. Tool chỉ thêm cái còn thiếu, không ghi đè chỉnh tay. Lúc chạy cũng
+   vậy: component của module chỉ trả về thứ chính nó đổi, và nhường kênh (scale, màu, alpha) mà code game đang tween.
 5. **Thiếu thì không qua gate.** Vi phạm phải sửa hoặc ghi nợ kèm lý do.
 
 ---
@@ -67,7 +70,8 @@ module** (giữ GUID). Thiếu asset thì module dùng bản mặc định trong
 | Liveliness | tĩnh | sống | biên độ pulse, float, sóng chữ lúc nghỉ |
 | Softness | sắc | mềm | fade nhiều hay ít, đóng nhanh hơn mở bao nhiêu, dim khi emphasize, ease morph |
 
-Preset là điểm xuất phát. **Áp preset thay cả 5 trục lẫn danh sách ghi đè.**
+Preset là điểm xuất phát. **Áp preset thay cả 5 trục, danh sách ghi đè lẫn kiểu theo role.** Có hai nhóm: preset theo
+**thể loại game** (Action, Midcore, Puzzle, Cozy, Team) và **theme** theo tông cảm xúc (Casual, Funny, Serious, từ 0.6).
 
 | Preset | Tempo | Bounce | Impact | Liveliness | Softness | Ghi đè |
 |---|---|---|---|---|---|---|
@@ -76,6 +80,26 @@ Preset là điểm xuất phát. **Áp preset thay cả 5 trục lẫn danh sác
 | Puzzle | 0.60 | 0.50 | 0.35 | 0.40 | 0.50 | không |
 | Cozy | 0.20 | 0.10 | 0.10 | 0.80 | 0.90 | không |
 | **Team** | 0.60 | 0.78 | 0.55 | 0.50 | 0.40 | 6 số + 2 ease, bảng dưới |
+| **Casual** | 0.60 | 0.65 | 0.45 | 0.55 | 0.45 | Overshoot 1.4, PressScale 0.93 |
+| **Funny** | 0.70 | 0.95 | 0.80 | 0.90 | 0.20 | PopDuration 0.42, Squash 0.35; ease Show OutElastic, Drop OutBounce; kiểu: Popup pop nảy, Toast rơi xuống |
+| **Serious** | 0.55 | 0.10 | 0.20 | 0.10 | 0.70 | Overshoot 1.0, PunchScale 0.03; ease Show / ShowSoft OutQuart |
+
+**Theme** chọn theo tông của game, không theo thể loại:
+
+| Theme | Cảm giác | Hợp với |
+|---|---|---|
+| Casual | nảy vừa (popup 0.72 → 1 vượt nhẹ), nút lún nhẹ, list nổi lần lượt; dễ chịu, không lố | casual, puzzle, idle |
+| Funny | pop từ ~0.6 đàn hồi rõ, squash & stretch, punch to, popup pop nảy, toast rơi nảy, trang trí lắc nhiều | game hài, trẻ em, party |
+| Serious | không vượt đích, popup phóng nhẹ 0.92 → 1 + fade, nút lún 0.96, số đếm gần như không nảy | chiến thuật, mô phỏng, giá trị cao |
+
+Theme Funny đổi cả **kiểu** motion: Profile có tab **Kiểu theo role** (role → kiểu hiện / ẩn). Thứ tự ưu tiên khi chọn kiểu:
+dropdown trên chính component → kiểu theo role của Profile đang dùng → dòng RoleMap. "Theo RoleMap" = giữ RoleMap. Nhờ vậy
+một file Profile mang trọn một theme, đổi `UIMotion.Profile` lúc chạy là đổi cả số lẫn kiểu. Project chỉ dùng một theme mà
+muốn kiểu đó là luật lâu dài thì có thể sửa thẳng RoleMap; hai cách cho cùng kết quả.
+
+**Squash** (tham số, 0 → 1, không trục nào kéo, mặc định 0): pop bắt đầu dáng cao hơn rộng (`SquashPopRatio`), nhấn bẹt ra
+ngang (`SquashPressRatio`), punch giãn dọc. Luôn kết thúc ở scale nghỉ đều; zoom (từ to về) và reduce motion không squash.
+Squash 0 cho đúng scale đều như các bản trước.
 
 **Profile Team** là cảm giác chuẩn, mặc định của module (calibrate trên UI mobile thật đang chạy):
 
@@ -106,7 +130,7 @@ Inspector 3 tab.
 
 | Cột | Ghi chú |
 |---|---|
-| Hiện | kiểu hiện (bảng mục 4) |
+| Hiện | kiểu hiện (bảng mục 4); Profile đang dùng có kiểu theo role cho role này thì Profile thắng (mục 2.1) |
 | Ẩn | Ngược của Hiện = đi ngược đường lúc hiện, nhanh hơn theo HideSpeedRatio |
 | Feedback | Press, Punch, Shake, Nudge, Emphasize, Count, Không |
 | Cho loop | chỉ role được phép loop |
@@ -151,7 +175,7 @@ project giữ nguyên, có Undo. Console liệt kê từng thay đổi.
 
 | Mục | Mặc định | Ghi chú |
 |---|---|---|
-| Gắn khi save prefab | bật | chỉ khi save trong Prefab Mode |
+| Gắn khi save prefab | **tắt** | chỉ khi save trong Prefab Mode. Bật là ai save prefab (UI artist) cũng nướng component vào prefab mà không biết; muốn lưu thì chạy Quét và gắn có chủ đích |
 | AutoBind lúc chạy | bật | lưới an toàn, không lưu prefab |
 | Folder quét | `Assets` | nên thu về folder UI của project (file luật riêng, `settings.scanFolders`) |
 | Bỏ qua path chứa | /3rdParty/, /ThirdParty/, /Plugins/, /Samples/, /Sample/, /Demo/, /Demos/, /Examples/, /Models/ | UI pack bên thứ ba, sample, model 3D; folder pack riêng của project thêm trong file luật riêng |
@@ -160,7 +184,8 @@ project giữ nguyên, có Undo. Console liệt kê từng thay đổi.
 | Phạm vi: Screen / Popup | bật | gốc screen / popup / sheet / toast / tooltip chưa có jump in/out, + nền dim |
 | Phạm vi: List | bật | list chưa có motion |
 | Phạm vi: Panel con | **tắt** | bật là đổi cảm giác mở của screen cũ |
-| Phạm vi: Slider, Badge, Timer, Icon, Ô nhập, Loading | bật | ngoài list / prefab item |
+| Phạm vi: Slider, Badge, Icon, Ô nhập, Loading | bật | ngoài list / prefab item |
+| Phạm vi: Timer | **tắt** | đỏ + nảy + sfx mỗi giây lúc sắp hết là quyết định thiết kế của từng đồng hồ, tên node không nói được: gắn tay |
 | Phạm vi: Scrollbar, Tiêu đề, Trang trí | **tắt** | bật là screen cũ đổi cảm giác (thanh cuộn mờ đi, chữ chạy, trang trí chuyển động) |
 | Gate | Cảnh báo | Tắt / Cảnh báo / Chặn build |
 | Reduce motion | tắt | game đặt lúc chạy qua `UIMotionSettings.ReduceMotionOverride` **[DEV]** |
@@ -180,7 +205,7 @@ vào RoleMap / Settings bằng **Tools/UI Motion/Áp luật riêng của project
 
 | Khoá | Nghĩa |
 |---|---|
-| `componentRules` | `type` (tên class, khớp cả lớp con), `role` (tên trong `UIRole`; `Unknown` = giữ role), `ownMotion` (class tự lo motion → không gắn chồng), `note`. Đứng trên bảng mặc định, theo thứ tự trong file |
+| `componentRules` | `type` (tên class, khớp cả lớp con), `role` (tên trong `UIRole`; `Unknown` = giữ role), `ownMotion` (class tự lo motion → không gắn chồng), `ownReferenced` (object class này tham chiếu qua field serialize — chữ số, icon, chấm đỏ, đồng hồ, thường là con — cũng do nó điều khiển → không gắn lên), `note`. Đứng trên bảng mặc định, theo thứ tự trong file |
 | `componentRulesRemove` | bỏ dòng Component theo tên |
 | `keywords.add` / `.remove` | `word`, `role`, `before` (tên role hoặc keyword; không có = cuối bảng); bỏ keyword |
 | `prefabWords.item` / `.template` | thay danh sách từ nhận prefab item / khuôn (luật 3.4) |
@@ -303,7 +328,11 @@ Role đúng chưa đủ: binder còn xét chỗ đứng của object. Các luậ
 | Backdrop chỉ gắn khi cha là screen / lớp phủ | Nền tối trang trí giữa screen không phải nền dim |
 | List chỉ gắn khi có ScrollRect / LayoutGroup và không nằm trong item | Tránh list lồng trong item |
 | Counter chờ 0,25 s sau khi bật; không gắn trong badge | Screen nạp số lúc mở không bị đếm từ 0; số trên chấm đỏ do Badge lo |
-| Icon chỉ gắn khi sprite trống trong prefab hoặc tên có avatar | Icon tĩnh vẽ sẵn không bao giờ đổi ảnh |
+| Icon chỉ gắn khi sprite trống trong prefab hoặc tên có avatar; **lúc chạy** (AutoBind) chỉ theo tên | Icon tĩnh vẽ sẵn không bao giờ đổi ảnh; lúc chạy sprite trống hay không tuỳ code đã điền chưa, mỗi lần chơi gắn một khác |
+| Popup / tooltip nhúng **lúc chạy** chỉ nhận theo nền dim riêng, không theo "đang tắt" | Đang tắt hay bật tuỳ lúc AutoBind quét |
+| Họ nút không gắn lên **lớp hứng chạm phủ màn**: nền dim, rect phủ ≥ 90 % canvas (bấm-ra-ngoài-để-đóng, "chạm để tiếp tục"). Button kiểm lại lúc nhấn | Co lớp phủ màn là lộ mép màn |
+| Object được class khai `ownReferenced` tham chiếu qua field: không gắn gì, ghi chú "Đã có motion" | Game điều khiển node con qua `[SerializeField]` (số tiền tự tween, chấm đỏ tự nhún); luật component chỉ phủ chính object mang class |
+| List trong layout lồng (cha có LayoutGroup / ContentSizeFitter, item tự có LayoutGroup): item hiện / ẩn bằng scale + alpha, không trượt về chỗ | Layout lồng xếp qua nhiều lượt; ghi vị trí đọc lúc đầu là đè vị trí cũ lên LayoutGroup (thẻ chồng nhau) |
 | Spinner chỉ gắn lên ảnh lá (không có con nào có hình) | Xoay cả khối loading là xoay luôn chữ |
 | Keyword tab chỉ ra thanh tab khi bên trong có Toggle / con tên tab | `AchievementTab` lẻ chứa nút là một nút |
 | Prefab hỏng: báo "Prefab hỏng", bỏ qua; gate đánh dấu không sửa bằng nút | Unity không cho lưu prefab có script / prefab lồng mất |
@@ -376,7 +405,10 @@ thở alpha); thanh cuộn luôn hiện rõ; ScreenFx không loé (chống chói
 2. **Ngắt được giữa chừng.** Hiện khi đang ẩn thì tiếp từ trạng thái hiện tại; chỉ khi đứng yên mới đặt trạng thái đầu.
 3. **Feedback hoàn tất, không kill.** Punch, Shake, Nudge, Press mang id riêng.
 4. **`SetUpdate(true)`** trên mọi tween.
-5. **Tắt giữa motion thì trả trạng thái nghỉ.** Ẩn bằng CanvasGroup; không SetActive(false) trong lúc tween.
+5. **Tắt giữa motion thì trả trạng thái nghỉ — chỉ những gì chính nó đã đổi.** Motion của component đang chạy thì `Complete`
+   cho về đích của nó; không chạy gì thì không đụng. Không ép scale / alpha / màu / cờ CanvasGroup chụp lúc gắn hay lúc
+   OnEnable: game hay đổi chúng sau đó (cỡ theo cấp, lật, nhuộm, chạm xuyên). Ẩn bằng CanvasGroup; không SetActive(false)
+   trong lúc tween.
 6. **Ẩn rồi mới tắt.** Đóng screen qua `UIMotion.SetActiveAnimated(go, false)` hoặc `UIMotionPanel.Hide()`. SetActive(false)
    thẳng lên object có UIMotionPanel là vi phạm M-11, Console cảnh báo một lần kèm stack trace.
 7. **Nối template bằng `OnComplete`**, không `Sequence.Append`. Dọn dẹp nội bộ đi qua `AppendCallback`.
@@ -404,6 +436,19 @@ thở alpha); thanh cuộn luôn hiện rõ; ScreenFx không loé (chống chói
     Test `Components_DoNotMisuseUnityMessageNames` giữ.
 19. **Test Play mode chờ frame thật.** Game giới hạn FPS (`targetFrameRate`) thì một lần `yield return null` có thể chưa qua
     frame nào: chờ `Time.frameCount` đổi (helper `Frame()`), chờ thời gian bằng đồng hồ thật.
+20. **Không nhận giá trị giữa chừng làm gốc.** Chụp scale / alpha / màu nghỉ ngay trước mỗi lần đổi, khi target đứng yên; đang có
+    tween trên target thì giữ gốc cũ (chưa có thì giá trị chuẩn, vd scale 1).
+21. **Một kênh một chủ.** Code game đang tween kênh đó trên cùng target (`UIMotion.HasForeignTweenOn`) thì component nhường:
+    không co / punch / flash / hiện-ẩn chồng, vẫn bắn sự kiện. Muốn được nhận ra là của module, tween của component tạo trên
+    RectTransform / Graphic / CanvasGroup phải mang id của module: bọc `UIMotion.Own(tween)` (template của `UIMotion` tự
+    mang). `UIMotion.HasFeedbackOn` cho biết feedback của module đang chạy (để OnDisable chỉ trả khi chính nó đổi).
+22. **Không nuốt click của cha.** Component implement `IPointerClickHandler` mà lần đó không dùng cú chạm (tính năng chạm đang
+    tắt) thì `UIMotionClickPass.ToParent` trả click cho handler cha — EventSystem chỉ gọi handler click gần nhất.
+23. **Co phần nhận chạm thì giữ vùng chạm.** Nhấn co object có Graphic nhận raycast thì nới `raycastPadding` bằng phần co
+    (`UIMotionHitArea`), nhả / thoát / tắt trả lại padding cũ.
+24. **Code chạy mỗi nhịp không cấp phát.** AutoBind không `FindObjectsByType` mỗi nhịp (`UIMotionCanvasRoots`), không tạo
+    closure mỗi lượt, không suy lại role của object đã xét (`Options.ResolveCache`). Chữ do code ghi thì component chỉ ghi
+    chữ ở LateUpdate sau khi đã đọc chữ code vừa gán (Counter).
 
 ---
 
@@ -490,7 +535,9 @@ rule, lý do, người, ngày. Gate trừ nợ trước khi chấm. Nợ quá 30
 - Loop chỉ cho Decoration, Spinner, Title, Bar khi thấp, Timer khi thấp.
 - Chữ chạy từng ký tự chỉ cho title, tên item, thông báo; không dùng trong list dài.
 - List: tổng lệch không quá 0.6 s (chia đều khi list dài), stagger tối đa 40 item; trượt về chỗ chỉ khi list ≤ 50 item.
-- AutoBind quét nửa giây một lần, chỉ canvas có object mới (`hierarchyCount` đổi), mỗi object xét một lần.
+- AutoBind quét nửa giây một lần, chỉ canvas có object mới (`hierarchyCount` đổi), mỗi object xét một lần; role của object
+  đã xét được nhớ (quét lại một canvas không suy lại cả cây). Danh sách canvas gốc chỉ tìm lại khi scene nạp / gỡ, số object
+  gốc đổi, cây gốc chứa canvas màn hình đổi, và 5 s một lượt dự phòng. Nhịp bình thường không cấp phát.
 - Counter, Badge, Timer theo dõi chữ bằng so chuỗi mỗi frame; Icon so tham chiếu sprite; Slider, Scrollbar so giá trị (chỉ
   khi đang bật).
 - Icon đổi sprite dồn dập (quá 3 lần trong 0,15 s — ảnh động bằng code) thì tự thôi motion đổi ảnh.
@@ -535,6 +582,8 @@ rule, lý do, người, ngày. Gate trừ nợ trước khi chấm. Nợ quá 30
 - [ ] Có rule gate nếu là role bắt buộc (mục 8)
 - [ ] Có ô trong trang Bảng role của Role Sandbox (test `RoleGallery_HasEveryRole_AndEveryButtonRuns` đỏ nếu thiếu)
 - [ ] Có test Play mode: kịch bản chính, ngắt giữa chừng, reduce motion
-- [ ] Chỉ đổi phần hiển thị, OnDisable trả trạng thái nghỉ, tween `SetLink` theo object (mục 6)
+- [ ] Chỉ đổi phần hiển thị; OnDisable chỉ trả thứ chính nó đổi; nhường kênh game đang tween; tween `SetLink` theo object và
+  mang id của module (`UIMotion.Own`) (mục 6)
+- [ ] Có kịch bản chung sống với code game: game đổi giá trị sau lúc gắn, game tween cùng target, tắt giữa chừng
 - [ ] Có mục trong CHANGELOG
 - [ ] Không thêm class / tên / số của một project cụ thể vào code hay bảng mặc định: thứ đó vào file luật riêng của project

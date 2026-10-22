@@ -310,7 +310,7 @@ export function survey(opts) {
         path: r,
         defaultsVersion: scalar(doc, "_defaultsVersion") || null,
         projectRulesHash: scalar(doc, "_projectRulesHash") || null,
-        componentRules: objectList(doc, "_componentRules").map((x) => ({ type: x.TypeName, role: roleName(x.Role), ownMotion: x.HasOwnMotion === "1", note: x.Note || "" })),
+        componentRules: objectList(doc, "_componentRules").map((x) => ({ type: x.TypeName, role: roleName(x.Role), ownMotion: x.HasOwnMotion === "1", ownReferenced: x.OwnsReferenced === "1", note: x.Note || "" })),
         keywords: objectList(doc, "_keywords").map((x) => ({ word: (x.Keyword || "").toLowerCase(), role: roleName(x.Role) })),
         itemPrefabWords: text.includes("_itemPrefabWords:") ? stringList(doc, "_itemPrefabWords") : null,
         templatePrefabWords: text.includes("_templatePrefabWords:") ? stringList(doc, "_templatePrefabWords") : null,

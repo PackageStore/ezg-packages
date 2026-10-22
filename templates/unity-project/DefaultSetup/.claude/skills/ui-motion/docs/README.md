@@ -18,7 +18,7 @@ Menu **Tools/UI Motion/Tạo asset mẫu** (tạo trong folder dữ liệu của
 
 | Asset | Chỉnh gì |
 |---|---|
-| **Profile Team** | Nhanh chậm, nảy mềm, mạnh nhẹ của cả game: 5 slider, tab Ghi đè, tab Giá trị suy ra |
+| **Profile** (mặc định Team) | Nhanh chậm, nảy mềm, mạnh nhẹ của cả game: 5 slider, tab Ghi đè, tab Kiểu theo role, tab Giá trị suy ra. Theme có sẵn: **Casual / Funny / Serious** (chọn preset → Áp preset) |
 | **RoleMap** | Role nào hiện / ẩn / phản hồi thế nào, kéo AudioClip cho từng sự kiện; component nào báo role gì; tên chứa chữ gì là role gì (có ô gõ thử tên) |
 | **Settings** | Bật tắt tự gắn, folder quét, phạm vi gắn (nút, số, screen, list, slider, badge, timer, icon, ô nhập, loading, scrollbar, tiêu đề, trang trí), gate, reduce motion, sfx |
 
@@ -37,7 +37,7 @@ Có trong project phát triển module: **Tools/UI Motion/Dựng scene Role Sand
 
 - Trang **Screen giả**: top bar, counter, list, popup Shop, sheet Cài đặt — nút nối bằng OnClick, không code.
 - Trang **Bảng role**: mỗi role một ô — vật mẫu thật, dòng RoleMap role đó đang dùng, nút Hiện / Ẩn / Thử. Sửa RoleMap hoặc
-  Profile lúc đang Play là thấy ngay. Nút đổi profile và Reduce motion ở đầu trang.
+  Profile lúc đang Play là thấy ngay. Nút đổi theme (Team / Casual / Funny / Serious) và Reduce motion ở đầu trang.
 
 ## Screen mới
 
@@ -92,7 +92,9 @@ inputField.GetComponent<UIMotionInputField>().ShowError();             // nhập
 
 Code game vẫn làm như cũ: gán `text` (Counter, Badge, Timer tự chạy), đổi `sprite` (Icon tự swap), gán `slider.value`
 (thanh tự đuổi theo), `SetActive(true)` toast (trượt vào; tự ẩn / chờ lượt / chạm để tắt là tuỳ chọn trên UIMotionToast).
-Destroy object giữa lúc motion đang chạy vẫn an toàn: tween tự dừng theo object.
+Destroy object giữa lúc motion đang chạy vẫn an toàn: tween tự dừng theo object. Code game tự tween một node (CTA thở, số
+tự đếm, chữ nháy đỏ) thì component của module trên node đó nhường kênh ấy, chỉ bắn sự kiện; game đổi scale / alpha / cờ chạm
+sau lúc gắn thì module không ép về giá trị cũ. Tween riêng của component mới: bọc `UIMotion.Own(tween)` để module nhận ra.
 
 Batchmode / CI:
 
@@ -112,9 +114,13 @@ Skill đi kèm module (`Skill~/ui-motion`): đọc quy chuẩn, khảo sát proj
 module sang project khác. Cài cho máy (mở project nào cũng có): `node Skill~/ui-motion/scripts/uimotion.mjs install-skill`.
 Skill không chứa thông tin riêng của project nào — mọi điều về project nằm trong file riêng của chính project đó.
 
-## Giới hạn hiện tại (0.4.0)
+## Giới hạn hiện tại (0.5.0)
 
-- Hook save chỉ chạy khi save trong Prefab Mode. Prefab tạo bằng kéo từ scene / Apply override: chạy Quét và gắn.
+- Hook save (tắt mặc định từ 0.5) chỉ chạy khi save trong Prefab Mode. Prefab tạo bằng kéo từ scene / Apply override: chạy
+  Quét và gắn.
+- Timer không tự gắn (từ 0.5): gắn tay cho đồng hồ cần đỏ + nảy lúc sắp hết.
+- Code game bắt đầu tween một node NGAY SAU khi module bắt đầu motion trên node đó (cùng frame bật) thì module chưa kịp nhường:
+  khai class đó `ownMotion` (hoặc `ownReferenced` nếu nó điều khiển node con) trong file luật riêng.
 - Screen bị `SetActive(false)` thẳng thì không có motion ẩn (chỉ có cảnh báo). Cần đổi chỗ gọi.
 - Label số, icon, badge, slider trong list / prefab item không tự gắn (item có thể bị tái dùng cho dòng khác). Gắn tay nếu thật cần.
 - Prefab hỏng (script mất, prefab lồng mất) không gắn được cho tới khi sửa prefab.

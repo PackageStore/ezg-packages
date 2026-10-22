@@ -35,7 +35,7 @@ ghi ở đây; project khác có bộ file của nó.
 | Khoá | Nghĩa | Áp vào |
 |---|---|---|
 | `dataFolder` | Folder asset của project (`…/Resources/UIMotion`, không ghi đuôi thì module tự thêm). Chỉ dùng khi project chưa có asset nào | chỗ Tạo asset mẫu / dời asset |
-| `componentRules[]` | `type`: tên class (hoặc có namespace; khớp cả lớp con). `role`: tên trong enum `UIRole` (`Unknown` = giữ role, chỉ báo đã có motion). `ownMotion`: class tự lo motion → tool không gắn chồng. Thứ tự = ưu tiên, đứng trên bảng mặc định | bảng Component của RoleMap |
+| `componentRules[]` | `type`: tên class (hoặc có namespace; khớp cả lớp con). `role`: tên trong enum `UIRole` (`Unknown` = giữ role, chỉ báo đã có motion). `ownMotion`: class tự lo motion → tool không gắn chồng. `ownReferenced`: object class này tham chiếu qua field serialize (chữ số, icon, chấm đỏ con mà code tự ghi / tự nhún) cũng có chủ → tool không gắn lên. Thứ tự = ưu tiên, đứng trên bảng mặc định | bảng Component của RoleMap |
 | `componentRulesRemove[]` | Bỏ dòng Component theo tên (kể cả dòng mặc định) | bảng Component |
 | `keywords.add[]` | `word` (một từ, chữ thường), `role`, `before` (tên role → đứng trước keyword đầu của role đó; hoặc một keyword). Không `before` = cuối bảng (ưu tiên thấp nhất). Keyword đã có mà khác role thì đổi role tại chỗ | bảng Keyword |
 | `keywords.remove[]` | Bỏ keyword | bảng Keyword |

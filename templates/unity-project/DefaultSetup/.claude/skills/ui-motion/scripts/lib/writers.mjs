@@ -124,7 +124,7 @@ export function surveyReport(s) {
 export function rulesFromSurvey(s) {
   const pick = (list) => list.filter((c) => c.confidence === "cao" && !c.coveredByParent && !c.inRoleMap);
   // Dòng class của project đã có trong RoleMap (tuning đang chạy) chép vào file để khôi phục được; thắng đoán của khảo sát.
-  const fromRoleMap = (s.data.roleMap?.projectRows || []).map((r) => ({ type: r.type, role: r.role, ownMotion: r.ownMotion, note: r.note || "có sẵn trong RoleMap của project" }));
+  const fromRoleMap = (s.data.roleMap?.projectRows || []).map((r) => ({ type: r.type, role: r.role, ownMotion: r.ownMotion, ...(r.ownReferenced ? { ownReferenced: true } : {}), note: r.note || "có sẵn trong RoleMap của project" }));
   const known = new Set(fromRoleMap.map((r) => r.type.split(".").pop()));
   const componentRules = [
     ...fromRoleMap,

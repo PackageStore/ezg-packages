@@ -2,6 +2,99 @@
 
 Phiên bản ghi ở `UIMotionDefaults.Version`, hiện trên Inspector của UIMotionSettings.
 
+## 0.6.0 — 2026-10-22
+
+Theme cho Profile. Preset cũ chia theo thể loại game (Action, Midcore, Puzzle, Cozy) và Team; tông cảm xúc thì chưa có, và
+Profile chỉ đổi được con số (nhanh / chậm, nảy nhiều / ít), không đổi được kiểu motion (popup pop nảy hay pop mềm), vì kiểu
+nằm ở RoleMap và mỗi project chỉ có một RoleMap. Bản này cho một Profile mang trọn một theme.
+
+**Nâng từ 0.5**: chép đè folder module như thường lệ. Profile cũ không đổi gì (Squash = 0, không có kiểu theo role). Muốn
+dùng theme: Tools/UI Motion/Tạo asset mẫu sinh thêm `UIMotionProfile_Casual / Funny / Serious`, hoặc trên Profile đang dùng
+chọn preset rồi bấm Áp preset.
+
+- **Preset theme mới** (cuối `UIMotionGenre`): **Casual** nảy vừa, dễ chịu (Overshoot 1.4, nhấn 0.93); **Funny** lố, nảy đàn
+  hồi (ease Show OutElastic, rơi OutBounce, pop 0.42 s, squash 0.35, popup pop nảy, toast rơi xuống); **Serious** gọn, không
+  vượt đích (Overshoot 1.0, punch 0.03, ease OutQuart). Số cụ thể: quy chuẩn mục 2.1.
+- **Kiểu hiện / ẩn theo role trong Profile** (tab "Kiểu theo role"): thứ tự ưu tiên là dropdown trên component → theme (Profile)
+  → RoleMap. API `TryGetRoleShow`, `TryGetRoleHide`, `SetRoleOverride`, `UIMotion.ShowFor / HideFor`. Áp preset là thay cả
+  danh sách này.
+- **Squash & stretch** (tham số mới cuối `UIMotionParam`: `Squash`, 0 → 1, không trục nào kéo, mặc định 0): pop bắt đầu dáng
+  cao hơn rộng, nhấn bẹt ra ngang, punch giãn dọc. Squash 0 thì scale đều như mọi bản trước. Hằng số `SquashPopRatio`,
+  `SquashPressRatio` trong `UIMotionDefaults`.
+- Role Sandbox: hàng nút profile thành Team / Casual / Funny / Serious (cả trang Screen giả lẫn Bảng role); ô Bảng role ghi
+  kiểu hiện / ẩn đã tính theme.
+- Test: số / ease / kiểu theo role của từng theme, preset cũ không đổi, thứ tự ưu tiên component → theme → RoleMap; Play mode:
+  squash của pop / nhấn / punch, ngắt giữa chừng về đúng scale nghỉ, reduce motion không squash; Bảng role đổi kiểu theo theme.
+
+## 0.5.0 — 2026-10-09
+
+Chung sống với code game. Một game đã áp module 0.4.1 báo 13 lỗi qua QA (component ép lại giá trị game đặt, chồng tween lên
+tween của game, nuốt click, AutoBind cấp phát mỗi nhịp). Bản này sửa theo luật chung, không theo riêng game đó: mọi
+component chỉ trả về thứ chính nó đổi, không nhận giá trị giữa chừng làm gốc, nhường kênh game đang tween (quy chuẩn mục 6,
+luật 5 và 20–24).
+
+**Nâng từ 0.4**: chép đè folder module như thường lệ. Settings đã có giữ giá trị cũ: nên tắt **Gắn khi save prefab** và phạm
+vi **Timer** (mặc định mới, mục 2.3) trừ khi project cố ý dùng.
+
+### Nhận ra tween của game
+- Mọi id tween của module là một lớp riêng; `UIMotion.HasForeignTweenOn(target)` = target đang có tween không phải của module,
+  `UIMotion.HasFeedbackOn(target)` = feedback của module đang chạy, `UIMotion.Own(tween)` đánh dấu tween của component. Template
+  của `UIMotion` (Show / Hide, Pulse, Float…) và tween của mọi component đều mang id module.
+
+### Component chỉ trả về thứ chính nó đổi
+- **Button**: OnDisable chỉ trả scale khi chính nút đang co / nảy (trước đây luôn ép về scale chụp ở lần nhấn cuối). Code game
+  đang tween nút (CTA thở, pop vào) thì không co / punch, vẫn bắn sự kiện.
+- **Card**: gốc scale chụp lại mỗi lần thẻ đứng yên (bật, nhấn, đổi chọn), đang tween thì giữ gốc cũ — trước đây chụp một lần
+  lúc gắn, AutoBind gắn đúng lúc thẻ đang pop vào là thẻ kẹt nhỏ. Nhớ trạng thái "đang phóng vì chọn"; OnEnable chỉ đặt scale
+  khi lệch với trạng thái chọn; OnDisable hoàn tất tween chọn thay vì ép scale.
+- **Icon**: bỏ trả scale / góc / alpha chụp lúc OnEnable; chụp nghỉ ngay trước mỗi lần đổi ảnh; tắt giữa lúc đổi ảnh thì nhảy
+  tới cuối; Xoay đều chỉ trả góc khi chính nó xoay. Game đang tween icon thì không chạy motion đổi ảnh.
+- **Slider**: tween đuổi xong vẽ đúng giá trị đích một lần (trước đây fill dừng ở khung đuổi cuối, thiếu một đoạn); handle chỉ
+  trả scale khi module đang nhấn / nảy.
+- **InputField**: chỉ trả scale khi đang nâng / tween nâng / rung lỗi; chụp scale nghỉ ngay trước mỗi lần nâng.
+- **ShowHide** (Panel, Backdrop, List, Toast, Sheet, Tooltip, Badge): ghi interactable / blocksRaycasts của CanvasGroup lúc
+  nghỉ, trả đúng giá trị đó khi hiện, hiện lại, tắt giữa chừng (trước đây ép bật — lớp game cố ý cho chạm xuyên thành lớp
+  chặn). Nhóm module tự thêm, nhóm alpha 0 trong prefab vẫn bật. Code game đang tween chính object thì hiện / ẩn ngay, không chồng.
+- **List**: tắt giữa chừng / bỏ item thì item về đúng scale / alpha / cờ chạm trước khi module đụng vào (trước đây ép 1 / bật).
+  Layout lồng (cha có LayoutGroup / ContentSizeFitter, item có LayoutGroup) thì item hiện / ẩn bằng scale + alpha và không
+  trượt về chỗ; hết motion thì báo LayoutGroup xếp lại thay vì ghi vị trí đọc lúc đầu (thẻ chồng nhau trong Grid lồng Vertical).
+- **Timer**, **Badge**, **Counter**: không punch khi game đang tween object; Timer không đổi màu khi game đang tween màu chữ.
+
+### Số đếm
+- **Counter** chỉ ghi chữ ở LateUpdate, sau khi đã đọc chữ code vừa gán: code tự tween số (ghi mỗi frame) không còn bị tween của
+  Counter ghi đè rồi kẹt số cũ. Đang đếm mà số mới cùng chiều thì chỉ đổi đích (đếm tiếp trong nửa thời lượng), không punch /
+  flash / sfx lại mỗi frame.
+- **`UIMotion.Flash`** nhường khi Graphic đang có tween màu của game (trả null): trước đây nhận màu giữa chừng (đỏ) làm màu gốc
+  và trả về đỏ.
+
+### Nhấn và click
+- Họ nút không gắn lên **lớp hứng chạm phủ màn** (nền dim, rect phủ ≥ 90 % canvas — `UIMotionRoleResolver.IsScreenCatcher`);
+  Button kiểm lại lúc nhấn. Trước đây giữ tay ngoài popup làm lớp tối co lại, lộ mép màn.
+- **`UIMotionHitArea`** (mới): nút đang co nới `Graphic.raycastPadding` đúng bằng phần co (tính pivot), nhả / thoát / tắt trả
+  padding cũ — nhấn sát mép (~10 %) không còn mất click.
+- **`UIMotionClickPass`** (mới): Backdrop (chạm-để-đóng tắt) và Toast (chạm-để-tắt tắt) chuyển click lên handler cha — trước
+  đây hai component này nuốt click của nút bọc ngoài / lớp "chạm để tiếp tục".
+
+### Luật gắn
+- Luật component có cờ mới **Sở hữu node tham chiếu** (`ownReferenced` trong `componentRules` của file luật riêng): object mà
+  class đó tham chiếu qua field serialize (GameObject, Component, mảng / List) không được gắn motion — game hay điều khiển chữ
+  số, icon, chấm đỏ con qua `[SerializeField]`. Skill `ui-motion`: `check-rules` nhận khoá mới.
+- AutoBind (luật lúc chạy, `Options.Runtime`): popup / tooltip nhúng chỉ nhận theo nền dim riêng, không theo "đang tắt"; icon
+  chỉ theo tên avatar, không theo "sprite trống" — hai điều kiện đó đúng lúc quét prefab nhưng lúc chạy tuỳ thời điểm, mỗi lần
+  chơi gắn một khác.
+- Mặc định Settings: **Gắn khi save prefab tắt**, **Timer tắt**.
+
+### Hiệu năng AutoBind
+- `UIMotionCanvasRoots` (mới): danh sách canvas gốc chỉ tìm lại khi scene nạp / gỡ, số object gốc đổi, cây gốc chứa canvas màn
+  hình đổi, và 5 s một lượt dự phòng — không còn `FindObjectsByType<Canvas>` mỗi 0,5 s.
+- `UIMotionBinder.Options.ResolveCache`: role đã suy theo instance id; quét lại một canvas không suy lại (đọc tên, component)
+  mọi object chỉ để lấy ngữ cảnh. Delegate `ShouldVisit` tạo một lần. Nhịp bình thường không cấp phát.
+
+### Test
+- `UIMotionCoexistTests`: luật gắn (lớp phủ màn, `ownReferenced`, luật lúc chạy, cache role, id tween) và Play mode (Counter
+  theo tween của game, Card / Button / Icon giữ giá trị game đặt, Button nhường tween của game và lớp phủ màn, vùng chạm khi
+  co, Slider khung cuối, Panel chạm xuyên, Backdrop trả click, Flash nhường, List trả item, canvas gốc không tìm lại khi đứng yên).
+
 ## 0.4.1 — 2026-09-30
 
 Skill `ui-motion` mang theo bản chép tài liệu của module trong `docs/` (quy chuẩn, README, CHANGELOG, `Samples/`). Trước

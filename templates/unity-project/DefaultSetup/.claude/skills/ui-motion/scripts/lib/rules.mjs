@@ -5,7 +5,7 @@
 export const FALLBACK_ROLES = ["Unknown", "None", "Screen", "Popup", "Backdrop", "Panel", "Button", "List", "ListItem", "Counter", "Bar", "Label", "Toggle", "Slider", "Tab", "Dropdown", "Scrollbar", "Sheet", "Toast", "Tooltip", "Card", "Title", "Icon", "Badge", "Timer", "Spinner", "DamageText", "Decoration", "ScreenFx", "InputField"];
 
 const ROOT = ["schema", "project", "dataFolder", "componentRules", "componentRulesRemove", "keywords", "prefabWords", "settings", "notes"];
-const COMPONENT = ["type", "role", "ownMotion", "note"];
+const COMPONENT = ["type", "role", "ownMotion", "ownReferenced", "note"];
 const KEYWORDS = ["add", "remove"];
 const KEYWORD = ["word", "role", "before"];
 const PREFAB_WORDS = ["item", "template"];
@@ -76,6 +76,7 @@ export function validateRules(text, roles = FALLBACK_ROLES) {
     }
     role(x.role, at + ".role");
     if (x.ownMotion != null && typeof x.ownMotion !== "boolean") errors.push(at + ".ownMotion: phải là true / false");
+    if (x.ownReferenced != null && typeof x.ownReferenced !== "boolean") errors.push(at + ".ownReferenced: phải là true / false");
     str(x.note, at + ".note");
   });
   strList(root.componentRulesRemove, "componentRulesRemove");
