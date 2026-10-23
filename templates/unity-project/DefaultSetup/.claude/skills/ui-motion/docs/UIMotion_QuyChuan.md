@@ -1,6 +1,6 @@
 # Quy chuẩn UI Motion
 
-Phiên bản 0.6 · 2026-10-22 · Khớp module `UIMotionDefaults.Version` = 0.6.0.
+Phiên bản 0.6 · 2026-10-23 · Khớp module `UIMotionDefaults.Version` = 0.6.1.
 Áp dụng cho UI uGUI trong Unity (prefab, scene), ghép tay hay sinh bằng tool; mọi cơ chế chạy phía Unity. Dùng được cho mọi
 project: quy chuẩn và module chỉ chứa luật chung, điều riêng của từng project nằm trong file riêng của project đó (mục 2.4).
 
@@ -376,6 +376,10 @@ Bảng Role mặc định của RoleMap. Số liệu lấy từ Profile. "—" =
 
 "Ngược" của từng kiểu: Fade → fade ra; Pop / Pop mềm / Zoom → thu về + fade; Trượt từ X → trượt ra X; Rơi → bay lên;
 Nổi lên → chìm xuống.
+
+**List và Delay.** Delay trên component List áp cho từng item: chờ Delay rồi mới hiện lần lượt (dùng để các item vào sau khi
+popup chứa nó gần mở xong). List bật lúc chưa có item mà game dựng item ngay sau đó (Instantiate trong `Start`, trong 3 frame
+đầu) thì các item đó tính vào lần hiện này — có Delay và lần lượt; item tới muộn hơn mới là "item thêm vào" (dòng ListItem).
 
 Reduce motion: hiện / ẩn chỉ còn fade ngắn; knob, indicator, thanh, icon nhảy ngay tới trạng thái mới; loop đứng yên (spinner
 thở alpha); thanh cuộn luôn hiện rõ; ScreenFx không loé (chống chói); coin không bay (xong ngay). Sự kiện sfx vẫn bắn.

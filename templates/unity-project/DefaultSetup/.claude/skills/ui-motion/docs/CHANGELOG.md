@@ -2,6 +2,21 @@
 
 Phiên bản ghi ở `UIMotionDefaults.Version`, hiện trên Inspector của UIMotionSettings.
 
+## 0.6.1 — 2026-10-23
+
+Delay của List. Một game đặt Delay trên UI Motion List để các ô vào sau khi popup gần mở xong nhưng ô vẫn hiện ngay: popup
+dựng ô trong `Start` (sau khi list bật), list bật lúc chưa có item nên kết thúc lần hiện ngay và Delay không còn chỗ áp; ô tới
+sau đi đường "item thêm vào" vốn không đọc Delay. Thêm nữa, list có sẵn item lúc bật cũng chỉ lùi marker theo Delay, tween
+của từng item vẫn chạy ngay.
+
+**Nâng từ 0.6.0**: chép đè folder module. List nào đang đặt Delay sẽ bắt đầu chờ đúng Delay (trước đây bị bỏ qua).
+
+- `UIMotionLayoutTransition`: tween của từng item chạy sau Delay của component (cả lúc xem thử trong Editor).
+- List bật lúc chưa có item: item game dựng trong 3 frame đầu tính vào lần hiện này — ẩn ngay trước khi vẽ, chờ Delay rồi hiện
+  lần lượt theo kiểu hiện của List; item tới muộn hơn vẫn đi đường "item thêm vào" như cũ. Quy chuẩn mục 4, đoạn "List và Delay".
+- `UIMotionShowHide`: thuộc tính `Delay` (đặt từ code / test) và `BuildDelay` (protected) cho lớp con tự chạy tween riêng.
+- Test Play mode: list dựng item sau khi bật chờ đúng Delay rồi mới hiện, item về đúng chỗ layout.
+
 ## 0.6.0 — 2026-10-22
 
 Theme cho Profile. Preset cũ chia theo thể loại game (Action, Midcore, Puzzle, Cozy) và Team; tông cảm xúc thì chưa có, và
