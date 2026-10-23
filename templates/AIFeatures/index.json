@@ -908,11 +908,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "ArtStyle.template.zip",
-      "sha256": "8883f658372a0fafce88e51956c9e4826813a0f2f81c9264ec0a1b8902567fbc",
-      "size": 7151,
+      "sha256": "ac44317ee0312fec8573844348281300a0e6c954ea6c0e5ca2a2b32c5592d76a",
+      "size": 7254,
       "ownership": "base",
       "fileHashes": {
-        ".claude/docs/ArtStyle.template.md": "1119249f74539e6bee107799c094f270d4e30b3d3bf0a534a5c890295914f09b"
+        ".claude/docs/ArtStyle.template.md": "7f11a497db9c2218ccb8b009a9e6b58ea415209cdc1170dd28c5b5242b5d2a1f"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/ArtStyle.template.zip"
     },
@@ -2044,11 +2044,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
-      "sha256": "7b1ffae3ad8b810ebb72af5974f9b5348d67cab1d7a459091bc2c419d6f6c5b7",
-      "size": 7780,
+      "sha256": "4b39a8b9ee947982cb690e2aa3937e820f849d860c5857f6a6070b5e316d2e1f",
+      "size": 7910,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/project_profile.py": "98f349819f93a0a4d0ad34a16beda05743752f24beaaa6027157a1a4ff20202f"
+        ".claude/scripts/project_profile.py": "a7dcc4bf23d351cbbfe808c813ffe1087a1767b4992a0eb7695975e4a3802f07"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip"
     },
@@ -2978,12 +2978,13 @@
       "id": "Skills/create-sfx",
       "name": "create-sfx",
       "category": "Skills",
-      "description": "Tạo sound effect (SFX) cho game bằng cách tổng hợp 100% bằng code (numpy + scipy, không AI audio, không tốn tiền, không cần mạng). Gồm âm UI (click, select, popup mở/đóng, whoosh, tick, coin, error, unlock, reward, level up, fanfare) và âm gameplay (bắn/projectile, cast/charge, trúng đòn, chém, nổ, sét, băng vỡ, lửa phụt, hồi máu, triệu hồi, aura loop). Có 26 recipe × 10 nguyên tố (neutral, fire, gold, frost, arcane, toxic, holy, shadow, electric, rose), nhiều biến thể ngẫu nhiên cho âm phát liên tục, master về đúng độ to (LUFS) theo chuẩn mobile hoặc theo âm có sẵn của game khai ở ArtStyle.md §6c. QA tự động: độ to, cụt đuôi, click, onset trễ, mất tiếng trên loa điện thoại, chồng âm khi cảnh đông. Kèm ảnh review waveform + spectrogram đặt cạnh âm gốc và file nghe A/B. Xuất WAV + .meta đúng chuẩn import (Vorbis, Decompress On Load, giữ GUID khi làm lại) vào `<sfxRoot>/<Name>/`, gắn thẳng vào field `SoundConfig` (OpenPopup, ClosePopup, ButtonSelect, PurchaseItem…) hoặc vào list `SoundPlayController` của com.ezg.audio trên prefab (pool biến thể + cooldown chống chồng, play on enable). Dùng khi user nói \"tạo sfx …\", \"tạo sound / âm thanh / tiếng …\", \"làm sound cho skill / đạn / quái X\", \"âm bắn / âm trúng / âm nổ / âm chém / âm sét\", \"sound UI / click / mở popup / nhận thưởng / level up\", \"thay tiếng bấm nút\", \"create sfx\", \"make a sound effect\". KHÔNG dùng cho nhạc nền (music), giọng nói / voice, hay âm cần thu thật (ambience thật, foley thật).",
+      "description": "Tạo sound effect (SFX) cho game. **Ưu tiên MCP `ezg-sfx`** — tìm âm thật trên Freesound (chỉ CC0 / CC BY, server chặn license khác, key do server giữ), tải bản preview về Temp, rồi master lại cho khớp game (cắt khoảng lặng đầu, đúng độ to LUFS, fade đuôi), ghi license vào sfx-credits.json. Chỉ khi máy **chưa cài / chưa đăng nhập** MCP `ezg-sfx` (hoặc MCP lỗi, hoặc tìm không ra âm đạt) mới tổng hợp 100% bằng code (numpy + scipy, không AI audio, không tốn tiền, không cần mạng) với 26 recipe × 10 nguyên tố (neutral, fire, gold, frost, arcane, toxic, holy, shadow, electric, rose). Gồm âm UI (click, select, popup mở/đóng, whoosh, tick, coin, error, unlock, reward, level up, fanfare) và âm gameplay (bắn/projectile, cast/charge, trúng đòn, chém, nổ, sét, băng vỡ, lửa phụt, hồi máu, triệu hồi, aura loop), nhiều biến thể cho âm phát liên tục, độ to theo chuẩn mobile hoặc theo âm có sẵn của game khai ở ArtStyle.md §6c. Hai nguồn cùng qua một QA tự động (độ to, cụt đuôi, click, onset trễ, mất tiếng trên loa điện thoại, chồng âm khi cảnh đông, license) + ảnh review waveform/spectrogram đặt cạnh âm gốc + file nghe A/B. Xuất WAV + .meta đúng chuẩn import (Vorbis, Decompress On Load, giữ GUID khi làm lại) vào `<sfxRoot>/<Name>/`, gắn thẳng vào field `SoundConfig` (OpenPopup, ClosePopup, ButtonSelect, PurchaseItem…) hoặc vào list `SoundPlayController` của com.ezg.audio trên prefab (pool biến thể + cooldown chống chồng, play on enable). Dùng khi user nói \"tạo sfx …\", \"tạo sound / âm thanh / tiếng …\", \"làm sound cho skill / đạn / quái X\", \"âm bắn / âm trúng / âm nổ / âm chém / âm sét\", \"sound UI / click / mở popup / nhận thưởng / level up\", \"thay tiếng bấm nút\", \"tìm âm trên Freesound\", \"create sfx\", \"make a sound effect\". KHÔNG dùng cho nhạc nền (music) hay giọng nói / voice.",
       "installPath": ".claude/skills/create-sfx",
       "isDirectory": true,
       "files": [
         ".claude/skills/create-sfx/SKILL.md",
         ".claude/skills/create-sfx/agents/openai.yaml",
+        ".claude/skills/create-sfx/reference/freesound.md",
         ".claude/skills/create-sfx/reference/recipes.md",
         ".claude/skills/create-sfx/reference/style-guide.md",
         ".claude/skills/create-sfx/reference/synth-api.md",
@@ -2992,21 +2993,22 @@
         ".claude/skills/create-sfx/scripts/sfx_recipes.py",
         ".claude/skills/create-sfx/scripts/sfxsynth.py"
       ],
-      "fileCount": 9,
+      "fileCount": 10,
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "create-sfx.zip",
-      "sha256": "1daf1765c6679e967e1f3aa997e0c0f8f403972268a20ae08e2bf29a9a007080",
-      "size": 48267,
+      "sha256": "053629a00d8abafb62415491edbb6f7d008459ed497d46df8ff8278491f6d419",
+      "size": 59929,
       "ownership": "base",
       "fileHashes": {
-        ".claude/skills/create-sfx/SKILL.md": "700a31dc52d52e02e25c22db2e5eeddd69a4e4762d8dccbce06fd3bf25bfee78",
-        ".claude/skills/create-sfx/agents/openai.yaml": "fb0e3ad0e73b8060a3459fac3230aa3ca4d22fc13bb6c6d65c34012434ecc85b",
+        ".claude/skills/create-sfx/SKILL.md": "a5346547ae64e402d51fa92dbf200272c3ef59e1171b7b7882ea38e835da895e",
+        ".claude/skills/create-sfx/agents/openai.yaml": "eb8b905b2dd1bb49b924770545d756713dbd6d7850614a9cc704d72093e64998",
+        ".claude/skills/create-sfx/reference/freesound.md": "c8cb99c5cb97d19f7beb8993fd6f15d5faa410b6c5de4f2c38a6d3fafe70d222",
         ".claude/skills/create-sfx/reference/recipes.md": "14686169e606f511efa7eca44659020186f6180514c4676b97c23c2d94d060b5",
-        ".claude/skills/create-sfx/reference/style-guide.md": "d2d2d0581a906465033012fdb2a45ed93f4d20abad8ab25fa09bfa23a9dfac25",
+        ".claude/skills/create-sfx/reference/style-guide.md": "32b9416c2bb7a8bae259b869c74549012dc47d130ded0bc689878024ed9a2aa1",
         ".claude/skills/create-sfx/reference/synth-api.md": "bdde09ef8f77b92b25c3973ee835112fa62905ba85e14f2d68dce5309d177aa1",
-        ".claude/skills/create-sfx/reference/unity-integration.md": "b176f8b0c2628564d73a6272c639ce71de009ade5e6ed8dde6f33b1b90a9d752",
-        ".claude/skills/create-sfx/scripts/make_sfx.py": "442d875c6d730b0f3a489711db0fbf5940a1ecaa7339e308c575082524f19fe0",
+        ".claude/skills/create-sfx/reference/unity-integration.md": "f3128d1b0031995cd3e888bdf2c6fd6582d69ab47384af67ed13d7639f24f9aa",
+        ".claude/skills/create-sfx/scripts/make_sfx.py": "4b83300c32f2bfc4fc90b63c6588df63af1c89a7498315a3fa24fc5ab94c78e8",
         ".claude/skills/create-sfx/scripts/sfx_recipes.py": "a71e152f792c448baaa323feda7e7b43f0eef409d44750473d9b21c4e273cbac",
         ".claude/skills/create-sfx/scripts/sfxsynth.py": "45fdf766491fc2339c162bd4813df6e8342e6e8bf7c4d7fa40de6e9afd83f764"
       },
