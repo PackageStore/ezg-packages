@@ -1,5 +1,9 @@
 # SFX style guide: how this skill's sounds are built, and the default numbers
 
+The same targets apply to both sources: sounds synthesised by `make` and Freesound sounds conformed by `ingest`
+(freesound.md). `ingest` masters to the same LUFS per kind, so a found click and a synthesised click sit at the same
+level in the game.
+
 The game's own sound identity (reference clips, default element, loudness offset, approved sounds, rejected
 directions) lives in `.claude/docs/ArtStyle.md` §6c, not here: this file ships with the skill and is overwritten on
 update. Here: how the template plays sound, the vocabulary every recipe uses, and the **default** targets. They
@@ -104,4 +108,5 @@ without either, only WAV references show (still enough to compare).
   import option off.
 - Long reverb tails on frequent sounds: they smear into a wash when stacked.
 - Realistic recording-style sounds (gunshots with room reverb, gore, voice) unless the game's §6c says otherwise.
-  The recipes are built for cartoon/arcade games.
+  The recipes are built for cartoon/arcade games; Freesound searches add the §6c search words (or "cartoon" / "game")
+  for the same reason.

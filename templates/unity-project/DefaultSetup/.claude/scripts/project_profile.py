@@ -81,6 +81,9 @@ DEFAULTS = {
     "sfxRoot": "Assets/_Project/Visual/ArtAsset/Shared/Sounds/Generated",
     "soundConfigAsset": "Assets/_Project/Features/_Shared/Resources/SoundConfig.asset",
     "sfxEventFields": {},
+    # licenses create-sfx may take from Freesound (MCP ezg-sfx): "cc0" = public domain only (game has no credits
+    # screen), "any" = CC0 + CC BY (the game shows credits). Only the dev changes it.
+    "sfxLicense": "cc0",
     # Độ phân giải thiết kế của UI (portrait [w, h]) — mockup, ui-spec, ảnh chụp kiểm, visual diff
     # đều theo số này. Rỗng = tự dò CanvasScaler `m_ReferenceResolution` của screen_template.prefab
     # dưới uiTemplatesRoot; dò không ra thì [1080, 2400] (chuẩn EZG). Spec cũ [1080, 1920] vẫn hợp lệ.
@@ -334,6 +337,10 @@ class Profile:
     def sfx_event_fields(self) -> dict:
         return dict(self.get("sfxEventFields") or {})
 
+    @property
+    def sfx_license(self) -> str:
+        return self.get("sfxLicense")
+
     # -- review surfaces ----------------------------------------------------
     @property
     def design_resolution(self) -> list:
@@ -478,6 +485,7 @@ if __name__ == "__main__":
             "sfxRoot": p.sfx_root,
             "soundConfigAsset": p.sound_config_asset,
             "sfxEventFields": p.sfx_event_fields,
+            "sfxLicense": p.sfx_license,
             "designResolution": p.design_resolution,
             "polish": p.polish,
             "sensitiveGlobs": p.sensitive_globs,

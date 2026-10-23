@@ -170,6 +170,7 @@ Skill `create-vfx` đọc khối `vfx-style` bằng script, nên giữ đúng c�
 khối `sfx-style` bằng script, nên giữ đúng cú pháp từng dòng.
 
 - **Nhận diện:** <cartoon / arcade / thực tế; sáng hay ấm; nhiều tint nguyên tố hay khô>
+- **Từ khoá tìm âm (Freesound qua MCP `ezg-sfx`):** <từ style thêm vào mọi truy vấn, vd cartoon, soft, 8bit; từ cần tránh>
 - **Âm gốc để so:** <âm game đang ship làm mốc — khai ở dòng `ref` bên dưới>
 - **Cấm:** <hướng âm đã bị loại — chi tiết + lý do ở §9>
 
@@ -181,7 +182,8 @@ khối `sfx-style` bằng script, nên giữ đúng cú pháp từng dòng.
 # ref <ui_short|ui_jingle|shot|hit|explode|cast|loop>: <path clip>[, <path clip>…]
 ```
 
-**Âm đã duyệt** — dev nghe và khen. Chép `command` từ `<base>.sfx.json` để làm lại y hệt.
+**Âm đã duyệt** — dev nghe và khen. Chép `command` từ `<base>.sfx.json` để làm lại y hệt (âm Freesound: ghi kèm
+`#id` để tải lại qua `ezg-sfx` rồi chạy lại `ingest`).
 
 | Ngày | Âm (base) | Gắn ở | command |
 |---|---|---|---|

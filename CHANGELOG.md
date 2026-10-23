@@ -4,6 +4,13 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-24
+
+**Changed**
+- Skill `create-sfx`: ưu tiên âm Freesound qua MCP `ezg-sfx` (CC0 / CC BY, master lại đúng LUFS + QA + license
+  trong `sfx-credits.json`, lệnh mới `make_sfx.py ingest`); chỉ tổng hợp bằng code khi máy chưa có MCP đó hoặc nó
+  không dùng được. Profile thêm `sfxLicense`. Chi tiết: `templates/unity-project/CHANGELOG.md`.
+
 ## 2026-10-19
 
 **Fixed**

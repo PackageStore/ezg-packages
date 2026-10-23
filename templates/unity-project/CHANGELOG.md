@@ -4,6 +4,20 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-24
+
+**Changed** — `create-sfx` ưu tiên âm Freesound qua MCP `ezg-sfx`, tổng hợp bằng code thành dự phòng
+- Mỗi lần chạy, skill kiểm `sfx_status` của MCP `ezg-sfx` trước: có → tìm âm trên Freesound (chỉ CC0 / CC BY), tải
+  preview vào `Temp/CreateSfx/_fetch/<Name>/`; chưa cài / chưa đăng nhập / lỗi / 3 vòng không ra âm đạt → tổng hợp
+  bằng numpy/scipy như cũ (report ghi lý do + lệnh cài MCP). Không tự cài MCP.
+- `make_sfx.py ingest`: đưa âm có sẵn (preview Freesound, file dev đưa) qua đúng pipeline của `make` — cắt khoảng
+  lặng đầu, master về LUFS của recipe (`--like`) hoặc loại (`--kind`), fade đuôi khi nguồn bị cắt, `--start/--end`,
+  `--pitch`, pool biến thể bằng lệch cao độ khi chỉ có một nguồn; cùng QA, `.meta` giữ GUID, review cạnh REF,
+  `--config` / `--prefab`. License ghi vào spec + `<sfxRoot>/<Name>/sfx-credits.json`; flag chặn `LICENSE` khi
+  nguồn CC BY mà project chưa có màn credits. `make` cho ra file y hệt bản trước.
+- `project-profile.json` thêm `sfxLicense` (`cc0` mặc định | `any`). ArtStyle template §6c thêm ô "Từ khoá tìm âm".
+- Reference mới `create-sfx/reference/freesound.md`: bảng truy vấn theo recipe, chọn ứng viên, tải, credits.
+
 ## 2026-10-21
 
 **Fixed** — Doc UI của base mô tả đúng template thật (trước đây chép từ kit của project khác)

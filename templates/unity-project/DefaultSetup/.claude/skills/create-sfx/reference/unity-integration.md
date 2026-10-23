@@ -24,7 +24,11 @@ tweak a human made.
 - Files: `sfx_<name>[_<part>][_<i>].wav` (free mode) or `sfx_<name>_<event>[_<part>]_<i>.wav` (event pool), plus
   `<base>.sfx.json`.
 - The `.sfx.json` spec (TextAsset, not in any bundle) records the exact `command`, seed, files, GUIDs and QA.
-  Re-running that command regenerates byte-identical audio.
+  Re-running that command regenerates byte-identical audio. An `ingest` spec (`source: ingest`) also lists every
+  source with its Freesound id and license; re-running it needs those previews fetched again (freesound.md §4).
+- `sfx-credits.json` (Freesound sounds only): one entry per Freesound id (author, license, credit line, clips using
+  it). Commit it with the clips: it is the license record, and the CC BY lines the game must show.
+- Raw downloads stay in `Temp/CreateSfx/_fetch/<Name>/`, outside `Assets/`: Unity never imports them.
 - Keep generated sounds out of `Resources/` unless the game loads them by path.
 
 ## 3. Wiring

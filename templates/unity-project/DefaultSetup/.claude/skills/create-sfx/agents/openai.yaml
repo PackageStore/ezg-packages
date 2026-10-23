@@ -1,4 +1,4 @@
 interface:
   display_name: "Create SFX"
-  short_description: "Synthesize game sound effects in code (UI + gameplay sounds) and wire them into Unity"
-  default_prompt: "Use $create-sfx to create a sound effect (UI click / popup / reward / level up, or a gameplay fire / shot / hit sound) and wire it into SoundConfig or a prefab's SoundPlayController."
+  short_description: "Game sound effects from Freesound via the ezg-sfx MCP (fallback: synthesized in code), mastered and wired into Unity"
+  default_prompt: "Use $create-sfx to create a sound effect (UI click / popup / reward / level up, or a gameplay fire / shot / hit sound): find it on Freesound through the ezg-sfx MCP first (synthesize it in code only when that MCP is not available), then wire it into SoundConfig or a prefab's SoundPlayController."
