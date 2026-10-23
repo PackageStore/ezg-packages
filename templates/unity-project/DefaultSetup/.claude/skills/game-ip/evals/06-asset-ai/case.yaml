@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: 06-asset-ai
+description: "Key art nhân vật chính làm bằng AI với prompt gọi tên game khác: chặn prompt, quyền với đầu ra theo công cụ và gói, phần người sửa, ghi sổ."
+tags: [ai]
+execution:
+  prompt: |
+    Art bên tao làm key art nhân vật chính bằng Midjourney gói Basic với Seedance, prompt kiểu "chibi knight in the style of Clash Royale", có cho thêm ảnh nhân vật Clash Royale làm reference. Công ty doanh thu khoảng 3 triệu đô một năm. Dùng làm icon với key art được không?
+  max_turns: 20
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-ip
+    min: 1
+    arm: with-only
+  - type: llm
+    name: chan_prompt_ten_game
+    criteria: >-
+      Câu trả lời nói prompt gọi tên game khác và dùng ảnh nhân vật của game đó làm reference là không được (chặn), phải làm lại.
+  - type: llm
+    name: quyen_theo_cong_cu
+    criteria: >-
+      Câu trả lời nêu ít nhất một trong: Midjourney yêu cầu công ty doanh thu trên 1 triệu USD / năm dùng gói Pro hoặc Mega; điều
+      khoản Seedance (BytePlus) chỉ cấp license giới hạn, có thể thu hồi, không phải quyền sở hữu.
+  - type: llm
+    name: nguoi_sua_va_so
+    criteria: >-
+      Câu trả lời nói đầu ra thuần AI khó được bảo hộ bản quyền (ít nhất ở Mỹ), nên nhân vật chính / icon cần người vẽ hoặc sửa đáng
+      kể, và ghi hồ sơ (công cụ, gói, prompt, reference, phần sửa) vào sổ.

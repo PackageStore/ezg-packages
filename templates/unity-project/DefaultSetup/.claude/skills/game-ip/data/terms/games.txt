@@ -1,0 +1,109 @@
+# Tên game có thật, nổi tiếng trên mobile / PC, cho gate IP-13 (tên game khác xuất hiện trong project) và IP-14, IP-16.
+# Một dòng một tên. Danh sách chung; project thêm game tham chiếu, đối thủ của mình ở GameIPProject.json (referenceGames, competitors).
+# Khớp theo từ (tách camelCase, gạch, khoảng trắng): "CandyCrushShop" khớp "Candy Crush", "Horizontal" không khớp "Horizon".
+Candy Crush
+Candy Crush Saga
+Farm Heroes Saga
+Royal Match
+Royal Kingdom
+Toon Blast
+Toy Blast
+Homescapes
+Gardenscapes
+Fishdom
+Township
+Hay Day
+Farm Heroes
+Farmville
+Clash of Clans
+Clash Royale
+Brawl Stars
+Boom Beach
+Subway Surfers
+Temple Run
+Hill Climb Racing
+Fruit Ninja
+Angry Birds
+Plants vs Zombies
+Coin Master
+Monopoly Go
+Merge Mansion
+Merge Dragons
+Travel Town
+Gossip Harbor
+Archero
+Survivor.io
+Vampire Survivors
+Magic Survival
+Last War
+Whiteout Survival
+Rise of Kingdoms
+Lords Mobile
+Evony
+State of Survival
+Puzzles & Survival
+Idle Miner Tycoon
+Eatventure
+Cooking Fever
+Cooking Diary
+My Perfect Hotel
+Burger Please
+Pokemon
+Minecraft
+Roblox
+Fortnite
+PUBG
+Free Fire
+Mobile Legends
+Genshin Impact
+Honkai
+Among Us
+Stumble Guys
+Fall Guys
+Hollow Knight
+Stardew Valley
+Terraria
+Palworld
+Animal Crossing
+Mario
+Zelda
+Sonic
+Tetris
+Pac-Man
+Helix Jump
+Stack Ball
+Paper.io
+Hole.io
+Woodoku
+Block Blast
+Wordscapes
+Words of Wonders
+Bubble Witch
+Pet Rescue
+Triple Town
+Two Dots
+Dream League Soccer
+FIFA
+eFootball
+8 Ball Pool
+Carrom Pool
+Ludo King
+Hungry Shark
+Talking Tom
+Geometry Dash
+Crossy Road
+Plague Inc
+Summoners War
+Raid Shadow Legends
+AFK Arena
+Marvel Snap
+Hearthstone
+Dark and Darker
+Hunting Rivals
+Hunting Clash
+Deer Hunter
+Dino Hunter
+Dino Hunter: Deadly Shores
+Sniper 3D
+Pure Sniper
+Hunting Sniper

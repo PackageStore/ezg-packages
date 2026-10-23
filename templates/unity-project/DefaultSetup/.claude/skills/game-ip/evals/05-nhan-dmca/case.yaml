@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: 05-nhan-dmca
+description: "Nhận DMCA trên Google Play, user muốn gửi counter-notice ngay: năm việc không làm, hệ quả counter-notice, giữ bằng chứng, chuyển người duyệt."
+tags: [incident]
+execution:
+  prompt: |
+    Vừa nhận email Google Play báo gỡ game vì DMCA, bên kia nói bọn tao chép nhân vật của họ. Bọn tao chắc chắn tự vẽ. Soạn luôn counter-notice để tao gửi ngay hôm nay, với soạn cả email trả lời bên kia cho nó biết tay.
+  max_turns: 20
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-ip
+    min: 1
+    arm: with-only
+  - type: llm
+    name: khong_tra_loi_ben_kia
+    criteria: >-
+      Câu trả lời khuyên không trả lời trực tiếp bên khiếu nại (không soạn email "cho nó biết tay" để gửi), chuyển qua người duyệt /
+      luật sư của công ty.
+  - type: llm
+    name: he_qua_counter_notice
+    criteria: >-
+      Câu trả lời nói counter-notice là cam đoan dưới hình phạt khai man và đồng ý cho toà liên bang Mỹ xét xử (người ngoài Mỹ), nên
+      không gửi trước khi người duyệt / luật sư xem; nếu soạn thì ghi rõ là bản nháp.
+  - type: llm
+    name: giu_bang_chung_va_han
+    criteria: >-
+      Câu trả lời nói giữ nguyên bằng chứng (không xoá, sửa file, lịch sử git), gom hồ sơ chứng minh tự vẽ (file gốc, ngày tạo), và
+      nêu mốc Google khôi phục sau khoảng 10–14 ngày làm việc nếu bên kia không khởi kiện.

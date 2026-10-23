@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: 04-nhac-quang-cao
+description: "Nhạc cho creative chạy nhiều mạng và nhạc trong game: thư viện nhạc của nền tảng chỉ dùng trên nền tảng đó, gói cá nhân không phủ game."
+tags: [ua, music]
+execution:
+  prompt: |
+    UA bên tao lấy một bài trong thư viện nhạc TikTok (Commercial Music Library) cho video quảng cáo, định chạy cùng file đó trên TikTok, Meta với AppLovin. Còn nhạc nền trong game thì bạn art tải từ Epidemic Sound bằng gói Personal của bạn ấy. Ổn không?
+  max_turns: 20
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-ip
+    min: 1
+    arm: with-only
+  - type: llm
+    name: nhac_nen_tang
+    criteria: >-
+      Câu trả lời nói nhạc trong Commercial Music Library của TikTok chỉ (hoặc chưa chắc ngoài) dùng cho nội dung trên TikTok, nên
+      không đem cùng file chạy trên Meta, AppLovin; cần nhạc có license quảng cáo trả tiền cho từng nền tảng.
+  - type: llm
+    name: epidemic_khong_phu_game
+    criteria: >-
+      Câu trả lời nói gói cá nhân của Epidemic Sound không phủ việc dùng nhạc trong game (cần gói doanh nghiệp phù hợp), và tài khoản
+      cá nhân của nhân viên không phải bằng chứng mua của công ty.
+  - type: llm
+    name: content_id_va_so
+    criteria: >-
+      Câu trả lời nêu ít nhất một trong: thử video trước để xem có claim nhận dạng âm thanh (Content ID) không; ghi nguồn nhạc vào sổ
+      creative / sổ nguồn gốc với phạm vi ads; nhạc có hai lớp quyền (bản nhạc và bản thu).

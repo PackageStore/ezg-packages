@@ -1,0 +1,18 @@
+schema_version: "1.0"
+name: 08-khong-bat-ui
+description: "Câu về feedback của nút UI: skill game-ip không được bật."
+tags: [negative]
+execution:
+  prompt: |
+    Nút Play ở màn hình chính bấm vào thấy cứng quá, thêm hiệu ứng nảy với tiếng click cho nó.
+  max_turns: 10
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_khong_bat
+    tool: Skill
+    input_match: game-ip
+    max: 0
+    arm: with-only

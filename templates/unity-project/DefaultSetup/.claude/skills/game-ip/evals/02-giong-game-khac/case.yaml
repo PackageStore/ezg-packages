@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: 02-giong-game-khac
+description: "Feature merge bám sát Triple Town: thẻ so sánh, lọc luật ghép 3, chuỗi tiến hoá + chướng ngại là tổ hợp được bảo hộ."
+tags: [compare]
+execution:
+  prompt: |
+    Game design bên tao làm feature merge: 3 bụi cỏ ghép thành bụi cây, 3 bụi cây thành cái cây, 3 cây thành ngôi nhà, có con gấu đi lung tung chặn ô, bị nhốt thì gấu thành bia mộ. Art thì bọn tao vẽ lại hết, chủ đề tuyết với yeti thay gấu. Lấy cảm hứng từ Triple Town. Vậy có sao không, phát hành toàn cầu?
+  max_turns: 20
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill_bat
+    tool: Skill
+    input_match: game-ip
+    min: 1
+    arm: with-only
+  - type: llm
+    name: loc_luat
+    criteria: >-
+      Câu trả lời tách được: cơ chế ghép 3 / match-3 nói chung là ý tưởng, luật chơi, không được bảo hộ (lọc), còn chuỗi tiến hoá
+      cụ thể cỏ → bụi → cây → nhà cộng con gấu chặn ô là cách chọn và sắp xếp có thể được bảo hộ.
+  - type: llm
+    name: an_le
+    criteria: >-
+      Câu trả lời nêu vụ Spry Fox v. LOLApps (Triple Town / Yeti Town), hoặc nói rõ rằng thay vỏ đồ hoạ (gấu → yeti, cỏ → tuyết)
+      không đủ để thoát.
+  - type: llm
+    name: muc_va_de_xuat
+    criteria: >-
+      Câu trả lời xếp mức rủi ro cao (Đỏ hoặc tương đương), chuyển người duyệt / luật sư của công ty, và đưa đề xuất đổi cụ thể
+      (đổi chuỗi tiến hoá, đổi cơ chế chướng ngại, đổi cách giới thiệu luật…), không chỉ "làm khác đi".
+  - type: llm
+    name: khong_ket_luan_phap_ly
+    criteria: >-
+      Câu trả lời không khẳng định chắc chắn "chắc chắn bị kiện" hay "chắc chắn không sao"; nói đây là đánh giá rủi ro, không phải tư
+      vấn pháp lý.
