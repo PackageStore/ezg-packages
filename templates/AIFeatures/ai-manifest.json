@@ -34,9 +34,6 @@
     "Skills/game-vfx": {
       "description": "Quy chuẩn VFX 2D, 3D cho game mobile của team (module Game VFX), dùng cho mọi project: cấp quan trọng, timing, trần ngân sách mobile theo cấp và tier máy, ParticleSystem, stop action và pool, giờ game / giờ thật, sorting, texture, material, tên FX_, pack VFX mua sẵn, hạt trên UI, VFX không frame-by-frame (hạt và shader ăn mòn); dùng thư viện hiệu ứng (FXEffect, shader EZG/VFX/Particle có Erosion, UV Scroll, Mask, Ramp); quét VFX cả project tìm nợ (Node 18+). Mang sẵn quy chuẩn và danh mục hiệu ứng có ảnh (docs/ trong skill): cài skill là đọc được luật, không cần cài module. FXEffect và shader chung: tab Unity Packages > EZG Shared > GameVFX (phần lõi, không kèm prefab của thư viện)."
     },
-    "Skills/game-ip": {
-      "description": "Kiểm bản quyền, nhãn hiệu, bí mật kinh doanh cho game làm ở Việt Nam, phát hành toàn cầu (module Game IP), dùng cho mọi project: khảo sát chỉ đọc mọi thứ vào build (pack Asset Store theo GUID, folder bên thứ ba, package, font, metadata nhạc / ảnh, dấu hiệu AI, tên game khác, thương hiệu thật), sổ nguồn gốc ProjectSettings/GameIPLedger.json, gate IP-1 … IP-20 trước release, sinh màn Credits, thẻ so sánh với game tham chiếu (án lệ, so ảnh pHash), chấm tên game, kiểm creative UA, sổ tay khi bị khiếu nại DMCA / store. Script cần Node 18+, không cài gói. Mang sẵn quy chuẩn, nguyên lý, sổ tay ứng phó (docs/ trong skill); tài liệu là bản nháp chờ công ty duyệt, không phải tư vấn pháp lý."
-    },
     "Docs/ArtStyle.template": {
       "description": "Khung art style của game (palette token, kit UI, bố cục, chữ, icon/hero art, motion, màn mẫu, hướng đã bị loại). bootstrap copy thành .claude/docs/ArtStyle.md của project — file đó project tự điền, Feature Hub không bao giờ ghi đè. Cài kèm rule art-style + script art-style-board.py."
     },
