@@ -1,6 +1,6 @@
 {
   "name": "com.ezg.core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "displayName": "EZG Core",
   "description": "Shared runtime foundation for EZG Unity projects: an asset-loading adapter (Resources / AssetBundle / Play Asset Delivery), reusable UI helper components (safe area, layout adjusters, scroll-snap, tween-move, curved/circle layouts, button extensions, jump-in/out animation), device/security helpers, common MonoBehaviour and Unity extension utilities, and shared color/update-loop utilities, plus an editor guard that keeps Unity's \"Recovering Scene Backups\" startup dialog from appearing.",
   "unity": "6000.2",

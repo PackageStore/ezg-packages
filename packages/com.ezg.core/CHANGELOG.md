@@ -4,6 +4,12 @@ All notable changes to `com.ezg.core` will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.5] - 2026-10-24
+
+### Fixed
+- `SceneBackupGuard` made every scene enter Play Mode empty (0 roots, black Game view, no `Start`/boot ran). Unity loads the Play scenes FROM `Temp/__Backupscenes` after the domain reload, and the guard parked that folder in its static constructor during that very reload. The backup is now parked only at `EnteredPlayMode` (scenes already loaded), with or without domain reload.
+- `SceneBackupGuard` no longer runs in Asset Import Worker processes. They run `[InitializeOnLoad]` too, never play, and share the project's `Temp/`, so a worker started during Play deleted the parked backup → the edit-mode scene came back empty after Play and could then be saved over the real scene file. Projects that worked around 0.1.4 with `EZG_KEEP_SCENE_BACKUPS` can drop the define.
+
 ## [0.1.4] - 2026-10-19
 
 ### Added

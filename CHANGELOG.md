@@ -6,6 +6,11 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 ## 2026-10-24
 
+**Fixed**
+- `com.ezg.core` 0.1.5: `SceneBackupGuard` (0.1.4) làm mọi scene vào Play rỗng (Splash đen, game không boot) vì dời
+  `Temp/__Backupscenes` ngay lúc domain reload, trước khi Unity load scene Play từ nó; Asset Import Worker cũng chạy guard
+  và xoá backup giữa lúc Play → thoát Play scene rỗng, lưu là mất scene. Giờ chỉ park ở `EnteredPlayMode` và bỏ qua worker.
+
 **Changed**
 - Skill `create-sfx`: ưu tiên âm Freesound qua MCP `ezg-sfx` (CC0 / CC BY, master lại đúng LUFS + QA + license
   trong `sfx-credits.json`, lệnh mới `make_sfx.py ingest`); chỉ tổng hợp bằng code khi máy chưa có MCP đó hoặc nó
