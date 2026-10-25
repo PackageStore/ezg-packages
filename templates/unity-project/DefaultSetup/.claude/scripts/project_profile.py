@@ -136,6 +136,10 @@ DEFAULTS = {
         # regex (python) matching a banned direct client write
         "directWritePattern": "",
         "directWriteAdvice": "",
+        # Repo-relative paths the design sanctions as direct writers (e.g. the one
+        # cloud-save transport). A match there is `contextual`, not `definite`: it
+        # still reaches the security-auditor but no longer hard-blocks. Exact paths.
+        "directWriteAllowedFiles": [],
     },
 
     # --- BugHub -------------------------------------------------------------
@@ -377,6 +381,10 @@ class Profile:
     @property
     def backend_direct_write_advice(self) -> str:
         return self.backend.get("directWriteAdvice") or ""
+
+    @property
+    def backend_direct_write_allowed_files(self) -> list:
+        return list(self.backend.get("directWriteAllowedFiles") or [])
 
     # -- BugHub -------------------------------------------------------------
     @property

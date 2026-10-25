@@ -317,5 +317,54 @@ class UiKitStalenessTests(PreflightTestCase):
         self.assertEqual(self.findings(self.run_preflight(), "ui-kit-stale"), [])
 
 
+class BackendWriteAllowlistTests(PreflightTestCase):
+    """`backend.directWriteAllowedFiles`: the design's sanctioned direct writers
+    are downgraded to contextual (still sensitive, still reviewed), every other
+    file keeps the definite block."""
+
+    WRITER = "Assets/Scripts/CloudSaveTransport.cs"
+    OTHER = "Assets/Scripts/Shop.cs"
+
+    def write_profile(self, allowed):
+        (self.dir / ".claude" / "project-profile.json").write_text(json.dumps({
+            "backend": {
+                "kind": "firebase",
+                "directWriteBanned": True,
+                "directWritePattern": r"\b(SetAsync|PutBytesAsync)\s*\(",
+                "directWriteAllowedFiles": allowed,
+            },
+        }), encoding="utf-8")
+
+    def stage_writes(self):
+        for rel in (self.WRITER, self.OTHER):
+            self.stage(rel, "class W {\n    async void Go() { await doc.SetAsync(data); }\n}\n")
+
+    def test_without_allowlist_every_write_blocks(self):
+        self.write_profile([])
+        self.stage_writes()
+        r = self.run_preflight()
+        hits = self.findings(r, "backend-security")
+        self.assertEqual(len(hits), 2)
+        self.assertTrue(all(f["confidence"] == "definite" for f in hits))
+        self.assertTrue(r["summary"]["has_blocking_definite"])
+
+    def test_allowed_file_is_contextual_and_still_sensitive(self):
+        self.write_profile([self.WRITER])
+        self.stage(self.WRITER, "class W {\n    async void Go() { await doc.SetAsync(data); }\n}\n")
+        r = self.run_preflight()
+        hits = self.findings(r, "backend-security")
+        self.assertEqual([f["confidence"] for f in hits], ["contextual"])
+        self.assertFalse(r["summary"]["has_blocking_definite"])
+        self.assertIn("direct-backend-write", [x["type"] for x in r["sensitive"]["reasons"]])
+
+    def test_allowlist_does_not_leak_to_other_files(self):
+        self.write_profile([self.WRITER])
+        self.stage_writes()
+        r = self.run_preflight()
+        by_file = {f["file"]: f["confidence"] for f in self.findings(r, "backend-security")}
+        self.assertEqual(by_file, {self.WRITER: "contextual", self.OTHER: "definite"})
+        self.assertTrue(r["summary"]["has_blocking_definite"])
+
+
 if __name__ == "__main__":
     unittest.main()

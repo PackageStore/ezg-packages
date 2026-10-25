@@ -261,6 +261,12 @@ def is_player_prefs_allowed(path):
 _BACKEND_WRITE_BANNED = profile().backend_direct_write_banned
 _BACKEND_WRITE_PATTERN = profile().backend_direct_write_pattern
 _BACKEND_WRITE_ADVICE = profile().backend_direct_write_advice
+# The project's sanctioned direct writers (`backend.directWriteAllowedFiles`, exact
+# repo-relative paths — e.g. the one cloud-save transport the TechSpec allows). A match
+# there is downgraded to `contextual`, not dropped: it still marks the diff sensitive and
+# reaches the security-auditor, it just stops being an unfixable definite block.
+# Keep backlog-preflight.ps1 reading the same profile key.
+_BACKEND_WRITE_ALLOWED_FILES = {p.replace("\\", "/") for p in profile().backend_direct_write_allowed_files}
 
 # Credential-LIKE identifier (e.g. SUPABASE_SERVICE_KEY). The scoped (?-i:...)
 # keeps it UPPER_SNAKE-only even though search() compiles everything with
@@ -433,8 +439,9 @@ def main():
                 # with no backend sets backend.kind to "none" and this rule
                 # stops firing instead of flagging code that cannot exist.
                 if _BACKEND_WRITE_BANNED and search(_BACKEND_WRITE_PATTERN, trimmed):
-                    add_finding(findings, "backend-security", "critical", "definite", current_file, line_number, trimmed,
-                                _BACKEND_WRITE_ADVICE)
+                    allowed = (current_file or "").replace("\\", "/") in _BACKEND_WRITE_ALLOWED_FILES
+                    add_finding(findings, "backend-security", "critical", "contextual" if allowed else "definite",
+                                current_file, line_number, trimmed, _BACKEND_WRITE_ADVICE)
                     sensitive_reasons.append({"type": "direct-backend-write", "file": current_file, "line": line_number})
 
             if is_code:

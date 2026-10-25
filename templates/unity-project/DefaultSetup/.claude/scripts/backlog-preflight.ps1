@@ -321,6 +321,8 @@ $backendCfg = Get-ProfileJson "backend"
 $backendWriteBanned  = if ($backendCfg) { [bool]$backendCfg.directWriteBanned } else { $false }
 $backendWritePattern = if ($backendCfg -and $backendCfg.directWritePattern) { [string]$backendCfg.directWritePattern } else { '' }
 $backendWriteAdvice  = if ($backendCfg -and $backendCfg.directWriteAdvice) { [string]$backendCfg.directWriteAdvice } else { '' }
+# Sanctioned direct writers — same key as _BACKEND_WRITE_ALLOWED_FILES in the Python twin.
+$backendWriteAllowedFiles = if ($backendCfg -and $backendCfg.directWriteAllowedFiles) { @($backendCfg.directWriteAllowedFiles | ForEach-Object { $_ -replace '\\', '/' }) } else { @() }
 
 foreach ($file in $changedFiles) {
     foreach ($pattern in $sensitiveFilePatterns) {
@@ -459,7 +461,8 @@ foreach ($rawLine in ($diff -split "`n")) {
             }
 
             if ($backendWriteBanned -and $trimmed -match $backendWritePattern) {
-                Add-Finding $findings "backend-security" "critical" "definite" $currentFile $lineNumber $trimmed $backendWriteAdvice
+                $writeConfidence = if ($backendWriteAllowedFiles -contains ($currentFile -replace '\\', '/')) { "contextual" } else { "definite" }
+                Add-Finding $findings "backend-security" "critical" $writeConfidence $currentFile $lineNumber $trimmed $backendWriteAdvice
                 $sensitiveReasons.Add([PSCustomObject]@{
                     type = "direct-supabase-write"
                     file = $currentFile

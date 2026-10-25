@@ -109,13 +109,16 @@
   "$comment_backend": [
     "No backend in the base template, so the direct-client-write rule is off.",
     "Turn it on when a server lands: set kind, directWriteBanned true, and a",
-    "directWritePattern matching the call your client must not make."
+    "directWritePattern matching the call your client must not make.",
+    "directWriteAllowedFiles: exact repo-relative paths the design sanctions as direct writers;",
+    "a match there is downgraded to contextual (security-auditor still reviews it), not dropped."
   ],
   "backend": {
     "kind": "none",
     "directWriteBanned": false,
     "directWritePattern": "",
-    "directWriteAdvice": ""
+    "directWriteAdvice": "",
+    "directWriteAllowedFiles": []
   },
 
   "$comment_bugHub": [

@@ -97,6 +97,15 @@ class BackendRuleParity(unittest.TestCase):
         self.assertIn("_BACKEND_WRITE_BANNED and", py,
                       "backlog-preflight.py applies the backend rule unconditionally")
 
+    def test_both_twins_honour_the_direct_write_allowlist(self):
+        """A sanctioned writer allow-listed on one OS only would still hard-block on the other."""
+        ps1 = PS1.read_text(encoding="utf-8")
+        py = (SCRIPTS / "backlog-preflight.py").read_text(encoding="utf-8")
+        self.assertIn("$backendCfg.directWriteAllowedFiles", ps1,
+                      "backlog-preflight.ps1 ignores backend.directWriteAllowedFiles")
+        self.assertIn("backend_direct_write_allowed_files", py,
+                      "backlog-preflight.py ignores backend.directWriteAllowedFiles")
+
     def test_ps1_fallback_pattern_matches_python_default(self):
         """The no-python3 fallback must still describe the same banned call."""
         ps1 = PS1.read_text(encoding="utf-8")
