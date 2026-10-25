@@ -1626,11 +1626,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.ps1.zip",
-      "sha256": "1c067645522b78dfe67ca19367198d1935b1743129f27fa6498a1ae8e7b66b29",
-      "size": 8654,
+      "sha256": "a1f3881bea5c08109cde143ebe1db52ea9984c61c3aadbe9ef9b192ec69473b8",
+      "size": 8740,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/backlog-preflight.ps1": "091c662f83e8adc02b681a791e6e2eb96ab61a049d95f4b704ade668c04e0e49"
+        ".claude/scripts/backlog-preflight.ps1": "4360244b7e93455313d8ffa37ab8ac63978b0dc4ff190dc7eef8fc7573571953"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip"
     },
@@ -1648,11 +1648,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.py.zip",
-      "sha256": "1a94c791a3a80642b8c5fa1a8164541cfab0f37c50f4d8902087d8fac8a3ee95",
-      "size": 9270,
+      "sha256": "73c024eec17aeb0b984b1e3b22e7f45f672f2bbaebf7b8d4c988bdfce7e549d6",
+      "size": 9465,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/backlog-preflight.py": "a89eb858fa240ac275f41e80389fdcefdfe30ce3ae0c45d941762875a0bc0cb8"
+        ".claude/scripts/backlog-preflight.py": "a125924c620216ac89a7d4717defb18b0358656c389c4805f8321e52ea736da1"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip"
     },
@@ -2044,11 +2044,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "project_profile.py.zip",
-      "sha256": "4b39a8b9ee947982cb690e2aa3937e820f849d860c5857f6a6070b5e316d2e1f",
-      "size": 7910,
+      "sha256": "8b9e528c9403d58882ea738e93dbe7a4320ae34b85c7488bda2d0c179e0eb827",
+      "size": 8020,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/project_profile.py": "a7dcc4bf23d351cbbfe808c813ffe1087a1767b4992a0eb7695975e4a3802f07"
+        ".claude/scripts/project_profile.py": "0b645ddbdd83272ba4066d5cd029f4ebd49c0cefe183eb0f86bb120aba682ceb"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/project_profile.py.zip"
     },
@@ -2434,20 +2434,20 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
-      "sha256": "fad92a87c6be2850ea1eadebf74eb4b88da2a423939e35d5995b54daf2adf094",
-      "size": 88547,
+      "sha256": "81e80fdaff61da1e8085b5fd78311b80a60d0f3fa99aa37d0b8889137c58551c",
+      "size": 89188,
       "ownership": "base",
       "fileHashes": {
         ".claude/scripts/tests/test_auto_clear_ps1.py": "ee9ee16b2e5ee39a0043ed5ed8be237d1cb3e89d95cd39bf0cc725f3c6163fe6",
         ".claude/scripts/tests/test_backlog_concurrency.py": "6adb7a90ef0e02fe056c471697e49193a2aad0f997c0abd1f543d2a3e6a35392",
         ".claude/scripts/tests/test_backlog_ops.py": "ce4489740fff1ca44091224f012aa3bd6a17546b3e68b96e978d5af5cffccf5a",
         ".claude/scripts/tests/test_backlog_park.py": "4ef22eba5db453e7e0d1213954dadb3d69441638edad89c24fab2fb1dfa9b5cf",
-        ".claude/scripts/tests/test_backlog_preflight.py": "bd27ed9de4499e804a58a0e2b746de6478c43367ce17e21062e5149af7765385",
+        ".claude/scripts/tests/test_backlog_preflight.py": "747f0592defd1f68149539e891aa31d87decd9648dc3d3cce2523b083ccb5d26",
         ".claude/scripts/tests/test_bughub_wait.py": "4cf351ca34f9074e613f7e93b29b3cf32ec30c7a44c1c762a3b25fd17a892979",
         ".claude/scripts/tests/test_bughub_watch.py": "b8b1da545e60268399246fa245c91166e22137512e3dda0042ef584a7e2dd245",
         ".claude/scripts/tests/test_discord_notify.py": "1f70851837d2a776138a789b3331181868a91b4bc14bdf7bce3ad187841d25a1",
         ".claude/scripts/tests/test_polish_gate.py": "b9c348012414bf747059fb4ea0c94c6edbe15077dbd91763da8308c28c5e58f2",
-        ".claude/scripts/tests/test_preflight_twin_parity.py": "5d971773101ea2863b3d6c9106891bec0565bdf026a18f690ca46d036460500a",
+        ".claude/scripts/tests/test_preflight_twin_parity.py": "5a445f5a528293f3d281c9d61bd90d9a178b14fc356ed7a077c51b20c391bf29",
         ".claude/scripts/tests/test_project_profile.py": "8346dbd1eff547dfca51f47e20ddd2c329074adf96e1ffba20fcf9a56409a2f3",
         ".claude/scripts/tests/test_run_backlog_refs.py": "aec6691770d70849346ad4a4b77ab8584f39e70c96d905ddf2091a2495b52b8c",
         ".claude/scripts/tests/test_ui_kit_sync.py": "692caa9d6ec35153002f62d68fc95d8a8f91ebf01aee5a8bb8017ada2f973427",
