@@ -271,6 +271,31 @@ class CoreRuleTests(PreflightTestCase):
         r = self.run_preflight()
         self.assertEqual(self.findings(r, "missing-using"), [])
 
+    def test_mathf_and_math_max_min_are_not_linq(self):
+        # Mathf.Max/Min (UnityEngine) and Math.Max/Min (System) share their names with
+        # Enumerable.Max/Min; they must not demand a System.Linq using.
+        self.stage("Assets/Scripts/Clamp.cs", "\n".join([
+            "using UnityEngine;",
+            "public class Clamp {",
+            "    public float A(float x) { return Mathf.Max(0.01f, x); }",
+            "    public int B(int a, int b) { return System.Math.Min(a, b); }",
+            "}",
+        ]) + "\n")
+        r = self.run_preflight()
+        self.assertEqual(self.findings(r, "missing-using"), [])
+
+    def test_enumerable_max_still_needs_linq(self):
+        self.stage("Assets/Scripts/Top.cs", "\n".join([
+            "using System.Collections.Generic;",
+            "public class Top {",
+            "    public int A(List<int> xs) { return xs.Max(); }",
+            "}",
+        ]) + "\n")
+        r = self.run_preflight()
+        missing = self.findings(r, "missing-using")
+        self.assertEqual(len(missing), 1)
+        self.assertIn("System.Linq", missing[0]["suggestion"])
+
 
 class UiKitStalenessTests(PreflightTestCase):
     """The kit is generated from the screen-template prefabs and has no watcher.
