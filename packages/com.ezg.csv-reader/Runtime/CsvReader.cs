@@ -180,6 +180,50 @@ namespace Ezg.Package.CsvReader
             return (T)CreateIdValue(typeof(T), rows, id_col, value_col);
         }
 
+        /// <summary>
+        ///     Ép giá trị vừa deserialize (luôn là mảng) về đúng kiểu field đích.
+        ///     Field là mảng  → giữ nguyên mảng, kể cả khi chỉ có 1 hoặc 0 phần tử.
+        ///     Field là 1 object → lấy phần tử đầu tiên; không có phần tử nào thì trả null.
+        ///     Nhờ hàm này, Collection khai báo T[] vẫn nạp được CSV chỉ có 1 dòng dữ liệu
+        ///     mà không cần nhân đôi dòng trong CSV như trước.
+        /// </summary>
+        /// <param name="value">Giá trị trả về từ <see cref="Deserialize(string, Type, string)"/>.</param>
+        /// <param name="fieldType">Kiểu của field đích trên Collection.</param>
+        public static object AdaptToFieldType(object value, Type fieldType)
+        {
+            if (fieldType == null) return value;
+
+            var elementType = fieldType.IsArray ? fieldType.GetElementType() : null;
+
+            if (value == null)
+                return fieldType.IsArray && elementType != null
+                    ? Array.CreateInstance(elementType, 0)
+                    : null;
+
+            if (value is Array source)
+            {
+                if (!fieldType.IsArray) return source.Length > 0 ? source.GetValue(0) : null;
+
+                if (fieldType.IsInstanceOfType(source)) return source;
+
+                // Khác element type (rất hiếm) → copy sang mảng đúng kiểu field.
+                if (elementType == null) return source;
+                var target = Array.CreateInstance(elementType, source.Length);
+                for (var i = 0; i < source.Length; i++) target.SetValue(source.GetValue(i), i);
+                return target;
+            }
+
+            // Giá trị đơn lẻ mà field lại là mảng → bọc thành mảng 1 phần tử.
+            if (fieldType.IsArray && elementType != null)
+            {
+                var wrapped = Array.CreateInstance(elementType, 1);
+                wrapped.SetValue(value, 0);
+                return wrapped;
+            }
+
+            return value;
+        }
+
         #endregion
 
         #region Private Methods
@@ -190,11 +234,18 @@ namespace Ezg.Package.CsvReader
         /// <param name="type">The Type of the model elements.</param>
         /// <param name="rows">Pre-parsed CSV rows list.</param>
         /// <param name="assetFile">The source CSV asset file path.</param>
-        /// <returns>An array of populated elements, or a single element if array length is 1.</returns>
+        /// <returns>
+        ///     Always an array of populated elements (possibly empty or with a single element). Use
+        ///     <see cref="AdaptToFieldType" /> to convert it to the target field type.
+        /// </returns>
         private static object CreateArray(Type type, List<string[]> rows, string assetFile)
         {
-            // Need test for sure logic
-            //Test(rows);
+            // File rỗng (không có cả dòng header) → trả mảng rỗng, không throw.
+            if (rows == null || rows.Count == 0)
+            {
+                Debug.LogWarning("CSV không có dòng nào, type: " + type + ", file: " + assetFile);
+                return Array.CreateInstance(type, 0);
+            }
 
             var (countElement, startRows) = CountNumberElement(1, 0, 0, rows);
             try
@@ -202,49 +253,40 @@ namespace Ezg.Package.CsvReader
                 var arrayValue = Array.CreateInstance(type, countElement);
                 var table = new Dictionary<string, int>();
 
-                var log = -1;
-                var _id = "";
-                try
+                // Cột không hợp lệ (có chữ hoa, vd "Unnamed: 4" do Excel export) hoặc trùng tên
+                // thì BỎ QUA đúng cột đó và đọc tiếp, chứ không bỏ luôn toàn bộ các cột phía sau.
+                for (var i = 0; i < rows[0].Length; i++)
                 {
-                    for (var i = 0; i < rows[0].Length; i++)
+                    var rawId = rows[0][i];
+
+                    if (string.IsNullOrWhiteSpace(rawId)) continue;
+
+                    if (!IsValidKeyFormat(rawId))
                     {
-                        var id = rows[0][i];
-                        _id = id;
-                        if (_id == " " || _id == "")
-                        {
-                        }
-
-                        if (IsValidKeyFormat(id))
-                        {
-                            if (!table.ContainsKey(id))
-                            {
-                                for (var z = 0; z < id.Length; z++) // or count if it is a list
-                                    if (id[z] == '_')
-                                    {
-                                        var index = z;
-                                        if (index < id.Length - 1)
-                                            id = id.Replace("_" + id[index + 1], id[index + 1].ToString().ToUpper());
-                                        else
-                                            id = id.Replace("_", "");
-                                    }
-
-                                table.Add(id, i);
-                            }
-                            else
-                            {
-                                throw new Exception("Key is duplicate: " + id);
-                            }
-                        }
-                        else
-                        {
-                            throw new Exception("Key is not valid: " + id);
-                        }
+                        Debug.LogWarning("Bỏ qua cột không hợp lệ (tên phải viết thường): '" + rawId +
+                                         "' ở cột " + i + ", type: " + type + ", file: " + assetFile);
+                        continue;
                     }
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError("type: " + type + "-index fail: " + log + "-id: " + _id);
-                    Debug.LogError(e.Message);
+
+                    var id = rawId;
+                    for (var z = 0; z < id.Length; z++) // or count if it is a list
+                        if (id[z] == '_')
+                        {
+                            var index = z;
+                            if (index < id.Length - 1)
+                                id = id.Replace("_" + id[index + 1], id[index + 1].ToString().ToUpper());
+                            else
+                                id = id.Replace("_", "");
+                        }
+
+                    if (table.ContainsKey(id))
+                    {
+                        Debug.LogWarning("Bỏ qua cột trùng tên: '" + rawId + "' ở cột " + i +
+                                         ", type: " + type + ", file: " + assetFile);
+                        continue;
+                    }
+
+                    table.Add(id, i);
                 }
 
                 for (var i = 0; i < arrayValue.Length; i++)
@@ -253,14 +295,14 @@ namespace Ezg.Package.CsvReader
                     arrayValue.SetValue(rowData, i);
                 }
 
-                if (arrayValue.Length > 1)
-                    return arrayValue;
-                return arrayValue.GetValue(0);
+                // LUÔN trả về mảng — kể cả khi CSV chỉ có 1 phần tử hoặc 0 phần tử.
+                // Việc ép về đúng kiểu field đích do AdaptToFieldType lo.
+                return arrayValue;
             }
             catch (Exception e)
             {
-                Debug.LogError(e);
-                return default;
+                Debug.LogError("Deserialize thất bại, type: " + type + ", file: " + assetFile + "\n" + e);
+                return Array.CreateInstance(type, 0);
             }
         }
 
@@ -321,6 +363,16 @@ namespace Ezg.Package.CsvReader
                         var elementType = GetElementTypeFromFieldInfo(tmp);
 
                         var objectIndex = GetObjectIndex(elementType, table);
+
+                        // CSV không có cột nào thuộc element type → để mảng rỗng, đừng throw.
+                        if (objectIndex == int.MaxValue)
+                        {
+                            Debug.LogWarning("Không tìm thấy cột nào cho mảng: " + tmp.Name + ", element type: " +
+                                             elementType + ", file: " + assetFile);
+                            tmp.SetValue(v, Array.CreateInstance(elementType, 0));
+                            continue;
+                        }
+
                         var (countElement, startRows) = CountNumberElement(index, objectIndex, parentIndex, rows);
 
                         var arrayValue = Array.CreateInstance(elementType, countElement);
@@ -547,17 +599,21 @@ namespace Ezg.Package.CsvReader
         {
             var count = 0;
             var startRows = new List<int>();
+
+            // Không xác định được cột mốc → coi như không có phần tử nào.
+            if (rows == null || objectIndex < 0 || objectIndex == int.MaxValue) return (count, startRows);
+
             for (var i = rowIndex; i < rows.Count; i++)
             {
                 var row = rows[i];
-                if (!row[objectIndex].Equals(string.Empty))
+                if (Cell(row, objectIndex).Length != 0)
                 {
                     if (objectIndex == parentIndex)
                     {
                         count++;
                         startRows.Add(i);
                     }
-                    else if (row[parentIndex].Equals(string.Empty) || i == rowIndex)
+                    else if (Cell(row, parentIndex).Length == 0 || i == rowIndex)
                     {
                         count++;
                         startRows.Add(i);
@@ -570,6 +626,19 @@ namespace Ezg.Package.CsvReader
             }
 
             return (count, startRows);
+        }
+
+        /// <summary>
+        ///     Đọc 1 ô an toàn: dòng ngắn hơn header (thiếu dấu phẩy cuối) thì coi như ô trống
+        ///     thay vì ném IndexOutOfRange và làm chết cả lần import.
+        /// </summary>
+        /// <param name="row">The CSV row.</param>
+        /// <param name="index">The column index.</param>
+        /// <returns>The cell value, or an empty string when out of range.</returns>
+        private static string Cell(string[] row, int index)
+        {
+            if (row == null || index < 0 || index >= row.Length) return string.Empty;
+            return row[index] ?? string.Empty;
         }
 
         /// <summary>

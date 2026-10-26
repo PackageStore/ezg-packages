@@ -214,11 +214,9 @@ namespace Ezg.Package.CsvReader
             };
             var filledFields = fields.Where(query).ToList();
 
-            var field = filledFields.Count > 0 ? filledFields[0] : null;
-
-            if (field == null)
-                field = gm.GetType().GetField("dataGroups",
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var field = filledFields.FirstOrDefault()
+                        ?? gm.GetType().GetField("dataGroups",
+                            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
             if (field == null)
             {
@@ -230,15 +228,9 @@ namespace Ezg.Package.CsvReader
             // Fully-qualified: type 'CsvReader' trùng tên với leaf namespace 'Ezg.Package.CsvReader'.
             var value = global::Ezg.Package.CsvReader.CsvReader.Deserialize(data.text, classData, assetfile);
 
-            // CSV chỉ còn ĐÚNG 1 group -> Deserialize trả về 1 object thay vì mảng, trong khi field là
-            // Model[] => SetValue ném lỗi. Trước đây chỗ này chỉ log warning rồi return, tức asset ÂM THẦM
-            // không được ghi lại (data cũ vẫn chạy). Bọc lại thành mảng 1 phần tử cho đúng.
-            if (value != null && field.FieldType.IsArray && !value.GetType().IsArray)
-            {
-                var single = Array.CreateInstance(field.FieldType.GetElementType(), 1);
-                single.SetValue(value, 0);
-                value = single;
-            }
+            // CsvReader luôn trả về mảng → ép về đúng kiểu field.
+            // Field mảng mà CSV chỉ có 1 phần tử vẫn nạp bình thường (không cần nhân đôi dòng trong CSV).
+            value = global::Ezg.Package.CsvReader.CsvReader.AdaptToFieldType(value, field.FieldType);
 
             try
             {
@@ -246,7 +238,8 @@ namespace Ezg.Package.CsvReader
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[CsvImport] Không set được data cho {assetfile} (type {classData}): {ex.Message}" +
+                Debug.LogError($"[CsvImport] Không set được data cho {assetfile} (type {classData}, field '{field.Name}' " +
+                               $"{field.FieldType}, value {value?.GetType()}): {ex.Message}" +
                                " — ASSET GIỮ NGUYÊN DATA CŨ, cần sửa cấu trúc CSV.");
                 return;
             }

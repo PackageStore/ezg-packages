@@ -1,3 +1,13 @@
+## [0.3.2] - 2026-10-14
+
+### Added
+- `IAudioService.SetSuppressMusic(bool)` / `AudioService.IsMusicSuppressed`: block background music
+  (e.g. during an intro video or cutscene). Suppressing cancels the running fade, mutes and stops the
+  current track; `PlayMusic` is ignored while suppressed.
+
+### Fixed
+- `FadeOutAndStop` no longer touches a destroyed music source after the fade.
+
 ## [0.3.0] - 2026-06-16
 
 - **Create > Ezg > Audio > Project setup** now also creates a `SoundConfig.asset` automatically once the generated scripts compile (deferred via `[DidReloadScripts]`, since the type does not exist until then). Skips creation if a `SoundConfig.asset` already exists.
