@@ -1626,11 +1626,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.ps1.zip",
-      "sha256": "a1f3881bea5c08109cde143ebe1db52ea9984c61c3aadbe9ef9b192ec69473b8",
-      "size": 8740,
+      "sha256": "db8022b72855f8e628576d65f4e70acbba95a1f0aaadbd15a43987f6295cf8d7",
+      "size": 8893,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/backlog-preflight.ps1": "4360244b7e93455313d8ffa37ab8ac63978b0dc4ff190dc7eef8fc7573571953"
+        ".claude/scripts/backlog-preflight.ps1": "268c3914d181a0a39666fc6dd1dcd95a046a10bbd18f0e6815703754ca6ffc53"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.ps1.zip"
     },
@@ -1648,11 +1648,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-preflight.py.zip",
-      "sha256": "73c024eec17aeb0b984b1e3b22e7f45f672f2bbaebf7b8d4c988bdfce7e549d6",
-      "size": 9465,
+      "sha256": "490d3c9fc5dfec727feaaa490df0c6c6f388c0842b502c1d4b5a4d7ad01818e8",
+      "size": 9626,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/backlog-preflight.py": "a125924c620216ac89a7d4717defb18b0358656c389c4805f8321e52ea736da1"
+        ".claude/scripts/backlog-preflight.py": "eadae1551348cb525b9262f2fafacd6bb1b3a9981051eafc119bc6d3ff84b415"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/backlog-preflight.py.zip"
     },
@@ -2434,15 +2434,15 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "tests.zip",
-      "sha256": "81e80fdaff61da1e8085b5fd78311b80a60d0f3fa99aa37d0b8889137c58551c",
-      "size": 89188,
+      "sha256": "bd5a30e7baee8f18f0d50870ce8489545afe6345a764bbe74c88ba847bbcdd4f",
+      "size": 89402,
       "ownership": "base",
       "fileHashes": {
         ".claude/scripts/tests/test_auto_clear_ps1.py": "ee9ee16b2e5ee39a0043ed5ed8be237d1cb3e89d95cd39bf0cc725f3c6163fe6",
         ".claude/scripts/tests/test_backlog_concurrency.py": "6adb7a90ef0e02fe056c471697e49193a2aad0f997c0abd1f543d2a3e6a35392",
         ".claude/scripts/tests/test_backlog_ops.py": "ce4489740fff1ca44091224f012aa3bd6a17546b3e68b96e978d5af5cffccf5a",
         ".claude/scripts/tests/test_backlog_park.py": "4ef22eba5db453e7e0d1213954dadb3d69441638edad89c24fab2fb1dfa9b5cf",
-        ".claude/scripts/tests/test_backlog_preflight.py": "747f0592defd1f68149539e891aa31d87decd9648dc3d3cce2523b083ccb5d26",
+        ".claude/scripts/tests/test_backlog_preflight.py": "c9ecdb4fb399d8aaf8de420dcae073ca973136fa8fc7bb347c02660ad1cc0232",
         ".claude/scripts/tests/test_bughub_wait.py": "4cf351ca34f9074e613f7e93b29b3cf32ec30c7a44c1c762a3b25fd17a892979",
         ".claude/scripts/tests/test_bughub_watch.py": "b8b1da545e60268399246fa245c91166e22137512e3dda0042ef584a7e2dd245",
         ".claude/scripts/tests/test_discord_notify.py": "1f70851837d2a776138a789b3331181868a91b4bc14bdf7bce3ad187841d25a1",
