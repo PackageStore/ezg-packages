@@ -10,8 +10,9 @@ using Object = UnityEngine.Object;
 namespace UnityFigmaBridge.Editor.NineSlice
 {
     /// <summary>
-    ///     Gives every server-rendered node a sprite border, so a render made at the component's size
-    ///     keeps its corners, strokes and shadows where an instance draws it at another size.
+    ///     Gives every server-rendered node with corners, strokes or shadows a sprite border, so a render
+    ///     made at the component's size keeps them where an instance draws it at another size. A node
+    ///     without them (plain art such as an icon) keeps no border and scales as a whole.
     ///     A band of identical columns (rows) is stretched without loss, so it becomes the border
     ///     centre and is cut down to <see cref="KeptCenterPixels"/>. An axis without one (a gradient
     ///     along it) takes its border from the node geometry instead and keeps its pixels.
@@ -87,6 +88,14 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 var pixels = texture.GetPixels32();
 
                 var geometry = GeometryBorder(node);
+                // Art with no corner, stroke or shadow border (an icon) scales as a whole: a run of equal
+                // lines inside it is no stretch zone, and a border on one axis only squashes it at any other size.
+                if (geometry == Vector4.zero)
+                {
+                    ConfigureImporter(path, Vector4.zero, ReferencePixelsPerUnit * renderScale, SlicedMarker + Md5(bytes));
+                    return false;
+                }
+
                 var result = Slice(pixels, width, height, new Vector4(
                     ToPixels(geometry.x, renderScale), ToPixels(geometry.y, renderScale),
                     ToPixels(geometry.z, renderScale), ToPixels(geometry.w, renderScale)));

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.15] - 2026-10-27
+### Fixed
+- **An icon placed at another size keeps its shape.** A server render of plain art (no corner
+  radius, stroke or shadow) with a run of equal rows, such as an arrow shaft, got a sprite border
+  on that axis only and was compacted. The Image became Sliced, so at any size but the master's
+  the two axes scaled differently: smaller it squashed, larger the run stretched. Such a render
+  now keeps its pixels and no border, and imports Simple.
+
 ## [0.8.14] - 2026-10-21
 ### Fixed
 - **A node with no geometry no longer stops the import.** Figma sends a boolean group with no
