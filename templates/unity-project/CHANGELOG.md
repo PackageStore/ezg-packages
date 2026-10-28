@@ -4,6 +4,17 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-10-29
+
+**Fixed** — Backlog loop: cửa sổ task bị lỗi tự đóng như khi task xong (macOS + Windows)
+- `run-backlog-loop.sh`: runner không còn chờ "Press any key" khi `claude` thoát khác 0; controller đóng cửa sổ
+  Terminal ở mọi kết quả (chờ runner thoát tối đa 10 s trước khi đóng để Terminal không hỏi). Trước đây cửa sổ của
+  iteration lỗi (vd 403 quota, crash) nằm lại mãi, mỗi lần retry thêm một cửa sổ.
+- `run-backlog-loop-core.ps1`: cửa sổ console của iteration lỗi thoát ngay (bỏ khối giữ cửa sổ 10 phút); launcher
+  coi flag đã ghi là kết thúc bình thường khi cửa sổ vừa thoát (trước đây có thể báo nhầm "closed unexpectedly").
+- Xử lý lỗi + noti giữ nguyên (self-heal / park / dừng, `TASK_RECOVERING`, `API_RETRY`, `CLI_ERROR`…); lỗi xem ở
+  `logs/backlog-loop/iter-*.log` và brief `recovery-*.md`. Watchdog và `--inline` không đổi.
+
 ## 2026-10-24
 
 **Changed** — `create-sfx` ưu tiên âm Freesound qua MCP `ezg-sfx`, tổng hợp bằng code thành dự phòng

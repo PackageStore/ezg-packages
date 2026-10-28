@@ -2076,45 +2076,12 @@ try {
     Set-Content -Path $flagFile -Value $code
 }
 
-# Keep this task window open ONLY when the agent genuinely failed, so the error stays
-# visible. A finished task must close its own window (the outer loop opens a new one
-# per task, and a stack of "Press Enter" windows piles up otherwise).
-# The flag file is already written above, so the outer loop proceeds regardless.
-if ($code -ne 0) {
-    $keepOpen = $true
-    # Mirror the outer loop: a Gemini AttachConsole crash exits non-zero but is benign.
-    if ($headerProvider -eq 'gemini') {
-        $logTail = Get-Content $logPath -Raw -ErrorAction SilentlyContinue
-        if ($logTail -match 'Error: AttachConsole failed') { $keepOpen = $false }
-    }
-    # Mirror the outer loop: `cmd.exe /c "type prompt | claude ..."` propagates the
-    # last piped process' code, so a task that ran to completion (task DONE, commit
-    # + push) still surfaces here as exit 1. Treat a successful result event in the
-    # log as success and let the window close by itself.
-    if ($headerProvider -eq 'claude') {
-        $logLines = Get-Content $logPath -ErrorAction SilentlyContinue
-        foreach ($logLine in $logLines) {
-            $trimmed = ([string]$logLine).TrimStart()
-            if (-not $trimmed.StartsWith('{')) { continue }
-            try { $resultObj = $trimmed | ConvertFrom-Json -ErrorAction Stop } catch { continue }
-            if ($resultObj.type -eq 'result' -and -not $resultObj.is_error) {
-                $keepOpen = $false
-                break
-            }
-        }
-    }
-    if ($keepOpen) {
-        Write-Host ""
-        Write-Host ("Task FAILED (exit code {0}) - this window is kept open so you can read the error above." -f $code) -ForegroundColor Red
-        # The loop has already moved on (self-heal recovery / park), so a night of
-        # failures must not pile up windows: close by itself after 10 minutes.
-        Write-Host "Press any key to close this window (it closes by itself in 10 min)..." -ForegroundColor DarkGray
-        $closeAt = (Get-Date).AddMinutes(10)
-        try {
-            while ((Get-Date) -lt $closeAt -and -not [Console]::KeyAvailable) { Start-Sleep -Milliseconds 500 }
-        } catch { }
-    }
-}
+# This task window closes as soon as this script ends, finished or failed alike (twin
+# of run-backlog-loop.sh, which closes its Terminal window whatever the outcome). The
+# flag file is already written above: the outer loop handles a failure itself
+# (self-heal / park / stop, each with its notification), and the error stays in the
+# iteration log and the recovery brief. Never block here on a keypress or a timer -
+# a night of failures would pile windows up.
 '@
 
     $escapedLogPath = $LogPath.Replace("'", "''")
@@ -2165,6 +2132,9 @@ if ($code -ne 0) {
     $lastGrowth = $waitStart
     while (-not (Test-Path $flagFile)) {
         if ($process.HasExited) {
+            # The window writes the flag file as its last act and exits at once: a flag
+            # that appeared since the loop condition was checked is a normal end.
+            if (Test-Path $flagFile) { break }
             Write-Host "Agent window was closed unexpectedly before finishing!" -ForegroundColor Red
             return 1
         }

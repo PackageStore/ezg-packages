@@ -5,8 +5,10 @@
 # CONTROLLER: for each iteration it spawns a SEPARATE Terminal window that runs
 # exactly one /run-backlog task, then waits (via a flag file) for that window to
 # finish before spawning the next. Each task window is titled
-# "<projectName> - <task name>" so a stack of them stays readable. A failed task keeps its window open so you can
-# read the error.
+# "<projectName> - <task name>" so a stack of them stays readable. Every task window
+# closes when its iteration ends, finished or failed alike: a failure is still handled
+# and notified by this controller, and its error stays in the iteration log
+# (logs/backlog-loop/iter-*.log) and the recovery brief.
 #
 # SELF-HEAL (default): an iteration that ends without finishing its task — a
 # blocker sentinel, "manual intervention required", a crash, a watchdog kill, a
@@ -1268,7 +1270,8 @@ collect_iteration_report() {
 }
 
 # Write one runner script for iteration $1; runs claude, tees log, writes exit code to
-# the flag file (via EXIT trap so it's ALWAYS written), keeps window open on failure.
+# the flag file (via EXIT trap so it's ALWAYS written), then exits — it never blocks on
+# a keypress, so the controller closes the window whatever the outcome.
 write_runner() {
   local idx="$1" log="$2" flag="$3" promptfile="$4" runner="$5" pidfile="$6"
   cat > "$runner" <<RUNNER
@@ -1300,12 +1303,26 @@ code=\${PIPESTATUS[1]}
 echo "\$code" > $(printf '%q' "$flag")
 if [ "\$code" -ne 0 ]; then
   echo ""
-  echo "Task FAILED (exit \$code) — this window is kept open so you can read the error above."
-  read -n 1 -s -r -p "Press any key to close this window..."
-  echo ""
+  echo "Task FAILED (exit \$code) — the loop handles it (self-heal / notification) and closes this window."
+  printf 'Full log: %s\n' $(printf '%q' "$log")
 fi
 RUNNER
   chmod +x "$runner"
+}
+
+# Wait up to <max seconds> for the task runner (pid in <pid file>) to exit, so its
+# window is never closed while the runner still runs (Terminal would ask whether to
+# terminate it). It writes the flag file as its last act, so this is normally instant.
+# Waits only, never signals: a pid recycled in the meantime must not be killed.
+wait_runner_exit() {  # wait_runner_exit <pid file> <max seconds>
+  local pid="" waited=0
+  [ -f "$1" ] && pid="$(tr -dc '0-9' < "$1")"
+  [ -n "$pid" ] || return 0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$2" ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  return 0
 }
 
 STOP_REASON=""
@@ -1541,6 +1558,7 @@ $refs_text" ;;
       || { STOP_REASON="Failed to open Terminal window (grant Automation permission to Terminal, or use --inline)"; break; }
     echo "  Spawned task window; waiting for it to finish (monitoring inactivity)..."
     # Wait for the flag file with a timeout / inactivity check to avoid hanging on token-limit errors.
+    task_window_closed=0
     elapsed=0
     last_size=0
     inactive_seconds=0
@@ -1578,16 +1596,18 @@ $refs_text" ;;
           fi
         fi
         [ -n "${win_id:-}" ] && osascript -e "tell application \"Terminal\" to close (every window whose id is $win_id) saving no" >/dev/null 2>&1 || true
+        task_window_closed=1
         break
       fi
     done
     exit_code="$(tr -dc '0-9' < "$flag_file")"
     [ -z "$exit_code" ] && exit_code=0
-    # Task finished cleanly (implemented + DONE + pushed) -> close its window so a
-    # long loop doesn't leave one window per task behind. A failed run keeps its
-    # window (the runner is still blocking on "press any key") so the error stays
-    # readable; the watchdog path already closed its own window above.
-    if [ "$exit_code" -eq 0 ] && [ -n "${win_id:-}" ]; then
+    # Close the task window whatever the outcome, finished or failed, so a long loop
+    # never leaves one window per task behind. A failure is still handled below exactly
+    # as before (self-heal / park / stop, each with its notification); its error stays
+    # in $log_file and the recovery brief. The watchdog path closed its own window above.
+    if [ "$task_window_closed" -eq 0 ] && [ -n "${win_id:-}" ]; then
+      wait_runner_exit "$pid_file" 10
       osascript -e "tell application \"Terminal\" to close (every window whose id is $win_id) saving no" >/dev/null 2>&1 || true
     fi
     rm -f "$runner_file" "$pid_file"

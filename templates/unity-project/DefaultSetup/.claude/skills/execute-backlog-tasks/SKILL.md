@@ -78,7 +78,7 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
 ## STEP 1A — macOS / Linux
 
 1. Get the absolute repo root dynamically (do not hardcode): the directory containing `.claude/`.
-2. The `.sh` runner spawns one new Terminal window per task (via `osascript`) and waits for each to finish before spawning the next. You launch it once; it does the looping. Each task window is titled **`<projectName> - <task name>`** (project name from `.claude/project-profile.json`), so a stack of windows stays readable; with `--inline` the current window is retitled per task instead.
+2. The `.sh` runner spawns one new Terminal window per task (via `osascript`) and waits for each to finish before spawning the next. You launch it once; it does the looping. Each task window is titled **`<projectName> - <task name>`** (project name from `.claude/project-profile.json`), so a stack of windows stays readable; with `--inline` the current window is retitled per task instead. Every task window closes by itself when its iteration ends — finished or failed alike; a failure is still handled and notified by the controller, and its error stays in `logs/backlog-loop/iter-*.log`.
 3. Run it in the background. The bare-run command line is exactly this — `--mode current` is the
    runner's own default, so it needs no flag:
 
@@ -110,5 +110,5 @@ If unsure, prefer the `.sh` path on a `darwin`/`linux` host.
    `-Model <id>`, `-NoSkipPermissions`, `-NoSelfHeal`). Use `run-backlog-loop.bat` **only** when the user
    explicitly asks to pick provider/mode interactively.
 3. The new window runs independently — do NOT wait for it to finish.
-4. Each per-task console window is titled **`<projectName> - <task name>`** (same wording as the `.sh` path), so a stack of task windows stays readable.
+4. Each per-task console window is titled **`<projectName> - <task name>`** (same wording as the `.sh` path), so a stack of task windows stays readable, and closes by itself when its iteration ends — finished or failed, as in STEP 1A.
 5. Notify the user that the loop is running in the background, in which mode and with which model map, and that it holds this clone's lease (a hand-run `/run-backlog` gets `LOOP_BUSY` until it stops). Self-heal behaves exactly as in STEP 1A item 4.

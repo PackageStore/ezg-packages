@@ -656,7 +656,7 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
     <h2>Giai đoạn 2 — Thực thi (tự động 100%)</h2>
     <p class="lead">
       Loop runner spawn mỗi task một cửa sổ terminal với context hoàn toàn mới, chạy <code>/run-backlog</code> trọn gói bên dưới,
-      cửa sổ tự đóng khi xong. Orchestrator là <b>người viết code duy nhất</b> — subagent chỉ đọc và ra verdict.
+      cửa sổ tự đóng khi xong (kể cả khi task lỗi — lỗi vẫn được xử lý + gửi noti). Orchestrator là <b>người viết code duy nhất</b> — subagent chỉ đọc và ra verdict.
     </p>
 
     <div class="cards">
@@ -790,7 +790,7 @@ python3 .claude/scripts/project_profile.py sourceRoot <span class="c"># một ke
     </div>
 
     <h3 style="margin-bottom:10px; font-size:1.05rem;">Chạy loop</h3>
-    <pre class="cmd"><span class="c"># macOS / Linux — mỗi task 1 cửa sổ Terminal, tự đóng khi xong</span>
+    <pre class="cmd"><span class="c"># macOS / Linux — mỗi task 1 cửa sổ Terminal, tự đóng khi xong hoặc lỗi</span>
 bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier               <span class="c"># mode current</span>
 bash .claude/scripts/run-backlog-loop.sh --auto-model-by-tier --mode worktree
 
