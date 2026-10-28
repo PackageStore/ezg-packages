@@ -930,11 +930,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "backlog-system.zip",
-      "sha256": "6688dc75a36e444fd5ffe998c294700c6398b68aacf1d643a2857b804e55047e",
-      "size": 8846,
+      "sha256": "4d02f223051f74284f538be9bcbe2155e968e9cfc605d0f67085e972c4518093",
+      "size": 8967,
       "ownership": "base",
       "fileHashes": {
-        ".claude/docs/backlog-system.md": "52c56d621b71960035b5d7657f0ab20c6c4c5541d959081e1353412dd8fa61e7"
+        ".claude/docs/backlog-system.md": "4ef614385e5bd3f02ef077a8226dc6fb056b8f7aa41fdba15824cd8f4799b031"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/backlog-system.zip"
     },
@@ -1208,11 +1208,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-flow.html.zip",
-      "sha256": "a1e5723c163dea9d226ac7a78b633545727ffe665f17359aafb5c3ac089af72c",
-      "size": 16906,
+      "sha256": "7eb1b172ac56533f4f513d15923273b0687283dbea12f4a2572ccd615b392064",
+      "size": 16946,
       "ownership": "base",
       "fileHashes": {
-        ".claude/docs/run-backlog-flow.html": "52409c4e10edf3fd6cb0c3d990a8a8f7656cfa33ce797df676438eee4d8aa882"
+        ".claude/docs/run-backlog-flow.html": "11360c3dc3774f7438aa25b583d1b0ec6fb2831555bf46ce7a8927362a3836c5"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Docs/run-backlog-flow.html.zip"
     },
@@ -2154,11 +2154,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop-core.ps1.zip",
-      "sha256": "8075943f40cf6bdd37d899255eb35028eacceee4f63628d3bd49225528fe79bf",
-      "size": 40015,
+      "sha256": "1352b2b07a8e1786ee10eb48f8e9ae8f36c4a6b9878f71cf226d397af31bbd64",
+      "size": 39637,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/run-backlog-loop-core.ps1": "5df358be5e5c8b383843392380e074a959ef84ecd265c7c023de87eda40843e8"
+        ".claude/scripts/run-backlog-loop-core.ps1": "1cf928009e4b87eba63c7a4f90c23203eebcea529be6b844397d346a430a0a82"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop-core.ps1.zip"
     },
@@ -2264,11 +2264,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "run-backlog-loop.sh.zip",
-      "sha256": "e2494491429859620bb36a35c0216f31c6a35962b97f7da732f50ce76d2d9f4f",
-      "size": 31674,
+      "sha256": "adfda63977b7ecbb0ef3c8cc77a5329007964b3326bc7237b8697a5c07364c69",
+      "size": 31995,
       "ownership": "base",
       "fileHashes": {
-        ".claude/scripts/run-backlog-loop.sh": "b4cd738832d89900678a2efbe0ab9552d09f5f3fa7d4c8826ceb5ec140f8f662"
+        ".claude/scripts/run-backlog-loop.sh": "34873bd5c8fe8dc6f8258796d6396f789886fad6c8ab460bca7f28259cb50e67"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Scripts/run-backlog-loop.sh.zip"
     },
@@ -3188,11 +3188,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "execute-backlog-tasks.zip",
-      "sha256": "86b5218e5722191f8ad7683af3da307fa50c225a8b33ad5d4f8aa0ad37a92fb6",
-      "size": 4213,
+      "sha256": "7232778c70d209bacbb209fd9215e2d42674f3de4d2a2e2cca7ca2adafcbcf57",
+      "size": 4306,
       "ownership": "base",
       "fileHashes": {
-        ".claude/skills/execute-backlog-tasks/SKILL.md": "42886b6727cae0d590b118d3d5a2ed85a5854094339ae22711cd23425c0148a6"
+        ".claude/skills/execute-backlog-tasks/SKILL.md": "a4cfe09ec0c2d8a8de33fb8b9acc0fe041853872f904516d64d533e6aff72850"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/execute-backlog-tasks.zip"
     },
