@@ -30,7 +30,7 @@
       "id": "Rules",
       "name": "Rules",
       "description": "Quy tắc code/kiến trúc Claude phải tuân theo.",
-      "count": 12
+      "count": 13
     },
     {
       "id": "Scripts",
@@ -1457,6 +1457,28 @@
         ".claude/rules/game-polish.md": "9f6bc423a663b8987a62804cea0b96f9ff2bf9b32fff82cf3309f9d4db78c840"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/game-polish.zip"
+    },
+    {
+      "id": "Rules/model-library",
+      "name": "model-library",
+      "category": "Rules",
+      "description": "",
+      "installPath": ".claude/rules/model-library.md",
+      "isDirectory": false,
+      "files": [
+        ".claude/rules/model-library.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "defaultsetup",
+      "fileName": "model-library.zip",
+      "sha256": "eefc6a1235e028c54b168e8ac736d1c244feaa309db400e592e86e88ff27ea8d",
+      "size": 1408,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/rules/model-library.md": "1db158940255bf3e1e7a7d6decd4a78016962a7bb9598d0013f29ff24fa3483e"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Rules/model-library.zip"
     },
     {
       "id": "Rules/no-external-game-refs",
