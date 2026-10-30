@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.16] - 2026-10-30
+### Fixed
+- **A mirrored layer imports mirrored once, as Figma draws it.** A server render already shows
+  every mirror above it and its absolute bounds are in page space, but it was placed in the local
+  space of a parent the import mirrors with a negative scale, so the render and its place were
+  flipped back. Under a parent mirrored on one axis, a render is now placed from the parent's
+  mirrored edge, and a node's own render takes the parent's flip (a negative local scale) so it
+  shows as rendered; a render an instance keeps from its component still follows the instance's
+  mirror. Horizontal and vertical mirrors both; a rotated parent keeps the old placement.
+- **A mirrored layer inside a component stays mirrored in its instances.** Each instance applies
+  the transform again to the layers of the component prefab, and the mirror toggled the scale sign,
+  so a layer the prefab had mirrored was flipped back. The sign is now set from the Figma transform,
+  and a mirrored layer takes its rotation from its own transform, not its parent's.
+
 ## [0.8.15] - 2026-10-27
 ### Fixed
 - **An icon placed at another size keeps its shape.** A server render of plain art (no corner

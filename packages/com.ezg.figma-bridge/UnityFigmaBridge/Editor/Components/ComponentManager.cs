@@ -282,8 +282,9 @@ namespace UnityFigmaBridge.Editor.Components
             // If this is a substitution, ignore children (as they wont exist) and apply absolute bounds transform (as rotation already applied)
             if (isSubstitution)
             {
-                ApplyInstanceRender(node, nodeObject, figmaImportProcessData);
-                NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
+                var ownRender = ApplyInstanceRender(node, nodeObject, figmaImportProcessData);
+                NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true,
+                    figmaImportProcessData.Settings, ownRender);
                 return;
             }
 
@@ -316,9 +317,10 @@ namespace UnityFigmaBridge.Editor.Components
         ///     An instance that restyles a server-rendered node has a render of its own, keyed by the
         ///     instance-side id (see <see cref="FigmaDataUtils.FindAllServerRenderNodesInFile"/>). Without
         ///     one the node keeps the component's sprite. The colour follows the render: an own render
-        ///     gets its tint or white, a kept render gets the instance's own tint.
+        ///     gets its tint or white, a kept render gets the instance's own tint. Returns true when the
+        ///     node now shows its own render.
         /// </summary>
-        private static void ApplyInstanceRender(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
+        private static bool ApplyInstanceRender(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
         {
             var renderNodes = figmaImportProcessData.ServerRenderNodes;
             var ownRender = renderNodes.Exists(entry => entry.SourceNode.id == node.id);
@@ -326,19 +328,20 @@ namespace UnityFigmaBridge.Editor.Components
             if (ownRender)
             {
                 var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(node.id, renderNodes));
-                if (image == null || sprite == null) return;
+                if (image == null || sprite == null) return false;
                 image.sprite = sprite;
                 image.type = FigmaAssetGenerator.SlicedIfBordered(sprite);
                 image.color = SolidTint.TryGetEntryTint(node.id, renderNodes, out var ownTint) ? ownTint : UnityEngine.Color.white;
-                return;
+                return true;
             }
 
-            if (image == null) return;
+            if (image == null) return false;
             var componentSideId = ComponentSideNodeId(nodeObject);
-            if (componentSideId == null) return;
+            if (componentSideId == null) return false;
             if (SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)
                 && SolidTint.TryGetRenderTint(node, out var instanceTint))
                 image.color = instanceTint;
+            return false;
         }
 
         /// <summary>

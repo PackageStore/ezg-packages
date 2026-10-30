@@ -33,18 +33,14 @@ namespace UnityFigmaBridge.Editor.Nodes
                 targetRectTransform.localRotation = Quaternion.Euler(0, 0, rotation);
             }
 
-            if (figmaNode.relativeTransform[0,0] < 0)
-            {
-                //horizontal mirror
-                targetRectTransform.localScale = new Vector3(-targetRectTransform.localScale.x, targetRectTransform.localScale.y, targetRectTransform.localScale.z);
-                targetRectTransform.localRotation = Quaternion.Euler(targetRectTransform.transform.rotation.eulerAngles.x, targetRectTransform.transform.rotation.eulerAngles.y, targetRectTransform.transform.rotation.eulerAngles.z - 180);
-            }
-            if (figmaNode.relativeTransform[1,1] < 0)
-            {
-                //vertical mirror
-                targetRectTransform.localScale = new Vector3(targetRectTransform.localScale.x, -targetRectTransform.localScale.y, targetRectTransform.localScale.z);
-
-            }
+            // The sign is set, not toggled: a component instance applies this again to every layer
+            // its prefab already mirrored, and a toggle would flip those layers back.
+            var scale = targetRectTransform.localScale;
+            var mirrorX = figmaNode.relativeTransform[0, 0] < 0;
+            var mirrorY = figmaNode.relativeTransform[1, 1] < 0;
+            targetRectTransform.localScale = new Vector3(mirrorX ? -Mathf.Abs(scale.x) : Mathf.Abs(scale.x),
+                mirrorY ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y), scale.z);
+            if (mirrorX) targetRectTransform.localRotation *= Quaternion.Euler(0, 0, -180);
 
             // Apply the "size" figmaNode from figma to set size
             targetRectTransform.sizeDelta = new Vector2(figmaNode.size.x, figmaNode.size.y);
@@ -198,8 +194,10 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="figmaParentNode"></param>
         /// <param name="centerPivot"></param>
         /// <param name="settings">Import settings; null keeps the 0.2 behaviour.</param>
+        /// <param name="ownRender">True when the Image shows this node's own render, which has every mirror
+        /// above it baked in; false when it keeps a component's render, which the instance still mirrors.</param>
         public static void ApplyAbsoluteBoundsFigmaTransform(RectTransform targetRectTransform, Node figmaNode,
-            Node figmaParentNode, bool centerPivot, UnityFigmaBridgeSettings settings = null)
+            Node figmaParentNode, bool centerPivot, UnityFigmaBridgeSettings settings = null, bool ownRender = true)
         {
             // Default to top left alignment
             targetRectTransform.anchorMin = targetRectTransform.anchorMax = new Vector2(0, 1);
@@ -229,12 +227,55 @@ namespace UnityFigmaBridge.Editor.Nodes
             targetRectTransform.anchoredPosition=new Vector2(bounds.x-figmaParentNodePosition.x,
                 -(bounds.y-figmaParentNodePosition.y));
 
+            if (figmaParentNode.absoluteBoundingBox != null)
+                PlaceUnderMirroredParent(targetRectTransform, bounds, figmaParentNode.absoluteBoundingBox, ownRender);
+
             // Some nodes will not have a constraints node (eg SECTION nodes)
             if (figmaNode.constraints!=null) ApplyFigmaConstraints(targetRectTransform, figmaNode, figmaParentNode);
 
             // We'll also use these properties to apply pivot after, where required
             if (centerPivot) SetPivot(targetRectTransform, new Vector2(0.5f, 0.5f));
 
+        }
+
+        /// <summary>
+        ///     Absolute bounds are in Figma page space, but a parent mirrored on one axis (a negative
+        ///     scale) flips its local space. The place is measured from the parent's mirrored edge, and
+        ///     an own render, which already shows the mirror, takes the parent's flip so it is not
+        ///     mirrored twice. A rotated parent keeps the plain placement.
+        /// </summary>
+        private static void PlaceUnderMirroredParent(RectTransform target, Rectangle bounds, Rectangle parentBounds,
+            bool ownRender)
+        {
+            if (!TryGetMirroredParentAxes(target.parent, out var parentX, out var parentY)) return;
+
+            var scale = target.localScale;
+            if (ownRender)
+                target.localScale = scale = new Vector3(parentX * Mathf.Abs(scale.x), parentY * Mathf.Abs(scale.y), scale.z);
+
+            var originX = parentX > 0 ? parentBounds.x : parentBounds.x + parentBounds.width;
+            var originY = parentY > 0 ? parentBounds.y : parentBounds.y + parentBounds.height;
+            var pivotX = parentX * scale.x > 0 ? bounds.x : bounds.x + bounds.width;
+            var pivotY = parentY * scale.y > 0 ? bounds.y : bounds.y + bounds.height;
+            target.anchoredPosition = new Vector2(parentX * (pivotX - originX), -parentY * (pivotY - originY));
+        }
+
+        /// <summary>
+        ///     The world flip of each axis of <paramref name="parent"/>; true only when exactly one axis
+        ///     is flipped and the parent is not rotated off the axes.
+        /// </summary>
+        private static bool TryGetMirroredParentAxes(Transform parent, out float x, out float y)
+        {
+            x = y = 1f;
+            if (parent == null) return false;
+            var right = parent.TransformVector(Vector3.right);
+            var up = parent.TransformVector(Vector3.up);
+            const float tolerance = 1e-3f;
+            if (Mathf.Abs(right.y) > tolerance * Mathf.Abs(right.x) || Mathf.Abs(up.x) > tolerance * Mathf.Abs(up.y))
+                return false;
+            x = Mathf.Sign(right.x);
+            y = Mathf.Sign(up.y);
+            return x * y < 0;
         }
 
         /// <summary>
