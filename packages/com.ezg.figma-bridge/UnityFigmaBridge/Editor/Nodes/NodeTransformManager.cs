@@ -204,7 +204,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             targetRectTransform.pivot = new Vector2(0, 1);
 
             // A server render covers the render bounds (outside strokes, shadows), not the layout box
-            var bounds = figmaNode.absoluteRenderBounds ?? figmaNode.absoluteBoundingBox;
+            var bounds = NodeRenderBounds.Of(figmaNode);
             targetRectTransform.sizeDelta = new Vector2(bounds.width, bounds.height);
 
             if (ShouldAddLayoutElement(figmaParentNode, settings))

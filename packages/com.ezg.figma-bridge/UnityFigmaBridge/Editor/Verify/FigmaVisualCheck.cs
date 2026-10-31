@@ -229,7 +229,7 @@ namespace UnityFigmaBridge.Editor.Verify
         private static RectInt PixelBox(Node node, Node frame, int width, int height)
         {
             var box = node.absoluteBoundingBox;
-            var bounds = node.absoluteRenderBounds ?? box;
+            var bounds = NodeRenderBounds.Of(node);
             var xMin = Mathf.Min(box.x, bounds.x) - frame.absoluteBoundingBox.x;
             var yMin = Mathf.Min(box.y, bounds.y) - frame.absoluteBoundingBox.y;
             var xMax = Mathf.Max(box.x + box.width, bounds.x + bounds.width) - frame.absoluteBoundingBox.x;

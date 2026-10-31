@@ -331,7 +331,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
 
             var box = node.absoluteBoundingBox;
             if (box == null) return Vector4.zero;
-            var bounds = node.absoluteRenderBounds ?? box;
+            var bounds = NodeRenderBounds.Of(node);
             var outsideLeft = Mathf.Max(0f, box.x - bounds.x);
             var outsideTop = Mathf.Max(0f, box.y - bounds.y);
             var outsideRight = Mathf.Max(0f, bounds.x + bounds.width - (box.x + box.width));

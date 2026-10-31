@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.17] - 2026-10-31
+### Fixed
+- **A hidden layer keeps its outside stroke and shadow.** Figma leaves `absoluteRenderBounds` null on
+  a layer that does not render (hidden, or under a hidden parent), and the import then sized its
+  server render by the layout box alone. A hidden state of a button (a Ready, Locked or Wait face, an
+  edge cue that shows later) imported its outside stroke 4 px short on each side, so it changed size
+  when it was shown in place of the visible state. The render box of such a layer is now the layout
+  box grown by its visible outside strokes (half for a centred stroke, per side when the sides
+  differ), drop shadows and layer blur. The transform, the slicer border and the visual check read
+  the same box (`NodeRenderBounds`); the render cache format moves to 5, so sliced renders are
+  made again.
+
 ## [0.8.16] - 2026-10-30
 ### Fixed
 - **A mirrored layer imports mirrored once, as Figma draws it.** A server render already shows
