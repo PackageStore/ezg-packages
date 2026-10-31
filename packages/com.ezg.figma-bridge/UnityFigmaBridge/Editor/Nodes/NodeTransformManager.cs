@@ -56,8 +56,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                 layoutElement.preferredWidth = figmaNode.size.x;
                 layoutElement.preferredHeight = figmaNode.size.y;
 
-                layoutElement.minHeight = figmaNode.absoluteBoundingBox.height;
-                layoutElement.minWidth = figmaNode.absoluteBoundingBox.width;
+                // The node's own size, never its absolute bounds: under a rotation those are the rotated
+                // outline, larger than the box a layout group or a content size fitter lays out.
+                layoutElement.minHeight = figmaNode.size.y;
+                layoutElement.minWidth = figmaNode.size.x;
                 AutoLayout.ReleaseHugAxes(layoutElement, figmaNode, settings);
             }
 

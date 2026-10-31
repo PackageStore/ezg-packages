@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.18] - 2026-10-31
+### Fixed
+- **A rotated text keeps its Figma box.** A node's layout element took its minimum size from
+  `absoluteBoundingBox`, which under a rotation is the rotated outline, not the node's box. A hug
+  text rotated 12° (a stamp "×2" on a tilted tag) got a minimum about 12 px wider and 10 px taller
+  than its box, and its content size fitter grew the text rect from the top-left pivot, so the ink
+  slid about 7 px right and 4 px down. The minimum now comes from the node's `size`, the same as
+  the preferred size; an unrotated node imports as before.
+
 ## [0.8.17] - 2026-10-31
 ### Fixed
 - **A hidden layer keeps its outside stroke and shadow.** Figma leaves `absoluteRenderBounds` null on
