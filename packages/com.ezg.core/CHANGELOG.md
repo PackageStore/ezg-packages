@@ -4,6 +4,12 @@ All notable changes to `com.ezg.core` will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.6] - 2026-11-02
+
+### Fixed
+- `JumpInJumpOut.Show` no longer calls `StartCoroutine` on an inactive GameObject. Unity logged an ERROR ("Coroutine couldn't be started because the game object … is inactive"), which analytics counted as an error event; nothing ever animated in that case, so visible behaviour is unchanged.
+- `JumpInJumpOut` kills its tweens in `OnDestroy` (only if it ever tweened), and the `UI_ButtonExtensions` press / release `DOScale` tweens use `SetLink(gameObject)`, so tweens no longer run on destroyed Transforms (DOTween "Target or field is missing/null … set_localScale").
+
 ## [0.1.5] - 2026-10-24
 
 ### Fixed

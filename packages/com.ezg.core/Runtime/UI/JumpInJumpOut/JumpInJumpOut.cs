@@ -261,6 +261,16 @@ namespace Ezg.Core.UI
             }
 
             /// <summary>
+            ///     Kills this component's tweens when the object is destroyed mid-animation (e.g. a popup closed right
+            ///     after a tap), so DOTween does not keep running on a destroyed Transform. Skipped when no tween was
+            ///     ever started (the id string is created lazily).
+            /// </summary>
+            private void OnDestroy()
+            {
+                if (_tweenId != null) KillAllTweens();
+            }
+
+            /// <summary>
             ///     Sets the display settings to the initial state
             /// </summary>
             public void SetToInitialState()
@@ -366,6 +376,14 @@ namespace Ezg.Core.UI
             /// </returns>
             public YieldInstruction Show(Action onFinished)
             {
+                // Inactive object: StartCoroutine would log an error and run nothing, so skip it silently
+                // (same visible result as before, without the error log).
+                if (!gameObject.activeInHierarchy)
+                {
+                    mCoroutine = null;
+                    return null;
+                }
+
                 mCoroutine = StartCoroutine(ShowRoutine(onFinished));
                 return mCoroutine;
             }

@@ -250,7 +250,7 @@ namespace Ezg.Core.UI
             }
 
             if (_isChangeSizeOnClick)
-                transform.DOScale(_originScale * _onDownScalePercent, _holdDuration).SetUpdate(true);
+                transform.DOScale(_originScale * _onDownScalePercent, _holdDuration).SetUpdate(true).SetLink(gameObject); // button may destroy its own screen mid-tween
         }
 
         /// <summary>
@@ -262,7 +262,7 @@ namespace Ezg.Core.UI
             _onUp?.Invoke();
 
             if (_isChangeSizeOnClick)
-                transform.DOScale(_originScale, _holdDuration).SetUpdate(true);
+                transform.DOScale(_originScale, _holdDuration).SetUpdate(true).SetLink(gameObject);
         }
 
         /// <summary>
