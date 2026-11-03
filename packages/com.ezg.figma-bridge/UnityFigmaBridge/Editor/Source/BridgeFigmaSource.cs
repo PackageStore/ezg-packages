@@ -38,8 +38,8 @@ namespace UnityFigmaBridge.Editor.Source
         public async Task<FigmaFile> GetDocument(string fileId)
         {
             BridgeTempFiles.Clear();
-            var result = await Request(fileId, "doc.snapshot", new JObject(), SnapshotTimeout).ConfigureAwait(false);
-            var text = (string)result["text"];
+            var text = await BridgeSnapshot.Read((op, payload, timeout) => Request(fileId, op, payload, timeout),
+                SnapshotTimeout, BatchTimeout).ConfigureAwait(false);
             BridgeTempFiles.Write(string.Empty, "document.json", new UTF8Encoding(false).GetBytes(text));
             File.Copy(Path.Combine(BridgeTempFiles.Root, "document.json"), FigmaApiUtils.CachedDocumentPath, true);
             var figmaFile = FigmaApiUtils.ReadDocument(FigmaApiUtils.CachedDocumentPath);

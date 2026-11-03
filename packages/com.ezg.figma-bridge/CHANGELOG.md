@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.19] - 2026-11-03
+### Fixed
+- **A large file no longer wedges a Figma lane on Sync.** The Bridge source asked the plugin for
+  every page in one `doc.snapshot` call. On a big file (t003, about 36 MB of JSON) that call ran
+  past its 120 s limit, and the cancel never ended it in the plugin, so the lane stayed busy with no
+  holder. The source now lists the pages (`inventory`) and asks for one page per call, each with its
+  own 120 s limit, logs each page's time, and joins the pages as the plugin does (page order kept;
+  components, component sets and styles first page wins). A failed page names itself in the error.
+  A plugin without `inventory` still gets the one whole-file call.
+
 ## [0.8.18] - 2026-10-31
 ### Fixed
 - **A rotated text keeps its Figma box.** A node's layout element took its minimum size from
