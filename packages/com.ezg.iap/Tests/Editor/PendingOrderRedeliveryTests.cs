@@ -101,5 +101,17 @@ namespace Ezg.Feature.IAP.Tests
             Assert.That(Host.Confirmed, Is.Empty);
             Assert.That(Host.GrantCalls.Count, Is.EqualTo(1));
         }
+
+        [Test]
+        public void AlreadyGrantedOrderWithoutProduct_IsStillConfirmed()
+        {
+            Ledger.Granted[Tx] = Pack; // cấp ở phiên trước, app chết trước confirm
+            var order = new FakeOrder(null, Tx);
+
+            NewSession().Process(order);
+
+            Assert.That(Host.Confirmed, Is.EqualTo(new[] { order }), "ledger báo đã cấp → đóng đơn dù cart không có product");
+            Assert.That(Host.GrantCalls, Is.Empty);
+        }
     }
 }

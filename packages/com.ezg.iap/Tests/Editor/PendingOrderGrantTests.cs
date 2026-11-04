@@ -64,6 +64,19 @@ namespace Ezg.Feature.IAP.Tests
         }
 
         [Test]
+        public void LedgerThrowsAfterGrant_ConfirmsAtOnce_EvenWhenConfirmCouldBeDeferred()
+        {
+            Ledger.ThrowOnMark = true;
+            Host.DeferConfirm = true; // iOS StoreKit 2: confirm thường chờ Firebase ghi giao dịch
+            var order = Delivery();
+
+            Assert.Throws<InvalidOperationException>(() => NewSession().Process(order));
+
+            Assert.That(Host.Confirmed, Is.EqualTo(new[] { order }), "ledger chưa ghi → confirm ngay (TransactionLog chặn cấp đôi)");
+            Assert.That(Host.Deferred, Is.Empty);
+        }
+
+        [Test]
         public void OrderWithoutProduct_IsNotConfirmed()
         {
             NewSession().Process(new FakeOrder(null, Tx));

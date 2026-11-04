@@ -91,6 +91,11 @@ and the default-price fallback into `IapSecurityConfig`.
   rejected). If the grant fails — the `OnPurchaseComplete` handler throws, or `IIapGrantHandler.TryGrantPurchase` returns
   `false` — the order is not confirmed and not written to the ledger; the store re-delivers it on the next purchase fetch (app
   back in the foreground, or next launch). Throw / return `false` only when nothing was granted yet.
+- **Validator cannot run (0.3.5):** a missing / corrupt Tangle (`MissingStoreSecretException`, `InvalidPublicKeyException`) or an
+  unexpected validator error keeps the order pending instead of rejecting it. The generated `GooglePlayTangle` / `AppleTangle`
+  classes are usually reached only through reflection (`IapSecurityConfig` wiring), so keep them out of code stripping:
+  `<assembly fullname="Assembly-CSharp"><type fullname="UnityEngine.Purchasing.Security.GooglePlayTangle" preserve="all"/>…`
+  in a `link.xml` (the EZG template ships one in `_Shared/Purchase/IAPIntegration/link.xml`).
 - `k_Environment = "production"` (Unity Services environment) is currently fixed in `InAppManager`.
 - **iOS StoreKit 2 → Firebase (0.3.4):** Firebase only auto-collects `in_app_purchase` for StoreKit 1, and Unity IAP 5 buys through
   StoreKit 2 on iOS 15+. For every order it grants, the module hands the transaction to Firebase through the bundled Swift plugin

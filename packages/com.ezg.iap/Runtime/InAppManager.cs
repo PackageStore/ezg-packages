@@ -346,7 +346,7 @@ namespace Ezg.Feature.IAP
                 _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                 callBack?.Invoke();
                 m_PurchaseInProgress = false;
-                _purchasing.OnPurchaseComplete?.Invoke(productId);
+                GrantFakePurchase(productId);
                 _reporter?.RequestSync();
                 // 0.3.3: KHÔNG gọi unSuccess ở đây — mua (giả) đã thành công. Bản cũ gọi cả callBack lẫn unSuccess.
                 return;
@@ -421,7 +421,7 @@ namespace Ezg.Feature.IAP
                     _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                     callBack?.Invoke();
                     m_PurchaseInProgress = false;
-                    _purchasing.OnPurchaseComplete?.Invoke(productId);
+                    GrantFakePurchase(productId);
                     _reporter?.RequestSync();
                     return;
                 }
@@ -430,7 +430,7 @@ namespace Ezg.Feature.IAP
                 _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                 callBack?.Invoke();
                 m_PurchaseInProgress = false;
-                _purchasing.OnPurchaseComplete?.Invoke(productId);
+                GrantFakePurchase(productId);
                 _reporter?.RequestSync();
     #else
                 BuyProductID(productID, unSuccess);
@@ -1066,8 +1066,9 @@ namespace Ezg.Feature.IAP
         /// trên <see cref="IAppleOrderInfo"/> (transactionID + jwsRepresentation) thay vì result.
         ///
         /// Google Play / StoreKit 1: giữ verify chữ ký bằng tangle + bundle id (trong validator), thêm
-        /// kiểm receipt phải chứa ĐÚNG product đang mua và transactionID không rỗng. Thiếu tangle
-        /// (MissingStoreSecretException) → fail-closed, không cấp quà — host phải giữ Tangle khỏi bị strip.
+        /// kiểm receipt phải chứa ĐÚNG product đang mua và transactionID không rỗng. Thiếu / hỏng tangle
+        /// (MissingStoreSecretException, InvalidPublicKeyException) → ném (order giữ pending, không cấp, không confirm)
+        /// — host phải giữ Tangle khỏi bị strip.
         /// </summary>
         private bool ValidatePurchase(Order order, Product product)
         {
@@ -1139,11 +1140,21 @@ namespace Ezg.Feature.IAP
                     }
                 }
             }
+            catch (IAPSecurityException e) when (IsValidatorUnavailable(e))
+            {
+                // 0.3.5: validator KHÔNG chạy được (thiếu / hỏng Tangle, lỗi bất ngờ trong validator) — không phải bằng chứng
+                // receipt giả. Bản cũ coi là từ chối → ConfirmPurchase không cấp quà: người chơi trả tiền, không có quà. Giờ ném
+                // ra để caller giữ order pending; build sửa xong Tangle thì store giao lại và cấp được (Google tự hoàn tiền
+                // đơn chưa acknowledge sau 3 ngày).
+                throw new InvalidOperationException(
+                    "[IAP] Không validate được receipt (" + e.GetType().Name + "): " + e.Message +
+                    " — kiểm GooglePlayTangle / AppleTangle (IapSecurityConfig) và link.xml giữ class Tangle khi strip code.", e);
+            }
             catch (IAPSecurityException e)
             {
-                // Chữ ký sai / bundle id lệch / thiếu tangle / receipt không parse được — đều là từ chối dứt
-                // khoát (không retry). Lỗi khác (không phải IAPSecurityException) ném ra ngoài để caller giữ
-                // order pending và store re-deliver lần sau.
+                // Chữ ký sai / bundle id lệch / receipt không parse được / store lạ — từ chối dứt khoát (không retry).
+                // Lỗi khác (không phải IAPSecurityException) ném ra ngoài để caller giữ order pending và store
+                // re-deliver lần sau.
                 Debug.LogError("[IAP] Invalid receipt (" + e.GetType().Name + "): " + e.Message);
                 validPurchase = false;
             }
@@ -1153,6 +1164,15 @@ namespace Ezg.Feature.IAP
         }
 
     #if RECEIPT_VALIDATION
+        /// <summary>
+        /// Lỗi do validator không chạy được chứ không do receipt: thiếu key của store (Tangle null — vd class Tangle bị strip),
+        /// key hỏng, hoặc lỗi bất ngờ bên trong validator. Những lỗi này giữ order pending thay vì từ chối.
+        /// </summary>
+        private static bool IsValidatorUnavailable(IAPSecurityException e)
+        {
+            return e is MissingStoreSecretException || e is InvalidPublicKeyException || e is GenericValidationException;
+        }
+
         /// <summary>
         /// Apple StoreKit 2: JWS của transaction đã được StoreKit + Unity native verify trước khi order tới
         /// đây; client chỉ còn kiểm order có đúng hình dạng một transaction SK2 thật (order info kiểu Apple,
@@ -1289,14 +1309,32 @@ namespace Ezg.Feature.IAP
             // Cấp quà thật + Save (game xử lý trong OnPurchaseComplete → GrantIapByProductId → ReceiveRewards).
             // Handler ném lỗi (save chưa load, catalog thiếu, SKU không map ra gói…) hoặc game báo không cấp được qua
             // IIapGrantHandler → chưa cấp: đơn KHÔNG bị confirm, store giao lại ở lần fetch sau.
+            return InvokeHostGrant(productId);
+        }
+
+        /// <summary>
+        /// Cấp quà qua game: <see cref="IIapGrantHandler.TryGrantPurchase"/> khi class IPurchasing implement nó (THAY cho
+        /// <see cref="IPurchasing.OnPurchaseComplete"/>, không gọi cả hai), ngược lại <see cref="IPurchasing.OnPurchaseComplete"/>
+        /// (ném = chưa cấp). true = đã cấp. Dùng chung cho đơn thật, mua giả cheat và mua trong Editor.
+        /// </summary>
+        private bool InvokeHostGrant(string grantProductId)
+        {
             if (_purchasing is IIapGrantHandler grantHandler)
             {
-                return grantHandler.TryGrantPurchase(productId);
+                return grantHandler.TryGrantPurchase(grantProductId);
             }
 
-            _purchasing.OnPurchaseComplete?.Invoke(productId);
-
+            _purchasing.OnPurchaseComplete?.Invoke(grantProductId);
             return true;
+        }
+
+        /// <summary>Mua giả (cheat isTestIAP / Editor): không có đơn store để giữ pending, chỉ log khi game báo chưa cấp.</summary>
+        private void GrantFakePurchase(string fakeProductId)
+        {
+            if (!InvokeHostGrant(fakeProductId))
+            {
+                Debug.LogError("[IAP] Game báo chưa cấp được quà '" + fakeProductId + "' (mua giả cheat / Editor).");
+            }
         }
 
         /// <summary>

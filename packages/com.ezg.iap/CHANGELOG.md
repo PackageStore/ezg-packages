@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.5] - 2026-11-04
 
 Drop-in update from 0.3.4: no public API was removed or changed. Adds one optional interface (`IIapGrantHandler`). Existing
 `IPurchasing` / `IIapOrderLedger` implementations compile and behave as before when the grant succeeds.
@@ -19,15 +19,26 @@ Drop-in update from 0.3.4: no public API was removed or changed. Adds one option
 - The other branches of the same flow that closed an order without granting it now keep it pending too: an order whose cart has
   no product (it was confirmed at once "to close the transaction") and `GrantRewards` finding no store controller or no product.
 - The grant exception is logged by the module (`[IAP] Chưa cấp được quà …`) instead of escaping `OnPurchasePending`.
+- **Paid but not granted when the receipt validator cannot run.** `MissingStoreSecretException` (no `GooglePlayTangle` /
+  `AppleTangle`, e.g. the generated Tangle class was stripped because it is only reached through reflection),
+  `InvalidPublicKeyException` (corrupt Tangle) and `GenericValidationException` (unexpected error inside the validator) were
+  treated as a forged receipt: the order was confirmed without a grant. They now keep the order pending like any other
+  validation error (`[IAP] Validation error, leaving purchase pending: … kiểm GooglePlayTangle …`); a build with a working
+  Tangle grants it on re-delivery. Forged receipts (bad signature, wrong bundle id, unreadable receipt, unknown store) are still
+  rejected and closed.
+- `IIapGrantHandler` is now used on every grant path: the cheat purchase (`isTestIAP`) and the Editor purchase called
+  `OnPurchaseComplete` even when the host implemented `IIapGrantHandler`, so a host that moved its grant into
+  `TryGrantPurchase` got nothing in the Editor / with cheats.
 
 ### Added
 - `IIapGrantHandler` (optional). Implement it on the `IPurchasing` class to report a failed grant explicitly:
   `bool TryGrantPurchase(string productId)` is called **instead of** `OnPurchaseComplete` (never both), at the same point in the
   sequence (after `OnPurchaseCompleteBeforeCallback` and the `Buy()` success callback). Return `false` (or throw) only when nothing
   was granted. Hosts that do not implement it keep receiving `OnPurchaseComplete`; an exception from it counts as a failed grant.
-- First EditMode tests of the package (`Tests/Editor`, assembly `Ezg.Feature.IAP.Tests`, 14 tests): failed grant ⇒ no confirm,
+- First EditMode tests of the package (`Tests/Editor`, assembly `Ezg.Feature.IAP.Tests`, 16 tests): failed grant ⇒ no confirm,
   no ledger; successful grant ⇒ exactly one confirm; re-delivered orders (same fetch, same session, next launch) never granted
-  twice. Add `"testables": ["com.ezg.iap"]` to the project manifest to run them.
+  twice; a failed ledger write confirms at once even when StoreKit 2 would defer; an already-granted order with an empty cart is
+  still closed. Add `"testables": ["com.ezg.iap"]` to the project manifest to run them.
 
 ### Changed
 - The pending-order flow moved out of `InAppManager.OnPurchasePending` into `PendingOrderProcessor` (internal, no Unity
@@ -36,6 +47,8 @@ Drop-in update from 0.3.4: no public API was removed or changed. Adds one option
   validation-error and StoreKit 2 deferred-confirm orders behave as in 0.3.4.
 - The duplicate and ledger checks now run before the "order has no product" check, so an order that was already granted is
   still closed even if its re-delivered cart is empty.
+- `Ezg > IAP` template generator: the generated `InAppPurchase` implements `IIapGrantHandler` (`TryGrantPurchase` returns `false`
+  until the game fills it in, so an unfinished integration keeps orders pending instead of confirming them without a grant).
 
 ### Behaviour changes to check when updating
 - An `OnPurchaseComplete` handler that throws **after** it has already granted and saved now gets the order re-delivered and
@@ -46,9 +59,10 @@ Drop-in update from 0.3.4: no public API was removed or changed. Adds one option
   `IIapGrantHandler` can show its own message when it returns `false`.
 - On Google Play, the same consumable cannot be bought again while its previous order is unacknowledged (`ITEM_ALREADY_OWNED`);
   the pending order has to be granted first on a re-delivery.
-- Not changed here: validator configuration errors (`MissingStoreSecretException`, `InvalidPublicKeyException`,
-  `GenericValidationException` — e.g. a stripped or missing `GooglePlayTangle`) are still treated as a rejected receipt and
-  confirmed without a grant.
+- Re-delivery timing (Unity IAP 5.4): Google Play and StoreKit 2 return the pending order on every purchase fetch (app back in
+  the foreground) and at the next launch; StoreKit 1 (iOS < 15) only at the next launch.
+- A build whose Tangle is missing now keeps every validated purchase pending (no grant, no confirm) until a fixed build ships —
+  keep the generated Tangle classes out of code stripping (`link.xml`).
 
 ## [0.3.4] - 2026-10-08
 
