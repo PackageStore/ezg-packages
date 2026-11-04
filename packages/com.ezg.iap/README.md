@@ -18,6 +18,9 @@ interfaces (the *seam*) and injected at startup — the package references **no 
 | `Runtime/IIapReporter.cs` | Seam: `OnPurchaseClick`, `OnPurchaseValidated`, `OnConversionData`, `RequestSync` |
 | `Runtime/IIapOrderLedger.cs` | Seam (tuỳ chọn): sổ giao dịch bền vững chống cấp quà 2 lần khi store giao lại đơn |
 | `Runtime/IIapRestoreListener.cs` | Seam (tuỳ chọn, 0.3.3): nhận kết quả Restore kèm danh sách product, thay cho `OnTransactionRestored` |
+| `Runtime/IIapGrantHandler.cs` | Seam (tuỳ chọn): cấp quà kèm kết quả (`TryGrantPurchase` → `false` = chưa cấp, đơn giữ pending), thay cho `OnPurchaseComplete` |
+| `Runtime/PendingOrderProcessor.cs` | Luồng chốt một PendingOrder + luật confirm, không phụ thuộc Unity (host: `InAppManager.PendingOrders.cs`, nhớ trong phiên: `SessionOrderMemory.cs`) |
+| `Tests/Editor/` | EditMode tests (`Ezg.Feature.IAP.Tests`) — chạy được khi manifest của project có `"testables": ["com.ezg.iap"]` |
 | `Runtime/IapSecurityConfig.cs` | Dữ liệu inject: tangle bytes, AppsFlyer public key, provider giá mặc định |
 | `Runtime/IapPurchaseInfo.cs` | DTO truyền dữ liệu một giao dịch ra game (đã parse khỏi receipt) |
 | `Runtime/AppsFlyerListener.cs` | `IAppsFlyerConversionData` → forward conversion data qua `IIapReporter` |
@@ -84,6 +87,10 @@ and the default-price fallback into `IapSecurityConfig`.
 - **Order recovery:** a pending order whose product is not in the fetched catalog yet is kept pending (never confirmed without a
   grant); it is granted on the next purchase fetch once the catalog is there. Orders already settled in the session are not
   granted or reported twice.
+- **Grant failure:** an order is confirmed only once it is settled (granted, already granted per the ledger, or receipt
+  rejected). If the grant fails — the `OnPurchaseComplete` handler throws, or `IIapGrantHandler.TryGrantPurchase` returns
+  `false` — the order is not confirmed and not written to the ledger; the store re-delivers it on the next purchase fetch (app
+  back in the foreground, or next launch). Throw / return `false` only when nothing was granted yet.
 - `k_Environment = "production"` (Unity Services environment) is currently fixed in `InAppManager`.
 - **iOS StoreKit 2 → Firebase (0.3.4):** Firebase only auto-collects `in_app_purchase` for StoreKit 1, and Unity IAP 5 buys through
   StoreKit 2 on iOS 15+. For every order it grants, the module hands the transaction to Firebase through the bundled Swift plugin
