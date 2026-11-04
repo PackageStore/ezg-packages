@@ -113,10 +113,12 @@ using System.Collections.Generic;
 namespace Ezg.Feature.IAP
 {
     /// <summary>
-    /// TEMPLATE: implement IPurchasing — khai báo product id + xử lý khi mua hoàn tất.
+    /// TEMPLATE: implement IPurchasing — khai báo product id + cấp quà khi mua hoàn tất.
     /// Đây là phần GAME-SPECIFIC, KHÔNG nằm trong package.
+    /// IIapGrantHandler: module gọi TryGrantPurchase THAY cho OnPurchaseComplete. Trả false (hoặc ném) khi CHƯA cấp gì →
+    /// module không ConfirmPurchase, đơn giữ pending và store giao lại sau (người chơi không mất tiền).
     /// </summary>
-    public class InAppPurchase : IPurchasing
+    public class InAppPurchase : IPurchasing, IIapGrantHandler
     {
         public Action<bool> OnTransactionRestored { get; set; }
         public Action<string> OnPurchaseFailed { get; set; }
@@ -127,7 +129,6 @@ namespace Ezg.Feature.IAP
         {
             OnTransactionRestored += TransactionRestored;
             OnPurchaseFailed += PurchaseFailed;
-            OnPurchaseComplete += PurchaseComplete;
             OnPurchaseCompleteBeforeCallback += PurchaseCompleteBeforeCallBack;
         }
 
@@ -163,9 +164,12 @@ namespace Ezg.Feature.IAP
             // TODO (tuỳ chọn): xử lý trước khi callback mua chạy
         }
 
-        private void PurchaseComplete(string productId)
+        public bool TryGrantPurchase(string productId)
         {
-            // TODO: cộng vật phẩm cho productId + emit event mua thành công
+            // TODO: cộng vật phẩm cho productId + Save. Chưa cấp được (save chưa load, SKU không map ra gói…) → return false
+            // TRƯỚC khi cấp phần nào. Đã cấp + lưu rồi thì KHÔNG được ném / trả false nữa (đơn sẽ bị giao lại → cấp đôi):
+            // bọc phần sau khi cấp (UI, event, analytics) trong try/catch.
+            return false;
         }
     }
 }

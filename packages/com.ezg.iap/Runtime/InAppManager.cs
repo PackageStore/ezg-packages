@@ -63,7 +63,7 @@ namespace Ezg.Feature.IAP
     /// Calling ConfirmPurchase is mandatory to finalize the transaction (this is what the legacy
     /// bridge failed to do on iOS).
     /// </summary>
-    public class InAppManager : Singleton<InAppManager>
+    public partial class InAppManager : Singleton<InAppManager>
     {
         public List<string> nonConsume = new List<string>();
 
@@ -106,18 +106,8 @@ namespace Ezg.Feature.IAP
         // mở app). Catalog về thì fetch lại để cấp.
         private bool m_OrdersAwaitingCatalog;
 
-        // 0.3.3 — cùng một PendingOrder tới OnPurchasePending 2 lần trong một phiên (Unity tự route khi fetch
-        // purchases + OnPurchasesFetched forward lại). Chỉ đơn đã CHỐT DỨT KHOÁT (đã cấp quà / ledger báo đã cấp /
-        // receipt bị từ chối) mới được nhớ; lần sau chỉ confirm lại. Đơn chưa cấp được thì KHÔNG nhớ → xử lý lại như cũ.
-        private enum OrderOutcome
-        {
-            Granted,
-            AlreadyGranted,
-            Rejected
-        }
-
-        private readonly Dictionary<string, OrderOutcome> m_FinalizedTransactions = new Dictionary<string, OrderOutcome>();
-        private readonly Dictionary<Order, OrderOutcome> m_FinalizedOrders = new Dictionary<Order, OrderOutcome>();
+        // Đơn đã chốt trong phiên (chống xử lý trùng) + luật confirm nằm trong PendingOrderProcessor — xem
+        // InAppManager.PendingOrders.cs.
 
         // 0.3.4 — iOS StoreKit 2: giữ ConfirmPurchase của đơn VỪA cấp quà tới khi Firebase ghi in_app_purchase (tạo khi cần).
         private StoreKit2ConfirmGate<PendingOrder> m_FirebaseConfirmGate;
@@ -356,7 +346,7 @@ namespace Ezg.Feature.IAP
                 _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                 callBack?.Invoke();
                 m_PurchaseInProgress = false;
-                _purchasing.OnPurchaseComplete?.Invoke(productId);
+                GrantFakePurchase(productId);
                 _reporter?.RequestSync();
                 // 0.3.3: KHÔNG gọi unSuccess ở đây — mua (giả) đã thành công. Bản cũ gọi cả callBack lẫn unSuccess.
                 return;
@@ -431,7 +421,7 @@ namespace Ezg.Feature.IAP
                     _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                     callBack?.Invoke();
                     m_PurchaseInProgress = false;
-                    _purchasing.OnPurchaseComplete?.Invoke(productId);
+                    GrantFakePurchase(productId);
                     _reporter?.RequestSync();
                     return;
                 }
@@ -440,7 +430,7 @@ namespace Ezg.Feature.IAP
                 _purchasing.OnPurchaseCompleteBeforeCallback?.Invoke(productId);
                 callBack?.Invoke();
                 m_PurchaseInProgress = false;
-                _purchasing.OnPurchaseComplete?.Invoke(productId);
+                GrantFakePurchase(productId);
                 _reporter?.RequestSync();
     #else
                 BuyProductID(productID, unSuccess);
@@ -984,39 +974,6 @@ namespace Ezg.Feature.IAP
             }
         }
 
-        /// <summary>Đơn đã được cấp quà (trong phiên này, hoặc ledger báo đã cấp ở phiên trước).</summary>
-        private bool HasBeenGranted(PendingOrder order)
-        {
-            if (order == null)
-            {
-                return false;
-            }
-
-            OrderOutcome outcome;
-            if (m_FinalizedOrders.TryGetValue(order, out outcome))
-            {
-                return outcome != OrderOutcome.Rejected;
-            }
-
-            var transactionId = order.Info != null ? order.Info.TransactionID : null;
-            return !string.IsNullOrEmpty(transactionId) &&
-                   m_FinalizedTransactions.TryGetValue(transactionId, out outcome) &&
-                   outcome != OrderOutcome.Rejected;
-        }
-
-        private void MarkFinalized(Order order, string transactionId, OrderOutcome outcome)
-        {
-            if (order != null)
-            {
-                m_FinalizedOrders[order] = outcome;
-            }
-
-            if (!string.IsNullOrEmpty(transactionId))
-            {
-                m_FinalizedTransactions[transactionId] = outcome;
-            }
-        }
-
         /// <summary>
         /// Đơn này có cần ghi lên Firebase qua plugin StoreKit 2 không: iOS device, Apple store, bật
         /// <see cref="LogStoreKit2PurchasesToFirebase"/>, host có <see cref="IIapOrderLedger"/>, app có FirebaseAnalytics, và
@@ -1109,8 +1066,9 @@ namespace Ezg.Feature.IAP
         /// trên <see cref="IAppleOrderInfo"/> (transactionID + jwsRepresentation) thay vì result.
         ///
         /// Google Play / StoreKit 1: giữ verify chữ ký bằng tangle + bundle id (trong validator), thêm
-        /// kiểm receipt phải chứa ĐÚNG product đang mua và transactionID không rỗng. Thiếu tangle
-        /// (MissingStoreSecretException) → fail-closed, không cấp quà — host phải giữ Tangle khỏi bị strip.
+        /// kiểm receipt phải chứa ĐÚNG product đang mua và transactionID không rỗng. Thiếu / hỏng tangle
+        /// (MissingStoreSecretException, InvalidPublicKeyException) → ném (order giữ pending, không cấp, không confirm)
+        /// — host phải giữ Tangle khỏi bị strip.
         /// </summary>
         private bool ValidatePurchase(Order order, Product product)
         {
@@ -1182,11 +1140,21 @@ namespace Ezg.Feature.IAP
                     }
                 }
             }
+            catch (IAPSecurityException e) when (IsValidatorUnavailable(e))
+            {
+                // 0.3.5: validator KHÔNG chạy được (thiếu / hỏng Tangle, lỗi bất ngờ trong validator) — không phải bằng chứng
+                // receipt giả. Bản cũ coi là từ chối → ConfirmPurchase không cấp quà: người chơi trả tiền, không có quà. Giờ ném
+                // ra để caller giữ order pending; build sửa xong Tangle thì store giao lại và cấp được (Google tự hoàn tiền
+                // đơn chưa acknowledge sau 3 ngày).
+                throw new InvalidOperationException(
+                    "[IAP] Không validate được receipt (" + e.GetType().Name + "): " + e.Message +
+                    " — kiểm GooglePlayTangle / AppleTangle (IapSecurityConfig) và link.xml giữ class Tangle khi strip code.", e);
+            }
             catch (IAPSecurityException e)
             {
-                // Chữ ký sai / bundle id lệch / thiếu tangle / receipt không parse được — đều là từ chối dứt
-                // khoát (không retry). Lỗi khác (không phải IAPSecurityException) ném ra ngoài để caller giữ
-                // order pending và store re-deliver lần sau.
+                // Chữ ký sai / bundle id lệch / receipt không parse được / store lạ — từ chối dứt khoát (không retry).
+                // Lỗi khác (không phải IAPSecurityException) ném ra ngoài để caller giữ order pending và store
+                // re-deliver lần sau.
                 Debug.LogError("[IAP] Invalid receipt (" + e.GetType().Name + "): " + e.Message);
                 validPurchase = false;
             }
@@ -1196,6 +1164,15 @@ namespace Ezg.Feature.IAP
         }
 
     #if RECEIPT_VALIDATION
+        /// <summary>
+        /// Lỗi do validator không chạy được chứ không do receipt: thiếu key của store (Tangle null — vd class Tangle bị strip),
+        /// key hỏng, hoặc lỗi bất ngờ bên trong validator. Những lỗi này giữ order pending thay vì từ chối.
+        /// </summary>
+        private static bool IsValidatorUnavailable(IAPSecurityException e)
+        {
+            return e is MissingStoreSecretException || e is InvalidPublicKeyException || e is GenericValidationException;
+        }
+
         /// <summary>
         /// Apple StoreKit 2: JWS của transaction đã được StoreKit + Unity native verify trước khi order tới
         /// đây; client chỉ còn kiểm order có đúng hình dạng một transaction SK2 thật (order info kiểu Apple,
@@ -1287,6 +1264,7 @@ namespace Ezg.Feature.IAP
         /// Cấp quà + lưu bền vững (KHÔNG analytics). Trả về true nếu đã cấp thành công.
         /// Tách khỏi analytics để OnPurchasePending có thể ghi ledger NGAY sau khi grant + save,
         /// TRƯỚC khi bắn analytics — thu hẹp khe crash double-grant và tránh analytics bắn trùng.
+        /// false hoặc ném exception = CHƯA cấp được → PendingOrderProcessor KHÔNG confirm, đơn giữ pending.
         /// </summary>
         private bool GrantRewards(Product product)
         {
@@ -1329,9 +1307,34 @@ namespace Ezg.Feature.IAP
             }
 
             // Cấp quà thật + Save (game xử lý trong OnPurchaseComplete → GrantIapByProductId → ReceiveRewards).
-            _purchasing.OnPurchaseComplete?.Invoke(productId);
+            // Handler ném lỗi (save chưa load, catalog thiếu, SKU không map ra gói…) hoặc game báo không cấp được qua
+            // IIapGrantHandler → chưa cấp: đơn KHÔNG bị confirm, store giao lại ở lần fetch sau.
+            return InvokeHostGrant(productId);
+        }
 
+        /// <summary>
+        /// Cấp quà qua game: <see cref="IIapGrantHandler.TryGrantPurchase"/> khi class IPurchasing implement nó (THAY cho
+        /// <see cref="IPurchasing.OnPurchaseComplete"/>, không gọi cả hai), ngược lại <see cref="IPurchasing.OnPurchaseComplete"/>
+        /// (ném = chưa cấp). true = đã cấp. Dùng chung cho đơn thật, mua giả cheat và mua trong Editor.
+        /// </summary>
+        private bool InvokeHostGrant(string grantProductId)
+        {
+            if (_purchasing is IIapGrantHandler grantHandler)
+            {
+                return grantHandler.TryGrantPurchase(grantProductId);
+            }
+
+            _purchasing.OnPurchaseComplete?.Invoke(grantProductId);
             return true;
+        }
+
+        /// <summary>Mua giả (cheat isTestIAP / Editor): không có đơn store để giữ pending, chỉ log khi game báo chưa cấp.</summary>
+        private void GrantFakePurchase(string fakeProductId)
+        {
+            if (!InvokeHostGrant(fakeProductId))
+            {
+                Debug.LogError("[IAP] Game báo chưa cấp được quà '" + fakeProductId + "' (mua giả cheat / Editor).");
+            }
         }
 
         /// <summary>
@@ -1524,167 +1527,7 @@ namespace Ezg.Feature.IAP
             Debug.LogError("[IAP] OnProductsFetchFailed: " + failure.FailureReason);
         }
 
-        private void OnPurchasePending(PendingOrder order)
-        {
-            // Một purchase đã được store chấp nhận và đang chờ app xử lý + xác nhận.
-            m_PurchaseInProgress = false;
-
-            var product = GetFirstProductInOrder(order);
-            if (product == null)
-            {
-                Debug.LogError("[IAP] OnPurchasePending: product not found in order, confirming to close transaction.");
-                callbackPay = null;
-                m_StoreController.ConfirmPurchase(order);
-                return;
-            }
-
-            // Chụp transactionID NGAY BÂY GIỜ — sau ConfirmPurchase, IOrderInfo.TransactionID sẽ rỗng.
-            string transactionId = order.Info != null ? order.Info.TransactionID : null;
-
-            // 0.3.3 — chống xử lý trùng trong phiên. Khi fetch purchases, Unity tự route mỗi PendingOrder vào đây, rồi
-            // OnPurchasesFetched forward lại ĐÚNG instance đó: bản cũ chỉ còn ledger của host chặn cấp quà lần hai, còn
-            // đơn bị từ chối thì báo OnPurchaseFailed 2 lần (2 toast lỗi).
-            if (m_FinalizedOrders.ContainsKey(order))
-            {
-                // Cùng instance vừa chốt (cùng một lần fetch) → ConfirmPurchase đã gọi rồi, bỏ qua.
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(transactionId) &&
-                m_FinalizedTransactions.TryGetValue(transactionId, out var earlierOutcome))
-            {
-                m_FinalizedOrders[order] = earlierOutcome;
-
-                // 0.3.4: đơn đang chờ Firebase ghi (iOS StoreKit 2, vd fetch lúc app quay lại sau bảng mua của Apple) →
-                // confirm sẽ chạy khi chờ xong. Confirm thêm ở đây = 2 lệnh confirm cho một giao dịch (Unity trả FailedOrder
-                // "Duplicate order") và finish sớm làm Firebase không tra được giao dịch nữa.
-                if (m_FirebaseConfirmGate != null && m_FirebaseConfirmGate.IsAwaiting(transactionId))
-                {
-                    Debug.Log("[IAP] Order đang chờ Firebase ghi, confirm sau: " + transactionId);
-
-                    // Lượt Buy() đang chờ của CHÍNH product này nhận về giao dịch cũ (vd host gọi Buy ngay trong callback
-                    // mua thành công, trước khi gate nhận đơn) → không có đơn mới, báo thất bại để lượt mua không treo.
-                    if (callbackPay != null && productId == product.definition.id)
-                    {
-                        callbackPay = null;
-                        try
-                        {
-                            _purchasing.OnPurchaseFailed?.Invoke(PurchaseFailureReason.ExistingPurchasePending.ToString());
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError(e);
-                        }
-                    }
-
-                    return;
-                }
-
-                // Store giao lại đơn đã chốt dứt khoát trong phiên (confirm lần trước chưa xong) → chỉ confirm lại.
-                Debug.Log("[IAP] Order đã xử lý trong phiên này, chỉ confirm lại: " + transactionId);
-                m_StoreController.ConfirmPurchase(order);
-                return;
-            }
-
-            // Idempotent guard: order này đã grant + save ở phiên trước (app chết trước ConfirmPurchase,
-            // giờ store re-deliver) → CHỈ confirm lại để đóng transaction, KHÔNG grant lần hai.
-            if (_ledger != null && !string.IsNullOrEmpty(transactionId) && _ledger.IsGranted(transactionId))
-            {
-                Debug.Log("[IAP] Order đã grant trước đó, chỉ confirm lại (chống double-grant): " + transactionId);
-                callbackPay = null;
-                MarkFinalized(order, transactionId, OrderOutcome.AlreadyGranted);
-                m_StoreController.ConfirmPurchase(order);
-                return;
-            }
-
-            // 0.3.3: catalog chưa có product này (lúc mở app, fetch purchases thường về TRƯỚC fetch products; Google dựng
-            // product kiểu Unknown) → bản cũ vẫn ConfirmPurchase mà GrantRewards trả false: người chơi trả tiền, không có
-            // quà (và với kiểu Unknown, Google chỉ acknowledge chứ không consume). Giờ GIỮ đơn ở pending; catalog về thì
-            // OnProductsFetched fetch lại → đơn tới lần nữa với đúng kiểu product → cấp quà + confirm.
-            if (m_StoreController.GetProductById(product.definition.id) == null)
-            {
-                Debug.LogWarning("[IAP] Catalog chưa có product '" + product.definition.id +
-                                 "' → giữ order pending, cấp khi catalog đã fetch.");
-                m_OrdersAwaitingCatalog = true;
-                return;
-            }
-
-            bool validPurchase;
-            try
-            {
-                validPurchase = ValidatePurchase(order, product);
-            }
-            catch (Exception e)
-            {
-                // Lỗi tạm thời (vd: deserialize/validator) → KHÔNG confirm, để store re-deliver lần sau
-                // (tương đương PurchaseProcessingResult.Pending ở v4). Chưa grant nên không lo double-grant.
-                Debug.LogError("[IAP] Validation error, leaving purchase pending: " + e);
-                return;
-            }
-
-            // Khi đã quyết định finalize: ConfirmPurchase PHẢI chạy đúng 1 lần — kể cả khi grant/analytics
-            // ném exception SAU khi đã grant — để transaction không bị re-deliver lần sau → double-grant.
-            var granted = false;
-            var ledgerMarked = false; // 0.3.4: chỉ hoãn confirm khi ledger ĐÃ ghi giao dịch này (xem TryDeferConfirmForFirebase)
-            var rejected = false;
-            try
-            {
-                if (validPurchase)
-                {
-                    // THỨ TỰ QUAN TRỌNG (chống double-grant + analytics trùng):
-                    // 1) Cấp quà + Save.  2) Ghi ledger "đã grant".  3) Bắn analytics.
-                    // Nếu app chết giữa (1) và (2): phiên sau re-deliver → guard trên KHÔNG chặn → grant lại
-                    //   (khe hẹp nhất có thể — chỉ giữa hai lần Save, không còn xen analytics).
-                    // Nếu app chết giữa (2) và (3): phiên sau re-deliver → guard CHẶN → không grant lại,
-                    //   analytics cũng không bắn trùng (nó nằm sau ledger).
-                    granted = GrantRewards(product);
-
-                    if (granted && _ledger != null && !string.IsNullOrEmpty(transactionId))
-                    {
-                        _ledger.MarkGranted(transactionId, product.definition.id);
-                        ledgerMarked = true;
-                    }
-
-                    if (granted)
-                        SendPurchaseAnalytics(product, order.Info);
-
-                    Debug.Log(string.Format("[IAP] ProcessPurchase: PASS. Product: '{0}'", product.definition.id));
-                }
-                else
-                {
-                    rejected = true;
-                    callbackPay = null;
-                    Debug.Log("[IAP] Invalid receipt, not unlocking content.");
-                    // Báo cho UI biết đơn bị từ chối — trước đây im lặng, người chơi thấy như "bấm mua không ra gì".
-                    _purchasing.OnPurchaseFailed?.Invoke(PurchaseFailureReason.ValidationFailure.ToString());
-                }
-            }
-            finally
-            {
-                // Chỉ nhớ đơn đã chốt dứt khoát. GrantRewards trả false / ném lỗi → KHÔNG nhớ, để lần giao sau được xử lý
-                // lại như bản cũ (đơn không bao giờ bị "confirm-only" khi quà chưa tới tay người chơi).
-                if (granted)
-                {
-                    MarkFinalized(order, transactionId, OrderOutcome.Granted);
-                }
-                else if (rejected)
-                {
-                    MarkFinalized(order, transactionId, OrderOutcome.Rejected);
-                }
-
-                // v5: ConfirmPurchase finalize transaction (tương đương return Complete ở v4).
-                // BẮT BUỘC trên iOS — bỏ bước này là nguyên nhân purchase iOS không hoàn tất ở legacy bridge.
-                // 0.3.4: đơn VỪA cấp quà trên iOS StoreKit 2 (host có ledger) → confirm SAU khi Firebase ghi in_app_purchase
-                // (quà đã tới tay người chơi; confirm lùi ~1 s, tối đa k_FirebaseLogTimeoutSeconds). Mọi trường hợp khác
-                // confirm ngay như cũ.
-                // Ledger chưa ghi được giao dịch (MarkGranted ném lỗi) thì confirm ngay: confirm là lúc Unity IAP ghi
-                // TransactionLog — lớp chặn cấp quà lần hai duy nhất còn lại nếu app bị kill rồi store giao lại đơn.
-                if (!granted || !ledgerMarked || !TryDeferConfirmForFirebase(order, transactionId))
-                {
-                    m_StoreController.ConfirmPurchase(order);
-                }
-            }
-        }
+        // OnPurchasePending: InAppManager.PendingOrders.cs (luật confirm trong PendingOrderProcessor).
 
         private void OnPurchaseConfirmed(Order order)
         {
