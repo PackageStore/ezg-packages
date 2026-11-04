@@ -4,6 +4,29 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-04
+
+**Fixed** — IAP: người chơi trả tiền mà không nhận quà (`com.ezg.iap` 0.3.5 + `ezg.base.features` `sha256 4f367997… →
+bd96ec24…`: thay 2 file + thêm 1 file, mọi entry còn lại giữ nguyên byte, GUID giữ nguyên; file ở key riêng
+`unity-template/files/ezg.base.features-bd96ec24.unitypackage`, `asset-catalog.json` cố ý giữ bản cũ như lần trước)
+- `unity-template.json`: `com.ezg.iap` 0.3.4 → **0.3.5** (CI tự sync khi publish). Module chỉ `ConfirmPurchase` đơn đã cấp
+  quà / ledger báo đã cấp / receipt giả; cấp quà lỗi hoặc validator không chạy được (thiếu Tangle) thì giữ đơn pending,
+  store giao lại sau. Xem `packages/com.ezg.iap/CHANGELOG.md`.
+- `InAppPurchase.cs` implement `IIapGrantHandler` (thay `OnPurchaseComplete`): `TryGrantPurchase` trả `false` khi SKU không
+  map ra gói nào (trước đây chỉ log rồi coi như đã cấp → đơn bị confirm, người chơi mất tiền); lỗi khi cấp quà ném ra = chưa
+  cấp. `EventManager.EmitEvent(PurchasedIapSuccess)` sau khi cấp được bọc try/catch — listener UI ném lỗi không được làm
+  module tưởng chưa cấp (đơn bị giao lại → cấp đôi).
+- `ShopService.TryGrantIapByProductId(productId) → bool` (mới); `GrantIapByProductId` giữ nguyên, gọi sang bản mới.
+- `_Shared/Purchase/IAPIntegration/link.xml` (mới): giữ `GooglePlayTangle` / `AppleTangle` / `AppleStoreKitTestTangle` trong
+  `Assembly-CSharp`. Các class này chỉ được gọi qua reflection (`IapBootstrap.CallTangleData`) nên bật Managed Stripping
+  Level là linker xoá → validator mất key. Kiểm bằng UnityLinker thật (build Android của s001, rule-set Aggressive): không có
+  link.xml → `GooglePlayTangle` bị xoá; có → giữ; project chưa sinh Tangle → linker không lỗi.
+- Project đang chạy KHÔNG tự nhận các file này (base chỉ cài lúc tạo project): sửa tay `InAppPurchase` / `ShopService` theo
+  trên khi nâng `com.ezg.iap` lên 0.3.5, nhất là game nuốt exception khi cấp quà (vd sm007) hoặc emit event sau khi cấp mà
+  không try/catch (s001 / s004 / r001).
+- Kiểm: `InAppPurchase.cs` + `ShopService.cs` mới biên dịch cùng `Ezg.Features` của sm007 (tham chiếu compile thật của Unity,
+  `Ezg.Feature.IAP` 0.3.5): không thêm lỗi nào so với bản cũ, lỗi cài cố ý vào file mới thì bị bắt. Chưa mở trong Unity Editor.
+
 ## 2026-10-29
 
 **Fixed** — Backlog loop: cửa sổ task bị lỗi tự đóng như khi task xong (macOS + Windows)
