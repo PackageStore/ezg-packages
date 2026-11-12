@@ -14,15 +14,44 @@ namespace Ezg.Package.Factory
 
         public static bool IsNewPlayer;
 
+        /// <summary>
+        ///     True while the registry was built by a module read that came before <see cref="Init" /> (see
+        ///     <see cref="GetModule{T}" />). The next explicit <see cref="Init" /> then reloads those same instances instead of
+        ///     replacing them, so references callers cached meanwhile stay the modules the registry saves.
+        /// </summary>
+        private static bool _lazyInitialized;
+
         #endregion
 
         #region Initialize
 
         /// <summary>
-        ///     Initializes the DataPlayer system by registering all DataPlayerBase modules.
+        ///     Initializes the DataPlayer system by registering all DataPlayerBase modules and loading each from PlayerPrefs.
         /// </summary>
         public new static void Init()
         {
+            // First explicit Init() after a lazy one (a module was read earlier): reload the instances already registered
+            // from PlayerPrefs rather than replacing them. Callers that cached a module meanwhile (PlayerDataManager's
+            // `_x ??= DataPlayer.GetModule<X>()`) keep pointing at the module the registry saves — replacing it would leave
+            // two copies of one save, and the older one could later be written back over the newer one.
+            if (_lazyInitialized && registeredModules != null && typeDict != null)
+            {
+                _lazyInitialized = false;
+                foreach (var module in registeredModules.Values)
+                    try
+                    {
+                        module?.OnInitSaveLoadEvent();
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(module?.GetType() + ": " + e.Message + "\n" + e.StackTrace);
+                    }
+
+                return;
+            }
+
+            _lazyInitialized = false;
+
             // Unsubscribe previously registered instances so iOS soft-restart flows
             // (ResetIOS) don't leave zombie EventManager listeners that respond to
             // the new session's events and overwrite freshly synced data.
@@ -176,23 +205,85 @@ namespace Ezg.Package.Factory
 
         #region Public Methods
 
+        #region Module Access
+
+        /// <summary>
+        ///     True once the module registry exists: <see cref="Init" /> ran, or a module read triggered it.
+        /// </summary>
+        public static bool IsInitialized => typeDict != null;
+
+        /// <summary>
+        ///     Retrieves a module by its type. Read before <see cref="Init" />, it runs <see cref="Init" /> first, so the module
+        ///     comes back loaded from PlayerPrefs — never an empty one whose Save() would overwrite the real save.
+        /// </summary>
+        /// <typeparam name="T">The concrete module type to retrieve.</typeparam>
+        /// <returns>The registered module instance of type T, or null if not found.</returns>
+        public new static T GetModule<T>() where T : DataPlayerBase
+        {
+            EnsureInitialized();
+            return CacheFactoryGenericString<DataPlayerBase>.GetModule<T>();
+        }
+
+        /// <summary>
+        ///     Retrieves a module by its registered type key. Read before <see cref="Init" />, it runs <see cref="Init" /> first
+        ///     (see <see cref="GetModule{T}" />).
+        /// </summary>
+        /// <param name="type">The string identifier key of the module.</param>
+        /// <returns>The registered module instance, or null if not found.</returns>
+        public new static DataPlayerBase GetModule(string type)
+        {
+            EnsureInitialized();
+            return CacheFactoryGenericString<DataPlayerBase>.GetModule(type);
+        }
+
+        /// <summary>
+        ///     The base class would build the registry itself on a read before Init — Activator.CreateInstance only, no Load —
+        ///     and hand out empty modules (dataBase null). Run the real Init instead. The warning comes after Init so a log
+        ///     handler that reads a module cannot re-enter here.
+        /// </summary>
+        private static void EnsureInitialized()
+        {
+            if (typeDict != null) return;
+
+            Init();
+            _lazyInitialized = true;
+            Debug.LogWarning(
+                "[DataPlayer] A module was read before DataPlayer.Init() — initialized now, modules loaded from PlayerPrefs.");
+        }
+
+        #endregion
+
         #region Save/Load Operations
 
         /// <summary>
-        ///     Saves all registered player data modules to local storage (PlayerPrefs).
+        ///     Saves all registered player data modules to local storage (PlayerPrefs). Before <see cref="Init" /> nothing is
+        ///     loaded, so nothing is saved.
         /// </summary>
         public static void SaveAllData()
         {
             var allData = GetRegisteredModules();
+            if (allData == null)
+            {
+                Debug.LogWarning("[DataPlayer] SaveAllData() before DataPlayer.Init() — nothing loaded, nothing saved.");
+                return;
+            }
+
             foreach (var data in allData) data.Value?.Save();
         }
 
         /// <summary>
-        ///     Loads all registered player data modules from local storage (PlayerPrefs).
+        ///     Loads all registered player data modules from local storage (PlayerPrefs). Before <see cref="Init" /> this is
+        ///     <see cref="Init" />.
         /// </summary>
         public static void LoadAllData()
         {
             var allData = GetRegisteredModules();
+            if (allData == null)
+            {
+                Init();
+                return;
+            }
+
             foreach (var data in allData) data.Value?.Load();
         }
 
@@ -210,6 +301,13 @@ namespace Ezg.Package.Factory
         /// </summary>
         public static void ReloadAllData()
         {
+            if (GetRegisteredModules() == null)
+            {
+                Init();
+                PlayerPrefs.Save();
+                return;
+            }
+
             foreach (var sav in GetRegisteredModules())
             {
                 var module = GetModule(sav.Key);
@@ -224,11 +322,13 @@ namespace Ezg.Package.Factory
         /// </summary>
         public static void ClearAllData()
         {
-            foreach (var sav in GetRegisteredModules())
-            {
-                var module = GetModule(sav.Key);
-                if (module != null) module = null;
-            }
+            var modules = GetRegisteredModules();
+            if (modules != null)
+                foreach (var sav in modules)
+                {
+                    var module = GetModule(sav.Key);
+                    if (module != null) module = null;
+                }
 
             PlayerPrefs.DeleteAll();
             PlayerPrefs.Save();
@@ -465,6 +565,14 @@ namespace Ezg.Package.Factory
         /// </summary>
         public override void Save()
         {
+            // A module that was never loaded holds no data: writing it would store "null" over the real save, and the next
+            // Load() would read null and rebuild defaults. Skip instead.
+            if (dataBase == null)
+            {
+                Debug.LogWarning($"[DataPlayer] Save() skipped for '{type}': module not loaded (dataBase is null).");
+                return;
+            }
+
             PlayerPrefs.SetString(type, JsonConvert.SerializeObject(dataBase, JsonConvertSettings));
             PlayerPrefs.Save();
         }

@@ -28,6 +28,7 @@ The consuming project must provide:
 
 - `CrossAssemblySerializationBinder.FallbackAssemblies` contains the hardcoded string `"Ezg.Core"`. If your project uses `CrossAssemblySerializationBinder` and has types in an assembly named `Ezg.Core`, they will resolve correctly. Otherwise this entry is a no-op.
 - `DataPlayer.Init()` scans all loaded assemblies for concrete `DataPlayerBase` subclasses. Call it once at startup before accessing any module.
+- Reading a module before `Init()` (`DataPlayer.GetModule…`) runs `Init()` itself (warning in the log), so modules are always loaded from PlayerPrefs — never empty. The next explicit `Init()` reloads those same instances; later `Init()` calls rebuild them. `Save()` on a module whose `dataBase` is null is skipped, never written as `"null"`. `DataPlayer.IsInitialized` tells whether the registry exists (`GetRegisteredModules()` stays null until then).
 
 ## Phase 2 (not done here)
 

@@ -4,6 +4,18 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-12
+
+**Fixed** — Đọc module trước `DataPlayer.Init()` không còn xoá save (`com.ezg.factory` 0.1.2 → 0.1.3)
+- Template dùng `com.ezg.factory` 0.1.3 (CI đồng bộ `unity-template.json` khi publish). Ở 0.1.2, `DataPlayer.GetModule`
+  gọi trước `Init()` trả module rỗng (không `Load()`): `Save()` của nó ghi `"null"` đè save thật, module tự dựng mặc định
+  khi rỗng thì ghi save người chơi mới đè lên. Splash của template dừng trước `Init()` khi mất mạng, nên handler pause /
+  quit nào đọc module lúc đó là chạm đúng lỗi này (QA bắt được: save chương 30 về người chơi mới).
+- 0.1.3: đọc module trước `Init()` thì chạy `Init()` luôn (module nạp từ PlayerPrefs); lần `Init()` của Splash sau đó nạp
+  lại đúng các instance ấy nên cache `PlayerDataManager` (`_x ??= DataPlayer.GetModule<X>()`) vẫn trỏ đúng module được
+  lưu; `Save()` không bao giờ ghi `"null"`; `SaveAllData()` trước `Init()` không làm gì thay vì NullReferenceException.
+- Project sinh từ template cũ: nâng `com.ezg.factory` lên 0.1.3 (Feature Hub / `check_project_updates`), không cần sửa code.
+
 ## 2026-11-04
 
 **Fixed** — IAP: người chơi trả tiền mà không nhận quà (`com.ezg.iap` 0.3.5 + `ezg.base.features` `sha256 4f367997… →
