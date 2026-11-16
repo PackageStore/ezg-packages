@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5] - 2026-11-16
+### Added
+- Define symbols `EZG_FIREBASE_NO_FIRESTORE` / `EZG_FIREBASE_NO_FUNCTIONS`: bỏ `FirebaseFirestoreManager` / `FirebaseFunctionManager` khỏi compile để game không dùng Firestore / Cloud Functions xoá được Firestore / Functions SDK (DLL, thư viện native Android / iOS, Maven dependency) khỏi bản build. Các bước ở README, mục "Bỏ Firestore / Functions khỏi bản build".
+
+### Notes
+- Không define gì thì hành vi giữ nguyên như 0.1.4: game đang dùng Firestore / Functions không phải sửa gì.
+
 ## [0.1.1] - 2026-06-16
 ### Fixed
 - Added asmdef references `Google.Play.Games` and `Apple.GameKit` so the platform-guarded login providers compile in consumer projects. Without them, a project that defines `GPG_LOGIN` failed with `CS0246: 'GooglePlayGames' could not be found` because the standalone `Ezg.Core.Firebase` assembly did not reference the Google Play Games assembly (previously resolved implicitly when the code lived in a host assembly).

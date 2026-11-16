@@ -200,6 +200,15 @@
       "installedByDefault": true
     },
     {
+      "name": "ezg.base.visuals.popup-textures",
+      "fileName": "ezg.base.visuals.popup-textures.unitypackage",
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals.popup-textures.unitypackage",
+      "category": "EZG Base",
+      "sha256": "341ecacba1ce50f9ffdc5240dc349da0f0c8d891c50f44772eacd9d487fd1121",
+      "installedByDefault": false,
+      "description": "Bản nhẹ của 3 ảnh popup dùng chung trong ezg.base.visuals (Re_Popup, Line, frame_03_label): cùng GUID, cùng sprite, hiển thị như cũ; texture Android/iOS 4,04 MB → 0,56 MB. Cài cho project tạo trước 2026-11-16 (project mới đã có sẵn). Chỉ ghi đè đúng 3 file .psd + .meta này."
+    },
+    {
       "name": "Epic Toon FX",
       "fileName": "Epic Toon FX.unitypackage",
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/Epic%20Toon%20FX.unitypackage",

@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿// Bỏ hẳn Firestore khỏi bản build: thêm EZG_FIREBASE_NO_FIRESTORE vào Scripting Define Symbols rồi xoá
+// Firebase Firestore SDK khỏi project (xem README, mục "Bỏ Firestore / Functions").
+#if !EZG_FIREBASE_NO_FIRESTORE
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Firebase.Extensions;
@@ -145,3 +148,4 @@ namespace Ezg.Core.Firebase
         #endregion
     }
 }
+#endif

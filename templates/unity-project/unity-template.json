@@ -235,13 +235,13 @@
       },
       {
         "fileName": "ezg.base.features.unitypackage",
-        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features-bd96ec24.unitypackage",
-        "sha256": "bd96ec24321d91177b49b8ad859e338bc0fbcdce31edb35b6bc7a04f00ab81f8"
+        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.features-f69dd0fe.unitypackage",
+        "sha256": "f69dd0fe265e0588dadc48c1971a8d951437026b03148a584b9df92b4b2c8869"
       },
       {
         "fileName": "ezg.base.visuals.unitypackage",
-        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals.unitypackage",
-        "sha256": "9b770f7a2a3cefac4402020b418b032e08d24fe043991928c639f129a2981e5d"
+        "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/files/ezg.base.visuals-ea78a394.unitypackage",
+        "sha256": "ea78a394db08b69c420e6c9ff0d753da1e7985e3818c53c3e1b2c968df7dafcf"
       }
     ]
   },

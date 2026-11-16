@@ -1,3 +1,6 @@
+// Bỏ hẳn Cloud Functions khỏi bản build: thêm EZG_FIREBASE_NO_FUNCTIONS vào Scripting Define Symbols rồi xoá
+// Firebase Functions SDK khỏi project (xem README, mục "Bỏ Firestore / Functions").
+#if !EZG_FIREBASE_NO_FUNCTIONS
 using Firebase.Functions;
 
 namespace Ezg.Core.Firebase
@@ -23,3 +26,4 @@ namespace Ezg.Core.Firebase
         #endregion
     }
 }
+#endif

@@ -159,6 +159,27 @@ string nonce = Nonce.GenerateNonce(256);
 |---|---|
 | `#if UNITY_IOS` | Bật `FirebaseAppleLoginProvider`, `FirebaseGameCenterLoginProvider` và API Apple/Game Center. Cần **Apple.GameKit** + **AppleAuth**. |
 | `#if GPG_LOGIN` | Bật luồng Google Play Games. Cần **Google.Play.Games**. |
+| `EZG_FIREBASE_NO_FIRESTORE` | Bỏ `FirebaseFirestoreManager` (không còn tham chiếu `Firebase.Firestore`). Dùng khi game không dùng Firestore và đã xoá Firestore SDK — xem mục bên dưới. |
+| `EZG_FIREBASE_NO_FUNCTIONS` | Bỏ `FirebaseFunctionManager` (không còn tham chiếu `Firebase.Functions`). Dùng khi game không dùng Cloud Functions và đã xoá Functions SDK. |
+
+---
+
+## Bỏ Firestore / Functions khỏi bản build
+
+Firebase SDK được cài bằng `.unitypackage` vào `Assets/` của từng game, nên mỗi module SDK (DLL, thư viện native Android / iOS, Maven dependency) nằm trong bản build dù game có gọi tới hay không. Game không dùng Firestore / Cloud Functions có thể bỏ hẳn hai module này:
+
+1. **Player Settings → Scripting Define Symbols** (Android **và** iOS): thêm `EZG_FIREBASE_NO_FIRESTORE` và/hoặc `EZG_FIREBASE_NO_FUNCTIONS`. Package bỏ `FirebaseFirestoreManager` / `FirebaseFunctionManager` nên không còn tham chiếu tới DLL tương ứng.
+2. Bỏ mọi chỗ game gọi tới chúng. Splash của template (bản base từ 2026-11-16) đã bọc `FirebaseFirestoreManager.Init()` trong `#if !EZG_FIREBASE_NO_FIRESTORE`; project tạo trước đó thì tự bọc / xoá dòng này trong `SplashSceneController`.
+3. Xoá SDK của module (ví dụ Firestore; Functions tương tự với `Functions`):
+   - `Assets/Firebase/Plugins/Firebase.Firestore.dll`, `Assets/Firebase/Plugins/iOS/Firebase.Firestore.dll`
+   - `Assets/Firebase/Plugins/x86_64/FirebaseCppFirestore.*` (bundle / so / dll cho Editor)
+   - `Assets/Plugins/iOS/Firebase/libFirebaseCppFirestore.a` (+ `Assets/Plugins/tvOS/...` nếu có)
+   - `Assets/Firebase/Editor/FirestoreDependencies.xml` và `FirebaseFirestore_version-*_manifest.txt`
+   - `Assets/Firebase/m2repository/com/google/firebase/firebase-firestore-unity/`
+4. **Assets → External Dependency Manager → Android Resolver → Force Resolve**, rồi kiểm `Assets/Plugins/Android/mainTemplate.gradle` không còn dòng `firebase-firestore` / `firebase-functions` (nếu project patch Gradle template) và `ProjectSettings/AndroidResolverDependencies.xml` không còn hai package này. iOS: Podfile sinh lúc build không còn `Firebase/Firestore` / `Firebase/Functions`.
+5. Build lại và so dung lượng (AAB / IPA) trước và sau để xác nhận.
+
+Mặc định (không define gì) package giữ nguyên hành vi cũ, nên game đang dùng Firestore / Functions không phải sửa gì khi nâng lên 0.1.5.
 
 ---
 

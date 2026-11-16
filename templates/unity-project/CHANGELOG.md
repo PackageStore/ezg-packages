@@ -4,6 +4,38 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-16
+
+**Changed** — Bản build nhẹ hơn: 3 ảnh popup dùng chung −3,48 MB, Firestore / Functions bỏ được theo game
+(`ezg.base.visuals` `sha256 9b770f7a… → ea78a394…` và `ezg.base.features` `bd96ec24… → f69dd0fe…`: chỉ thay entry
+nêu dưới, mọi entry còn lại giữ nguyên byte, GUID giữ nguyên; file ở key riêng
+`unity-template/files/ezg.base.visuals-ea78a394.unitypackage` / `ezg.base.features-f69dd0fe.unitypackage`; mục
+`ezg.base.*` trong `asset-catalog.json` cố ý giữ bản cũ như các lần trước)
+- **`ezg.base.visuals` — `Re_Popup`, `Line`, `frame_03_label`.** `screen_template` / `popup_template` nằm trong
+  `Resources/` nên 3 ảnh này luôn vào bản build (20 màn base kế thừa `screen_template`), dù game có hiện hay không.
+  Cả ba là sprite 9-slice vẽ dư: `Re_Popup` 972×1569 và `Line` 914×1503 có vùng kéo dọc ~1340 px đồng màu;
+  `frame_03_label` là sprite sheet mà sprite dùng thật (`frame_03_label_0`) chỉ là vùng 634×238 giữa canvas trong suốt
+  1595×710. Giờ: `Re_Popup` 972×241 (viền 117/120, trước 112/115 — phần đuôi góc nằm trong vùng kéo được gộp vào viền),
+  `Line` 914×180 (viền 88/88, trước 80/80), `frame_03_label` 638×242 (cắt đúng rect sprite + 2 px, rect / border / pivot
+  của sprite không đổi). Đo bằng Unity 6000.3.16f1, build target Android, ASTC 4×4: **4.042.000 → 558.208 byte**;
+  iOS cùng định dạng nên giảm tương tự. GUID và local id sprite giữ nguyên (`21300000`, `1501720263`) nên mọi prefab /
+  variant (kể cả của game) vẫn trỏ đúng.
+- Hình hiển thị: `frame_03_label` trùng từng pixel; `Re_Popup` lệch ≤ 27/255 ở vài pixel đuôi góc; `Line` thẳng hơn
+  (bản gốc rung alpha 240–255 dọc nét viền), popup thấp thì đuôi góc xê dịch 1–2 px. Kiểm bằng texture Unity import
+  (PSD mới đọc ra trùng ảnh nguồn) + dựng 9-slice ở 5 kích thước popup.
+- **Project đang chạy:** Feature Hub, tab Unity Packages → `ezg.base.visuals.popup-textures` (optional, 241 KB) chỉ ghi
+  đè đúng 3 file `.psd` + `.meta` này. Game đã tự sửa 3 ảnh thì đừng cài.
+- **`ezg.base.features` — `SplashSceneController.cs`:** `FirebaseFirestoreManager.Init()` bọc trong
+  `#if !EZG_FIREBASE_NO_FIRESTORE`. Cùng với `com.ezg.firebase` 0.1.5 (define `EZG_FIREBASE_NO_FIRESTORE` /
+  `EZG_FIREBASE_NO_FUNCTIONS`), game không dùng Firestore / Cloud Functions xoá được hai SDK này khỏi bản build
+  (DLL, thư viện native Android / iOS, Maven dependency) — các bước ở README của `com.ezg.firebase`. Không define gì thì
+  hành vi giữ nguyên; template không có tính năng nào dùng Firestore / Functions (GiftCode dùng Supabase), nhưng
+  nhiều game tự viết code trên chúng nên mặc định vẫn giữ SDK. Project đang chạy: nâng `com.ezg.firebase` lên 0.1.5
+  (Feature Hub / `check_project_updates`) và tự bọc dòng `Init()` trong Splash của mình khi muốn bỏ Firestore.
+- Kiểm: `com.ezg.firebase` 0.1.5 compile sạch với Roslyn của Unity + DLL Firebase 13.3.0 thật (không define; hai define
+  và xoá hai DLL; từng define riêng), còn xoá DLL mà không define thì lỗi như mong đợi. Splash mới không lỗi cú pháp
+  với / không define. Chưa mở project sinh từ template trong Unity Editor.
+
 ## 2026-11-12
 
 **Fixed** — Đọc module trước `DataPlayer.Init()` không còn xoá save (`com.ezg.factory` 0.1.2 → 0.1.3)
