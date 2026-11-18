@@ -3840,11 +3840,11 @@
       "installedByDefault": false,
       "source": "extra",
       "fileName": "img-gen-mcp.zip",
-      "sha256": "4c33516f5f6dc49c2317093e97411badd3daec5356cfcedad9b20c5717cc61a1",
-      "size": 24377,
+      "sha256": "b69f5fec285bf76b915843b458ac29a69b57d5fc178286657931a066df6c6144",
+      "size": 24385,
       "ownership": "base",
       "fileHashes": {
-        ".claude/skills/img-gen-mcp/SKILL.md": "d56ca048b00727165095868e9cee268f97abaed342e474b00cc878b3f79cfddd"
+        ".claude/skills/img-gen-mcp/SKILL.md": "7cd84fc25b9fa6aefe2a0c3c109019c4fbea2afa3eec8f91b0e7c12b44cf5936"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/img-gen-mcp.zip"
     },
