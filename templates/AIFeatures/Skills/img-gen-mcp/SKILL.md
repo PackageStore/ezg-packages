@@ -937,7 +937,7 @@ Reads what an img-gen web deep link points at, without opening the website. When
 |------|---------|
 | any page with `?history=<id>` | `history.item`: the History item, its files and inputs |
 | `/archive?event=<id>&pos=<n>` | `result.event` (+ `output` at `pos`): the archive event, prompt, every ref and output |
-| `/archive?q=…&feature=…&model=…&source=…&status=…` | the first 20 matching events |
+| `/archive?q=…&feature=…&model=…&excludeModels=…&source=…&status=…` | the first 20 matching events |
 | `/vfx-library?id=<id>` / `?q=…` | one VFX item / the first 20 search hits |
 | `/sprite-gen?job=<id>`, `/video-gen?job=<id>`, `/tripo-3d?job=<id>` | the job and its result, or `pending` |
 | `/api-logs?log=<id>` | one API call log (admins) |
