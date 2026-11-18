@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 54
+      "count": 55
     },
     {
       "id": "Templates",
@@ -3825,6 +3825,28 @@
         ".claude/skills/game-vfx/unity/GameVfxShowcaseLoop.cs": "c20083abf122a023c49634653fe383cdf56f07ef035d0663d08fecd49cb38f18"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/game-vfx.zip"
+    },
+    {
+      "id": "Skills/img-gen-mcp",
+      "name": "img-gen-mcp",
+      "category": "Skills",
+      "description": "Use when: generate images, storyboard, ability concept art, NPC portraits, UI atlas/screens, isometric room assets, app-store screenshots, pose change, style sync, upscale, describe image, asset generation, img-gen MCP, batch image generation, style analysis, video generation, Gemini Omni, Veo, Seedance, text-to-video, image-to-video, real face, portrait asset, PrivacyInformation, sprite animation, spritesheet, Ludo, motion transfer, sprite pose, rotate sprite, new direction, Hydra+ legacy, improve details, normal map, create normal map, directional sprites, 3D model, GLB, rig, 8 directions, weapons, accessories, sword, shield, helmet, text-to-motion animation, Tripo, 3D model from text, image to 3D, multiview, Gaussian splat, auto rig, retarget animation, FBX, USDZ, convert 3D format, retopology, segment mesh, img-gen link, deep link, deeplink, open_link, read a shared img-gen URL",
+      "installPath": ".claude/skills/img-gen-mcp",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/img-gen-mcp/SKILL.md"
+      ],
+      "fileCount": 1,
+      "installedByDefault": false,
+      "source": "extra",
+      "fileName": "img-gen-mcp.zip",
+      "sha256": "ed1adc64abd598f113566d74b34335db94f5a691b687e1f54736a578465316ec",
+      "size": 24176,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/img-gen-mcp/SKILL.md": "9e4e4cba6895b5e8f76a6deffb29fdb99e92d723470e1664bf929362eb07dc6f"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/img-gen-mcp.zip"
     },
     {
       "id": "Skills/item-preview",
