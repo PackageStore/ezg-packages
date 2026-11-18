@@ -444,7 +444,8 @@ to generate_video (Seedance models only) as startFrameUrl, endFrameUrl or a refe
 Every Sprite Gen operation of the web app, one tool each. All file inputs are img-gen file URLs (upload first), sent to Ludo as-is (never resized);
 images must be image files, `videoUrl` a video file. Every tool returns `{ batchId, app: "sprite-gen", operation, model, items: [{ key, label, jobId }], quantity, variations?, hint }`;
 poll with `wait_for_job` (`timeoutSec` 120, repeat while `pending`). A run usually takes 2–3 min but can take hours when Ludo is busy: the server keeps polling Ludo for 48 h and retries the file copies for 72 h, so items stay `pending` that long and every result lands in History. Keep polling; never resubmit a pending item. Items that never reached Ludo time out after 30 min.
-All result files are copied to our storage: the URLs are permanent file URLs, never Ludo URLs. Non-admin results are posted to the team Discord automatically.
+All result files are copied to our storage: the URLs are permanent file URLs, never Ludo URLs. Finished results post to the team Discord (Sprite Gen thread) when the user's auto-send is on.
+**Sound:** hydra, hydra-plus and ignis animations come with a sound effect. A done sheet with sound lists it in `audios` (a WAV, the same file as `sprite.audio`). Check `audios` before calling add_sprite_sound; use it when the user wants the sound. Audio is never posted to Discord.
 `list_capabilities.sprite` lists the operations with their tool, models, durations and credits, plus edit modes, poses, camera angles and preset views.
 **Legacy models** (`list_capabilities.sprite.legacyModels`, `models[].legacy`): Ludo still runs them but will remove them. hydra-plus is legacy since
 2026-11-02: griffin-hd took its high-detail role. forge and forge-pixel are legacy since 2026-11-17: ignis and ignis-pixel took over.
@@ -889,18 +890,19 @@ Polls until completion or timeout. Returns same shape as get_job. Video and spri
 
 ### send_to_discord
 
-Posts images or videos to the team Discord (MCP thread), like the web app's Send to Discord button.
+Posts results to the team Discord, into the thread of the app that made them, in the same format as the web app's Send to Discord button (Sprite Gen, Directional Sprites and Tripo 3D: one post per job with links; other apps: the image or video attached).
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | batchId | string | one of batchId/imageUrl | Batch from a generate_* tool (must be yours) |
 | items | string[] | no | Item keys or job ids from that batch; default all |
 | imageUrl | string | one of batchId/imageUrl | img-gen file URL |
+| app | string | no | With imageUrl: the app whose thread to post in; default the app that made the file |
 | prompt | string | no | Embed prompt; defaults to the stored prompt for a batch |
 
-Returns `{ sent, sentAsLink, skipped, failed, results }`. Generations by non-admin users are already
-posted automatically when each image finishes (`isAdmin` is in whoami), so calling this posts again.
-Images and videos over 10 MB are posted as a file link (videos attach as `video.mp4`). Pending or failed items are returned as `skipped`.
+Returns `{ sent, sentAsLink, skipped, failed, results }`. Finished jobs are already posted automatically when the user's
+auto-send is on (always for non-admins; admins follow their web toggle), so calling this posts again.
+Images and videos over 10 MB are posted as a file link. Pending or failed items, and apps without a Discord thread, are returned as `skipped`. Audio is never posted.
 
 ### retry_job_items
 
