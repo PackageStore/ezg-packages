@@ -4,6 +4,28 @@ Các thay đổi đáng chú ý của template Unity (`templates/unity-project/`
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-19
+
+**Fixed** — Mua bằng quảng cáo trong `PurchaseManager` kẹt khi chưa có ad (báo từ Loot Hero)
+(`ezg.base.features` `sha256 f69dd0fe… → 7c87ec4a…`: chỉ thay `Features/_Shared/Purchase/PurchaseManager.cs`, mọi
+entry còn lại giữ nguyên byte, GUID giữ nguyên; file ở key riêng `unity-template/files/ezg.base.features-7c87ec4a.unitypackage`;
+mục `ezg.base.*` trong `asset-catalog.json` cố ý giữ bản cũ như các lần trước)
+- `ShowRewardedAd` gọi `AdsManager.ShowRewardedVideo(placement, onSuccess, onFail)` theo vị trí, mà chữ ký là
+  `(sourceId, onFinish, onClose, onFail)`: onFail của game rơi vào ô onClose, onFail thật là null. Cộng với
+  `com.ezg.ads` 0.3.1 (chưa có ad thì chỉ log rồi thoát, onClose không bao giờ chạy trên device), mọi lượt không nhận
+  thưởng đều không có callback nào → nút "đang xem" kẹt. Trên Editor không thấy vì MAX trả onFinish ngay.
+- Giờ truyền theo tên: `onFinish: onSuccess, onClose: onFail, onFail: onFail`; chưa mở được ad (onFail chạy ngay trong
+  lệnh Show) thì hàm trả `false` như nhánh không có `AdsManager`, để caller dùng giá trị trả về không bật trạng thái
+  "đang xem" sau khi onFail đã chạy.
+- Đi cùng `com.ezg.ads` 0.3.2 (template tự lên qua CI sync): chưa có ad → onFail đồng bộ + load lại; đóng trước khi nhận
+  thưởng → onClose (~2 s sau khi ad đóng).
+- **Project đang chạy:** không có gói vá file này (game thường đã sửa `PurchaseManager.cs`, ghi đè cả file là mất code).
+  Chỉ cần nâng `com.ezg.ads` lên 0.3.2 qua Feature Hub / `check_project_updates`: thiếu onFail thì package gọi onClose
+  thay, nên lời gọi theo vị trí cũ cũng hết kẹt. Muốn `PurchaseOffline` trả `false` khi chưa có ad thì tự chép đoạn
+  `ShowRewardedAd` mới.
+- Kiểm: đoạn mới compile với Roslyn của Unity 6000.3.16f1 cùng `com.ezg.ads` 0.3.2 + MAX 8.6.4 (define Android device).
+  Chưa chạy trên máy thật.
+
 ## 2026-11-16
 
 **Changed** — Bản build nhẹ hơn: 3 ảnh popup dùng chung −3,48 MB, Firestore / Functions bỏ được theo game

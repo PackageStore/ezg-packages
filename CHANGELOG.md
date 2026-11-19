@@ -4,6 +4,15 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-19
+
+**Fixed**
+- `com.ezg.ads` 0.3.2: rewarded trên device luôn kết thúc bằng đúng một callback — `onClose` khi đóng trước khi nhận
+  thưởng (trước đây không bao giờ chạy), `onFail` khi chưa có ad (trước đây im lặng) hoặc chiếu lỗi; không truyền
+  `onFail` thì `onClose` chạy thay. Chi tiết: `packages/com.ezg.ads/CHANGELOG.md`.
+- Template: `PurchaseManager.ShowRewardedAd` truyền onFail vào ô onClose (gọi theo vị trí) → mua bằng ad kẹt khi chưa có
+  ad (Loot Hero). Base `ezg.base.features` mới. Chi tiết: `templates/unity-project/CHANGELOG.md`.
+
 ## 2026-10-24
 
 **Fixed**

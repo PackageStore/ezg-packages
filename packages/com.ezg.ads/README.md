@@ -148,9 +148,17 @@ public class MyAdsTracker : IAdsTracker
 if (AdsManager.Instance.IsVideoRewardReady())
     AdsManager.Instance.ShowRewardedVideo("daily_reward", onFinish: () => GrantReward());
 
-// Rewarded có đủ callback
+// Rewarded có đủ callback — mỗi lượt gọi ĐÚNG MỘT trong ba:
+// onFinish = nhận thưởng, onClose = đóng trước khi nhận thưởng (tới ~2 s sau khi ad đóng),
+// onFail = chưa có ad / chiếu lỗi (có thể gọi ngay trong lệnh Show).
+// Việc chung (mở khoá UI, resume) phải gắn vào cả ba. Ngoại lệ hiếm: reward tới trễ hơn 2 s
+// thì sau onClose vẫn có onFinish (người chơi không mất quà) — cần chặt thì chốt "callback đầu tiên thắng".
 AdsManager.Instance.ShowRewardedVideo("shop_x2",
-    onFinish: GrantReward, onClose: Resume, onFail: ShowError);
+    onFinish: () => { GrantReward(); Resume(); },
+    onClose: Resume,
+    onFail: () => { ShowError(); Resume(); });
+// Không truyền onFail thì onClose chạy thay khi chưa có ad / chiếu lỗi (0.3.2+).
+// Gọi theo vị trí (id, onSuccess, onFail) là đưa onFail vào ô onClose — nên ghi rõ tên tham số.
 
 // Interstitial
 AdsManager.Instance.ShowInterstitial(source: "level_complete");

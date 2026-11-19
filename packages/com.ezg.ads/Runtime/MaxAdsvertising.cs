@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 #if UNITY_IOS && !UNITY_EDITOR
 using Unity.Advertisement.IosSupport;
@@ -31,6 +32,38 @@ namespace Ezg.Package.AdsManager
         private Action skipVideo;
         private Action closeVideo;
         private Action failVideo;
+
+        /// <summary>
+        /// Chờ bao lâu (giây, realtime) sau <c>OnAdHiddenEvent</c> rồi mới kết luận "đóng trước khi nhận
+        /// thưởng". Thứ tự reward / hidden tới Unity KHÔNG cố định: plugin MAX đẩy từng event qua một
+        /// thread pool (Android: ScheduledThreadPoolExecutor 3 luồng, iOS: dispatch_async lên global
+        /// queue) nên reward có thể tới sau hidden dù SDK gốc gọi đúng thứ tự. Gọi onClose ngay lúc
+        /// hidden thì người chơi xem trọn ad mà có lúc vẫn mất thưởng. 2 s = bằng khoảng chờ các game đang tự
+        /// làm (S004 / S001 LilyAdService), để onClose của package không chốt sớm hơn watchdog của game.
+        /// </summary>
+        private const float LATE_REWARD_GRACE_SECONDS = 2f;
+
+        /// <summary>
+        /// Một lượt show đã gửi cho MAX mà chưa hiện / chưa lỗi: lệnh show thứ hai trong khoảng này (bấm đúp)
+        /// TIẾP QUẢN ad đang mở như 0.3.1 thay vì gọi MAX lần nữa hay trả onFail. Có hạn để một event bị
+        /// nuốt không khiến mọi lượt sau dính vào một ad đã chết.
+        /// </summary>
+        private const float SHOW_REQUEST_GUARD_SECONDS = 3f;
+
+        /// <summary>
+        /// MonoBehaviour chạy coroutine chờ reward trễ (AdsManager, DontDestroyOnLoad). Null thì hidden
+        /// quyết định ngay, không có khoảng chờ.
+        /// </summary>
+        private readonly MonoBehaviour _coroutineHost;
+
+        /// <summary> Id lượt rewarded gần nhất đã gửi cho MAX — tăng mỗi lần show thật. </summary>
+        private int _rewardShowId;
+
+        /// <summary> Id lượt rewarded gần nhất đã nhận <c>OnAdReceivedRewardEvent</c>. </summary>
+        private int _rewardEarnedShowId = -1;
+
+        /// <summary> Mốc realtime lúc gửi lệnh show; <c>NegativeInfinity</c> khi ad đã hiện / lỗi / đóng. </summary>
+        private float _rewardRequestedAt = float.NegativeInfinity;
 
         private Action closeInter;
         private Action failInter;
@@ -92,6 +125,18 @@ namespace Ezg.Package.AdsManager
 
         private Vector2 referenceResolution = new Vector2(1080, 2400);
         private float referenceBannerWidth = 1080f;
+
+        #endregion
+
+        #region Constructors
+
+        /// <summary> Tạo adapter MAX. </summary>
+        /// <param name="coroutineHost">MonoBehaviour sống suốt session để chạy khoảng chờ reward trễ của
+        /// rewarded (AdsManager truyền chính nó). Null thì onClose được quyết định ngay lúc hidden.</param>
+        public MaxAdsvertising(MonoBehaviour coroutineHost = null)
+        {
+            _coroutineHost = coroutineHost;
+        }
 
         #endregion
 
@@ -258,13 +303,15 @@ namespace Ezg.Package.AdsManager
         }
 
         /// <summary>
-        /// Hiển thị rewarded video. Trên Editor sẽ invoke onFinish ngay lập tức (MAX SDK không serve ad
-        /// thật ngoài device). Muốn chủ động chạy chế độ auto-nhận-thưởng thì bật debugAds trong AdsConfig
+        /// Hiển thị rewarded video. Mỗi lượt gọi kết thúc bằng ĐÚNG MỘT trong ba callback:
+        /// onFinish (nhận thưởng), onClose (đóng trước khi nhận thưởng) hoặc onFail (không chiếu được).
+        /// Trên Editor sẽ invoke onFinish ngay lập tức (MAX SDK không serve ad thật ngoài device).
+        /// Muốn chủ động chạy chế độ auto-nhận-thưởng thì bật debugAds trong AdsConfig
         /// — khi đó <see cref="DebugAdsProvider" /> thay thế adapter này hoàn toàn.
         /// </summary>
         /// <param name="onFinish">Callback khi xem xong và nhận thưởng.</param>
-        /// <param name="onClose">Callback khi đóng ad.</param>
-        /// <param name="onFail">Callback khi ad thất bại.</param>
+        /// <param name="onClose">Callback khi người chơi đóng ad trước khi nhận thưởng.</param>
+        /// <param name="onFail">Callback khi ad chưa sẵn sàng hoặc hiển thị thất bại.</param>
         /// <param name="source">Placement/source định danh nơi gọi ad.</param>
         public void ShowRewardVideo(Action onFinish = null, Action onClose = null, Action onFail = null,
             string source = null)
@@ -275,26 +322,45 @@ namespace Ezg.Package.AdsManager
                 return;
             }
 
-            sourceRewardAds = source;
     #if UNITY_EDITOR
+            sourceRewardAds = source;
             onFinish?.Invoke();
     #else
-            finishVideo = onFinish;
-            closeVideo = onClose;
-            failVideo = onFail;
-            IsShowReward = true;
+            sourceRewardAds = source;
 
+            // Lượt trước còn đang chờ MAX hiện ad (bấm đúp): lượt này tiếp quản ad đó — callback của lượt
+            // trước bị thay, như 0.3.1 (game đang dựa vào hành vi này, vd. sm007 RewardedAdSession chốt lượt
+            // trước rồi mới show lại). KHÔNG gọi MAX lần nữa: lần show thứ hai chỉ nhận FullscreenAdAlreadyShowing.
+            if (IsShowReward && Time.realtimeSinceStartup - _rewardRequestedAt < SHOW_REQUEST_GUARD_SECONDS)
+            {
+                Debug.Log("unity-script: MAX rewarded - previous show still pending, this call takes it over");
+                finishVideo = onFinish;
+                closeVideo = onClose;
+                failVideo = onFail;
+                return;
+            }
     #if MEDIATION_MAX
-                if (IsReadyVideoAds())
-                {
-                    _tracker.OnRewardShow(sourceRewardAds);
-                    MaxSdk.ShowRewardedAd(MediationConstant.Max.RewardedStringId, source);
-                }
-                else
-                {
-                    Debug.Log("unity-script: MAX isRewardedVideoAvailable - False");
-                }
+            if (IsReadyVideoAds())
+            {
+                finishVideo = onFinish;
+                closeVideo = onClose;
+                failVideo = onFail;
+                _rewardShowId++;
+                _rewardRequestedAt = Time.realtimeSinceStartup;
+                IsShowReward = true;
+
+                _tracker.OnRewardShow(sourceRewardAds);
+                MaxSdk.ShowRewardedAd(MediationConstant.Max.RewardedStringId, source);
+                return;
+            }
     #endif
+
+            // Trước 0.3.2 nhánh "chưa có ad" chỉ log rồi return: caller đã khoá UI chờ mãi một callback
+            // không tới và IsShowReward kẹt true. Giờ gọi onFail ĐỒNG BỘ (như nhánh format tắt) và kích
+            // load lại — load lỗi trước đó không ai retry nên rewarded có thể chết cả session.
+            Debug.Log("unity-script: MAX isRewardedVideoAvailable - False");
+            LoadRewardAds();
+            onFail?.Invoke();
     #endif
         }
 
@@ -599,6 +665,7 @@ namespace Ezg.Package.AdsManager
 
         private void OnRewardedAdDisplayedEvent(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            _rewardRequestedAt = float.NegativeInfinity;
             _tracker.OnRewardDisplayed(sourceRewardAds);
         }
 
@@ -606,8 +673,15 @@ namespace Ezg.Package.AdsManager
             MaxSdkBase.AdInfo adInfo)
         {
             // Rewarded ad failed to display. AppLovin recommends that you load the next ad.
-            failVideo?.Invoke();
+            // Dọn state TRƯỚC khi gọi onFail để caller show lại ngay trong onFail không bị chặn / bị xoá
+            // callback mới. finishVideo giữ nguyên như 0.3.1.
+            var onFail = failVideo;
+            closeVideo = null;
+            failVideo = null;
+            _rewardRequestedAt = float.NegativeInfinity;
             IsShowReward = false;
+
+            onFail?.Invoke();
 
             LoadRewardAds();
         }
@@ -620,19 +694,78 @@ namespace Ezg.Package.AdsManager
         {
             // Rewarded ad is hidden. Pre-load the next ad
             CanShowInterstitial = false;
+            _rewardRequestedAt = float.NegativeInfinity;
+            IsShowReward = false;
             LoadRewardAds();
+
+            // Trước 0.3.2 hidden không đụng closeVideo nên nhánh "đóng trước khi nhận thưởng" của game
+            // không bao giờ chạy trên device. Đã nhận thưởng thì lượt này đã xong ở onFinish.
+            var showId = _rewardShowId;
+            if (_rewardEarnedShowId == showId)
+            {
+                closeVideo = null;
+                failVideo = null;
+                return;
+            }
+
+            // Chưa có reward: chờ reward trễ (xem LATE_REWARD_GRACE_SECONDS) rồi mới gọi onClose.
+            var onClose = closeVideo;
+            if (_coroutineHost != null && _coroutineHost.isActiveAndEnabled)
+            {
+                _coroutineHost.StartCoroutine(CloseAfterLateRewardGrace(showId, onClose));
+            }
+            else
+            {
+                CloseIfNotRewarded(showId, onClose);
+            }
         }
 
         private void OnRewardedAdReceivedRewardEvent(string adUnitId, MaxSdk.Reward reward, MaxSdkBase.AdInfo adInfo)
         {
             // The rewarded ad displayed and the user should receive the reward.
-            finishVideo?.Invoke();
+            // Một số network bắn reward 2 lần cho một ad: lần sau bỏ qua, không đếm tracking lần nữa.
+            if (_rewardEarnedShowId == _rewardShowId) return;
+            _rewardEarnedShowId = _rewardShowId;
+
+            var onFinish = finishVideo;
             finishVideo = null;
 
             CanShowInterstitial = false;
             IsShowReward = false;
 
+            onFinish?.Invoke();
             _tracker.OnRewardCompleted(sourceRewardAds);
+        }
+
+        /// <summary>
+        /// Chờ <see cref="LATE_REWARD_GRACE_SECONDS" /> rồi quyết định onClose cho lượt <paramref name="showId" />.
+        /// Coroutine chạy SAU Update của MaxEventExecutor trong cùng frame, nên reward đã vào hàng đợi
+        /// main thread trước mốc chờ luôn được xử lý trước khi quyết định.
+        /// </summary>
+        /// <param name="showId">Id lượt rewarded vừa đóng.</param>
+        /// <param name="onClose">onClose của lượt đó — giữ riêng để lượt show kế tiếp không ghi đè.</param>
+        private IEnumerator CloseAfterLateRewardGrace(int showId, Action onClose)
+        {
+            yield return new WaitForSecondsRealtime(LATE_REWARD_GRACE_SECONDS);
+            CloseIfNotRewarded(showId, onClose);
+        }
+
+        /// <summary>
+        /// Gọi onClose nếu lượt <paramref name="showId" /> chưa nhận thưởng. finishVideo không bị xoá: reward
+        /// tới trễ hơn cả khoảng chờ vẫn trao thưởng (như 0.3.1) thay vì người chơi xem trọn ad mà mất quà.
+        /// </summary>
+        /// <param name="showId">Id lượt rewarded vừa đóng.</param>
+        /// <param name="onClose">onClose của lượt đó.</param>
+        private void CloseIfNotRewarded(int showId, Action onClose)
+        {
+            if (_rewardShowId == showId)
+            {
+                closeVideo = null;
+                failVideo = null;
+            }
+
+            if (_rewardEarnedShowId == showId) return;
+            onClose?.Invoke();
         }
 
         private void OnRewardedAdRevenuePaidEvent(string adUnitId, MaxSdkBase.AdInfo impressionData)

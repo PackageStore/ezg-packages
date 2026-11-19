@@ -72,9 +72,13 @@ namespace Ezg.Package.AdsManager
         {
         }
 
-        /// <summary> Trả thưởng ngay, không hiển thị gì. </summary>
+        /// <summary>
+        /// Trả thưởng ngay, không hiển thị gì. Giống <see cref="MaxAdsvertising" />: một lượt kết thúc bằng
+        /// đúng một callback — ở đây luôn là onFinish (trước 0.3.2 gọi thêm onClose sau onFinish, nên game
+        /// chạy debug thấy nhánh "đóng sớm" chạy cả khi đã nhận thưởng, khác hẳn device).
+        /// </summary>
         /// <param name="onFinish">Callback nhận thưởng — luôn được gọi khi format bật.</param>
-        /// <param name="onClose">Callback đóng ad — gọi sau onFinish.</param>
+        /// <param name="onClose">Không bao giờ được gọi — debug ads không có ca đóng sớm.</param>
         /// <param name="onFail">Callback lỗi — chỉ gọi khi format Rewarded bị tắt.</param>
         /// <param name="source">Placement/source định danh nơi gọi ad.</param>
         public void ShowRewardVideo(Action onFinish = null, Action onClose = null, Action onFail = null,
@@ -88,7 +92,6 @@ namespace Ezg.Package.AdsManager
 
             Debug.Log($"[Ads] DEBUG ADS — Rewarded auto-finish (source: {source})");
             onFinish?.Invoke();
-            onClose?.Invoke();
         }
 
         #endregion

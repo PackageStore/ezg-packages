@@ -73,10 +73,12 @@ namespace Ezg.Package.AdsManager
         /// <summary> Load rewarded video. </summary>
         void LoadRewardAds();
 
-        /// <summary> Hiển thị rewarded video. </summary>
+        /// <summary>
+        /// Hiển thị rewarded video. Mỗi lượt kết thúc bằng ĐÚNG MỘT trong ba callback.
+        /// </summary>
         /// <param name="onFinish">Callback khi người dùng xem xong và nhận thưởng.</param>
-        /// <param name="onClose">Callback khi người dùng đóng ad.</param>
-        /// <param name="onFail">Callback khi ad thất bại.</param>
+        /// <param name="onClose">Callback khi người dùng đóng ad trước khi nhận thưởng.</param>
+        /// <param name="onFail">Callback khi ad chưa sẵn sàng hoặc hiển thị thất bại.</param>
         /// <param name="source">Placement/source định danh nơi gọi ad.</param>
         void ShowRewardVideo(Action onFinish = null, Action onClose = null, Action onFail = null, string source = null);
     }

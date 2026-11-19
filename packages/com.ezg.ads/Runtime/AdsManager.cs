@@ -109,16 +109,27 @@ namespace Ezg.Package.AdsManager
         }
 
         /// <summary>
-        /// Hiển thị rewarded video.
+        /// Hiển thị rewarded video. Mỗi lượt kết thúc bằng ĐÚNG MỘT trong ba callback — việc chung
+        /// cho cả ba nhánh (mở khoá UI, resume game) phải gắn vào cả ba. onFail có thể chạy ngay trong
+        /// lệnh này; onClose tới ~2 s sau khi ad đóng. Ngoại lệ hiếm: reward tới trễ hơn khoảng đó thì
+        /// sau onClose vẫn có onFinish.
         /// Nếu project không bật rewarded thì gọi <paramref name="onFail" /> để caller có đường thoát.
+        /// Không truyền <paramref name="onFail" /> thì <paramref name="onClose" /> chạy thay ở mọi nhánh lỗi,
+        /// để caller chỉ gắn onClose (vd. <c>ShowRewardedVideo(id, onSuccess, onFail)</c> — onFail rơi vào
+        /// vị trí onClose) vẫn luôn được trả lời.
         /// </summary>
         /// <param name="sourceId">Placement/source định danh nơi gọi ad.</param>
         /// <param name="onFinish">Callback khi người dùng xem xong và nhận thưởng.</param>
-        /// <param name="onClose">Callback khi người dùng đóng ad trước khi hoàn thành.</param>
-        /// <param name="onFail">Callback khi ad thất bại.</param>
+        /// <param name="onClose">Callback khi người dùng đóng ad trước khi nhận thưởng; cũng thay cho
+        /// <paramref name="onFail" /> khi caller không truyền onFail.</param>
+        /// <param name="onFail">Callback khi ad chưa sẵn sàng hoặc hiển thị thất bại.</param>
         public void ShowRewardedVideo(string sourceId, Action onFinish = null, Action onClose = null,
             Action onFail = null)
         {
+            // Đóng sớm và không chiếu được là hai kết cục loại trừ nhau của một lượt, nên dùng onClose làm
+            // onFail không bao giờ gọi caller hai lần. Trước 0.3.2 caller kiểu này kẹt khi chưa có ad.
+            onFail ??= onClose;
+
             if (_rewarded == null)
             {
                 onFail?.Invoke();
@@ -278,7 +289,7 @@ namespace Ezg.Package.AdsManager
 
             var provider = _isDebugAds
                 ? (IAdProvider)new DebugAdsProvider()
-                : new MaxAdsvertising();
+                : new MaxAdsvertising(this);
 
             _provider = provider;
             advertisingRemoteConfig = provider as IRemoteConfigAdvertising;

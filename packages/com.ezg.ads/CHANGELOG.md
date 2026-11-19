@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.2] - 2026-11-19
+
+### Fixed
+- **A caller that passed only `onClose` was never answered when no ad could play.** `ShowRewardedVideo(id, onSuccess, onFail)` — positional, so the game's fail handler lands in `onClose` and `onFail` is null — is what the EZG template's `PurchaseManager` shipped; with no ad loaded (or a display failure) nothing ran and the game's "watching…" button stayed locked (Loot Hero). `AdsManager.ShowRewardedVideo` now uses `onClose` in place of a missing `onFail`: closing early and failing are exclusive outcomes of one show, so the caller still gets exactly one callback. Running games fixed by upgrading only this package.
+- **Rewarded `onClose` never ran on device.** `OnRewardedAdHiddenEvent` only stamped the interstitial spacing and reloaded; the `onClose` stored by `ShowRewardVideo` was never invoked, so every game's "closed before the reward" branch was dead with real MAX ads, and `IsShowReward` stayed `true` (it was only reset on reward / display failure). Hidden now resets `IsShowReward` and, when that show earned no reward, invokes `onClose`. Found by S011.
+- **Reward vs hidden order is not fixed, so `onClose` waits 2 s.** The MAX Unity plugin forwards every native callback through a thread pool (Android: a 3-thread `ScheduledThreadPoolExecutor`; iOS: `dispatch_async` on a global concurrent queue), so `OnAdReceivedRewardEvent` can reach Unity after `OnAdHiddenEvent` even when the SDK fired them in order — in a test player, 10 of 20 concurrent deliveries arrived hidden-first. Deciding `onClose` at hidden would make a player who watched the whole ad lose the reward. The decision runs in a coroutine on `AdsManager` after `LATE_REWARD_GRACE_SECONDS` (2 s realtime, unaffected by `Time.timeScale`; the same window S004 / S001 already wait in `LilyAdService`), and a reward inside that window ends the show with `onFinish` only. A reward later than that still invokes `onFinish` (after `onClose`), as 0.3.1 would have, instead of being dropped.
+- **`ShowRewardVideo` with no ad loaded returned silently on device.** It only logged, never invoked `onFail`, and left `IsShowReward` stuck `true`. It now kicks a reload and invokes `onFail` synchronously — the same as the existing "format disabled" branch.
+- **Double tap no longer asks MAX to show twice.** A second `ShowRewardVideo` while the first is still pending (sent to MAX, not displayed / failed yet, at most 3 s) takes over the ad being opened — its callbacks replace the first call's, exactly as in 0.3.1 — but no longer calls `MaxSdk.ShowRewardedAd` again (which only produced `FullscreenAdAlreadyShowing`, firing `onFail` on the caller that then received the reward).
+- A duplicate `OnAdReceivedRewardEvent` for the same ad no longer reports `OnRewardCompleted` twice.
+- State is reset before the game's callback runs, so a game that shows again from inside `onFail` / `onFinish` is no longer clobbered afterwards.
+
+### Changed
+- **Behavioural:** every rewarded show ends with exactly one of `onFinish` (reward earned), `onClose` (closed before the reward, ~2 s after the ad closes) or `onFail` (not ready / failed to display; may run inside the `ShowRewardedVideo` call). Only exception: a reward arriving more than 2 s after the close gives `onClose` then `onFinish`. **Migration:** shared work such as unlocking UI or resuming the game belongs in all three callbacks.
+- `onFail` defaults to `onClose` when the caller passes none (see Fixed).
+- `DebugAdsProvider` used to call `onClose` right after `onFinish`, which no device path ever did; it now calls only `onFinish`, so debug builds behave like real ads.
+- `MaxAdsvertising` takes an optional `MonoBehaviour coroutineHost` constructor argument (`AdsManager` passes itself). Without one, `onClose` is decided at hidden with no grace window.
+
 ## [0.3.1] - 2026-10-08
 
 ### Fixed
