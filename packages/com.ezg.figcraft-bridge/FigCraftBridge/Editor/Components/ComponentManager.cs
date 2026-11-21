@@ -1,0 +1,535 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+using FigCraftBridge.Editor.FigmaApi;
+using FigCraftBridge.Editor.Nodes;
+using FigCraftBridge.Editor.PostProcess;
+using FigCraftBridge.Editor.PrototypeFlow;
+using FigCraftBridge.Editor.Utils;
+using FigCraftBridge.Runtime.UI;
+using Object = UnityEngine.Object;
+
+namespace FigCraftBridge.Editor.Components
+{
+    public static class ComponentManager
+    {
+        private static readonly HashSet<string> s_ProcessedSets = new();
+
+        public static void ResetProcessedSets() => s_ProcessedSets.Clear();
+
+       /// <summary>
+       /// Remove component placeholders that are used to mark instantiation locations
+       /// </summary>
+       /// <param name="figmaImportProcessData"></param>
+        public static void RemoveAllTemporaryNodeComponents(FigmaImportProcessData figmaImportProcessData)
+       {
+           // Remove from components (nested)
+            foreach (var componentPrefab in figmaImportProcessData.ComponentData.AllComponentPrefabs)
+                RemoveTemporaryNodeComponents(componentPrefab);
+            
+            // Remove from screens
+            foreach (var framePrefab in figmaImportProcessData.ScreenPrefabs.Where(framePrefab => framePrefab!=null))
+            {
+                RemoveTemporaryNodeComponents(framePrefab);
+            }
+            // Remove from pages
+            foreach (var pagePrefab in figmaImportProcessData.PagePrefabs.Where(pagePrefab => pagePrefab!=null))
+            {
+                RemoveTemporaryNodeComponents(pagePrefab);
+            }
+       }
+
+        /// <summary>
+        /// Remove all component placeholders from a given prefab object (could be flowScreen or component)
+        /// </summary>
+        /// <param name="sourcePrefab"></param>
+        private static void RemoveTemporaryNodeComponents(GameObject sourcePrefab)
+        {
+            var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
+            var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
+            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaNodeObject>(true);
+            foreach (var placeholder in allPlaceholderComponents)
+                Object.DestroyImmediate(placeholder);
+            // Save
+            PrefabUtility.SaveAsPrefabAsset(prefabContents, assetPath);
+            // Unload
+            PrefabUtility.UnloadPrefabContents(prefabContents);
+        }
+        
+        
+        /// <summary>
+        /// Creates a component prefab from a given generated node
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="nodeGameObject"></param>
+        /// <param name="figmaImportProcessData"></param>
+        public static void GenerateComponentAssetFromNode(Node node, Node parentNode, GameObject nodeGameObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            string setName = parentNode is { type: NodeType.COMPONENT_SET } ? parentNode.name : null;
+            var countKey = setName != null ? $"{setName}/{node.name}" : node.name;
+            var componentCount = figmaImportProcessData.ComponentData.GetComponentNameCount(node.id, countKey);
+            var prefabAssetPath = FigmaPaths.GetPathForComponentPrefab(setName, node.name, componentCount);
+            figmaImportProcessData.ComponentData.IncrementComponentNameCount(countKey, 1);
+            GameObject componentPrefab;
+            using (FigmaImportTimer.Measure("Save component prefabs"))
+                componentPrefab = StablePrefabSave.SaveAsPrefabAssetAndConnect(nodeGameObject, prefabAssetPath, InteractionMode.UserAction);
+            figmaImportProcessData.ComponentData.RegisterComponentPrefab(node.id, componentPrefab);
+
+            if (parentNode is { type: NodeType.COMPONENT_SET } && !s_ProcessedSets.Contains(parentNode.id))
+            {
+                s_ProcessedSets.Add(parentNode.id);
+                ComponentAxisIntent.WriteAxisIntent(parentNode, parentNode.name,
+                    figmaImportProcessData.SourceFile, FigmaPaths.FigmaComponentPrefabFolder);
+            }
+        }
+        
+        /// <summary>
+        /// Instantiates all component prefabs in screens and components (for nested component support)
+        /// </summary>
+        /// <param name="figmaImportProcessData"></param>
+        public static void InstantiateAllComponentPrefabs(FigmaImportProcessData figmaImportProcessData)
+        {
+
+            // Instantiate components "within" components (nested components)
+            FigmaImportTimer.Begin("Place instances in component prefabs");
+            FigmaImportTimer.SetDetail("Place instances in component prefabs", $"{figmaImportProcessData.ComponentData.AllComponentPrefabs.Count} prefab(s)");
+            InstantiateComponentsInPrefabSet(figmaImportProcessData.ComponentData.AllComponentPrefabs,figmaImportProcessData,"Connecting nested components");
+            // Instantiate components within screens
+            FigmaImportTimer.Begin("Place instances in screen prefabs");
+            FigmaImportTimer.SetDetail("Place instances in screen prefabs", $"{figmaImportProcessData.ScreenPrefabs.Count} prefab(s)");
+            InstantiateComponentsInPrefabSet(figmaImportProcessData.ScreenPrefabs,figmaImportProcessData,"Connecting screen components");
+            // Instantiate components within pages
+            if (figmaImportProcessData.PagePrefabs.Count > 0) FigmaImportTimer.Begin("Place instances in page prefabs");
+            InstantiateComponentsInPrefabSet(figmaImportProcessData.PagePrefabs,figmaImportProcessData,"Connecting page components");
+
+            if (figmaImportProcessData.PrunedInstanceOverrides > 0)
+                Debug.Log($"[FigCraftBridge] Dropped {figmaImportProcessData.PrunedInstanceOverrides} instance override(s) that only " +
+                          "repeated the component's own value");
+        }
+
+        /// <summary>
+        /// Connects a set of components and provides feedback on progress
+        /// </summary>
+        /// <param name="prefabSet"></param>
+        /// <param name="figmaImportProcessData"></param>
+        /// <param name="progressTitle"></param>
+        private static void InstantiateComponentsInPrefabSet(List<GameObject> prefabSet,FigmaImportProcessData figmaImportProcessData, string progressTitle)
+        {
+            for (var i = 0; i < prefabSet.Count; i++)
+            {
+                var targetPrefab = prefabSet[i];
+                if (targetPrefab==null) continue;
+                EditorUtility.DisplayProgressBar(FigCraftBridgeImporter.PROGRESS_BOX_TITLE, $"{progressTitle} {i}/{prefabSet.Count} ", (float)i/prefabSet.Count);
+                InstantiateComponentPrefabs(targetPrefab, figmaImportProcessData);
+            }
+        }
+        
+        
+        
+        /// <summary>
+        /// Instantiates prefabs within a given prefab
+        /// </summary>
+        /// <param name="sourcePrefab"></param>
+        /// <param name="figmaImportProcessData"></param>
+        private static void InstantiateComponentPrefabs(GameObject sourcePrefab, FigmaImportProcessData figmaImportProcessData)
+        {
+            var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
+            var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
+            figmaImportProcessData.CurrentPrefabPath = assetPath;
+            if (!figmaImportProcessData.InstanceSources.TryGetValue(assetPath, out var instanceSources))
+                figmaImportProcessData.InstanceSources[assetPath] = instanceSources = new List<FigmaInstanceSource>();
+            // Get all placeholders within this prefab - these will be replaced
+            // Inactive too: a placeholder under a hidden parent must still become an instance
+            var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaComponentNodeMarker>(true);
+            
+            // Filter out any that are replacements in prefab instances (we want to skip these)
+            var targetPlaceHolderComponents = new List<FigmaComponentNodeMarker>();
+            foreach (var t in allPlaceholderComponents)
+            {
+                var prefabInstanceRoot=PrefabUtility.GetNearestPrefabInstanceRoot(t.gameObject);
+                if (prefabInstanceRoot==null) targetPlaceHolderComponents.Add(t);
+                else
+                {
+                    // Debug.Log($"Prefab instance root found for object {t.gameObject.name}, skipping");
+                }
+            }
+
+
+            // Track a list of placed and modified components, to allow effective saving
+            var modifiedPrefabInstances = new List<GameObject>();
+            foreach (var placeholder in targetPlaceHolderComponents)
+            {
+                var sourceComponentPrefab = figmaImportProcessData.ComponentData.GetComponentPrefab(placeholder.ComponentId);
+
+                if (sourceComponentPrefab == null) continue;
+
+                // Remember where this instance came from: once the placeholder is gone and the
+                // markers are stripped, nothing in the prefab says which component it was.
+                var sourceComponentPrefabPath = AssetDatabase.GetAssetPath(sourceComponentPrefab);
+                instanceSources.Add(new FigmaInstanceSource
+                {
+                    NodeId = placeholder.NodeId,
+                    NodeName = placeholder.name,
+                    ComponentId = placeholder.ComponentId,
+                    ComponentPrefabPath = sourceComponentPrefabPath,
+                    HierarchyPath = PostProcessorRunner.HierarchyPathWithinPrefab(placeholder.transform),
+                    SourcePathChain = new[] { sourceComponentPrefabPath }
+                });
+
+                // Instantiate
+                var addedReplacementComponent = (GameObject)PrefabUtility.InstantiatePrefab(sourceComponentPrefab,placeholder.transform.parent);
+                // Copy transform data
+                UnityUiUtils.CloneTransformData(placeholder.transform as RectTransform, addedReplacementComponent.transform as RectTransform);
+                // Copy name
+                addedReplacementComponent.name = placeholder.name; // Copy original name
+                addedReplacementComponent.SetActive(placeholder.gameObject.activeSelf);
+                
+                // Change node Id to match instantiated version
+                var figmaNodeComponent = addedReplacementComponent.GetComponent<FigmaNodeObject>();
+                if (figmaNodeComponent == null)
+                {
+                    Debug.LogWarning("No FigmaNodeObject on component prefab");
+                }
+                else
+                {
+                    figmaNodeComponent.NodeId = placeholder.NodeId;
+                }
+                
+                // Copy transform order
+                addedReplacementComponent.transform.SetSiblingIndex(placeholder.transform.GetSiblingIndex()); // Put at same order
+                // Get the Node data for this component
+                var nodeData = figmaImportProcessData.NodeLookupDictionary[placeholder.NodeId]; 
+                // Get parent node data for the original node
+                var parentNodeData =  figmaImportProcessData.NodeLookupDictionary[placeholder.ParentNodeId];
+                if (nodeData != null)
+                {
+                    // Recursively apply all properties for this node object (such as text, image fills etc)
+                    ApplyFigmaProperties(nodeData, addedReplacementComponent, parentNodeData, figmaImportProcessData);
+                }
+
+                // We want to attempt to link this newly placed item to any parent MonoBehaviours that might need it as a field
+                // TODO - Optimise (Right now this is called way more often than needed)
+                var parentMonoBehaviours = placeholder.transform.parent.gameObject.GetComponents<MonoBehaviour>();
+                foreach (var monoBehaviour in parentMonoBehaviours)
+                {
+                    BehaviourBindingManager.BindFieldsForComponent(placeholder.transform.parent.gameObject,
+                        monoBehaviour);
+                }
+
+                // Mark as modified for later saving
+                modifiedPrefabInstances.Add(addedReplacementComponent);
+                Object.DestroyImmediate(placeholder.gameObject); // Remove the placeholder
+
+            }
+            // Save prefab and all changes
+            try
+            {
+                if (modifiedPrefabInstances.Count > 0)
+                    figmaImportProcessData.PrunedInstanceOverrides += PruneRedundantInstanceOverrides(prefabContents);
+
+                // We might have issue with nested elements so need try catch loop
+                // TODO - Check for recurisve nested components
+                PrefabUtility.SaveAsPrefabAsset(prefabContents, assetPath);
+            }
+            catch (Exception e)
+            {
+                Debug.Log($"Issue saving prefab: {e.ToString()}");
+            }
+
+            PrefabUtility.UnloadPrefabContents(prefabContents);
+            figmaImportProcessData.CurrentPrefabPath = null;
+        }
+
+        /// <summary>
+        /// Recursively apply properties from a node to a given existing GameObject. Used to apply changes to component instances (including nested elements) 
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="nodeObject"></param>
+        /// <param name="parentNode"></param>
+        /// <param name="figmaImportProcessData"></param>
+        private static void ApplyFigmaProperties(Node node, GameObject nodeObject,Node parentNode, FigmaImportProcessData figmaImportProcessData)
+        {
+            // Either the component instance itself is a substitution, or the original component node
+            // was one - the marker set at generation records that.
+            var nodeMarker = nodeObject.GetComponent<FigmaNodeObject>();
+            var isSubstitution = FigmaNodeManager.NodeIsSubstitution(node, figmaImportProcessData)
+                                 || (nodeMarker != null && nodeMarker.ServerRendered);
+            if (!isSubstitution)
+            {
+                try
+                {
+                    // Apply properties for this node Object (eg characters to text). Not needed if this is a substitution
+                    FigmaNodeManager.ApplyUnityComponentPropertiesForNode(nodeObject, node, figmaImportProcessData);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning(
+                        $"Exception applying properties for node '{FigmaDataUtils.GetFullPathForNode(node, figmaImportProcessData.SourceFile)}' - {e}",
+                        nodeObject);
+                }
+            }
+
+            // Apply prototype elements for this node as required (such as buttons etc
+            PrototypeFlowManager.ApplyPrototypeFunctionalityToNode(node, nodeObject, figmaImportProcessData);
+            
+            // Apply layout properties to this node as required (eg vertical layout groups etc)
+            FigmaLayoutManager.ApplyLayoutPropertiesForNode(nodeObject,node,figmaImportProcessData,out var scrollContentGameObject);
+            
+            // If this is a substitution, ignore children (as they wont exist) and apply absolute bounds transform (as rotation already applied)
+            if (isSubstitution)
+            {
+                var ownRender = ApplyInstanceRender(node, nodeObject, figmaImportProcessData);
+                NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true,
+                    figmaImportProcessData.Settings, ownRender);
+                return;
+            }
+
+            ClipContentMask.Apply(nodeObject, node, figmaImportProcessData, false);
+
+            // Setup transform based on node properties
+            NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
+            
+            // Apply recursively for all children
+            if (node.children == null) return;
+            
+            // Cycle through each Figma child node data for this node
+            foreach (var childNode in node.children)
+            {
+                var matchingChildGameObject = FindMatchingChildForFigmaNode(childNode, nodeObject.transform);
+                if (matchingChildGameObject != null)
+                {
+                    matchingChildGameObject = SwapChangedComponent(childNode, matchingChildGameObject, figmaImportProcessData);
+                    ApplyInstanceSideNameAndVisibility(childNode, matchingChildGameObject, figmaImportProcessData);
+                    ApplyFigmaProperties(childNode, matchingChildGameObject, node, figmaImportProcessData);
+                    AutoLayout.ApplyChild(matchingChildGameObject, childNode, node, figmaImportProcessData);
+
+                }
+                else
+                    Debug.Log($"Applying properties - Could not find child object {childNode.id} name {childNode.name} from parent node id {node.id} in parent transform {nodeObject.name}");
+            }
+        }
+
+        /// <summary>
+        ///     An instance that restyles a server-rendered node has a render of its own, keyed by the
+        ///     instance-side id (see <see cref="FigmaDataUtils.FindAllServerRenderNodesInFile"/>). Without
+        ///     one the node keeps the component's sprite. The colour follows the render: an own render
+        ///     gets its tint or white, a kept render gets the instance's own tint. Returns true when the
+        ///     node now shows its own render.
+        /// </summary>
+        private static bool ApplyInstanceRender(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            var renderNodes = figmaImportProcessData.ServerRenderNodes;
+            var ownRender = renderNodes.Exists(entry => entry.SourceNode.id == node.id);
+            var image = nodeObject.GetComponent<Image>();
+            if (ownRender)
+            {
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(FigmaPaths.GetPathForServerRenderedImage(node.id, renderNodes));
+                if (image == null || sprite == null) return false;
+                image.sprite = sprite;
+                image.type = FigmaAssetGenerator.SlicedIfBordered(sprite);
+                image.color = SolidTint.TryGetEntryTint(node.id, renderNodes, out var ownTint) ? ownTint : UnityEngine.Color.white;
+                return true;
+            }
+
+            if (image == null) return false;
+            var componentSideId = ComponentSideNodeId(nodeObject);
+            if (componentSideId == null) return false;
+            if (SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)
+                && SolidTint.TryGetRenderTint(node, out var instanceTint))
+                image.color = instanceTint;
+            return false;
+        }
+
+        /// <summary>
+        ///     A layer inside an instance can be renamed or hidden on the instance side (a rename, a
+        ///     visibility override or a boolean component property). The instance node data holds the
+        ///     result, so the child takes it. The name changes only when it differs from the component
+        ///     layer, so names an import step gave to the component side stay.
+        /// </summary>
+        private static void ApplyInstanceSideNameAndVisibility(Node childNode, GameObject childObject,
+            FigmaImportProcessData figmaImportProcessData)
+        {
+            var componentNodeId = childNode.id.Split(';').Last();
+            if (figmaImportProcessData.NodeLookupDictionary.TryGetValue(componentNodeId, out var componentNode)
+                && componentNode != null && componentNode.name != childNode.name)
+                childObject.name = childNode.name;
+            if (childObject.activeSelf != childNode.visible) childObject.SetActive(childNode.visible);
+        }
+
+        private static string ComponentSideNodeId(GameObject nodeObject)
+        {
+            var source = PrefabUtility.GetCorrespondingObjectFromSource(nodeObject);
+            if (source == null) return null;
+            var marker = source.GetComponent<FigmaNodeObject>();
+            if (marker == null || string.IsNullOrEmpty(marker.NodeId)) return null;
+            return marker.NodeId;
+        }
+
+        /// <summary>
+        ///     A nested instance whose component changed in this instance (a variant or instance swap)
+        ///     still holds the prefab its parent component was built with. Replace it with the prefab
+        ///     of the component the Figma node names, keeping its place, transform and node id.
+        /// </summary>
+        private static GameObject SwapChangedComponent(Node node, GameObject nodeObject, FigmaImportProcessData figmaImportProcessData)
+        {
+            if (node.type != NodeType.INSTANCE || string.IsNullOrEmpty(node.componentId)) return nodeObject;
+            if (!PrefabUtility.IsAnyPrefabInstanceRoot(nodeObject)) return nodeObject;
+            var targetPrefab = figmaImportProcessData.ComponentData.GetComponentPrefab(node.componentId);
+            if (targetPrefab == null || PrefabUtility.GetCorrespondingObjectFromOriginalSource(nodeObject) == targetPrefab)
+                return nodeObject;
+
+            var replacement = (GameObject)PrefabUtility.InstantiatePrefab(targetPrefab, nodeObject.transform.parent);
+            UnityUiUtils.CloneTransformData(nodeObject.transform as RectTransform, replacement.transform as RectTransform);
+            replacement.name = nodeObject.name;
+            replacement.transform.SetSiblingIndex(nodeObject.transform.GetSiblingIndex());
+            replacement.SetActive(nodeObject.activeSelf);
+            var replacementMarker = replacement.GetComponent<FigmaNodeObject>();
+            var originalMarker = nodeObject.GetComponent<FigmaNodeObject>();
+            if (replacementMarker != null && originalMarker != null) replacementMarker.NodeId = originalMarker.NodeId;
+            Object.DestroyImmediate(nodeObject);
+            return replacement;
+        }
+
+        /// <summary>
+        /// Finds a child node with a specific figma node id
+        /// </summary>
+        /// <param name="childNode"></param>
+        /// <param name="parentNodeTransform"></param>
+        /// <returns></returns>
+        private static GameObject FindMatchingChildForFigmaNode(Node childNode, Transform parentNodeTransform)
+        {
+            var nodeTransformChildrenCount =parentNodeTransform.childCount;
+            var childNodeIdComponentRefId = childNode.id.Split(';').Last();
+                    
+            for (var childTestIndex = 0; childTestIndex < nodeTransformChildrenCount; childTestIndex++)
+            {
+                var childTransform = parentNodeTransform.transform.GetChild(childTestIndex);
+                var childNodeObject = childTransform.GetComponent<FigmaNodeObject>();
+                if (childNodeObject != null && childNodeObject.NodeId == childNodeIdComponentRefId)
+                {
+                    return childTransform.gameObject;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     How far a pixel value may drift and still be the component's own value. A placed instance's
+        ///     children are laid out again from Figma's absolute coordinates (around 10^4 px, where a float
+        ///     step is ~0.001), so a child exactly where the component put it comes back a few thousandths
+        ///     of a pixel off.
+        /// </summary>
+        private const float PIXEL_TOLERANCE = 0.01f;
+
+        /// <summary>Tolerance for every other float (anchors, pivots, colours, scale).</summary>
+        private const float VALUE_TOLERANCE = 0.0001f;
+
+        private static readonly string[] s_PixelProperties =
+        {
+            "m_AnchoredPosition", "m_SizeDelta", "m_LocalPosition",
+            "m_MinWidth", "m_MinHeight", "m_PreferredWidth", "m_PreferredHeight"
+        };
+
+        /// <summary>
+        ///     Drops the overrides on the objects inside each placed instance that only repeat the value
+        ///     the component itself holds. Re-applying the Figma properties to an instance writes every
+        ///     child again, and Unity records each one as an override - nine cell positions for one slice
+        ///     plate. Those overrides pin the instance to the component as it was on that import, and
+        ///     since they are keyed by object id they end up on the wrong node whenever that id moves.
+        ///     Overrides on the instance root (its own place and size) and real differences stay.
+        /// </summary>
+        /// <returns>The number of overrides dropped.</returns>
+        private static int PruneRedundantInstanceOverrides(GameObject prefabContents)
+        {
+            var instanceRoots = new List<GameObject>();
+            foreach (var transform in prefabContents.GetComponentsInChildren<Transform>(true))
+                if (PrefabUtility.IsOutermostPrefabInstanceRoot(transform.gameObject)) instanceRoots.Add(transform.gameObject);
+
+            var pruned = 0;
+            foreach (var instanceRoot in instanceRoots)
+            {
+                // The transform pass centres pivots by moving nodes through their world position, and
+                // a RectTransform's serialized anchoredPosition catches up only on its next update:
+                // without this the record reads the value from before the move
+                foreach (var rectTransform in instanceRoot.GetComponentsInChildren<RectTransform>(true))
+                    rectTransform.ForceUpdateRectTransforms();
+
+                // Script edits become overrides only once recorded. A GameObject's own name and active
+                // state are not on any component: left out, SetPropertyModifications below resets them
+                // to the prefab's (an instance came back named after the component's root, hidden
+                // layers came back visible)
+                foreach (var component in instanceRoot.GetComponentsInChildren<UnityEngine.Component>(true))
+                    if (component != null) PrefabUtility.RecordPrefabInstancePropertyModifications(component);
+                foreach (var transform in instanceRoot.GetComponentsInChildren<Transform>(true))
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(transform.gameObject);
+
+                var modifications = PrefabUtility.GetPropertyModifications(instanceRoot);
+                if (modifications == null) continue;
+
+                var rootSource = PrefabUtility.GetCorrespondingObjectFromSource(instanceRoot);
+                var sources = new Dictionary<Object, SerializedObject>();
+                var kept = new List<PropertyModification>(modifications.Length);
+                foreach (var modification in modifications)
+                {
+                    if (!TargetsInstanceRoot(modification.target, rootSource) && RepeatsSource(modification, sources))
+                        continue;
+                    kept.Add(modification);
+                }
+
+                if (kept.Count == modifications.Length) continue;
+                pruned += modifications.Length - kept.Count;
+                PrefabUtility.SetPropertyModifications(instanceRoot, kept.ToArray());
+            }
+            return pruned;
+        }
+
+        private static bool TargetsInstanceRoot(Object target, GameObject rootSource)
+        {
+            return target == rootSource || (target is UnityEngine.Component component && component.gameObject == rootSource);
+        }
+
+        /// <summary>True when the override holds the value its target already has in the source prefab.</summary>
+        private static bool RepeatsSource(PropertyModification modification, Dictionary<Object, SerializedObject> sources)
+        {
+            if (modification.target == null) return false;
+            if (!sources.TryGetValue(modification.target, out var source))
+                sources[modification.target] = source = new SerializedObject(modification.target);
+
+            var property = source.FindProperty(modification.propertyPath);
+            if (property == null) return false;
+
+            switch (property.propertyType)
+            {
+                case SerializedPropertyType.Float:
+                    return float.TryParse(modification.value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+                           && Mathf.Abs(number - property.floatValue) <= ToleranceFor(modification.propertyPath);
+                case SerializedPropertyType.Integer:
+                    return long.TryParse(modification.value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var whole)
+                           && whole == property.longValue;
+                case SerializedPropertyType.Enum:
+                    return int.TryParse(modification.value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var enumValue)
+                           && enumValue == property.intValue;
+                case SerializedPropertyType.Boolean:
+                    return modification.value == (property.boolValue ? "1" : "0");
+                case SerializedPropertyType.String:
+                    return modification.value == property.stringValue;
+                case SerializedPropertyType.ObjectReference:
+                    return modification.objectReference == property.objectReferenceValue;
+                default:
+                    return false;
+            }
+        }
+
+        private static float ToleranceFor(string propertyPath)
+        {
+            foreach (var pixelProperty in s_PixelProperties)
+                if (propertyPath.StartsWith(pixelProperty, StringComparison.Ordinal)) return PIXEL_TOLERANCE;
+            return VALUE_TOLERANCE;
+        }
+    }
+}

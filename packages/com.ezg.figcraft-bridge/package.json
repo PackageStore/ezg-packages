@@ -1,0 +1,23 @@
+{
+  "name": "com.ezg.figcraft-bridge",
+  "displayName": "EZG FigCraft Bridge",
+  "description": "Imports a FigCraft design file into Unity as native UGUI prefabs (screens, components, variants, image fills, renders and fonts) from an editor window and a settings asset. Reads a saved .figcraft headless through figcraft-cli, or the file open in the FigCraft app; renders come from FigCraft's own export and image fills straight from the .figcraft archive. Cloned from com.ezg.figma-bridge 0.8.19.",
+  "author": {
+    "name": "EZG Studio"
+  },
+  "keywords": [
+    "unity",
+    "figcraft",
+    "ugui",
+    "importer"
+  ],
+  "license": "MIT",
+  "unity": "6000.3",
+  "version": "0.1.0",
+  "type": "library",
+  "hideInEditor": false,
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.ugui": "2.0.0"
+  }
+}

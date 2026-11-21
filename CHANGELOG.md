@@ -4,6 +4,14 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 Định dạng mục: **Added** / **Changed** / **Fixed**, mới nhất ở trên cùng.
 
+## 2026-11-21
+
+**Added**
+- `com.ezg.figcraft-bridge` 0.1.0: package mới import file FigCraft (`.figcraft`) vào Unity thành prefab UGUI, clone từ
+  `com.ezg.figma-bridge` 0.8.19 (giữ nguyên pipeline dựng prefab). Đọc file đã lưu qua `figcraft-cli` (headless) hoặc file
+  đang mở trong app FigCraft; render lấy từ `export` của FigCraft, image fill đọc thẳng từ archive `.figcraft`. Không còn
+  Figma API, token hay hub EZG Tools. Cài song song được với figma-bridge. Chi tiết: `packages/com.ezg.figcraft-bridge/CHANGELOG.md`.
+
 ## 2026-11-19
 
 **Fixed**

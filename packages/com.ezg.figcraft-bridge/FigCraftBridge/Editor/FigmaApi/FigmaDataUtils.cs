@@ -1,0 +1,1132 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using FigCraftBridge.Editor.Nodes;
+
+namespace FigCraftBridge.Editor.FigmaApi
+{
+    /// <summary>
+    /// Utilities to convert from Figma data types to Unity data types, and query Figma Data structures
+    /// </summary>
+    public static class FigmaDataUtils
+    {
+        /// <summary>A node whose name contains this (any case) is dropped from the document with its subtree.</summary>
+        public const string IgnoreMarker = "[ignore]";
+
+        public static bool IsIgnored(Node node) => IsIgnored(node?.name);
+
+        public static bool IsIgnored(string nodeName) =>
+            nodeName != null && nodeName.IndexOf(IgnoreMarker, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>
+        ///     Remove every <see cref="IgnoreMarker"/> node from the parsed document so nothing downstream
+        ///     (image fills, server renders, fonts, generation, the screen list) sees it. An ignored
+        ///     component master stays in <c>file.components</c>, so it lands in the missing-definition
+        ///     list and its instances import as regular frames with their own children.
+        /// </summary>
+        public static int PruneIgnoredNodes(FigmaFile file)
+        {
+            if (file?.document == null) return 0;
+            var removed = new List<string>();
+            PruneIgnoredChildren(file.document, removed);
+            ReportIgnored(removed);
+            return removed.Count;
+        }
+
+        internal static void ReportIgnored(List<string> names)
+        {
+            if (names.Count > 0)
+                Debug.Log($"[FigCraftBridge] {names.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", names)}");
+        }
+
+        private static void PruneIgnoredChildren(Node node, List<string> removed)
+        {
+            if (node.children == null) return;
+            var kept = new List<Node>(node.children.Length);
+            foreach (var child in node.children)
+            {
+                if (child == null) continue;
+                if (IsIgnored(child))
+                {
+                    removed.Add(child.name);
+                    continue;
+                }
+                PruneIgnoredChildren(child, removed);
+                kept.Add(child);
+            }
+            if (kept.Count != node.children.Length) node.children = kept.ToArray();
+        }
+
+        /// <summary>
+        ///     Remove every node that has no geometry, with its subtree, and warn with its path. Figma
+        ///     sends such a node (a boolean group with no shapes left inside) with every cell of
+        ///     <c>relativeTransform</c> null and no <c>absoluteBoundingBox</c>; it draws nothing, and
+        ///     placing it would throw and stop the import. A node with no transform but a bounding
+        ///     box is kept, since a server render is placed from the box alone.
+        /// </summary>
+        public static int PruneNodesWithoutGeometry(FigmaFile file)
+        {
+            if (file?.document == null) return 0;
+            var removed = new List<string>();
+            PruneNodesWithoutGeometry(file.document, new List<string>(), removed);
+            if (removed.Count > 0)
+                Debug.LogWarning($"[FigCraftBridge] {removed.Count} node(s) with no geometry skipped (delete them in Figma, " +
+                                 $"or put a shape back inside):\n  {string.Join("\n  ", removed)}");
+            return removed.Count;
+        }
+
+        private static void PruneNodesWithoutGeometry(Node node, List<string> path, List<string> removed)
+        {
+            if (node.children == null) return;
+            path.Add(node.name);
+            var kept = new List<Node>(node.children.Length);
+            foreach (var child in node.children)
+            {
+                if (child == null) continue;
+                if (HasNoGeometry(child))
+                {
+                    // The document and page names are left out of the path, like the Figma layer list
+                    var shown = path.Skip(Math.Min(2, path.Count)).Append(child.name);
+                    removed.Add($"{string.Join(" / ", shown)} ({child.id}, {child.type})");
+                    continue;
+                }
+                PruneNodesWithoutGeometry(child, path, removed);
+                kept.Add(child);
+            }
+            path.RemoveAt(path.Count - 1);
+            if (kept.Count != node.children.Length) node.children = kept.ToArray();
+        }
+
+        private static bool HasNoGeometry(Node node)
+        {
+            if (node.type is NodeType.DOCUMENT or NodeType.CANVAS) return false;
+            var transform = node.relativeTransform;
+            if (transform == null) return node.absoluteBoundingBox == null;
+            foreach (var cell in transform)
+                if (float.IsNaN(cell)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Converts from Figma Paint Fill Color to Unity color
+        /// </summary>
+        /// <param name="paint"></param>
+        /// <returns></returns>
+        public static UnityEngine.Color GetUnityFillColor(Paint paint)
+        {
+            // Make sure 
+            if(paint != null && !paint.visible) return new UnityEngine.Color(0,0,0,0);
+            if (IsShaderPaint(paint)) return new UnityEngine.Color(0,0,0,0);
+            return paint?.color == null ? new UnityEngine.Color(1,1,1,paint?.opacity ?? 1) : new UnityEngine.Color(paint.color.r, paint.color.g, paint.color.b, paint.color.a*paint.opacity);
+        }
+
+        /// <summary>
+        /// Create a Unity Gradient from Figma gradient
+        /// </summary>
+        /// <param name="fill"></param>
+        /// <returns></returns>
+        public static Gradient ToUnityGradient(Paint fill)
+        {
+            var figmaGradientStops = fill.gradientStops;
+            
+            // Create array of keys for gradient color and alpha
+            var unityColorKeys = new GradientColorKey[figmaGradientStops.Length];
+            var unityAlphaKeys = new GradientAlphaKey[figmaGradientStops.Length];
+
+            // Cycle through figma gradient and convert keys to Unity
+            for (var i = 0; i < figmaGradientStops.Length; i++)
+            {
+                unityColorKeys[i].color = ToUnityColor(figmaGradientStops[i].color);
+                unityColorKeys[i].time = figmaGradientStops[i].position;
+                unityAlphaKeys[i].alpha = figmaGradientStops[i].color.a;
+                unityAlphaKeys[i].time=figmaGradientStops[i].position;
+            }
+
+            // Create new Unity gradient
+            var gradient = new Gradient
+            {
+                mode = GradientMode.Blend
+            };
+            gradient.SetKeys(unityColorKeys, unityAlphaKeys);
+            return gradient;
+        }
+        
+        /// <summary>
+        /// Convert Figma Vector2 to Unity Vector2
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <returns></returns>
+        public static Vector2 ToUnityVector(Vector vector)
+        {
+            return new Vector2(vector.x, vector.y);
+        }
+
+        /// <summary>
+        /// Convert Figma Color to Unity Color
+        /// </summary>
+        /// <param name="color"></param>
+        /// <returns></returns>
+        public static UnityEngine.Color ToUnityColor(Color color)
+        {
+            return new UnityEngine.Color(color.r, color.g, color.b, color.a);
+        }
+
+        /// <summary>
+        /// Convert to array of Unity Vector3
+        /// </summary>
+        /// <param name="inputArray"></param>
+        /// <returns></returns>
+        public static Vector3[] ToUnityVector3Array(float[,] inputArray)
+        {
+            var length=inputArray.GetLength(0);
+            var outputArray = new Vector3[length];
+            for (var i = 0; i < length; i++)
+            {
+                outputArray[i] = new Vector3(inputArray[i,0], inputArray[i,1], inputArray[i,2]);
+            }
+            return outputArray;
+        }
+        
+        
+        /// <summary>
+        /// Create a fast-lookup dictionary
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public static Dictionary<string, Node> BuildNodeLookupDictionary(FigmaFile file)
+        {
+            var dictionary = new Dictionary<string, Node>();
+            PopulateDictionaryWithNodes(dictionary, file.document);
+            return dictionary;
+        }
+
+        /// <summary>
+        /// Recursively populate dictionary with all nodes in a figma file
+        /// </summary>
+        /// <param name="dictionary"></param>
+        /// <param name="node"></param>
+        private static void PopulateDictionaryWithNodes(Dictionary<string, Node> dictionary, Node node)
+        {
+            dictionary[node.id] = node;
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+            {
+                PopulateDictionaryWithNodes(dictionary, childNode);
+            }
+        }
+
+        /// <summary>
+        /// Searches a Figma file to find a specific figmaNode
+        /// Note - this is slow, so avoid if possible
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="nodeId"></param>
+        /// <returns></returns>
+        public static Node GetFigmaNodeWithId(FigmaFile file, string nodeId)
+        {
+            return GetFigmaNodeInChildren(file.document,nodeId);
+        }
+
+
+      
+
+        /// <summary>
+        /// Find a specific figmaNode within figma figmaNode tree (recursive)
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="nodeId"></param>
+        /// <returns></returns>
+        public static Node GetFigmaNodeInChildren(Node node,string nodeId)
+        {
+            if (node.children == null) return null;
+            foreach (var childNode in node.children)
+            {
+                if (childNode.id == nodeId) return childNode;
+                var nodeFoundInChildren = GetFigmaNodeInChildren(childNode, nodeId);
+                if (nodeFoundInChildren != null) return nodeFoundInChildren;
+            }
+            // Not found
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the full hierarchical path for a given node in a document - helpful for debugging
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="figmaFile"></param>
+        /// <returns></returns>
+        public static string GetFullPathForNode(Node node,FigmaFile figmaFile)
+        {
+            var pathStack = new Stack<string>();
+            var found=GetPathForNodeRecursive(figmaFile.document, node,pathStack );
+            return string.Join("/",pathStack.Reverse());
+        }
+        
+        /// <summary>
+        /// Recursively search for a node in a figma file and push/pop to stack to track heirarchy
+        /// </summary>
+        /// <param name="searchNode"></param>
+        /// <param name="targetNode"></param>
+        /// <param name="pathStack"></param>
+        /// <returns></returns>
+        private static bool GetPathForNodeRecursive(Node searchNode, Node targetNode, Stack<string> pathStack)
+        {
+            pathStack.Push(searchNode.name);
+            if (searchNode == targetNode) return true;
+            if (searchNode.children != null)
+            {
+                foreach (var childNode in searchNode.children)
+                {
+                    if (GetPathForNodeRecursive(childNode, targetNode, pathStack)) return true;
+                }
+            }
+            pathStack.Pop(); // Not found, remove from stack
+            return false;
+        }
+       
+        
+        
+        /// <summary>
+        /// Replace any characters that are invlid for saving
+        /// </summary>
+        /// <param name="NodeId"></param>
+        /// <returns></returns>
+        public static string ReplaceUnsafeFileCharactersForNodeId (string NodeId)
+        {
+            return NodeId.Replace(":", "_");
+        }
+
+
+        /// <summary>
+        /// Get all figma fills from within a figma file
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="downloadPageIdList"></param>
+        /// <returns></returns>
+        /// <param name="scope">When set, only nodes the import builds are searched.</param>
+        public static List<string> GetAllImageFillIdsFromFile(FigmaFile file, List<string> downloadPageIdList,
+            FigmaImportScope scope = null)
+        {
+            var imageFillIdList = new List<string>();
+            foreach (var page in file.document.children)
+            {
+                var includedPage=downloadPageIdList.Contains(page.id);
+                GetAllImageFillIdsForNode(page, imageFillIdList,0,includedPage,false,scope);
+            }
+            return imageFillIdList;
+        }
+
+        /// <summary>
+        /// Recursive function looking for image fill IDs for a given figmaNode
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="imageFillList"></param>
+        /// <param name="recursiveDepth"></param>
+        /// <param name="includedPage"></param>
+        /// <param name="withinComponentDefinition"></param>
+        private static void GetAllImageFillIdsForNode(Node node, List<string> imageFillList,int recursiveDepth,
+            bool includedPage, bool withinComponentDefinition, FigmaImportScope scope)
+        {
+            if (!InScope(node, scope)) return;
+            // We want to ignore random images placed on the root not in frames as they might be simple reference images
+            var ignoreNodeFill = recursiveDepth <=1 && node.type != NodeType.FRAME && node.type != NodeType.COMPONENT;
+            // We'll also ignore if this page is not included in the download list and we're not within a component definition
+            if (!includedPage && !withinComponentDefinition) ignoreNodeFill = true;
+            if (node.fills != null && !ignoreNodeFill)
+            {
+                foreach (var fill in node.fills)
+                {
+                    if (fill == null || fill.type != Paint.PaintType.IMAGE) continue;
+                    if (string.IsNullOrEmpty(fill.imageRef)) continue;
+                    var imageRefId = fill.imageRef;
+                    if (!imageFillList.Contains(imageRefId)) imageFillList.Add(imageRefId);
+                }
+            }
+
+            // If this is a component, mark it as so for all children (to ensure included)
+            if (node.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            
+            //  Recursively cycle through all children
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+                GetAllImageFillIdsForNode(childNode, imageFillList,recursiveDepth+1,includedPage,withinComponentDefinition,scope);
+            
+        }
+        
+        /// <summary>
+        /// Image fill ids that at least one node in the document draws with scale mode TILE.
+        /// </summary>
+        public static HashSet<string> GetTiledImageFillIds(FigmaFile file)
+        {
+            var tiled = new HashSet<string>();
+            CollectTiledImageFillIds(file.document, tiled);
+            return tiled;
+        }
+
+        private static void CollectTiledImageFillIds(Node node, HashSet<string> tiled)
+        {
+            if (node == null) return;
+            if (node.fills != null)
+            {
+                foreach (var fill in node.fills)
+                {
+                    if (fill == null || fill.type != Paint.PaintType.IMAGE) continue;
+                    if (fill.scaleMode == Paint.ScaleMode.TILE && !string.IsNullOrEmpty(fill.imageRef)) tiled.Add(fill.imageRef);
+                }
+            }
+            if (node.children == null) return;
+            foreach (var childNode in node.children) CollectTiledImageFillIds(childNode, tiled);
+        }
+
+        /// <summary>
+        /// Recursively search for nodes of a specific type
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="nodeType"></param>
+        /// <param name="nodeList"></param>
+        /// <param name="nodeDepth"></param>
+        public static void FindAllNodesOfType(Node node,NodeType nodeType,List<Node> nodeList,
+            int nodeDepth)
+        {
+            if (node.type == nodeType)  nodeList.Add(node);
+            if (node.children == null) return;
+
+            foreach (var childNode in node.children)
+                FindAllNodesOfType(childNode, nodeType,nodeList,nodeDepth+1);
+        }
+
+        /// <summary>
+        /// Finds all components of a specific iD
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="componentId"></param>
+        /// <param name="nodeList"></param>
+        /// <param name="nodeDepth"></param>
+        private static void FindAllComponentInstances(Node node,string componentId,List<Node> nodeList, int nodeDepth)
+        {
+            if (node.type == NodeType.INSTANCE && node.componentId==componentId)  nodeList.Add(node);
+            if (node.children == null) return;
+
+            foreach (var childNode in node.children)
+                FindAllComponentInstances(childNode, componentId,nodeList,nodeDepth+1);
+        }
+
+
+        /// <summary>
+        /// Find all nodes within a document that we need to render server-side
+        /// </summary>
+        /// <param name="file">Figma document</param>
+        /// <param name="missingComponentIds"></param>
+        /// <param name="downloadPageIdList"></param>
+        /// <param name="renderTopLevelExports">Settings.ServerRenderTopLevelExports — true = hành vi trước 0.4.1</param>
+        /// <returns>List of figmaNode IDs to replace</returns>
+        public static List<ServerRenderNodeData> FindAllServerRenderNodesInFile(FigmaFile file,
+            List<string> missingComponentIds, List<string> downloadPageIdList, bool renderTopLevelExports = true,
+            FigmaImportScope scope = null, string screensPageName = null)
+        {
+            var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
+            var nodeLookup = BuildNodeLookupDictionary(file);
+            // Process each canvas
+            foreach (var page in file.document.children)
+            {
+                var isSelectedPage=downloadPageIdList.Contains(page.id);
+                var onScreensPage = IsScreensPage(page, screensPageName);
+                AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,missingComponentIds,isSelectedPage,false,
+                    renderTopLevelExports, scope, nodeLookup, onScreensPage);
+            }
+
+            AddPatternSourceNodes(file, renderSubstitutionNodeList, downloadPageIdList, scope);
+            return renderSubstitutionNodeList;
+        }
+
+        /// <summary>
+        ///     Ids of the nodes that PATTERN fills repeat, for fills on nodes the import reaches (a
+        ///     selected page, or inside a component definition) - the same reach rule as image fills.
+        ///     A PATTERN fill carries no imageRef; the source node is its only pixel data.
+        /// </summary>
+        public static HashSet<string> GetPatternSourceNodeIds(FigmaFile file, List<string> downloadPageIdList,
+            FigmaImportScope scope = null)
+        {
+            var sourceIds = new HashSet<string>();
+            if (file?.document?.children == null) return sourceIds;
+            foreach (var page in file.document.children)
+                CollectPatternSourceNodeIds(page, sourceIds, downloadPageIdList.Contains(page.id), false, scope);
+            return sourceIds;
+        }
+
+        private static void CollectPatternSourceNodeIds(Node node, HashSet<string> sourceIds, bool isSelectedPage,
+            bool withinComponentDefinition, FigmaImportScope scope)
+        {
+            if (node == null || !node.visible || !InScope(node, scope)) return;
+            if (node.fills != null && (isSelectedPage || withinComponentDefinition))
+            {
+                foreach (var fill in node.fills)
+                {
+                    if (fill == null || fill.type != Paint.PaintType.PATTERN || !fill.visible) continue;
+                    if (!string.IsNullOrEmpty(fill.sourceNodeId)) sourceIds.Add(fill.sourceNodeId);
+                }
+            }
+            if (node.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+                CollectPatternSourceNodeIds(childNode, sourceIds, isSelectedPage, withinComponentDefinition, scope);
+        }
+
+        /// <summary>
+        ///     Queue the source node of every reachable PATTERN fill for one server render
+        ///     (<see cref="ServerRenderType.PatternSource"/>). The fill is then drawn as a tiled Image of
+        ///     that render. A source already queued for another reason keeps its entry - the file path is
+        ///     the same either way.
+        /// </summary>
+        private static void AddPatternSourceNodes(FigmaFile file, List<ServerRenderNodeData> renderNodeList,
+            List<string> downloadPageIdList, FigmaImportScope scope)
+        {
+            var sourceIds = GetPatternSourceNodeIds(file, downloadPageIdList, scope);
+            if (sourceIds.Count == 0) return;
+            var nodeLookup = BuildNodeLookupDictionary(file);
+            foreach (var sourceId in sourceIds)
+            {
+                if (renderNodeList.Exists(entry => entry.SourceNode.id == sourceId)) continue;
+                if (!nodeLookup.TryGetValue(sourceId, out var sourceNode))
+                {
+                    Debug.LogWarning($"[FigCraftBridge] A PATTERN fill repeats node '{sourceId}', which is not in this document (external library?). The fill imports without a sprite.");
+                    continue;
+                }
+                renderNodeList.Add(new ServerRenderNodeData
+                {
+                    RenderType = ServerRenderType.PatternSource,
+                    SourceNode = sourceNode
+                });
+            }
+        }
+
+        /// <summary>
+        /// Recursively search a given figmaNode to identify those for server rendering
+        /// </summary>
+        /// <param name="figmaNode"></param>
+        /// <param name="substitutionNodeList"></param>
+        /// <param name="recursiveNodeDepth"></param>
+        /// <param name="missingComponentIds"></param>
+        /// <param name="isSelectedPage"></param>
+        /// <param name="withinComponentDefinition"></param>
+        private static void AddRenderSubstitutionsForFigmaNode(Node figmaNode,
+            List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, List<string> missingComponentIds,
+            bool isSelectedPage,bool withinComponentDefinition, bool renderTopLevelExports, FigmaImportScope scope,
+            Dictionary<string, Node> nodeLookup, bool onScreensPage)
+        {
+            if (!figmaNode.visible || !InScope(figmaNode, scope)) return;
+
+            // A "Use as mask" instance is one render, like a vector mask: see IsRenderedMask
+            if (IsRenderedMask(figmaNode))
+            {
+                if ((isSelectedPage || withinComponentDefinition) &&
+                    !substitutionNodeList.Exists(entry => entry.SourceNode.id == figmaNode.id))
+                    substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = figmaNode });
+                return;
+            }
+
+            // Instances reuse the prefab and renders of their component. Only the sublayers they
+            // restyle, or stretch past what a sliced render can follow, need a render of their own.
+            if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId))
+            {
+                if (isSelectedPage || withinComponentDefinition)
+                    AddRestyledSublayerRenders(figmaNode, RestyledNodeIds(figmaNode, null), substitutionNodeList, recursiveNodeDepth, nodeLookup);
+                return;
+            }
+
+            // Top level frames should be checked for server-side rendering
+            // Tắt được qua Settings.ServerRenderTopLevelExports: frame màn hình có Export setting
+            // → Figma render nguyên màn (nặng, dễ HTTP 504). Screen vẫn dựng thành prefab (GenerateNodesMarkedForExport);
+            // khi tắt thì không return sớm nên các node vector bên trong frame vẫn được quét như frame thường.
+            // A screen (a top-level frame or component on the screens page) is always built as a prefab,
+            // never one render, whatever its export settings.
+            var isScreenRoot = onScreensPage && recursiveNodeDepth == 1 && IsScreenNodeType(figmaNode);
+            if (renderTopLevelExports && !isScreenRoot &&
+                (isSelectedPage || withinComponentDefinition) && recursiveNodeDepth==1 && figmaNode.exportSettings!=null && figmaNode.exportSettings.Length > 0)
+            {
+                Debug.Log($"Found figmaNode with export! Node {figmaNode.name}");
+                substitutionNodeList.Add( new ServerRenderNodeData
+                {
+                    RenderType = ServerRenderType.Export,
+                    SourceNode = figmaNode
+                });
+                return;
+            }
+
+            
+            if (!isScreenRoot && (isSelectedPage || withinComponentDefinition) && GetNodeSubstitutionStatus(figmaNode,recursiveNodeDepth))
+            {
+                substitutionNodeList.Add( new ServerRenderNodeData
+                {
+                    RenderType = ServerRenderType.Substitution,
+                    SourceNode = figmaNode
+                });
+                return;
+            }
+
+            if (figmaNode.children == null) return;
+
+            if ((isSelectedPage || withinComponentDefinition) && figmaNode.children.Length > 0 &&
+                figmaNode.fills != null && figmaNode.fills.Any(f => f != null && f.visible && IsShaderPaint(f)))
+                Debug.LogWarning($"[FigCraftBridge] '{figmaNode.name}' ({figmaNode.id}) has a shader fill and children: " +
+                                 "the shader is skipped. Put it on a childless rectangle behind the children so Figma renders it.");
+
+            // If this is a component, we want to ensure we include all server render components within (even if the page is ignored)
+            if (figmaNode.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            
+            foreach (var childNode in figmaNode.children)
+                AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList,recursiveNodeDepth+1,missingComponentIds,isSelectedPage,withinComponentDefinition,
+                    renderTopLevelExports, scope, nodeLookup, onScreensPage);
+            
+        }
+
+        /// <summary>
+        ///     A "Use as mask" instance is built as one server render that carries the Mask, not as a
+        ///     prefab instance. The masked siblings are parented under the mask node, and an instance
+        ///     placeholder is destroyed when its prefab replaces it, taking those siblings with it.
+        ///     Figma never draws a mask layer either, only its alpha, which the render keeps.
+        /// </summary>
+        public static bool IsRenderedMask(Node node) => node.isMask && node.type == NodeType.INSTANCE;
+
+        /// <summary>Pages always pass: a scope holds the nodes below them.</summary>
+        private static bool InScope(Node node, FigmaImportScope scope) =>
+            scope == null || node.type is NodeType.DOCUMENT or NodeType.CANVAS || scope.Builds(node.id);
+
+        /// <summary>Instance override fields that change what a server render of the node looks like.</summary>
+        private static readonly HashSet<string> s_RenderedOverrideFields = new HashSet<string>
+        {
+            "fills", "strokes", "strokeWeight", "strokeAlign", "strokeDashes", "individualStrokeWeights",
+            "effects", "cornerRadius", "rectangleCornerRadii", "opacity", "blendMode", "visible", "arcData"
+        };
+
+        private static HashSet<string> RestyledNodeIds(Node instance, HashSet<string> inherited)
+        {
+            var ids = inherited != null ? new HashSet<string>(inherited) : new HashSet<string>();
+            if (instance.overrides == null) return ids;
+            foreach (var instanceOverride in instance.overrides)
+            {
+                if (instanceOverride?.overriddenFields == null || string.IsNullOrEmpty(instanceOverride.id)) continue;
+                if (instanceOverride.overriddenFields.Any(s_RenderedOverrideFields.Contains)) ids.Add(instanceOverride.id);
+            }
+            return ids;
+        }
+
+        /// <summary>
+        ///     Queue a render for each node inside an instance that its component draws as one server
+        ///     render, when the instance restyles that node or anything under it, or stretches it in a
+        ///     way the component's render cannot follow. The render is keyed by the instance-side id, so
+        ///     the instance gets its own sprite instead of the component's.
+        /// </summary>
+        private static void AddRestyledSublayerRenders(Node node, HashSet<string> restyledIds,
+            List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, Dictionary<string, Node> nodeLookup)
+        {
+            if (!node.visible) return;
+            if (GetNodeSubstitutionStatus(node, recursiveNodeDepth))
+            {
+                var needsOwnRender = NeedsOwnRender(node, restyledIds, nodeLookup);
+                if (needsOwnRender && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
+                    substitutionNodeList.Add(new ServerRenderNodeData { RenderType = ServerRenderType.Substitution, SourceNode = node });
+                return;
+            }
+            if (node.children == null) return;
+            foreach (var childNode in node.children)
+            {
+                var childIds = childNode.type == NodeType.INSTANCE ? RestyledNodeIds(childNode, restyledIds) : restyledIds;
+                AddRestyledSublayerRenders(childNode, childIds, substitutionNodeList, recursiveNodeDepth + 1, nodeLookup);
+            }
+        }
+
+        /// <summary>
+        ///     The slicer can only stretch a render that has a uniform band or a rectangle's corner geometry.
+        ///     A vector shape, or an image or pattern fill, rendered at the component's size and drawn at
+        ///     another size distorts, so an instance that resizes such a node needs a render at its own size.
+        /// </summary>
+        private static bool IsStretchedUnsliceable(Node node, Dictionary<string, Node> nodeLookup)
+        {
+            var separator = node.id.LastIndexOf(';');
+            if (separator < 0 || node.size == null) return false;
+            if (!nodeLookup.TryGetValue(node.id.Substring(separator + 1), out var componentNode) || componentNode.size == null) return false;
+            const float tolerance = 0.5f;
+            if (Mathf.Abs(node.size.x - componentNode.size.x) <= tolerance &&
+                Mathf.Abs(node.size.y - componentNode.size.y) <= tolerance) return false;
+
+            var hasBitmapFill = node.fills != null && node.fills.Any(fill => fill != null && fill.visible &&
+                (fill.type == Paint.PaintType.IMAGE || fill.type == Paint.PaintType.PATTERN || IsShaderPaint(fill)));
+            var isRectangleLike = node.type is NodeType.RECTANGLE or NodeType.FRAME or NodeType.COMPONENT or NodeType.INSTANCE;
+            return hasBitmapFill || !isRectangleLike;
+        }
+
+        /// <summary>
+        ///     Whether an instance sublayer drawn as one render needs a render of its own. The component's
+        ///     node is compared with the instance's, so a recolour through a variable mode (no override
+        ///     entry) is seen. A pair that both pass the render-tint predicate leaves RGB out of the
+        ///     compare and drops the override rule: Image.color covers the colour.
+        /// </summary>
+        private static bool NeedsOwnRender(Node node, HashSet<string> restyledIds, Dictionary<string, Node> nodeLookup)
+        {
+            if (IsStretchedUnsliceable(node, nodeLookup)) return true;
+            var overridden = SubtreeContainsAny(node, restyledIds);
+            if (!TryFindComponentNode(node, nodeLookup, out var componentNode)) return overridden;
+            var bothTint = BothRootsTint(node, componentNode);
+            return (overridden && !bothTint) || NodesRenderDifferently(node, componentNode, bothTint, true);
+        }
+
+        private static bool TryFindComponentNode(Node node, Dictionary<string, Node> nodeLookup, out Node componentNode)
+        {
+            componentNode = null;
+            var separator = node.id.LastIndexOf(';');
+            if (separator < 0) return false;
+            return nodeLookup.TryGetValue(node.id.Substring(separator + 1), out componentNode);
+        }
+
+        private static bool BothRootsTint(Node instanceNode, Node componentNode) =>
+            SolidTint.TryGetRenderTint(instanceNode, out _) && SolidTint.TryGetRenderTint(componentNode, out _);
+
+        private static bool NodesRenderDifferently(Node a, Node b, bool ignoreRgb, bool isRoot)
+        {
+            if (a.visible != b.visible) return true;
+            if (!a.visible) return false;
+            if (a.type != b.type || FloatsDiffer(a.opacity, b.opacity) || a.blendMode != b.blendMode || a.isMask != b.isMask) return true;
+            var aChildren = a.children ?? System.Array.Empty<Node>();
+            var bChildren = b.children ?? System.Array.Empty<Node>();
+            if (aChildren.Length != bChildren.Length) return true;
+            if (a.type == NodeType.TEXT && !string.Equals(a.characters, b.characters, StringComparison.Ordinal)) return true;
+            if (PaintsDiffer(a.fills, b.fills, ignoreRgb) || PaintsDiffer(a.strokes, b.strokes, ignoreRgb)) return true;
+            if (FloatsDiffer(a.strokeWeight, b.strokeWeight) || a.strokeAlign != b.strokeAlign || FloatsDiffer(a.cornerRadius, b.cornerRadius)) return true;
+            if (!FloatArraysEqual(a.rectangleCornerRadii, b.rectangleCornerRadii)) return true;
+            if (ArcDataDiffers(a.arcData, b.arcData) || EffectsDiffer(a.effects, b.effects)) return true;
+            if (!isRoot)
+            {
+                if ((a.size == null) != (b.size == null)) return true;
+                if (a.size != null && (Mathf.Abs(a.size.x - b.size.x) > 0.5f || Mathf.Abs(a.size.y - b.size.y) > 0.5f)) return true;
+            }
+            for (var i = 0; i < aChildren.Length; i++)
+                if (NodesRenderDifferently(aChildren[i], bChildren[i], ignoreRgb, false)) return true;
+            return false;
+        }
+
+        private static bool PaintsDiffer(Paint[] a, Paint[] b, bool ignoreRgb)
+        {
+            var aLength = a?.Length ?? 0;
+            if (aLength != (b?.Length ?? 0)) return true;
+            for (var i = 0; i < aLength; i++)
+            {
+                var first = a[i];
+                var second = b[i];
+                if (first == null || second == null)
+                {
+                    if (first != second) return true;
+                    continue;
+                }
+                if (first.visible != second.visible) return true;
+                if (!first.visible) continue;
+                if (first.type != second.type || FloatsDiffer(first.opacity, second.opacity) ||
+                    first.blendMode != second.blendMode || first.scaleMode != second.scaleMode) return true;
+
+                var firstColor = first.color;
+                var secondColor = second.color;
+                if (first.type == Paint.PaintType.SOLID)
+                {
+                    firstColor ??= new Color { r = 1, g = 1, b = 1, a = 1 };
+                    secondColor ??= new Color { r = 1, g = 1, b = 1, a = 1 };
+                }
+                if (ColorsDiffer(firstColor, secondColor, ignoreRgb)) return true;
+
+                var firstStops = first.gradientStops ?? System.Array.Empty<ColorStop>();
+                var secondStops = second.gradientStops ?? System.Array.Empty<ColorStop>();
+                if (firstStops.Length != secondStops.Length) return true;
+                for (var s = 0; s < firstStops.Length; s++)
+                {
+                    if (firstStops[s] == null || secondStops[s] == null)
+                    {
+                        if (firstStops[s] != secondStops[s]) return true;
+                        continue;
+                    }
+                    if (FloatsDiffer(firstStops[s].position, secondStops[s].position) ||
+                        ColorsDiffer(firstStops[s].color, secondStops[s].color, ignoreRgb)) return true;
+                }
+
+                var firstHandles = first.gradientHandlePositions ?? System.Array.Empty<Vector>();
+                var secondHandles = second.gradientHandlePositions ?? System.Array.Empty<Vector>();
+                if (firstHandles.Length != secondHandles.Length) return true;
+                for (var h = 0; h < firstHandles.Length; h++)
+                {
+                    if (firstHandles[h] == null || secondHandles[h] == null)
+                    {
+                        if (firstHandles[h] != secondHandles[h]) return true;
+                        continue;
+                    }
+                    if (FloatsDiffer(firstHandles[h].x, secondHandles[h].x) || FloatsDiffer(firstHandles[h].y, secondHandles[h].y)) return true;
+                }
+
+                if (MatricesDiffer(first.imageTransform, second.imageTransform)) return true;
+                if (FloatsDiffer(first.scalingFactor, second.scalingFactor) || FloatsDiffer(first.rotation, second.rotation)) return true;
+                if (!string.Equals(first.imageRef, second.imageRef, StringComparison.Ordinal) ||
+                    !string.Equals(first.gifRef, second.gifRef, StringComparison.Ordinal) ||
+                    !string.Equals(first.sourceNodeId, second.sourceNodeId, StringComparison.Ordinal) ||
+                    !string.Equals(first.tileType, second.tileType, StringComparison.Ordinal) ||
+                    !string.Equals(first.customEffectId, second.customEffectId, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+
+        private static bool EffectsDiffer(Effect[] a, Effect[] b)
+        {
+            var aLength = a?.Length ?? 0;
+            if (aLength != (b?.Length ?? 0)) return true;
+            for (var i = 0; i < aLength; i++)
+            {
+                var first = a[i];
+                var second = b[i];
+                if (first == null || second == null)
+                {
+                    if (first != second) return true;
+                    continue;
+                }
+                if (first.visible != second.visible) return true;
+                if (!first.visible) continue;
+                if (first.type != second.type || ColorsDiffer(first.color, second.color, false) ||
+                    FloatsDiffer(first.radius, second.radius) || FloatsDiffer(first.spread, second.spread) ||
+                    first.blendMode != second.blendMode) return true;
+                if ((first.offset == null) != (second.offset == null)) return true;
+                if (first.offset != null &&
+                    (FloatsDiffer(first.offset.x, second.offset.x) || FloatsDiffer(first.offset.y, second.offset.y))) return true;
+            }
+            return false;
+        }
+
+        private static bool ArcDataDiffers(ArcData a, ArcData b)
+        {
+            if (a == null || b == null) return a != b;
+            return FloatsDiffer(a.startingAngle, b.startingAngle) || FloatsDiffer(a.endingAngle, b.endingAngle) ||
+                   FloatsDiffer(a.innerRadius, b.innerRadius);
+        }
+
+        /// <summary>Paint.imageTransform: both null equal, one null differs, else shape then element-wise.</summary>
+        private static bool MatricesDiffer(float[,] a, float[,] b)
+        {
+            if (a == null || b == null) return a != b;
+            if (a.GetLength(0) != b.GetLength(0) || a.GetLength(1) != b.GetLength(1)) return true;
+            for (var row = 0; row < a.GetLength(0); row++)
+                for (var column = 0; column < a.GetLength(1); column++)
+                    if (FloatsDiffer(a[row, column], b[row, column])) return true;
+            return false;
+        }
+
+        private static bool ColorsDiffer(Color a, Color b, bool ignoreRgb)
+        {
+            if (a == null || b == null) return a != b;
+            if (ToByte(a.a) != ToByte(b.a)) return true;
+            return !ignoreRgb && (ToByte(a.r) != ToByte(b.r) || ToByte(a.g) != ToByte(b.g) || ToByte(a.b) != ToByte(b.b));
+        }
+
+        private static bool FloatArraysEqual(float[] a, float[] b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Length != b.Length) return false;
+            for (var i = 0; i < a.Length; i++)
+                if (FloatsDiffer(a[i], b[i])) return false;
+            return true;
+        }
+
+        private static bool FloatsDiffer(float a, float b) => Mathf.Abs(a - b) > 1e-4f;
+
+        private static int ToByte(float channel) => Mathf.RoundToInt(channel * 255f);
+
+        private static bool SubtreeContainsAny(Node node, HashSet<string> ids)
+        {
+            if (ids.Contains(node.id)) return true;
+            return node.children != null && node.children.Any(childNode => SubtreeContainsAny(childNode, ids));
+        }
+
+        /// <summary>
+        /// Defines whether a given figma node should be substituted with server-side render
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="recursiveNodeDepth"></param>
+        /// <returns></returns>
+        private static bool GetNodeSubstitutionStatus(Node node,int recursiveNodeDepth)
+        {
+            // We never substitute screens or pages
+            if (node.type == NodeType.CANVAS) return false;
+            if (recursiveNodeDepth <=1 && node.type== NodeType.FRAME) return false;
+            
+            // If a given node has the word "render", mark for rendering
+            if (node.name.ToLower().Contains("render")) return true;
+
+            if (NeedsShapeRender(node) || NeedsShaderRender(node)) return true;
+
+            // Some types we always render server-side. This may change if we support native vector rendering
+            switch (node.type)
+            {
+                case NodeType.VECTOR:
+                case NodeType.BOOLEAN_OPERATION:
+                    return true;
+            }
+
+            // The pattern we identify for server side vector rendering is:
+            // * At least one sub nodes of type vector
+            // * Only containing sub nodes of type VECTOR, FRAME, GROUP, COMPONENT, INSTANCE
+            var validNodeTypesForVectorRender = new NodeType[] { NodeType.VECTOR, NodeType.GROUP, NodeType.FRAME, NodeType.COMPONENT, NodeType.INSTANCE };
+            var nodeTypeCount = new int[validNodeTypesForVectorRender.Length];
+            var onlyValidNodeTypesFound =
+                GetNodeChildrenExclusivelyOfTypes(node, validNodeTypesForVectorRender, nodeTypeCount);
+            
+            if (onlyValidNodeTypesFound && nodeTypeCount[0]>0) return true;
+            
+            return false;
+        }
+
+        /// <summary>
+        ///     Stroke, corner radius, gradient, ellipse and star have no plain <c>Image</c> equivalent, so a
+        ///     childless node with one of them is rendered by Figma and imported as a sprite. A node with
+        ///     children is not: its render would contain the children, which then draw twice. Such a
+        ///     node keeps a flat Image and is listed in <c>ShapeOnlyNodes</c>.
+        /// </summary>
+        public static bool NeedsShapeRender(Node node)
+        {
+            if (node.children != null && node.children.Length > 0) return false;
+            switch (node.type)
+            {
+                case NodeType.RECTANGLE:
+                case NodeType.ELLIPSE:
+                case NodeType.STAR:
+                case NodeType.FRAME:
+                case NodeType.COMPONENT:
+                    break;
+                default:
+                    return false;
+            }
+
+            var hasVisibleFill = node.fills != null && node.fills.Any(f => f != null && f.visible);
+            var hasStroke = node.strokeWeight > 0 && node.strokes != null && node.strokes.Any(f => f != null && f.visible);
+            if (!hasVisibleFill && !hasStroke) return false;
+            if (hasStroke) return true;
+            if (node.type == NodeType.ELLIPSE || node.type == NodeType.STAR) return true;
+            if (MaxCornerRadius(node) > 0f) return true;
+            return node.fills.Any(f => f != null && f.visible && IsGradient(f));
+        }
+
+        /// <summary>
+        ///     A shader (CUSTOM) or unrecognised paint: nothing in Unity can draw it, only Figma can.
+        /// </summary>
+        public static bool IsShaderPaint(Paint paint)
+        {
+            return paint != null && (paint.type == Paint.PaintType.CUSTOM || paint.type == Paint.PaintType.UNKNOWN);
+        }
+
+        /// <summary>
+        ///     A childless node with a visible shader fill, or a visible shader stroke that draws, is
+        ///     rendered by Figma. As with <see cref="NeedsShapeRender"/>, a node with children is not:
+        ///     its render would contain the children, which then draw twice.
+        /// </summary>
+        public static bool NeedsShaderRender(Node node)
+        {
+            if (node.children != null && node.children.Length > 0) return false;
+            if (node.fills != null && node.fills.Any(f => f != null && f.visible && IsShaderPaint(f))) return true;
+            return node.strokeWeight > 0 && node.strokes != null && node.strokes.Any(f => f != null && f.visible && IsShaderPaint(f));
+        }
+
+        public static bool IsGradient(Paint paint)
+        {
+            return paint.type == Paint.PaintType.GRADIENT_LINEAR || paint.type == Paint.PaintType.GRADIENT_RADIAL ||
+                   paint.type == Paint.PaintType.GRADIENT_ANGULAR || paint.type == Paint.PaintType.GRADIENT_DIAMOND;
+        }
+
+        public static float MaxCornerRadius(Node node)
+        {
+            if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length > 0)
+                return node.rectangleCornerRadii.Max();
+            return Mathf.Max(0f, node.cornerRadius);
+        }
+
+        /// <summary>
+        /// Tests whether a given node only has children of a specific type
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="nodeTypes"></param>
+        /// <param name="nodeTypeCount"></param>
+        /// <returns></returns>
+        private static bool GetNodeChildrenExclusivelyOfTypes(Node node, NodeType[] nodeTypes,int[] nodeTypeCount)
+        {
+            // If this doesnt match return false
+            if (!nodeTypes.Contains(node.type)) return false;
+            
+            // Increment count for matching node type for this node
+            for (var i = 0; i < nodeTypes.Length; i++)
+            {
+                if (node.type == nodeTypes[i]) nodeTypeCount[i]++;
+            }
+
+            if (node.children == null) return true;
+            foreach (var childNode in node.children)
+            {
+                var isMatching = GetNodeChildrenExclusivelyOfTypes(childNode, nodeTypes, nodeTypeCount);
+                if (!isMatching) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Finds all component IDs that are used in the figma file, that dont have a matching definition
+        /// </summary>
+        /// <returns></returns>
+        public static List<string> FindMissingComponentDefinitions(FigmaFile file)
+        {
+            return (from componentKeyPair in file.components select componentKeyPair.Key into componentId let foundNode = GetFigmaNodeWithId(file, componentId) where foundNode == null select componentId).ToList();
+        }
+
+        /// <summary>
+        /// Finds all missing components and 
+        /// </summary>
+        /// <param name="figmaFile"></param>
+        /// <param name="missingComponentDefinitionList"></param>
+        public static void ReplaceMissingComponents(FigmaFile figmaFile, List<string> missingComponentDefinitionList)
+        {
+            foreach (var componentId in missingComponentDefinitionList)
+            {
+                var allInstances = new List<Node>();
+                FindAllComponentInstances(figmaFile.document, componentId, allInstances, 0);
+                if (allInstances.Count==0) continue;
+                var firstInstance = allInstances[0];
+                firstInstance.type = NodeType.COMPONENT;
+                // Remap all other instances to use this component
+                for (var i = 1; i < allInstances.Count; i++)
+                {
+                    allInstances[i].componentId = firstInstance.id;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds Flow Starting Point id, from first page where one found
+        /// </summary>
+        /// <param name="sourceFile"></param>
+        /// <returns></returns>
+        public static string FindPrototypeFlowStartScreenId(FigmaFile sourceFile)
+        {
+            foreach (var canvasNode in sourceFile.document.children)
+            {
+                if (canvasNode.flowStartingPoints.Length>0) return canvasNode.flowStartingPoints[0].nodeId;
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Lists all prototype flow starting points in a given Figma file
+        /// </summary>
+        /// <param name="sourceFile"></param>
+        /// <returns></returns>
+        public static List<string> GetAllPrototypeFlowStartingPoints(FigmaFile sourceFile)
+        {
+            var allFlowStartingPoints = new List<string>();
+            foreach (var canvasNode in sourceFile.document.children)
+            {
+                if (canvasNode.flowStartingPoints == null) continue;
+                allFlowStartingPoints.AddRange(canvasNode.flowStartingPoints.Select(flowStartingPoint => flowStartingPoint.nodeId));
+            }
+            return allFlowStartingPoints;
+        }
+        
+        /// <summary>
+        /// Lists all Page Nodes in a given Figma file
+        /// </summary>
+        /// <param name="sourceFile"></param>
+        /// <returns></returns>
+        public static List<Node> GetPageNodes(FigmaFile sourceFile)
+        {
+            var pageNodes = new List<Node>();
+            foreach (var canvasNode in sourceFile.document.children)
+            {
+                pageNodes.Add(canvasNode);
+            }
+            return pageNodes;
+        }
+
+        private static void SearchScreenNodes(Node node, Node parentNode, List<Node> screenNodes)
+        {
+            if (IsScreenNode(node,parentNode))
+            {
+                screenNodes.Add(node);
+            }
+
+            if (node.children == null) return;
+
+            foreach (var childNode in node.children)
+            {
+                SearchScreenNodes(childNode, node, screenNodes);
+            }
+        }
+
+        /// <summary>
+        /// Lists all Screen Nodes in a given Figma file: the frames of its screens page
+        /// </summary>
+        public static List<Node> GetScreenNodes(FigmaFile sourceFile, string screensPageName)
+        {
+            var screenNodes = new List<Node>();
+            foreach (var pageNode in sourceFile.document.children)
+                screenNodes.AddRange(GetScreenNodes(pageNode, screensPageName));
+            return screenNodes;
+        }
+
+        /// <summary>
+        /// Lists the Screen Nodes of one page. Only the screens page holds screens; a frame on any
+        /// other page is a container for components, never a screen.
+        /// </summary>
+        public static List<Node> GetScreenNodes(Node pageNode, string screensPageName)
+        {
+            var screenNodes = new List<Node>();
+            if (IsScreensPage(pageNode, screensPageName)) SearchScreenNodes(pageNode, null, screenNodes);
+            return screenNodes;
+        }
+
+        public static bool IsScreensPage(Node pageNode, string screensPageName) =>
+            pageNode is { type: NodeType.CANVAS } && PageNameMatches(pageNode.name, screensPageName);
+
+        /// <summary>Case and spaces at the ends are ignored, so an artist's "screens " is still the screens page.</summary>
+        public static bool PageNameMatches(string pageName, string expectedName) =>
+            string.Equals(pageName?.Trim(), expectedName?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Component sets, and components outside a set, on a page other than the screens page -
+        /// at any depth, but never inside another component or an instance
+        /// </summary>
+        public static List<Node> GetComponentRowNodes(Node pageNode, string screensPageName)
+        {
+            var componentNodes = new List<Node>();
+            if (!IsScreensPage(pageNode, screensPageName)) SearchComponentRowNodes(pageNode, componentNodes);
+            return componentNodes;
+        }
+
+        private static void SearchComponentRowNodes(Node node, List<Node> componentNodes)
+        {
+            foreach (var childNode in node.children ?? new Node[] { })
+            {
+                if (childNode.type is NodeType.COMPONENT_SET or NodeType.COMPONENT) componentNodes.Add(childNode);
+                else if (childNode.type != NodeType.INSTANCE) SearchComponentRowNodes(childNode, componentNodes);
+            }
+        }
+
+        /// <summary>The pages every file imported with the bridge must have, when it lacks them</summary>
+        public static List<string> MissingRequiredPages(IReadOnlyCollection<string> pageNames, string screensPageName, string componentsPageName) =>
+            new[] { screensPageName, componentsPageName }
+                .Where(name => !pageNames.Any(pageName => PageNameMatches(pageName, name))).ToList();
+
+        /// <summary>A node that can be a screen root: a top-level frame or component on the screens page.</summary>
+        internal static bool IsScreenNodeType(Node node) =>
+            node.type is NodeType.FRAME or NodeType.COMPONENT;
+
+        /// <summary>
+        /// A frame or component directly on a page or in a section. Only on the screens page is it a screen
+        /// </summary>
+        private static bool IsScreenNode(Node node, Node parentNode)
+        {
+            if (!IsScreenNodeType(node)) return false;
+            if (parentNode == null) return false;
+            if (parentNode is { type: NodeType.CANVAS or NodeType.SECTION }) return true;
+            return false;
+        }
+    }
+}

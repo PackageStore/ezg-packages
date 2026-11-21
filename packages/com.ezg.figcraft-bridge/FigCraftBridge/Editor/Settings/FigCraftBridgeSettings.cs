@@ -1,0 +1,440 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using TMPro;
+using UnityEditor;
+using UnityEngine;
+using FigCraftBridge.Editor.FigmaApi;
+using FigCraftBridge.Editor.Source;
+using FigCraftBridge.Editor.Utils;
+
+namespace FigCraftBridge.Editor.Settings
+{
+    /// <summary>Which nodes receive a LayoutElement.</summary>
+    public enum LayoutElementMode
+    {
+        /// <summary>Every node, as in 0.2 (the element carries the Figma size as preferred size).</summary>
+        Always,
+        /// <summary>Only nodes whose parent frame uses Figma auto layout - the only place a layout group reads it.</summary>
+        OnlyUnderAutoLayout
+    }
+
+    /// <summary>How a text node's rect relates to its glyphs.</summary>
+    public enum TextFitMode
+    {
+        /// <summary>Auto-resized text gets a ContentSizeFitter, so the rect follows the glyphs (0.2 behaviour).</summary>
+        ContentSizeFitter,
+        /// <summary>The rect is fixed (padded), TMP auto-sizes the font down to fit and ellipsises the rest.</summary>
+        FixedRectAutoSize
+    }
+
+    /// <summary>Texture compression written into imported sprites.</summary>
+    public enum SpriteCompressionMode
+    {
+        Uncompressed,
+        Compressed
+    }
+
+    public class FigCraftBridgeSettings : ScriptableObject, IFolderDefaults
+    {
+
+        // Tooltips are Vietnamese for the team that uses this: one line of description, then one
+        // example line. Unity draws tooltips as plain text, so no markup here.
+        [Tooltip("File .figcraft cần import, tính từ thư mục project (hoặc đường dẫn tuyệt đối).\nVí dụ: Design/t005.figcraft")]
+        public string FigCraftFile = "";
+
+        [Tooltip("Nguồn dữ liệu FigCraft. File đọc file .figcraft đã lưu qua figcraft-cli (không cần mở app); App đọc file đang mở trong app FigCraft qua cổng control, gồm cả thay đổi chưa lưu.\n" +
+                 "Ví dụ: File cho import thường; App khi đang sửa trong FigCraft mà chưa lưu.")]
+        public FigCraftSourceKind Source = FigCraftSourceKind.File;
+
+        [Tooltip("Cổng control của app FigCraft (mở app bằng --control <cổng>).\nVí dụ: 7979.")]
+        public int AppPort = 7979;
+
+        [Tooltip("Đường dẫn figcraft-cli. Để trống thì tìm trong ~/.local/bin, /opt/homebrew/bin, /usr/local/bin rồi PATH.\nVí dụ: ~/.local/bin/figcraft-cli")]
+        public string FigCraftCliPath = "";
+
+        [Tooltip("Tự sinh liên kết chuyển screen theo Prototype của Figma (mở scene runtime, thêm PrototypeFlowController).\n" +
+                 "Ví dụ: nút Play mở screen Game. Mặc định tắt từ 0.3.0.")]
+        public bool BuildPrototypeFlow=false;
+
+        [Tooltip("Scene chứa canvas và asset runtime của prototype.\nVí dụ: Assets/Scenes/Main.unity")]
+        public string RunTimeAssetsScenePath;
+
+        [Tooltip("Bật Horizontal/Vertical Layout Group theo auto layout của Figma: khoảng cách, padding, căn lề; " +
+                 "frame HUG có thêm ContentSizeFitter; con giữ kích thước Figma, text HUG và con FILL co giãn.\n" +
+                 "Ví dụ: hàng HUG căn giữa vẫn căn giữa khi một con bị ẩn hoặc text dài ra.")]
+        public bool EnableAutoLayout = false;
+
+        [Tooltip("Chỉ bind MonoBehaviour trong namespace này vào screen.\nVí dụ: MyGame.UI")]
+        public string ScreenBindingNamespace="";
+
+        // Server render: frame export, batch (0.4.1)
+        [Tooltip("Render nguyên frame cấp 1 có Export setting thành PNG. Tắt khi Sync báo HTTP 504: render cả màn hình dễ làm Figma timeout.\n" +
+                 "Ví dụ: MainScreen đặt Export PNG → bật thì tải thêm ảnh chụp cả màn. Mặc định bật (giữ hành vi trước 0.4.1).")]
+        public bool ServerRenderTopLevelExports = true;
+
+        [Tooltip("Số node gửi trong một request render (300 = như bản gốc). Gặp 5xx/timeout bridge tự chia đôi batch và gửi lại.\nVí dụ: 300.")]
+        [Range(1, 300)]
+        public int ServerRenderBatchSize = 300;
+
+        [Tooltip("Tải font còn thiếu từ Google Fonts.\nVí dụ: Figma dùng Roboto, bridge tải Roboto.ttf.")]
+        public bool EnableGoogleFontsDownloads = true;
+
+        [Tooltip("Sinh file C# chứa tên mọi screen tìm được.\n" +
+                 "Ví dụ: dùng ScreenNames.SHOP thay cho tên dạng chuỗi.")]
+        public bool CreateScreenNameCSharpFile = false;
+
+        [Tooltip("Dựng cả node được Figma đánh dấu export.\n" +
+                 "Ví dụ: icon đặt Export PNG vẫn thành GameObject.")]
+        public bool GenerateNodesMarkedForExport = true;
+
+        [Tooltip("Chỉ tải các page được chọn trong danh sách bên dưới.\n" +
+                 "Ví dụ: bỏ page nháp khỏi lần import.")]
+        public bool OnlyImportSelectedPages = false;
+
+        [HideInInspector]
+        public List<FigmaPageData> PageDataList = new ();
+
+        [FolderPath, Tooltip("Thư mục gốc cho mọi asset sinh ra. Để trống dùng Assets/_Project/UI.\n" +
+                             "Ví dụ: Assets/_Project/UI")]
+        public string AssetsRootFolder = "";
+
+        [FolderPath, Tooltip("Thư mục chứa prefab screen. Để trống dùng thư mục gốc kèm /Screens.\n" +
+                             "Ví dụ: Assets/_Project/UI/Screens")]
+        public string ScreenPrefabFolder = "";
+
+        [FolderPath, Tooltip("Thư mục chứa prefab component. Để trống dùng thư mục gốc kèm /Components.\n" +
+                             "Ví dụ: Assets/_Project/UI/Components")]
+        public string ComponentPrefabFolder = "";
+
+        [FolderPath, Tooltip("Thư mục chứa prefab page. Để trống dùng thư mục gốc kèm /Pages.\n" +
+                             "Ví dụ: Assets/_Project/UI/Pages")]
+        public string PagePrefabFolder = "";
+
+        [FolderPath, Tooltip("Thư mục cha của sprite. Mỗi tài liệu Figma có một thư mục con riêng. " +
+                             "Để trống dùng thư mục gốc kèm /Sprites.\n" +
+                             "Ví dụ: Assets/_Project/UI/Sprites/TenTaiLieu")]
+        public string ImageFillFolder = "";
+
+        [HideInInspector]
+        public List<FigmaScreenNameOverride> ScreenNameOverrides = new();
+
+        [HideInInspector]
+        public List<FigmaComponentSelection> ComponentSelections = new();
+
+        [Tooltip("Trang duy nhất chứa screen. Mọi frame trên trang này là screen; frame ở trang khác chỉ là khung chứa component.\n" +
+                 "Ví dụ: Screens")]
+        public string ScreensPageName = "Screens";
+
+        [Tooltip("Trang component bắt buộc phải có trong file Figma. Không bao giờ chứa screen.\n" +
+                 "Ví dụ: Components")]
+        public string ComponentsPageName = "Components";
+
+        [Tooltip("Chỉ import screen có trong danh sách bên dưới.\n" +
+                 "Ví dụ: frame mới trong Figma bị bỏ qua đến khi bấm Refresh.")]
+        public bool OnlyImportListedScreens = false;
+
+        [Tooltip("Chỉ dựng screen và component được tick, cộng mọi component chúng dùng qua instance. Prefab và sprite khác giữ nguyên từ lần import trước; page prefab không được ghi.\n" +
+                 "Ví dụ: tick riêng Boost thì chỉ Boost, Popup, Card-Boost và các icon nó dùng được import lại.")]
+        public bool ImportSelectionOnly = true;
+
+        [Tooltip("Thư mục chứa file .ttf tải về và font asset TMP. " +
+                 "Để trống dùng Assets/TextMesh Pro/Fonts.\n" +
+                 "Ví dụ: Assets/TextMesh Pro/Fonts")]
+        public string FontsFolder = "";
+
+        [Tooltip("Thư mục chứa material preset của font. Để trống dùng chung thư mục font.\n" +
+                 "Ví dụ: Assets/TextMesh Pro/Fonts")]
+        public string FontMaterialPresetsFolder = "";
+
+        [Tooltip("Đặt tên sprite theo node Figma dùng nó, thay cho mã hash imageRef.\n" +
+                 "Ví dụ: btn_play.png thay cho 3f9a2c81.png")]
+        public bool NameImageFillsByNodePath = true;
+
+        [Tooltip("Đặt server render vào cùng thư mục chủ sở hữu (Components/<component>, Screens/<màn hình>) và đặt tên theo node, như image fill, thay cho <node id>.png trong ServerRenderedImages.\n" +
+                 "Ví dụ: Sprites/<tài liệu>/Components/Popup/Mask group.png thay cho ServerRenderedImages/335_1485.png")]
+        public bool NameServerRendersByNodePath = true;
+
+        [Tooltip("Gộp lưới slice_ROW_COL thành một Image kiểu Sliced.\n" +
+                 "Ví dụ: 9 ô slice thành 1 sprite có border.")]
+        public bool CollapseSliceGrids = true;
+
+        [Tooltip("Cho mỗi shape Figma render trên server một sprite border theo bo góc, viền và bóng; " +
+                 "cắt phần giữa đồng màu còn 2 px.\n" +
+                 "Ví dụ: nút bo góc 28 vẽ ở mọi kích thước instance mà góc không bị kéo méo.")]
+        public bool SliceServerRenders = true;
+
+        [Tooltip("Gắn LayoutElement cho node nào. OnlyUnderAutoLayout: chỉ con của frame auto layout.\n" +
+                 "Ví dụ: Always giữ nếp 0.2, mỗi node một LayoutElement.")]
+        public LayoutElementMode AddLayoutElements = LayoutElementMode.Always;
+
+        [Tooltip("Node trùng tên trong cùng cha được đánh số Name_1, Name_2 theo thứ tự anh em.\n" +
+                 "Ví dụ: hai Btn_Blue thành Btn_Blue và Btn_Blue_1.")]
+        public bool NumberDuplicateSiblings = false;
+
+        [Tooltip("Regex (không phân biệt hoa thường) trên tên node để gắn Button. Để trống: không gắn theo tên.\n" +
+                 "Ví dụ: button | ^Btn_")]
+        public string ButtonNamePattern = "button";
+
+        [Tooltip("Font TMP dùng cho mọi text, bỏ qua font của Figma và không tải Google Fonts.\n" +
+                 "Ví dụ: font duy nhất của project.")]
+        public TMP_FontAsset FontOverride;
+
+        [Tooltip("ContentSizeFitter: rect bám chữ (nếp 0.2). FixedRectAutoSize: rect cố định có lề, chữ tự co, dư thì cắt bằng dấu ba chấm.\n" +
+                 "Ví dụ: FixedRectAutoSize khi font thật khác font Figma.")]
+        public TextFitMode TextFitMode = TextFitMode.ContentSizeFitter;
+
+        [Tooltip("Hệ số nới rộng rect chữ auto-size theo chiều ngang (FixedRectAutoSize).\nVí dụ: 1.25 = rộng thêm 25%.")]
+        public float TextWidthPadding = 1.25f;
+
+        [Tooltip("Hệ số nới rect chữ auto-size theo chiều dọc (FixedRectAutoSize).\nVí dụ: 1.1 = cao thêm 10%.")]
+        public float TextHeightPadding = 1.1f;
+
+        [Tooltip("characterSpacing của TMP cộng thêm cho mọi text, ngoài letter spacing của Figma.\nVí dụ: 0 khớp Figma khi text dùng đúng font của thiết kế.")]
+        public float CharacterSpacing = 0f;
+
+        [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +
+                 "Ví dụ: bật khi ảnh được scale nhỏ nhiều lần trong world space.")]
+        public bool SpriteMipmaps = false;
+
+        [Tooltip("Nén texture cho sprite tải về.\nVí dụ: Uncompressed để giữ đúng màu khi soi pixel.")]
+        public SpriteCompressionMode SpriteCompression = SpriteCompressionMode.Uncompressed;
+
+        [Tooltip("Bật override Android và iOS cho mọi sprite bridge ghi ra, kể cả sprite đã có.\n" +
+                 "Ví dụ: tắt khi cần giữ sprite thô trên mobile.")]
+        public bool OverrideMobileFormat = true;
+
+        [Tooltip("Định dạng texture cho tab Android và iOS.\nVí dụ: ASTC_4x4 cho UI sắc nét, ASTC_6x6 để nhẹ hơn.")]
+        public TextureImporterFormat MobileTextureFormat = TextureImporterFormat.ASTC_4x4;
+
+        [Tooltip("Chất lượng nén cho tab Android và iOS.\nVí dụ: Normal cân bằng thời gian import và chất lượng.")]
+        public TextureCompressionQuality MobileCompressionQuality = TextureCompressionQuality.Normal;
+
+        [Tooltip("Frame bật Clip content (trừ frame màn hình) thành mask trên chính GameObject: góc vuông dùng RectMask2D, góc bo dùng Mask với sprite bo góc 9-slice.\n" +
+                 "Ví dụ: frame Mask-Pattern bo góc 84 cắt pattern bên trong theo góc bo.")]
+        public bool ClipContentAsMask = true;
+
+        // The file the page, screen and component lists were read from. Node ids repeat across
+        // files (every file has a page 0:1), so lists from another file must not be reused.
+        [HideInInspector] public string ListsFileKey = "";
+
+        string IFolderDefaults.DefaultFolder(string propertyPath)
+        {
+            var folders = FigmaPaths.Resolve(this, "<document name>", warnOnInvalid: false);
+            switch (propertyPath)
+            {
+                case nameof(AssetsRootFolder): return folders.Root;
+                case nameof(ScreenPrefabFolder): return folders.Screens;
+                case nameof(ComponentPrefabFolder): return folders.Components;
+                case nameof(PagePrefabFolder): return folders.Pages;
+                case nameof(ImageFillFolder): return folders.ImageFillParent;
+                default: return null;
+            }
+        }
+
+        /// <summary>The .figcraft file as a full path; empty when none is set.</summary>
+        public string FigCraftFileFullPath
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(FigCraftFile)) return "";
+                var path = FigCraftCli.ExpandHome(FigCraftFile.Trim());
+                return System.IO.Path.GetFullPath(System.IO.Path.IsPathRooted(path)
+                    ? path
+                    : System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), path));
+            }
+        }
+
+        public void RefreshForUpdatedPages(FigmaFile file)
+        {
+            // Get all pages from Figma Doc
+            var pageNodeList = FigmaDataUtils.GetPageNodes(file);
+            var downloadPageNodeIdList = pageNodeList.Select(p => p.id).ToList();
+
+            // Get a list of all pages in the settings file
+            var settingsPageDataIdList = PageDataList.Select(p => p.NodeId).ToList();
+
+            // Build a list of all new pages to add
+            var addPageIdList = downloadPageNodeIdList.Except(settingsPageDataIdList);
+            foreach (var addPageId in addPageIdList)
+            {
+                var addNode = pageNodeList.FirstOrDefault(p => p.id == addPageId);
+                PageDataList.Add(new FigmaPageData(addNode.name, addNode.id));
+            }
+
+            // Build a list of removed pages to remove from list
+            var deletePageIdList = settingsPageDataIdList.Except(downloadPageNodeIdList);
+            foreach (var deletePageId in deletePageIdList)
+            {
+                var index = PageDataList.FindIndex(p => p.NodeId == deletePageId);
+                PageDataList.RemoveAt(index);
+            }
+            foreach (var page in PageDataList)
+            {
+                var node = pageNodeList.FirstOrDefault(p => p.id == page.NodeId);
+                if (node != null) page.Name = node.name;
+            }
+            PageDataList.OrderBy(p => p.NodeId);
+        }
+
+        /// <summary>
+        /// Record that the lists now belong to <paramref name="fileKey"/>. When they were read from
+        /// another file, the page selection, screen rows and component ticks are dropped and rebuilt
+        /// from <paramref name="file"/>. An asset written before 0.8.1 has no record; its lists came
+        /// from the bound file. Returns true when the lists were rebuilt.
+        /// </summary>
+        public bool BindListsToFile(string fileKey, FigmaFile file)
+        {
+            if (string.IsNullOrEmpty(fileKey) || file == null) return false;
+            var listsKey = ListsFileKey;
+            ListsFileKey = fileKey;
+            if (string.IsNullOrEmpty(listsKey) || listsKey == fileKey) return false;
+
+            OnlyImportSelectedPages = false;
+            PageDataList.Clear();
+            ScreenNameOverrides.Clear();
+            ComponentSelections.Clear();
+            RefreshForUpdatedPages(file);
+            RefreshForUpdatedScreens(file);
+            RefreshForUpdatedComponents(file);
+            Debug.LogWarning($"[FigCraftBridge] The page, screen and component lists came from another FigCraft file ({listsKey}). " +
+                             $"They were rebuilt from '{file.name}' ({fileKey}): every page and screen is selected, no component is ticked.");
+            return true;
+        }
+
+        /// <summary>
+        /// Rebuild ScreenNameOverrides from the document: one row per screen frame, in document
+        /// order, grouped by the page it sits on. Prefab names and import toggles already entered
+        /// are carried over; a row whose frame no longer exists is dropped.
+        /// </summary>
+        public void RefreshForUpdatedScreens(FigmaFile file)
+        {
+            var existingRows = new Dictionary<string, FigmaScreenNameOverride>();
+            foreach (var row in ScreenNameOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(row.FrameName)) continue;
+                existingRows[row.FrameName] = row;
+            }
+
+            var refreshedRows = new List<FigmaScreenNameOverride>();
+            var seenNames = new HashSet<string>();
+
+            foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
+            {
+                foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode, ScreensPageName))
+                {
+                    if (!seenNames.Add(screenNode.name))
+                    {
+                        Debug.LogWarning("[FigCraftBridge] Two screen frames are both named " +
+                                         $"'{screenNode.name}'. The frame name is the lookup key, " +
+                                         "so only one row is kept - rename one of them in FigCraft.");
+                        continue;
+                    }
+
+                    if (!existingRows.TryGetValue(screenNode.name, out var row))
+                        row = new FigmaScreenNameOverride { FrameName = screenNode.name };
+
+                    row.PageName = pageNode.name;
+                    row.PageNodeId = pageNode.id;
+                    refreshedRows.Add(row);
+                }
+            }
+
+            ScreenNameOverrides = refreshedRows;
+        }
+
+        /// <summary>
+        /// Rebuild ComponentSelections from the document: one row per component set, and per
+        /// component outside a set, on every page but the screens page. Ticks already made
+        /// are carried over by node id. Each row records which screens and components reach it
+        /// through instances, so the window can show what a tick pulls in.
+        /// </summary>
+        public void RefreshForUpdatedComponents(FigmaFile file)
+        {
+            var existingRows = new Dictionary<string, FigmaComponentSelection>();
+            foreach (var row in ComponentSelections)
+                if (!string.IsNullOrEmpty(row.NodeId)) existingRows[row.NodeId] = row;
+
+            var refreshedRows = new List<FigmaComponentSelection>();
+            foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
+            {
+                foreach (var componentNode in FigmaDataUtils.GetComponentRowNodes(pageNode, ScreensPageName))
+                {
+                    if (!existingRows.TryGetValue(componentNode.id, out var row))
+                        row = new FigmaComponentSelection { NodeId = componentNode.id };
+                    row.Name = componentNode.name;
+                    row.IsSet = componentNode.type == NodeType.COMPONENT_SET;
+                    row.PageName = pageNode.name;
+                    row.PageNodeId = pageNode.id;
+                    row.NeededByScreens = new List<string>();
+                    row.NeededByComponents = new List<string>();
+                    refreshedRows.Add(row);
+                }
+            }
+
+            var rowsById = refreshedRows.ToDictionary(row => row.NodeId);
+            var index = new FigmaImportScope.DocumentIndex(file);
+            foreach (var screenNode in FigmaDataUtils.GetScreenNodes(file, ScreensPageName))
+                foreach (var rootId in FigmaImportScope.Create(index, new[] { screenNode.id }).Roots)
+                    if (rowsById.TryGetValue(rootId, out var neededRow)) neededRow.NeededByScreens.Add(screenNode.name);
+            foreach (var row in refreshedRows)
+                foreach (var rootId in FigmaImportScope.Create(index, new[] { row.NodeId }).Roots)
+                    if (rootId != row.NodeId && rowsById.TryGetValue(rootId, out var neededRow))
+                        neededRow.NeededByComponents.Add(row.NodeId);
+
+            ComponentSelections = refreshedRows;
+        }
+    }
+
+    [Serializable]
+    public class FigmaPageData
+    {
+        public string Name;
+        public string NodeId;
+        public bool Selected;
+
+        public FigmaPageData(){}
+
+        public FigmaPageData(string name, string nodeId)
+        {
+            Name = name;
+            NodeId = nodeId;
+            Selected = true; // default is true
+        }
+    }
+
+    [Serializable]
+    public class FigmaScreenNameOverride
+    {
+        public string FrameName;
+        public string PrefabName;
+
+        // Inverted so a row deserialized from an asset written before this field existed still
+        // imports, and so a row added by Refresh imports without setting anything.
+        public bool ExcludeFromImport;
+
+        public string PageName;
+        public string PageNodeId;
+    }
+
+    /// <summary>A component set, or a component outside any set, the import builds when ticked.</summary>
+    [Serializable]
+    public class FigmaComponentSelection
+    {
+        public string NodeId;
+        public string Name;
+        public bool IsSet;
+
+        // Off for a new row: an untick imports the component only when a ticked item uses it.
+        public bool Include;
+
+        public string PageName;
+        public string PageNodeId;
+
+        /// <summary>Screen frame names that reach this component through instances, directly or nested.</summary>
+        public List<string> NeededByScreens = new();
+
+        /// <summary>Node ids of other rows that reach this component through instances.</summary>
+        public List<string> NeededByComponents = new();
+    }
+}

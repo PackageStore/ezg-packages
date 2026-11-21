@@ -1,0 +1,19 @@
+{
+    "name": "FigCraftBridgeEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:21dfe16f2d9049f382a7f8908740378a",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
