@@ -66,7 +66,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             if (width < 1 || height < 1 || width > MaxTexels || height > MaxTexels) return null;
 
             var radii = CornerRadii(node);
-            var stroke = VisibleStroke(node);
+            // A dashed stroke is drawn by DashedStroke as a child; the shape keeps its fills only
+            var stroke = DashedStroke.Has(node) ? null : VisibleStroke(node);
             var strokeWidth = stroke == null ? 0f : node.strokeAlign switch
             {
                 Node.StrokeAlign.INSIDE => node.strokeWeight,

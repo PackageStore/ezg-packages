@@ -6,6 +6,11 @@ Tổng hợp thay đổi của cả repo. Chi tiết xem changelog riêng ở `t
 
 ## 2026-11-21
 
+**Fixed**
+- `com.ezg.figma-bridge` 0.8.20: viền nét đứt (`strokeDashes`) của frame có con không còn bị vẽ thành nét liền — đọc
+  `strokeDashes` / `strokeCap`, vẽ viền thành con `[Stroke]` dạng Tiled (góc cố định, mỗi cạnh 1 chu kỳ nét + khe, đầu tròn),
+  khung co / giãn nét vẫn đều. Chi tiết: `packages/com.ezg.figma-bridge/CHANGELOG.md`.
+
 **Added**
 - `com.ezg.figcraft-bridge` 0.1.0: package mới import file FigCraft (`.figcraft`) vào Unity thành prefab UGUI, clone từ
   `com.ezg.figma-bridge` 0.8.19 (giữ nguyên pipeline dựng prefab). Đọc file đã lưu qua `figcraft-cli` (headless) hoặc file

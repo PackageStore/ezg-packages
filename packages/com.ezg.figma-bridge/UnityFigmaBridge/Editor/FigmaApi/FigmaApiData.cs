@@ -190,6 +190,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public StrokeAlign strokeAlign;
 
         /// <summary>
+        /// Lengths of the dashes and gaps of a dashed stroke, alternating; null or empty for a solid stroke
+        /// </summary>
+        public float[] strokeDashes;
+
+        /// <summary>
+        /// End decoration of the stroke and of each dash, as a string enum (NONE, ROUND, SQUARE, LINE_ARROW…)
+        /// </summary>
+        public string strokeCap;
+
+        /// <summary>
         /// Radius of each corner of the frame if a single radius is set for all corners
         /// </summary>
         public float cornerRadius;

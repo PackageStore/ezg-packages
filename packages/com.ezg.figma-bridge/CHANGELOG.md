@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.20] - 2026-11-21
+### Fixed
+- **A dashed stroke on a frame stays dashed.** A frame with children draws its own stroke locally
+  (`FrameShapeSprite`, and `OuterStroke` for the part past its box), and both drew `strokeDashes` as a
+  solid line: `Node` did not read the field at all. A popup frame's inner dashed border (dash 24, gap
+  16, weight 6, round caps) imported as one solid line, and the visual check still scored it 0.97.
+  `Node` now reads `strokeDashes` and `strokeCap`. When a frame has a dashed solid stroke, its shape
+  sprite keeps the fills only and the whole stroke is the `[Stroke]` child (`DashedStroke`), drawn
+  `Tiled` from one white sprite per stroke style: the four corners are fixed and each edge holds one
+  dash cycle, so the dashes stay even when an instance or the frame is resized. As in Figma, every
+  edge and corner arc holds a whole number of cycles (the cycle stretched to fit) and a dash sits on
+  each joint; round caps add a half disc to each dash, square caps half the weight. A gradient or
+  image stroke keeps the old solid drawing.
+
 ## [0.8.19] - 2026-11-03
 ### Fixed
 - **A large file no longer wedges a Figma lane on Sync.** The Bridge source asked the plugin for
