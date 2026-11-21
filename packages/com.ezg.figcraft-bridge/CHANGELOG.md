@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1] - 2026-11-21
+### Fixed
+- **A frame's stroke draws above its children, as FigCraft draws it.** A node with children gets
+  its whole stroke band (inside, center or outside) as the `[Stroke]` child, placed after the
+  children, and its own shape sprite keeps only the fills. Before, the stroke was baked into the
+  node's sprite under the children, so a child that crossed the frame's edge (a tag, a badge)
+  hid the stroke that FigCraft shows on top. A node without children is drawn as before.
+- **Per-side stroke weights are drawn.** A frame whose sides carry their own weights
+  (`individualStrokeWeights`) was baked with its single `strokeWeight`: a card with 10 px sides
+  and a base weight of 4 got a 4 px border. The shape sprite and the `[Stroke]` ring now draw each
+  side at its own weight, inside, center or outside.
+
 ## [0.1.0] - 2026-11-21
 ### Added
 - **First version, cloned from `com.ezg.figma-bridge` 0.8.19.** Imports a FigCraft file as UGUI

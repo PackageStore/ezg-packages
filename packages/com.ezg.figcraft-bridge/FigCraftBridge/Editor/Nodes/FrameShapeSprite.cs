@@ -67,21 +67,22 @@ namespace FigCraftBridge.Editor.Nodes
 
             var radii = CornerRadii(node);
             var stroke = VisibleStroke(node);
-            var strokeWidth = stroke == null ? 0f : node.strokeAlign switch
+            var share = node.strokeAlign switch
             {
-                Node.StrokeAlign.INSIDE => node.strokeWeight,
-                Node.StrokeAlign.CENTER => node.strokeWeight * 0.5f,
+                Node.StrokeAlign.INSIDE => 1f,
+                Node.StrokeAlign.CENTER => 0.5f,
                 _ => 0f
             };
+            var strokeSides = stroke == null ? Vector4.zero : StrokeSides(node) * share;
 
             var white = SolidTint.TryGetShapeTint(node, out _);
-            var pixels = Draw(node, width, height, radii, stroke, strokeWidth, white);
+            var pixels = Draw(node, width, height, radii, stroke, strokeSides, white);
 
             // One guard texel past the widest corner or stroke, for the anti-aliased edge
-            var left = Mathf.CeilToInt(Mathf.Max(radii.x, radii.w, strokeWidth)) + 1;
-            var right = Mathf.CeilToInt(Mathf.Max(radii.y, radii.z, strokeWidth)) + 1;
-            var top = Mathf.CeilToInt(Mathf.Max(radii.x, radii.y, strokeWidth)) + 1;
-            var bottom = Mathf.CeilToInt(Mathf.Max(radii.w, radii.z, strokeWidth)) + 1;
+            var left = Mathf.CeilToInt(Mathf.Max(radii.x, radii.w, strokeSides.x)) + 1;
+            var right = Mathf.CeilToInt(Mathf.Max(radii.y, radii.z, strokeSides.z)) + 1;
+            var top = Mathf.CeilToInt(Mathf.Max(radii.x, radii.y, strokeSides.y)) + 1;
+            var bottom = Mathf.CeilToInt(Mathf.Max(radii.w, radii.z, strokeSides.w)) + 1;
             if (left + right >= width) left = right = 0;
             if (top + bottom >= height) top = bottom = 0;
             var slice = ServerRenderSlicer.Slice(pixels, width, height, new Vector4(left, bottom, right, top));
@@ -124,9 +125,21 @@ namespace FigCraftBridge.Editor.Nodes
             return shadows;
         }
 
+        public static bool HasStroke(Node node) => VisibleStroke(node) != null;
+
+        /// <summary>Stroke weight of each side as (left, top, right, bottom): the per-side weights when set.</summary>
+        public static Vector4 StrokeSides(Node node)
+        {
+            var sides = node.individualStrokeWeights;
+            return sides != null
+                ? new Vector4(sides.left, sides.top, sides.right, sides.bottom)
+                : Vector4.one * node.strokeWeight;
+        }
+
         private static Paint VisibleStroke(Node node)
         {
-            if (node.strokes == null || node.strokeWeight <= 0f) return null;
+            var sides = StrokeSides(node);
+            if (node.strokes == null || Mathf.Max(sides.x, sides.y, sides.z, sides.w) <= 0f) return null;
             Paint top = null;
             foreach (var stroke in node.strokes)
             {
@@ -152,15 +165,21 @@ namespace FigCraftBridge.Editor.Nodes
         ///     Fills are composited bottom to top in straight alpha, the stroke over them, and the result
         ///     is clipped to the rounded box. Texture rows run bottom up; Figma space runs top down.
         /// </summary>
-        private static Color32[] Draw(Node node, int width, int height, Vector4 radii, Paint stroke, float strokeWidth, bool white)
+        /// <param name="strokeSides">Width of the stroke band inside the box per side, as (left, top, right, bottom).</param>
+        private static Color32[] Draw(Node node, int width, int height, Vector4 radii, Paint stroke, Vector4 strokeSides, bool white)
         {
             var pixels = new Color32[width * height];
             var size = new Vector2(width, height);
             var innerShadows = InnerShadowLayers(node, width, height, radii);
+            // Corners as (top left, top right, bottom right, bottom left), each inset by its wider side
             var innerRadii = new Vector4(
-                Mathf.Max(0f, radii.x - strokeWidth), Mathf.Max(0f, radii.y - strokeWidth),
-                Mathf.Max(0f, radii.z - strokeWidth), Mathf.Max(0f, radii.w - strokeWidth));
-            var innerSize = size - Vector2.one * (2f * strokeWidth);
+                Mathf.Max(0f, radii.x - Mathf.Max(strokeSides.x, strokeSides.y)),
+                Mathf.Max(0f, radii.y - Mathf.Max(strokeSides.z, strokeSides.y)),
+                Mathf.Max(0f, radii.z - Mathf.Max(strokeSides.z, strokeSides.w)),
+                Mathf.Max(0f, radii.w - Mathf.Max(strokeSides.x, strokeSides.w)));
+            var innerSize = size - new Vector2(strokeSides.x + strokeSides.z, strokeSides.y + strokeSides.w);
+            var innerCentre = new Vector2(strokeSides.x + innerSize.x * 0.5f, strokeSides.y + innerSize.y * 0.5f);
+            var hasBand = strokeSides != Vector4.zero;
 
             for (var row = 0; row < height; row++)
             for (var x = 0; x < width; x++)
@@ -186,10 +205,10 @@ namespace FigCraftBridge.Editor.Nodes
                 }
 
                 var coverage = Coverage(figmaPoint - size * 0.5f, size * 0.5f, radii);
-                if (stroke != null && strokeWidth > 0f)
+                if (stroke != null && hasBand)
                 {
                     var inner = innerSize.x > 0f && innerSize.y > 0f
-                        ? Coverage(figmaPoint - size * 0.5f, innerSize * 0.5f, innerRadii)
+                        ? Coverage(figmaPoint - innerCentre, innerSize * 0.5f, innerRadii)
                         : 0f;
                     var strokeColour = PaintColour(stroke, normalised);
                     if (white) strokeColour = new Color(1f, 1f, 1f, strokeColour.a);

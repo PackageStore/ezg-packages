@@ -95,6 +95,9 @@ namespace FigCraftBridge.Editor.FigmaApi
     
     public class Node
     {
+        /// <summary>A field-by-field copy; arrays and child objects are shared with this node.</summary>
+        public Node ShallowCopy() => (Node)MemberwiseClone();
+
         /// <summary>
         /// A string uniquely identifying this node within the document
         /// </summary>

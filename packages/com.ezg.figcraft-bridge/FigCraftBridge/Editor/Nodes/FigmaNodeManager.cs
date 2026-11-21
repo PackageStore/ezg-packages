@@ -204,6 +204,9 @@ namespace FigCraftBridge.Editor.Nodes
             var image = nodeGameObject.GetComponent<Image>();
             if (image == null) image = nodeGameObject.AddComponent<Image>();
 
+            OuterStroke.Apply(nodeGameObject, node, figmaImportProcessData);
+            if (OuterStroke.DrawsAboveChildren(node)) node = OuterStroke.FillsOnly(node);
+
             if (FrameShapeSprite.IsNeeded(node))
             {
                 var shapeSprite = FrameShapeSprite.Build(node, figmaImportProcessData.Settings);
@@ -215,7 +218,6 @@ namespace FigCraftBridge.Editor.Nodes
                     image.pixelsPerUnitMultiplier = 1f;
                     image.preserveAspect = false;
                     image.enabled = true;
-                    OuterStroke.Apply(nodeGameObject, node, figmaImportProcessData);
                     return;
                 }
             }

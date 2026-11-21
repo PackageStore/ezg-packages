@@ -260,6 +260,7 @@ namespace FigCraftBridge.Editor.Nodes
                     // "First on top": the first child must draw last
                     if (figmaNode.itemReverseZIndex) childGameObject.transform.SetAsFirstSibling();
                 }
+                OuterStroke.KeepAboveChildren(nodeGameObject, figmaNode);
             }
             
             // For a final step on creation of scroll content. If the node doesnt use layout, we need to resize to fit all the generated children
