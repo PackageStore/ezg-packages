@@ -167,6 +167,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     // Stroke and drop shadow are drawn by a material preset
                     var textEffect = TextEffect.FromNode(node);
                     textEffect.FontSize = baseStyle.fontSize;
+                    TextFaceLayer.Apply(text, matchingFontMapping, textEffect); // face above the whole stroked line
                     if (!textEffect.Any) return;
                     text.fontMaterial = FontManager.GetEffectMaterialPreset(matchingFontMapping, textEffect);
                     break;
@@ -231,8 +232,8 @@ namespace UnityFigmaBridge.Editor.Nodes
             Sprite sprite = null;
             var isPattern = false;
             if (firstFill != null && firstFill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(firstFill.imageRef))
-                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
-                    ImageFillCover.SpritePathFor(FigmaPaths.GetPathForImageFill(firstFill.imageRef), firstFill, node));
+                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(ImageFillFilters.SpritePathFor(
+                    ImageFillCover.SpritePathFor(FigmaPaths.GetPathForImageFill(firstFill.imageRef), firstFill, node), firstFill));
             else if (firstFill != null && firstFill.type == Paint.PaintType.PATTERN)
             {
                 sprite = LoadPatternSourceSprite(firstFill, figmaImportProcessData);

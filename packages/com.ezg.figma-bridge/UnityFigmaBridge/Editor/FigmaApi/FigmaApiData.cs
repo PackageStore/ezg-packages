@@ -991,6 +991,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// A reference to an image embedded in this node. To download the image using this reference, use the GET file images endpoint to retrieve the mapping from image references to image URLs
         /// </summary>
         public string imageRef;
+
+        /// <summary>
+        /// Adjustments of an IMAGE paint (Figma's Image panel): each -1..1, 0 or absent = unchanged.
+        /// </summary>
+        public ImageFilters filters;
         
         /// <summary>
         /// A reference to the GIF embedded in this node, if the image is a GIF. To download the image using this reference, use the GET file images endpoint to retrieve the mapping from image references to image URLs
@@ -1079,6 +1084,14 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     /// <summary>
     /// Metadata for character formatting
     /// </summary>
+    /// <summary>Image adjustments of an IMAGE paint, each from -1 to 1.</summary>
+    public class ImageFilters
+    {
+        public float exposure, contrast, saturation, temperature, tint, highlights, shadows;
+
+        public bool Any => exposure != 0f || contrast != 0f || saturation != 0f || temperature != 0f || tint != 0f || highlights != 0f || shadows != 0f;
+    }
+
     public class TypeStyle
     {
         /// <summary>A copy that shares the paint arrays, for merging a character override on top.</summary>

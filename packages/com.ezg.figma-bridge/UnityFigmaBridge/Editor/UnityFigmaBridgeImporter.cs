@@ -830,6 +830,8 @@ namespace UnityFigmaBridge.Editor
 
             FigmaImportTimer.Begin("Crop FILL image fills");
             ImageFillCover.Run(figmaFile, foundImageFills);
+            FigmaImportTimer.Begin("Filter image fills");
+            ImageFillFilters.Run(figmaFile, foundImageFills);
 
             FigmaImportTimer.Begin("Fonts");
             // Generate font mapping data

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.22] - 2026-11-22
+### Fixed
+- **A thick text stroke no longer covers the next letter.** TextMeshPro draws a glyph's outline and
+  face in one quad, so where glyphs sit close the outline of a later glyph is drawn over the face of
+  the one before: a Tag-Label "COMMON" with a 6 px stroke read "CCMMCN", "EPIC" lost half its I.
+  Figma draws the stroke of the whole line under every face. A stroked text now gets a `[Face]` child
+  (`TextFaceLayer`) that draws the face again above the line, with the same effect preset but a
+  transparent outline and no shadow, so it shows exactly the face Figma shows (eroded by the inside
+  half of a centred stroke). The node's own component keeps the stroke and shadow and stays the one
+  game code reads and writes: the runtime `FigmaTextFace` copies its text, colour, size, alignment and
+  spacing whenever they change. A text whose stroke is removed in Figma loses the child on re-import.
+- **Image adjustments on an image fill are applied.** Figma keeps exposure, contrast, saturation,
+  temperature, tint, highlights and shadows on the paint (`Paint.filters`, not read before), so one
+  shared image shows differently per node: a pattern with saturation −1 and exposure +1 imported as
+  the raw blue art instead of pale cream. A paint with adjustments now gets a filtered copy of the
+  bitmap it shows (the fill or its FILL crop), `<image>_f-<key>.png`, keyed by the adjustments and
+  rebuilt when the source changes (`ImageFillFilters`). Figma does not publish its formulas; the copy
+  uses the usual photo-editor ones (exposure 2^(1.5·e), contrast around mid grey, saturation against
+  Rec. 601 luma, temperature / tint shifts, highlights / shadows on each half), close to its renders
+  for the values files use.
+
 ## [0.8.21] - 2026-11-21
 ### Fixed
 - **A text in more than one style keeps its sizes and colours.** A TEXT node whose characters carry

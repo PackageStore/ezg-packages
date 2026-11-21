@@ -113,7 +113,7 @@ namespace UnityFigmaBridge.Editor.Utils
             return region;
         }
 
-        private static void CopyImporter(string fillPath, string cropPath, string marker)
+        internal static void CopyImporter(string fillPath, string cropPath, string marker)
         {
             if (AssetImporter.GetAtPath(cropPath) is not TextureImporter target) return;
             if (AssetImporter.GetAtPath(fillPath) is TextureImporter source)
@@ -157,7 +157,7 @@ namespace UnityFigmaBridge.Editor.Utils
         private static int BigEndian(byte[] bytes, int offset) =>
             (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
 
-        private static Paint TopVisibleFill(Node node)
+        internal static Paint TopVisibleFill(Node node)
         {
             if (node.fills == null) return null;
             for (var i = node.fills.Length - 1; i >= 0; i--)
@@ -165,7 +165,7 @@ namespace UnityFigmaBridge.Editor.Utils
             return null;
         }
 
-        private static string Md5(byte[] bytes)
+        internal static string Md5(byte[] bytes)
         {
             using var md5 = System.Security.Cryptography.MD5.Create();
             return BitConverter.ToString(md5.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
