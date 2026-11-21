@@ -72,12 +72,15 @@ namespace UnityFigmaBridge.Editor.Nodes
                     }
                     text.font = matchingFontMapping.FontAsset;
 
-                    text.text = node.characters;
-                    ApplyTextFill(text, TopVisiblePaint(node.fills), node, matchingFontMapping.FontAsset);
-                    text.fontSize = node.style.fontSize;
+                    // Characters in more than one style: rich text runs around the first character's style
+                    var runs = TextRuns.Read(node, TopVisiblePaint(node.fills));
+                    var baseStyle = runs?.BaseStyle ?? node.style;
+                    text.text = runs?.RichText ?? node.characters;
+                    ApplyTextFill(text, runs != null ? runs.BaseFill : TopVisiblePaint(node.fills), node, matchingFontMapping.FontAsset);
+                    text.fontSize = baseStyle.fontSize;
                     text.characterSpacing = (settings != null ? settings.CharacterSpacing : 0f) +
-                                            PixelsToEm(node.style.letterSpacing, node.style.fontSize);
-                    ApplyLineMetrics(text, node, matchingFontMapping.FontAsset);
+                                            PixelsToEm(baseStyle.letterSpacing, baseStyle.fontSize);
+                    ApplyLineMetrics(text, baseStyle, matchingFontMapping.FontAsset);
 
                     text.horizontalAlignment = node.style.textAlignHorizontal switch
                     {
@@ -128,8 +131,8 @@ namespace UnityFigmaBridge.Editor.Nodes
                         var existingFitter = nodeGameObject.GetComponent<ContentSizeFitter>();
                         if (existingFitter != null) UnityEngine.Object.DestroyImmediate(existingFitter);
                         text.enableAutoSizing = true;
-                        text.fontSizeMax = node.style.fontSize;
-                        text.fontSizeMin = node.style.fontSize * AutoSizeMinRatio;
+                        text.fontSizeMax = baseStyle.fontSize;
+                        text.fontSizeMin = baseStyle.fontSize * AutoSizeMinRatio;
                         text.overflowMode = TextOverflowModes.Ellipsis;
                     }
                     else if (node.style.textAutoResize != TypeStyle.TextAutoResize.NONE)
@@ -163,6 +166,7 @@ namespace UnityFigmaBridge.Editor.Nodes
 
                     // Stroke and drop shadow are drawn by a material preset
                     var textEffect = TextEffect.FromNode(node);
+                    textEffect.FontSize = baseStyle.fontSize;
                     if (!textEffect.Any) return;
                     text.fontMaterial = FontManager.GetEffectMaterialPreset(matchingFontMapping, textEffect);
                     break;
@@ -363,9 +367,8 @@ namespace UnityFigmaBridge.Editor.Nodes
         ///     up the difference between lines, and the vertical margins the half leading at both ends.
         ///     A cap-height leading trim cuts the box at the first cap line and the last baseline instead.
         /// </summary>
-        private static void ApplyLineMetrics(TMP_Text text, Node node, TMP_FontAsset fontAsset)
+        private static void ApplyLineMetrics(TMP_Text text, TypeStyle style, TMP_FontAsset fontAsset)
         {
-            var style = node.style;
             var face = fontAsset.faceInfo;
             if (style.fontSize <= 0f || face.pointSize <= 0f) return;
             var scale = style.fontSize / face.pointSize;

@@ -510,9 +510,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// </summary>
         public int[] characterStyleOverrides;
 
-        // TODO- Overrides
-        // styleOverrideTableMap<Number,TypeStyle>
-         //   Map from ID to TypeStyle for looking up style overrides 
+        /// <summary>
+        /// Map from the ids in characterStyleOverrides to the style each one sets. An entry lists only
+        /// the fields it changes; the rest come from style.
+        /// </summary>
+        public System.Collections.Generic.Dictionary<string, TypeStyle> styleOverrideTable;
 
          
         // FOR INSTANCE
@@ -1079,6 +1081,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     /// </summary>
     public class TypeStyle
     {
+        /// <summary>A copy that shares the paint arrays, for merging a character override on top.</summary>
+        public TypeStyle ShallowCopy() => (TypeStyle)MemberwiseClone();
+
         /// <summary>
         /// Font family of text (standard name)
         /// </summary>

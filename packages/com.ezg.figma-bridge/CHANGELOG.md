@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.21] - 2026-11-21
+### Fixed
+- **A text in more than one style keeps its sizes and colours.** A TEXT node whose characters carry
+  style overrides (`characterStyleOverrides` into `styleOverrideTable`, a field `Node` did not read)
+  imported every character in the node's default style: "638 +11" lost its smaller green "+11",
+  "21  (-15% dmg taken)" drew its 38 px number at the 28 px default. The runs now become TextMeshPro
+  rich text (`TextRuns`): the component takes the style of the first character, as Figma does when a
+  text is typed over (so a game that sets the text at runtime gets the leading run's size), and each
+  run that differs is wrapped in `<size=N%>` (relative, so auto-size scales the runs together),
+  `<color=#RRGGBBAA>` and `<b>` for a heavier weight. Line metrics, auto-size limits and the text
+  effect's size follow the first character's style. A run in another font family keeps the node's font.
+- **A character a fallback font draws is no longer reported as missing.** The glyph check after baking
+  logged an error for every character the mapped font file lacked, even when the font asset's
+  fallback list or the TMP Settings fallback list / default font has it (a project fallback holding
+  → ★ ☆). Those characters are now looked up in the fallbacks first, the way TextMeshPro draws them;
+  only characters no fallback covers are reported, as a warning.
+
 ## [0.8.20] - 2026-11-21
 ### Fixed
 - **A dashed stroke on a frame stays dashed.** A frame with children draws its own stroke locally

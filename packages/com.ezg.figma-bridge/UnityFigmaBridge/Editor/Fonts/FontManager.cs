@@ -213,21 +213,24 @@ namespace UnityFigmaBridge.Editor.Fonts
         }
 
         /// <summary>
-        /// Adds every character the document uses to the font atlas, and names the ones the font
-        /// file itself has no glyph for - the only characters TextMeshPro must fall back for.
+        /// Adds every character the document uses to the font atlas. A character the font file has
+        /// no glyph for is drawn by TextMeshPro from a fallback (the font asset's own fallback list,
+        /// then the TMP Settings fallback list and default font), so only one no fallback covers
+        /// either is reported: as a warning, since the import itself is fine.
         /// </summary>
         private static void BakeRequiredCharacters(FigmaFontMapEntry fontMapEntry)
         {
-            var missingUnicodes = TextMeshProFontUtils.AddCharactersToFont(fontMapEntry.FontAsset, fontMapEntry.RequiredCharacters);
+            var notInFont = TextMeshProFontUtils.AddCharactersToFont(fontMapEntry.FontAsset, fontMapEntry.RequiredCharacters);
             EditorUtility.SetDirty(fontMapEntry.FontAsset);
 
+            var missingUnicodes = TextMeshProFontUtils.NotInFallbacks(fontMapEntry.FontAsset, notInFont);
             if (missingUnicodes.Length == 0) return;
 
             var missingCharacters = string.Join(" ", missingUnicodes.Select(unicode => char.ConvertFromUtf32((int)unicode)));
-            Debug.LogError($"[FontManager] '{fontMapEntry.FontAsset.name}' could not bake " +
-                           $"{missingUnicodes.Length} character(s) the document uses: {missingCharacters}. " +
-                           "The font file has no glyph for them (or the atlas is full and multi-atlas is off). " +
-                           "TextMeshPro renders these from a fallback font. Choose a family in Figma that covers them.");
+            Debug.LogWarning($"[FontManager] '{fontMapEntry.FontAsset.name}' has no glyph for " +
+                             $"{missingUnicodes.Length} character(s) the document uses, and no fallback font covers them: " +
+                             $"{missingCharacters}. They draw as boxes. Add a fallback font asset that has them " +
+                             "(font asset or TMP Settings fallback list), or choose a family in Figma that covers them.");
         }
 
         static string StripFontDetailsFromName(TMP_FontAsset fontAsset)

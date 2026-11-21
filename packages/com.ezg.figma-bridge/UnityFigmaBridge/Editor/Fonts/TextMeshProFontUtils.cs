@@ -50,6 +50,28 @@ namespace UnityFigmaBridge.Editor.Fonts
         }
 
         /// <summary>
+        /// The characters no fallback draws either. TextMeshPro looks a missing character up in the
+        /// font asset's fallback list, then the TMP Settings fallback list, then the TMP Settings
+        /// default font, each with its own fallbacks; a dynamic fallback may bake the glyph on the way.
+        /// </summary>
+        public static uint[] NotInFallbacks(TMP_FontAsset tmpFontAsset, uint[] unicodes)
+        {
+            if (unicodes == null || unicodes.Length == 0) return System.Array.Empty<uint>();
+
+            var fallbacks = new List<TMP_FontAsset>();
+            if (tmpFontAsset.fallbackFontAssetTable != null) fallbacks.AddRange(tmpFontAsset.fallbackFontAssetTable);
+            var settings = TMP_Settings.LoadDefaultSettings();
+            if (settings != null)
+            {
+                if (TMP_Settings.fallbackFontAssets != null) fallbacks.AddRange(TMP_Settings.fallbackFontAssets);
+                fallbacks.Add(TMP_Settings.defaultFontAsset);
+            }
+
+            return unicodes.Where(unicode => !fallbacks.Any(fallback => fallback != null && fallback != tmpFontAsset &&
+                fallback.HasCharacters(char.ConvertFromUtf32((int)unicode), out uint[] _, true, true))).ToArray();
+        }
+
+        /// <summary>
         /// Expands a string into unicode code points, keeping surrogate pairs together.
         /// </summary>
         public static IEnumerable<uint> ToCodePoints(string text)
