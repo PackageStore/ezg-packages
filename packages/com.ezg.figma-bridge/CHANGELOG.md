@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.24] - 2026-11-22
+### Fixed
+- **A text whose line is taller than its fixed box keeps its size.** Figma centres a line's ascent
+  and descent in its line height and lets a line taller than a fixed text box overflow it at full
+  size. The half-leading margins (`ApplyLineMetrics`) assumed the lines fit, so a 48 px label box
+  with a 58 px line height left TMP a content area shorter than the glyphs and auto-size shrank a
+  34 px tab label to 25.7. The overflow of a fixed box's explicit lines now comes off the vertical
+  margins (both halves when centred, the far edge when top or bottom aligned), with a pixel to
+  spare so a line that exactly fills the box is not shrunk by rounding.
+
 ## [0.8.23] - 2026-11-22
 ### Fixed
 - **A variant that recolours a nested instance through a variable mode gets its own render.** An

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -80,7 +81,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     text.fontSize = baseStyle.fontSize;
                     text.characterSpacing = (settings != null ? settings.CharacterSpacing : 0f) +
                                             PixelsToEm(baseStyle.letterSpacing, baseStyle.fontSize);
-                    ApplyLineMetrics(text, baseStyle, matchingFontMapping.FontAsset);
+                    ApplyLineMetrics(text, baseStyle, matchingFontMapping.FontAsset, node);
 
                     text.horizontalAlignment = node.style.textAlignHorizontal switch
                     {
@@ -367,8 +368,11 @@ namespace UnityFigmaBridge.Editor.Nodes
         ///     the font's own line height from the first ascender to the last descender. Line spacing makes
         ///     up the difference between lines, and the vertical margins the half leading at both ends.
         ///     A cap-height leading trim cuts the box at the first cap line and the last baseline instead.
+        ///     A fixed box shorter than its lines (a 48 px label box with a 58 px line height) lets the
+        ///     lines overflow in Figma at full size, centred or past the edge away from the alignment;
+        ///     TMP would shrink an auto-sized text to fit the margins, so the overflow comes off them.
         /// </summary>
-        private static void ApplyLineMetrics(TMP_Text text, TypeStyle style, TMP_FontAsset fontAsset)
+        private static void ApplyLineMetrics(TMP_Text text, TypeStyle style, TMP_FontAsset fontAsset, Node node)
         {
             var face = fontAsset.faceInfo;
             if (style.fontSize <= 0f || face.pointSize <= 0f) return;
@@ -390,9 +394,33 @@ namespace UnityFigmaBridge.Editor.Nodes
                 var halfLeading = style.lineHeightPx > 0f ? (style.lineHeightPx - (ascent + descent)) * 0.5f : 0f;
                 marginTop = halfLeading;
                 marginBottom = halfLeading;
+                var overflow = LineOverflow(node, style);
+                if (overflow > 0f)
+                {
+                    // a pixel more (half each side when centred), so a line that exactly fills the box is not shrunk by rounding
+                    overflow += 1f;
+                    switch (node.style.textAlignVertical)
+                    {
+                        case TypeStyle.TextAlignVertical.TOP: marginBottom -= overflow; break;
+                        case TypeStyle.TextAlignVertical.BOTTOM: marginTop -= overflow; break;
+                        default:
+                            marginTop -= overflow * 0.5f;
+                            marginBottom -= overflow * 0.5f;
+                            break;
+                    }
+                }
             }
             var margin = text.margin;
             text.margin = new Vector4(margin.x, marginTop, margin.z, marginBottom);
+        }
+
+        /// <summary>How far the explicit lines of a fixed-size text box reach past its height (0 when they fit or the box grows with the text).</summary>
+        private static float LineOverflow(Node node, TypeStyle style)
+        {
+            if (node?.size == null || style.lineHeightPx <= 0f) return 0f;
+            if (node.style.textAutoResize != TypeStyle.TextAutoResize.NONE) return 0f;
+            var lines = 1 + (node.characters?.Count(c => c == '\n') ?? 0);
+            return Mathf.Max(0f, lines * style.lineHeightPx - node.size.y);
         }
 
         private static Color AverageGradientColor(Paint paint)
