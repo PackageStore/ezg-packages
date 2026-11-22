@@ -672,12 +672,20 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             return (overridden && !bothTint) || NodesRenderDifferently(node, componentNode, bothTint, true);
         }
 
+        /// <summary>
+        ///     The component-side node a node inside an instance mirrors (the last segment of its id). An
+        ///     instance placed directly in a frame or a variant has a plain id: its component is the node
+        ///     its componentId names, so a variant that sets a variable mode on a nested instance (one
+        ///     Base-Hex recoloured per Badge variant) is compared too instead of taking the shared render.
+        /// </summary>
         private static bool TryFindComponentNode(Node node, Dictionary<string, Node> nodeLookup, out Node componentNode)
         {
             componentNode = null;
             var separator = node.id.LastIndexOf(';');
-            if (separator < 0) return false;
-            return nodeLookup.TryGetValue(node.id.Substring(separator + 1), out componentNode);
+            if (separator >= 0) return nodeLookup.TryGetValue(node.id.Substring(separator + 1), out componentNode);
+            return node.type == NodeType.INSTANCE && !string.IsNullOrEmpty(node.componentId) &&
+                   nodeLookup.TryGetValue(node.componentId, out componentNode) && componentNode != null &&
+                   componentNode.type == NodeType.COMPONENT;
         }
 
         private static bool BothRootsTint(Node instanceNode, Node componentNode) =>
@@ -687,7 +695,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             if (a.visible != b.visible) return true;
             if (!a.visible) return false;
-            if (a.type != b.type || FloatsDiffer(a.opacity, b.opacity) || a.blendMode != b.blendMode || a.isMask != b.isMask) return true;
+            // An instance compared with its own component: the root's type, opacity and blend mode are
+            // the placement's, which the bridge applies to the node, not part of the component's render
+            var placedInstance = isRoot && a.type == NodeType.INSTANCE && b.type == NodeType.COMPONENT;
+            if (!placedInstance && (a.type != b.type || FloatsDiffer(a.opacity, b.opacity) || a.blendMode != b.blendMode)) return true;
+            if (a.isMask != b.isMask) return true;
             var aChildren = a.children ?? System.Array.Empty<Node>();
             var bChildren = b.children ?? System.Array.Empty<Node>();
             if (aChildren.Length != bChildren.Length) return true;

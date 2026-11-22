@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.23] - 2026-11-22
+### Fixed
+- **A variant that recolours a nested instance through a variable mode gets its own render.** An
+  instance placed directly in a frame or a variant (a plain node id, no `;`) was never compared with
+  its component, so every variant of a set that sets a mode on a nested server-rendered instance
+  took the component's one render: 30 Badge variants each set a colour mode on one Base-Hex and all
+  imported the default purple hex. Such an instance is now compared with the component its
+  `componentId` names (the root's own type, opacity and blend mode are the placement's and are left
+  out), and one that draws differently is rendered on its own like a restyled sublayer.
+- **A slice grid named `Slice-ROW-COL` is collapsed, with the border its cells crop.** Only
+  `slice_ROW_COL` was recognised, so a plate cut into `Slice-0-0` … cells imported as six images,
+  each showing the whole plate (a 144 × 64 pill drew six pills). Both spellings are cells now (one
+  pattern, shared by the 9-slice pass, the fill namer and the FILL crop). The border is read off the
+  crop each cell takes of the shared image (`Paint.imageTransform` of its STRETCH fill,
+  `SliceGridCrop`): the corner crops give the border in texels and crop texels over the cell size
+  the pixels per unit, so a grid without a middle row or column, or a plate drawn at another size
+  than its art, keeps the art's corners. Grids without crops keep the design-size measure.
+- **A cropped STRETCH image fill shows the part Figma shows.** A STRETCH fill whose
+  `imageTransform` picks part of the bitmap (an icon zoomed in past its margins) imported as the
+  whole bitmap, so the art drew about 30 % smaller than in Figma. Such a fill now gets a cropped
+  copy, `<fill>_crop-<x>-<y>-<w>x<h>.png`, next to the fill, like a FILL crop. A transform that
+  reaches past the image edge or rotates keeps the whole bitmap.
+
 ## [0.8.22] - 2026-11-22
 ### Fixed
 - **A thick text stroke no longer covers the next letter.** TextMeshPro draws a glyph's outline and

@@ -27,7 +27,7 @@ namespace UnityFigmaBridge.Editor.Utils
     ///     </list>
     ///
     ///     Names come from the nearest meaningful ancestor. Slice-grid cells are skipped, because
-    ///     <c>slice_1_1</c> names a cell of a plate rather than the plate, and all nine cells share
+    ///     <c>slice_1_1</c> / <c>Slice-1-1</c> names a cell of a plate rather than the plate, and all nine cells share
     ///     one imageRef anyway.
     ///
     ///     Server renders get the same folder and naming, keyed by the rendered node id. Fills and
@@ -42,7 +42,6 @@ namespace UnityFigmaBridge.Editor.Utils
         private const string SCREENS_FOLDER = "Screens";
         private const string COMPONENTS_FOLDER = "Components";
 
-        private static readonly Regex SliceName = new(@"^slice_(.+)_(.+)$", RegexOptions.Compiled);
 
         private static readonly Dictionary<string, string> s_NameByImageRef = new();
         private static readonly Dictionary<string, string> s_NameByRenderNodeId = new();
@@ -371,7 +370,7 @@ namespace UnityFigmaBridge.Editor.Utils
 
             // Walk up past slice cells: all cells of one grid share this fill, and the plate above
             // them is what the art actually is.
-            while (segments.Count > 1 && SliceName.IsMatch(segments[^1]))
+            while (segments.Count > 1 && NineSlice.FigmaNineSlice.SliceName.IsMatch(segments[^1]))
                 segments.RemoveAt(segments.Count - 1);
 
             if (segments.Count == 0) return new List<string> { "ImageFill" };

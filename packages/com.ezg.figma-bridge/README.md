@@ -53,8 +53,10 @@ The settings asset drives every path and toggle. The fields below sit in closed 
 
 These are on by default and shape the output:
 
-- **9-slice collapse.** A plate built as a grid of `slice_*` cells is imported as a single
-  sprite carrying `Sprite.border`, not as nine child images.
+- **9-slice collapse.** A plate built as a grid of `slice_ROW_COL` / `Slice-ROW-COL` cells is
+  imported as a single sprite carrying `Sprite.border`, not as nine child images. The border and
+  density come from the crop each cell takes of the shared image, so a grid without a middle row
+  keeps the art's corners.
 - **Node-named image fills.** Sprites are named after the node and its owner rather than the
   Figma `imageRef` hash, so a re-import produces stable, readable asset names. A fill whose art
   is already on disk under one of its names keeps that file, so new art in Figma never renames

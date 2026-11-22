@@ -13,6 +13,10 @@ namespace UnityFigmaBridge.Editor.Utils
     ///     crops the overflow, centred. A plain <c>Image</c> stretches the whole bitmap instead, so a fill
     ///     whose aspect differs from its box gets a cropped copy, <c>&lt;fill&gt;_cover-&lt;w&gt;x&lt;h&gt;.png</c>
     ///     next to the fill, holding exactly the part Figma shows.
+    ///     An image fill in STRETCH mode that was cropped in Figma (<c>Paint.imageTransform</c> picks a
+    ///     part of the bitmap, which is stretched over the box) gets the same treatment,
+    ///     <c>&lt;fill&gt;_crop-&lt;x&gt;-&lt;y&gt;-&lt;w&gt;x&lt;h&gt;.png</c>: an icon zoomed in on its art keeps
+    ///     the size Figma draws instead of shrinking to the whole bitmap with its margins.
     /// </summary>
     public static class ImageFillCover
     {
@@ -34,7 +38,7 @@ namespace UnityFigmaBridge.Editor.Utils
             foreach (var crop in crops)
                 if (WriteCrop(crop.Value.fillPath, crop.Key, crop.Value.rect)) written++;
             if (crops.Count > 0)
-                Debug.Log($"[FigmaBridge] {crops.Count} FILL image fill crop(s), {written} written");
+                Debug.Log($"[FigmaBridge] {crops.Count} FILL / cropped STRETCH image fill crop(s), {written} written");
         }
 
         /// <summary>The cropped sprite for this fill when it has one on disk, otherwise the fill itself.</summary>
@@ -60,9 +64,10 @@ namespace UnityFigmaBridge.Editor.Utils
         {
             cropPath = null;
             rect = default;
-            if (fill.scaleMode != Paint.ScaleMode.FILL || !Mathf.Approximately(fill.rotation, 0f)) return false;
             // A slice grid shares one plate across its cells; the 9-slice pass collapses them
-            if (node.name != null && node.name.StartsWith("slice_", StringComparison.Ordinal)) return false;
+            if (node.name != null && NineSlice.FigmaNineSlice.SliceName.IsMatch(node.name)) return false;
+            if (fill.scaleMode == Paint.ScaleMode.STRETCH) return TryGetStretchCrop(fillPath, fill, out cropPath, out rect);
+            if (fill.scaleMode != Paint.ScaleMode.FILL || !Mathf.Approximately(fill.rotation, 0f)) return false;
             if (node.size == null || node.size.x <= 0f || node.size.y <= 0f) return false;
             if (!TryGetImageSize(fillPath, out var image)) return false;
 
@@ -75,6 +80,35 @@ namespace UnityFigmaBridge.Editor.Utils
             rect = new RectInt((image.x - width) / 2, (image.y - height) / 2, width, height);
             var directory = Path.GetDirectoryName(fillPath)?.Replace('\\', '/');
             cropPath = $"{directory}/{Path.GetFileNameWithoutExtension(fillPath)}_cover-{width}x{height}.png";
+            return true;
+        }
+
+        /// <summary>
+        ///     The part of the bitmap a STRETCH fill shows: <c>imageTransform</c> maps the node's unit box
+        ///     into the image's unit box. Only an axis-aligned crop that stays inside the image is cut;
+        ///     a fill zoomed out past the image edge or rotated keeps the whole bitmap.
+        /// </summary>
+        private static bool TryGetStretchCrop(string fillPath, Paint fill, out string cropPath, out RectInt rect)
+        {
+            cropPath = null;
+            rect = default;
+            var m = fill.imageTransform;
+            if (m == null || m.GetLength(0) < 2 || m.GetLength(1) < 3) return false;
+            if (Mathf.Abs(m[0, 1]) > 1e-4f || Mathf.Abs(m[1, 0]) > 1e-4f || m[0, 0] <= 0f || m[1, 1] <= 0f) return false;
+            const float edge = 1e-3f;
+            if (m[0, 2] < -edge || m[1, 2] < -edge || m[0, 2] + m[0, 0] > 1f + edge || m[1, 2] + m[1, 1] > 1f + edge) return false;
+            if (!TryGetImageSize(fillPath, out var image)) return false;
+
+            var x = Mathf.Clamp(Mathf.RoundToInt(m[0, 2] * image.x), 0, image.x - 1);
+            var top = Mathf.Clamp(Mathf.RoundToInt(m[1, 2] * image.y), 0, image.y - 1);
+            var width = Mathf.Clamp(Mathf.RoundToInt(m[0, 0] * image.x), 1, image.x - x);
+            var height = Mathf.Clamp(Mathf.RoundToInt(m[1, 1] * image.y), 1, image.y - top);
+            if (width >= image.x - 1 && height >= image.y - 1) return false;
+
+            // Texture rows run bottom up; imageTransform measures from the top
+            rect = new RectInt(x, image.y - top - height, width, height);
+            var directory = Path.GetDirectoryName(fillPath)?.Replace('\\', '/');
+            cropPath = $"{directory}/{Path.GetFileNameWithoutExtension(fillPath)}_crop-{x}-{top}-{width}x{height}.png";
             return true;
         }
 

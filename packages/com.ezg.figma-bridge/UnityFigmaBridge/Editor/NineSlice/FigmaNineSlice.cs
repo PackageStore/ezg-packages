@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -5,16 +6,20 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityFigmaBridge.Editor.FigmaApi;
+using Object = UnityEngine.Object;
 
 namespace UnityFigmaBridge.Editor.NineSlice
 {
     /// <summary>
-    ///     Collapses a 3x3 (or 1x3 / 3x1) grid of <c>slice_ROW_COL</c> children into a single
-    ///     <c>Image.Type.Sliced</c>: nine <c>Image</c> components become one with a shared sprite.
+    ///     Collapses a 3x3 (or 1x3 / 3x1, or a grid without its middle row / column) grid of
+    ///     <c>slice_ROW_COL</c> / <c>Slice-ROW-COL</c> children into a single <c>Image.Type.Sliced</c>:
+    ///     the cell <c>Image</c> components become one with a shared sprite.
     /// </summary>
     internal static class FigmaNineSlice
     {
-        private static readonly Regex SliceName = new(@"^slice_(.+)_(.+)$", RegexOptions.Compiled);
+        /// <summary>Name of a slice-grid cell: <c>slice_ROW_COL</c> or <c>Slice-ROW-COL</c>.</summary>
+        internal static readonly Regex SliceName = new(@"^slice[_-](.+?)[_-](.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         internal readonly struct Result
         {
@@ -28,7 +33,8 @@ namespace UnityFigmaBridge.Editor.NineSlice
         }
 
         /// <summary>Collapse every slice grid under <paramref name="root"/>. Depth-first, so nested grids resolve too.</summary>
-        internal static Result Apply(GameObject root, string spriteDir)
+        /// <param name="lookup">Figma node by id, to read the crop each cell takes from the shared image; null measures cells by design size only.</param>
+        internal static Result Apply(GameObject root, string spriteDir, Func<string, Node> lookup = null)
         {
             var collapsed = 0;
             var written = 0;
@@ -38,7 +44,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
             while (stack.Count > 0)
             {
                 var node = stack.Pop();
-                if (TryCollapse(node, spriteDir, ref written)) collapsed++;
+                if (TryCollapse(node, spriteDir, lookup, ref written)) collapsed++;
                 else
                     foreach (Transform child in node)
                         stack.Push(child);
@@ -47,7 +53,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
             return new Result(collapsed, written);
         }
 
-        private static bool TryCollapse(Transform node, string spriteDir, ref int written)
+        private static bool TryCollapse(Transform node, string spriteDir, Func<string, Node> lookup, ref int written)
         {
             if (node.childCount < 2) return false;
 
@@ -66,10 +72,18 @@ namespace UnityFigmaBridge.Editor.NineSlice
             if (slices.Any(s => s.img.sprite.texture.width != texture.width ||
                                 s.img.sprite.texture.height != texture.height)) return false;
 
-            // The border is measured in design units; the texture may hold more (or fewer) pixels per unit
-            var density = TexelsPerDesignUnit(slices[0].img.sprite, ((RectTransform)node).rect.width);
-            var border = MeasureBorder(node, slices) * density;
-            border = new Vector4(Mathf.Round(border.x), Mathf.Round(border.y), Mathf.Round(border.z), Mathf.Round(border.w));
+            // Each cell shows a crop of the shared image (Paint.imageTransform): the corner crops give the
+            // border in texels and crop texels over the cell size the density, so a plate drawn smaller
+            // or larger than its art, or a grid without a middle row, keeps the art's own corners.
+            // Without crops the border is measured in design units, the texture spread over the grid.
+            var sourceSize = SourceSize(slices[0].img.sprite);
+            var cells = slices.Select(s => new SliceGridCrop.Cell(s.row, s.col, (RectTransform)s.t)).ToList();
+            if (!SliceGridCrop.TryMeasure(cells, lookup, sourceSize.x, sourceSize.y, out var border, out var density))
+            {
+                density = ((RectTransform)node).rect.width > 0f ? sourceSize.x / ((RectTransform)node).rect.width : 1f;
+                border = MeasureBorder(node, slices) * density;
+                border = new Vector4(Mathf.Round(border.x), Mathf.Round(border.y), Mathf.Round(border.z), Mathf.Round(border.w));
+            }
             var sprite = EnsureSlicedSprite(slices[0].img.sprite, border, ReferencePixelsPerUnit * density, spriteDir, ref written);
             if (sprite == null) return false;
 
@@ -123,17 +137,16 @@ namespace UnityFigmaBridge.Editor.NineSlice
         /// <summary>Canvas reference pixels per unit: a sprite at this density draws one texel per UI unit.</summary>
         private const float ReferencePixelsPerUnit = 100f;
 
-        /// <summary>Source texels per design unit, from the file's own size so an import size cap does not skew it.</summary>
-        private static float TexelsPerDesignUnit(Sprite sprite, float designWidth)
+        /// <summary>The image file's own size, so an import size cap does not skew the border or density.</summary>
+        private static Vector2Int SourceSize(Sprite sprite)
         {
-            if (designWidth <= 0f) return 1f;
-            var textureWidth = (float)sprite.texture.width;
+            var size = new Vector2Int(sprite.texture.width, sprite.texture.height);
             if (AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(sprite)) is TextureImporter importer)
             {
-                importer.GetSourceTextureWidthAndHeight(out var sourceWidth, out _);
-                textureWidth = sourceWidth;
+                importer.GetSourceTextureWidthAndHeight(out var sourceWidth, out var sourceHeight);
+                if (sourceWidth > 0 && sourceHeight > 0) size = new Vector2Int(sourceWidth, sourceHeight);
             }
-            return textureWidth / designWidth;
+            return size;
         }
 
         /// <summary>
