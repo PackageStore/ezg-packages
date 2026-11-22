@@ -657,6 +657,25 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             return hasBitmapFill || !isRectangleLike;
         }
 
+        /// <summary>Uniform scale past which a scaled-up instance's renders are made at its own size.</summary>
+        private const float ScaledUpOwnRender = 1.25f;
+
+        /// <summary>
+        ///     An instance grown with the Scale tool (a 232 slot drawn at 534) scales its strokes, corners
+        ///     and highlights with it. Drawing it with the component's render magnifies that bitmap by the
+        ///     same factor and softens every edge, so a node grown uniformly past
+        ///     <see cref="ScaledUpOwnRender" /> is rendered at its own size: texels match its design size
+        ///     like every other render. A node only resized on one axis keeps the slicer path.
+        /// </summary>
+        private static bool IsScaledUp(Node node, Dictionary<string, Node> nodeLookup)
+        {
+            if (node.size == null || !TryFindComponentNode(node, nodeLookup, out var componentNode) || componentNode?.size == null) return false;
+            if (componentNode.size.x < 1f || componentNode.size.y < 1f) return false;
+            var kx = node.size.x / componentNode.size.x;
+            var ky = node.size.y / componentNode.size.y;
+            return kx > ScaledUpOwnRender && ky > ScaledUpOwnRender && Mathf.Abs(kx - ky) <= 0.05f * Mathf.Max(kx, ky);
+        }
+
         /// <summary>
         ///     Whether an instance sublayer drawn as one render needs a render of its own. The component's
         ///     node is compared with the instance's, so a recolour through a variable mode (no override
@@ -665,7 +684,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// </summary>
         private static bool NeedsOwnRender(Node node, HashSet<string> restyledIds, Dictionary<string, Node> nodeLookup)
         {
-            if (IsStretchedUnsliceable(node, nodeLookup)) return true;
+            if (IsStretchedUnsliceable(node, nodeLookup) || IsScaledUp(node, nodeLookup)) return true;
             var overridden = SubtreeContainsAny(node, restyledIds);
             if (!TryFindComponentNode(node, nodeLookup, out var componentNode)) return overridden;
             var bothTint = BothRootsTint(node, componentNode);
