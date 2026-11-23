@@ -597,7 +597,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         private static readonly HashSet<string> s_RenderedOverrideFields = new HashSet<string>
         {
             "fills", "strokes", "strokeWeight", "strokeAlign", "strokeDashes", "individualStrokeWeights",
-            "effects", "cornerRadius", "rectangleCornerRadii", "opacity", "blendMode", "visible", "arcData"
+            "effects", "cornerRadius", "rectangleCornerRadii", "topLeftRadius", "topRightRadius", "bottomLeftRadius",
+            "bottomRightRadius", "opacity", "blendMode", "visible", "arcData"
         };
 
         private static HashSet<string> RestyledNodeIds(Node instance, HashSet<string> inherited)
@@ -622,7 +623,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth, Dictionary<string, Node> nodeLookup)
         {
             if (!node.visible) return;
-            if (GetNodeSubstitutionStatus(node, recursiveNodeDepth))
+            if (GetNodeSubstitutionStatus(node, recursiveNodeDepth) || IsInstanceOfRenderedComponent(node, nodeLookup))
             {
                 var needsOwnRender = NeedsOwnRender(node, restyledIds, nodeLookup);
                 if (needsOwnRender && !substitutionNodeList.Exists(entry => entry.SourceNode.id == node.id))
@@ -635,6 +636,20 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 var childIds = childNode.type == NodeType.INSTANCE ? RestyledNodeIds(childNode, restyledIds) : restyledIds;
                 AddRestyledSublayerRenders(childNode, childIds, substitutionNodeList, recursiveNodeDepth + 1, nodeLookup);
             }
+        }
+
+        /// <summary>
+        ///     An instance of a component that is drawn as one server render (a childless rectangle-like
+        ///     component with a stroke or a corner radius). The instance type is never a shape render on
+        ///     its own, so without this an instance placed straight in a frame that changes its own corner
+        ///     radii, fills or stroke kept the component's sprite (a Box-Light rounded 48 / 48 / 21 / 21 drew
+        ///     48 all round).
+        /// </summary>
+        private static bool IsInstanceOfRenderedComponent(Node node, Dictionary<string, Node> nodeLookup)
+        {
+            if (node.type != NodeType.INSTANCE || string.IsNullOrEmpty(node.componentId)) return false;
+            return nodeLookup.TryGetValue(node.componentId, out var componentNode) && componentNode != null &&
+                   componentNode.type == NodeType.COMPONENT && GetNodeSubstitutionStatus(componentNode, 2);
         }
 
         /// <summary>
@@ -705,8 +720,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (aChildren.Length != bChildren.Length) return true;
             if (a.type == NodeType.TEXT && !string.Equals(a.characters, b.characters, StringComparison.Ordinal)) return true;
             if (PaintsDiffer(a.fills, b.fills, ignoreRgb) || PaintsDiffer(a.strokes, b.strokes, ignoreRgb)) return true;
-            if (FloatsDiffer(a.strokeWeight, b.strokeWeight) || a.strokeAlign != b.strokeAlign || FloatsDiffer(a.cornerRadius, b.cornerRadius)) return true;
-            if (!FloatArraysEqual(a.rectangleCornerRadii, b.rectangleCornerRadii)) return true;
+            if (FloatsDiffer(a.strokeWeight, b.strokeWeight) || a.strokeAlign != b.strokeAlign) return true;
+            if (!FloatArraysEqual(CornerRadii(a), CornerRadii(b))) return true;
             if (ArcDataDiffers(a.arcData, b.arcData) || EffectsDiffer(a.effects, b.effects)) return true;
             if (!isRoot)
             {
@@ -832,6 +847,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (ToByte(a.a) != ToByte(b.a)) return true;
             return !ignoreRgb && (ToByte(a.r) != ToByte(b.r) || ToByte(a.g) != ToByte(b.g) || ToByte(a.b) != ToByte(b.b));
         }
+
+        /// <summary>The four corner radii a node draws: one cornerRadius stands for all four.</summary>
+        private static float[] CornerRadii(Node node) =>
+            node.rectangleCornerRadii is { Length: 4 }
+                ? node.rectangleCornerRadii
+                : new[] { node.cornerRadius, node.cornerRadius, node.cornerRadius, node.cornerRadius };
 
         private static bool FloatArraysEqual(float[] a, float[] b)
         {

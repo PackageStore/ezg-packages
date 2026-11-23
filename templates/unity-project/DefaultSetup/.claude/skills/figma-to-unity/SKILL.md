@@ -199,7 +199,10 @@ children is not rendered (its children would draw twice); it keeps a flat
   `m_Color` override. Any other difference (or a fills, strokes, effects,
   radius, opacity or visibility override on a render that does not tint)
   gives the sublayer its own render under its instance-side id
-  (`I<instance>;<node>`), which replaces the component's sprite.
+  (`I<instance>;<node>`), which replaces the component's sprite. The root of
+  an instance of a one-render component (a childless plate with a stroke or
+  radius) is compared the same way (bridge 0.8.26), so an instance that
+  rounds its own corners differently gets a render under its own id.
 - **Scale.** Renders are always made at scale 1 (bridge 0.6.5; there is no
   setting) and import at 100 pixels per unit, so a border draws at design size.
 - **Render cache.** An online import renders and downloads only the render

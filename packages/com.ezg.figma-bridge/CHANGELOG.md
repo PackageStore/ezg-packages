@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.26] - 2026-11-23
+### Fixed
+- **An instance placed straight in a frame that changes its own corner radii, fills or stroke gets
+  its own render.** A childless component with a stroke or a corner radius (a Box-Light card plate)
+  is one server render, and its instances reuse it. Only sublayers inside an instance were checked
+  for a restyle: the instance's own root never was, since an INSTANCE is not a shape render type.
+  A Box-Light rounded 48 on top and 21 at the bottom imported rounded 48 on all four corners. The
+  root of such an instance is now compared with its component like a restyled sublayer and, when it
+  draws differently, rendered under its own id.
+- **Per-corner radius overrides count as a restyle.** Figma lists a changed corner as
+  `topLeftRadius`, `topRightRadius`, `bottomLeftRadius` or `bottomRightRadius` in `overriddenFields`;
+  only `cornerRadius` and `rectangleCornerRadii` were recognised.
+- **Corner radii compare by the corners they draw.** A node with four equal `rectangleCornerRadii`
+  and one with the same `cornerRadius` no longer count as different, so they share one render.
+
 ## [0.8.25] - 2026-11-23
 ### Fixed
 - **A file with a baseline-aligned auto layout decodes.** Figma sends `counterAxisAlignItems:
