@@ -647,9 +647,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// </summary>
         private static bool IsInstanceOfRenderedComponent(Node node, Dictionary<string, Node> nodeLookup)
         {
+            // Only the childless shape case: an instance with children keeps the sublayer walk below, so a
+            // variant that restyles a nested layer (a grey Locked skill disc) still gets that layer's render
             if (node.type != NodeType.INSTANCE || string.IsNullOrEmpty(node.componentId)) return false;
+            if (node.children != null && node.children.Length > 0) return false;
             return nodeLookup.TryGetValue(node.componentId, out var componentNode) && componentNode != null &&
-                   componentNode.type == NodeType.COMPONENT && GetNodeSubstitutionStatus(componentNode, 2);
+                   componentNode.type == NodeType.COMPONENT && NeedsShapeRender(componentNode);
         }
 
         /// <summary>

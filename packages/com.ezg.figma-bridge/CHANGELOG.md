@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.27] - 2026-11-23
+### Fixed
+- **The 0.8.26 instance-root check walks into instances with children again.** It matched any
+  instance whose component passed the server-render test, and a component of instances, frames and
+  vectors (an icon with a nested disc) passes it, so the walk stopped at the instance and never
+  reached the sublayers a variant restyles. The check is now limited to a childless instance of a
+  childless shape component (the plate case 0.8.26 fixed).
+
 ## [0.8.26] - 2026-11-23
 ### Fixed
 - **An instance placed straight in a frame that changes its own corner radii, fills or stroke gets
