@@ -84,7 +84,10 @@ namespace UnityFigmaBridge.Editor.NineSlice
                 border = MeasureBorder(node, slices) * density;
                 border = new Vector4(Mathf.Round(border.x), Mathf.Round(border.y), Mathf.Round(border.z), Mathf.Round(border.w));
             }
-            var sprite = EnsureSlicedSprite(slices[0].img.sprite, border, ReferencePixelsPerUnit * density, spriteDir, ref written);
+            // One image fill can back several slice grids drawn at different sizes (a panel plate and a card frame
+            // cut from the same art). The importer PPU is per texture, so a density baked into it is overwritten by
+            // the grid collapsed last; the texture keeps the reference PPU and each Image carries its own density.
+            var sprite = EnsureSlicedSprite(slices[0].img.sprite, border, ReferencePixelsPerUnit, spriteDir, ref written);
             if (sprite == null) return false;
 
             foreach (var s in slices) Object.DestroyImmediate(s.t.gameObject);
@@ -98,6 +101,7 @@ namespace UnityFigmaBridge.Editor.NineSlice
 
             target.sprite = sprite;
             target.type = border == Vector4.zero ? Image.Type.Simple : Image.Type.Sliced;
+            target.pixelsPerUnitMultiplier = density;
             target.enabled = true;
             return true;
         }

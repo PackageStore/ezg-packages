@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.25] - 2026-11-23
+### Fixed
+- **A file with a baseline-aligned auto layout decodes.** Figma sends `counterAxisAlignItems:
+  BASELINE` for text rows aligned on their baseline; the enum did not know it and the whole file
+  failed to decode. `BASELINE` is placed like `MIN`.
+- **One image fill shared by slice grids of different sizes keeps each grid's corners.** The
+  density of a collapsed grid was baked into the texture importer's pixels-per-unit, so the grid
+  collapsed last set it for every Image using that art (a panel plate and a card frame cut from
+  one image: the first grid's border shrank or swelled). The texture keeps the reference PPU and
+  each collapsed Image carries its density in `pixelsPerUnitMultiplier`.
+
 ## [0.8.24] - 2026-11-22
 ### Fixed
 - **A text whose line is taller than its fixed box keeps its size.** Figma centres a line's ascent

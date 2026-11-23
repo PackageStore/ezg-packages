@@ -399,6 +399,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             MIN,
             CENTER,
             MAX,
+            BASELINE, // text baseline alignment; placed like MIN (AutoLayout default arm)
         }
         
         /// <summary>
