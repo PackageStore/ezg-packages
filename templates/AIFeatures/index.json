@@ -42,7 +42,7 @@
       "id": "Skills",
       "name": "Skills",
       "description": "Playbook Claude tự nạp khi task khớp mô tả.",
-      "count": 55
+      "count": 56
     },
     {
       "id": "Templates",
@@ -4565,6 +4565,30 @@
         ".claude/skills/ui-motion/scripts/uimotion.mjs": "bf6b9be902814c3693ebf05a4fe8bc29acb0b4a15ba85024822d15eba7a99a60"
       },
       "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/ui-motion.zip"
+    },
+    {
+      "id": "Skills/unity-lite",
+      "name": "unity-lite",
+      "category": "Skills",
+      "description": "Bật / tắt chế độ Unity Editor NHẸ RAM cho project hiện tại (Windows) — tắt Burst trong Editor (`--burst-disable-compilation`), đồ hoạ D3D11, tắt Unity Search index lúc mở, 1 AssetImportWorker + 0 worker chờ sẵn; cộng lệnh `trim` trả RAM của Editor đang rảnh cho Windows. Chỉ đụng cờ dòng lệnh + `UserSettings/` (không vào git). Dùng khi user nói \"/unity-lite\", \"bật chế độ nhẹ\", \"unity lite on/off\", \"mở Editor bản nhẹ\", \"Editor tốn RAM quá\", \"tắt burst cho đỡ RAM\", \"bật lại burst / về bản thường\", \"trim ram unity\", \"mở nhiều Editor cho AI\". KHÔNG dùng để build player (Burst tắt ⇒ build không có Burst) và không phải restart khi Editor treo (/restart-unity).",
+      "installPath": ".claude/skills/unity-lite",
+      "isDirectory": true,
+      "files": [
+        ".claude/skills/unity-lite/SKILL.md",
+        ".claude/skills/unity-lite/scripts/unity-lite.ps1"
+      ],
+      "fileCount": 2,
+      "installedByDefault": false,
+      "source": "extra",
+      "fileName": "unity-lite.zip",
+      "sha256": "d685088e66c654b312b8cbc8e8894c467f02c6a3c9ff92dadf6faee5e350b949",
+      "size": 7098,
+      "ownership": "base",
+      "fileHashes": {
+        ".claude/skills/unity-lite/SKILL.md": "91fce68d643c1e1e06be62e133b0b8da1f16128716ead020f2244ef9286591f2",
+        ".claude/skills/unity-lite/scripts/unity-lite.ps1": "89cdffb7dbec98c9bfca1b55ad5b5cb7dfff428703f1994e3fc23399997532a6"
+      },
+      "url": "https://upm-registry-worker.developer-a1f.workers.dev/template/ai/files/Skills/unity-lite.zip"
     },
     {
       "id": "Skills/update-ai",
