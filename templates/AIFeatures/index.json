@@ -3401,11 +3401,11 @@
       "installedByDefault": false,
       "source": "defaultsetup",
       "fileName": "figma-to-unity.zip",
-      "sha256": "24e1bc256ad7f983aa56609d82dae759cb06cb5cba195526cd3d9fd596de6e3f",
-      "size": 18401,
+      "sha256": "025c0645734a07e6b66c2ec5a938af5fdbcd23bc07d7c6627a25777023714774",
+      "size": 18475,
       "ownership": "base",
       "fileHashes": {
-        ".claude/skills/figma-to-unity/SKILL.md": "471edd6dfd56b03223aad90f667631df6bab2928beba98f8edfe7895ca2e0d49",
+        ".claude/skills/figma-to-unity/SKILL.md": "111510d533666dd3969d999482916aaf7ada3e4471e6f4d5403bcd52cf1f973c",
         ".claude/skills/figma-to-unity/reference/prefab-contract.md": "f9df6b70cfd248f728eb5b4db1d7973a29723fb035d3e60a84f3041c6f91dad6",
         ".claude/skills/figma-to-unity/scripts/check_gate.py": "8a4dea9cecde0b1f9a169f16a8202b47cc76d2b2cca3d583a161f2f688cef966",
         ".claude/skills/figma-to-unity/scripts/roundtrip.py": "3b254a440a5381032d824774f2df454d3ed76e8bd5e5b292623dad99b0d65806"
