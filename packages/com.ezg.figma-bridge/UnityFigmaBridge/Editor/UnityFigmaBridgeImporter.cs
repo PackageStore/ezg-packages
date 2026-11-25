@@ -818,6 +818,8 @@ namespace UnityFigmaBridge.Editor
             // A cached render was sliced when it was downloaded and keeps that importer border
             var downloadedRenderIds = new HashSet<string>(renderDownloads.Where(item => item.Succeeded).Select(item => item.NodeId));
             var processedRenderNodes = offline ? serverRenderNodes : serverRenderNodes.Where(n => downloadedRenderIds.Contains(n.SourceNode.id)).ToList();
+            // Every render, reused or new: the in-memory bounds are read again on each import
+            ClippedRenderBounds.Run(figmaFile, serverRenderNodes, serverRenderScale);
             FigmaImportTimer.Begin("Whiten tinted renders");
             ServerRenderTint.Run(processedRenderNodes, serverRenderNodes);
             ServerRenderMultiply.Run(processedRenderNodes, serverRenderNodes);

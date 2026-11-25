@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.8.28] - 2026-11-25
+### Fixed
+- **A sublayer two instances deep is also compared with the component its prefab comes from.** A
+  node `I<a>;<b>;<c>` inside an instance was compared only with `<c>` of the innermost component,
+  but the instance is built from the prefab of its nearest component, which can restyle its own
+  nested instance: a Wide card variant set an orange colour mode on its Base, and a screen setting
+  the Base's default pink mode back on one card matched the innermost Base and kept the variant's
+  orange render. Such a node is now compared with both `<c>` and `I<b>;<c>` in the nearest
+  component, and gets its own render when it draws unlike either (so no render the innermost
+  compare gave is dropped). A kept render takes the instance's tint when either of those renders is
+  a tint render.
+- **A render clipped by a mask or a clipping frame keeps its own size.** Figma cuts a node's
+  `absoluteRenderBounds` at the masks and clipping frames above it, but the server render of the
+  node is not cut, so the bridge squeezed the render into the cut box: a striped progress fill
+  748 px wide under a 40 % mask reports 299 px and drew its 748 px render in 299 px (and the
+  component's 188 px fill in 75 px), a cloud cut by its card's frame drew about 8 % squashed.
+  Before the renders are processed, a render whose PNG is larger than its bounds gets the
+  unclipped box, grown from the side it was not cut on (`ClippedRenderBounds`), and a layer inside
+  an instance that shows its component's render takes its own box grown by that render's
+  outsets. The UGUI Mask of the mask or frame clips it as Figma does.
+- **A layer masked by a "Use as mask" sibling takes its instance's changes and keeps its box.** The
+  build pass parents masked layers under the mask's object (a UGUI Mask only masks its children),
+  and the instance pass looked for each layer only among the direct children of its Figma parent,
+  so a masked layer was skipped: its own render, colours, text and visibility never reached the
+  instance (a 748 px bar kept the component's 188 px stripe render). Masked layers are now found
+  under the mask that precedes them, and in both passes the layer keeps the box it has in its Figma
+  parent once under the mask (`MaskedSiblings`).
+
 ## [0.8.27] - 2026-11-23
 ### Fixed
 - **The 0.8.26 instance-root check walks into instances with children again.** It matched any

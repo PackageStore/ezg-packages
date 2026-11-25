@@ -300,13 +300,19 @@ namespace UnityFigmaBridge.Editor.Components
             foreach (var childNode in node.children)
             {
                 var matchingChildGameObject = FindMatchingChildForFigmaNode(childNode, nodeObject.transform);
+                // A layer a "Use as mask" sibling masks sits under the mask's object (see MaskedSiblings)
+                Transform maskHolder = null;
+                if (matchingChildGameObject == null)
+                    matchingChildGameObject = MaskedSiblings.FindMaskedChild(childNode, node, nodeObject.transform, out maskHolder);
                 if (matchingChildGameObject != null)
                 {
                     matchingChildGameObject = SwapChangedComponent(childNode, matchingChildGameObject, figmaImportProcessData);
                     ApplyInstanceSideNameAndVisibility(childNode, matchingChildGameObject, figmaImportProcessData);
                     ApplyFigmaProperties(childNode, matchingChildGameObject, node, figmaImportProcessData);
                     AutoLayout.ApplyChild(matchingChildGameObject, childNode, node, figmaImportProcessData);
-
+                    if (maskHolder != null)
+                        MaskedSiblings.KeepUnderMask(matchingChildGameObject.transform as RectTransform,
+                            nodeObject.transform as RectTransform, maskHolder as RectTransform);
                 }
                 else
                     Debug.Log($"Applying properties - Could not find child object {childNode.id} name {childNode.name} from parent node id {node.id} in parent transform {nodeObject.name}");
@@ -336,10 +342,13 @@ namespace UnityFigmaBridge.Editor.Components
             }
 
             if (image == null) return false;
+            // The kept sprite is the innermost component's render, or the one the nearest component
+            // gave its own nested instance (FigmaDataUtils.ComponentSideNodes lists both)
             var componentSideId = ComponentSideNodeId(nodeObject);
-            if (componentSideId == null) return false;
-            if (SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)
-                && SolidTint.TryGetRenderTint(node, out var instanceTint))
+            var nearestId = FigmaDataUtils.NearestComponentSideId(node.id);
+            var keptTintRender = (componentSideId != null && SolidTint.TryGetEntryTint(componentSideId, renderNodes, out _)) ||
+                                 (nearestId != null && SolidTint.TryGetEntryTint(nearestId, renderNodes, out _));
+            if (keptTintRender && SolidTint.TryGetRenderTint(node, out var instanceTint))
                 image.color = instanceTint;
             return false;
         }
@@ -400,7 +409,7 @@ namespace UnityFigmaBridge.Editor.Components
         /// <param name="childNode"></param>
         /// <param name="parentNodeTransform"></param>
         /// <returns></returns>
-        private static GameObject FindMatchingChildForFigmaNode(Node childNode, Transform parentNodeTransform)
+        internal static GameObject FindMatchingChildForFigmaNode(Node childNode, Transform parentNodeTransform)
         {
             var nodeTransformChildrenCount =parentNodeTransform.childCount;
             var childNodeIdComponentRefId = childNode.id.Split(';').Last();

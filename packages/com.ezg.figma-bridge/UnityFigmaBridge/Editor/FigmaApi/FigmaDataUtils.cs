@@ -676,34 +676,68 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>
-        ///     Whether an instance sublayer drawn as one render needs a render of its own. The component's
-        ///     node is compared with the instance's, so a recolour through a variable mode (no override
-        ///     entry) is seen. A pair that both pass the render-tint predicate leaves RGB out of the
-        ///     compare and drops the override rule: Image.color covers the colour.
+        ///     Whether an instance sublayer drawn as one render needs a render of its own. The node is
+        ///     compared with each component-side node it can show (<see cref="ComponentSideNodes"/>), so a
+        ///     recolour through a variable mode (no override entry) is seen. A pair that both pass the
+        ///     render-tint predicate leaves RGB out of the compare and drops the override rule:
+        ///     Image.color covers the colour.
         /// </summary>
         private static bool NeedsOwnRender(Node node, HashSet<string> restyledIds, Dictionary<string, Node> nodeLookup)
         {
             if (IsStretchedUnsliceable(node, nodeLookup)) return true;
             var overridden = SubtreeContainsAny(node, restyledIds);
-            if (!TryFindComponentNode(node, nodeLookup, out var componentNode)) return overridden;
-            var bothTint = BothRootsTint(node, componentNode);
-            return (overridden && !bothTint) || NodesRenderDifferently(node, componentNode, bothTint, true);
+            var compared = false;
+            foreach (var componentNode in ComponentSideNodes(node, nodeLookup))
+            {
+                compared = true;
+                var bothTint = BothRootsTint(node, componentNode);
+                if ((overridden && !bothTint) || NodesRenderDifferently(node, componentNode, bothTint, true)) return true;
+            }
+            return !compared && overridden;
         }
 
         /// <summary>
-        ///     The component-side node a node inside an instance mirrors (the last segment of its id). An
-        ///     instance placed directly in a frame or a variant has a plain id: its component is the node
-        ///     its componentId names, so a variant that sets a variable mode on a nested instance (one
-        ///     Base-Hex recoloured per Badge variant) is compared too instead of taking the shared render.
+        ///     The component-side nodes whose render a node inside an instance can end up showing. For
+        ///     <c>I&lt;a&gt;;&lt;b&gt;;&lt;c&gt;</c>: the innermost component's own node <c>&lt;c&gt;</c>, and the node
+        ///     <c>I&lt;b&gt;;&lt;c&gt;</c> of the nearest component, whose prefab the instance is built from and which
+        ///     can restyle its nested instance b itself (a Wide variant setting an orange colour mode on its
+        ///     Base, a screen setting the pink default back on one card). A node that draws unlike either
+        ///     gets its own render. An instance placed directly in a frame or a variant has a plain id: its
+        ///     component is the node its componentId names, so a variant that sets a variable mode on a
+        ///     nested instance (one Base-Hex recoloured per Badge variant) is compared too instead of taking
+        ///     the shared render.
         /// </summary>
-        private static bool TryFindComponentNode(Node node, Dictionary<string, Node> nodeLookup, out Node componentNode)
+        private static IEnumerable<Node> ComponentSideNodes(Node node, Dictionary<string, Node> nodeLookup)
         {
-            componentNode = null;
             var separator = node.id.LastIndexOf(';');
-            if (separator >= 0) return nodeLookup.TryGetValue(node.id.Substring(separator + 1), out componentNode);
-            return node.type == NodeType.INSTANCE && !string.IsNullOrEmpty(node.componentId) &&
-                   nodeLookup.TryGetValue(node.componentId, out componentNode) && componentNode != null &&
-                   componentNode.type == NodeType.COMPONENT;
+            if (separator < 0)
+            {
+                if (node.type == NodeType.INSTANCE && !string.IsNullOrEmpty(node.componentId) &&
+                    nodeLookup.TryGetValue(node.componentId, out var componentNode) && componentNode != null &&
+                    componentNode.type == NodeType.COMPONENT)
+                    yield return componentNode;
+                yield break;
+            }
+            var innermostId = node.id.Substring(separator + 1);
+            if (nodeLookup.TryGetValue(innermostId, out var innermost) && innermost != null) yield return innermost;
+            var nearestId = NearestComponentSideId(node.id);
+            if (nearestId != null && nearestId != innermostId &&
+                nodeLookup.TryGetValue(nearestId, out var nearest) && nearest != null)
+                yield return nearest;
+        }
+
+        /// <summary>
+        ///     The id a node inside an instance has in the definition of that instance's component: the
+        ///     leading instance segment dropped (<c>I1:2;3:4;5:6</c> → <c>I3:4;5:6</c>, <c>I3:4;5:6</c> → <c>5:6</c>).
+        ///     Null for a plain id.
+        /// </summary>
+        internal static string NearestComponentSideId(string nodeId)
+        {
+            if (string.IsNullOrEmpty(nodeId) || nodeId[0] != 'I') return null;
+            var first = nodeId.IndexOf(';');
+            if (first < 0 || first == nodeId.Length - 1) return null;
+            var rest = nodeId.Substring(first + 1);
+            return rest.IndexOf(';') >= 0 ? "I" + rest : rest;
         }
 
         private static bool BothRootsTint(Node instanceNode, Node componentNode) =>
@@ -713,9 +747,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             if (a.visible != b.visible) return true;
             if (!a.visible) return false;
-            // An instance compared with its own component: the root's type, opacity and blend mode are
-            // the placement's, which the bridge applies to the node, not part of the component's render
-            var placedInstance = isRoot && a.type == NodeType.INSTANCE && b.type == NodeType.COMPONENT;
+            // An instance compared with its own component, or with the instance it mirrors in the nearest
+            // component: the root's type, opacity and blend mode are the placement's, which the bridge
+            // applies to the node, not part of the render
+            var placedInstance = isRoot && a.type == NodeType.INSTANCE &&
+                                 b.type is NodeType.COMPONENT or NodeType.INSTANCE;
             if (!placedInstance && (a.type != b.type || FloatsDiffer(a.opacity, b.opacity) || a.blendMode != b.blendMode)) return true;
             if (a.isMask != b.isMask) return true;
             var aChildren = a.children ?? System.Array.Empty<Node>();
