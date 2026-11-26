@@ -191,7 +191,8 @@ namespace UnityFigmaBridge.Editor.Verify
         /// <summary>The frame of the cached document that the bridge writes to this prefab path.</summary>
         private static Node FindFrame(string screenPrefabPath)
         {
-            var document = FigmaApiUtils.LoadCachedDocument();
+            // Quiet: a check of every screen reads the document once per screen, and the import already listed the [ignore] nodes
+            var document = FigmaApiUtils.LoadCachedDocument(false);
             if (document == null) throw new InvalidOperationException("No cached Figma document - run Sync Document once");
             var settings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
             FigmaPaths.Configure(settings, document.name);

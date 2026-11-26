@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.31] - 2026-11-27
+### Fixed
+- **A layer is only bound to a MonoBehaviour that has a script asset.** Behaviour binding matched
+  a layer name against every MonoBehaviour type, nested and private ones included. A layer named
+  `Host` took a game's private nested class `ArtPacks.Host`, which has no script asset, so the
+  prefab was saved with a Missing Script on that layer (a "referenced script is missing" warning
+  on every instantiation), and the next import could not save the old prefab to keep its object
+  ids ("You are trying to save a Prefab with a missing script", from `StablePrefabSave`): those
+  screens lost their stable ids. Binding now only takes types with a runtime `MonoScript` (a .cs
+  file of the same name or a plugin DLL), and before marking the old prefab `StablePrefabSave`
+  removes the Missing Script components of its own nodes (the tree is replaced right after), so a
+  prefab written by an earlier version imports cleanly once and stays clean.
+- **The [ignore] report is one short line, and the Visual Check no longer repeats it.** Every
+  ignored node was listed one by one, a single line of several KB in a large document (187 nodes,
+  3.4 KB), and an `IndexOutOfRangeException` was logged from inside Unity's logging of that line
+  (its stack ends in `Debug.Log` under `FigmaDataUtils.ReportIgnored`, whose own code cannot
+  throw there). Each name is now listed once with its count (`Map x49`),
+  at most 40 names. The Visual Check reads the cached document once per screen and now reads it
+  quietly (`FigmaApiUtils.LoadCachedDocument(false)`), so checking 63 screens no longer logs the
+  list 63 times.
+
 ## [0.8.30] - 2026-11-27
 ### Fixed
 - **Corner radii are clamped to half the short side before an instance layer is compared or

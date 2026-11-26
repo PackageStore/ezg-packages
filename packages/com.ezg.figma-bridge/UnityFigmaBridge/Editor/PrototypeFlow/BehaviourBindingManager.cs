@@ -214,15 +214,17 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         }
 
         /// <summary>
-        /// Every MonoBehaviour that can be attached (not abstract, not open generic, not from a Unity assembly), keyed by
-        /// type name (case insensitive). Each list is in <see cref="CompareBindingPreference"/> order
+        /// Every MonoBehaviour that can be attached (not abstract, not open generic, not from a Unity assembly, with a
+        /// script asset), keyed by type name (case insensitive). Each list is in <see cref="CompareBindingPreference"/> order
         /// </summary>
         private static Dictionary<string, List<Type>> BuildBehaviourTypeLookup()
         {
+            var scriptedTypes = ScriptedTypes();
             var behaviourTypesByName = new Dictionary<string, List<Type>>(StringComparer.OrdinalIgnoreCase);
             foreach (var type in TypeCache.GetTypesDerivedFrom<MonoBehaviour>())
             {
                 if (type.IsAbstract || type.ContainsGenericParameters || IsUnityAssembly(type)) continue;
+                if (!scriptedTypes.Contains(type)) continue;
                 if (!behaviourTypesByName.TryGetValue(type.Name, out var candidateTypes))
                 {
                     candidateTypes = new List<Type>();
@@ -235,6 +237,23 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
                 if (candidateTypes.Count > 1) candidateTypes.Sort(CompareBindingPreference);
             }
             return behaviourTypesByName;
+        }
+
+        /// <summary>
+        /// Classes that have a runtime script asset (a <see cref="MonoScript"/> of a .cs file or a plugin DLL). A
+        /// MonoBehaviour without one - a nested class, or a class whose file has another name - can be added in memory
+        /// but is saved as a Missing Script: a layer named "Host" took a game's private <c>ArtPacks.Host</c>, and the
+        /// next import could not save that prefab to keep its object ids
+        /// </summary>
+        private static HashSet<Type> ScriptedTypes()
+        {
+            var types = new HashSet<Type>();
+            foreach (var script in MonoImporter.GetAllRuntimeMonoScripts())
+            {
+                var type = script != null ? script.GetClass() : null;
+                if (type != null) types.Add(type);
+            }
+            return types;
         }
 
         // A node named "Image" or "Button" must not gain a UGUI component; binding is for project behaviours

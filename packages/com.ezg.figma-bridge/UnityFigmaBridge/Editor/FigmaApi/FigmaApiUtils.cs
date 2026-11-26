@@ -68,13 +68,17 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         };
 
         /// <summary>Deserialize the cached document, or null when there is none or it does not parse.</summary>
-        public static FigmaFile LoadCachedDocument()
+        public static FigmaFile LoadCachedDocument() => LoadCachedDocument(true);
+
+        /// <inheritdoc cref="LoadCachedDocument()"/>
+        /// <param name="reportIgnored">Log the [ignore] nodes skipped; off for a reader that loads the document once per screen.</param>
+        public static FigmaFile LoadCachedDocument(bool reportIgnored)
         {
             var path = CachedDocumentPath;
             if (!File.Exists(path)) return null;
             try
             {
-                return ReadDocument(path);
+                return ReadDocument(path, reportIgnored);
             }
             catch (Exception e)
             {
@@ -245,11 +249,11 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>Decodes a document file with the shared JSON settings and prunes ignored nodes and nodes with no geometry; used by the REST download and the Bridge source.</summary>
-        internal static FigmaFile ReadDocument(string path)
+        internal static FigmaFile ReadDocument(string path, bool reportIgnored = true)
         {
             using var reader = new JsonTextReader(File.OpenText(path));
             var figmaFile = JsonSerializer.Create(s_DocumentJsonSettings).Deserialize<FigmaFile>(reader);
-            FigmaDataUtils.PruneIgnoredNodes(figmaFile);
+            FigmaDataUtils.PruneIgnoredNodes(figmaFile, reportIgnored);
             FigmaDataUtils.PruneNodesWithoutGeometry(figmaFile);
             return figmaFile;
         }

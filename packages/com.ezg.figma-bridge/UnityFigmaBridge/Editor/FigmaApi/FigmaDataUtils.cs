@@ -25,19 +25,42 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         ///     component master stays in <c>file.components</c>, so it lands in the missing-definition
         ///     list and its instances import as regular frames with their own children.
         /// </summary>
-        public static int PruneIgnoredNodes(FigmaFile file)
+        /// <param name="report">Log what was skipped; off for a reader that loads the document again and again.</param>
+        public static int PruneIgnoredNodes(FigmaFile file, bool report = true)
         {
             if (file?.document == null) return 0;
             var removed = new List<string>();
             PruneIgnoredChildren(file.document, removed);
-            ReportIgnored(removed);
+            if (report) ReportIgnored(removed);
             return removed.Count;
         }
 
+        /// <summary>Most distinct names <see cref="ReportIgnored"/> lists before it only counts the rest.</summary>
+        private const int MaxReportedIgnoredNames = 40;
+
+        /// <summary>
+        ///     One short line: each name once with how many nodes carry it, in order of first
+        ///     appearance. Every node listed one by one made a single line of several KB (187 nodes
+        ///     in one document), which the Console can fail to log.
+        /// </summary>
         internal static void ReportIgnored(List<string> names)
         {
-            if (names.Count > 0)
-                Debug.Log($"[FigmaBridge] {names.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", names)}");
+            if (names.Count == 0) return;
+            var counts = new Dictionary<string, int>();
+            var order = new List<string>();
+            foreach (var name in names)
+            {
+                var key = name ?? "";
+                if (counts.TryGetValue(key, out var count)) counts[key] = count + 1;
+                else
+                {
+                    counts.Add(key, 1);
+                    order.Add(key);
+                }
+            }
+            var listed = order.Take(MaxReportedIgnoredNames).Select(n => counts[n] > 1 ? $"{n} x{counts[n]}" : n);
+            var rest = order.Count > MaxReportedIgnoredNames ? $", and {order.Count - MaxReportedIgnoredNames} more name(s)" : "";
+            Debug.Log($"[FigmaBridge] {names.Count} node(s) named with {IgnoreMarker} skipped: {string.Join(", ", listed)}{rest}");
         }
 
         private static void PruneIgnoredChildren(Node node, List<string> removed)

@@ -78,12 +78,31 @@ namespace UnityFigmaBridge.Editor.Utils
             try
             {
                 duplicateNames.UnionWith(OwnDuplicateNames(contents));
-                if (duplicateNames.Count > 0 && Mark(contents, duplicateNames).Count > 0)
+                if (duplicateNames.Count == 0) return;
+                // Unity refuses to save a prefab holding a Missing Script, and then no mark reaches the
+                // disk. The old tree is replaced right after, so its dead components can go first
+                RemoveMissingScripts(contents);
+                if (Mark(contents, duplicateNames).Count > 0)
                     PrefabUtility.SaveAsPrefabAsset(contents, assetPath);
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
+        /// <summary>
+        ///     Removes the Missing Script components of every GameObject the tree owns (a nested prefab
+        ///     instance keeps what its prefab has). Up to 0.8.30 a MonoBehaviour with no script asset
+        ///     was bound to the layer of its name, and it is saved as one.
+        /// </summary>
+        private static void RemoveMissingScripts(GameObject root)
+        {
+            foreach (var node in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (PrefabUtility.IsPartOfPrefabInstance(node.gameObject)) continue;
+                if (GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(node.gameObject) > 0)
+                    GameObjectUtility.RemoveMonoBehavioursWithMissingScript(node.gameObject);
             }
         }
 
