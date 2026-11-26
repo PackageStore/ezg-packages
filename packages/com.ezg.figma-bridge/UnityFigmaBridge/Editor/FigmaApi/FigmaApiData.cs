@@ -95,6 +95,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     
     public class Node
     {
+        /// <summary>A member-wise copy: the arrays and nested objects are shared with this node.</summary>
+        public Node ShallowCopy() => (Node)MemberwiseClone();
+
         /// <summary>
         /// A string uniquely identifying this node within the document
         /// </summary>

@@ -263,7 +263,7 @@ namespace UnityFigmaBridge.Editor.Components
                 try
                 {
                     // Apply properties for this node Object (eg characters to text). Not needed if this is a substitution
-                    FigmaNodeManager.ApplyUnityComponentPropertiesForNode(nodeObject, node, figmaImportProcessData);
+                    FigmaNodeManager.ApplyUnityComponentPropertiesForNode(nodeObject, node, figmaImportProcessData, parentNode);
                 }
                 catch (Exception e)
                 {

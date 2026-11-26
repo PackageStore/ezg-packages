@@ -959,6 +959,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public static bool NeedsShapeRender(Node node)
         {
             if (node.children != null && node.children.Length > 0) return false;
+            // Nothing to render along a collapsed axis: drawn locally at its full size (CollapsedShape)
+            if (CollapsedShape.Applies(node)) return false;
             switch (node.type)
             {
                 case NodeType.RECTANGLE:

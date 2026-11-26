@@ -28,7 +28,8 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="nodeGameObject"></param>
         /// <param name="node"></param>
         /// <param name="figmaImportProcessData"></param>
-        public static void ApplyUnityComponentPropertiesForNode(GameObject nodeGameObject,Node node, FigmaImportProcessData figmaImportProcessData)
+        public static void ApplyUnityComponentPropertiesForNode(GameObject nodeGameObject,Node node, FigmaImportProcessData figmaImportProcessData,
+            Node parentNode = null)
         {
             var settings = figmaImportProcessData.Settings;
 
@@ -45,7 +46,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     if (NodeIsSubstitution(node, figmaImportProcessData)) break;
                     if (!needsImageComponent) break;
 
-                    ApplyImage(nodeGameObject, node, figmaImportProcessData);
+                    ApplyImage(nodeGameObject, node, parentNode, figmaImportProcessData);
                     break;
                 case NodeType.LINE:
                     break;
@@ -205,14 +206,16 @@ namespace UnityFigmaBridge.Editor.Nodes
         ///     so the layout is visible and is listed in
         ///     <see cref="FigmaImportProcessData.ShapeOnlyNodes"/> for the post-processor.
         /// </summary>
-        private static void ApplyImage(GameObject nodeGameObject, Node node, FigmaImportProcessData figmaImportProcessData)
+        private static void ApplyImage(GameObject nodeGameObject, Node node, Node parentNode, FigmaImportProcessData figmaImportProcessData)
         {
             var image = nodeGameObject.GetComponent<Image>();
             if (image == null) image = nodeGameObject.AddComponent<Image>();
 
-            if (FrameShapeSprite.IsNeeded(node))
+            // A shape collapsed along one axis is drawn at the size its parent lets it grow to
+            var shapeNode = CollapsedShape.Expanded(node, parentNode, figmaImportProcessData.NodeLookupDictionary);
+            if (FrameShapeSprite.IsNeeded(shapeNode))
             {
-                var shapeSprite = FrameShapeSprite.Build(node, figmaImportProcessData.Settings);
+                var shapeSprite = FrameShapeSprite.Build(shapeNode, figmaImportProcessData.Settings);
                 if (shapeSprite != null)
                 {
                     image.sprite = shapeSprite;

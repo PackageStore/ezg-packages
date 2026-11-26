@@ -225,7 +225,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             FigmaNodeManager.CreateUnityComponentsForNode(nodeGameObject, figmaNode,figmaImportProcessData);
             
             // Apply properties for this figmaNode
-            FigmaNodeManager.ApplyUnityComponentPropertiesForNode(nodeGameObject,figmaNode,figmaImportProcessData);
+            FigmaNodeManager.ApplyUnityComponentPropertiesForNode(nodeGameObject,figmaNode,figmaImportProcessData, parentFigmaNode);
             
             // Apply effects for this figmaNode (if there is an effects node. Some dont have this (eg SECTION)
             if (figmaNode.effects!=null) EffectManager.ApplyAllFigmaEffectsToUnityNode(nodeGameObject,figmaNode,figmaImportProcessData);

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.29] - 2026-11-26
+### Fixed
+- **A shape collapsed to zero along one axis is drawn at the size it can grow to.** A childless
+  rounded (or stroked, or gradient) rectangle under one unit wide or high, such as the "Use as
+  mask" value layer of a progress bar's 0 % variant (0.01 x 28), was sent for a server render,
+  and Figma returns a 1 px transparent strip for it. Code that widens the layer at runtime then
+  got a mask that writes no alpha, so the masked stripe fill never showed on any instance of the
+  0 % variant. Such a shape is now drawn locally (`CollapsedShape`, `FrameShapeSprite`) at the size
+  of its parent along the collapsed axis, with the corners Figma would clamp at that size, and
+  9-sliced: the collapsed size still draws nothing, and any width set later draws the shape with
+  its own rounded ends. Inside a scaled instance Figma reports such a layer's corner radius
+  clamped to its collapsed size (so none at all); the radii then come from the component-side
+  node. Shapes with a size of at least one unit on both axes are unchanged.
+
 ## [0.8.28] - 2026-11-25
 ### Fixed
 - **A sublayer two instances deep is also compared with the component its prefab comes from.** A
