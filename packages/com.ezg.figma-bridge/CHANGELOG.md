@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.30] - 2026-11-27
+### Fixed
+- **Corner radii are clamped to half the short side before an instance layer is compared or
+  sliced.** Since Figma's API change of 2026-11-26, a layer inside a resized or scaled instance
+  reports its master's radius (999) or that radius times the scale (999 x 1.28 = 1274) instead of
+  the radius it draws, clamped to its size. A 56 high progress-bar track then matched its 36 high
+  pill component (999 = 999), kept the component's render with its 18 px ends and lost its rounded
+  ends when 9-sliced to 56. Radii are now compared as drawn (`FigmaDataUtils.ClampedCornerRadii`:
+  each corner at most half the node's short side), and a fully round corner only matches a node
+  with the same short side, so the bar gets its own render with 28 px ends; the 9-slice border of
+  a render (`ServerRenderSlicer`) uses the same clamped radii. Layers whose clamped radii and short
+  side match their component still share its render.
+
 ## [0.8.29] - 2026-11-26
 ### Fixed
 - **A shape collapsed to zero along one axis is drawn at the size it can grow to.** A childless

@@ -337,10 +337,9 @@ namespace UnityFigmaBridge.Editor.NineSlice
             var outsideRight = Mathf.Max(0f, bounds.x + bounds.width - (box.x + box.width));
             var outsideBottom = Mathf.Max(0f, bounds.y + bounds.height - (box.y + box.height));
 
-            // Figma order: top-left, top-right, bottom-right, bottom-left
-            var radii = node.rectangleCornerRadii is { Length: 4 }
-                ? node.rectangleCornerRadii
-                : new[] { node.cornerRadius, node.cornerRadius, node.cornerRadius, node.cornerRadius };
+            // Figma order: top-left, top-right, bottom-right, bottom-left; clamped to half the short side
+            // (a scaled instance can report 999 x scale), so a pill's border is its real round end
+            var radii = FigmaDataUtils.ClampedCornerRadii(node);
 
             var hasStroke = node.strokes != null && node.strokes.Length > 0 && node.strokeWeight > 0;
             var insideStroke = !hasStroke ? 0f : node.strokeAlign switch

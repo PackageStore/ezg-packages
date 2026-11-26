@@ -760,7 +760,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             if (a.type == NodeType.TEXT && !string.Equals(a.characters, b.characters, StringComparison.Ordinal)) return true;
             if (PaintsDiffer(a.fills, b.fills, ignoreRgb) || PaintsDiffer(a.strokes, b.strokes, ignoreRgb)) return true;
             if (FloatsDiffer(a.strokeWeight, b.strokeWeight) || a.strokeAlign != b.strokeAlign) return true;
-            if (!FloatArraysEqual(CornerRadii(a), CornerRadii(b))) return true;
+            if (CornersRenderDifferently(a, b)) return true;
             if (ArcDataDiffers(a.arcData, b.arcData) || EffectsDiffer(a.effects, b.effects)) return true;
             if (!isRoot)
             {
@@ -887,11 +887,44 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             return !ignoreRgb && (ToByte(a.r) != ToByte(b.r) || ToByte(a.g) != ToByte(b.g) || ToByte(a.b) != ToByte(b.b));
         }
 
-        /// <summary>The four corner radii a node draws: one cornerRadius stands for all four.</summary>
-        private static float[] CornerRadii(Node node) =>
+        /// <summary>
+        ///     The four corner radii a node draws (top left, top right, bottom right, bottom left; one
+        ///     cornerRadius stands for all four), each clamped to half the node's short side as Figma draws
+        ///     them. A layer inside a resized or scaled instance can report its master's radius, or that
+        ///     radius times the scale (999 x 1.28 = 1274), instead of the clamped one, so the raw numbers are
+        ///     never compared or sliced.
+        /// </summary>
+        public static float[] ClampedCornerRadii(Node node)
+        {
+            var radii = RawCornerRadii(node);
+            var limit = node.size != null ? Mathf.Max(0f, Mathf.Min(node.size.x, node.size.y) * 0.5f) : float.MaxValue;
+            for (var i = 0; i < radii.Length; i++) radii[i] = Mathf.Clamp(radii[i], 0f, limit);
+            return radii;
+        }
+
+        private static float[] RawCornerRadii(Node node) =>
             node.rectangleCornerRadii is { Length: 4 }
-                ? node.rectangleCornerRadii
+                ? (float[])node.rectangleCornerRadii.Clone()
                 : new[] { node.cornerRadius, node.cornerRadius, node.cornerRadius, node.cornerRadius };
+
+        /// <summary>
+        ///     Corners draw alike when their clamped radii match (<see cref="ClampedCornerRadii"/>). A corner
+        ///     held at half the short side is fully round and follows that side, so it only matches a node
+        ///     with the same short side: an instance bar 56 high reporting 18 against its 36 high pill
+        ///     component (18 clamped) draws round ends of 28, not the component's 18.
+        /// </summary>
+        private static bool CornersRenderDifferently(Node a, Node b)
+        {
+            if (!FloatArraysEqual(ClampedCornerRadii(a), ClampedCornerRadii(b))) return true;
+            if (a.size == null || b.size == null) return false;
+            var aShort = Mathf.Min(a.size.x, a.size.y);
+            var bShort = Mathf.Min(b.size.x, b.size.y);
+            if (Mathf.Abs(aShort - bShort) <= 0.5f) return false;
+            return IsFullyRound(a, aShort) || IsFullyRound(b, bShort);
+        }
+
+        private static bool IsFullyRound(Node node, float shortSide) =>
+            shortSide > 0f && RawCornerRadii(node).Any(radius => radius > 0f && radius >= shortSide * 0.5f - 1e-3f);
 
         private static bool FloatArraysEqual(float[] a, float[] b)
         {
