@@ -9,7 +9,7 @@ namespace UnityFigmaBridge.Editor.Settings
         public static readonly string[] MainViewFields =
         {
             "DocumentUrl", "Source", "BridgePort",
-            "OnlyImportSelectedPages", "ImportSelectionOnly", "OnlyImportListedScreens"
+            "OnlyImportSelectedPages", "ImportSelectionOnly", "OnlyImportListedScreens", "ReadOnlyUsedPages"
         };
 
         const string OtherTitle = "Other";

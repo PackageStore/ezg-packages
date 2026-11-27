@@ -45,7 +45,7 @@ namespace UnityFigmaBridge.Editor.Settings
             EditorApplication.update += OnEditorUpdate;
             if (m_Settings != null) m_LastFileKey = m_Panel.CurrentFileKey(m_Settings);
 
-            foreach (var field in new[] { "OnlyImportSelectedPages", "ImportSelectionOnly", "OnlyImportListedScreens" })
+            foreach (var field in new[] { "OnlyImportSelectedPages", "ImportSelectionOnly", "OnlyImportListedScreens", "ReadOnlyUsedPages" })
                 Debug.Assert(System.Array.IndexOf(FigmaSettingsDrawer.MainViewFields, field) >= 0,
                     $"FigmaSettingsDrawer.MainViewFields no longer lists {field}");
         }
@@ -106,6 +106,8 @@ namespace UnityFigmaBridge.Editor.Settings
                     changed |= ListPages("Select Pages to import", m_Settings.PageDataList);
                 changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "ImportSelectionOnly");
                 changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "OnlyImportListedScreens");
+                if (m_Settings.Source == FigmaSourceKind.Bridge)
+                    changed |= FigmaSettingsDrawer.DrawField(m_SerializedSettings, "ReadOnlyUsedPages");
 
                 m_SerializedSettings.ApplyModifiedProperties();
                 m_SerializedSettings.Update();

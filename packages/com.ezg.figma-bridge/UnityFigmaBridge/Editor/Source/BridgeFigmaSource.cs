@@ -35,11 +35,15 @@ namespace UnityFigmaBridge.Editor.Source
         public BridgeFigmaSource(int port) { _port = port; }
         public FigmaSourceKind Kind => FigmaSourceKind.Bridge;
 
+        /// <summary>The pages <see cref="GetDocument"/> reads; null reads every page.</summary>
+        public BridgePageSelection Pages { get; set; }
+
         public async Task<FigmaFile> GetDocument(string fileId)
         {
             BridgeTempFiles.Clear();
+            var session = await GetSession(fileId, ConnectTimeout).ConfigureAwait(false);
             var text = await BridgeSnapshot.Read((op, payload, timeout) => Request(fileId, op, payload, timeout),
-                SnapshotTimeout, BatchTimeout).ConfigureAwait(false);
+                SnapshotTimeout, BatchTimeout, Pages, session.File.FileName).ConfigureAwait(false);
             BridgeTempFiles.Write(string.Empty, "document.json", new UTF8Encoding(false).GetBytes(text));
             File.Copy(Path.Combine(BridgeTempFiles.Root, "document.json"), FigmaApiUtils.CachedDocumentPath, true);
             var figmaFile = FigmaApiUtils.ReadDocument(FigmaApiUtils.CachedDocumentPath);
@@ -153,7 +157,8 @@ namespace UnityFigmaBridge.Editor.Source
         {
             try
             {
-                var pageIds = (figmaFile.document?.children ?? new Node[0]).Select(page => page.id).ToList();
+                var pageIds = (figmaFile.document?.children ?? new Node[0])
+                    .Where(page => !page.bridgeUnread).Select(page => page.id).ToList();
                 if (pageIds.Count == 0) return;
                 var payload = new JObject { ["textStyles"] = true, ["nodeIds"] = new JArray(pageIds) };
                 var result = await Request(fileId, "fonts.check", payload, BatchTimeout).ConfigureAwait(false);

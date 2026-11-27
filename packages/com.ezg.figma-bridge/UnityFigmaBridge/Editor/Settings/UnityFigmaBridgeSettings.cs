@@ -136,6 +136,12 @@ namespace UnityFigmaBridge.Editor.Settings
                  "Ví dụ: tick riêng Boost thì chỉ Boost, Popup, Card-Boost và các icon nó dùng được import lại.")]
         public bool ImportSelectionOnly = true;
 
+        [Tooltip("Nguồn Bridge: chỉ đọc page lần import dùng, chọn trước khi đọc: page screen (hoặc mọi page được chọn khi tắt Import Selection Only), " +
+                 "page có component được tick, cộng page chứa component gốc mà instance của chúng dùng. Page tên có [ignore] không bao giờ được đọc. " +
+                 "Tắt thì đọc mọi page như trước 0.8.33.\n" +
+                 "Ví dụ: page Reference không có component nào được dùng thì không bị đọc.")]
+        public bool ReadOnlyUsedPages = true;
+
         [Tooltip("Thư mục chứa file .ttf tải về và font asset TMP. " +
                  "Để trống dùng Assets/TextMesh Pro/Fonts.\n" +
                  "Ví dụ: Assets/TextMesh Pro/Fonts")]
@@ -274,6 +280,15 @@ namespace UnityFigmaBridge.Editor.Settings
             PageDataList.OrderBy(p => p.NodeId);
         }
 
+        string ListsKey => string.IsNullOrEmpty(ListsFileKey) ? FileId : ListsFileKey;
+
+        static bool ListsComeFromAnotherFile(string listsKey, string fileKey) =>
+            !string.IsNullOrEmpty(listsKey) && listsKey != fileKey;
+
+        /// <summary>True when reading <paramref name="fileKey"/> makes <see cref="BindListsToFile"/> rebuild the lists.</summary>
+        public bool ListsRebuildFor(string fileKey) =>
+            !string.IsNullOrEmpty(fileKey) && ListsComeFromAnotherFile(ListsKey, fileKey);
+
         /// <summary>
         /// Record that the lists now belong to <paramref name="fileKey"/>. When they were read from
         /// another file, the page selection, screen rows and component ticks are dropped and rebuilt
@@ -283,9 +298,9 @@ namespace UnityFigmaBridge.Editor.Settings
         public bool BindListsToFile(string fileKey, FigmaFile file)
         {
             if (string.IsNullOrEmpty(fileKey) || file == null) return false;
-            var listsKey = string.IsNullOrEmpty(ListsFileKey) ? FileId : ListsFileKey;
+            var listsKey = ListsKey;
             ListsFileKey = fileKey;
-            if (string.IsNullOrEmpty(listsKey) || listsKey == fileKey) return false;
+            if (!ListsComeFromAnotherFile(listsKey, fileKey)) return false;
 
             OnlyImportSelectedPages = false;
             PageDataList.Clear();
@@ -318,6 +333,13 @@ namespace UnityFigmaBridge.Editor.Settings
 
             foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
             {
+                if (pageNode.bridgeUnread)
+                {
+                    // Not read this time: its rows stay as they were
+                    foreach (var kept in ScreenNameOverrides.Where(row => row.PageNodeId == pageNode.id))
+                        if (seenNames.Add(kept.FrameName)) refreshedRows.Add(kept);
+                    continue;
+                }
                 foreach (var screenNode in FigmaDataUtils.GetScreenNodes(pageNode, ScreensPageName))
                 {
                     if (!seenNames.Add(screenNode.name))
@@ -353,8 +375,19 @@ namespace UnityFigmaBridge.Editor.Settings
                 if (!string.IsNullOrEmpty(row.NodeId)) existingRows[row.NodeId] = row;
 
             var refreshedRows = new List<FigmaComponentSelection>();
+            var keptRows = new HashSet<FigmaComponentSelection>();
             foreach (var pageNode in FigmaDataUtils.GetPageNodes(file))
             {
+                if (pageNode.bridgeUnread)
+                {
+                    // Not read this time: its rows and what needs them stay as they were
+                    foreach (var kept in ComponentSelections.Where(row => row.PageNodeId == pageNode.id))
+                    {
+                        refreshedRows.Add(kept);
+                        keptRows.Add(kept);
+                    }
+                    continue;
+                }
                 foreach (var componentNode in FigmaDataUtils.GetComponentRowNodes(pageNode, ScreensPageName))
                 {
                     if (!existingRows.TryGetValue(componentNode.id, out var row))
@@ -369,12 +402,12 @@ namespace UnityFigmaBridge.Editor.Settings
                 }
             }
 
-            var rowsById = refreshedRows.ToDictionary(row => row.NodeId);
+            var rowsById = refreshedRows.Where(row => !keptRows.Contains(row)).ToDictionary(row => row.NodeId);
             var index = new FigmaImportScope.DocumentIndex(file);
             foreach (var screenNode in FigmaDataUtils.GetScreenNodes(file, ScreensPageName))
                 foreach (var rootId in FigmaImportScope.Create(index, new[] { screenNode.id }).Roots)
                     if (rowsById.TryGetValue(rootId, out var neededRow)) neededRow.NeededByScreens.Add(screenNode.name);
-            foreach (var row in refreshedRows)
+            foreach (var row in refreshedRows.Where(row => !keptRows.Contains(row)))
                 foreach (var rootId in FigmaImportScope.Create(index, new[] { row.NodeId }).Roots)
                     if (rootId != row.NodeId && rowsById.TryGetValue(rootId, out var neededRow))
                         neededRow.NeededByComponents.Add(row.NodeId);

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.8.33] - 2026-11-27
+### Fixed
+- **A Bridge import reads only the pages it uses, chosen before the read.** `BridgeSnapshot`
+  listed every page and snapshotted all of them; `OnlyImportSelectedPages`, `ImportSelectionOnly`
+  and `OnlyImportListedScreens` only filtered afterwards, and `[ignore]` pages were pruned after
+  the read. A 88,881-node reference page that no screen uses took 39–46 s per import and, on one
+  run, dropped the Unity lane mid-read ("Figma page 'Reference' ... did not snapshot: Figma file
+  disconnected"). Now the settings pick the start pages before anything is read (the screens page
+  and the pages of ticked components with `ImportSelectionOnly`, the selected pages without it),
+  the EZG Tools op `doc.pages` adds the pages that hold the mains their instances use and drops
+  `[ignore]` pages, and only those pages are snapshotted. On the measured file the import reads
+  Icons, Screens and Components and skips Reference and UX; the plan costs about 2 s. Unread pages
+  stay in the document as empty pages marked `bridgeUnread`, so the page-list check, the page list
+  and the screen and component rows of those pages are unchanged; the font check skips them. The
+  window's list refresh reads the screens page and every page that holds a component. A plugin
+  without `doc.pages` reads the start pages plus every page that holds a component, with a
+  warning to reopen it.
+### Added
+- **`ReadOnlyUsedPages`** (main view, Bridge source, on by default): off reads every page as
+  before. A ticked component on a page the last read skipped is named in a warning instead of
+  being dropped without a word.
+
 ## [0.8.32] - 2026-11-27
 ### Fixed
 - **Per-side stroke weights are drawn.** A locally drawn shape (`FrameShapeSprite`) read only

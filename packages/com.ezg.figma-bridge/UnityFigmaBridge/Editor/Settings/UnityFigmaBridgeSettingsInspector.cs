@@ -37,6 +37,7 @@ namespace UnityFigmaBridge.Editor.Settings
             FigmaSettingsDrawer.DrawField(serializedObject, "OnlyImportSelectedPages");
             FigmaSettingsDrawer.DrawField(serializedObject, "ImportSelectionOnly");
             FigmaSettingsDrawer.DrawField(serializedObject, "OnlyImportListedScreens");
+            FigmaSettingsDrawer.DrawField(serializedObject, "ReadOnlyUsedPages");
             serializedObject.ApplyModifiedProperties();
 
             FigmaSettingsDrawer.DrawFoldouts(serializedObject);

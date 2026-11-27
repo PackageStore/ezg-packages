@@ -235,7 +235,8 @@ namespace UnityFigmaBridge.Editor
             }
             else
             {
-                figmaFile = await DownloadFigmaDocument(importKey);
+                figmaFile = await DownloadFigmaDocument(importKey, BridgePagePlan.ForImport(s_UnityFigmaBridgeSettings,
+                    s_UnityFigmaBridgeSettings.ListsRebuildFor(importKey)));
                 if (figmaFile == null) return;
                 BindListsToFile(importKey, figmaFile);
             }
@@ -557,7 +558,7 @@ namespace UnityFigmaBridge.Editor
             if (!CheckRequirements()) return null;
             var target = await ResolveTargetOrReport();
             if (target == null) return null;
-            var figmaFile = await DownloadFigmaDocument(target.Value.Key);
+            var figmaFile = await DownloadFigmaDocument(target.Value.Key, BridgePagePlan.ForLists(s_UnityFigmaBridgeSettings));
             BindListsToFile(target.Value.Key, figmaFile);
             return figmaFile;
         }
@@ -572,7 +573,8 @@ namespace UnityFigmaBridge.Editor
             AssetDatabase.SaveAssetIfDirty(s_UnityFigmaBridgeSettings);
         }
 
-        public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
+        /// <param name="pages">The pages a Bridge read takes; null reads every page. REST reads every page.</param>
+        public static async Task<FigmaFile> DownloadFigmaDocument(string fileId, BridgePageSelection pages = null)
         {
             // Download figma document
             EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, $"Downloading file", 0);
@@ -581,7 +583,9 @@ namespace UnityFigmaBridge.Editor
                 : null;
             try
             {
-                return await (s_Source ?? ownedSource).GetDocument(fileId);
+                var source = s_Source ?? ownedSource;
+                if (source is BridgeFigmaSource bridge) bridge.Pages = pages;
+                return await source.GetDocument(fileId);
             }
             catch (Exception e)
             {
@@ -593,6 +597,17 @@ namespace UnityFigmaBridge.Editor
                 EditorUtility.ClearProgressBar();
             }
             return null;
+        }
+
+        /// <summary>A ticked component on a page the last Bridge read skipped is not in the document, so it cannot build.</summary>
+        private static void WarnTicksOnUnreadPages(FigmaFile figmaFile, bool offline)
+        {
+            var unread = new HashSet<string>(FigmaDataUtils.GetPageNodes(figmaFile).Where(page => page.bridgeUnread).Select(page => page.id));
+            var missed = s_UnityFigmaBridgeSettings.ComponentSelections
+                .Where(row => row.Include && unread.Contains(row.PageNodeId ?? "")).Select(row => $"'{row.Name}'").ToList();
+            if (missed.Count == 0) return;
+            Debug.LogWarning($"[FigmaBridge] {missed.Count} ticked component(s) sit on a page the last read skipped, so they are not imported: " +
+                             string.Join(", ", missed) + (offline ? ". Sync online to read their page." : "."));
         }
 
         /// <summary>Screens come only from the screens page, so a file without it imports no screen at all.</summary>
@@ -627,6 +642,7 @@ namespace UnityFigmaBridge.Editor
             var importScope = s_UnityFigmaBridgeSettings.ImportSelectionOnly
                 ? FigmaImportScope.Create(figmaFile, FigmaImportScope.SelectedNodeIds(s_UnityFigmaBridgeSettings, downloadPageNodeList))
                 : null;
+            if (importScope != null) WarnTicksOnUnreadPages(figmaFile, offline);
             if (importScope != null)
                 Debug.Log($"[FigmaBridge] Importing the selection: {importScope.Roots.Count} screen(s) and component(s), " +
                           $"{importScope.Roots.Count(importScope.IsDependency)} of them reached through instances");

@@ -131,6 +131,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// An array of nodes that are direct children of this node
         /// </summary>
         public Node[] children; // For DOCUMENT, CANVAS, FRAME
+
+        /// <summary>
+        /// A page the Bridge source did not read because the import does not use it. It keeps its id
+        /// and name so page lists still match the file, and has no children.
+        /// </summary>
+        public bool bridgeUnread;
         
         // For CANVAS
         /// <summary>

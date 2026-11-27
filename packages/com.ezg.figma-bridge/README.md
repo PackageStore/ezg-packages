@@ -47,6 +47,7 @@ The settings asset drives every path and toggle. The fields below sit in closed 
 | `PagePrefabFolder` | where page prefabs are written; blank = `<root>/Pages` | Output Folders |
 | `ImageFillFolder` | parent of the sprite folders; image fills go in `<folder>/<Figma document name>`; blank = `<root>/Sprites` | Output Folders |
 | `OnlyImportListedScreens` | import just the named screens instead of every frame | main view |
+| `ReadOnlyUsedPages` | Bridge source: read only the pages the import uses, chosen before the read (see below); off reads every page | main view |
 | `CollapseSliceGrids` | collapse a 9-slice plate into one sprite with borders | Layout & Nine-Slice |
 
 ## Behaviour worth knowing
@@ -65,6 +66,15 @@ These are on by default and shape the output:
   each node that stayed at its place (same name path, same order among same-named siblings), even
   when many nodes share one name, so overrides other prefabs hold on it stay on that node. Placed
   instances carry no override that only repeats the component's own value.
+- **Bridge reads only the pages it uses (0.8.33).** Before any page is read, the settings pick
+  the start pages: with `ImportSelectionOnly` the screens page and the pages of ticked components
+  (each limited by `OnlyImportSelectedPages`), without it every selected page. The plugin op
+  `doc.pages` adds the pages that hold the main components their instances use, and drops pages
+  named with `[ignore]`; only those pages are snapshotted. The others stay in the cached document
+  as empty pages (`Node.bridgeUnread`), so page lists still match the file and their screen and
+  component rows are kept. The window's list refresh reads the screens page and every page that
+  holds a component. The MCP `doc_snapshot` takes the same rules (`pageNames`, `dependencies`,
+  `skipIgnored`, `dryRun` to list the plan).
 - **`[ignore]` nodes.** A node whose name contains `[ignore]` (any case) is dropped from the
   document with its whole subtree before anything else runs: no sprite, no server render, no
   GameObject, not in the screen list. An ignored component master leaves its instances in place;
