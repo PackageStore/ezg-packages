@@ -108,6 +108,43 @@ namespace FigCraftBridge.Editor.Source
             return ctx.Result;
         }
 
+        /// <summary>
+        ///     FigCraft's layer JSON leaves out a text box's vertical alignment; the saved archive keeps it as
+        ///     <c>align_v</c> in <c>document.json</c>. Copies it onto every TEXT layer that lacks
+        ///     <c>textAlignVertical</c>, so a fixed box centred in FigCraft is not imported top-aligned.
+        ///     Returns the number of layers filled.
+        /// </summary>
+        public static int FillTextAlignVertical(JObject document, IReadOnlyDictionary<long, string> alignV)
+        {
+            if (alignV == null || alignV.Count == 0) return 0;
+            var filled = 0;
+            void Walk(JObject node)
+            {
+                if (node.Value<string>("type") == "TEXT" && node["textAlignVertical"] == null &&
+                    alignV.TryGetValue(Id(node), out var align))
+                {
+                    node["textAlignVertical"] = align;
+                    filled++;
+                }
+                foreach (var child in Children(node)) Walk(child);
+            }
+            foreach (var page in (document["pages"] as JArray ?? new JArray()).OfType<JObject>())
+                foreach (var child in Children(page)) Walk(child);
+            return filled;
+        }
+
+        /// <summary>Layer id -> <c>align_v</c> of every text layer in an archive's <c>document.json</c>.</summary>
+        public static Dictionary<long, string> ReadTextAlignVertical(JObject archiveDocument)
+        {
+            var map = new Dictionary<long, string>();
+            if (!(archiveDocument?["nodes"] is JObject nodes)) return map;
+            foreach (var property in nodes.Properties())
+                if (property.Value is JObject layer && layer.Value<string>("type") == "text" &&
+                    layer.Value<string>("align_v") is string align && long.TryParse(property.Name, out var id))
+                    map[id] = align;
+            return map;
+        }
+
         static IEnumerable<JObject> Children(JObject node) => (node["children"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>();
 
         static long Id(JObject node) => node.Value<long>("id");

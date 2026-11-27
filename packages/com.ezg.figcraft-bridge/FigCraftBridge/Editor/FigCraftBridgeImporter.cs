@@ -729,6 +729,15 @@ namespace FigCraftBridge.Editor
             try
             {
                 FigmaAssetGenerator.BuildFigmaFile(s_SceneCanvas, figmaBridgeProcessData);
+                if (s_FigCraftBridgeSettings.CompensateLinearAlpha && LinearAlphaCompensation.IsNeeded)
+                {
+                    FigmaImportTimer.Begin("Linear alpha compensation");
+                    var corrected = 0;
+                    foreach (var screenPrefab in figmaBridgeProcessData.ScreenPrefabs)
+                        corrected += LinearAlphaCompensation.Apply(AssetDatabase.GetAssetPath(screenPrefab));
+                    FigmaImportTimer.SetDetail("Linear alpha compensation",
+                        $"{corrected} layer(s) in {figmaBridgeProcessData.ScreenPrefabs.Count} screen(s)");
+                }
             }
             catch (Exception e)
             {

@@ -193,6 +193,10 @@ namespace FigCraftBridge.Editor.Settings
         [Tooltip("characterSpacing của TMP cộng thêm cho mọi text, ngoài letter spacing của Figma.\nVí dụ: 0 khớp Figma khi text dùng đúng font của thiết kế.")]
         public float CharacterSpacing = 0f;
 
+        [Tooltip("Project Linear blend lớp trong suốt trong không gian linear nên sáng hơn FigCraft (blend sRGB). Bật: sau khi lưu prefab screen, mỗi Graphic / CanvasGroup có alpha < 1 được chỉnh alpha cho khớp FigCraft, đo trên chính màn (nền dưới lớp và lớp ở alpha 1). Project Gamma không bị ảnh hưởng.\n" +
+                 "Ví dụ: ô trắng alpha 0.18 trên nền tối ra đúng độ sáng như trong FigCraft.")]
+        public bool CompensateLinearAlpha = true;
+
         [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +
                  "Ví dụ: bật khi ảnh được scale nhỏ nhiều lần trong world space.")]
         public bool SpriteMipmaps = false;

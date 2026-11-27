@@ -116,8 +116,10 @@ namespace FigCraftBridge.Editor.Nodes
                     // We only use TextMeshPro's italic functionality for now
                     if (node.style.italic) text.fontStyle |= FontStyles.Italic;
 
-                    // Auto width never wraps in Figma
-                    text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT
+                    // Auto width never wraps. A box one line tall shows one line in FigCraft, which never
+                    // breaks inside a word; TMP's wider advances would break "PLAY" into "PLA / Y".
+                    text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT ||
+                                            IsSingleLineBox(node)
                         ? TextWrappingModes.NoWrap
                         : TextWrappingModes.Normal;
 
@@ -350,6 +352,14 @@ namespace FigCraftBridge.Editor.Nodes
             var descent = -face.descentLine * scale;
             var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : ascent + descent;
             return (lineHeight - (ascent + descent)) * 0.5f + ascent;
+        }
+
+        /// <summary>A text box with no line break whose height holds less than two lines.</summary>
+        private static bool IsSingleLineBox(Node node)
+        {
+            if (node.size == null || string.IsNullOrEmpty(node.characters) || node.characters.IndexOf('\n') >= 0) return false;
+            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : node.style.fontSize * 1.2f;
+            return lineHeight > 0f && node.size.y < lineHeight * 1.9f;
         }
 
         private static bool IsCapHeightTrimmed(TypeStyle style)

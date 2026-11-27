@@ -70,6 +70,7 @@ namespace FigCraftBridge.Editor.Source
                 Debug.LogWarning("[FigCraftBridge] The file in FigCraft has unsaved changes: layers come from the app, " +
                                  "image fills from the saved file. Save in FigCraft when an image changed.");
 
+            FigCraftToRest.FillTextAlignVertical(doc, ReadArchiveTextAlign());
             var converted = FigCraftToRest.Convert(doc, DocumentName);
             _layerIds = converted.LayerIds;
             _restFile = converted.File;
@@ -149,6 +150,26 @@ namespace FigCraftBridge.Editor.Source
                 Debug.LogWarning($"[FigCraftBridge] {unplaced.Count} render(s) could not be placed by their pixels and use the " +
                                  "render box computed from strokes and effects: " + string.Join(", ", unplaced));
             return new FigmaServerRenderData { err = null, images = images };
+        }
+
+        /// <summary>Text vertical alignment per layer, from the saved archive; empty when there is no archive.</summary>
+        Dictionary<long, string> ReadArchiveTextAlign()
+        {
+            if (string.IsNullOrEmpty(_archivePath) || !File.Exists(_archivePath)) return new Dictionary<long, string>();
+            try
+            {
+                using var archive = ZipFile.OpenRead(_archivePath);
+                var entry = archive.GetEntry("document.json");
+                if (entry == null) return new Dictionary<long, string>();
+                using var reader = new JsonTextReader(new StreamReader(entry.Open(), Encoding.UTF8));
+                return FigCraftToRest.ReadTextAlignVertical(JObject.Load(reader));
+            }
+            catch (Exception e) when (e is IOException || e is InvalidDataException || e is JsonException)
+            {
+                Debug.LogWarning($"[FigCraftBridge] Could not read text alignment from {_archivePath}: {e.Message}. " +
+                                 "Text boxes import top-aligned.");
+                return new Dictionary<long, string>();
+            }
         }
 
         public Task<FigmaImageFillData> GetImageFillData(string fileId, IReadOnlyCollection<string> usedImageRefs) => Task.Run(() =>

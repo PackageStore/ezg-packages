@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.3] - 2026-11-27
+### Fixed
+- **Translucent layers match FigCraft in a Linear colour space project.** FigCraft blends a layer below
+  alpha 1 in sRGB, Unity UI in a Linear project blends it in linear light, so a light layer at low alpha
+  over a dark one came out much brighter (a white slot at 0.18 over a dark panel). After each screen
+  prefab is saved, `LinearAlphaCompensation` fits the alpha of every translucent Graphic and CanvasGroup
+  on the screen itself: the screen is drawn with the layer hidden and at alpha 1, the sRGB blend of the
+  two at the design alpha is the target, and the alpha is a least-squares fit in linear light over the
+  pixels the layer changes over an opaque backdrop (parents first); a layer over a see-through part of
+  the frame, such as a HUD over the game view, keeps its design alpha. Setting `CompensateLinearAlpha`
+  (on); a Gamma project is untouched. Component prefabs have no backdrop and keep the design alpha; a
+  screen writes the corrected alpha as an override on the instance it holds.
+- **Vertical text alignment comes from the archive.** FigCraft's layer JSON leaves out a text box's
+  vertical alignment; it is read from `align_v` in the saved archive's `document.json`, so a box centred
+  in FigCraft no longer imports top-aligned.
+- **A box one line tall does not wrap.** A fixed text box without a line break whose height holds less
+  than two lines imports with no wrapping, as FigCraft shows it on one line; TMP's wider advances broke
+  words ("PLA / Y").
+
 ## [0.1.2] - 2026-11-27
 ### Fixed
 - **9-slice grids keep the art's own corners.** A `slice_ROW_COL` cell shows a crop of the shared image
