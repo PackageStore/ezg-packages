@@ -96,11 +96,12 @@ namespace UnityFigmaBridge.Editor.NineSlice
                     return false;
                 }
 
+                var trimmed = TrimRoundingLines(ref pixels, ref width, ref height, NodeRenderBounds.Of(node), renderScale);
                 var result = Slice(pixels, width, height, new Vector4(
                     ToPixels(geometry.x, renderScale), ToPixels(geometry.y, renderScale),
                     ToPixels(geometry.z, renderScale), ToPixels(geometry.w, renderScale)));
 
-                if (result.Compacted)
+                if (result.Compacted || trimmed)
                 {
                     bytes = EncodePng(result);
                     File.WriteAllBytes(path, bytes);
@@ -115,6 +116,37 @@ namespace UnityFigmaBridge.Editor.NineSlice
             {
                 Object.DestroyImmediate(texture);
             }
+        }
+
+        /// <summary>
+        ///     Figma renders a node whose render bounds end on a fraction at the next whole pixel: a box
+        ///     93.03 high comes back 94 rows, the last one empty. The Image is the bounds' 93.03 units, so
+        ///     the bottom border ending in that empty row draws the bottom edge one unit inside the box
+        ///     (a 4 px stroke one pixel higher than in Figma). A right column or bottom row the render has
+        ///     beyond the rounded bounds is dropped when nothing is drawn on it; a line the art reaches
+        ///     (a fraction of .5 or more) stays. Returns true when a line was dropped.
+        /// </summary>
+        internal static bool TrimRoundingLines(ref Color32[] pixels, ref int width, ref int height, Rectangle bounds,
+            int renderScale)
+        {
+            if (bounds == null) return false;
+            var dropColumn = width > 1 && width > Mathf.RoundToInt(bounds.width * renderScale) &&
+                             LineIsBlank(pixels, width, height, true, width - 1);
+            // Texture rows count from the bottom, so the bottom row is row 0
+            var dropRow = height > 1 && height > Mathf.RoundToInt(bounds.height * renderScale) &&
+                          LineIsBlank(pixels, width, height, false, 0);
+            if (!dropColumn && !dropRow) return false;
+
+            var trimmedWidth = dropColumn ? width - 1 : width;
+            var trimmedHeight = dropRow ? height - 1 : height;
+            var firstRow = dropRow ? 1 : 0;
+            var result = new Color32[trimmedWidth * trimmedHeight];
+            for (var y = 0; y < trimmedHeight; y++)
+                Array.Copy(pixels, (y + firstRow) * width, result, y * trimmedWidth, trimmedWidth);
+            pixels = result;
+            width = trimmedWidth;
+            height = trimmedHeight;
+            return true;
         }
 
         internal struct SliceResult

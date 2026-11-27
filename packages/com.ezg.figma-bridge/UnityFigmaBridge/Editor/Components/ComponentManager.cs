@@ -97,7 +97,8 @@ namespace UnityFigmaBridge.Editor.Components
             // Instantiate components "within" components (nested components)
             FigmaImportTimer.Begin("Place instances in component prefabs");
             FigmaImportTimer.SetDetail("Place instances in component prefabs", $"{figmaImportProcessData.ComponentData.AllComponentPrefabs.Count} prefab(s)");
-            InstantiateComponentsInPrefabSet(figmaImportProcessData.ComponentData.AllComponentPrefabs,figmaImportProcessData,"Connecting nested components");
+            InstantiateComponentsInPrefabSet(NestedFirst(figmaImportProcessData.ComponentData.AllComponentPrefabs, figmaImportProcessData),
+                figmaImportProcessData,"Connecting nested components");
             // Instantiate components within screens
             FigmaImportTimer.Begin("Place instances in screen prefabs");
             FigmaImportTimer.SetDetail("Place instances in screen prefabs", $"{figmaImportProcessData.ScreenPrefabs.Count} prefab(s)");
@@ -109,6 +110,30 @@ namespace UnityFigmaBridge.Editor.Components
             if (figmaImportProcessData.PrunedInstanceOverrides > 0)
                 Debug.Log($"[FigmaBridge] Dropped {figmaImportProcessData.PrunedInstanceOverrides} instance override(s) that only " +
                           "repeated the component's own value");
+        }
+
+        /// <summary>
+        ///     Component prefabs ordered so that every component comes after the components it places.
+        ///     The overrides an instance sets inside a nested component (the number of a Slot-Item a
+        ///     Card-Quest scales up, 28 -> 30) sit on that component's own placeholder objects. When the
+        ///     outer component was connected first, connecting the inner one later replaced those
+        ///     placeholders, so the overrides were lost and the outer prefab showed the master's values
+        ///     (screens, connected after every component, kept them). Document order decided it before.
+        ///     A cycle keeps the order it is met in.
+        /// </summary>
+        internal static List<GameObject> NestedFirst(List<GameObject> prefabs, FigmaImportProcessData figmaImportProcessData)
+        {
+            var ordered = new List<GameObject>(prefabs.Count);
+            var visited = new HashSet<GameObject>();
+            void Visit(GameObject prefab)
+            {
+                if (prefab == null || !visited.Add(prefab)) return;
+                foreach (var marker in prefab.GetComponentsInChildren<FigmaComponentNodeMarker>(true))
+                    Visit(figmaImportProcessData.ComponentData.GetComponentPrefab(marker.ComponentId));
+                ordered.Add(prefab);
+            }
+            foreach (var prefab in prefabs) Visit(prefab);
+            return ordered;
         }
 
         /// <summary>

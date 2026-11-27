@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.33] - 2026-11-27
+### Fixed
+- **Component prefabs are connected inner components first.** The overrides an instance sets
+  inside a nested component live on that component's placeholder objects. Components were
+  connected in document order, so when an outer component (a quest card) came before the
+  component it places (a reward slot scaled 140 -> 150), connecting the inner one later replaced
+  the placeholders and the outer prefab lost every override below the first level: the slot kept
+  the master's 28 px amount in a 26 x 34 box, a 116 px icon and the master's rim insets, while
+  screens (connected after all components) showed the instance's 30 px. `NestedFirst` orders the
+  component prefabs so each comes after the components it places.
+- **A server render does not keep the empty line it is rounded up to.** Figma renders a node at
+  the next whole pixel: a box 93.03 high comes back 94 rows, the last one empty. The Image is the
+  render bounds' 93.03 units, so a bottom border ending in that empty row drew a 4 px bottom
+  stroke one pixel higher than in Figma. A right column or bottom row past the rounded render
+  bounds is now dropped when nothing is drawn on it (`ServerRenderSlicer.TrimRoundingLines`); a
+  fraction of .5 or more keeps its line.
+- **A stroke ring is drawn over the frame it clips with.** A card made of an inside stroke and a
+  child frame that clips its content on the stroke's inner edge drew the ring as its own Image,
+  under the children, and clipped with a stencil `Mask`, which keeps or drops whole pixels: the
+  panel showed a staircase over the inside edge of the ring at every rounded corner, where Figma
+  draws the stroke over the children with an anti-aliased clip. The ring is now drawn again as
+  the last child `[Stroke]` of the clipping frame, covering the parent's box; the stencil cuts it
+  to the inside edge, so the outside edge and other layers do not change (`ClipEdgeStroke`).
+
 ## [0.8.32] - 2026-11-27
 ### Fixed
 - **Per-side stroke weights are drawn.** A locally drawn shape (`FrameShapeSprite`) read only

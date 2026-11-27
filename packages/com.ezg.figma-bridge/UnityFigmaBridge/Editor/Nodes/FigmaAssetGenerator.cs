@@ -85,6 +85,9 @@ namespace UnityFigmaBridge.Editor.Nodes
                 NineSlicePass.Run(figmaImportProcessData);
             }
 
+            FigmaImportTimer.Begin("Stroke over clipped children");
+            ClipEdgeStroke.Run(figmaImportProcessData);
+
             FigmaImportTimer.Begin("Sprite platform overrides");
             SpritePlatformOverride.ApplyToFolders(figmaImportProcessData.Settings,
                 FigmaPaths.FigmaImageFillFolder, FigmaPaths.FigmaServerRenderedImagesFolder);
