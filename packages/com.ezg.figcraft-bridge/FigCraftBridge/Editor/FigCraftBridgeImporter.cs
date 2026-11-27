@@ -72,6 +72,10 @@ namespace FigCraftBridge.Editor
         private const int MAX_SERVER_RENDER_IMAGE_BATCH_SIZE = 300;
 
         private static IFigmaSource s_Source;
+
+        /// <summary>The source and document of the last <see cref="DownloadCurrentDocument"/>, for <see cref="SyncDocument(FigmaFile)"/>.</summary>
+        private static IFigmaSource s_ReadSource;
+        private static FigmaFile s_ReadDocument;
         private const string OfflineRequirementsFailed = "Requirements not met for the offline re-import: see the preceding dialog or console message.";
         private static FigCraftSourceKind ActiveSourceKind => s_Source?.Kind ?? s_FigCraftBridgeSettings?.Source ?? FigCraftSourceKind.File;
 
@@ -89,6 +93,17 @@ namespace FigCraftBridge.Editor
         public static void SyncDocument()
         {
             SyncAsync(offline: false);
+        }
+
+        /// <summary>
+        ///     Rebuild every output from <paramref name="document"/>, which the caller has just read
+        ///     with <see cref="DownloadCurrentDocument"/> (to pick the screens, say), instead of reading
+        ///     the file a second time. Image fills and renders still come from the source.
+        /// </summary>
+        public static void SyncDocument(FigmaFile document)
+        {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            SyncAsync(offline: false, document);
         }
 
         /// <summary>
@@ -145,7 +160,7 @@ namespace FigCraftBridge.Editor
         /// </summary>
         public static string LastImportCompletedUtc { get; private set; }
 
-        private static async void SyncAsync(bool offline)
+        private static async void SyncAsync(bool offline, FigmaFile document = null)
         {
             ImportInProgress = true;
             LastImportError = null;
@@ -153,7 +168,7 @@ namespace FigCraftBridge.Editor
             FigmaImportTimer.Start();
             try
             {
-                await SyncCore(offline);
+                await SyncCore(offline, document);
                 if (LastImportError == null) LastImportCompletedUtc = DateTime.UtcNow.ToString("o");
             }
             catch (Exception e)
@@ -170,7 +185,7 @@ namespace FigCraftBridge.Editor
             }
         }
 
-        private static async Task SyncCore(bool offline)
+        private static async Task SyncCore(bool offline, FigmaFile document = null)
         {
             FigmaImportTimer.Begin("Check settings");
             var requirementsMet = CheckRequirements(requireSource: !offline);
@@ -187,7 +202,20 @@ namespace FigCraftBridge.Editor
                 FigmaImportTimer.SetDetail("Check settings", sourceDescription);
                 var target = ResolveTargetOrReport();
                 if (target == null) return;
-                s_Source = FigmaSources.Create(s_FigCraftBridgeSettings);
+                // The source that read a handed-in document holds its layer index and archive path
+                if (document != null && ReferenceEquals(document, s_ReadDocument))
+                {
+                    s_Source = s_ReadSource;
+                    s_ReadSource = null;
+                    s_ReadDocument = null;
+                }
+                else
+                {
+                    if (document != null)
+                        Debug.LogWarning("[FigCraftBridge] The document handed to SyncDocument is not the last one DownloadCurrentDocument read; reading the file again.");
+                    document = null;
+                    s_Source = FigmaSources.Create(s_FigCraftBridgeSettings);
+                }
                 importKey = target.Value.Key;
             }
             else
@@ -208,6 +236,11 @@ namespace FigCraftBridge.Editor
                 }
                 Debug.Log($"[FigCraftBridge] Offline re-import from cache: '{figmaFile.name}' " +
                           $"(lastModified {figmaFile.lastModified}, version {figmaFile.version})");
+            }
+            else if (document != null)
+            {
+                figmaFile = document;
+                BindListsToFile(importKey, figmaFile);
             }
             else
             {
@@ -468,7 +501,18 @@ namespace FigCraftBridge.Editor
             if (!CheckRequirements()) return null;
             var target = ResolveTargetOrReport();
             if (target == null) return null;
-            var figmaFile = await DownloadFigmaDocument(target.Value.Key);
+            s_ReadSource?.Dispose();
+            s_ReadSource = null;
+            s_ReadDocument = null;
+            var source = FigmaSources.Create(s_FigCraftBridgeSettings);
+            var figmaFile = await DownloadFigmaDocument(target.Value.Key, source);
+            if (figmaFile == null)
+            {
+                source.Dispose();
+                return null;
+            }
+            s_ReadSource = source;
+            s_ReadDocument = figmaFile;
             BindListsToFile(target.Value.Key, figmaFile);
             return figmaFile;
         }
@@ -483,14 +527,15 @@ namespace FigCraftBridge.Editor
             AssetDatabase.SaveAssetIfDirty(s_FigCraftBridgeSettings);
         }
 
-        public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
+        /// <param name="source">Reads with this source and leaves it open; null uses the running Sync's or a temporary one.</param>
+        public static async Task<FigmaFile> DownloadFigmaDocument(string fileId, IFigmaSource source = null)
         {
             FigmaImportTimer.Begin("Read document (FigCraft)");
             EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, "Reading the FigCraft document", 0);
-            var ownedSource = s_Source == null ? FigmaSources.Create(s_FigCraftBridgeSettings) : null;
+            var ownedSource = source == null && s_Source == null ? FigmaSources.Create(s_FigCraftBridgeSettings) : null;
             try
             {
-                return await (s_Source ?? ownedSource).GetDocument(fileId);
+                return await (source ?? s_Source ?? ownedSource).GetDocument(fileId);
             }
             catch (Exception e)
             {

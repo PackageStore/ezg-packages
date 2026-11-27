@@ -26,6 +26,58 @@ namespace FigCraftBridge.Editor.Utils
         /// <summary>Invisible separator before the path suffix: never part of a Figma layer name.</summary>
         private const string MARK = "⁣#";
 
+        /// <summary>Prefabs saved with their suffixed names still on, see <see cref="SaveAsPrefabAssetDeferringNames"/>.</summary>
+        private static readonly HashSet<string> s_DeferredRestores = new();
+
+        /// <summary>
+        ///     Takes the suffixes off <paramref name="contents"/>, loaded from <paramref name="assetPath"/>,
+        ///     when its save deferred that. Returns true when it did; the caller then saves the contents.
+        /// </summary>
+        public static bool RestoreDeferredNames(GameObject contents, string assetPath)
+        {
+            if (!s_DeferredRestores.Remove(assetPath)) return false;
+            foreach (var node in contents.GetComponentsInChildren<Transform>(true))
+            {
+                var markIndex = node.name.IndexOf(MARK, StringComparison.Ordinal);
+                if (markIndex >= 0) node.name = node.name.Substring(0, markIndex);
+            }
+            return true;
+        }
+
+        /// <summary>Duplicate names of each tree whose replaced prefab <see cref="MarkExistingPrefabs"/> marked ahead.</summary>
+        private static readonly Dictionary<string, HashSet<string>> s_PremarkedNames = new();
+
+        /// <summary>
+        ///     Marks the prefabs that the coming <see cref="SaveAsPrefabAssetAndConnect"/> calls for these
+        ///     trees replace, all in one asset batch. Each tree must stay as it is until its save.
+        /// </summary>
+        public static void MarkExistingPrefabs(IReadOnlyList<(GameObject root, string assetPath)> saves)
+        {
+            s_PremarkedNames.Clear();
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                foreach (var (root, assetPath) in saves)
+                {
+                    if (string.IsNullOrEmpty(assetPath)) continue;
+                    var duplicateNames = OwnDuplicateNames(root);
+                    MarkExistingPrefab(assetPath, duplicateNames);
+                    s_PremarkedNames[assetPath] = duplicateNames;
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+        }
+
+        /// <summary>Restores every deferred prefab no later pass opened. Called at the end of the build.</summary>
+        public static void RestoreAllDeferred()
+        {
+            foreach (var assetPath in s_DeferredRestores) StripMarks(assetPath);
+            s_DeferredRestores.Clear();
+        }
+
         /// <summary>
         ///     <see cref="PrefabUtility.SaveAsPrefabAssetAndConnect(GameObject,string,InteractionMode)"/>
         ///     that keeps the object ids of an existing prefab at <paramref name="assetPath"/> on the
@@ -33,8 +85,11 @@ namespace FigCraftBridge.Editor.Utils
         /// </summary>
         public static GameObject SaveAsPrefabAssetAndConnect(GameObject root, string assetPath, InteractionMode mode)
         {
-            var duplicateNames = OwnDuplicateNames(root);
-            MarkExistingPrefab(assetPath, duplicateNames);
+            if (!s_PremarkedNames.Remove(assetPath, out var duplicateNames))
+            {
+                duplicateNames = OwnDuplicateNames(root);
+                MarkExistingPrefab(assetPath, duplicateNames);
+            }
             if (duplicateNames.Count == 0) return PrefabUtility.SaveAsPrefabAssetAndConnect(root, assetPath, mode);
 
             var renamed = Mark(root, duplicateNames);
@@ -52,6 +107,38 @@ namespace FigCraftBridge.Editor.Utils
                 else StripMarks(assetPath);
             }
             return prefab;
+        }
+
+        /// <summary>
+        ///     <see cref="PrefabUtility.SaveAsPrefabAsset(GameObject,string,out bool)"/> with the object ids
+        ///     kept as <see cref="SaveAsPrefabAssetAndConnect"/> keeps them; <paramref name="root"/> stays
+        ///     unconnected. The suffixed names stay in the prefab until the caller's next
+        ///     <see cref="PrefabUtility.LoadPrefabContents"/> of it takes them off with
+        ///     <see cref="RestoreDeferredNames"/>, which saves a second prefab write and import.
+        ///     Safe inside <see cref="AssetDatabase.StartAssetEditing"/>: returns null there, as the prefab
+        ///     is imported only when the batch ends.
+        /// </summary>
+        public static GameObject SaveAsPrefabAssetDeferringNames(GameObject root, string assetPath)
+        {
+            if (!s_PremarkedNames.Remove(assetPath, out var duplicateNames))
+            {
+                duplicateNames = OwnDuplicateNames(root);
+                MarkExistingPrefab(assetPath, duplicateNames);
+            }
+            if (duplicateNames.Count == 0) return PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+
+            var renamed = Mark(root, duplicateNames);
+            try
+            {
+                var prefab = PrefabUtility.SaveAsPrefabAsset(root, assetPath, out var saved);
+                if (saved) s_DeferredRestores.Add(assetPath);
+                else StripMarks(assetPath);
+                return prefab;
+            }
+            finally
+            {
+                foreach (var (node, name) in renamed) node.name = name;
+            }
         }
 
         /// <summary>

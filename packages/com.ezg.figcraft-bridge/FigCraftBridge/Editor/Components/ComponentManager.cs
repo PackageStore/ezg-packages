@@ -26,22 +26,29 @@ namespace FigCraftBridge.Editor.Components
        /// </summary>
        /// <param name="figmaImportProcessData"></param>
         public static void RemoveAllTemporaryNodeComponents(FigmaImportProcessData figmaImportProcessData)
-       {
-           // Remove from components (nested)
-            foreach (var componentPrefab in figmaImportProcessData.ComponentData.AllComponentPrefabs)
-                RemoveTemporaryNodeComponents(componentPrefab);
-            
-            // Remove from screens
-            foreach (var framePrefab in figmaImportProcessData.ScreenPrefabs.Where(framePrefab => framePrefab!=null))
+        {
+            // Each prefab drops only its own markers, so the order of the saves does not matter and
+            // their imports (a component's pulls in every screen that nests it) run once, at the end
+            AssetDatabase.StartAssetEditing();
+            try
             {
-                RemoveTemporaryNodeComponents(framePrefab);
+                // Remove from components (nested)
+                foreach (var componentPrefab in figmaImportProcessData.ComponentData.AllComponentPrefabs)
+                    RemoveTemporaryNodeComponents(componentPrefab);
+
+                // Remove from screens
+                foreach (var framePrefab in figmaImportProcessData.ScreenPrefabs.Where(framePrefab => framePrefab != null))
+                    RemoveTemporaryNodeComponents(framePrefab);
+
+                // Remove from pages
+                foreach (var pagePrefab in figmaImportProcessData.PagePrefabs.Where(pagePrefab => pagePrefab != null))
+                    RemoveTemporaryNodeComponents(pagePrefab);
             }
-            // Remove from pages
-            foreach (var pagePrefab in figmaImportProcessData.PagePrefabs.Where(pagePrefab => pagePrefab!=null))
+            finally
             {
-                RemoveTemporaryNodeComponents(pagePrefab);
+                AssetDatabase.StopAssetEditing();
             }
-       }
+        }
 
         /// <summary>
         /// Remove all component placeholders from a given prefab object (could be flowScreen or component)
@@ -52,8 +59,9 @@ namespace FigCraftBridge.Editor.Components
             var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
             var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
             var allPlaceholderComponents = prefabContents.GetComponentsInChildren<FigmaNodeObject>(true);
+            // A nested instance's markers belong to its component prefab, which drops them itself
             foreach (var placeholder in allPlaceholderComponents)
-                Object.DestroyImmediate(placeholder);
+                if (!PrefabUtility.IsPartOfPrefabInstance(placeholder)) Object.DestroyImmediate(placeholder);
             // Save
             PrefabUtility.SaveAsPrefabAsset(prefabContents, assetPath);
             // Unload
@@ -101,7 +109,16 @@ namespace FigCraftBridge.Editor.Components
             // Instantiate components within screens
             FigmaImportTimer.Begin("Place instances in screen prefabs");
             FigmaImportTimer.SetDetail("Place instances in screen prefabs", $"{figmaImportProcessData.ScreenPrefabs.Count} prefab(s)");
-            InstantiateComponentsInPrefabSet(figmaImportProcessData.ScreenPrefabs,figmaImportProcessData,"Connecting screen components");
+            // No screen nests another, so their imports run once, together, at the end
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                InstantiateComponentsInPrefabSet(figmaImportProcessData.ScreenPrefabs, figmaImportProcessData, "Connecting screen components");
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
             // Instantiate components within pages
             if (figmaImportProcessData.PagePrefabs.Count > 0) FigmaImportTimer.Begin("Place instances in page prefabs");
             InstantiateComponentsInPrefabSet(figmaImportProcessData.PagePrefabs,figmaImportProcessData,"Connecting page components");
@@ -140,6 +157,7 @@ namespace FigCraftBridge.Editor.Components
             var assetPath = AssetDatabase.GetAssetPath(sourcePrefab);
             var prefabContents = PrefabUtility.LoadPrefabContents(assetPath);
             figmaImportProcessData.CurrentPrefabPath = assetPath;
+            StablePrefabSave.RestoreDeferredNames(prefabContents, assetPath);
             if (!figmaImportProcessData.InstanceSources.TryGetValue(assetPath, out var instanceSources))
                 figmaImportProcessData.InstanceSources[assetPath] = instanceSources = new List<FigmaInstanceSource>();
             // Get all placeholders within this prefab - these will be replaced

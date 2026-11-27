@@ -134,6 +134,27 @@ namespace FigCraftBridge.Editor
         /// True when the import was rebuilt from the cached document without the network.
         /// </summary>
         public bool Offline;
+
+        /// <summary>
+        /// Screens built but not saved yet, in build order. They are saved together once every page is
+        /// built, so the prefabs they replace are prepared in one asset batch.
+        /// </summary>
+        public List<DeferredScreenSave> DeferredScreenSaves = new();
+
+        /// <summary>Built screen roots saved without a prefab connection, and the prefab each was saved to.</summary>
+        public Dictionary<GameObject, string> UnconnectedScreenRoots = new();
+    }
+
+    /// <summary>A built screen waiting for its prefab save.</summary>
+    public class DeferredScreenSave
+    {
+        public FigmaApi.Node Node;
+        public FigmaApi.Node ParentNode;
+        public GameObject Root;
+        public string AssetPath;
+        public int NameCount;
+        public bool DestroyAfterSave;
+        public GameObject Prefab;
     }
 
     /// <summary>

@@ -76,6 +76,9 @@ namespace FigCraftBridge.Editor.Nodes
             var strokeSides = stroke == null ? Vector4.zero : StrokeSides(node) * share;
 
             var white = SolidTint.TryGetShapeTint(node, out _);
+            var key = ShapeSpriteCache.Key(node, width, height, radii, stroke, strokeSides, white, InnerShadows(node));
+            var cached = ShapeSpriteCache.Get(key);
+            if (cached != null) return cached;
             var pixels = Draw(node, width, height, radii, stroke, strokeSides, white);
 
             // One guard texel past the widest corner or stroke, for the anti-aliased edge
@@ -92,7 +95,11 @@ namespace FigCraftBridge.Editor.Nodes
             var path = $"{folder}/Shape-{Hash(png, slice.Border)}.png";
 
             var existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                ShapeSpriteCache.Set(key, path);
+                return existing;
+            }
 
             Directory.CreateDirectory(folder);
             File.WriteAllBytes(path, png);
@@ -113,6 +120,7 @@ namespace FigCraftBridge.Editor.Nodes
                 SpritePlatformOverride.Apply(importer, settings);
                 importer.SaveAndReimport();
             }
+            ShapeSpriteCache.Set(key, path);
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 

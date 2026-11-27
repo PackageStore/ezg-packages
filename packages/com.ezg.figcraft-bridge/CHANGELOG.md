@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.7] - 2026-11-28
+Import of 39 screens of a Linear project against 0.1.6: 113.0 s → 34.1 s (45.5 s on the first run, before the
+shape cache fills); all 39 pass with the same visual check minimum on every screen. Without the three linear-alpha
+passes: 89.0 s → 10.5 s. One screen with 5 components: 6.7 s.
+### Changed
+- **A frame shape is drawn once.** `FrameShapeSprite` drew and PNG-encoded every rounded, stroked or gradient
+  background on every import (up to a screen-size texture per node) only to find the file by its hash. The draw
+  inputs are now hashed (fills, stroke, inner shadows, size, radii, package version) and mapped to the sprite in
+  `Library/FigCraftBridge/shape-sprites.json`; a known shape loads its sprite (build nodes 41.8 s → 0.4 s).
+- **Screen prefabs are saved in batches.** The screens of a page are saved once that page is built, before the next
+  page, so a component saved later reimports no screen prefab: the prefabs they replace get
+  their `StablePrefabSave` name marks in one `StartAssetEditing` batch, and an import of a selection writes all
+  screens unconnected in a second batch (`StablePrefabSave.SaveAsPrefabAssetDeferringNames`). The instance pass,
+  which opens every screen anyway, takes the marks off, so the extra `ApplyPrefabInstance` save is gone (mark,
+  save and apply 21.7 s → 1.4 s). A whole-file import still saves connected, since page prefabs nest the screens.
+- **Screen instance placement and marker removal import once.** Both passes save inside one asset batch; a
+  prefab now drops only its own `FigmaNodeObject` markers (a nested instance's belong to its component, which
+  drops them itself), so the order of the saves no longer matters (7.3 s → 1.6 s and 10.5 s → 1.0 s).
+- **The document is read once.** `SyncDocument(FigmaFile)` builds from the document the caller just read with
+  `DownloadCurrentDocument` (to pick screens, say), with the same source, instead of reading the file again.
+
 ## [0.1.6] - 2026-11-27
 39 screens of a Linear project against 0.1.5: all 39 pass, none lower beyond noise; FieldHud SoulMight row under
 the stash plate 0.925 → 0.987, RuneForge-Fuse 0.936 → 0.941. 4 extra copies, 27 Images; import +8 s.

@@ -29,6 +29,7 @@ namespace FigCraftBridge.Editor.Nodes
         {
             // Save prefab for each page
             var downloadPageIdList = figmaImportProcessData.SelectedPagesForImport.Select(p => p.id).ToList();
+            StablePrefabSave.RestoreAllDeferred();
             
             FigmaImportTimer.Begin("Build nodes (GameObjects from Figma nodes)");
             // Cycle through all pages and create
@@ -41,6 +42,9 @@ namespace FigCraftBridge.Editor.Nodes
                 EditorUtility.DisplayProgressBar(FigCraftBridgeImporter.PROGRESS_BOX_TITLE, $"Generating Page {figmaCanvasNode.name} ", 0);
                 var pageGameObject = BuildFigmaPage(figmaCanvasNode, rootCanvas.transform as RectTransform, figmaImportProcessData,includedPageObject);
                 createdPages.Add((figmaCanvasNode,pageGameObject));
+                // Saved before the next page: a component saved later then has no old screen prefab
+                // nesting it to import again
+                SaveDeferredScreens(figmaImportProcessData);
             }
             
             // Save prefab for each page. A partial build would leave a page prefab holding only the selection.
@@ -59,6 +63,7 @@ namespace FigCraftBridge.Editor.Nodes
             {
                 if (root == null) continue;
                 var path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(root);
+                if (string.IsNullOrEmpty(path)) figmaImportProcessData.UnconnectedScreenRoots.TryGetValue(root, out path);
                 if (!string.IsNullOrEmpty(path)) record.PrefabPath = path;
             }
             figmaImportProcessData.ShapeOnlyPendingRoots.Clear();
@@ -78,6 +83,7 @@ namespace FigCraftBridge.Editor.Nodes
             
             // Instantiate all components
             ComponentManager.InstantiateAllComponentPrefabs(figmaImportProcessData);
+            StablePrefabSave.RestoreAllDeferred();
 
             if (figmaImportProcessData.Settings.CollapseSliceGrids)
             {
@@ -163,7 +169,6 @@ namespace FigCraftBridge.Editor.Nodes
             var nodeGameObject = new GameObject(figmaNode.name, typeof(RectTransform));
             nodeGameObject.transform.SetParent(parentTransform, false);
             var nodeRectTransform = nodeGameObject.transform as RectTransform;
-
             if (figmaImportProcessData.Settings.NumberDuplicateSiblings)
                 NumberDuplicateSibling(nodeGameObject, parentTransform, figmaImportProcessData);
 
@@ -232,7 +237,6 @@ namespace FigCraftBridge.Editor.Nodes
             
             // Apply layout properties to this node as required (eg vertical layout groups etc). This also implements scrolling
             FigmaLayoutManager.ApplyLayoutPropertiesForNode(nodeGameObject,figmaNode,figmaImportProcessData,out var scrollContentGameObject);
-
             ClipContentMask.Apply(nodeGameObject, figmaNode, figmaImportProcessData, figmaImportProcessData.ScreenNodeIds.Contains(figmaNode.id));
             
             // Build children for this node, if they exist
@@ -290,8 +294,10 @@ namespace FigCraftBridge.Editor.Nodes
                     {
                         var screenCopy = Object.Instantiate(nodeGameObject, nodeGameObject.transform.parent);
                         screenCopy.name = nodeGameObject.name;
-                        SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, (RectTransform)screenCopy.transform, figmaImportProcessData);
-                        Object.DestroyImmediate(screenCopy);
+                        // Out of the page until its deferred save, so no later sibling meets its name
+                        screenCopy.transform.SetParent(null, false);
+                        SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, (RectTransform)screenCopy.transform, figmaImportProcessData,
+                            destroyAfterSave: true);
                     }
                     ComponentManager.GenerateComponentAssetFromNode(figmaNode, parentFigmaNode, nodeGameObject, figmaImportProcessData);
                     break;
@@ -334,14 +340,72 @@ namespace FigCraftBridge.Editor.Nodes
         /// <param name="parentNode"></param>
         /// <param name="screenRectTransform"></param>
         /// <param name="figmaImportProcessData"></param>
-        private static void SaveFigmaScreenAsPrefab(Node node, Node parentNode,RectTransform screenRectTransform, FigmaImportProcessData figmaImportProcessData)
+        private static void SaveFigmaScreenAsPrefab(Node node, Node parentNode,RectTransform screenRectTransform, FigmaImportProcessData figmaImportProcessData,
+            bool destroyAfterSave = false)
         {
             var screenNameCount = figmaImportProcessData.ScreenPrefabNameCounter.TryGetValue(node.name, out var value)
                 ? value : 0;
             
             // Increment count to ensure no naming collisions
             figmaImportProcessData.ScreenPrefabNameCounter[node.name] = screenNameCount + 1;
-            
+
+            // Nothing changes a screen's tree once it is built; the save waits for the end of its page
+            figmaImportProcessData.DeferredScreenSaves.Add(new DeferredScreenSave
+            {
+                Node = node,
+                ParentNode = parentNode,
+                Root = screenRectTransform.gameObject,
+                AssetPath = FigmaPaths.GetPathForScreenPrefab(node, screenNameCount),
+                NameCount = screenNameCount,
+                DestroyAfterSave = destroyAfterSave
+            });
+        }
+
+        /// <summary>
+        ///     Saves every screen of the page just built. The prefabs they replace get their names marked for
+        ///     <see cref="StablePrefabSave"/> in one asset batch. An import of a selection saves the
+        ///     screens unconnected in a second batch: no page prefab nests them, and Unity then imports
+        ///     all of them once instead of refreshing the database after each.
+        /// </summary>
+        private static void SaveDeferredScreens(FigmaImportProcessData figmaImportProcessData)
+        {
+            var saves = figmaImportProcessData.DeferredScreenSaves;
+            if (saves.Count == 0) return;
+            using (FigmaImportTimer.Measure("Mark replaced screen prefabs (one batch)"))
+                StablePrefabSave.MarkExistingPrefabs(saves.Select(save => (save.Root, save.AssetPath)).ToList());
+
+            var batch = figmaImportProcessData.ImportScope != null;
+            using (FigmaImportTimer.Measure(batch ? "Save screen prefabs (one batch)" : "Save screen prefabs"))
+            {
+                if (batch) AssetDatabase.StartAssetEditing();
+                try
+                {
+                    foreach (var save in saves)
+                    {
+                        if (string.IsNullOrEmpty(save.AssetPath)) continue;
+                        WriteScreenPrefab(save, connect: !batch, figmaImportProcessData);
+                    }
+                }
+                finally
+                {
+                    if (batch) AssetDatabase.StopAssetEditing();
+                }
+            }
+
+            foreach (var save in saves)
+            {
+                if (string.IsNullOrEmpty(save.AssetPath)) continue;
+                var screenPrefab = batch ? AssetDatabase.LoadAssetAtPath<GameObject>(save.AssetPath) : save.Prefab;
+                if (batch && screenPrefab != null) figmaImportProcessData.UnconnectedScreenRoots[save.Root] = save.AssetPath;
+                RegisterScreenPrefab(save, screenPrefab, figmaImportProcessData);
+                if (save.DestroyAfterSave) Object.DestroyImmediate(save.Root);
+            }
+            saves.Clear();
+        }
+
+        private static void WriteScreenPrefab(DeferredScreenSave save, bool connect, FigmaImportProcessData figmaImportProcessData)
+        {
+            var screenRectTransform = (RectTransform)save.Root.transform;
             // We want prefab to be stored with a default position, so reset and restore
             var current = screenRectTransform.anchoredPosition;
             screenRectTransform.anchoredPosition = Vector2.zero;
@@ -349,33 +413,36 @@ namespace FigCraftBridge.Editor.Nodes
             {
                 var unaware = GammaVertexColors.Apply(screenRectTransform.gameObject);
                 if (unaware.Count > 0)
-                    Debug.LogWarning($"[FigCraftBridge] {node.name}: shader(s) that ignore Canvas.vertexColorAlwaysGammaSpace " +
+                    Debug.LogWarning($"[FigCraftBridge] {save.Node.name}: shader(s) that ignore Canvas.vertexColorAlwaysGammaSpace " +
                                      $"draw their vertex colour too bright on the screen's gamma canvas: {string.Join(", ", unaware)}");
             }
-            // Write prefab
-            GameObject screenPrefab;
-            using (FigmaImportTimer.Measure("Save screen prefabs"))
-                screenPrefab = StablePrefabSave.SaveAsPrefabAssetAndConnect(screenRectTransform.gameObject,
-                    FigmaPaths.GetPathForScreenPrefab(node,screenNameCount), InteractionMode.UserAction);
+            // A page prefab (whole-file import) nests the connected screen. Otherwise the instance pass
+            // opens every screen prefab and takes the name suffixes off there
+            save.Prefab = connect
+                ? StablePrefabSave.SaveAsPrefabAssetAndConnect(save.Root, save.AssetPath, InteractionMode.UserAction)
+                : StablePrefabSave.SaveAsPrefabAssetDeferringNames(save.Root, save.AssetPath);
             // Restore original position
             screenRectTransform.anchoredPosition = current;
+        }
 
+        private static void RegisterScreenPrefab(DeferredScreenSave save, GameObject screenPrefab, FigmaImportProcessData figmaImportProcessData)
+        {
             // If we are building the prototype flow, add this to the current flowScreen controller
             if (figmaImportProcessData.Settings.BuildPrototypeFlow)
             {
                 figmaImportProcessData.PrototypeFlowController.RegisterFigmaScreen(new FigmaFlowScreen
                 {
                     FigmaScreenPrefab = screenPrefab,
-                    FigmaNodeId = node.id,
-                    FigmaScreenName = FigmaPaths.GetFileNameForNode(node, screenNameCount),
+                    FigmaNodeId = save.Node.id,
+                    FigmaScreenName = FigmaPaths.GetFileNameForNode(save.Node, save.NameCount),
                     // Store the section that this is part of (if applicable)
-                    ParentSectionNodeId = parentNode is { type: NodeType.SECTION } ? parentNode.id : string.Empty
+                    ParentSectionNodeId = save.ParentNode is { type: NodeType.SECTION } ? save.ParentNode.id : string.Empty
                 });
             }
-            
+
             figmaImportProcessData.ScreenPrefabs.Add(screenPrefab);
             var screenPrefabPath = AssetDatabase.GetAssetPath(screenPrefab);
-            if (!string.IsNullOrEmpty(screenPrefabPath)) figmaImportProcessData.ScreenPrefabNodes[screenPrefabPath] = node;
+            if (!string.IsNullOrEmpty(screenPrefabPath)) figmaImportProcessData.ScreenPrefabNodes[screenPrefabPath] = save.Node;
         }
 
         /// <summary>
