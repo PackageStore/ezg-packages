@@ -18,7 +18,7 @@ namespace FigCraftBridge.Editor.Nodes
     ///     once with the layer hidden (what lies under it) and once at alpha 1, the sRGB blend of the two at
     ///     the design alpha is the target, and the alpha is fitted by least squares in linear light over the
     ///     pixels the layer changes. Parents are fitted before their children, so a child is measured over
-    ///     its already corrected parent. Only pixels over an opaque backdrop count: a layer over a
+    ///     its already corrected parent. Only pixels over an opaque backdrop (or a popup's dim) count: a layer over a
     ///     see-through part of the frame (a HUD drawn over the game view) keeps its design alpha, as do
     ///     component prefabs, which have no backdrop; a screen writes its corrected alpha as an override on
     ///     the component instance it holds.
@@ -29,7 +29,13 @@ namespace FigCraftBridge.Editor.Nodes
         private const float MaxAlpha = 0.998f;
         private const double MinSignal = 1e-6;
 
-        private static readonly float[] s_ToLinear = BuildToLinear();
+        /// <summary>
+        ///     A backdrop at least this opaque counts as known: a popup's dim layer (black at 0.86) is, a HUD over
+        ///     the game view (alpha 0) is not. Its colour is taken as drawn over black, as the frame renders it.
+        /// </summary>
+        internal const byte MinBackdropAlpha = 200;
+
+        internal static readonly float[] s_ToLinear = BuildToLinear();
 
         /// <summary>True when the project blends in linear light, the only case that needs the pass.</summary>
         public static bool IsNeeded => PlayerSettings.colorSpace == ColorSpace.Linear;
@@ -133,7 +139,7 @@ namespace FigCraftBridge.Editor.Nodes
                 var u = under[i];
                 var f = full[i];
                 // Over a see-through part of the frame (a HUD over the game view) the backdrop is unknown
-                if (u.a < 255 || (u.r == f.r && u.g == f.g && u.b == f.b)) continue;
+                if (u.a < MinBackdropAlpha || (u.r == f.r && u.g == f.g && u.b == f.b)) continue;
                 Accumulate(u.r, f.r, designAlpha, ref sxy, ref sxx);
                 Accumulate(u.g, f.g, designAlpha, ref sxy, ref sxx);
                 Accumulate(u.b, f.b, designAlpha, ref sxy, ref sxx);
@@ -193,7 +199,7 @@ namespace FigCraftBridge.Editor.Nodes
                     yield return target;
         }
 
-        private static Camera CreateCamera(Scene scene, RenderTexture target)
+        internal static Camera CreateCamera(Scene scene, RenderTexture target)
         {
             var cameraObject = new GameObject("LinearAlphaCamera");
             SceneManager.MoveGameObjectToScene(cameraObject, scene);
@@ -206,7 +212,7 @@ namespace FigCraftBridge.Editor.Nodes
             return camera;
         }
 
-        private static GameObject Stage(GameObject prefab, Scene scene, Camera camera, int width, int height)
+        internal static GameObject Stage(GameObject prefab, Scene scene, Camera camera, int width, int height)
         {
             var canvasObject = new GameObject("LinearAlphaCanvas", typeof(RectTransform));
             SceneManager.MoveGameObjectToScene(canvasObject, scene);
@@ -257,7 +263,7 @@ namespace FigCraftBridge.Editor.Nodes
             return current;
         }
 
-        private static float ToLinear(float srgb) =>
+        internal static float ToLinear(float srgb) =>
             srgb <= 0.04045f ? srgb / 12.92f : Mathf.Pow((srgb + 0.055f) / 1.055f, 2.4f);
 
         private static float[] BuildToLinear()

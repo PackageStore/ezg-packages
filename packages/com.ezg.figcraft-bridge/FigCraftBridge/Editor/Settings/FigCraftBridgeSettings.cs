@@ -143,8 +143,8 @@ namespace FigCraftBridge.Editor.Settings
                  "Ví dụ: Assets/TextMesh Pro/Fonts")]
         public string FontsFolder = "";
 
-        [Tooltip("Thư mục chứa material preset của font. Để trống dùng chung thư mục font.\n" +
-                 "Ví dụ: Assets/TextMesh Pro/Fonts")]
+        [Tooltip("Thư mục chứa material preset của font (viền, bóng chữ). Để trống dùng <Assets Root>/FontMaterials.\n" +
+                 "Ví dụ: Assets/_Project/UI/FontMaterials")]
         public string FontMaterialPresetsFolder = "";
 
         [Tooltip("Đặt tên sprite theo node Figma dùng nó, thay cho mã hash imageRef.\n" +
@@ -193,8 +193,8 @@ namespace FigCraftBridge.Editor.Settings
         [Tooltip("characterSpacing của TMP cộng thêm cho mọi text, ngoài letter spacing của Figma.\nVí dụ: 0 khớp Figma khi text dùng đúng font của thiết kế.")]
         public float CharacterSpacing = 0f;
 
-        [Tooltip("Project Linear blend lớp trong suốt trong không gian linear nên sáng hơn FigCraft (blend sRGB). Bật: sau khi lưu prefab screen, mỗi Graphic / CanvasGroup có alpha < 1 được chỉnh alpha cho khớp FigCraft, đo trên chính màn (nền dưới lớp và lớp ở alpha 1). Project Gamma không bị ảnh hưởng.\n" +
-                 "Ví dụ: ô trắng alpha 0.18 trên nền tối ra đúng độ sáng như trong FigCraft.")]
+        [Tooltip("Project Linear blend lớp trong suốt trong không gian linear nên sáng hơn FigCraft (blend sRGB). Bật: sau khi lưu prefab screen, mỗi ảnh có alpha mềm trong texture (glow, viền mờ) được nướng đường cong alpha vào bản sao <tên>_linalpha.png, rồi mỗi Graphic / CanvasGroup có alpha < 1 được chỉnh alpha cho khớp FigCraft, đo trên chính màn (nền dưới lớp và lớp ở alpha 1). Project Gamma không bị ảnh hưởng.\n" +
+                 "Ví dụ: ô trắng alpha 0.18 trên nền tối, vầng sáng glow ra đúng độ sáng như trong FigCraft.")]
         public bool CompensateLinearAlpha = true;
 
         [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +

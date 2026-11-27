@@ -485,6 +485,8 @@ namespace FigCraftBridge.Editor.Source
                 },
             };
             if (raw.Value<string>("leadingTrim") == "capHeight") style["leadingTrim"] = "CAP_HEIGHT";
+            var features = raw["features"] as JObject ?? raw["paragraph"]?["features"] as JObject;
+            if (features?["kern"] is JToken kern && kern.Type == JTokenType.Boolean) style["kern"] = kern.Value<bool>();
             var lineHeight = raw["lineHeight"];
             var text = lineHeight?.Type == JTokenType.String ? lineHeight.Value<string>() : null;
             if (text != null && text.EndsWith("%", StringComparison.Ordinal) &&
@@ -502,7 +504,8 @@ namespace FigCraftBridge.Editor.Source
             }
             else
             {
-                style["lineHeightPx"] = size * 1.2f;
+                // Auto: FigCraft spaces lines by the font's own line height; the importer reads it off the font asset
+                style["lineHeightPx"] = 0f;
                 style["lineHeightUnitString"] = "INTRINSIC_%";
             }
             return style;

@@ -1072,6 +1072,9 @@ namespace FigCraftBridge.Editor.FigmaApi
     /// </summary>
     public class TypeStyle
     {
+        /// <summary>FigCraft kerns by default; a layer with the kern feature off sets it false.</summary>
+        public bool kern = true;
+
         /// <summary>
         /// Font family of text (standard name)
         /// </summary>

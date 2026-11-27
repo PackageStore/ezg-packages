@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -71,6 +72,7 @@ namespace FigCraftBridge.Editor.Nodes
                         return;
                     }
                     text.font = matchingFontMapping.FontAsset;
+                    WarnIfKerningLost(node, matchingFontMapping.FontAsset);
 
                     text.text = node.characters;
                     ApplyTextFill(text, TopVisiblePaint(node.fills), node, matchingFontMapping.FontAsset);
@@ -119,7 +121,7 @@ namespace FigCraftBridge.Editor.Nodes
                     // Auto width never wraps. A box one line tall shows one line in FigCraft, which never
                     // breaks inside a word; TMP's wider advances would break "PLAY" into "PLA / Y".
                     text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT ||
-                                            IsSingleLineBox(node)
+                                            IsSingleLineBox(node, text.font)
                         ? TextWrappingModes.NoWrap
                         : TextWrappingModes.Normal;
 
@@ -285,6 +287,23 @@ namespace FigCraftBridge.Editor.Nodes
                 figmaImportProcessData.ShapeOnlyPendingRoots.Add((record, HierarchyRootWithinPrefab(nodeGameObject.transform)));
         }
 
+        private static readonly HashSet<TMP_FontAsset> s_WarnedNoKerning = new();
+
+        /// <summary>
+        ///     FigCraft kerns a text unless its kern feature is off; TMP kerns only by the pair records stored in
+        ///     the font asset, so a font asset without them sets the text wider than FigCraft. Once per font.
+        /// </summary>
+        private static void WarnIfKerningLost(Node node, TMP_FontAsset fontAsset)
+        {
+            if (!node.style.kern || fontAsset == null || s_WarnedNoKerning.Contains(fontAsset)) return;
+            var pairs = fontAsset.fontFeatureTable?.glyphPairAdjustmentRecords;
+            if (pairs != null && pairs.Count > 0) return;
+            s_WarnedNoKerning.Add(fontAsset);
+            Debug.LogWarning($"[FigCraftBridge] Text '{node.name}' is kerned in FigCraft, but font asset '{fontAsset.name}' " +
+                             "stores no kerning pairs, so Unity sets it wider. Turn kern off on the FigCraft text style, " +
+                             "or add the font's kerning pairs to the font asset.");
+        }
+
         private static Paint TopVisiblePaint(Paint[] paints)
         {
             if (paints == null) return null;
@@ -350,15 +369,18 @@ namespace FigCraftBridge.Editor.Nodes
             if (IsCapHeightTrimmed(node.style)) return face.capLine * scale;
             var ascent = face.ascentLine * scale;
             var descent = -face.descentLine * scale;
-            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : ascent + descent;
+            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : face.lineHeight * scale;
             return (lineHeight - (ascent + descent)) * 0.5f + ascent;
         }
 
         /// <summary>A text box with no line break whose height holds less than two lines.</summary>
-        private static bool IsSingleLineBox(Node node)
+        private static bool IsSingleLineBox(Node node, TMP_FontAsset fontAsset)
         {
             if (node.size == null || string.IsNullOrEmpty(node.characters) || node.characters.IndexOf('\n') >= 0) return false;
-            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx : node.style.fontSize * 1.2f;
+            var face = fontAsset != null ? fontAsset.faceInfo : default;
+            var lineHeight = node.style.lineHeightPx > 0f ? node.style.lineHeightPx
+                : face.pointSize > 0f ? face.lineHeight * node.style.fontSize / face.pointSize
+                : node.style.fontSize * 1.2f;
             return lineHeight > 0f && node.size.y < lineHeight * 1.9f;
         }
 
@@ -394,7 +416,9 @@ namespace FigCraftBridge.Editor.Nodes
             }
             else
             {
-                var halfLeading = style.lineHeightPx > 0f ? (style.lineHeightPx - (ascent + descent)) * 0.5f : 0f;
+                // An auto line height is the font's own, which TMP already stacks by
+                var lineHeight = style.lineHeightPx > 0f ? style.lineHeightPx : face.lineHeight * scale;
+                var halfLeading = (lineHeight - (ascent + descent)) * 0.5f;
                 marginTop = halfLeading;
                 marginBottom = halfLeading;
             }

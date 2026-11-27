@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.1.4] - 2026-11-27
+39 screens of a Linear project against 0.1.3: 38 pass the visual check (was 28), none lower beyond noise;
+Gear 0.781 → 0.953, WingsPanel-Wings 0.839 → 0.948, RewardPopup 0.712 → 0.944, RuneForge-Fuse
+0.574 → 0.937, Revive 0.831 → 0.988.
+### Fixed
+- **Soft textures match FigCraft in a Linear colour space project.** A glow, a soft rim or a plate at
+  texture alpha 240 (colour alpha 1, the softness in the texture) blended brighter than FigCraft's sRGB
+  blend, and a colour alpha could not fix it: each texel needs its own correction. `LinearAlphaTextures`
+  measures every soft texture the imported screens draw (drawn hidden, forced opaque, and as an alpha map,
+  with every Graphic drawn over it hidden), fits an alpha curve `a → a'` per band of 8 alpha levels by
+  least squares in linear light against the sRGB blend (non-decreasing, over every use of the texture on an
+  opaque backdrop), bakes it into `<name>_linalpha.png` beside the bridge's file (ordered dither between the
+  two nearest alpha levels, so the faint edge of a glow does not band) and points every Image of
+  the imported prefabs at the copy. The bridge's own file is never changed, so crops and caches derived from
+  it stay as they were. Runs before the per-layer alpha fit, under `CompensateLinearAlpha`; a Gamma project
+  is untouched; no runtime cost.
+- **A popup's dim counts as a backdrop.** Both linear-alpha passes skipped every pixel whose backdrop was
+  not fully opaque, so a layer over a popup's dim (black at 0.86) kept its design alpha. A backdrop with
+  alpha 200 or more now counts, its colour taken as drawn over black; a HUD over the game view (alpha 0)
+  still keeps its design alpha.
+- **Auto line height is the font's own.** FigCraft spaces an Auto line height by the font's line height
+  (Cinzel Bold 40: 53.9 px); the import took 1.2 × size (48 px). Auto now leaves `lineHeightPx` 0 and the
+  importer reads the line height off the TMP font asset for the line spacing, the half leading, the first
+  baseline and the one-line test.
+- **A slice grid shorter than its two corners keeps its corners.** Rows and columns of a 9-slice grid were
+  ordered by their place on the frame; in a box shorter than both corners (Panel-Clean 1020 × 44, corners
+  24) the middle row starts below the bottom row, the bottom edge was read off the middle row and the
+  density came out 6× too high, so a 24 px corner shrank to 4 px. They are ordered by where each cell's
+  crop sits in the image.
+- **Font material presets no longer land in the game's font folder.** An empty `FontMaterialPresetsFolder`
+  now means `<Assets Root>/FontMaterials` (was the fonts folder), so an import into another root writes no
+  material beside the game's fonts.
+### Added
+- A warning, once per font, when a FigCraft text is kerned (the default) but the TMP font asset it maps to
+  stores no kerning pairs, so Unity sets it wider. `TypeStyle.kern` carries the layer's `features.kern`.
+
 ## [0.1.3] - 2026-11-27
 ### Fixed
 - **Translucent layers match FigCraft in a Linear colour space project.** FigCraft blends a layer below

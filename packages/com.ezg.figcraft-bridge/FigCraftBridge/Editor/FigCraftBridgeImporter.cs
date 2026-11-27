@@ -731,6 +731,15 @@ namespace FigCraftBridge.Editor
                 FigmaAssetGenerator.BuildFigmaFile(s_SceneCanvas, figmaBridgeProcessData);
                 if (s_FigCraftBridgeSettings.CompensateLinearAlpha && LinearAlphaCompensation.IsNeeded)
                 {
+                    FigmaImportTimer.Begin("Linear alpha textures");
+                    var screenPaths = figmaBridgeProcessData.ScreenPrefabs.Where(prefab => prefab != null)
+                        .Select(AssetDatabase.GetAssetPath).ToList();
+                    var prefabPaths = figmaBridgeProcessData.ComponentData.AllComponentPrefabs
+                        .Concat(figmaBridgeProcessData.PagePrefabs).Concat(figmaBridgeProcessData.ScreenPrefabs)
+                        .Where(prefab => prefab != null).Select(AssetDatabase.GetAssetPath).Distinct().ToList();
+                    var (textures, images) = LinearAlphaTextures.Apply(screenPaths, prefabPaths);
+                    FigmaImportTimer.SetDetail("Linear alpha textures", $"{textures} soft texture(s), {images} image(s) repointed");
+
                     FigmaImportTimer.Begin("Linear alpha compensation");
                     var corrected = 0;
                     foreach (var screenPrefab in figmaBridgeProcessData.ScreenPrefabs)

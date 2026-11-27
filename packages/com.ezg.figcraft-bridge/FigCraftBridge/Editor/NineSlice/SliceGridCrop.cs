@@ -45,10 +45,10 @@ namespace FigCraftBridge.Editor.NineSlice
                 crops[cell] = crop;
             }
 
-            float Left(Cell c) => c.rect.localPosition.x + c.rect.rect.xMin;
-            float Top(Cell c) => -(c.rect.localPosition.y + c.rect.rect.yMax);
-            var cols = cells.Select(c => c.col).Distinct().OrderBy(col => cells.Where(c => c.col == col).Min(Left)).ToList();
-            var rows = cells.Select(c => c.row).Distinct().OrderBy(row => cells.Where(c => c.row == row).Min(Top)).ToList();
+            // Ordered by where each cell's crop sits in the image, not by its place on the frame: in a box
+            // shorter than its two corners the middle row starts below the bottom row
+            var cols = cells.Select(c => c.col).Distinct().OrderBy(col => cells.Where(c => c.col == col).Min(c => crops[c].x)).ToList();
+            var rows = cells.Select(c => c.row).Distinct().OrderBy(row => cells.Where(c => c.row == row).Min(c => crops[c].y)).ToList();
 
             float left = 0, right = 0, top = 0, bottom = 0;
             var densities = new List<float>();

@@ -88,10 +88,12 @@ namespace FigCraftBridge.Editor.Utils
             FigmaImageFillFolder = folders.ImageFills;
             FigmaServerRenderedImagesFolder = folders.ServerRenderedImages;
 
-            // Deliberately not derived from root: these are TMP assets, not Figma output.
+            // Deliberately not derived from root: fonts are TMP assets the game owns, not import output.
             FigmaFontsFolder = NormalisePath(settings.FontsFolder, DefaultFontsRoot);
+            // The presets are import output (one per text effect), so they sit under the root: an import
+            // into another root never writes into the game's font folder.
             FigmaFontMaterialPresetsFolder =
-                NormalisePath(settings.FontMaterialPresetsFolder, FigmaFontsFolder);
+                NormalisePath(settings.FontMaterialPresetsFolder, $"{folders.Root}/FontMaterials");
 
             s_OnlyImportListedScreens = settings.OnlyImportListedScreens;
             ScreensPageName = settings.ScreensPageName;
