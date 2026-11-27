@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.6] - 2026-11-27
+39 screens of a Linear project against 0.1.5: all 39 pass, none lower beyond noise; FieldHud SoulMight row under
+the stash plate 0.925 → 0.987, RuneForge-Fuse 0.936 → 0.941. 4 extra copies, 27 Images; import +8 s.
+### Fixed
+- **A soft texture used over very different backdrops matches each of them.** One curve per texture is fitted
+  over all its uses, so a near-opaque dark plate over bright icons (most uses of the same plate sit on dark
+  panels) let the icons show through. A new pass after layer compensation measures every use again over the
+  backdrop the player sees, with each translucent layer under it already fitted; a use whose own curve stays
+  4 alpha levels (RMS, weighted by what it draws) from the shared curve and removes enough error gets a copy
+  of its own, `<name>_linalpha_<8 hex>.png` (uses with near curves share one), set on that Image as an override.
+  Measured before compensation, the curve of a use followed a backdrop that changed afterwards; weighed by the
+  largest gap at any alpha, a band with almost no pixels sent most uses to a copy of their own.
+
 ## [0.1.5] - 2026-11-27
 39 screens of a Linear project against 0.1.4: all 39 pass the visual check (was 38), none lower beyond noise;
 FieldHud 0.757 → 0.911, WingsPanel-Wings 0.948 → 0.976, BossIntro 0.946 → 0.987, Vip 0.977 → 0.988. Import of the

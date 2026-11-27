@@ -747,6 +747,10 @@ namespace FigCraftBridge.Editor
                         corrected += LinearAlphaCompensation.Apply(AssetDatabase.GetAssetPath(screenPrefab));
                     FigmaImportTimer.SetDetail("Linear alpha compensation",
                         $"{corrected} layer(s) in {figmaBridgeProcessData.ScreenPrefabs.Count} screen(s)");
+
+                    FigmaImportTimer.Begin("Linear alpha textures per use");
+                    var (useCopies, useImages) = LinearAlphaTextures.ApplyPerUse(screenPaths);
+                    FigmaImportTimer.SetDetail("Linear alpha textures per use", $"{useCopies} copies, {useImages} image(s); {LinearAlphaTextures.LastTiming}");
                 }
             }
             catch (Exception e)

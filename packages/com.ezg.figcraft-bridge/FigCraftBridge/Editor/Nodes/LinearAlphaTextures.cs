@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -42,6 +43,26 @@ namespace FigCraftBridge.Editor.Nodes
 
         private const double MinSignal = 0.05;
 
+        /// <summary>
+        ///     A use gets a copy of its own when its curve stays this many alpha levels (RMS, weighted by what the
+        ///     use draws at each alpha) from the texture's shared curve: a near-opaque dark plate over bright icons
+        ///     wants more alpha than the same plate over the dark panels most uses sit on.
+        /// </summary>
+        private const float UseCurveRms = 4f;
+
+        /// <summary>
+        ///     ... and when its own curve removes at least this much squared error (alpha levels², weighted by
+        ///     signal) against the shared one, so a small or faint use, where the shared curve is close enough
+        ///     to see, keeps the shared copy instead of adding a file.
+        /// </summary>
+        private const double UseMinGain = 1e5;
+
+        /// <summary>Uses of one texture whose own curves stay this close share one copy.</summary>
+        private const int UseCurveShare = 8;
+
+        /// <summary>The shared curve of each soft texture of the last <see cref="Apply"/>, null when it kept the texture.</summary>
+        private static readonly Dictionary<string, float[]> s_SharedCurves = new Dictionary<string, float[]>();
+
         /// <summary>At or below this alpha level a lowered alpha is written as a darker colour only.</summary>
         private const int ColourOnlyBelow = 16;
 
@@ -66,6 +87,15 @@ namespace FigCraftBridge.Editor.Nodes
             public bool SRGB;
             public Texture2D Opaque, AlphaMap;
             public readonly double[] Sxx = new double[256], Sxy = new double[256], Syy = new double[256];
+            public readonly Dictionary<string, Use> Uses = new Dictionary<string, Use>();
+        }
+
+        /// <summary>One Image of one screen that draws the texture, with its own sums.</summary>
+        private sealed class Use
+        {
+            public string Screen;
+            public string ImagePath;
+            public readonly double[] Sxx = new double[256], Sxy = new double[256];
         }
 
         /// <summary>
@@ -78,9 +108,10 @@ namespace FigCraftBridge.Editor.Nodes
             var sources = new Dictionary<string, Source>();
             var clock = System.Diagnostics.Stopwatch.StartNew();
             s_Draws = 0;
+            s_SharedCurves.Clear();
             try
             {
-                foreach (var screenPath in screenPaths) Measure(screenPath, sources);
+                foreach (var screenPath in screenPaths) Measure(screenPath, sources, false);
                 var measureTime = clock.Elapsed.TotalSeconds;
 
                 var measured = new HashSet<string>();
@@ -90,10 +121,11 @@ namespace FigCraftBridge.Editor.Nodes
                 {
                     if (!source.Soft) continue;
                     measured.Add(source.Path);
-                    var curve = FitCurve(source);
+                    var curve = FitCurve(source.Sxx, source.Sxy);
+                    s_SharedCurves[source.Path] = curve;
                     if (curve != null)
                     {
-                        var copyPath = WriteCopy(source, curve, out var import);
+                        var copyPath = WriteCopy(source, curve, CopyPath(source.Path, null), out var import);
                         if (copyPath != null)
                         {
                             copyPaths[source.Path] = copyPath;
@@ -137,9 +169,150 @@ namespace FigCraftBridge.Editor.Nodes
             }
         }
 
+        /// <summary>
+        ///     Runs after <see cref="LinearAlphaCompensation"/>, so each Image is measured over the backdrop the
+        ///     player sees, with every translucent layer under it already fitted. A
+        ///     use whose own curve stays far from the shared one (<see cref="NeedsOwnCurve"/>) gets a copy for it
+        ///     (uses with near curves share one), set on that Image as an override. Returns the copies used and
+        ///     the Images changed.
+        /// </summary>
+        public static (int copies, int images) ApplyPerUse(IReadOnlyList<string> screenPaths)
+        {
+            if (!LinearAlphaCompensation.IsNeeded) return (0, 0);
+            var sources = new Dictionary<string, Source>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            s_Draws = 0;
+            try
+            {
+                foreach (var screenPath in screenPaths) Measure(screenPath, sources, true);
+                var measureTime = clock.Elapsed.TotalSeconds;
+
+                var byScreen = new Dictionary<string, Dictionary<string, string>>();
+                var imports = new List<string>();
+                var used = new HashSet<string>();
+                foreach (var source in sources.Values)
+                {
+                    if (!source.Soft) continue;
+                    s_SharedCurves.TryGetValue(source.Path, out var shared);
+                    var own = new List<(float[] curve, string path)>();
+                    foreach (var use in source.Uses.Values.OrderBy(use => use.Screen + "|" + use.ImagePath, StringComparer.Ordinal))
+                    {
+                        if (!NeedsOwnCurve(use, shared, out var curve)) continue;
+                        string path = null;
+                        if (curve == null) path = source.Path;
+                        else
+                        {
+                            foreach (var (other, otherPath) in own)
+                                if (MaxGap(curve, other) <= UseCurveShare)
+                                {
+                                    path = otherPath;
+                                    break;
+                                }
+                            if (path == null)
+                            {
+                                path = WriteCopy(source, curve, CopyPath(source.Path, curve), out var import);
+                                if (path == null) continue;
+                                if (import) imports.Add(path);
+                                own.Add((curve, path));
+                            }
+                            used.Add(path);
+                        }
+                        if (!byScreen.TryGetValue(use.Screen, out var byImage)) byScreen[use.Screen] = byImage = new Dictionary<string, string>();
+                        byImage[use.ImagePath] = path;
+                    }
+                }
+                if (imports.Count > 0)
+                {
+                    AssetDatabase.StartAssetEditing();
+                    try
+                    {
+                        foreach (var path in imports) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                    }
+                    finally
+                    {
+                        AssetDatabase.StopAssetEditing();
+                    }
+                }
+                var writeTime = clock.Elapsed.TotalSeconds - measureTime;
+
+                var changed = 0;
+                foreach (var (screen, byImage) in byScreen)
+                {
+                    var contents = PrefabUtility.LoadPrefabContents(screen);
+                    var screenChanged = 0;
+                    try
+                    {
+                        foreach (var image in contents.GetComponentsInChildren<Image>(true))
+                        {
+                            if (!byImage.TryGetValue(PathKey(contents.transform, image.transform), out var path)) continue;
+                            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                            if (sprite == null || sprite == image.sprite) continue;
+                            image.sprite = sprite;
+                            screenChanged++;
+                        }
+                        if (screenChanged > 0) PrefabUtility.SaveAsPrefabAsset(contents, screen);
+                    }
+                    finally
+                    {
+                        PrefabUtility.UnloadPrefabContents(contents);
+                    }
+                    changed += screenChanged;
+                }
+                LastTiming = $"{used.Count} copies for single uses; measure {measureTime:0.0} s ({s_Draws} draws), write {writeTime:0.0} s, " +
+                             $"repoint {clock.Elapsed.TotalSeconds - measureTime - writeTime:0.0} s";
+                return (used.Count, changed);
+            }
+            finally
+            {
+                foreach (var source in sources.Values)
+                {
+                    if (source.Opaque != null) Object.DestroyImmediate(source.Opaque);
+                    if (source.AlphaMap != null) Object.DestroyImmediate(source.AlphaMap);
+                }
+            }
+        }
+
+        private static float MaxGap(float[] a, float[] b)
+        {
+            var gap = 0f;
+            for (var level = 0; level < 256; level++) gap = Mathf.Max(gap, Mathf.Abs(a[level] - b[level]));
+            return gap;
+        }
+
+        /// <summary>
+        ///     True when the use's own curve is <see cref="UseCurveRms"/> levels from the shared one and removes
+        ///     <see cref="UseMinGain"/> of error, both weighted per band of alpha by the use's own signal.
+        ///     <paramref name="own"/> is its curve, null when it wants the texture as it is.
+        /// </summary>
+        private static bool NeedsOwnCurve(Use use, float[] shared, out float[] own)
+        {
+            own = FitCurve(use.Sxx, use.Sxy);
+            double weight = 0, gapSquares = 0, gain = 0;
+            for (var start = 0; start < 256; start += BandWidth)
+            {
+                double sxx = 0, sxy = 0;
+                for (var bin = start; bin < start + BandWidth; bin++)
+                {
+                    sxx += use.Sxx[bin];
+                    sxy += use.Sxy[bin];
+                }
+                if (sxx < MinBandSignal) continue;
+                var mid = start + BandWidth / 2;
+                var best = 255 * sxy / sxx;
+                double mine = own != null ? own[mid] : mid, theirs = shared != null ? shared[mid] : mid;
+                weight += sxx;
+                gapSquares += sxx * (mine - theirs) * (mine - theirs);
+                gain += sxx * ((best - theirs) * (best - theirs) - (best - mine) * (best - mine));
+            }
+            return weight > 0 && gain >= UseMinGain && Math.Sqrt(gapSquares / weight) >= UseCurveRms;
+        }
+
         #region Measure
 
-        private static void Measure(string screenPath, Dictionary<string, Source> sources)
+        /// <summary>
+        ///     <paramref name="perUse"/>: every Image is measured (no cap per texture) and its sums are kept per use too.
+        /// </summary>
+        private static void Measure(string screenPath, Dictionary<string, Source> sources, bool perUse)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(screenPath);
             if (prefab == null || prefab.transform is not RectTransform rootRect) return;
@@ -163,8 +336,9 @@ namespace FigCraftBridge.Editor.Nodes
                     var source = SourceOf(image.sprite, sources);
                     if (source == null || !source.Soft) continue;
                     samples.TryGetValue(source.Path, out var count);
-                    if (count >= MaxSamplesPerTexturePerScreen) continue;
-                    if (MeasureImage(image, graphics, i + 1, source, camera, renderTexture)) samples[source.Path] = count + 1;
+                    if (!perUse && count >= MaxSamplesPerTexturePerScreen) continue;
+                    var use = perUse ? UseOf(source, screenPath, PathKey(instance.transform, image.transform)) : null;
+                    if (MeasureImage(image, graphics, i + 1, source, use, camera, renderTexture)) samples[source.Path] = count + 1;
                 }
             }
             finally
@@ -193,7 +367,7 @@ namespace FigCraftBridge.Editor.Nodes
         ///     Draws the Image three ways with every Graphic drawn over it hidden, so a translucent layer on top
         ///     (a white plate at 0.18 over a glow) does not leak into the backdrop, the colour or the alpha map.
         /// </summary>
-        private static bool MeasureImage(Image image, Graphic[] graphics, int firstOver, Source source, Camera camera,
+        private static bool MeasureImage(Image image, Graphic[] graphics, int firstOver, Source source, Use use, Camera camera,
             RenderTexture target)
         {
             var region = ScreenRegion(image.rectTransform, camera, target);
@@ -220,7 +394,7 @@ namespace FigCraftBridge.Editor.Nodes
                 image.overrideSprite = alphaMap;
                 image.color = Color.white;
                 var map = Render(camera, target, region);
-                Accumulate(under, full, map, source);
+                Accumulate(under, full, map, source, use);
                 return true;
             }
             finally
@@ -238,7 +412,7 @@ namespace FigCraftBridge.Editor.Nodes
         ///     <c>a</c>: FigCraft shows <c>u + a (f - u)</c> in sRGB, Unity <c>U + g(a) (F - U)</c> in linear light.
         ///     Sums are binned by <c>a</c> so that the curve can be fitted later over every use of the texture.
         /// </summary>
-        private static void Accumulate(Color32[] under, Color32[] full, Color32[] map, Source source)
+        private static void Accumulate(Color32[] under, Color32[] full, Color32[] map, Source source, Use use)
         {
             var toLinear = LinearAlphaCompensation.s_ToLinear;
             for (var i = 0; i < under.Length; i++)
@@ -249,13 +423,13 @@ namespace FigCraftBridge.Editor.Nodes
                 var alpha = toLinear[map[i].r];
                 var bin = Mathf.Clamp(Mathf.RoundToInt(alpha * 255f), 0, 255);
                 if (bin == 0 || bin == 255) continue;
-                Add(u.r, f.r, alpha, bin, source);
-                Add(u.g, f.g, alpha, bin, source);
-                Add(u.b, f.b, alpha, bin, source);
+                Add(u.r, f.r, alpha, bin, source, use);
+                Add(u.g, f.g, alpha, bin, source, use);
+                Add(u.b, f.b, alpha, bin, source, use);
             }
         }
 
-        private static void Add(byte under, byte full, float alpha, int bin, Source source)
+        private static void Add(byte under, byte full, float alpha, int bin, Source source, Use use)
         {
             var toLinear = LinearAlphaCompensation.s_ToLinear;
             var u = toLinear[under];
@@ -264,6 +438,27 @@ namespace FigCraftBridge.Editor.Nodes
             source.Sxx[bin] += x * x;
             source.Sxy[bin] += x * y;
             source.Syy[bin] += y * y;
+            if (use == null) return;
+            use.Sxx[bin] += x * x;
+            use.Sxy[bin] += x * y;
+        }
+
+        private static Use UseOf(Source source, string screen, string imagePath)
+        {
+            var key = screen + "|" + imagePath;
+            if (!source.Uses.TryGetValue(key, out var use))
+                source.Uses[key] = use = new Use { Screen = screen, ImagePath = imagePath };
+            return use;
+        }
+
+        /// <summary>Sibling indices from the prefab root, the same in a staged instance and in the prefab's contents.</summary>
+        private static string PathKey(Transform root, Transform node)
+        {
+            var parts = new List<string>();
+            for (var current = node; current != null && current != root; current = current.parent)
+                parts.Add(current.GetSiblingIndex().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            parts.Reverse();
+            return string.Join("/", parts);
         }
 
         private static RectInt ScreenRegion(RectTransform rect, Camera camera, RenderTexture target)
@@ -350,13 +545,25 @@ namespace FigCraftBridge.Editor.Nodes
             return drawn > 0 && soft >= SoftShare * drawn;
         }
 
+        /// <summary>The bridge's file behind a shared copy (<c>_linalpha</c>) or a copy for some uses (<c>_linalpha_&lt;8 hex&gt;</c>).</summary>
         internal static string OriginalPath(string path)
         {
-            if (string.IsNullOrEmpty(path)) return path;
-            var end = Suffix + ".png";
-            return path.EndsWith(end, StringComparison.OrdinalIgnoreCase)
-                ? path.Substring(0, path.Length - end.Length) + ".png"
-                : path;
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return path;
+            var stem = path.Substring(0, path.Length - ".png".Length);
+            if (stem.EndsWith(Suffix, StringComparison.Ordinal)) return stem.Substring(0, stem.Length - Suffix.Length) + ".png";
+            var at = stem.Length - Suffix.Length - 9;
+            if (at > 0 && string.CompareOrdinal(stem, at, Suffix + "_", 0, Suffix.Length + 1) == 0) return stem.Substring(0, at) + ".png";
+            return path;
+        }
+
+        /// <summary>The shared copy of a texture, or a copy for the uses that want <paramref name="curve"/>.</summary>
+        private static string CopyPath(string sourcePath, float[] curve)
+        {
+            var stem = sourcePath.Substring(0, sourcePath.Length - ".png".Length) + Suffix;
+            if (curve == null) return stem + ".png";
+            var bytes = new byte[curve.Length * 4];
+            Buffer.BlockCopy(curve, 0, bytes, 0, bytes.Length);
+            return stem + "_" + Md5(bytes).Substring(0, 8) + ".png";
         }
 
         /// <summary>The texture forced opaque (its colour), or its alpha as a grey level in a linear texture.</summary>
@@ -400,10 +607,10 @@ namespace FigCraftBridge.Editor.Nodes
         ///     backdrop wants less alpha, the near-opaque dark centre of the same plate over light art wants
         ///     more. Null when the texture changed too few pixels or the curve stays within 2 levels of itself.
         /// </summary>
-        private static float[] FitCurve(Source source)
+        private static float[] FitCurve(double[] sxxBins, double[] sxyBins)
         {
             double signal = 0;
-            for (var bin = 1; bin < 255; bin++) signal += source.Sxx[bin];
+            for (var bin = 1; bin < 255; bin++) signal += sxxBins[bin];
             if (signal < MinSignal) return null;
 
             var blocks = new List<(double weight, double value, double position)>();
@@ -412,9 +619,9 @@ namespace FigCraftBridge.Editor.Nodes
                 double sxx = 0, sxy = 0, position = 0;
                 for (var bin = start; bin < start + BandWidth; bin++)
                 {
-                    sxx += source.Sxx[bin];
-                    sxy += source.Sxy[bin];
-                    position += bin * source.Sxx[bin];
+                    sxx += sxxBins[bin];
+                    sxy += sxyBins[bin];
+                    position += bin * sxxBins[bin];
                 }
                 if (sxx < MinBandSignal) continue;
                 blocks.Add((sxx, Math.Max(0, Math.Min(1, sxy / sxx)), position / sxx));
@@ -468,10 +675,9 @@ namespace FigCraftBridge.Editor.Nodes
         ///     nearest alpha levels so the curve does not band. <paramref name="import"/> is true when the copy
         ///     was written and waits for the batch import.
         /// </summary>
-        private static string WriteCopy(Source source, float[] curve, out bool import)
+        private static string WriteCopy(Source source, float[] curve, string copyPath, out bool import)
         {
             import = false;
-            var copyPath = source.Path.Substring(0, source.Path.Length - ".png".Length) + Suffix + ".png";
             var curveBytes = new byte[curve.Length * 4];
             Buffer.BlockCopy(curve, 0, curveBytes, 0, curveBytes.Length);
             var marker = Marker + CopyVersion + Md5(source.Bytes) + ":" + Md5(curveBytes);
