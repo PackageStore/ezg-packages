@@ -197,6 +197,10 @@ namespace FigCraftBridge.Editor.Settings
                  "Ví dụ: ô trắng alpha 0.18 trên nền tối, vầng sáng glow ra đúng độ sáng như trong FigCraft.")]
         public bool CompensateLinearAlpha = true;
 
+        [Tooltip("Project Linear: Canvas đổi màu vertex sang linear rồi lưu 8 bit nên màu rất tối mất kênh (#0E0A06 ra (13,13,0)). Bật: root mỗi prefab screen có Canvas riêng (vertexColorAlwaysGammaSpace, kênh shader cho TMP, GraphicRaycaster) nên màu giữ đúng giá trị 8 bit; báo shader nào không hỗ trợ cờ này. Project Gamma không bị ảnh hưởng.\n" +
+                 "Ví dụ: nền thanh máu #0E0A06 ra đúng (14,10,6) thay vì (13,13,0).")]
+        public bool GammaVertexColors = true;
+
         [Tooltip("Bật mipmap cho sprite tải về. Sprite UI không cần; mặc định tắt từ 0.3.0.\n" +
                  "Ví dụ: bật khi ảnh được scale nhỏ nhiều lần trong world space.")]
         public bool SpriteMipmaps = false;

@@ -70,7 +70,9 @@ namespace FigCraftBridge.Editor.Source
                 Debug.LogWarning("[FigCraftBridge] The file in FigCraft has unsaved changes: layers come from the app, " +
                                  "image fills from the saved file. Save in FigCraft when an image changed.");
 
-            FigCraftToRest.FillTextAlignVertical(doc, ReadArchiveTextAlign());
+            var archiveDocument = ReadArchiveDocument();
+            FigCraftToRest.FillTextAlignVertical(doc, FigCraftToRest.ReadTextAlignVertical(archiveDocument));
+            FigCraftToRest.FillTextKern(doc, FigCraftToRest.ReadTextKern(archiveDocument));
             var converted = FigCraftToRest.Convert(doc, DocumentName);
             _layerIds = converted.LayerIds;
             _restFile = converted.File;
@@ -152,23 +154,26 @@ namespace FigCraftBridge.Editor.Source
             return new FigmaServerRenderData { err = null, images = images };
         }
 
-        /// <summary>Text vertical alignment per layer, from the saved archive; empty when there is no archive.</summary>
-        Dictionary<long, string> ReadArchiveTextAlign()
+        /// <summary>
+        ///     The saved archive's <c>document.json</c>, for what <c>inspect_document</c> leaves out (text vertical
+        ///     alignment, OpenType features); null when there is no archive.
+        /// </summary>
+        JObject ReadArchiveDocument()
         {
-            if (string.IsNullOrEmpty(_archivePath) || !File.Exists(_archivePath)) return new Dictionary<long, string>();
+            if (string.IsNullOrEmpty(_archivePath) || !File.Exists(_archivePath)) return null;
             try
             {
                 using var archive = ZipFile.OpenRead(_archivePath);
                 var entry = archive.GetEntry("document.json");
-                if (entry == null) return new Dictionary<long, string>();
+                if (entry == null) return null;
                 using var reader = new JsonTextReader(new StreamReader(entry.Open(), Encoding.UTF8));
-                return FigCraftToRest.ReadTextAlignVertical(JObject.Load(reader));
+                return JObject.Load(reader);
             }
             catch (Exception e) when (e is IOException || e is InvalidDataException || e is JsonException)
             {
-                Debug.LogWarning($"[FigCraftBridge] Could not read text alignment from {_archivePath}: {e.Message}. " +
-                                 "Text boxes import top-aligned.");
-                return new Dictionary<long, string>();
+                Debug.LogWarning($"[FigCraftBridge] Could not read {_archivePath}: {e.Message}. " +
+                                 "Text boxes import top-aligned and kerned.");
+                return null;
             }
         }
 

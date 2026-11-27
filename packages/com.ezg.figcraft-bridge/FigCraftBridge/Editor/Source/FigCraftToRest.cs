@@ -145,6 +145,55 @@ namespace FigCraftBridge.Editor.Source
             return map;
         }
 
+        /// <summary>
+        ///     <c>inspect_document</c> does not carry a text's OpenType features, so each text layer gets
+        ///     <c>features.kern</c> from the archive; the converter reads it into <c>TypeStyle.kern</c>.
+        ///     Returns the number of layers filled.
+        /// </summary>
+        public static int FillTextKern(JObject document, IReadOnlyDictionary<long, bool> kern)
+        {
+            if (kern == null || kern.Count == 0) return 0;
+            var filled = 0;
+            void Walk(JObject node)
+            {
+                if (node.Value<string>("type") == "TEXT" && node["features"] == null && kern.TryGetValue(Id(node), out var on))
+                {
+                    node["features"] = new JObject { ["kern"] = on };
+                    filled++;
+                }
+                foreach (var child in Children(node)) Walk(child);
+            }
+            foreach (var page in (document["pages"] as JArray ?? new JArray()).OfType<JObject>())
+                foreach (var child in Children(page)) Walk(child);
+            return filled;
+        }
+
+        /// <summary>
+        ///     Layer id -> kern of every text layer in an archive's <c>document.json</c>: the layer's own
+        ///     <c>features.kern</c>, else the <c>paragraph.features.kern</c> of its text style.
+        /// </summary>
+        public static Dictionary<long, bool> ReadTextKern(JObject archiveDocument)
+        {
+            var map = new Dictionary<long, bool>();
+            if (!(archiveDocument?["nodes"] is JObject nodes)) return map;
+            var styleKern = new Dictionary<string, bool>();
+            foreach (var style in (archiveDocument["styles"] as JArray ?? new JArray()).OfType<JObject>())
+                if (style.Value<string>("id") is string styleId && style.SelectToken("paragraph.features.kern") is JToken on &&
+                    on.Type == JTokenType.Boolean)
+                    styleKern[styleId] = on.Value<bool>();
+            foreach (var property in nodes.Properties())
+            {
+                if (!(property.Value is JObject layer) || layer.Value<string>("type") != "text" ||
+                    !long.TryParse(property.Name, out var id)) continue;
+                if (layer.SelectToken("features.kern") is JToken own && own.Type == JTokenType.Boolean)
+                    map[id] = own.Value<bool>();
+                else if ((layer.SelectToken("styles.text") ?? layer.SelectToken("style.style_id")) is JToken styleRef &&
+                         styleRef.Type == JTokenType.String && styleKern.TryGetValue(styleRef.Value<string>(), out var fromStyle))
+                    map[id] = fromStyle;
+            }
+            return map;
+        }
+
         static IEnumerable<JObject> Children(JObject node) => (node["children"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>();
 
         static long Id(JObject node) => node.Value<long>("id");

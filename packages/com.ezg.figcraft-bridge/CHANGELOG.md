@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.5] - 2026-11-27
+39 screens of a Linear project against 0.1.4: all 39 pass the visual check (was 38), none lower beyond noise;
+FieldHud 0.757 → 0.911, WingsPanel-Wings 0.948 → 0.976, BossIntro 0.946 → 0.987, Vip 0.977 → 0.988. Import of the
+39 screens 171 s → 111 s (linear alpha textures 52 s → 7 s, layer compensation 16 s → 10 s).
+### Fixed
+- **Very dark colours keep their channels in a Linear project.** A Canvas converts each vertex colour to linear
+  and stores it in 8 bits, so #0E0A06 drew as (13, 13, 0) and #14100D as (22, 13, 13). Each screen prefab root
+  now holds its own Canvas with `vertexColorAlwaysGammaSpace` (UI/Default and the TextMeshPro shaders convert
+  the colour per pixel, exact to the 8-bit value; a nested Canvas keeps its own flag whatever its parent says),
+  the TextMeshPro shader channels and a GraphicRaycaster. The import warns about any shader under a screen that
+  ignores `_UIVertexColorAlwaysGammaSpace`. The bridge's own canvases (visual check, linear-alpha passes) set
+  the flag too. Setting `GammaVertexColors` (on); a Gamma project is untouched.
+- **The faint edge of a glow no longer shows a speckled band or a hard box.** Where the alpha curve lowers a
+  faint alpha, the copy keeps the texel's alpha and darkens its colour in linear light instead: one alpha level
+  near 0 is about 13 sRGB levels of white over black, so a dithered 0 / 1 alpha showed as specks. Copies are
+  written again (marker version 3).
+- **A flat translucent layer keeps its hue.** White at 0.18 over brown came out neutral grey: one alpha could
+  match the brightness, not the colour. A layer of one flat colour (a solid fill, a text, or a frame at
+  opacity < 1 holding one fill) now gets its colour scaled per channel in linear light as well, with the alpha
+  that the most demanding channel needs.
+- **Layer compensation measures each layer alone.** Graphics drawn over the layer are hidden while it is
+  measured, as the texture pass already did, so a translucent rim or plate on top no longer counts as the
+  layer's backdrop (a white slot over a dark panel was fitted over (105, 96, 91) instead of (22, 7, 0)).
+- **Kerning warning only for kerned text.** `inspect_document` carries no OpenType features, so every text read
+  as kerned. `features.kern` now comes from the archive's `document.json` (the layer's own, else its text
+  style's `paragraph.features`), like the vertical alignment.
+- **More uses of a soft texture are measured** (24 per screen, was 3), so a near-opaque plate over bright icons
+  (FieldHud stash plate) weighs in its curve.
+### Changed
+- Faster linear-alpha passes: corrected copies are written with their `.meta` (the bridge file's settings, the
+  copy's own GUID kept) and imported once, in one batch, instead of twice each; prefabs are repointed by
+  rewriting their sprite references in YAML and imported in one batch, instead of opening and saving each one;
+  layer compensation reads back only the layer's box. The report line gives the time split.
+
 ## [0.1.4] - 2026-11-27
 39 screens of a Linear project against 0.1.3: 38 pass the visual check (was 28), none lower beyond noise;
 Gear 0.781 → 0.953, WingsPanel-Wings 0.839 → 0.948, RewardPopup 0.712 → 0.944, RuneForge-Fuse

@@ -268,6 +268,7 @@ namespace FigCraftBridge.Editor.Verify
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 10f;
+                FigCraftBridge.Editor.Nodes.GammaVertexColors.Configure(canvas);
 
                 var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
                 var rect = (RectTransform)instance.transform;

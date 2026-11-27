@@ -383,6 +383,7 @@ namespace FigCraftBridge.Editor
             var canvasGameObject = new GameObject("Canvas");
             var canvas=canvasGameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            GammaVertexColors.Configure(canvas);
             canvasGameObject.AddComponent<GraphicRaycaster>();
 
             if (!createEventSystem) return canvas;
@@ -738,7 +739,7 @@ namespace FigCraftBridge.Editor
                         .Concat(figmaBridgeProcessData.PagePrefabs).Concat(figmaBridgeProcessData.ScreenPrefabs)
                         .Where(prefab => prefab != null).Select(AssetDatabase.GetAssetPath).Distinct().ToList();
                     var (textures, images) = LinearAlphaTextures.Apply(screenPaths, prefabPaths);
-                    FigmaImportTimer.SetDetail("Linear alpha textures", $"{textures} soft texture(s), {images} image(s) repointed");
+                    FigmaImportTimer.SetDetail("Linear alpha textures", $"{textures} soft texture(s), {images} image(s) repointed; {LinearAlphaTextures.LastTiming}");
 
                     FigmaImportTimer.Begin("Linear alpha compensation");
                     var corrected = 0;

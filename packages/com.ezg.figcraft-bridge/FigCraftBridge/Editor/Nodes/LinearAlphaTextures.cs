@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,7 +33,7 @@ namespace FigCraftBridge.Editor.Nodes
         private const float SoftShare = 0.2f;
 
         private const byte OpaqueAlpha = 250;
-        private const int MaxSamplesPerTexturePerScreen = 3;
+        private const int MaxSamplesPerTexturePerScreen = 24;
         private const int BandWidth = 8;
         private const double MinBandSignal = 1e-3;
 
@@ -40,6 +41,20 @@ namespace FigCraftBridge.Editor.Nodes
         private const int MinCurveChange = 2;
 
         private const double MinSignal = 0.05;
+
+        /// <summary>At or below this alpha level a lowered alpha is written as a darker colour only.</summary>
+        private const int ColourOnlyBelow = 16;
+
+        /// <summary>From this alpha level up the curve is written into the alpha only.</summary>
+        private const int AlphaOnlyFrom = 48;
+
+        /// <summary>Changes when the way a copy is written changes, so older copies are written again.</summary>
+        private const string CopyVersion = "3:";
+
+        private static int s_Draws;
+
+        /// <summary>Time split of the last <see cref="Apply"/>, for the import report.</summary>
+        public static string LastTiming { get; private set; } = "";
 
         private sealed class Source
         {
@@ -61,28 +76,55 @@ namespace FigCraftBridge.Editor.Nodes
         {
             if (!LinearAlphaCompensation.IsNeeded) return (0, 0);
             var sources = new Dictionary<string, Source>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            s_Draws = 0;
             try
             {
                 foreach (var screenPath in screenPaths) Measure(screenPath, sources);
+                var measureTime = clock.Elapsed.TotalSeconds;
 
-                var copies = new Dictionary<string, Sprite>();
                 var measured = new HashSet<string>();
-                var written = 0;
+                var copyPaths = new Dictionary<string, string>();
+                var imports = new List<string>();
                 foreach (var source in sources.Values)
                 {
                     if (!source.Soft) continue;
                     measured.Add(source.Path);
                     var curve = FitCurve(source);
-                    if (curve == null) continue;
-                    var copy = WriteCopy(source, curve);
-                    if (copy == null) continue;
-                    copies[source.Path] = copy;
-                    written++;
+                    if (curve != null)
+                    {
+                        var copyPath = WriteCopy(source, curve, out var import);
+                        if (copyPath != null)
+                        {
+                            copyPaths[source.Path] = copyPath;
+                            if (import) imports.Add(copyPath);
+                        }
+                    }
                 }
+                // One batch: the copies import together, each once, with the importer settings its .meta already holds
+                if (imports.Count > 0)
+                {
+                    AssetDatabase.StartAssetEditing();
+                    try
+                    {
+                        foreach (var path in imports) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                    }
+                    finally
+                    {
+                        AssetDatabase.StopAssetEditing();
+                    }
+                }
+                var copies = new Dictionary<string, Sprite>();
+                foreach (var (sourcePath, copyPath) in copyPaths)
+                {
+                    var copy = AssetDatabase.LoadAssetAtPath<Sprite>(copyPath);
+                    if (copy != null) copies[sourcePath] = copy;
+                }
+                var written = copies.Count;
+                var writeTime = clock.Elapsed.TotalSeconds - measureTime;
 
-                var changed = 0;
-                if (copies.Count > 0 || measured.Count > 0)
-                    foreach (var prefabPath in prefabPaths) changed += Repoint(prefabPath, copies, measured);
+                var changed = Repoint(prefabPaths, SpriteSwaps(copies, measured));
+                LastTiming = $"measure {measureTime:0.0} s ({s_Draws} draws), write {writeTime:0.0} s, repoint {clock.Elapsed.TotalSeconds - measureTime - writeTime:0.0} s";
                 return (written, changed);
             }
             finally
@@ -246,6 +288,7 @@ namespace FigCraftBridge.Editor.Nodes
 
         private static Color32[] Render(Camera camera, RenderTexture target, RectInt region)
         {
+            s_Draws++;
             Canvas.ForceUpdateCanvases();
             camera.Render();
             RenderTexture.active = target;
@@ -415,25 +458,41 @@ namespace FigCraftBridge.Editor.Nodes
         };
 
         /// <summary>
-        ///     The copy with the curve applied. Ordered dither picks between the two nearest alpha levels: in
-        ///     linear light one alpha level near 0 is about 13 sRGB levels of a white glow, so plain rounding
-        ///     would band the faint edge of a glow.
+        ///     The copy with the curve applied. Where the curve lowers a faint alpha, the texel keeps its own
+        ///     alpha and its colour is darkened in linear light by <c>curve / alpha</c> instead: one alpha level
+        ///     near 0 is about 13 sRGB levels of a white glow over black, so a lowered alpha of 0 or 1 showed as
+        ///     a speckled band and a hard box at the edge of a glow, while a darker colour at the same alpha
+        ///     gives the same light over a dark backdrop to a fraction of a level (over a light backdrop the
+        ///     error is at most the alpha itself). From <see cref="ColourOnlyBelow"/> to
+        ///     <see cref="AlphaOnlyFrom"/> the two ways blend; above, ordered dither picks between the two
+        ///     nearest alpha levels so the curve does not band. <paramref name="import"/> is true when the copy
+        ///     was written and waits for the batch import.
         /// </summary>
-        private static Sprite WriteCopy(Source source, float[] curve)
+        private static string WriteCopy(Source source, float[] curve, out bool import)
         {
+            import = false;
             var copyPath = source.Path.Substring(0, source.Path.Length - ".png".Length) + Suffix + ".png";
             var curveBytes = new byte[curve.Length * 4];
             Buffer.BlockCopy(curve, 0, curveBytes, 0, curveBytes.Length);
-            var marker = Marker + Md5(source.Bytes) + ":" + Md5(curveBytes);
+            var marker = Marker + CopyVersion + Md5(source.Bytes) + ":" + Md5(curveBytes);
             if (!(File.Exists(copyPath) && AssetImporter.GetAtPath(copyPath) is TextureImporter current && current.userData == marker))
             {
+                var target = new float[256];
+                for (var level = 0; level < 256; level++) target[level] = TargetAlpha(level, curve[level]);
                 var pixels = new Color32[source.Pixels.Length];
                 for (var i = 0; i < pixels.Length; i++)
                 {
                     var p = source.Pixels[i];
-                    var alpha = p.a == 0 || p.a == 255 ? p.a
-                        : (byte)Mathf.Clamp(Mathf.FloorToInt(curve[p.a] + s_Bayer[(i % source.Width & 3) + ((i / source.Width & 3) << 2)]), 0, 255);
-                    pixels[i] = new Color32(p.r, p.g, p.b, alpha);
+                    if (p.a == 0 || p.a == 255)
+                    {
+                        pixels[i] = p;
+                        continue;
+                    }
+                    var alpha = (byte)Mathf.Clamp(Mathf.FloorToInt(target[p.a] + s_Bayer[(i % source.Width & 3) + ((i / source.Width & 3) << 2)]), 0, 255);
+                    var scale = alpha == 0 ? 0f : Mathf.Min(1f, curve[p.a] / alpha);
+                    pixels[i] = scale >= 0.999f
+                        ? new Color32(p.r, p.g, p.b, alpha)
+                        : new Color32(Scale(p.r, scale, source.SRGB), Scale(p.g, scale, source.SRGB), Scale(p.b, scale, source.SRGB), alpha);
                 }
                 var texture = new Texture2D(source.Width, source.Height, TextureFormat.RGBA32, false);
                 try
@@ -446,10 +505,51 @@ namespace FigCraftBridge.Editor.Nodes
                 {
                     Object.DestroyImmediate(texture);
                 }
-                AssetDatabase.ImportAsset(copyPath, ImportAssetOptions.ForceUpdate);
-                CopyImporter(source.Path, copyPath, marker);
+                if (WriteMeta(source.Path, copyPath, marker)) import = true;
+                else
+                {
+                    AssetDatabase.ImportAsset(copyPath, ImportAssetOptions.ForceUpdate);
+                    CopyImporter(source.Path, copyPath, marker);
+                }
             }
-            return AssetDatabase.LoadAssetAtPath<Sprite>(copyPath);
+            return copyPath;
+        }
+
+        private static readonly Regex s_GuidLine = new Regex(@"^guid: \w+", RegexOptions.Multiline);
+        private static readonly Regex s_UserDataLine = new Regex(@"^  userData:.*$", RegexOptions.Multiline);
+
+        /// <summary>
+        ///     The bridge file's .meta with the copy's own GUID (kept when the copy exists, so prefabs stay
+        ///     linked) and the marker, so the copy imports once with the same settings, border and pivot.
+        /// </summary>
+        private static bool WriteMeta(string sourcePath, string copyPath, string marker)
+        {
+            var sourceMeta = sourcePath + ".meta";
+            if (!File.Exists(sourceMeta)) return false;
+            var text = File.ReadAllText(sourceMeta);
+            if (!s_GuidLine.IsMatch(text) || !s_UserDataLine.IsMatch(text)) return false;
+            var guid = AssetDatabase.AssetPathToGUID(copyPath, AssetPathToGUIDOptions.OnlyExistingAssets);
+            if (string.IsNullOrEmpty(guid)) guid = GUID.Generate().ToString();
+            text = s_GuidLine.Replace(text, "guid: " + guid, 1);
+            text = s_UserDataLine.Replace(text, "  userData: " + marker, 1);
+            File.WriteAllText(copyPath + ".meta", text);
+            return true;
+        }
+
+        /// <summary>The alpha a texel at <paramref name="level"/> is written with, before dither.</summary>
+        private static float TargetAlpha(int level, float curved)
+        {
+            if (curved >= level || level >= AlphaOnlyFrom) return curved;
+            if (level <= ColourOnlyBelow) return level;
+            var t = (level - ColourOnlyBelow) / (float)(AlphaOnlyFrom - ColourOnlyBelow);
+            return level + t * (curved - level);
+        }
+
+        private static byte Scale(byte channel, float scale, bool srgb)
+        {
+            if (!srgb) return (byte)Mathf.Clamp(Mathf.RoundToInt(channel * scale), 0, 255);
+            var linear = LinearAlphaCompensation.s_ToLinear[channel] * scale;
+            return (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.LinearToGammaSpace(linear) * 255f), 0, 255);
         }
 
         private static string Md5(byte[] bytes)
@@ -482,38 +582,66 @@ namespace FigCraftBridge.Editor.Nodes
         #region Repoint
 
         /// <summary>
-        ///     Points every Image of one prefab that shows a corrected texture at its copy, and every Image that
-        ///     shows a copy no longer needed back at the bridge's file. An Image inside a nested prefab whose
-        ///     sprite is not overridden here follows its own prefab and is left alone.
+        ///     Sprite reference swaps: the bridge's file to its copy for every corrected texture, and a copy no
+        ///     longer needed back to the bridge's file. Keyed by the whole YAML reference of a single sprite.
         /// </summary>
-        private static int Repoint(string prefabPath, Dictionary<string, Sprite> copies, HashSet<string> measured)
+        private static Dictionary<string, string> SpriteSwaps(Dictionary<string, Sprite> copies, HashSet<string> measured)
         {
-            if (string.IsNullOrEmpty(prefabPath) || !File.Exists(prefabPath)) return 0;
-            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            var swaps = new Dictionary<string, string>();
+            foreach (var path in measured)
+            {
+                var sourceGuid = AssetDatabase.AssetPathToGUID(path);
+                var copyPath = path.Substring(0, path.Length - ".png".Length) + Suffix + ".png";
+                var copyGuid = AssetDatabase.AssetPathToGUID(copyPath, AssetPathToGUIDOptions.OnlyExistingAssets);
+                if (string.IsNullOrEmpty(sourceGuid) || string.IsNullOrEmpty(copyGuid)) continue;
+                if (copies.ContainsKey(path)) swaps[SpriteRef(sourceGuid)] = SpriteRef(copyGuid);
+                else swaps[SpriteRef(copyGuid)] = SpriteRef(sourceGuid);
+            }
+            return swaps;
+        }
+
+        private static string SpriteRef(string guid) => "{fileID: " + SingleSpriteFileId + ", guid: " + guid + ", type: 3}";
+
+        /// <summary>The file id of the one sprite of a texture imported as a single sprite.</summary>
+        private const int SingleSpriteFileId = 21300000;
+
+        /// <summary>
+        ///     Rewrites the sprite references in the prefabs' YAML and imports the changed prefabs in one batch.
+        ///     An Image, and an override of a nested prefab's Image, that shows a corrected texture then shows its
+        ///     copy; an Image inside a nested prefab that is not overridden follows its own prefab, which is in
+        ///     the list too. Returns the number of references changed.
+        /// </summary>
+        private static int Repoint(IReadOnlyList<string> prefabPaths, Dictionary<string, string> swaps)
+        {
+            if (swaps.Count == 0) return 0;
+            var pattern = new Regex(@"\{fileID: " + SingleSpriteFileId + @", guid: [0-9a-f]{32}, type: 3\}");
             var changed = 0;
+            var written = new List<string>();
+            foreach (var prefabPath in prefabPaths)
+            {
+                if (string.IsNullOrEmpty(prefabPath) || !File.Exists(prefabPath)) continue;
+                var yaml = File.ReadAllText(prefabPath);
+                var count = 0;
+                var result = pattern.Replace(yaml, match =>
+                {
+                    if (!swaps.TryGetValue(match.Value, out var swap)) return match.Value;
+                    count++;
+                    return swap;
+                });
+                if (count == 0) continue;
+                File.WriteAllText(prefabPath, result);
+                written.Add(prefabPath);
+                changed += count;
+            }
+            if (written.Count == 0) return 0;
+            AssetDatabase.StartAssetEditing();
             try
             {
-                foreach (var image in contents.GetComponentsInChildren<Image>(true))
-                {
-                    if (image.sprite == null) continue;
-                    var spritePath = AssetDatabase.GetAssetPath(image.sprite);
-                    var original = OriginalPath(spritePath);
-                    Sprite wanted;
-                    if (copies.TryGetValue(original, out var copy)) wanted = copy;
-                    else if (original != spritePath && measured.Contains(original)) wanted = AssetDatabase.LoadAssetAtPath<Sprite>(original);
-                    else continue;
-                    if (wanted == null || wanted == image.sprite) continue;
-                    if (PrefabUtility.IsPartOfPrefabInstance(image) &&
-                        PrefabUtility.GetCorrespondingObjectFromSource(image) is Image inner && inner.sprite == image.sprite)
-                        continue;
-                    image.sprite = wanted;
-                    changed++;
-                }
-                if (changed > 0) PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+                foreach (var path in written) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             }
             finally
             {
-                PrefabUtility.UnloadPrefabContents(contents);
+                AssetDatabase.StopAssetEditing();
             }
             return changed;
         }

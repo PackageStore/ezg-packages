@@ -345,6 +345,13 @@ namespace FigCraftBridge.Editor.Nodes
             // We want prefab to be stored with a default position, so reset and restore
             var current = screenRectTransform.anchoredPosition;
             screenRectTransform.anchoredPosition = Vector2.zero;
+            if (GammaVertexColors.IsNeeded(figmaImportProcessData.Settings))
+            {
+                var unaware = GammaVertexColors.Apply(screenRectTransform.gameObject);
+                if (unaware.Count > 0)
+                    Debug.LogWarning($"[FigCraftBridge] {node.name}: shader(s) that ignore Canvas.vertexColorAlwaysGammaSpace " +
+                                     $"draw their vertex colour too bright on the screen's gamma canvas: {string.Join(", ", unaware)}");
+            }
             // Write prefab
             GameObject screenPrefab;
             using (FigmaImportTimer.Measure("Save screen prefabs"))
