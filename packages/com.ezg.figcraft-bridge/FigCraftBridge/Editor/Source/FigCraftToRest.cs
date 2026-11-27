@@ -359,6 +359,12 @@ namespace FigCraftBridge.Editor.Source
                     result["scaleMode"] = Map(ScaleModes, paint.Value<string>("scale_mode") ?? paint.Value<string>("scaleMode"), "FILL");
                     result["scalingFactor"] = paint.Value<float?>("scale") ?? 1f;
                     result["rotation"] = paint.Value<float?>("rotation") ?? 0f;
+                    // FigCraft's crop is the image transform as (a, b, c, d, e, f): x' = a x + c y + e, y' = b x + d y + f.
+                    // Figma REST keeps it as [[a, c, e], [b, d, f]]; the 9-slice pass reads each cell's crop from it.
+                    if (paint["crop"] is JArray crop && crop.Count == 6)
+                        result["imageTransform"] = new JArray(
+                            new JArray(crop[0].Value<float>(), crop[2].Value<float>(), crop[4].Value<float>()),
+                            new JArray(crop[1].Value<float>(), crop[3].Value<float>(), crop[5].Value<float>()));
                     return result;
                 default:
                     var kind = type == "gradient" ? paint.Value<string>("kind") ?? "linear" : Regex.Replace(type, "Gradient$", string.Empty);

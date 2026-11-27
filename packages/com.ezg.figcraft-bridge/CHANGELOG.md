@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2] - 2026-11-27
+### Fixed
+- **9-slice grids keep the art's own corners.** A `slice_ROW_COL` cell shows a crop of the shared image
+  (FigCraft paint `crop`), but the crop was dropped when the file was converted, so the border was
+  measured as the whole texture spread over the grid: a plate drawn larger than its art came out with
+  thick, zoomed-in corners (Frame-Item, Panel-Clean, Btn-Raised bodies). `FigCraftToRest` now writes the
+  crop as the paint's `imageTransform`, and the 9-slice pass reads the border in texels and the density
+  off the corner cells' crops (`SliceGridCrop`, as in com.ezg.figma-bridge). A resized Btn-Raised
+  instance therefore keeps a full body instead of a thin pill.
+- **One image backing grids of different sizes.** The texture keeps the reference 100 pixels per unit
+  and each sliced Image carries its own density in `pixelsPerUnitMultiplier`; before, the density was
+  baked into the texture importer and the grid collapsed last won for every grid that shared the art.
+
 ## [0.1.1] - 2026-11-21
 ### Fixed
 - **A frame's stroke draws above its children, as FigCraft draws it.** A node with children gets
