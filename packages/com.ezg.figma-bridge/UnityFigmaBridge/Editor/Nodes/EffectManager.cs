@@ -20,8 +20,15 @@ namespace UnityFigmaBridge.Editor.Nodes
         public static void ApplyAllFigmaEffectsToUnityNode(GameObject nodeGameObject,Node node, 
             FigmaImportProcessData figmaImportProcessData)
         {
-            foreach (var effect in node.effects) ApplyEffectToUnityNode(nodeGameObject,node,effect,figmaImportProcessData);
-            
+            // A stroke-only frame filled by a child casts its drop shadows from a child Image (ContentShadow)
+            var contentShadow = node.type != NodeType.TEXT && ContentShadow.Applies(node);
+            var dropShadowIndex = 0;
+            foreach (var effect in node.effects)
+            {
+                if (contentShadow && effect.type == Effect.EffectType.DROP_SHADOW &&
+                    ContentShadow.Apply(nodeGameObject, node, effect, dropShadowIndex++, figmaImportProcessData)) continue;
+                ApplyEffectToUnityNode(nodeGameObject,node,effect,figmaImportProcessData);
+            }
         }
 
         

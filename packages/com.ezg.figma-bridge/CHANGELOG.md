@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.32] - 2026-11-27
+### Fixed
+- **Per-side stroke weights are drawn.** A locally drawn shape (`FrameShapeSprite`) read only
+  `strokeWeight`. Figma sends `strokeWeight` 0 with `individualStrokeWeights` for a band on some
+  sides only, such as the 8 px `Inner-Shade` at the bottom of a card (a rectangle with no fill,
+  25 % brown, bottom 8). Such a layer was imported as an empty transparent Image, so every card
+  lost the thick base inside its brown border. The stroke band is now drawn per side, inset
+  corner by corner as in `com.ezg.figcraft-bridge`, and `SolidTint` reads the same per-side
+  weights. A frame that reports `strokeWeight` 1 with sides 6 / 0 / 6 / 0 (a head band) now
+  draws 6 px top and bottom and no side band instead of 1 px all round.
+- **The drop shadow of a stroke-only card is cast by the whole card.** A frame with no fill of
+  its own, only a stroke, whose child fills the box inside the stroke (a card: brown ring around
+  a gradient panel) got a `UI.Shadow` on its own Image, which is the hollow ring. The shadow was
+  a copy of the ring: under the bottom border it started 2 px late (8 px offset minus 6 px ring)
+  and nothing was cast by the panel. Such a frame now gets a `[Shadow]` child Image drawn before
+  its children: the rounded box offset, spread and blurred as Figma does, cut by the box itself,
+  reaching past the rect. Frames that clip their content, frames with a fill, and frames whose
+  children do not cover the box keep `UI.Shadow`.
+
 ## [0.8.31] - 2026-11-27
 ### Fixed
 - **A layer is only bound to a MonoBehaviour that has a script asset.** Behaviour binding matched

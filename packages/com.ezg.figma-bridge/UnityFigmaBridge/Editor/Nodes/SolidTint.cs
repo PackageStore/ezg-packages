@@ -144,7 +144,8 @@ namespace UnityFigmaBridge.Editor.Nodes
 
         private static Paint DrawableStroke(Node node)
         {
-            if (node.strokes == null || node.strokeWeight <= 0f) return null;
+            var sides = FrameShapeSprite.StrokeSides(node);
+            if (node.strokes == null || Mathf.Max(sides.x, sides.y, sides.z, sides.w) <= 0f) return null;
             if (node.strokeAlign == Node.StrokeAlign.OUTSIDE) return null;
             Paint top = null;
             foreach (var stroke in node.strokes)
