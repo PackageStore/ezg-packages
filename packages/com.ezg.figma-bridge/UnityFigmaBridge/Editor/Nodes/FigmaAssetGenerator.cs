@@ -175,7 +175,8 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             // Apply transform. For server render entries, use absolute bounding box
             if (matchingServerRenderEntry!=null) NodeTransformManager.ApplyAbsoluteBoundsFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0, figmaImportProcessData.Settings);
-            else NodeTransformManager.ApplyFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0, figmaImportProcessData.Settings);
+            else NodeTransformManager.ApplyFigmaTransform(nodeRectTransform, figmaNode, parentFigmaNode,nodeRecursionDepth >0, figmaImportProcessData.Settings,
+                figmaImportProcessData.NodeParentLookup);
 
             // Add on a figmaNode to store the reference to the FIGMA figmaNode id
             var figmaNodeMarker = nodeGameObject.AddComponent<FigmaNodeObject>();

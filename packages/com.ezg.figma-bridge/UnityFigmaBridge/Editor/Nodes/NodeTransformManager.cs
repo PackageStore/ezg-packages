@@ -16,8 +16,10 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="figmaParentNode"></param>
         /// <param name="centerPivot"></param>
         /// <param name="settings">Import settings; null keeps the 0.2 behaviour (LayoutElement on every node, no text padding).</param>
+        /// <param name="parents">Parent of every node (<see cref="FigmaImportProcessData.NodeParentLookup"/>), for the side
+        /// an auto-width text grows from (<see cref="HugTextGrowth"/>); null pads by the text's own alignment.</param>
         public static void ApplyFigmaTransform(RectTransform targetRectTransform, Node figmaNode, Node figmaParentNode,
-            bool centerPivot, UnityFigmaBridgeSettings settings = null)
+            bool centerPivot, UnityFigmaBridgeSettings settings = null, IReadOnlyDictionary<Node, Node> parents = null)
         {
             // Default to top left alignment
             targetRectTransform.anchorMin = targetRectTransform.anchorMax = new Vector2(0, 1);
@@ -74,10 +76,11 @@ namespace UnityFigmaBridge.Editor.Nodes
 
             // Auto-resized text keeps a box that hugs the glyphs of the design font. Rendered with
             // another font it overflows, so in FixedRectAutoSize mode the box grows by the padding
-            // factors while its aligned edge stays put.
+            // factors while the edge it grows from in Figma stays put.
             if (figmaNode.type == NodeType.TEXT && settings != null &&
                 settings.TextFitMode == TextFitMode.FixedRectAutoSize && figmaNode.style != null)
-                ApplyTextPadding(targetRectTransform, figmaNode, settings);
+                ApplyTextPadding(targetRectTransform, figmaNode, settings,
+                    HugTextGrowth.Side(figmaNode, parents) ?? figmaNode.style.textAlignHorizontal);
 
             // We'll also use these properties to apply pivot after, where required
             // We disable center pivot for Text nodes, as this creates behaviour different from Figma when autosizing
@@ -94,11 +97,13 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <summary>
         ///     Grow an auto-resized text rect by the configured padding. Works in the parent's space
         ///     through anchoredPosition and sizeDelta: the pivot is top-left here, so a wider box
-        ///     keeps its left edge unless the text is centred or right aligned, and a taller box
-        ///     keeps its top edge unless the text is middle or bottom aligned. An axis the
-        ///     constraints already stretch is left alone.
+        ///     keeps its left edge unless the text grows from its centre or right edge
+        ///     (<paramref name="growSide"/>: its alignment, or the side <see cref="HugTextGrowth"/> finds),
+        ///     and a taller box keeps its top edge unless the text is middle or bottom aligned. An axis
+        ///     the constraints already stretch is left alone.
         /// </summary>
-        private static void ApplyTextPadding(RectTransform rectTransform, Node textNode, UnityFigmaBridgeSettings settings)
+        private static void ApplyTextPadding(RectTransform rectTransform, Node textNode, UnityFigmaBridgeSettings settings,
+            TypeStyle.TextAlignHorizontal growSide)
         {
             var autoResize = textNode.style.textAutoResize;
             if (autoResize == TypeStyle.TextAutoResize.NONE || autoResize == TypeStyle.TextAutoResize.TRUNCATE) return;
@@ -117,7 +122,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             rectTransform.sizeDelta = new Vector2(size.x + deltaWidth, size.y + deltaHeight);
 
             var position = rectTransform.anchoredPosition;
-            position.x -= textNode.style.textAlignHorizontal switch
+            position.x -= growSide switch
             {
                 TypeStyle.TextAlignHorizontal.CENTER => deltaWidth * 0.5f,
                 TypeStyle.TextAlignHorizontal.RIGHT => deltaWidth,

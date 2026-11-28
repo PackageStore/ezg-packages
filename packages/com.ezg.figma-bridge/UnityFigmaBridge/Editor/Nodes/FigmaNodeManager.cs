@@ -84,7 +84,9 @@ namespace UnityFigmaBridge.Editor.Nodes
                                             PixelsToEm(baseStyle.letterSpacing, baseStyle.fontSize);
                     ApplyLineMetrics(text, baseStyle, matchingFontMapping.FontAsset, node);
 
-                    text.horizontalAlignment = node.style.textAlignHorizontal switch
+                    // A one-line auto-width text in an auto-layout frame grows the way the frame does in Figma
+                    var hugSide = HugTextGrowth.Side(node, figmaImportProcessData.NodeParentLookup);
+                    text.horizontalAlignment = (hugSide ?? node.style.textAlignHorizontal) switch
                     {
                         TypeStyle.TextAlignHorizontal.LEFT => HorizontalAlignmentOptions.Left,
                         TypeStyle.TextAlignHorizontal.CENTER => HorizontalAlignmentOptions.Center,
@@ -125,6 +127,10 @@ namespace UnityFigmaBridge.Editor.Nodes
                     text.textWrappingMode = node.style.textAutoResize == TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT
                         ? TextWrappingModes.NoWrap
                         : TextWrappingModes.Normal;
+
+                    // The fixed rect of FixedRectAutoSize: the sample stays where its own alignment drew it
+                    HugTextGrowth.KeepSamplePlace(text, node,
+                        settings != null && settings.TextFitMode == TextFitMode.FixedRectAutoSize ? hugSide : null);
 
                     if (settings != null && settings.TextFitMode == TextFitMode.FixedRectAutoSize)
                     {

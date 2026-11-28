@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.8.35] - 2026-11-28
+### Fixed
+- **A one-line auto-width text in an auto-layout frame grows the way Figma grows it.** Figma grows
+  a text placed directly in a frame from its text alignment, which the bridge already followed, but
+  a text inside an auto-layout frame is placed by that frame: a frame that hugs its width grows from
+  its horizontal constraint (measured over the instances of one document: 44 of 44 hugging frames
+  with different widths kept the edge their constraint names), and a fixed or filling frame keeps
+  its children where its alignment puts them. A player name in a `Name` frame that hugs it,
+  constrained LEFT, holding a CENTER aligned text, was imported as a fixed box centred on the
+  sample, so every other name was centred on the sample's middle instead of starting at the left
+  edge. `HugTextGrowth` walks up the hugging auto-layout frames to the one placed by its own
+  position and takes its constraint (LEFT, RIGHT or CENTER; a stretching constraint keeps the
+  text's alignment), or the alignment of the first fixed-width frame on the way (primary axis in a
+  row, counter axis in a column, ends of a space-between row); the TMP text is aligned to that side
+  and, in `FixedRectAutoSize`, the padded box grows away from it. The sample does not move: the
+  project font rarely draws a line as wide as Figma's box, so `KeepSamplePlace` sets the TMP
+  margin that puts the sample where its own alignment drew it (measured on the full import: the new
+  alignment alone moved 538 Visual Check containers by a few pixels). A multi-line text keeps its
+  alignment, and so does a text in a hugging frame that draws a fill, stroke or effect, since without
+  auto layout in Unity that plate keeps its design size.
+- **A repeated node id no longer mixes two components.** A document spliced from snapshots can hold
+  a standalone component and the variant it later became with one id; instances got the prefab of
+  the first one met (the old copy, without the variant's newer layers) while the node lookup kept
+  the last one. `DuplicateNodeIds.Resolve` runs before the document is read: of components sharing
+  an id it keeps the variant inside a component set (or the first one when none or several are
+  variants), drops the others from the build (their prefab is not written again) and warns with
+  both paths; any other repeated id is a warning. The lines are also in `DuplicateNodeIds.LastReport`
+  for callers of the import API.
+
 ## [0.8.34] - 2026-11-27
 ### Fixed
 - **Component prefabs are connected inner components first.** The overrides an instance sets

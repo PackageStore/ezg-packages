@@ -637,6 +637,8 @@ namespace UnityFigmaBridge.Editor
 
             FigmaPaths.Configure(s_UnityFigmaBridgeSettings, figmaFile.name);
             ComponentManager.ResetProcessedSets();
+            // One node per id before anything reads the document (a spliced document can repeat a component's id)
+            DuplicateNodeIds.Resolve(figmaFile);
             WarnMissingRequiredPages(figmaFile, s_UnityFigmaBridgeSettings);
 
             var importScope = s_UnityFigmaBridgeSettings.ImportSelectionOnly
@@ -881,6 +883,7 @@ namespace UnityFigmaBridge.Editor
                 PrototypeFlowStartPoints = FigmaDataUtils.GetAllPrototypeFlowStartingPoints(figmaFile),
                 SelectedPagesForImport = downloadPageNodeList,
                 NodeLookupDictionary = FigmaDataUtils.BuildNodeLookupDictionary(figmaFile),
+                NodeParentLookup = HugTextGrowth.BuildParentLookup(figmaFile),
                 ImportScope = importScope,
                 ScreenNodeIds = new HashSet<string>(FigmaDataUtils.GetScreenNodes(figmaFile, s_UnityFigmaBridgeSettings.ScreensPageName).Select(screen => screen.id)),
                 Offline = offline

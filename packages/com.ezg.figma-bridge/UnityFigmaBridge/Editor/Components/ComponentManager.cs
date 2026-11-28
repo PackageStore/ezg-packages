@@ -316,7 +316,8 @@ namespace UnityFigmaBridge.Editor.Components
             ClipContentMask.Apply(nodeObject, node, figmaImportProcessData, false);
 
             // Setup transform based on node properties
-            NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings);
+            NodeTransformManager.ApplyFigmaTransform(nodeObject.transform as RectTransform,node,parentNode,true, figmaImportProcessData.Settings,
+                figmaImportProcessData.NodeParentLookup);
             
             // Apply recursively for all children
             if (node.children == null) return;

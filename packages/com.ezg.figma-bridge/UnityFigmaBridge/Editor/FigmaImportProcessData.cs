@@ -96,6 +96,11 @@ namespace UnityFigmaBridge.Editor
         public Dictionary<string,Node> NodeLookupDictionary = new();
 
         /// <summary>
+        /// Parent of every node, by reference (see <see cref="Nodes.HugTextGrowth"/>)
+        /// </summary>
+        public Dictionary<Node, Node> NodeParentLookup = new();
+
+        /// <summary>
         /// Component instances placed into each prefab (screen, page or component), keyed by the
         /// prefab asset path. Recorded while the placeholders are replaced, before the temporary
         /// markers are stripped - the last moment the component origin is still known.
